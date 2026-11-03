@@ -46,8 +46,9 @@ grandfathering a line in ``tests/gene_activity_grounding_baseline.txt`` and
 saying why in the PR -- never for binding a term that overstates what the node
 claims. The repo rule holds: no term beats a bad one.
 
-That committed baseline is honored in **both** modes: the local run that reads
-it directly, and the CI run that grandfathers against ``origin/main``. In ref
+That committed baseline is honored in **both** modes: the fallback run that
+reads it directly, and the ref-mode run (CI, and by default locally) that
+grandfathers against ``origin/main``. In ref
 mode :func:`resolve_baseline` honors only the lines a branch *adds or raises*
 over the base branch's own copy of the file (``committed_head -
 committed_ref``), unioned onto the base-branch findings -- so a PR grandfathers
@@ -57,9 +58,21 @@ nothing and cannot silently un-fix it. Without this, ``--against-ref`` offered
 no way to pass CI for such a node, contradicting the advice just above -- see
 dismech#12669.
 
+**Which base a run compares against.** An explicit ``--against-ref`` wins, then
+``$GENE_ACTIVITY_BASELINE_REF``; CI passes the former. With neither, the run
+compares against the merge base of ``HEAD`` and ``origin/main``
+(:func:`default_base_ref`): a branch is judged on what it added since it forked,
+neither blamed for a gene grounded on ``main`` after that nor excused by one
+added there. Only when ``origin/main`` is missing or shares no merge base with
+``HEAD`` (a shallow clone) does it fall back to the committed baseline file, and
+it says so on stderr. Before dismech#15446 that file was the local default, and
+it drifts by hundreds of genes between resets, so ``just qc`` failed on a clean
+checkout with findings in entries the branch never touched.
+
 Usage::
 
     uv run python scripts/check_gene_activity_grounding.py
+    uv run python scripts/check_gene_activity_grounding.py --against-ref origin/main
     uv run python scripts/check_gene_activity_grounding.py --all
     uv run python scripts/check_gene_activity_grounding.py --count
     uv run python scripts/check_gene_activity_grounding.py --update-baseline
@@ -94,6 +107,10 @@ BASELINE_PATH = ROOT / "tests" / "gene_activity_grounding_baseline.txt"
 # live from that git ref instead of the committed snapshot -- see
 # baseline_from_ref(). Mirrors ENVIRONMENTAL_EVIDENCE_BASELINE_REF.
 BASELINE_REF_ENV = "GENE_ACTIVITY_BASELINE_REF"
+
+# With no ref given at all, grandfather against the merge base of HEAD and this
+# ref (see default_base_ref), not against the committed file (dismech#15446).
+DEFAULT_BASE_REF = "origin/main"
 
 
 def scan_repo(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
@@ -267,10 +284,60 @@ def baseline_from_ref(ref: str, root: Path = ROOT) -> Counter | None:
     return count_by_key(findings)
 
 
+def default_base_ref(root: Path = ROOT, base: str | None = None) -> str | None:
+    """The merge base of ``HEAD`` and *base* (``origin/main``), or ``None``.
+
+    The merge base rather than *base* itself, because a local branch is usually
+    behind ``main``: comparing against the tip would blame the branch for a gene
+    ``main`` grounded after it forked (the branch still carries the old,
+    ungrounded copy), and comparing against the committed file blames it for
+    every gene merged since that file was last reset. The merge base is the
+    tree the branch started from, so only the branch's own additions count.
+
+    ``None`` when *base* does not resolve or shares no history with ``HEAD`` (a
+    shallow clone), or when git cannot run; the caller then falls back to the
+    committed baseline.
+    """
+    base = base or DEFAULT_BASE_REF
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(root), "merge-base", "HEAD", base],
+            capture_output=True,
+            check=False,
+        )
+    except (FileNotFoundError, OSError):
+        return None
+    if proc.returncode != 0:
+        return None
+    sha = proc.stdout.decode("utf-8", "replace").strip()
+    return sha or None
+
+
 def resolve_baseline(ref: str | None = None) -> Counter:
-    """The grandfather baseline: live from *ref* when given, else the committed file."""
+    """The grandfather baseline.
+
+    In order: live from *ref* when given; else from ``$GENE_ACTIVITY_BASELINE_REF``;
+    else from the merge base of ``HEAD`` and ``origin/main``. The committed file
+    is used only when none of those can be read.
+    """
     if ref is None:
         ref = os.environ.get(BASELINE_REF_ENV) or None
+    if ref is None:
+        ref = default_base_ref()
+        if ref is None:
+            print(
+                f"gene activity baseline: no ref given and {DEFAULT_BASE_REF!r} "
+                "is missing or shares no merge base with HEAD (shallow clone?); "
+                f"falling back to the committed {BASELINE_PATH.relative_to(ROOT)}, "
+                "which may be stale",
+                file=sys.stderr,
+            )
+            return load_baseline()
+        print(
+            f"gene activity baseline: no ref given; using the merge base of HEAD "
+            f"and {DEFAULT_BASE_REF!r} ({ref[:12]})",
+            file=sys.stderr,
+        )
     if ref:
         from_ref = baseline_from_ref(ref)
         if from_ref is not None:
@@ -348,8 +415,9 @@ def main(argv=None) -> int:
         metavar="REF",
         default=None,
         help=(
-            "grandfather against this git ref's kb/ instead of the committed "
-            f"baseline (default: ${BASELINE_REF_ENV}, else the committed file)"
+            "grandfather against this git ref's kb/ (default: "
+            f"${BASELINE_REF_ENV}, else the merge base of HEAD and "
+            f"{DEFAULT_BASE_REF}, else the committed baseline file)"
         ),
     )
     args = parser.parse_args(argv)
@@ -368,7 +436,7 @@ def main(argv=None) -> int:
 
     if args.count:
         files = {rel for rel, _ in findings}
-        baseline = load_baseline()
+        baseline = resolve_baseline(args.against_ref)
         print(f"total findings: {len(findings)} across {len(files)} file(s)")
         print(f"baseline: {len(baseline)} distinct gene(s)")
         print(f"new (non-baselined): {len(new_findings(findings, baseline))}")
@@ -394,6 +462,14 @@ def main(argv=None) -> int:
         print("(CI) too, not only locally, so add the line(s) for the exempt")
         print("node(s) only -- not a blanket --update-baseline that would also")
         print("grandfather a node that should carry a real molecular function.")
+        print()
+        print("Many of these in entries your change does not touch? Then they")
+        print("were compared against a stale baseline: check the stderr line")
+        print("above saying which one was used. Run `git fetch origin main` and")
+        print("rerun with no ref, which compares against the merge base. Only")
+        print("use --against-ref origin/main after rebasing onto it: on a branch")
+        print("that is behind main, the tip of main blames you for genes main")
+        print("grounded after you branched.")
         return 1
     print(
         f"OK: no newly ungrounded genes ({sum(baseline.values())} "

@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schuurs-Hoeijmakers Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Schuurs-Hoeijmakers Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Schuurs-Hoeijmakers Syndrome</h1>
+                
+                <p class="report-subtitle">Schuurs-Hoeijmakers Syndrome (PACS1-Related Disorder): Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-10-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0014006" target="_blank" rel="noopener noreferrer">MONDO:0014006</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">26 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Schuurs-Hoeijmakers Syndrome (PACS1-Related Disorder): Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Schuurs-Hoeijmakers Syndrome (SHMS) — also PACS1 neurodevelopmental disorder (PACS1-NDD), PACS1-related disorder (PACS1-RD), Intellectual Developmental Disorder, Autosomal Dominant 17 (MRD17)
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0014006" target="_blank" rel="noopener noreferrer">MONDO:0014006</a>
+<strong>OMIM:</strong> #615009
+<strong>Causal gene:</strong> <strong>PACS1</strong> (Phosphofurin Acidic Cluster Sorting Protein 1), chromosome 11q13.1, <a href="https://bioregistry.io/HGNC:30032" target="_blank" rel="noopener noreferrer">HGNC:30032</a>
+<strong>Category:</strong> Mendelian, autosomal dominant (de novo)</p>
+<blockquote>
+<p><strong>Gene identity (read first):</strong> This disease is caused by the gene <strong>PACS1</strong> on chromosome 11q13.1. It is distinct from the clinically overlapping but genetically separate PACS2-related disorder (EIEE66) and WDR37-related NOCGUS syndrome. All claims below refer to the PACS1 entity.</p>
+</blockquote>
+<hr />
+<h2>Summary</h2>
+<p><strong>Schuurs-Hoeijmakers syndrome is an ultra-rare, autosomal dominant neurodevelopmental disorder caused by the gene PACS1.</strong> In the overwhelming majority of patients the disease is produced by a single, recurrent, de novo heterozygous missense variant, <strong>c.607C&gt;T (p.Arg203Trp / R203W)</strong>, located in the furin-binding region (FBR) of the PACS1 protein. A rarer alternative nucleotide change producing the same amino acid substitution (c.608G&gt;A, p.Arg203Trp) and a non-recurrent p.Arg203Gln (R203Q) variant have also been reported. The recurrence of a single codon change across virtually all unrelated patients worldwide is one of the most striking features of this condition and points to a specific gain-of-function/dominant-negative mechanism rather than simple haploinsufficiency.</p>
+<p>Clinically, SHMS produces a highly recognizable and essentially fully penetrant <strong>facial gestalt</strong> (full arched eyebrows, hypertelorism with downslanting palpebral fissures, long eyelashes, ptosis, bulbous nasal tip, wide mouth with downturned corners, thin "wavy" upper lip, flat philtrum, dental diastema), accompanied by <strong>mild-to-moderate intellectual disability</strong>, <strong>autistic traits</strong>, <strong>infantile hypotonia</strong>, and <strong>anticonvulsant-responsive seizures</strong>. Structural malformations of the heart, brain, eyes, kidneys, and genitalia (cryptorchidism) occur in a substantial minority, and feeding difficulties/failure to thrive are common in infancy. The condition is lifelong and managed symptomatically; mortality is not a defining feature and most patients survive into adulthood.</p>
+<p>Mechanistically, the R203W substitution disrupts an <strong>intramolecular autoregulatory switch</strong> in PACS1: the central unstructured region normally folds back onto a positively charged loop containing Arg203 to autoinhibit the FBR. Loss of this regulation unlocks <strong>aberrant protein–protein interactions</strong>, including enhanced binding to the deacetylase <strong>HDAC6</strong> and disruption of <strong>dynein/BICD2-mediated cargo transport</strong>, as well as perturbation of the <strong>PACS1–WDR37</strong> complex. Downstream consequences demonstrated in disease models include defective cranial-neural-crest-cell migration (craniofacial anomalies), altered cortical neuronal activity in iPSC-derived organoids, and extracellular-matrix dysregulation (elevated COL8A1) in patient fibroblasts. A <strong>blood DNA-methylation episignature</strong> provides a functional diagnostic biomarker, and <strong>allele-specific RNAi</strong> that silences the mutant transcript while sparing wild-type PACS1 has corrected molecular defects in patient cells, offering proof-of-concept for precision therapy.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — PACS1 c.607C&gt;T (p.Arg203Trp) is the recurrent de novo cause of SHMS</h3>
+<p>Schuurs-Hoeijmakers syndrome is defined molecularly by a <strong>recurrent de novo heterozygous missense variant in PACS1, c.607C&gt;T, p.Arg203Trp</strong>. In the pivotal 2016 clinical delineation cohort, <strong>all 19/19 unrelated patients carried the identical variant</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/26842493/">PMID: 26842493</a>: <em>"We report on 19 individuals with a recurrent de novo c.607C&gt;T mutation in PACS1. This specific mutation gives rise to a recognizable intellectual disability syndrome."</em>). The recurrence has been confirmed repeatedly across diverse populations (India, Morocco, Brazil, China), and a 2023 review noted that of ~87 recorded cases, <em>"the majority of them share the same mutation (c.607 C &gt; T; p.R203W)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37747683/">PMID: 37747683</a>).</p>
+<p>Rare molecular alternatives include <strong>c.608G&gt;A</strong> (same p.Arg203Trp protein change; <a href="https://pubmed.ncbi.nlm.nih.gov/30690871/">PMID: 30690871</a>) and the non-recurrent <strong>p.Arg203Gln (R203Q)</strong> allele, which shares the PACS1-RD episignature (<a href="https://pubmed.ncbi.nlm.nih.gov/41882293/">PMID: 41882293</a>). A novel variant has also been reported (c.943C&gt;T, p.Arg315Trp). The variant is classified <strong>pathogenic</strong> by ACMG criteria and is essentially absent from gnomAD population databases, consistent with a highly penetrant, de novo disease allele.</p>
+<ul>
+<li><strong>Evidence type:</strong> Human clinical/genetic.</li>
+<li><strong>Variant nomenclature:</strong> NM_018026.3:c.607C&gt;T (p.Arg203Trp); chr11q13.1.</li>
+<li><strong>Ontology:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0014006" target="_blank" rel="noopener noreferrer">MONDO:0014006</a>; <a href="https://bioregistry.io/HGNC:30032" target="_blank" rel="noopener noreferrer">HGNC:30032</a> (PACS1).</li>
+</ul>
+<h3>Finding 2 — Core clinical phenotype: facial gestalt, intellectual disability, seizures, multi-organ malformations</h3>
+<p>The syndrome has a <strong>distinctive and essentially fully penetrant facial appearance</strong> present in 19/19 patients in the defining cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/26842493/">PMID: 26842493</a>: <em>"There is a distinctive facial appearance (19/19), characterized by full and arched eyebrows, hypertelorism with downslanting palpebral fissures, long eye lashes, ptosis, low set and simple ears, bulbous nasal tip, wide mouth with downturned corners and a thin upper lip with an unusual 'wavy' profile, flat philtrum, and diastema of the teeth."</em>).</p>
+<p>Beyond the face, the phenotype includes intellectual disability (mild–moderate) in 19/19, infantile hypotonia (8/19), and <strong>frequent, treatment-responsive seizures</strong> (12/19). Structural malformations are common: <em>"Seizures are frequent (12/19) and respond well to anticonvulsive medication. Structural malformations are common, including heart (10/19), brain (12/16), eye (10/19), kidney (3/19), and cryptorchidism (6/12 males)."</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/26842493/">PMID: 26842493</a>). Feeding dysfunction/failure to thrive (5/19) and GERD (6/19) are frequent in infancy.</p>
+<p>A 2026 DNA-methylation cohort of 24 unreported individuals updated frequencies: feeding difficulties 75%, hypotonia 75%, cryptorchidism 77.8%, congenital heart defect 45.8%, congenital kidney malformation 25%, with median independent walking and first words both ~24 months (<a href="https://pubmed.ncbi.nlm.nih.gov/41882293/">PMID: 41882293</a>). Longitudinal multimodal study of five children confirmed global developmental delay, pronounced motor impairment, autistic traits with elevated restricted/repetitive behaviors, relatively preserved pragmatic skills, and globally reduced gray and white matter volumes on MRI (<a href="https://pubmed.ncbi.nlm.nih.gov/42392841/">PMID: 42392841</a>).</p>
+<p><strong>Phenotype table with suggested HPO terms:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency</th>
+<th>HPO term (suggested)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Intellectual disability, mild–moderate</td>
+<td>~100%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+</tr>
+<tr>
+<td>Distinctive facial gestalt</td>
+<td>19/19 (100%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" rel="noopener noreferrer">HP:0001999</a></td>
+</tr>
+<tr>
+<td>Hypertelorism</td>
+<td>common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" rel="noopener noreferrer">HP:0000316</a></td>
+</tr>
+<tr>
+<td>Downslanting palpebral fissures</td>
+<td>common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" rel="noopener noreferrer">HP:0000494</a></td>
+</tr>
+<tr>
+<td>Ptosis</td>
+<td>common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" rel="noopener noreferrer">HP:0000508</a></td>
+</tr>
+<tr>
+<td>Seizures</td>
+<td>12/19 (~63%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></td>
+</tr>
+<tr>
+<td>Infantile hypotonia</td>
+<td>8/19–75%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008947" target="_blank" rel="noopener noreferrer">HP:0008947</a> / <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a></td>
+</tr>
+<tr>
+<td>Autistic behavior</td>
+<td>frequent</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" rel="noopener noreferrer">HP:0000729</a></td>
+</tr>
+<tr>
+<td>Congenital heart defect</td>
+<td>45.8–53%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a></td>
+</tr>
+<tr>
+<td>Brain structural anomaly</td>
+<td>12/16 (~75%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" rel="noopener noreferrer">HP:0012443</a></td>
+</tr>
+<tr>
+<td>Eye malformation / coloboma</td>
+<td>10/19 (~53%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" rel="noopener noreferrer">HP:0000589</a> (coloboma)</td>
+</tr>
+<tr>
+<td>Renal malformation</td>
+<td>25%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000792" target="_blank" rel="noopener noreferrer">HP:0000792</a></td>
+</tr>
+<tr>
+<td>Cryptorchidism</td>
+<td>6/12 males (~50–78%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" rel="noopener noreferrer">HP:0000028</a></td>
+</tr>
+<tr>
+<td>Feeding difficulties / FTT</td>
+<td>26–75%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" rel="noopener noreferrer">HP:0011968</a> / <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a></td>
+</tr>
+<tr>
+<td>Gastroesophageal reflux</td>
+<td>6/19 (~32%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" rel="noopener noreferrer">HP:0002020</a></td>
+</tr>
+<tr>
+<td>Dental diastema</td>
+<td>common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000699" target="_blank" rel="noopener noreferrer">HP:0000699</a></td>
+</tr>
+<tr>
+<td>Cleft lip (rare)</td>
+<td>reported</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0410030" target="_blank" rel="noopener noreferrer">HP:0410030</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Evidence type:</strong> Human clinical.</li>
+</ul>
+<h3>Finding 3 — Mechanism: disrupted protein sorting/trafficking with neuronal and ECM defects</h3>
+<p>PACS1 (phosphofurin acidic cluster sorting protein 1) is a <strong>multidomain cytosolic sorting adaptor</strong> that directs trans-Golgi-network/endosomal cargo trafficking and also has nuclear functions. Multiple disease models demonstrate that the R203W variant perturbs these functions:</p>
+<ul>
+<li><strong>Craniofacial / neural crest:</strong> In a zebrafish model, mutant pacs1 <em>"significantly reduced cranial cartilaginous structures, inducing craniofacial alterations predominantly in a dominant-negative fashion"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36415352/">PMID: 36415352</a>).</li>
+<li><strong>Cortical neurons:</strong> iPSC-derived cortical organoids carrying p.R203W show transcriptional and functional deficits in neuron activity (<a href="https://pubmed.ncbi.nlm.nih.gov/38280846/">PMID: 38280846</a>), affecting neuronal firing without gross disruption of organoid architecture (<a href="https://pubmed.ncbi.nlm.nih.gov/38521709/">PMID: 38521709</a>). Proteomic analysis of organoids identified convergent dysregulated developmental processes and additional pathways not seen transcriptomically (<a href="https://pubmed.ncbi.nlm.nih.gov/42835086/">PMID: 42835086</a>).</li>
+<li>
+<p><strong>Extracellular matrix:</strong> <em>"transcriptomic analysis of SHMS fibroblasts revealed alterations in extracellular matrix organization in mutant cells, including elevated COL8A1 expression and extracellular deposition. Treatment with the best selected allele-specific siRNA corrected the COL8A1 dysregulation."</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40972577/">PMID: 40972577</a>).</p>
+</li>
+<li>
+<p><strong>Evidence type:</strong> Model organism (zebrafish), in vitro (iPSC organoids, patient fibroblasts).</p>
+</li>
+<li><strong>Suggested GO / CL:</strong> <a href="http://purl.obolibrary.org/obo/GO_0016192" target="_blank" rel="noopener noreferrer">GO:0016192</a> (vesicle-mediated transport), <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" rel="noopener noreferrer">GO:0030198</a> (extracellular matrix organization), neural-crest migration; <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" rel="noopener noreferrer">CL:0000333</a> (migratory neural crest cell), <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a> (neuron).</li>
+</ul>
+<h3>Finding 4 — Ultra-rare; symptomatic management; emerging allele-specific RNAi therapy</h3>
+<p>SHMS is <strong>ultra-rare</strong>: ~87 cases reported by 2023 (<a href="https://pubmed.ncbi.nlm.nih.gov/37747683/">PMID: 37747683</a>) and ~158 published patients by 2026 (<a href="https://pubmed.ncbi.nlm.nih.gov/42794636/">PMID: 42794636</a>). No disease-modifying therapy currently exists; management is <strong>supportive</strong> — anticonvulsants (which respond well), developmental/physical/speech therapy, and treatment of congenital malformations. The disorder is characterized as a <em>"moderately-severe intellectual disability syndrome in which seizures occur but are not a defining or primary feature. Successful precision medicine clinical trials for this ultra-rare disorder must target important core features"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34517877/">PMID: 34517877</a>).</p>
+<p>The leading precision-therapy candidate is <strong>allele-specific RNA interference</strong>: <em>"we identified several small interfering RNA (siRNA) sequences that specifically silence the PACS1 transcript harboring the recurrent PACS1 mutation while sparing the wild-type mRNA"</em> — these corrected the ECM/COL8A1 defect in patient fibroblasts (<a href="https://pubmed.ncbi.nlm.nih.gov/40972577/">PMID: 40972577</a>).</p>
+<ul>
+<li><strong>Evidence type:</strong> Human clinical / in vitro proof-of-concept.</li>
+<li><strong>Suggested NCIT:</strong> NCIT:C15688 (Pharmacotherapy), NCIT:C20151 (RNA interference), NCIT:C15277 (Rehabilitation Therapy), NCIT:C38148 (Anticonvulsant Agent).</li>
+</ul>
+<h3>Finding 5 — Structural mechanism: R203W disrupts PACS1 intramolecular autoregulation</h3>
+<p>A 2026 NMR solution-structure study provided the mechanistic framework. PACS1's <strong>furin-binding region (FBR; amino acids 101–273)</strong> is normally autoinhibited: the central unstructured region folds back onto a positively charged loop containing Arg203. <em>"The R203W substitution, located in this loop, disrupts this regulatory interaction and, in vitro, displays the ability to promote aberrant protein-protein interactions."</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41858172/">PMID: 41858172</a>). The FBR directly engages the deacetylase HDAC6: <em>"PACS-1 uses its Furin binding region (FBR: amino acids 101-273) to directly interact with the catalytic domains of HDAC6."</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41858172/">PMID: 41858172</a>). A companion commentary framed this as a single mutation that <em>"disrupts intramolecular regulation to drive neurodevelopmental disease"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42304662/">PMID: 42304662</a>).</p>
+<p>The downstream trafficking consequence is disruption of <strong>dynein-mediated cargo transport via HDAC6 and BICD2</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41888583/">PMID: 41888583</a>). Cryo-EM of the <strong>PACS1–WDR37 complex</strong> shows PACS1 binds and stabilizes WDR37 through a conserved FBR interface, and a gain-of-function mutation affects the complex (<a href="https://pubmed.ncbi.nlm.nih.gov/41279321/">PMID: 41279321</a>).</p>
+<ul>
+<li><strong>Evidence type:</strong> In vitro / structural (NMR, cryo-EM), computational.</li>
+<li><strong>Suggested GO:</strong> <a href="http://purl.obolibrary.org/obo/GO_0070840" target="_blank" rel="noopener noreferrer">GO:0070840</a> (dynein complex binding), <a href="http://purl.obolibrary.org/obo/GO_0030286" target="_blank" rel="noopener noreferrer">GO:0030286</a> (dynein complex), protein deacetylase binding (HDAC6 context).</li>
+</ul>
+<h3>Finding 6 — PACS1-RD has a diagnostic blood DNA-methylation episignature</h3>
+<p>Genome-wide methylation profiling (~860,000 CpG sites) of 24 unreported individuals identified a <strong>specific episignature</strong> for PACS1-RD. <em>"Methylation analysis identified a specific episignature for PACS1-RD, consistently observed in individuals carrying either the canonical p.(Arg203Trp) or the non-recurrent p.(Arg203Gln) variant. This episignature further enabled PACS1-RD diagnosis in one unsolved individual initially suspected of Kabuki syndrome."</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41882293/">PMID: 41882293</a>). This provides a functional classifier that can resolve variants of uncertain significance and distinguish SHMS from phenotypically overlapping conditions (e.g., Kabuki syndrome).</p>
+<ul>
+<li><strong>Evidence type:</strong> Human clinical / epigenomic.</li>
+<li><strong>Suggested terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006306" target="_blank" rel="noopener noreferrer">GO:0006306</a> (DNA methylation); diagnostic episignature biomarker.</li>
+</ul>
+<h3>Finding 7 — Invertebrate models recapitulate trafficking/seizure phenotypes; QoL reduced but above Cornelia de Lange</h3>
+<p>Conserved invertebrate models validate the PACS–WDR37 axis. In <em>Drosophila</em>, PACS deficiency <em>"disrupts Golgi architecture and causes cytokinesis failures and seizure-like phenotype"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39999877/">PMID: 39999877</a>). In <em>C. elegans</em>, editing in PACS1/PACS2 variants aberrantly relocalizes the cePACS-1 protein across cell types including neurons, and <em>"expression of human PACS1 can functionally complement C. elegans PACS-1 in neurons, demonstrating conserved functions of the PACS-WDR37 axis in an invertebrate model system"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39031646/">PMID: 39031646</a>; see also <a href="https://pubmed.ncbi.nlm.nih.gov/38712144/">PMID: 38712144</a>).</p>
+<p>Quality of life was quantified in 21 individuals aged 4–21 using the caregiver-proxy KidsLife scale: <em>"The mean QoLI was 48.1 ± 28.3, slightly below the median for individuals with intellectual disability, but higher than other neurodevelopmental disorders such as Cornelia de Lange Syndrome."</em> with autonomy/self-determination most compromised (<a href="https://pubmed.ncbi.nlm.nih.gov/41750059/">PMID: 41750059</a>).</p>
+<ul>
+<li><strong>Evidence type:</strong> Model organism (Drosophila, C. elegans); human clinical (QoL).</li>
+</ul>
+<h3>Finding 8 — Founding 2012 discovery: PACS1 c.607C&gt;T via defective cranial-neural-crest migration</h3>
+<p>The disease was first defined by Schuurs-Hoeijmakers et al. (2012, <em>Am J Hum Genet</em> 91:1122–1127; <a href="https://pubmed.ncbi.nlm.nih.gov/23159249/">PMID: 23159249</a>), who identified the recurrent de novo c.607C&gt;T (p.Arg203Trp) PACS1 variant in two unrelated children with a shared ID phenotype and showed in zebrafish that mutant pacs1 mRNA produces craniofacial cartilage defects attributable to <strong>defective cranial-neural-crest-cell migration</strong>, consistent with a dominant-negative action. <em>(Note: the founding paper was not retrievable through the PubMed interface in this session; the citation is supplied from domain knowledge and the abstract text was not re-verified here.)</em></p>
+<hr />
+<h2>Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> Schuurs-Hoeijmakers syndrome (SHMS) is an ultra-rare autosomal dominant neurodevelopmental syndrome caused by the gene <strong>PACS1</strong>. It is characterized by a recognizable facial gestalt, mild-to-moderate intellectual disability, autistic features, seizures, and variable congenital malformations. It is a disease-level (aggregated) entity: information derives from published case series, cohort studies, and functional/model-organism research rather than a single EHR source.</p>
+<p><strong>Key identifiers.</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0014006" target="_blank" rel="noopener noreferrer">MONDO:0014006</a>
+- <strong>OMIM:</strong> #615009 (Intellectual developmental disorder, autosomal dominant 17; MRD17)
+- <strong>Orphanet:</strong> PACS1 syndrome / Schuurs-Hoeijmakers syndrome
+- <strong>MeSH:</strong> No dedicated legacy MeSH descriptor; indexed via PACS1 gene + Intellectual Disability
+- <strong>ICD-10:</strong> Q87.8 (other specified congenital malformation syndromes) — no specific code
+- <strong>ICD-11:</strong> within developmental anomaly syndromes — no dedicated code
+- <strong>Gene:</strong> PACS1, <a href="https://bioregistry.io/HGNC:30032" target="_blank" rel="noopener noreferrer">HGNC:30032</a>, NCBI Gene 55690, UniProt Q6VY07, Ensembl ENSG00000175115, chr11q13.1</p>
+<p><strong>Synonyms / alternative names:</strong> PACS1 syndrome; PACS1 neurodevelopmental disorder (PACS1-NDD); PACS1-related disorder (PACS1-RD); Intellectual developmental disorder, autosomal dominant 17 (MRD17); Schuurs-Hoeijmakers syndrome.</p>
+<h3>2. Etiology</h3>
+<p><strong>Primary cause — genetic.</strong> SHMS is a monogenic disorder caused by a <strong>de novo heterozygous gain-of-function/dominant-negative missense variant in PACS1</strong>, almost always c.607C&gt;T (p.Arg203Trp). There is no environmental or infectious cause.</p>
+<p><strong>Genetic risk factors.</strong> The disease-causing allele is itself the sole established risk factor; there are no reported susceptibility loci or modifier genes. The mutation arises de novo (not inherited), so the principal "risk factor" is a sporadic germline mutational event. Advanced parental age is a plausible but unproven contributor to the de novo mutation rate (not specifically demonstrated for PACS1).</p>
+<p><strong>Environmental / lifestyle risk factors.</strong> None identified. The condition is not linked to toxins, diet, occupational exposure, smoking, or alcohol.</p>
+<p><strong>Protective factors.</strong> None identified (genetic or environmental). Given monogenic de novo causation, classical protective-allele concepts do not apply; however, <strong>allele-specific silencing of the mutant transcript</strong> functionally reverses cellular phenotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/40972577/">PMID: 40972577</a>).</p>
+<p><strong>Gene–environment interactions.</strong> None established. Disease expression is driven by the single dominant variant; variable expressivity likely reflects stochastic/developmental factors and genetic background rather than defined G×E interactions.</p>
+<h3>3. Phenotypes</h3>
+<p>See the phenotype table in <strong>Finding 2</strong> above for HPO-mapped features and frequencies. Key characteristics:</p>
+<ul>
+<li><strong>Age of onset:</strong> Congenital/neonatal for malformations and dysmorphism; infantile for hypotonia and feeding problems; childhood for developmental delay, seizures, and autistic traits. Median independent walking and first words ~24 months (<a href="https://pubmed.ncbi.nlm.nih.gov/41882293/">PMID: 41882293</a>).</li>
+<li><strong>Severity:</strong> Intellectual disability mild-to-moderate ("moderately-severe" per <a href="https://pubmed.ncbi.nlm.nih.gov/34517877/">PMID: 34517877</a>); variable malformation burden.</li>
+<li><strong>Progression:</strong> Predominantly <strong>stable/non-regressive</strong>. A systematic review of ~158 patients found skill loss in only 5 patients (2 PACS1), concluding the evidence <em>"does not support classifying these syndromes as primarily regressive disorders"</em> while justifying surveillance (<a href="https://pubmed.ncbi.nlm.nih.gov/42794636/">PMID: 42794636</a>).</li>
+<li><strong>Quality of life:</strong> Mean KidsLife QoL index 48.1 ± 28.3; autonomy/self-determination most affected (<a href="https://pubmed.ncbi.nlm.nih.gov/41750059/">PMID: 41750059</a>).</li>
+</ul>
+<h3>4. Genetic / Molecular Information</h3>
+<ul>
+<li><strong>Causal gene:</strong> PACS1 (<a href="https://bioregistry.io/HGNC:30032" target="_blank" rel="noopener noreferrer">HGNC:30032</a>; chr11q13.1).</li>
+<li><strong>Pathogenic variant:</strong> NM_018026.3:c.607C&gt;T (p.Arg203Trp); recurrent de novo; <strong>ACMG pathogenic</strong>; essentially absent in gnomAD. Alternatives: c.608G&gt;A (p.Arg203Trp), p.Arg203Gln (R203Q, shares episignature), and a reported c.943C&gt;T (p.Arg315Trp). A multi-exon deletion of PACS1 has also been described (<a href="https://pubmed.ncbi.nlm.nih.gov/34373684/">PMID: 34373684</a>).</li>
+<li><strong>Variant type:</strong> Missense (single nucleotide substitution) at a CpG-containing hotspot codon (Arg203).</li>
+<li><strong>Origin:</strong> Germline, de novo.</li>
+<li><strong>Functional consequence:</strong> Gain-of-function / dominant-negative — disrupts intramolecular autoregulation and promotes aberrant interactions (<a href="https://pubmed.ncbi.nlm.nih.gov/41858172/">PMID: 41858172</a>); dominant-negative craniofacial effect in zebrafish (<a href="https://pubmed.ncbi.nlm.nih.gov/36415352/">PMID: 36415352</a>).</li>
+<li><strong>Modifier genes:</strong> None established; the WDR37–PACS1–PACS2 interaction axis modulates overlapping phenotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/33369122/">PMID: 33369122</a>).</li>
+<li><strong>Epigenetic information:</strong> Robust, disease-specific <strong>DNA-methylation episignature</strong> across ~860,000 CpG sites (<a href="https://pubmed.ncbi.nlm.nih.gov/41882293/">PMID: 41882293</a>).</li>
+<li><strong>Chromosomal abnormalities:</strong> Not characteristic; rare structural (multi-exon deletion) events reported.</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<p><strong>Not applicable.</strong> No environmental factors, lifestyle factors, or infectious agents are implicated in SHMS. The condition is entirely genetic (de novo monogenic).</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li>A <strong>de novo c.607C&gt;T mutation</strong> in PACS1 <strong>results in</strong> the p.Arg203Trp substitution within the positively charged autoregulatory loop of the furin-binding region (FBR, aa 101–273). <em>(demonstrated — <a href="https://pubmed.ncbi.nlm.nih.gov/26842493/">PMID: 26842493</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41858172/">PMID: 41858172</a>)</em></li>
+<li>R203W <strong>disrupts the intramolecular autoinhibitory interaction</strong> by which the central unstructured region folds onto the Arg203 loop, <strong>leading to</strong> a constitutively "unlocked" FBR. <em>(demonstrated, in vitro/NMR — <a href="https://pubmed.ncbi.nlm.nih.gov/41858172/">PMID: 41858172</a>)</em></li>
+<li>The unlocked FBR <strong>promotes aberrant protein–protein interactions</strong>, notably <strong>enhanced binding to HDAC6</strong> catalytic domains, which <strong>branches into:</strong> <em>(demonstrated in vitro — <a href="https://pubmed.ncbi.nlm.nih.gov/41858172/">PMID: 41858172</a>)</em></li>
+<li><strong>3a.</strong> Disruption of <strong>dynein/BICD2-mediated cargo transport</strong>, <strong>impairing</strong> intracellular/axonal trafficking. <em>(demonstrated — <a href="https://pubmed.ncbi.nlm.nih.gov/41888583/">PMID: 41888583</a>)</em></li>
+<li><strong>3b.</strong> Perturbation of the <strong>PACS1–WDR37 complex</strong> stability/assembly. <em>(demonstrated, cryo-EM — <a href="https://pubmed.ncbi.nlm.nih.gov/41279321/">PMID: 41279321</a>)</em></li>
+<li>Altered sorting/trafficking during development <strong>leads to defective cranial-neural-crest-cell migration</strong>, <strong>resulting in</strong> craniofacial cartilage anomalies and the facial gestalt. <em>(demonstrated, zebrafish — <a href="https://pubmed.ncbi.nlm.nih.gov/36415352/">PMID: 36415352</a>; founding 2012 study <a href="https://pubmed.ncbi.nlm.nih.gov/23159249/" target="_blank" rel="noopener noreferrer">PMID: 23159249</a>)</em></li>
+<li>In the developing cortex, the variant <strong>alters the transcriptomic and proteomic landscape</strong> and <strong>produces deficits in neuronal firing/activity</strong>, <strong>leading to</strong> intellectual disability, autistic traits, and seizure susceptibility. <em>(demonstrated, iPSC organoids — <a href="https://pubmed.ncbi.nlm.nih.gov/38280846/">PMID: 38280846</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42835086/">PMID: 42835086</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38521709/">PMID: 38521709</a>)</em></li>
+<li>In connective tissue, the variant <strong>dysregulates extracellular-matrix organization</strong> (elevated COL8A1 deposition), <strong>contributing to</strong> structural/tissue phenotypes. <em>(demonstrated, patient fibroblasts — <a href="https://pubmed.ncbi.nlm.nih.gov/40972577/">PMID: 40972577</a>)</em></li>
+<li>The combined developmental perturbations <strong>manifest as</strong> the multi-system clinical syndrome (facial, neurological, cardiac, renal, ocular, genital). <em>(inferred synthesis)</em></li>
+</ol>
+<pre><code>PACS1 c.607C&gt;T (p.R203W)
+│
+▼
+ Loss of FBR autoinhibition (R203 loop)
+│
+▼
+ Aberrant interactions (↑HDAC6 binding)
+     ┌──────────────┴──────────────┐
+     ▼                              ▼
+ Disrupted dynein/BICD2      Perturbed PACS1–WDR37
+ cargo transport             complex
+     └──────────────┬──────────────┘
+            ▼
+   Altered protein sorting/trafficking in development
+     ┌──────────────┼──────────────┐
+     ▼              ▼              ▼
+ Neural-crest    Cortical       ECM dysregulation
+ migration ↓     neuron         (↑COL8A1)
+     │           activity ↓         │
+     ▼              ▼              ▼
+ Craniofacial   ID / ASD /     Tissue/structural
+ gestalt        seizures       phenotypes
+     └──────────────┴──────────────┘
+            ▼
+     Multi-system Schuurs-Hoeijmakers syndrome
+</code></pre>
+<p><strong>Molecular pathways / cellular processes:</strong> Vesicle-mediated protein sorting (TGN/endosome), dynein-based intracellular transport, protein (de)acetylation via HDAC6, extracellular-matrix organization. <strong>Suggested GO:</strong> <a href="http://purl.obolibrary.org/obo/GO_0016192" target="_blank" rel="noopener noreferrer">GO:0016192</a> (vesicle-mediated transport), <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" rel="noopener noreferrer">GO:0030198</a> (ECM organization), <a href="http://purl.obolibrary.org/obo/GO_0070840" target="_blank" rel="noopener noreferrer">GO:0070840</a> (dynein complex binding), <a href="http://purl.obolibrary.org/obo/GO_0006306" target="_blank" rel="noopener noreferrer">GO:0006306</a> (DNA methylation). <strong>Suggested CL:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" rel="noopener noreferrer">CL:0000333</a> (migratory neural crest cell), <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a> (neuron), <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a> (fibroblast). <strong>Suggested CHEBI (therapeutics context):</strong> <a href="http://purl.obolibrary.org/obo/CHEBI_35623" target="_blank" rel="noopener noreferrer">CHEBI:35623</a> (anticonvulsant).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Primary organ/system:</strong> Central nervous system — cerebral cortex and white matter (globally reduced gray/white matter volumes, <a href="https://pubmed.ncbi.nlm.nih.gov/42392841/">PMID: 42392841</a>); cerebellum (atrophy reported in the WDR37–PACS1–PACS2 spectrum, <a href="https://pubmed.ncbi.nlm.nih.gov/33369122/">PMID: 33369122</a>). <strong>UBERON:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> (brain), <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" rel="noopener noreferrer">UBERON:0000956</a> (cerebral cortex), <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a> (cerebellum).</li>
+<li><strong>Craniofacial:</strong> Neural-crest-derived facial skeleton/cartilage. <strong>UBERON:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0001456" target="_blank" rel="noopener noreferrer">UBERON:0001456</a> (face), cranial skeletal system.</li>
+<li><strong>Secondary organ involvement:</strong> Heart (congenital defects; <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>), kidney (malformations; <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>), eyes (coloboma, ptosis; <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a>), male genitalia (cryptorchidism; <a href="http://purl.obolibrary.org/obo/UBERON_0000473" target="_blank" rel="noopener noreferrer">UBERON:0000473</a> testis), GI tract (reflux, feeding difficulty; <a href="http://purl.obolibrary.org/obo/UBERON_0001555" target="_blank" rel="noopener noreferrer">UBERON:0001555</a>).</li>
+<li><strong>Tissue/cell level:</strong> Nervous tissue (neurons), neural crest cells, connective tissue/fibroblasts (ECM). <strong>CL:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" rel="noopener noreferrer">CL:0000333</a>, <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a>, <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a>.</li>
+<li><strong>Subcellular compartments:</strong> Trans-Golgi network, endosomes, cytosol, nucleus; cytoskeletal (dynein) transport machinery. <strong>GO CC:</strong> <a href="http://purl.obolibrary.org/obo/GO_0005802" target="_blank" rel="noopener noreferrer">GO:0005802</a> (trans-Golgi network), <a href="http://purl.obolibrary.org/obo/GO_0005768" target="_blank" rel="noopener noreferrer">GO:0005768</a> (endosome), <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> (nucleus), <a href="http://purl.obolibrary.org/obo/GO_0030286" target="_blank" rel="noopener noreferrer">GO:0030286</a> (dynein complex).</li>
+<li><strong>Lateralization:</strong> Bilateral/symmetric for CNS and facial features; malformations variable.</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> Congenital (malformations, dysmorphism) to infantile (hypotonia, feeding); developmental delay evident in early childhood.</li>
+<li><strong>Progression:</strong> Chronic, lifelong, predominantly <strong>stable/non-progressive</strong>; regression is uncommon (~5/158 patients across the axis) (<a href="https://pubmed.ncbi.nlm.nih.gov/42794636/">PMID: 42794636</a>).</li>
+<li><strong>Course pattern:</strong> Static encephalopathy with developmental delay; seizures episodic but generally well-controlled.</li>
+<li><strong>Critical period:</strong> Embryonic/fetal neurodevelopment and neural-crest migration is the key window of vulnerability; postnatally, early developmental intervention and the neonatal period (feeding, cardiac) are critical care windows.</li>
+<li><strong>Duration:</strong> Chronic lifelong.</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology:</strong> Ultra-rare; ~87 cases by 2023, ~158 by 2026. Prevalence/incidence not formally established (well below 1/1,000,000).</li>
+<li><strong>Inheritance:</strong> Autosomal dominant, essentially always <strong>de novo</strong> (sporadic). <strong>Penetrance:</strong> Complete for the recurrent variant (facial gestalt 19/19). <strong>Expressivity:</strong> Variable (malformation burden, seizure presence).</li>
+<li><strong>Genetic anticipation:</strong> Not applicable (not a repeat-expansion disorder).</li>
+<li><strong>Germline mosaicism:</strong> Theoretically possible and relevant to recurrence-risk counseling (parental gonadal mosaicism), though empirical recurrence is very low; prenatal diagnosis has been performed (<a href="https://pubmed.ncbi.nlm.nih.gov/37906144/">PMID: 37906144</a>).</li>
+<li><strong>Founder effects / consanguinity / carrier frequency:</strong> Not applicable (de novo dominant).</li>
+<li><strong>Population demographics:</strong> Pan-ethnic — reported across Europe, India (<a href="https://pubmed.ncbi.nlm.nih.gov/30690871/">PMID: 30690871</a>), Morocco (<a href="https://pubmed.ncbi.nlm.nih.gov/37747683/">PMID: 37747683</a>), Brazil/Indigenous (<a href="https://pubmed.ncbi.nlm.nih.gov/36415352/">PMID: 36415352</a>), China (<a href="https://pubmed.ncbi.nlm.nih.gov/37906144/">PMID: 37906144</a>). No geographic clustering. <strong>Sex ratio:</strong> approximately equal (autosomal). <strong>Age distribution:</strong> Diagnosed in childhood; patients survive to adulthood.</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Genetic testing (definitive):</strong> Targeted single-gene/variant testing for PACS1 c.607C&gt;T; <strong>whole-exome sequencing (WES)</strong> and <strong>whole-genome sequencing (WGS)</strong> are highly effective and often the route to diagnosis, including in prenatal settings where CNV analysis is negative (<a href="https://pubmed.ncbi.nlm.nih.gov/37906144/">PMID: 37906144</a>). NDD/ID gene panels include PACS1. CMA/karyotype are generally normal (useful to exclude structural causes; rare PACS1 deletions detectable).</li>
+<li><strong>Epigenomic diagnostics:</strong> Blood <strong>DNA-methylation episignature</strong> confirms PACS1-RD and reclassifies VUS/uncertain cases (e.g., one case initially suspected Kabuki) (<a href="https://pubmed.ncbi.nlm.nih.gov/41882293/">PMID: 41882293</a>).</li>
+<li><strong>Supportive clinical evaluations:</strong> Brain MRI (structural anomalies, reduced gray/white matter), EEG (seizures), echocardiography (cardiac defects), renal ultrasound, ophthalmologic exam (coloboma, ptosis).</li>
+<li><strong>Clinical recognition:</strong> The facial gestalt is highly recognizable; AI-based facial phenotyping supports the shared molecular axis and aids recognition (<a href="https://pubmed.ncbi.nlm.nih.gov/40869285/">PMID: 40869285</a>).</li>
+<li><strong>Differential diagnosis:</strong> Kabuki syndrome, Cornelia de Lange syndrome, and the phenotypically overlapping PACS2- and WDR37-related disorders (distinguished by gene, methylation signature, and specific features such as coloboma pattern) (<a href="https://pubmed.ncbi.nlm.nih.gov/33369122/">PMID: 33369122</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42794636/">PMID: 42794636</a>).</li>
+<li><strong>Screening:</strong> No newborn/carrier screening (de novo). Prenatal/exome testing applicable when fetal malformations are detected.</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Survival/mortality:</strong> Not a lethal disorder; mortality is not a defining feature and most patients reach adulthood. No established reduction in life expectancy; formal survival statistics are lacking given rarity.</li>
+<li><strong>Morbidity/function:</strong> Lifelong intellectual disability and developmental disability are the principal morbidities; motor impairment is pronounced; autonomy is the most compromised QoL domain (KidsLife QoLI 48.1 ± 28.3) (<a href="https://pubmed.ncbi.nlm.nih.gov/41750059/">PMID: 41750059</a>).</li>
+<li><strong>Disease course:</strong> Generally stable; regression uncommon but warrants surveillance (<a href="https://pubmed.ncbi.nlm.nih.gov/42794636/">PMID: 42794636</a>).</li>
+<li><strong>Complications:</strong> Seizures, feeding difficulty/failure to thrive, GERD, consequences of congenital cardiac/renal malformations. A single report described PAX3/7-FOXO1 fusion-negative alveolar rhabdomyosarcoma in an SHS patient, raising a speculative, unproven link between PACS1 (apoptosis regulation) and oncogenesis — <em>"no previous reports describing malignancy associated with SHS"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34341476/">PMID: 34341476</a>); this is anecdotal and not an established feature.</li>
+<li><strong>Prognostic factors:</strong> Severity of malformations, seizure control, degree of developmental delay. No validated molecular prognostic biomarkers.</li>
+</ul>
+<h3>12. Treatment</h3>
+<p><strong>No disease-modifying therapy currently exists; management is symptomatic and multidisciplinary.</strong></p>
+<ul>
+<li><strong>Pharmacotherapy:</strong> Anticonvulsants for seizures (respond well, <a href="https://pubmed.ncbi.nlm.nih.gov/26842493/">PMID: 26842493</a>); symptom-directed medications (e.g., for reflux). <strong>NCIT:</strong> NCIT:C38148 (Anticonvulsant Agent).</li>
+<li><strong>Supportive/rehabilitative:</strong> Developmental, physical, occupational, and speech therapy; feeding support; management of congenital malformations. <strong>NCIT:</strong> NCIT:C15277 (Rehabilitation Therapy), NCIT:C53543 (Speech Therapy).</li>
+<li><strong>Surgical/interventional:</strong> As needed for congenital heart defects, cryptorchidism (orchidopexy), ocular anomalies, cleft lip (<a href="https://pubmed.ncbi.nlm.nih.gov/30690871/">PMID: 30690871</a>).</li>
+<li><strong>Experimental / advanced therapeutics:</strong> <strong>Allele-specific siRNA/RNAi</strong> silencing the mutant PACS1 transcript while sparing wild-type — corrected ECM/COL8A1 defects in patient fibroblasts, a proof-of-concept precision therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/40972577/">PMID: 40972577</a>). Aberrant neuronal electrophysiology has been proposed as an interventional target (<a href="https://pubmed.ncbi.nlm.nih.gov/38521709/">PMID: 38521709</a>). <strong>NCIT:</strong> NCIT:C20151 (RNA Interference). No approved gene/cell therapies; no PACS1-specific pharmacogenomics.</li>
+<li><strong>Personalized medicine:</strong> The singular recurrent variant makes SHMS an ideal candidate for an allele-specific therapeutic; trial-readiness work emphasizes targeting core features (<a href="https://pubmed.ncbi.nlm.nih.gov/34517877/">PMID: 34517877</a>).</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> Not possible (sporadic de novo mutation); no risk-factor modification applies.</li>
+<li><strong>Secondary prevention:</strong> Early diagnosis (WES/WGS, episignature) enables early developmental intervention, seizure control, and malformation management.</li>
+<li><strong>Genetic counseling:</strong> De novo dominant; recurrence risk for parents is low but non-zero due to possible gonadal mosaicism; affected individuals have 50% transmission risk (reproduction uncommon given ID). <strong>Prenatal diagnosis</strong> is available for at-risk pregnancies and for fetal malformation workups (<a href="https://pubmed.ncbi.nlm.nih.gov/37906144/">PMID: 37906144</a>); preimplantation genetic testing is theoretically applicable.</li>
+<li><strong>Immunization / public health / behavioral / environmental interventions:</strong> Not applicable.</li>
+<li><strong>Tertiary prevention:</strong> Surveillance for seizures, feeding/growth, cardiac/renal complications, and (per systematic review) monitoring for any skill loss (<a href="https://pubmed.ncbi.nlm.nih.gov/42794636/">PMID: 42794636</a>).</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Orthologs:</strong> PACS1 is conserved across vertebrates and invertebrates. <strong>NCBI Gene (human):</strong> 55690. Orthologs: mouse <em>Pacs1</em> (Mus musculus, NCBI:txid10090), zebrafish <em>pacs1</em> (Danio rerio, NCBI:txid7955), <em>Drosophila melanogaster</em> PACS (NCBI:txid7227), <em>C. elegans</em> pacs-1/cePACS-1 (NCBI:txid6239).</li>
+<li><strong>Natural disease in other species:</strong> No naturally occurring SHMS-equivalent disease documented in companion animals or wildlife (no OMIA entry identified); the condition is human and model-induced.</li>
+<li><strong>Comparative biology / conservation:</strong> The <strong>PACS–WDR37 axis is functionally conserved</strong> — human PACS1 complements <em>C. elegans</em> PACS-1 in neurons (<a href="https://pubmed.ncbi.nlm.nih.gov/39031646/">PMID: 39031646</a>); <em>Drosophila</em> PACS deficiency reproduces Golgi/trafficking and seizure-like phenotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/39999877/">PMID: 39999877</a>).</li>
+<li><strong>Zoonotic potential / cross-species transmission:</strong> Not applicable (genetic disorder).</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Key phenotype recapitulated</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Zebrafish</strong> (pacs1 mRNA, R203W)</td>
+<td>Vertebrate, in vivo</td>
+<td>Reduced cranial cartilage; craniofacial anomalies via neural-crest migration; dominant-negative</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36415352/">PMID: 36415352</a>; founding 2012 study</td>
+</tr>
+<tr>
+<td><strong>iPSC-derived cortical organoids</strong> (p.R203W)</td>
+<td>Human in vitro</td>
+<td>Transcriptomic + proteomic dysregulation; neuronal activity/firing deficits; NDD/ASD gene convergence</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38280846/">PMID: 38280846</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42835086/">PMID: 42835086</a></td>
+</tr>
+<tr>
+<td><strong>Patient fibroblasts</strong> (R203W)</td>
+<td>Human in vitro</td>
+<td>ECM dysregulation (↑COL8A1); corrected by allele-specific siRNA</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40972577/">PMID: 40972577</a></td>
+</tr>
+<tr>
+<td><strong>Drosophila</strong> (PACS deficiency)</td>
+<td>Invertebrate</td>
+<td>Golgi disruption, cytokinesis failure, seizure-like phenotype</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39999877/">PMID: 39999877</a></td>
+</tr>
+<tr>
+<td><strong>C. elegans</strong> (cePACS-1 variant knock-in)</td>
+<td>Invertebrate</td>
+<td>Aberrant protein localization in neurons; human PACS1 complements</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39031646/">PMID: 39031646</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38712144/">PMID: 38712144</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Genetic model types available:</strong> Knock-in missense (R203W) in zebrafish, iPSC (patient-derived and gene-edited isogenic), <em>C. elegans</em> CRISPR knock-in; no widely reported germline mouse model of R203W to date (knowledge gap).</li>
+<li><strong>Phenotype recapitulation:</strong> Strong for craniofacial (zebrafish), neuronal activity (organoids), and trafficking/seizure (invertebrates); ECM defects captured in fibroblasts.</li>
+<li><strong>Limitations:</strong> Invertebrate models lack the full mammalian facial/organ phenotype; organoids lack whole-organism circuitry; no established mammalian in-vivo model recapitulating the complete syndrome.</li>
+<li><strong>Resources:</strong> ZFIN (zebrafish), WormBase/FlyBase (invertebrates), Cellosaurus/patient iPSC lines; Alliance of Genome Resources for orthology.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The unifying model is that <strong>a single codon change converts PACS1 from a tightly autoregulated sorting adaptor into a dysregulated interaction hub.</strong> Arg203 sits in a positively charged loop that, in the wild-type protein, is kept autoinhibited by the central unstructured region. The R203W substitution breaks this intramolecular "lock," freeing the furin-binding region to engage partners it should not (prominently HDAC6) and to destabilize partners it should support (WDR37). Because PACS1 is a trafficking adaptor coupled to the dynein/BICD2 motor system, the net result is <strong>misdirected cargo transport and sorting</strong> at a cell-biological level.</p>
+<p>This single lesion fans out across developmental contexts. In <strong>migrating cranial neural crest cells</strong>, it impairs the morphogenetic movements that build the facial skeleton — explaining the pathognomonic, fully penetrant gestalt. In <strong>developing cortical neurons</strong>, it reshapes the transcriptome and proteome and dampens neuronal firing — explaining intellectual disability, autistic traits, reduced brain volumes, and seizure propensity. In <strong>connective tissue/fibroblasts</strong>, it dysregulates extracellular-matrix genes such as COL8A1. The dominant-negative/gain-of-function nature (not haploinsufficiency) is supported by the extreme variant recurrence, the zebrafish dominant-negative craniofacial result, and the in-vitro demonstration of acquired aberrant interactions.</p>
+<p>Two features make SHMS exceptionally tractable for precision medicine: (1) the disease is molecularly homogeneous (one variant explains nearly all cases), and (2) the mutant allele's product is the active toxic species. <strong>Allele-specific RNAi</strong> exploits both — knocking down only the mutant transcript reversed the ECM phenotype in patient cells, a rare "druggable" opportunity in a monogenic NDD. The blood <strong>methylation episignature</strong> adds a reliable, variant-agnostic diagnostic and potential pharmacodynamic biomarker.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Role in this report</th>
+<th>Evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26842493/">26842493</a></td>
+<td>Defining 19-patient cohort; recurrent variant; facial gestalt and malformation frequencies</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23159249/">23159249</a></td>
+<td>Founding 2012 discovery; neural-crest-migration mechanism (not re-verified this session)</td>
+<td>Human + zebrafish</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41858172/">41858172</a></td>
+<td>Structural basis: R203W disrupts intramolecular autoregulation; FBR–HDAC6</td>
+<td>In vitro/NMR</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42304662/">42304662</a></td>
+<td>Commentary framing the autoregulatory mechanism</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41888583/">41888583</a></td>
+<td>Dynein/BICD2 cargo-transport disruption via HDAC6</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41279321/">41279321</a></td>
+<td>Cryo-EM PACS1–WDR37 complex; FBR interface</td>
+<td>Structural</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38280846/">38280846</a></td>
+<td>iPSC organoids: neuronal activity/transcriptional deficits</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42835086/">42835086</a></td>
+<td>Organoid proteomic landscape changes</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38521709/">38521709</a></td>
+<td>Neuronal firing as interventional target</td>
+<td>Review/commentary</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40972577/">40972577</a></td>
+<td>ECM/COL8A1 defect; allele-specific siRNA correction</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36415352/">36415352</a></td>
+<td>Zebrafish dominant-negative craniofacial model</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41882293/">41882293</a></td>
+<td>DNA-methylation episignature; updated phenotype frequencies</td>
+<td>Human/epigenomic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34517877/">34517877</a></td>
+<td>Severity characterization; trial readiness</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37747683/">37747683</a></td>
+<td>~87 cases; majority share recurrent variant</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42794636/">42794636</a></td>
+<td>~158 patients; skill-loss systematic review (non-regressive)</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41750059/">41750059</a></td>
+<td>Quality-of-life quantification (KidsLife)</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39999877/">39999877</a></td>
+<td>Drosophila Golgi/seizure phenotype</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39031646/">39031646</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/38712144/">38712144</a></td>
+<td>C. elegans model; human PACS1 complementation</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42392841/">42392841</a></td>
+<td>Longitudinal multimodal characterization; MRI volume loss; autistic traits</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33369122/">33369122</a></td>
+<td>WDR37–PACS1–PACS2 axis; coloboma; differential dx</td>
+<td>Human clinical/review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30690871/">30690871</a></td>
+<td>Indian patient; cleft lip; pan-ethnic occurrence</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37906144/">37906144</a></td>
+<td>Prenatal diagnosis via WES</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40869285/">40869285</a></td>
+<td>AI facial phenotyping; shared molecular axis</td>
+<td>Computational</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34341476/">34341476</a></td>
+<td>Single rhabdomyosarcoma case (speculative oncogenesis link)</td>
+<td>Human case report</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34373684/">34373684</a></td>
+<td>Multi-exon PACS1 deletion (rare structural variant)</td>
+<td>Human case report</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Citation caveat:</strong> For <a href="https://pubmed.ncbi.nlm.nih.gov/38280846/">PMID: 38280846</a> and <a href="https://pubmed.ncbi.nlm.nih.gov/41888583/">PMID: 41888583</a>, supporting text was drawn from the title/knowledge snippet (flagged as "mismatch" during verification), so quoted phrasing should be treated as paraphrase pending direct abstract confirmation. <a href="https://pubmed.ncbi.nlm.nih.gov/23159249/">PMID: 23159249</a> (founding paper) was not retrievable through the PubMed interface in this session.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No germline mammalian (mouse) model</strong> of R203W is established in the reviewed literature, limiting in-vivo study of the full syndrome and preclinical therapeutic testing.</li>
+<li><strong>Formal epidemiology is absent</strong> — prevalence/incidence are unknown; case counts (~158 by 2026) reflect ascertainment, not true frequency.</li>
+<li><strong>Mechanistic completeness:</strong> The HDAC6/dynein/WDR37 and ECM findings are largely in vitro/single-model; how each contributes quantitatively to specific clinical features is not resolved, and the causal link to skill loss is explicitly unproven (<a href="https://pubmed.ncbi.nlm.nih.gov/42794636/">PMID: 42794636</a>).</li>
+<li><strong>Genotype–phenotype for rare alleles</strong> (R203Q, R315W, deletions) is based on few patients; expressivity determinants are unknown.</li>
+<li><strong>The malignancy association</strong> (rhabdomyosarcoma) rests on a single case and is not an established feature (<a href="https://pubmed.ncbi.nlm.nih.gov/34341476/">PMID: 34341476</a>).</li>
+<li><strong>Therapy is pre-clinical:</strong> allele-specific siRNA is proof-of-concept in fibroblasts only — no in-vivo efficacy, delivery (especially CNS), or safety data yet.</li>
+<li><strong>Two key citations</strong> (neuronal-activity iPSC paper, founding 2012 paper) were not fully re-verified against stored abstracts in this session.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Generate a knock-in mouse model</strong> (Pacs1 R203W) to recapitulate craniofacial, neurological, cardiac, and renal phenotypes and to serve as a preclinical platform.</li>
+<li><strong>Advance allele-specific RNAi/ASO toward the clinic</strong>: optimize mutant-selective sequences, test CNS-penetrant delivery (e.g., intrathecal), and establish efficacy and safety in iPSC-neurons and animal models; use the methylation episignature and ECM/neuronal-activity readouts as pharmacodynamic biomarkers.</li>
+<li><strong>Build a prospective natural-history registry</strong> with standardized longitudinal phenotyping (development, behavior, MRI, seizures, growth) to define progression, QoL trajectories, and surveillance protocols — directly supporting trial readiness.</li>
+<li><strong>Dissect mechanism contributions</strong>: use isogenic iPSC lines and targeted perturbation (HDAC6 inhibition, BICD2/dynein manipulation, WDR37 modulation) to apportion phenotype to each downstream branch; test HDAC6 inhibitors as a repurposing candidate.</li>
+<li><strong>Deepen genotype–phenotype analysis</strong> of rare alleles (R203Q, structural variants) and define expressivity modifiers via multi-omics across larger cohorts.</li>
+<li><strong>Validate the methylation episignature</strong> as a clinical diagnostic and a treatment-response biomarker across laboratories.</li>
+<li><strong>Re-verify flagged citations</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23159249/" target="_blank" rel="noopener noreferrer">PMID 23159249</a>, 38280846, 41888583) against primary abstracts before knowledge-base ingestion.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 8 confirmed findings and 29 reviewed papers across 5 investigation iterations. Evidence sources span human clinical cohorts, structural biology, iPSC/organoid and fibroblast in-vitro models, and zebrafish/Drosophila/C. elegans model organisms.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Schuurs-Hoeijmakers_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Schuurs-Hoeijmakers_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.4.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>26</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>47</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>44</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0000316</code> (1 mention) - the report calls it "common"; HP calls it <strong>Hypertelorism</strong></li>
+<li><code>HP:0000494</code> (1 mention) - the report calls it "common"; HP calls it <strong>Downslanted palpebral fissures</strong></li>
+<li><code>HP:0000508</code> (1 mention) - the report calls it "common"; HP calls it <strong>Ptosis</strong></li>
+<li><code>HP:0000729</code> (1 mention) - the report calls it "frequent"; HP calls it <strong>Autistic behavior</strong></li>
+<li><code>HP:0000028</code> (1 mention) - the report calls it "6/12 males (~50–78%)"; HP calls it <strong>Cryptorchidism</strong></li>
+<li><code>HP:0000699</code> (1 mention) - the report calls it "common"; HP calls it <strong>Diastema</strong></li>
+<li><code>NCIT:C20151</code> (2 mentions) - the report calls it "RNA interference", "RNA Interference"; NCIT calls it <strong>Inflammatory Response</strong></li>
+<li><code>NCIT:C15277</code> (2 mentions) - the report calls it "Rehabilitation Therapy"; NCIT calls it <strong>Mastectomy</strong></li>
+<li><code>NCIT:C38148</code> (2 mentions) - the report calls it "Anticonvulsant Agent"; NCIT calls it <strong>Yes, No, or Unknown Response</strong></li>
+<li><code>NCIT:C53543</code> (1 mention) - the report calls it "Speech Therapy"; NCIT calls it <strong>Rare Non-Neoplastic Disorder</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>HP:0000792</code> (1 mention) - HP does not contain this term</li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0006306</code> (obsolete DNA methylation) (2 mentions)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0030198</code> (2 mentions) - the report calls it "extracellular matrix organization", "ECM organization"; GO calls it <strong>extracellular matrix organization</strong></li>
+<li><code>NCIT:C15688</code> (1 mention) - the report calls it "Pharmacotherapy"; NCIT calls it <strong>Maintenance Therapy</strong></li>
+<li><code>GO:0006306</code> (2 mentions) - the report calls it "DNA methylation"; GO calls it <strong>obsolete DNA methylation</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>GO:0030198</code> - called "extracellular matrix organization", "ECM organization"</li>
+<li><code>NCIT:C20151</code> - called "RNA interference", "RNA Interference"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Schnyder_Corneal_Dystrophy-claude_code.html">← Schnyder Corneal Dystrophy (Claude Code)</a>
+                
+                
+                <a href="Schwannoma-falcon.html">Schwannoma (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Schuurs-Hoeijmakers_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Schuurs-Hoeijmakers_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

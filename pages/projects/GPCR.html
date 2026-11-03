@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPCRs: Drug Mechanisms and Disease Modules - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html" class="active" aria-current="true">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>GPCRs: Drug Mechanisms and Disease Modules</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                <span class="tag">PHARMACOLOGY</span><span class="tag">MODULES</span><span class="tag">GPCR</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>GPCRs: Drug Mechanisms and Disease Modules</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (56)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Heart_Failure.html">Heart Failure</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Essential_Hypertension.html">Essential Hypertension</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Atrial_Fibrillation.html">Atrial Fibrillation</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Type_2_Diabetes_Mellitus.html">Type 2 Diabetes Mellitus</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Obesity.html">Obesity</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Obesity_Due_to_MC4R_Pathway_Disruption.html">Obesity Due to MC4R Pathway Disruption</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Opioid_Use_Disorder.html">Opioid Use Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Acute_Opioid_Poisoning.html">Acute Opioid Poisoning</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Acute_Post-Surgical_Pain.html">Acute Post-Surgical Pain</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Alcohol_Use_Disorder.html">Alcohol Use Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Schizophrenia.html">Schizophrenia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Parkinson&#39;s_Disease.html">Parkinsons Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Migraine.html">Migraine</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Migraine_with_aura.html">Migraine with Aura</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Familial_Hemiplegic_Migraine.html">Familial Hemiplegic Migraine</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/pseudotumor_cerebri.html">pseudotumor cerebri</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Restless_Legs_Syndrome.html">Restless Legs Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Peripartum_Cardiomyopathy.html">Peripartum Cardiomyopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Asthma.html">Asthma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Thunderstorm_Asthma.html">Thunderstorm Asthma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Formaldehyde_Poisoning.html">Formaldehyde Poisoning</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chronic_Obstructive_Pulmonary_Disease.html">Chronic Obstructive Pulmonary Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Cough_Variant_Asthma.html">Cough Variant Asthma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Sulfur_Mustard_Poisoning.html">Sulfur Mustard Poisoning</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Urticaria.html">Urticaria</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Alpha-gal_Syndrome.html">Alpha-gal Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Gastroesophageal_Reflux_Disease.html">Gastroesophageal Reflux Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Mast_Cell_Activation_Syndrome.html">Mast Cell Activation Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Systemic_Mastocytosis.html">Systemic Mastocytosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Maculopapular_Cutaneous_Mastocytosis.html">Maculopapular Cutaneous Mastocytosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Monoclonal_Mast_Cell_Activation_Syndrome.html">Monoclonal Mast Cell Activation Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/CKD-Mineral_Bone_Disorder.html">CKD-Mineral Bone Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Parathyroid_Gland_Carcinoma.html">Parathyroid Gland Carcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Parathyroid_Hyperplasia.html">Parathyroid Hyperplasia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Multiple_Sclerosis.html">Multiple Sclerosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Coronary_Artery_Disease.html">Coronary Artery Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Carotid_Stenosis.html">Carotid Stenosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/CADASIL_Type_1.html">CADASIL Type 1</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Peripheral_Artery_Disease.html">Peripheral Artery Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Carotid_Artery_Occlusion.html">Carotid Artery Occlusion</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Kawasaki_Disease.html">Kawasaki Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Grange_syndrome.html">Grange syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Renal_Artery_Obstruction.html">Renal Artery Obstruction</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Secondary_Erythromelalgia.html">Secondary Erythromelalgia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Glaucoma.html">Glaucoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Familial_Hypocalciuric_Hypercalcemia_1.html">Familial Hypocalciuric Hypercalcemia 1</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Familial_Hypocalciuric_Hypercalcemia_2.html">Familial Hypocalciuric Hypercalcemia 2</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Autosomal_Dominant_Hypocalcemia_1.html">Autosomal Dominant Hypocalcemia 1</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/X-Linked_Nephrogenic_Diabetes_Insipidus.html">X-Linked Nephrogenic Diabetes Insipidus</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pseudohypoparathyroidism.html">Pseudohypoparathyroidism</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Familial_Glucocorticoid_Deficiency.html">Familial Glucocorticoid Deficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Kallmann_Syndrome.html">Kallmann Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Bipolar_Disorder.html">Bipolar Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Cannabis_Hyperemesis_Syndrome.html">Cannabis Hyperemesis Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Subacute_Delirium.html">Subacute Delirium</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/IgA_Nephropathy.html">IgA Nephropathy</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (22)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/cardiac_camp_pka_calcium_handling.html">cardiac camp pka calcium handling</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/somatotroph_camp_pka_overactivation.html">somatotroph camp pka overactivation</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/spinal_hsp90_opioid_enhancement.html">spinal hsp90 opioid enhancement</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/addiction_cycle.html">addiction cycle</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/parkinsonism_dopaminergic_degeneration.html">parkinsonism dopaminergic degeneration</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/photoreceptor_degeneration.html">photoreceptor degeneration</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/mu_opioid_receptor_agonism.html">mu opioid receptor agonism</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/mu_opioid_receptor_antagonism.html">mu opioid receptor antagonism</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/beta_adrenergic_receptor_blockade.html">beta adrenergic receptor blockade</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/d2_receptor_antagonism.html">d2 receptor antagonism</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/at1_receptor_blockade.html">at1 receptor blockade</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/glp1_receptor_agonism.html">glp1 receptor agonism</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/dopamine_receptor_agonism.html">dopamine receptor agonism</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/serotonin_1b_1d_receptor_agonism.html">serotonin 1b 1d receptor agonism</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/cgrp_receptor_antagonism.html">cgrp receptor antagonism</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/h1_receptor_antagonism.html">h1 receptor antagonism</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/h2_receptor_antagonism.html">h2 receptor antagonism</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/beta2_adrenergic_receptor_agonism.html">beta2 adrenergic receptor agonism</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/muscarinic_receptor_antagonism.html">muscarinic receptor antagonism</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/casr_positive_allosteric_modulation.html">casr positive allosteric modulation</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/p2y12_receptor_antagonism.html">p2y12 receptor antagonism</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/migraine_neurovascular_mechanism.html">migraine neurovascular mechanism</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/GPCR.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="gpcrs-drug-mechanisms-and-disease-modules">GPCRs: Drug Mechanisms and Disease Modules</h1>
+<h2 id="overview">Overview</h2>
+<p>G protein-coupled receptors are the molecular target of a large share of
+approved drugs and the site of a well-defined set of Mendelian
+endocrinopathies. This project builds dismech <strong>mechanism modules</strong> around
+them, on two axes:</p>
+<ol>
+<li><strong>Drug-mechanism modules</strong> — one per major GPCR-targeting drug class, so a
+   disease entry's treatment can <code>conforms_to</code> a shared receptor → transducer →
+   effector chain instead of re-deriving it, following the pattern the
+   antimicrobial set established (<code>projects/ANTIMICROBIAL.md</code>).</li>
+<li><strong>Disease modules</strong> — the recurring ways a GPCR or its transducer breaks:
+   loss of function (hormone resistance), constitutive activation, and
+   transducer defects.</li>
+</ol>
+<p>The gene side is curated in parallel in ai-gene-review
+(<a href="https://github.com/ai4curation/ai-gene-review/blob/main/projects/GPCR.md">projects/GPCR.md</a>):
+receptor and transducer gene reviews, PANTHER family reviews, and GO
+pathway modules (Gs-cAMP-PKA, Gq-PLC-Ca2+, planned Gi/o, G12/13, arrestin).
+The receptor reviewed there is the molecular anchor for the module here.</p>
+<h2 id="scope-what-this-is-and-is-not">Scope (what this is and is not)</h2>
+<ul>
+<li><strong>In scope:</strong> the pharmacological mechanism by which a GPCR drug changes a
+  disease's pathophysiology, including on-target adverse effects that are
+  themselves mechanisms (opioid respiratory depression, antipsychotic
+  parkinsonism, 5-HT2B valvulopathy).</li>
+<li><strong>Not in scope:</strong> a drug–indication database, dosing, or pharmacokinetics
+  except where it gates mechanism. NCIT P302 already supplies indications
+  (<code>projects/NCIT_TREATMENT_INDICATIONS.md</code>).</li>
+<li><strong>Granularity:</strong> one module per receptor-and-direction (agonism vs
+  antagonism), not per drug. Drugs sit on the conforming disease entries'
+  <code>treatments</code> with <code>therapeutic_agent</code> bindings.</li>
+</ul>
+<h2 id="existing-modules-that-touch-gpcrs">Existing modules that touch GPCRs</h2>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>GPCR content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cardiac_camp_pka_calcium_handling</code></td>
+<td>beta-adrenergic → cAMP → PKA → Ca2+ handling in cardiomyocytes</td>
+</tr>
+<tr>
+<td><code>somatotroph_camp_pka_overactivation</code></td>
+<td>GPR101 / GNAS / AIP convergence on cAMP in somatotrophs</td>
+</tr>
+<tr>
+<td><code>spinal_hsp90_opioid_enhancement</code></td>
+<td>mu-opioid receptor signaling amplification</td>
+</tr>
+<tr>
+<td><code>addiction_cycle</code></td>
+<td>dopamine and opioid receptor circuitry</td>
+</tr>
+<tr>
+<td><code>parkinsonism_dopaminergic_degeneration</code></td>
+<td>nigrostriatal dopaminergic degeneration → striatal dopamine deficiency (presynaptic; no receptor content, so not a target for D2-blockade parkinsonism, which involves no neuron loss)</td>
+</tr>
+<tr>
+<td><code>photoreceptor_degeneration</code></td>
+<td>rhodopsin-related retinopathy</td>
+</tr>
+</tbody>
+</table>
+<p>Read each before creating a neighbour, and extend rather than duplicate where
+the scope already fits.</p>
+<h2 id="workstream-a-drug-mechanism-modules">Workstream A — Drug-mechanism modules</h2>
+<p>Candidate modules, ordered by how many existing disease entries would
+conform:</p>
+<table>
+<thead>
+<tr>
+<th>Proposed module</th>
+<th>Receptor (gene)</th>
+<th>Drug classes</th>
+<th>Candidate conformers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>beta-adrenergic receptor blockade</td>
+<td>ADRB1, ADRB2</td>
+<td>beta-blockers</td>
+<td><a href="../disorders/Heart_Failure.html">Heart Failure</a>, <a href="../disorders/Essential_Hypertension.html">Essential Hypertension</a>, <a href="../disorders/Atrial_Fibrillation.html">Atrial Fibrillation</a> (<a href="../disorders/Glaucoma.html">Glaucoma</a> and <a href="../disorders/Migraine.html">Migraine</a> were assessed and rejected; see the module's scope notes)</td>
+</tr>
+<tr>
+<td>AT1 receptor blockade</td>
+<td>AGTR1</td>
+<td>sartans, ARNI, sparsentan</td>
+<td><a href="../disorders/Essential_Hypertension.html">Essential Hypertension</a>, <a href="../disorders/Heart_Failure.html">Heart Failure</a>, <a href="../disorders/IgA_Nephropathy.html">IgA Nephropathy</a> (diabetic kidney disease has no entry yet; the module's renal evidence is the RENAAL trial in type 2 diabetic nephropathy)</td>
+</tr>
+<tr>
+<td>mu-opioid receptor agonism</td>
+<td>OPRM1</td>
+<td>opioid analgesics; antagonists/partial agonists for OUD</td>
+<td><a href="../disorders/Opioid_Use_Disorder.html">Opioid Use Disorder</a>, <a href="../disorders/Acute_Opioid_Poisoning.html">Acute Opioid Poisoning</a></td>
+</tr>
+<tr>
+<td>D2 receptor antagonism</td>
+<td>DRD2</td>
+<td>antipsychotics, antiemetics</td>
+<td><a href="../disorders/Schizophrenia.html">Schizophrenia</a>, <a href="../disorders/Bipolar_Disorder.html">Bipolar Disorder</a>, <a href="../disorders/Cannabis_Hyperemesis_Syndrome.html">Cannabis Hyperemesis Syndrome</a>, Subacute_Delirium. The extrapyramidal arm is modelled inside the module rather than as a drug-induced parkinsonism conformer; tardive dyskinesia is deliberately out of scope — see the module's scope notes</td>
+</tr>
+<tr>
+<td>dopamine receptor agonism</td>
+<td>DRD2, DRD3</td>
+<td>dopamine agonists</td>
+<td><a href="../disorders/Parkinson's_Disease.html">Parkinsons Disease</a>, hyperprolactinemia</td>
+</tr>
+<tr>
+<td>GLP-1 / GIP receptor agonism</td>
+<td>GLP1R, GIPR</td>
+<td>incretin mimetics</td>
+<td><a href="../disorders/Type_2_Diabetes_Mellitus.html">Type 2 Diabetes Mellitus</a>, <a href="../disorders/Obesity.html">Obesity</a></td>
+</tr>
+<tr>
+<td>5-HT1B/1D agonism</td>
+<td>HTR1B, HTR1D</td>
+<td>triptans</td>
+<td><a href="../disorders/Migraine.html">Migraine</a>, Migraine_with_Aura. <code>Familial_Hemiplegic_Migraine</code> was assessed and rejected: its management is avoidance of vasoconstricting agents, and a disease that withholds a drug class is not an instance of that class's mechanism</td>
+</tr>
+<tr>
+<td>CGRP receptor antagonism</td>
+<td>CALCRL, RAMP1</td>
+<td>gepants, erenumab</td>
+<td><a href="../disorders/Migraine.html">Migraine</a>, pseudotumor_cerebri. Scoped to receptor antagonism, so the peptide-directed antibodies are out; <code>Migraine_with_Aura</code> was assessed and rejected because its only CGRP treatment names no agent</td>
+</tr>
+<tr>
+<td>H1 receptor antagonism</td>
+<td>HRH1</td>
+<td>antihistamines</td>
+<td><a href="../disorders/Urticaria.html">Urticaria</a>, Alpha-gal_Syndrome. Two modules rather than one: see the Decisions below. <code>allergic rhinitis</code> was listed here as a candidate and has no dismech entry, so <code>Alpha-gal_Syndrome</code> was wired instead, which also keeps the module indication-independent</td>
+</tr>
+<tr>
+<td>H2 receptor antagonism</td>
+<td>HRH2</td>
+<td>H2 blockers</td>
+<td>Gastroesophageal_Reflux_Disease. Scoped to H2 blockade, so the proton-pump inhibitors are out: they block the same terminal pump non-competitively and the H2RA mechanism is upstream of it</td>
+</tr>
+<tr>
+<td>beta2 adrenergic receptor agonism</td>
+<td>ADRB2</td>
+<td>SABA, LABA</td>
+<td><a href="../disorders/Asthma.html">Asthma</a>, <a href="../disorders/Thunderstorm_Asthma.html">Thunderstorm Asthma</a>, Formaldehyde_Poisoning. Airway-scoped: the receptor's neuromuscular-transmission and potassium-shift effector chains are a separate question, below. <code>Chronic_Obstructive_Pulmonary_Disease</code> and <code>Cough_Variant_Asthma</code> were initially blocked by a generic <code>Bronchodilator</code> agent binding and were wired in #15777, which refined each to a beta-adrenergic agonist class term</td>
+</tr>
+<tr>
+<td>muscarinic receptor antagonism (airway)</td>
+<td>CHRM3</td>
+<td>SAMA, LAMA</td>
+<td>Chronic_Obstructive_Pulmonary_Disease. Airway-scoped, like the beta2 module and for the same reason; the module's own notes carry the census that makes the scope concrete. <code>Cough_Variant_Asthma</code> was assessed and rejected: its treatment is beta2-only in its own text, and the earlier assumption that it bundled a muscarinic antagonist was wrong</td>
+</tr>
+<tr>
+<td>CaSR positive allosteric modulation</td>
+<td>CASR</td>
+<td>calcimimetics</td>
+<td><a href="../disorders/CKD-Mineral_Bone_Disorder.html">CKD-Mineral Bone Disorder</a>, <a href="../disorders/Familial_Hypocalciuric_Hypercalcemia_1.html">Familial Hypocalciuric Hypercalcemia 1</a> and _2, <a href="../disorders/Parathyroid_Gland_Carcinoma.html">Parathyroid Gland Carcinoma</a>, Parathyroid_Hyperplasia. This row originally read "secondary hyperparathyroidism in CKD"; the module turned out to be indication-independent, since the drug acts at the same receptor on the same cell whether the hormone excess comes from renal handling, an inactivating receptor variant or autonomous parathyroid tissue. Not tissue-scoped, unlike the airway modules above</td>
+</tr>
+<tr>
+<td>S1P receptor modulation</td>
+<td>S1PR1</td>
+<td>fingolimod, siponimod</td>
+<td><a href="../disorders/Multiple_Sclerosis.html">Multiple Sclerosis</a></td>
+</tr>
+<tr>
+<td>P2Y12 receptor antagonism</td>
+<td>P2RY12</td>
+<td>clopidogrel, ticagrelor</td>
+<td><a href="../disorders/Coronary_Artery_Disease.html">Coronary Artery Disease</a>, <a href="../disorders/Carotid_Stenosis.html">Carotid Stenosis</a>, CADASIL_Type_1. Indication-independent, like the CaSR module: the three conformers span coronary, carotid and small-vessel cerebral disease, and the module is scoped to the receptor rather than to any of them. Six further entries name a P2Y12 antagonist and are not wired, because no treatment in any of them binds a P2Y12 antagonist as <code>therapeutic_agent</code>; the module's notes give the reason for each</td>
+</tr>
+<tr>
+<td>V2 receptor antagonism</td>
+<td>AVPR2</td>
+<td>vaptans</td>
+<td>SIADH, ADPKD</td>
+</tr>
+<tr>
+<td>MC4R agonism</td>
+<td>MC4R</td>
+<td>setmelanotide</td>
+<td><a href="../disorders/Obesity_Due_to_MC4R_Pathway_Disruption.html">Obesity Due to MC4R Pathway Disruption</a></td>
+</tr>
+</tbody>
+</table>
+<p>Each module follows the <code>create-module</code> skill: a trigger → receptor
+engagement → transducer → effector → tissue consequence chain, with the
+treatment <code>target_mechanisms</code> drug pattern, <code>module_categories:
+[PHARMACOLOGY]</code> (plus <code>TOXICOLOGY</code> where an adverse-effect arm is modelled),
+and receptor genes bound to HGNC.</p>
+<p>Adverse-effect arms to model explicitly, because they are mechanisms in
+their own right: opioid respiratory depression (brainstem MOR), D2-blockade
+extrapyramidal effects and hyperprolactinemia, beta-blocker bronchospasm
+(beta2 off-selectivity), 5-HT2B agonist valvulopathy.</p>
+<h3 id="first-pairing-mu-opioid-receptor-oprm1">First pairing: mu-opioid receptor (OPRM1)</h3>
+<p>Chosen first (2026-10-15): opioid drugs appear in about 18 entries
+(<code>Opioid_Use_Disorder</code>, <code>Acute_Opioid_Poisoning</code>, <code>Acute_Post-Surgical_Pain</code>,
+<code>Alcohol_Use_Disorder</code>, ...) and in <code>addiction_cycle</code> and
+<code>spinal_hsp90_opioid_enhancement</code>, each describing the mechanism on its own.</p>
+<ul>
+<li><strong>Mu-opioid receptor agonism</strong> (morphine, fentanyl, oxycodone; methadone
+  and buprenorphine for OUD). Branches: analgesia (spinal and supraspinal),
+  respiratory depression (brainstem; the overdose mechanism), constipation
+  (enteric), reward/tolerance/dependence (link to <code>addiction_cycle</code>).
+  Buprenorphine, a partial agonist, belongs here with its respiratory
+  ceiling recorded on that branch rather than in a third module.</li>
+<li><strong>Mu-opioid receptor antagonism</strong> (naloxone reversal, naltrexone relapse
+  prevention, peripheral antagonists for opioid-induced constipation).</li>
+<li>Biased agonism (oliceridine) remains the open question below; this module
+  pair is where it will need an answer.</li>
+<li>Kappa-opioid modules (nalfurafine; mixed agonist-antagonists) come later.</li>
+</ul>
+<h2 id="workstream-b-disease-modules">Workstream B — Disease modules</h2>
+<table>
+<thead>
+<tr>
+<th>Proposed module</th>
+<th>Mechanism</th>
+<th>Example conformers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GPCR loss-of-function hormone resistance</td>
+<td>receptor misfolding / ER retention or loss of coupling → end-organ resistance despite high ligand</td>
+<td><a href="../disorders/X-Linked_Nephrogenic_Diabetes_Insipidus.html">X-Linked Nephrogenic Diabetes Insipidus</a> (AVPR2), <a href="../disorders/Familial_Hypocalciuric_Hypercalcemia_1.html">Familial Hypocalciuric Hypercalcemia 1</a> (CASR), <a href="../disorders/Familial_Glucocorticoid_Deficiency.html">Familial Glucocorticoid Deficiency</a> (MC2R/MRAP), <a href="../disorders/Obesity_Due_to_MC4R_Pathway_Disruption.html">Obesity Due to MC4R Pathway Disruption</a>, <a href="../disorders/Kallmann_Syndrome.html">Kallmann Syndrome</a> / GNRHR / KISS1R hypogonadism</td>
+</tr>
+<tr>
+<td>GPCR constitutive activation</td>
+<td>ligand-independent receptor signaling → hormone excess or tissue overgrowth</td>
+<td><a href="../disorders/Autosomal_Dominant_Hypocalcemia_1.html">Autosomal Dominant Hypocalcemia 1</a> (CASR gain), Jansen metaphyseal chondrodysplasia (PTH1R), familial male-limited precocious puberty (LHCGR), non-autoimmune hyperthyroidism (TSHR)</td>
+</tr>
+<tr>
+<td>Gs alpha defect</td>
+<td>GNAS loss (with imprinting) → multi-hormone resistance; GNAS gain → cAMP excess</td>
+<td><a href="../disorders/Pseudohypoparathyroidism.html">Pseudohypoparathyroidism</a>, McCune-Albright syndrome (no dismech entry yet; a curation target); relate to <code>somatotroph_camp_pka_overactivation</code></td>
+</tr>
+</tbody>
+</table>
+<p>The loss/gain pair is deliberately symmetric: the same receptor (CASR, TSHR,
+LHCGR) appears on both sides, which is the test that the modules are
+mechanism-level rather than disease-level.</p>
+<h2 id="plan">Plan</h2>
+<h3 id="phase-0-scoping">Phase 0 — scoping</h3>
+<ul>
+<li>[ ] Census: which <code>kb/disorders</code> entries already name a GPCR drug in
+      <code>treatments</code> (<code>therapeutic_agent</code>) and which GPCR genes appear in
+      <code>genetic:</code></li>
+<li>[ ] Agree tranche-1 receptor list with the ai-gene-review side</li>
+<li>[ ] Decide whether the drug-mechanism set becomes a <code>kb/module_collections/</code>
+      entry (GPCR drug mechanisms)</li>
+</ul>
+<h3 id="phase-1-first-modules">Phase 1 — first modules</h3>
+<ul>
+<li>[x] mu-opioid receptor agonism (first module; see above) — <code>mu_opioid_receptor_agonism</code> (#14453)</li>
+<li>[x] mu-opioid receptor antagonism — <code>mu_opioid_receptor_antagonism</code> (#14456)</li>
+<li>[x] beta-adrenergic receptor blockade — <code>beta_adrenergic_receptor_blockade</code> (#15087)</li>
+<li>[ ] GLP-1 receptor agonism — <code>glp1_receptor_agonism</code> (#15252, in review)</li>
+<li>[ ] GPCR loss-of-function hormone resistance</li>
+<li>[ ] GPCR constitutive activation</li>
+</ul>
+<h3 id="phase-2-conformers-and-remaining-modules">Phase 2 — conformers and remaining modules</h3>
+<ul>
+<li>[ ] Add <code>conforms_to</code> on the treatment-linked pathophysiology nodes of the
+      candidate conformers above</li>
+<li>[x] The four opioid-treated entries, in #14973: <code>Opioid_Use_Disorder</code> and
+        <code>Acute_Opioid_Poisoning</code> against both mu-opioid modules, <code>Acute_Post-Surgical_Pain</code>
+        against agonism, <code>Alcohol_Use_Disorder</code> against antagonism</li>
+<li>[x] Three beta-blocker-treated entries, in #15087: <code>Heart_Failure</code>,
+        <code>Essential_Hypertension</code> and <code>Atrial_Fibrillation</code> against
+        <code>beta_adrenergic_receptor_blockade</code>. <code>Migraine</code> and <code>Glaucoma</code> are deliberately
+        not wired — see that module's scope notes</li>
+<li>[x] Four antipsychotic-treated entries, in #15299: <code>Schizophrenia</code>, <code>Bipolar_Disorder</code>,
+        <code>Cannabis_Hyperemesis_Syndrome</code> and <code>Subacute_Delirium</code> against
+        <code>d2_receptor_antagonism</code>. The four span three indications — psychosis/mania, antiemesis
+        and agitation — which is the point: one receptor action, three reasons to prescribe.
+        <code>Schizophrenia</code> keeps its dopamine-dysregulation target alongside the receptor node,
+        because D2 blockade acts downstream of that presynaptic abnormality</li>
+<li>[x] Three angiotensin-blocker-treated entries, in #15271: <code>Essential_Hypertension</code>,
+        <code>Heart_Failure</code> and <code>IgA_Nephropathy</code> against <code>at1_receptor_blockade</code>.
+        <code>Essential_Hypertension</code>'s ACE inhibitor is pointed at its own
+        renin-angiotensin-aldosterone node instead, because an ACE inhibitor never
+        occupies the receptor — see that module's scope notes</li>
+<li>[x] Two incretin-treated entries, in #15252: <code>Type_2_Diabetes_Mellitus</code>
+        and <code>Obesity</code> against <code>glp1_receptor_agonism</code>, both at the receptor step. The
+        module names no dominant weight-loss arm, so conforming <code>Obesity</code> against one
+        would assert more than the evidence carries</li>
+<li>[x] Three dopamine-agonist-treated entries, in #15350: <code>Parkinsons_Disease</code>,
+        <code>Restless_Legs_Syndrome</code> and <code>Peripartum_Cardiomyopathy</code> against
+        <code>dopamine_receptor_agonism</code>. All three anchor without a <code>downstream</code> edge; the
+        first two at the trigger, and <code>Peripartum_Cardiomyopathy</code> at the module's
+        lactotroph node instead, because bromocriptine is given there for prolactin
+        suppression rather than for striatal signalling</li>
+<li>[x] Two triptan-treated entries, in #15470: <code>Migraine</code> and <code>Migraine_with_Aura</code>
+        against <code>serotonin_1b_1d_receptor_agonism</code>, both at the trigger.
+        <code>Familial_Hemiplegic_Migraine</code> is deliberately not wired — see that module's
+        scope notes</li>
+<li>[x] Two CGRP-antagonist-treated entries, in #15624: <code>Migraine</code>, through its named
+        gepant treatment, and <code>pseudotumor_cerebri</code>, through its erenumab treatment.
+        The second is not a migraine entry on purpose, so the module is
+        indication-independent and both the small-molecule and the antibody route are
+        exercised. <code>Migraine</code>'s anti-CGRP antibody treatment is left unwired because it
+        bundles a receptor-directed agent with two peptide-directed ones</li>
+<li>[x] Two antihistamine-treated entries, in #15686: <code>Urticaria</code> and
+        <code>Alpha-gal_Syndrome</code> against <code>h1_receptor_antagonism</code>, both at the trigger.
+        The second is not an urticaria entry on purpose, so the module is
+        indication-independent. Four further entries
+        (<code>Mast_Cell_Activation_Syndrome</code>, <code>Maculopapular_Cutaneous_Mastocytosis</code>,
+        <code>Systemic_Mastocytosis</code> and <code>Monoclonal_Mast_Cell_Activation_Syndrome</code>) were
+        recorded here as blocked by bundling an H1 and an H2 agent into one treatment.
+        That premise was wrong, and reading the four settled it: a treatment that binds
+        its components as <em>separate</em> agents can carry one <code>target_mechanisms</code> link per
+        receptor and assert nothing false, so bundling blocks nothing. Two of the four
+        already bound both classes separately; the other two had agents missing rather
+        than conflated. #15778 wired all four to <code>h1_receptor_antagonism</code> with no split,
+        adding the missing agent bindings</li>
+<li>[x] One H2-blocker-treated entry, in #15689: <code>Gastroesophageal_Reflux_Disease</code>
+        against <code>h2_receptor_antagonism</code>, at the trigger. Its existing H2 antagonist
+        treatment was wired rather than a new one added</li>
+<li>[x] Three beta2-agonist-treated entries, in #15706: <code>Asthma</code> (both its pre-existing
+        short- and long-acting treatments wired to one node, since the receptor is the
+        same and only the route and duration differ), <code>Thunderstorm_Asthma</code> and
+        <code>Formaldehyde_Poisoning</code> against <code>beta2_adrenergic_receptor_agonism</code>, all at the
+        trigger. The third is a toxicological entry rather than an airway disease, so the
+        module is not tied to asthma; its link carries receptor-level evidence only,
+        because that treatment's own notes record that no formaldehyde-specific efficacy
+        publication exists. Three further entries treat with a beta2 agonist and were
+        not wired at the time, each blocked by one treatment covering more than one drug
+        class. Two of the three were since unblocked in #15777 and are now conformers;
+        the third should not be.
+        <code>Chronic_Obstructive_Pulmonary_Disease</code> bound the generic <code>NCIT:C319</code>
+        Bronchodilator agent in a single <code>Bronchodilators</code> treatment, so wiring it would
+        have asserted beta2 action for a LAMA. #15777 split that treatment into a
+        long-acting beta-2 agonist and a long-acting muscarinic antagonist, keeping all
+        four of its citations on both halves with per-class explanations, and wired the
+        beta2 half. <code>Cough_Variant_Asthma</code> turned out not to be bundled at all: its
+        treatment is beta2-only in its own description, and the generic agent was an
+        under-specific binding rather than a bundle, so #15777 refined the agent and wired
+        it with no split. <code>Sulfur_Mustard_Poisoning</code> is a third shape and is the one that
+        stays out: its salmeterol <em>is</em> bound at agent level (<code>CHEBI:9011</code>), but inside
+        <code>Macrolide and Inhaled Corticosteroid Therapy for Bronchiolitis Obliterans</code>
+        alongside azithromycin and fluticasone propionate, and that treatment's own
+        <code>target_mechanisms</code> says the combination is used for anti-inflammatory rather than
+        bronchodilator action. Splitting it would assert a bronchodilator mechanism the
+        entry explicitly disclaims, so it should be left alone</li>
+<li>[x] Four antihistamine-treated mastocytosis entries, in #15778:
+        <code>Mast_Cell_Activation_Syndrome</code>, <code>Systemic_Mastocytosis</code>,
+        <code>Maculopapular_Cutaneous_Mastocytosis</code> and
+        <code>Monoclonal_Mast_Cell_Activation_Syndrome</code> against <code>h1_receptor_antagonism</code>, all
+        at the trigger. <code>Maculopapular_Cutaneous_Mastocytosis</code>' node is the only one bound
+        to the dermis, since its entry is cutaneous-only; the other three carry no
+        location. Two of the four needed agent bindings added, and the anti-leukotriene
+        half of <code>Monoclonal_Mast_Cell_Activation_Syndrome</code>'s treatment is recorded in its
+        <code>notes</code> as deliberately unbound -- <code>CHEBI:49159</code> leukotriene antagonist is a CHEBI
+        <em>role</em> term and so sits outside the <code>ChemicalEntityTerm</code> enum, and no NCIT class
+        term for the drug class was found</li>
+<li>[x] One muscarinic-antagonist-treated entry, in #15795:
+        <code>Chronic_Obstructive_Pulmonary_Disease</code> against
+        <code>muscarinic_receptor_antagonism</code>, at the trigger. It is the second receptor
+        occupancy node in that entry, alongside the beta2 one from #15777, which is the
+        point of keeping the two modules separate</li>
+<li>[x] Five calcimimetic-treated entries, in #15925: <code>CKD-Mineral_Bone_Disorder</code>,
+        <code>Familial_Hypocalciuric_Hypercalcemia_1</code> and <code>_2</code>, <code>Parathyroid_Gland_Carcinoma</code> and
+        <code>Parathyroid_Hyperplasia</code> against <code>casr_positive_allosteric_modulation</code>, all at the
+        trigger. The five span four different reasons parathyroid hormone is excessive --
+        reduced renal calcium and vitamin D handling, an inactivating <em>CASR</em> variant, a
+        <em>GNA11</em> signalling defect, and autonomous malignant or hyperplastic tissue -- which
+        is what makes this module indication-independent rather than a CKD module, and the
+        point is carried by a source rather than assumed: the cited case report states that
+        cinacalcet suppresses parathyroid hormone in parathyroid carcinoma in the same way
+        as in uraemic hyperplasia. Two further entries name a calcimimetic and are not
+        wired. <code>Multiple_Endocrine_Neoplasia_Type_1</code> has no calcimimetic treatment to wire,
+        only a mention inside a parathyroidectomy treatment that binds no agent of its own.
+        <code>Autosomal_Recessive_Hypophosphatemic_Rickets_1</code> records a single adjunctive course
+        in one adult that was stopped because higher doses were not tolerated, and its own
+        description says it does not establish routine efficacy, so wiring it would present
+        an abandoned single-patient trial as a therapeutic mechanism. The autosomal dominant
+        hypocalcaemia entries are recorded in the module as never-conformers: they are
+        caused by <em>activating</em> receptor variants, so a calcimimetic is the wrong direction
+        of action and those entries name it as something to avoid</li>
+<li>[x] Three P2Y12-antagonist-treated entries, in #15928:
+        <code>Coronary_Artery_Disease</code>, <code>Carotid_Stenosis</code> and <code>CADASIL_Type_1</code> against
+        <code>p2y12_receptor_antagonism</code>, all at the trigger. Those three are the only entries whose
+        treatment binds clopidogrel or ticagrelor as <code>therapeutic_agent</code>. Six others name a P2Y12
+        antagonist in a treatment context and are not wired, because none of them binds one as an
+        agent, so a <code>target_mechanisms</code> link would assert a receptor action the entry does not
+        name. They fail that test in four different ways, which is why the worklist has to be read
+        per entry rather than as one search: <code>Peripheral_Artery_Disease</code> binds the generic
+        <code>NCIT:C1327</code> Antiplatelet Agent, which covers aspirin as well;
+        <code>Carotid_Artery_Occlusion</code> names clopidogrel in its treatment prose but binds only
+        acetylsalicylic acid; <code>Grange_syndrome</code>, <code>Kawasaki_Disease</code> and
+        <code>Renal_Artery_Obstruction</code> bind no agent at all on the relevant treatment; and
+        <code>Secondary_Erythromelalgia</code> names ticlopidine only as one of the platelet inhibitors that
+        failed to relieve its pain, so it is not treated with the class at all. Only the first of
+        those is the generic-binding shape that the <code>Bronchodilator</code> refinements in #15777 fixed.
+        Five further entries name the class or one of its drugs but are not candidates:
+        <code>Alexander_Disease</code> (clopidogrel as a mouse-model probe),
+        <code>Atypical_Hemolytic_Uremic_Syndrome</code> (clopidogrel as a precipitant),
+        <code>CYCS-Related_Thrombocytopenia</code> (whose own notes say a carrier's clopidogrel is not
+        evidence that antiplatelet drugs treat the disease), and
+        <code>Platelet-type_Bleeding_Disorder_8</code> and <code>Platelet-type_Bleeding_Disorder_16</code>, where P2RY12
+        is the causal gene and loss of the receptor is the disease rather than the therapy. Note
+        that a grep for drug names alone returns thirteen entries, not fourteen:
+        <code>Platelet-type_Bleeding_Disorder_16</code> names only "P2Y12 inhibitors" as a class, so searching
+        for <code>p2y12</code> as well as the drug names is what makes the two counts agree</li>
+<li>[x] Nine nodes across the three migraine entries, in #15934: <code>Migraine</code> at four,
+        <code>Familial_Hemiplegic_Migraine</code> at three and <code>Migraine_with_Aura</code> at two, against
+        <code>migraine_neurovascular_mechanism</code>. This one adds no nodes at all — every node it
+        conforms was already in the entry, which is what makes it the cheapest kind of
+        conformance and the clearest demonstration of what conformance is for: the three
+        entries had modelled the same chain under different names, and nothing could compare
+        them until the module existed</li>
+<li>[ ] Remaining Workstream A modules</li>
+<li>[x] D2 receptor antagonism — <code>d2_receptor_antagonism</code> (#15299)</li>
+<li>[x] AT1 receptor blockade — <code>at1_receptor_blockade</code> (#15271)</li>
+<li>[x] dopamine receptor agonism — <code>dopamine_receptor_agonism</code> (#15350)</li>
+<li>[x] 5-HT1B/1D agonism — <code>serotonin_1b_1d_receptor_agonism</code> (#15470)</li>
+<li>[x] CGRP receptor antagonism — <code>cgrp_receptor_antagonism</code> (#15624)</li>
+<li>[x] H1 receptor antagonism — <code>h1_receptor_antagonism</code> (#15686)</li>
+<li>[x] H2 receptor antagonism — <code>h2_receptor_antagonism</code> (#15689)</li>
+<li>[x] beta2 adrenergic receptor agonism — <code>beta2_adrenergic_receptor_agonism</code> (#15706)</li>
+<li>[x] muscarinic receptor antagonism (airway) -- <code>muscarinic_receptor_antagonism</code> (#15795)</li>
+<li>[x] CaSR positive allosteric modulation -- <code>casr_positive_allosteric_modulation</code> (#15925)</li>
+<li>[ ] S1P receptor modulation — deferred behind P2Y12: only <code>Multiple_Sclerosis</code>
+        treats with an S1P modulator. Of the four other entries mentioning S1P, two are
+        mouse models (Lafora disease, glaucoma), one uses a research-tool antagonist by
+        rat knockdown, and one lists fingolimod only in prose about MS immunotherapies</li>
+<li>[x] P2Y12 receptor antagonism — <code>p2y12_receptor_antagonism</code> (#15928)</li>
+<li>[ ] V2 receptor antagonism</li>
+<li>[ ] MC4R agonism</li>
+<li>[x] migraine neurovascular mechanism — <code>migraine_neurovascular_mechanism</code> (#15934). A
+        <em>disease</em> module, not a drug one, factoring the cortical spreading depolarization →
+        trigeminovascular activation → central sensitization chain out of <code>Migraine</code>,
+        <code>Migraine_with_Aura</code> and <code>Familial_Hemiplegic_Migraine</code>, which each re-derived it under
+        different node namings. Added from the resolution of the CGRP open question below. It
+        carries no treatments block: the migraine pharmacology is already in
+        <code>serotonin_1b_1d_receptor_agonism</code> and <code>cgrp_receptor_antagonism</code>, and the conformers
+        that use those drugs reach them through their own <code>therapeutic_vulnerability</code> nodes.
+        <code>Migraine</code> conforms to both, <code>Migraine_with_Aura</code> to the 5-HT1B/1D module only, and
+        <code>Familial_Hemiplegic_Migraine</code> to neither, because triptans and ergots are
+        contraindicated there for their vasoconstrictive effects. That last case is a second
+        reason the shared module carries no drug arm: it would attach a therapy to a conformer
+        that must avoid it</li>
+<li>[ ] Gs alpha defect module</li>
+</ul>
+<h2 id="decisions">Decisions</h2>
+<ul>
+<li><strong>Agonism and antagonism of the same receptor are separate modules</strong> (decided
+  2026-10-15), because their downstream consequence chains differ.</li>
+<li><strong>One receptor family plus one direction of pharmacological action makes one
+  module</strong> (decided 2026-10-25, generalizing the rule above). A module is never
+  defined by an indication: conformers come from whatever diseases happen to be
+  treated that way, not the reverse.</li>
+<li><strong>5-HT1B/1D agonism and CGRP receptor antagonism are two modules, not one</strong>
+  (decided 2026-10-25, resolving the open question below). Three reasons, in
+  increasing order of weight. By the rule above, they are different receptors in
+  opposite directions, so bundling them would bundle on shared indication. The
+  triptan arm carries a vasoconstriction profile that the gepant arm exists
+  specifically to avoid, so one module could not hold both adverse chains without
+  contradicting itself. And the pharmacology review the CGRP module is grounded on
+  (<a href="https://pubmed.ncbi.nlm.nih.gov/34076887/">PMID:34076887</a>, Garelja, Walker and Hay,
+  <em>Br J Pharmacol</em> 2022) draws the line itself: it separates the drugs that bind the CGRP peptide from the
+  receptor antagonists, and subdivides the latter into small molecules and one
+  antibody antagonist. That third reason also settles where erenumab goes, which
+  the first two left open, and it scopes <code>cgrp_receptor_antagonism</code> to receptor
+  antagonism with the peptide-directed antibodies out.</li>
+</ul>
+<p>The question's premise was a false choice, and the answer is <em>both</em>: a migraine
+  neurovascular <strong>mechanism</strong> module is a genuinely distinct third module, not a
+  substitute for either drug module, and is now in the Workstream A queue above.
+- <strong>H1 and H2 antagonism are two modules, and so are airway beta2 agonism and
+  muscarinic antagonism</strong> (decided 2026-10-26). Both were single rows in the
+  Workstream A table above, and both are now split, by the rule two entries up.
+  H1 and H2 are different receptors on different cells with disjoint effector
+  chains -- cutaneous vasodilatation, extravasation and itch against
+  parietal-cell acid secretion -- and disjoint conformers; they share only the
+  word <em>antihistamine</em>. The airway pair are different receptors in opposite
+  directions, Gs-coupled relaxation against Gq blockade, sharing only that the
+  two drug classes are often inhaled together.</p>
+<p>The queue table bundled on shared indication twice, which is the failure the
+  rule above names, so a bundled row there should be read as a candidate for
+  splitting rather than as a decision already taken.</p>
+<ul>
+<li><strong>A module pull request may split another entry's bundled treatment</strong> (decided
+  2026-10-27 by doing it in #15777 and having it reviewed, rather than in
+  advance). The open question asked whether this is a modelling fix or a
+  clinical-content change belonging to whoever curated the entry. The split that
+  settled it kept every agent and every citation and only separated two
+  mechanisms that were asserted as one, carrying all four of the treatment's
+  references onto both halves with per-class explanations; nothing about which
+  drugs the entry recommends changed. Removing or adding an <em>agent</em> remains the
+  original curator's call (see the ranitidine item under Deferred follow-ups) —
+  the line is between restating what an entry already says and changing what it
+  says.</li>
+</ul>
+<p>Two corrections to the question's own framing came out of the same work, and
+  both are recorded above: bundling two drug classes into one treatment does not
+  block conformance when the agents are bound separately, so five of the six
+  entries the question listed as blocked -- the four mastocytosis entries and
+  <code>Cough_Variant_Asthma</code> -- were never bundling problems at all; and the sixth,
+  <code>Chronic_Obstructive_Pulmonary_Disease</code>, was blocked by a <em>generic</em> agent term
+  covering more than one class rather than by bundling as such, which is what
+  actually blocks conformance.</p>
+<h2 id="deferred-follow-ups">Deferred follow-ups</h2>
+<p>Items raised in review and deliberately not done at the time, recorded here so
+they are not lost. None blocks anything.</p>
+<ul>
+<li><strong>Join the H1 anticholinergic node to the pathograph.</strong> <code>Anticholinergic
+  Effects of First-Generation Antihistamines</code> in <code>h1_receptor_antagonism</code> has no
+  edges at all, which is deliberate: its effects are conventionally muscarinic,
+  no cited abstract says so, and an edge from H1 occupancy would assert that
+  blocking H1 causes thirst and tachycardia. The #15686 reviewer suggested a
+  <code>target_mechanisms</code> link from the first-generation treatment instead, which
+  asserts only that the agents cause them and rests on the sentence already
+  cited. Not pushed because it would have reset an approval for a rendering
+  improvement.</li>
+<li><strong>Drop ranitidine from <code>Gastroesophageal_Reflux_Disease</code>'s H2 treatment, or
+  decide to keep it.</strong> That treatment binds ranitidine while conforming to a
+  module that leaves it unbound, because NDMA contamination led to recalls and
+  registration suspensions
+  (<a href="https://pubmed.ncbi.nlm.nih.gov/35696227/">PMID:35696227</a>). The entry records
+  the caveat and cites that source, but the roster is unchanged: removing an
+  agent is a clinical-content decision and was another curator's call. Whoever
+  takes it should also delete the trailing clause "Whether to drop it from the
+  roster is a clinical-content decision and has not been made here", which
+  describes a pull request rather than the treatment.</li>
+<li>~~<strong>Split the four entries that bundle an H1 and an H2 antihistamine into one
+  treatment.</strong>~~ Done in #15778, and the premise did not survive contact with the
+  four entries: no split was needed. A treatment binding its components as
+  <em>separate</em> agents can carry one <code>target_mechanisms</code> link per receptor and
+  assert nothing false, so bundling two classes into one treatment does not block
+  conformance by itself — only a <em>generic</em> agent does, which is what actually
+  blocked <code>Chronic_Obstructive_Pulmonary_Disease</code>'s bronchodilator treatment.
+  What the four needed instead:<ul>
+<li><code>Mast_Cell_Activation_Syndrome</code> — <code>H1/H2 Antihistamines</code>, already binding
+  cetirizine and famotidine separately. Wired as it stood.</li>
+<li><code>Systemic_Mastocytosis</code> — <code>Anti-Mediator Symptomatic Therapy</code>, already
+  binding an H1 and an H2 class term plus cromoglicate and adrenaline
+  separately. Wired as it stood; the H1 link names the H1 agent and says
+  nothing about the other three.</li>
+<li><code>Maculopapular_Cutaneous_Mastocytosis</code> — <code>H1 and H2 Antihistamines</code>, bound
+  only the H1 class term. Gained <code>NCIT:C29702</code>.</li>
+<li><code>Monoclonal_Mast_Cell_Activation_Syndrome</code> — <code>Anti-mediator Therapy</code>, bound
+  <strong>no</strong> agent at all. Gained <code>NCIT:C29578</code>, <code>NCIT:C29702</code> and
+  <code>NCIT:C29714</code>; still the hardest of the four, and the one a conformance pass
+  would have silently skipped.</li>
+</ul>
+</li>
+<li><strong>Correct <code>h2_receptor_antagonism</code>'s <code>notes</code>, which state the superseded premise
+  as fact.</strong> The note says three entries bundle an H1 and an H2 antihistamine and
+  that "None can be routed to this module's occupancy node, or to the H1
+  module's, without asserting one receptor's action for the other receptor's
+  drug". Both halves are wrong: there are four, and #15778 routed all four to the
+  H1 module without asserting anything of the kind. <code>h1_receptor_antagonism</code>'s
+  equivalent passage was corrected in the same pull request; the two were worded
+  differently, so fixing one did not find the other. A <code>kb/</code> change, so it could
+  not ride this <code>projects/</code>-only pull request.</li>
+</ul>
+<h2 id="open-questions">Open questions</h2>
+<ul>
+<li>How should biased agonism (G protein vs arrestin, e.g. oliceridine) be
+  represented — a node within the agonism module, or a hypothesis group?</li>
+<li>Should the peptide-directed anti-CGRP antibodies (fremanezumab, galcanezumab,
+  eptinezumab) get a ligand-sequestration module of their own? They reduce
+  signalling through the same receptor one step upstream, so such a module would
+  share <code>cgrp_receptor_antagonism</code>'s effector chain — which is a reason to decide
+  it deliberately rather than fold them in. <code>Migraine</code>'s anti-CGRP antibody
+  treatment bundles one receptor-directed and two peptide-directed agents and
+  wants splitting either way.</li>
+<li><strong>Is tissue a third scoping axis?</strong> The scoping rule under Decisions is one
+  receptor family plus one direction of action. Beta2 agonism does not fit it:
+  thirteen entries treat with a beta2 agonist, for three mechanistically disjoint
+  purposes that share one trigger and one transducer and diverge only at the
+  effector — airway smooth muscle relaxation (<code>Asthma</code>, <code>Thunderstorm_Asthma</code>,
+  <code>Cough_Variant_Asthma</code>, <code>Chronic_Obstructive_Pulmonary_Disease</code>,
+  <code>Formaldehyde_Poisoning</code>, <code>Sulfur_Mustard_Poisoning</code>); enhancing neuromuscular
+  transmission (<code>Congenital_Myasthenic_Syndrome</code> and its <code>_6</code> and <code>_7</code> entries,
+  <code>ALG2-Congenital_Disorder_of_Glycosylation</code>,
+  <code>Combined_Oxidative_Phosphorylation_Deficiency_58</code>, <code>RYR1-Related_Myopathy</code>);
+  and driving potassium intracellularly (<code>Hyperkalemic_Periodic_Paralysis</code>).
+  <code>beta2_adrenergic_receptor_agonism</code> is scoped to the airway on this table's own
+  wording plus the tissue-scoped precedent of
+  <code>cardiac_camp_pka_calcium_handling</code> and <code>spinal_hsp90_opioid_enhancement</code>, and
+  that scope does not settle the question. Either the other two chains become
+  their own modules, or they become further effector arms off a shared trigger —
+  in which case one module would serve about ten conformers instead of three.
+  That figure is three already wired, plus the six unwired entries whose beta2
+  agonist sits in a treatment of its own, plus
+  <code>ALG2-Congenital_Disorder_of_Glycosylation</code>, where albuterol shares a treatment
+  with ephedrine — a borderline case, since ephedrine is itself a sympathomimetic
+  with beta activity rather than a different class. It assumes the three entries
+  blocked by genuine cross-class bundling stay out; unbundling all three would
+  make it thirteen. <strong>MC4R and V2 have the same shape</strong>, so this is worth deciding
+  before either.</li>
+</ul>
+<p><code>muscarinic_receptor_antagonism</code> (#15795) put numbers on the same question, and
+  they are starker. A census taken while writing it found antimuscarinic drugs
+  used across the corpus for four mechanistically disjoint purposes sharing that
+  module's trigger and diverging at the effector: airway bronchodilation, 3
+  entries; detrusor overactivity and neurogenic bladder, 11; striatal cholinergic
+  blockade in dystonia and related movement disorders, chiefly trihexyphenidyl,
+  20; and reversal of a cholinergic crisis with atropine, 10. The module is scoped
+  to the airway because that is what this page's queue row named — which means it
+  is scoped to the <em>smallest</em> of the four arms, on the wording of a table rather
+  than on the biology, and the other 41 entries have no module. If tissue is a
+  scoping axis, that is three more muscarinic modules to write; if it is not, this
+  one should be widened into a shared trigger with four effector arms. Either way
+  the current state is an artefact, and the module's notes say so.</p>
+<p>A fourth group names a beta2 agonist without treating with one: several cardiac
+  entries cite beta-adrenergic stimulation as an arrhythmia provocateur or a thing
+  to avoid. Those are not conformer candidates in any scoping, and the count above
+  excludes them.</p>
+<p>The three blocked airway entries are declared in this page's frontmatter, so they
+  link from the prose above. The neuromuscular and potassium-shift entries
+  deliberately are not, pending this decision: declaring them would put seven
+  more entries in the project's disease list on the strength of a scoping
+  question nobody has answered yet. Add them if the answer is one shared trigger.
+- <strong>Should there be a module for the H2-mediated symptoms antihistamines treat?</strong>
+  Raised by #15778. The four mastocytosis entries take an H2 antagonist for
+  flushing, gastric hypersecretion and hypotension in mast cell mediator release,
+  and <code>h2_receptor_antagonism</code> cannot hold that: it is scoped to the parietal-cell
+  acid-secretion chain, which is one of those symptoms and not the others. So the
+  H2 half of those four treatments is unwired for a reason unrelated to the
+  bundling premise above — it is module scope, and the remedy is either a second
+  H2 module scoped to mediator-release symptoms or a widening of the existing
+  one's effector arms. Both options cross the one-receptor-one-direction rule in
+  the same way the tissue question above does, which is a reason to decide them
+  together.</p>
+        </article>
+    </div>
+</body>
+</html>

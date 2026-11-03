@@ -39,10 +39,11 @@ Statement identity
 ------------------
 
 A statement that corresponds to a KGX edge reuses that edge's ``id``, so
-``sepio.jsonl`` joins to ``*_edges.jsonl`` on ``id``. Statements that have no
-KGX counterpart — pathophysiology node assertions and the causal (``downstream``)
-edges between them, both of which the KGX export can only propagate as indirect
-evidence — get a deterministic UUIDv5 minted from the disease and node names.
+``sepio.jsonl`` joins to ``*_edges.jsonl`` on ``id``. Pathophysiology node
+assertions and the causal (``downstream``) edges between them get a
+deterministic UUIDv5 minted from the disease and node names
+(:func:`iter_pathophysiology_assertions`); the KGX mechanism-layer edges reuse
+those ids, so they join too.
 
 The two id families have **different stability guarantees**. KGX association ids
 are random ``uuid4`` values minted per walk (:func:`dismech.export.kgx_export._make_edge_id`),
@@ -61,7 +62,7 @@ import uuid
 from collections import Counter
 from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from pydantic import BaseModel, ConfigDict
 
@@ -71,6 +72,10 @@ DISMECH_UUID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_DNS, "dismech.monarchinitiati
 # Predicates for the assertions that have no Biolink/KGX counterpart.
 HAS_PATHOPHYSIOLOGY = "dismech:has_pathophysiology"
 CAUSALLY_UPSTREAM_OF = "dismech:causally_upstream_of"
+
+# KGX edge sections whose SEPIO statements come from `pathophysiology_statements`
+# (same ids, richer content), so `statements_for_edges` must not emit them twice.
+PATHOPHYSIOLOGY_STATEMENT_SECTIONS = frozenset({"pathophysiology", "pathophysiology.downstream"})
 
 # dismech has no document-type field; infer it from the reference prefix.
 DOCUMENT_TYPE_BY_PREFIX = {
@@ -308,7 +313,7 @@ def statement_from_association(
     )
 
 
-def _causal_link_curie(causal_link_type: str | None) -> str | None:
+def causal_link_curie(causal_link_type: str | None) -> str | None:
     """CURIE for a ``CausalLinkTypeEnum`` value, for the ``qualifiers`` list.
 
     Biolink types that slot as ``range: ontology class``, so a bare ``DIRECT``
@@ -347,27 +352,41 @@ def pathophysiology_statement_id(disease_name: str, node_name: str) -> str:
     return _uuid5("pathophysiology", _slug(disease_name), _slug(node_name))
 
 
-def pathophysiology_statements(record: dict[str, Any]) -> Iterator[Statement]:
+class PathophysiologyAssertion(NamedTuple):
     """
-    Emit SEPIO statements for the assertions the KGX export cannot represent.
+    One mechanism-layer assertion of a disorder, with its deterministic id.
 
-    Two kinds, both drawn from ``pathophysiology[]``:
+    ``edge`` is None for a node assertion (*disease has_pathophysiology node*)
+    and the ``downstream`` item for a causal edge between two nodes.
+    """
 
-    1. The node assertion itself — *disease has_pathophysiology <node>* — whose
-       evidence KGX only re-attaches to the node's ontology-bound children as
-       indirect supporting text.
-    2. Each ``downstream`` causal edge between two pathophysiology nodes, which
-       the KGX export drops entirely.
+    statement_id: str
+    node: dict[str, Any]
+    edge: dict[str, Any] | None
+    hypothesis_groups: list[str]
+
+
+def iter_pathophysiology_assertions(record: dict[str, Any]) -> Iterator[PathophysiologyAssertion]:
+    """
+    Walk ``pathophysiology[]`` and mint the stable id of every node and causal edge.
+
+    This is the one place those ids are minted. The SEPIO sidecar
+    (:func:`pathophysiology_statements`) and the KGX mechanism-layer edges
+    (:func:`dismech.export.kgx_export.pathophysiology_layer_edges`) both read
+    them from here, so a KGX edge and its SEPIO statement share an id and join
+    across releases. Every node and edge is yielded, whether or not it carries
+    evidence: the occurrence counter must see all of them for the ids to be
+    reproducible.
 
     Args:
         record: A disorder dict loaded from YAML
 
     Yields:
-        Statement objects, one per evidence-bearing node or causal edge
+        PathophysiologyAssertion tuples in record order, each node followed by
+        its ``downstream`` edges
     """
-    disease_id = _get_disease_id(record)
     disease_name = record.get("name")
-    if not disease_id or not disease_name:
+    if not disease_name:
         return
 
     # A disease may assert two causal edges between the same pair of nodes when
@@ -390,21 +409,8 @@ def pathophysiology_statements(record: dict[str, Any]) -> Iterator[Statement]:
         if not node_name:
             continue
 
-        node_id = pathophysiology_node_id(disease_name, node_name)
         statement_id = _unique_id("pathophysiology", _slug(disease_name), _slug(node_name))
-        lines = evidence_to_lines(node.get("evidence"), statement_id)
-        if lines:
-            yield Statement(
-                id=statement_id,
-                subject=disease_id,
-                predicate=HAS_PATHOPHYSIOLOGY,
-                object=node_id,
-                subject_label=disease_name,
-                object_label=node_name,
-                has_evidence_lines=lines,
-                source_disease=disease_name,
-                dismech_section="pathophysiology",
-            )
+        yield PathophysiologyAssertion(statement_id, node, None, [])
 
         for edge in node.get("downstream") or []:
             target = edge.get("target")
@@ -418,23 +424,75 @@ def pathophysiology_statements(record: dict[str, Any]) -> Iterator[Statement]:
                 _slug(target),
                 ",".join(sorted(hypothesis_groups)),
             )
-            edge_lines = evidence_to_lines(edge.get("evidence"), edge_statement_id)
-            if not edge_lines:
-                continue
-            causal_link_type = _causal_link_curie(edge.get("causal_link_type"))
-            yield Statement(
-                id=edge_statement_id,
-                subject=node_id,
-                predicate=CAUSALLY_UPSTREAM_OF,
-                object=pathophysiology_node_id(disease_name, target),
-                subject_label=node_name,
-                object_label=target,
-                qualifiers=[causal_link_type] if causal_link_type else None,
-                has_evidence_lines=edge_lines,
-                source_disease=disease_name,
-                dismech_section="pathophysiology.downstream",
-                hypothesis_groups=hypothesis_groups or None,
-            )
+            yield PathophysiologyAssertion(edge_statement_id, node, edge, hypothesis_groups)
+
+
+def pathophysiology_statements(record: dict[str, Any]) -> Iterator[Statement]:
+    """
+    Emit SEPIO statements for the mechanism-layer assertions.
+
+    Two kinds, both drawn from ``pathophysiology[]``:
+
+    1. The node assertion itself — *disease has_pathophysiology <node>*.
+    2. Each ``downstream`` causal edge between two pathophysiology nodes.
+
+    The KGX export carries both as edges too (``biolink:disease_has_basis_in``
+    and ``biolink:causes``, #2101) under the same ids, so these statements join
+    to the edge file. They are built here rather than by
+    :func:`statements_for_edges` because they carry what a KGX association
+    cannot — hypothesis groups, and the node-local predicates.
+
+    Args:
+        record: A disorder dict loaded from YAML
+
+    Yields:
+        Statement objects, one per evidence-bearing node or causal edge
+    """
+    disease_id = _get_disease_id(record)
+    disease_name = record.get("name")
+    if not disease_id or not disease_name:
+        return
+
+    for assertion in iter_pathophysiology_assertions(record):
+        node = assertion.node
+        node_name = node["name"]
+        node_id = pathophysiology_node_id(disease_name, node_name)
+
+        if assertion.edge is None:
+            lines = evidence_to_lines(node.get("evidence"), assertion.statement_id)
+            if lines:
+                yield Statement(
+                    id=assertion.statement_id,
+                    subject=disease_id,
+                    predicate=HAS_PATHOPHYSIOLOGY,
+                    object=node_id,
+                    subject_label=disease_name,
+                    object_label=node_name,
+                    has_evidence_lines=lines,
+                    source_disease=disease_name,
+                    dismech_section="pathophysiology",
+                )
+            continue
+
+        edge = assertion.edge
+        target = edge["target"]
+        edge_lines = evidence_to_lines(edge.get("evidence"), assertion.statement_id)
+        if not edge_lines:
+            continue
+        causal_link_type = causal_link_curie(edge.get("causal_link_type"))
+        yield Statement(
+            id=assertion.statement_id,
+            subject=node_id,
+            predicate=CAUSALLY_UPSTREAM_OF,
+            object=pathophysiology_node_id(disease_name, target),
+            subject_label=node_name,
+            object_label=target,
+            qualifiers=[causal_link_type] if causal_link_type else None,
+            has_evidence_lines=edge_lines,
+            source_disease=disease_name,
+            dismech_section="pathophysiology.downstream",
+            hypothesis_groups=assertion.hypothesis_groups or None,
+        )
 
 
 def _get_disease_id(record: dict[str, Any]) -> str | None:
@@ -458,9 +516,12 @@ def statements_for_edges(edges: Iterable[Any], disease_name: str | None) -> Iter
         disease_name: ``name`` of the source disorder record
 
     Yields:
-        Statement objects, skipping edges that carry no evidence
+        Statement objects, skipping edges that carry no evidence and the
+        mechanism-layer edges :func:`pathophysiology_statements` already covers
     """
     for edge in edges:
+        if edge.section in PATHOPHYSIOLOGY_STATEMENT_SECTIONS:
+            continue
         inherited_from = None
         if edge.indirect and edge.source_node and disease_name:
             inherited_from = pathophysiology_statement_id(disease_name, edge.source_node)
@@ -479,8 +540,9 @@ def statements_from_record(record: dict[str, Any]) -> Iterator[Statement]:
     """
     Emit every SEPIO statement for one disorder record.
 
-    Covers the KGX associations (joined to the KGX edge file by ``id``) plus the
-    pathophysiology node and causal-edge assertions that have no KGX edge.
+    Covers the KGX associations (joined to the KGX edge file by ``id``), with the
+    pathophysiology node and causal-edge assertions built by
+    :func:`pathophysiology_statements`.
 
     .. warning::
 

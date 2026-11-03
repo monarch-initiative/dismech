@@ -804,12 +804,14 @@ def compute_comparison_summary(
 def compare_gene(
     gene_symbol: str,
     *,
-    kb_dir: Path = _default_kb_dir(),
+    kb_dir: Path | None = None,
     g2p_source: str | None = None,
     g2p_rows_by_gene: dict[str, list[dict[str, Any]]] | None = None,
     resolved_g2p_source: str | None = None,
     dismech_matches_by_gene: dict[str, list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
+    if kb_dir is None:
+        kb_dir = _default_kb_dir()
     if g2p_rows_by_gene is None:
         source, rows_by_gene = load_g2p_index(g2p_source)
     else:
@@ -949,7 +951,7 @@ def compare_gene(
 def run_comparison(
     gene_symbol: str,
     *,
-    kb_dir: Path = _default_kb_dir(),
+    kb_dir: Path | None = None,
     g2p_source: str | None = None,
     g2p_rows_by_gene: dict[str, list[dict[str, Any]]] | None = None,
     resolved_g2p_source: str | None = None,
@@ -981,12 +983,14 @@ def build_release_row_table(reports: list[dict[str, Any]]) -> list[dict[str, Any
 def run_release_comparison(
     *,
     gene_symbols: list[str] | None = None,
-    kb_dir: Path = _default_kb_dir(),
+    kb_dir: Path | None = None,
     g2p_source: str | None = None,
     all_genes: bool = False,
     actionable_only: bool = False,
 ) -> dict[str, Any]:
     """Run the G2P-vs-dismech comparison pipeline for a gene set or full release."""
+    if kb_dir is None:
+        kb_dir = _default_kb_dir()
     resolved_source, rows_by_gene = load_g2p_index(g2p_source)
     if all_genes:
         selected_gene_symbols = sorted(rows_by_gene)
@@ -1084,7 +1088,7 @@ def compute_release_overview(
 def survey_genes(
     gene_symbols: list[str],
     *,
-    kb_dir: Path = _default_kb_dir(),
+    kb_dir: Path | None = None,
     g2p_source: str | None = None,
 ) -> list[dict[str, Any]]:
     release_report = run_release_comparison(
@@ -1281,8 +1285,9 @@ def compare(
         help="Path or URL to a G2P CSV/CSV.GZ export. Defaults to the latest allG2P FTP release.",
     ),
     kb_dir: Path = typer.Option(
-        _default_kb_dir(),
+        ...,
         "--kb-dir",
+        default_factory=_default_kb_dir,
         help="Path to kb/disorders.",
     ),
     format: str = typer.Option(
@@ -1332,8 +1337,9 @@ def compare_all(
         help="Audit every gene present in the resolved G2P source.",
     ),
     kb_dir: Path = typer.Option(
-        _default_kb_dir(),
+        ...,
         "--kb-dir",
+        default_factory=_default_kb_dir,
         help="Path to kb/disorders.",
     ),
     format: str = typer.Option(

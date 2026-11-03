@@ -157,3 +157,5 @@ committing.
    `just new-history --kind module --slug <name> --event CREATE --outcome changed …`
 3. Wire real conformers: add `conforms_to: "<name>#<Node>"` to the matching
    pathophysiology nodes of the relevant disorder entries, then re-validate.
+   A node that already conforms to another module keeps that reference and
+   gains yours: rewrite `conforms_to` as a list of both, never repoint it.

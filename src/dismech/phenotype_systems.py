@@ -38,15 +38,12 @@ from pathlib import Path
 from typing import Any
 
 from dismech import kb_cache
-from dismech.export.browser_export import (
-    HPO_CATEGORY_CACHE_PATH,
-    HPO_TOP_LEVEL_CATEGORIES,
-)
+from dismech.export import browser_export
+from dismech.export.browser_export import HPO_TOP_LEVEL_CATEGORIES
 from dismech.export.utils import slugify
 from dismech.qc_dashboard import inject_block
 
 SYSTEMS: tuple[str, ...] = tuple(sorted(HPO_TOP_LEVEL_CATEGORIES.values()))
-DEFAULT_HPO_CATEGORY_CACHE = HPO_CATEGORY_CACHE_PATH
 PHENOTYPE_SYSTEMS_BLOCK_START = "<!-- PHENOTYPE_SYSTEMS_START -->"
 PHENOTYPE_SYSTEMS_BLOCK_END = "<!-- PHENOTYPE_SYSTEMS_END -->"
 TOP_COMBINATIONS = 30
@@ -190,8 +187,18 @@ def profile_disorder(
 # --------------------------------------------------------------------------- corpus
 
 
-def load_hpo_category_cache(path: Path = DEFAULT_HPO_CATEGORY_CACHE) -> dict[str, list[str]]:
+def __getattr__(name: str) -> Any:
+    # DEFAULT_HPO_CATEGORY_CACHE follows browser_export's path, resolved from
+    # the working directory when read (#15109).
+    if name == "DEFAULT_HPO_CATEGORY_CACHE":
+        return browser_export.HPO_CATEGORY_CACHE_PATH
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def load_hpo_category_cache(path: Path | None = None) -> dict[str, list[str]]:
     """Load the HP-term-to-system map written by ``just gen-browser-data``."""
+    if path is None:
+        path = browser_export.HPO_CATEGORY_CACHE_PATH
     if not path.exists():
         raise FileNotFoundError(
             f"{path} not found; run `just gen-browser-data` first, which writes it."
@@ -812,7 +819,7 @@ def generate_phenotype_systems_report(
     kb_dir: Path,
     dashboard_dir: Path,
     dashboard_index_path: Path | None = None,
-    hpo_category_cache_path: Path = DEFAULT_HPO_CATEGORY_CACHE,
+    hpo_category_cache_path: Path | None = None,
 ) -> dict[str, Any]:
     """Write ``phenotype_systems.html`` and ``.json`` under ``dashboard_dir``."""
     categories = load_hpo_category_cache(hpo_category_cache_path)
@@ -850,7 +857,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--hpo-category-cache",
-        default=DEFAULT_HPO_CATEGORY_CACHE,
+        default=None,
         type=Path,
         help="HP-term-to-system map written by `just gen-browser-data`.",
     )

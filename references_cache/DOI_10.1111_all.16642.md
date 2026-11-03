@@ -46,7 +46,7 @@ Results
                        = 664) and allergen‐specific DEG (
                       n
                        = 430). The most relevant shared pathways were associated with immune adaptive and innate responses. All allergens exhibited mixed effector immune responses, mainly type 1 and 3 immunity, and, to a lesser extent, type 2 immunity. Furthermore, partially shared and unique DEG were associated with further inflammatory pathways, particularly for nickel and 2‐HEMA.
-                    
+
 
 
 Conclusions

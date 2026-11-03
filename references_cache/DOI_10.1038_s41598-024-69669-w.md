@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41598-024-69669-w
+extractor_version: 1
 title: A systematic review and meta-analysis of comparative clinical studies on antibiotic treatment of brucellosis
 authors:
 - Sachith Maduranga
@@ -11,12 +12,14 @@ journal: Scientific Reports
 year: '2024'
 doi: 10.1038/s41598-024-69669-w
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41598-024-69669-w.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41598-024-69669-w.pdf
+full_text_access_type: open
 ---
 
 # A systematic review and meta-analysis of comparative clinical studies on antibiotic treatment of brucellosis

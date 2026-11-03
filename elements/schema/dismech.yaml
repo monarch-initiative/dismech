@@ -77,6 +77,9 @@ prefixes:
   HANCESTRO:
     prefix_prefix: HANCESTRO
     prefix_reference: http://purl.obolibrary.org/obo/HANCESTRO_
+  MRO:
+    prefix_prefix: MRO
+    prefix_reference: http://purl.obolibrary.org/obo/MRO_
   ECTO:
     prefix_prefix: ECTO
     prefix_reference: http://purl.obolibrary.org/obo/ECTO_
@@ -2564,6 +2567,31 @@ enums:
       relationship_types:
       - rdfs:subClassOf
       is_direct: false
+  MHCTerm:
+    name: MHCTerm
+    definition_uri: https://w3id.org/monarch-initiative/dismech/MHCTerm
+    description: 'An MHC restriction term from MRO (MHC Restriction Ontology, the
+      IEDB native ontology for MHC/HLA restriction): an MHC presenting protein complex
+      (e.g. `MRO:0001284` HLA-DRB1*03:01 protein complex, `MRO:0001620` HLA protein
+      complex with DQ2 serotype), an MHC class I or class II chain allele, an MHC
+      serotype (e.g. `MRO:0000283` HLA-DQ2 serotype, `MRO:0000217` HLA-B27 serotype),
+      or an MHC haplotype.'
+    comments:
+    - MRO protein complexes sit under `GO:0042611` (MHC protein complex) -> `GO:0032991`
+      (protein-containing complex), so they can also be bound directly in `Pathophysiology.protein_complexes`
+      to represent the physical antigen-presenting heterodimer on a pathophysiology
+      node.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    reachable_from:
+      source_nodes:
+      - GO:0042611
+      - MRO:0000775
+      - MRO:0000776
+      - MRO:0000007
+      - MRO:0000005
+      relationship_types:
+      - rdfs:subClassOf
+      is_direct: false
   ExposureTerm:
     name: ExposureTerm
     definition_uri: https://w3id.org/monarch-initiative/dismech/ExposureTerm
@@ -4494,6 +4522,11 @@ enums:
         text: HAS_BIOLOGICAL_PROCESS
         description: Members involve a given biological process (biological_processes),
           optionally with a directional modifier.
+      HAS_MOLECULAR_FUNCTION:
+        text: HAS_MOLECULAR_FUNCTION
+        description: Members involve a given molecular function (molecular_functions),
+          matched over the GO is_a/part_of closure of the criterion term against the
+          GO terms curated in the member entry.
       HAS_CLASSIFICATION:
         text: HAS_CLASSIFICATION
         description: Members carry a given nosology/classification assignment (classification).
@@ -5284,7 +5317,10 @@ enums:
     definition_uri: https://w3id.org/monarch-initiative/dismech/ChannelopathyOrganSystemEnum
     description: Classification categories for channelopathies by affected organ system.
       Tag diseases like Long QT syndrome (cardiac), periodic paralysis (skeletal muscle),
-      episodic ataxia (neurological), cystic fibrosis (epithelial).
+      episodic ataxia (neurological), cystic fibrosis (epithelial), ORAI1 or STIM1
+      deficiency (immune). Disorders of ion pumps (e.g. ATP1A3, ATP1A2 Na+/K+-ATPase)
+      are not channelopathies in this sense; the Channelopathies grouping requires
+      an ion channel or ion channel regulator activity.
     from_schema: https://w3id.org/monarch-initiative/dismech/classifications/channelopathies
     permissible_values:
       cardiac channelopathy:
@@ -5302,6 +5338,11 @@ enums:
         text: epithelial channelopathy
         description: Ion channel disorders affecting epithelial transport (cystic
           fibrosis)
+      immune channelopathy:
+        text: immune channelopathy
+        description: Ion channel disorders whose principal consequence is immune dysfunction,
+          such as loss of store-operated calcium entry in lymphocytes (ORAI1 and STIM1
+          deficiency)
   PhenotypeCategoryEnum:
     name: PhenotypeCategoryEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/PhenotypeCategoryEnum
@@ -9626,6 +9667,7 @@ slots:
     - ClinicalTrial
     - Subtype
     - ProgressionInfo
+    - Pathophysiology
     - Phenotype
     - Genetic
     - Environmental
@@ -10418,9 +10460,10 @@ slots:
     - value: '[{preferred_term: Kinase Activity}]'
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:molecular_functions
-    owner: Pathophysiology
+    owner: LogicalCriterion
     domain_of:
     - Pathophysiology
+    - LogicalCriterion
     range: MolecularFunctionDescriptor
     multivalued: true
     inlined: true
@@ -10489,13 +10532,26 @@ slots:
       "fibrotic_response") plus an optional node name after a hash (e.g., "fibrotic_response#Mesenchymal
       Cell Activation"). Used for cross-disorder consistency checking: if a node declares
       conformance, it should include the expected cell types, biological processes,
-      and causal edges defined in the referenced module node.'
+      and causal edges defined in the referenced module node.
+
+      A node may conform to more than one module node when it is a genuine instance
+      of each (a germline first-hit node that is also loss of an mTORC1 brake conforms
+      to both the two-hit and the mTORC1 module). Write a single reference as a plain
+      string and several as a list of strings; both spellings are valid, so the scalar
+      form never needs migrating. Code reads the value through `dismech.conformance.iter_conforms_to`,
+      which normalises either spelling to a list (dismech#13923).'
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:conforms_to
     owner: Pathophysiology
     domain_of:
     - Pathophysiology
-    range: string
+    range: Any
+    inlined: true
+    inlined_as_list: true
+    any_of:
+    - range: string
+    - range: string
+      multivalued: true
   consequence:
     name: consequence
     definition_uri: https://w3id.org/monarch-initiative/dismech/consequence
@@ -10852,6 +10908,25 @@ slots:
     domain_of:
     - Genetic
     range: GeneDescriptor
+    inlined: true
+    inlined_as_list: true
+  mhc_term:
+    name: mhc_term
+    definition_uri: https://w3id.org/monarch-initiative/dismech/mhc_term
+    description: 'Optional MRO (MHC Restriction Ontology) term for an HLA/MHC allele,
+      serotype, haplotype, or presenting protein complex. On a Genetic entry, complements
+      `gene_term` (which binds the locus in HGNC, e.g. HLA-DQA1 or HLA-B) with the
+      allele, serotype, haplotype, or heterodimer specificity (e.g. `MRO:0000283`
+      HLA-DQ2 serotype, `MRO:0001284` HLA-DRB1*03:01 protein complex). On a TreatmentEffectModifier
+      with `effect_modifier_type: GENOTYPE`, grounds an HLA-restricted vaccine or
+      immunotherapy responder/non-responder stratum.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:mhc_term
+    owner: TreatmentEffectModifier
+    domain_of:
+    - Genetic
+    - TreatmentEffectModifier
+    range: MHCDescriptor
     inlined: true
     inlined_as_list: true
   treatment_term:
@@ -16713,6 +16788,30 @@ slots:
     recommended: true
     inlined: true
     inlined_as_list: false
+  MHCDescriptor_term:
+    name: MHCDescriptor_term
+    definition_uri: https://w3id.org/monarch-initiative/dismech/term
+    description: Optional MRO term reference
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: term
+    domain: MHCDescriptor
+    slot_uri: dismech:term
+    alias: term
+    owner: MHCDescriptor
+    domain_of:
+    - MHCDescriptor
+    is_usage_slot: true
+    usage_slot_name: term
+    range: Term
+    bindings:
+    - range: MHCTerm
+      obligation_level:
+        text: REQUIRED
+        description: The metadata element is required to be present in the model
+      binds_value_of: id
+    recommended: true
+    inlined: true
+    inlined_as_list: false
   ExposureDescriptor_term:
     name: ExposureDescriptor_term
     definition_uri: https://w3id.org/monarch-initiative/dismech/term
@@ -21366,6 +21465,37 @@ classes:
             description: The metadata element is required to be present in the model
           binds_value_of: id
     class_uri: dismech:AncestryDescriptor
+  MHCDescriptor:
+    name: MHCDescriptor
+    definition_uri: https://w3id.org/monarch-initiative/dismech/MHCDescriptor
+    description: A descriptor for an MHC/HLA allele, serotype, haplotype, or presenting
+      protein complex, bindable to MRO (MHC Restriction Ontology).
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: Descriptor
+    slots:
+    - preferred_term
+    - Descriptor_description
+    - modifier
+    - located_in
+    - laterality
+    - spatial_extent
+    - onset
+    - temporality
+    - clinical_course
+    - severity
+    - qualifiers
+    - MHCDescriptor_term
+    slot_usage:
+      term:
+        name: term
+        description: Optional MRO term reference
+        bindings:
+        - range: MHCTerm
+          obligation_level:
+            text: REQUIRED
+            description: The metadata element is required to be present in the model
+          binds_value_of: id
+    class_uri: dismech:MHCDescriptor
   ExposureDescriptor:
     name: ExposureDescriptor
     definition_uri: https://w3id.org/monarch-initiative/dismech/ExposureDescriptor
@@ -23177,6 +23307,7 @@ classes:
     - assays
     - mechanisms
     - notes
+    - review_notes
     - frequency
     - genetic_context
     - pdb_structures
@@ -23348,6 +23479,7 @@ classes:
     slots:
     - name
     - gene_term
+    - mhc_term
     - affected_regions
     - presence
     - evidence
@@ -23649,6 +23781,7 @@ classes:
     slots:
     - TreatmentEffectModifier_effect_modifier_type
     - TreatmentEffectModifier_stratum
+    - mhc_term
     - comparator_stratum
     - TreatmentEffectModifier_modified_outcome
     - TreatmentEffectModifier_effect_in_stratum
@@ -24887,6 +25020,7 @@ classes:
     - inheritance_term
     - gene
     - biological_processes
+    - molecular_functions
     - module
     - classification
     class_uri: dismech:LogicalCriterion
@@ -24991,6 +25125,6 @@ classes:
 metamodel_version: 1.7.0
 source_file: dismech.yaml
 source_file_date: '2025-01-01T00:00:00'
-source_file_size: 398980
+source_file_size: 402131
 generation_date: '2025-01-01T00:00:00'
 

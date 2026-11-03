@@ -26,6 +26,10 @@ This skill can also be consulted for ongoing curation of existing disorders.
 ### Step 1: Select Disorder Name and Run Duplicate Preflight
 
 Choose the clinically preferred name for the disorder, use title case (e.g. `Foo Bar Syndrome`).
+Follow the `entry-naming` skill: the name must be no broader than the entry, and a
+single-gene Mendelian entry takes an established `<GENE>-Related <Phenotype>` name where
+one exists. A stub's `label` is the MONDO label; treat it as one candidate, not the
+answer, and keep it in `synonyms` if you choose a different name.
 For file names, spaces will. be replaced by underscores, and characters such as apostrophes removed.
 
 Before creating a new disorder file, check all three duplicate surfaces:
@@ -409,8 +413,11 @@ just check-genereviews --online kb/disorders/<Entry>.yaml
 ```
 
 `UNTAGGED_CHAPTER` or `CITED_UNTAGGED` on the `GeneReviews` line names the
-chapter (PMID and title); `CANDIDATE_CHAPTER` lists partial title matches for
-you to read; `NO_CHAPTER` means none names the disease. If the report adds
+chapter (PMID and title); `TAGGED_RETIRED` means the only chapter you tagged is
+one GeneReviews has retired, so look for a current chapter that covers the
+disease before relying on it; `CANDIDATE_CHAPTER` lists partial title matches and
+chapters scoped to one of the entry's causal genes (`GENE_SCOPED`) for you to
+read; `NO_CHAPTER` means none names the disease. If the report adds
 `note: entry has no synonyms`, the check matched only the name and
 `disease_term`, so its `NO_CHAPTER` proves nothing yet: chapters are often
 titled by a synonym (#12075). Add the synonyms and re-run before writing that
@@ -420,14 +427,47 @@ same check, so its verdict is what the review will see. The `StatPearls` line
 is informational — a StatPearls chapter may be cited for orientation but is
 never the baseline (see `docs/genereviews-baseline-check.md`).
 
-Before the file exists, the same question can be put to PubMed directly with
-the `[book]` field, which selects GeneReviews chapters exactly:
+Ask from **both sides**: the disease name *and* the causal gene. GeneReviews
+often scopes a chapter to a gene's whole spectrum, so a name search misses it:
+SED Maroteaux type is covered by *Autosomal Dominant TRPV4-Related Disorders*,
+which no search for the disease name finds (#9694). The check does this
+offline once the entry's `genetic:` block names the gene: such a chapter is
+listed as a `GENE_SCOPED` candidate, and `--online` also searches each causal
+gene's symbol in chapter titles and abstracts, which is the only way to reach
+an overview that names the gene in its abstract alone (SURF1 → *Nuclear
+Gene-Encoded Leigh Syndrome Spectrum Overview*).
+
+Before the file exists, put both questions to PubMed directly. The `[book]`
+field selects GeneReviews chapters exactly; "GeneReviews" is the book's title,
+never a chapter's, so the old `GeneReviews[TI]` form returned zero for every
+disease:
 
 ```bash
-curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
+for q in '"<DISEASE_NAME>"[TI]' '<GENE_SYMBOL>[TIAB]'; do
+  curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
+    --data-urlencode "db=pubmed" --data-urlencode "retmode=json" \
+    --data-urlencode "term=${q} AND genereviews[book] NOT retired[TI]"
+done
+# then read every hit's title before deciding anything:
+curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi" \
   --data-urlencode "db=pubmed" --data-urlencode "retmode=json" \
-  --data-urlencode "term=<DISEASE_NAME>[TI] AND genereviews[book]"
+  --data-urlencode "id=<PMIDs>"
 ```
+
+- **A non-zero count is a candidate list, not a verdict.** Read the titles and
+  judge whether the chapter's scope covers this disease. Searching
+  `congenital disorders of glycosylation` returns chapters for *other* CDG
+  genes (*NGLY1-Related Congenital Disorder of Deglycosylation* among them),
+  none of which covers ALG3-CDG. Both false negatives and false positives
+  happen.
+- **`NOT retired[TI]` drops withdrawn chapters.** 68 of the ~960 are titled
+  `… – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY` and must not be used as
+  a baseline: the only `ALG3` hit is a retired CDG overview. Do not write
+  `NOT "RETIRED CHAPTER"[TI]` instead. PubMed's title index does not hold that
+  phrase, so it returns a `warninglist` and excludes nothing.
+- **`GeneReviews[All Fields]` is a cross-check only.** It over-retrieves:
+  `"Marfan syndrome" GeneReviews[All Fields]` returns 3, against 2 with
+  `genereviews[book]`, the extra being a journal paper that cites GeneReviews.
 
 #### 2. If a PMID is found, fetch and cache it
 

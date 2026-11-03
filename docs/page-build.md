@@ -132,7 +132,8 @@ Three mechanisms now close that gap:
    reports clean. Re-anchoring makes `kb/` current while keeping this build's
    rendered pages, which is exactly the mismatch the check is looking for. It
    also puts the aggregates (`app/data.js`, `app/models/data.js`,
-   `app/hpo_category_cache.json`, dashboard, pathographs, `elements/`, schema
+   `app/hpo_category_cache.json`, `cache/pathograph_stats.json`, dashboard,
+   pathographs, `elements/`, schema
    docs — all generated *after* this step, deliberately) on current data.
 
    And it stops the regen PR conflicting. A branch built at a stale checkout

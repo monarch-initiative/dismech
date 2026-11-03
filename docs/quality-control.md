@@ -410,7 +410,7 @@ just check-granularity --scope all              # cross-entry classes over every
 | `MISSING_AGENT`, `UNBOUND_AGENT`, `MISSING_TRANSMISSION` | R25 — every microbial entry names a NCBITaxon-bound agent and a transmission route | yes |
 | `ROOT_AS_ENTRY` | R2 — anchored to *infectious disease* or one of its four kingdom-level children | yes |
 | `DOUBLE_MODELLED`, `DANGLING_POINTER` | R20 — a subtype that is also another entry carries `curated_in`, and the pointer resolves | yes |
-| `DUPLICATE_ANCHOR` | R18/R28 — two entries on one `disease_term` with no `skos:narrowMatch` | yes |
+| `DUPLICATE_ANCHOR` | R18/R28 — two entries on one `disease_term` with no `skos:broadMatch` (or legacy `skos:narrowMatch`) | yes |
 | `PATHOTYPE_COLLAPSE` | R15 — two agents bound to the same taxon | yes |
 | `TAXON_LUMP` → `LUMP_RECORDED` | R7–R9 — three or more agents, no subtypes, and no `Deliberately lumped.` paragraph in `review_notes` | no |
 | `UNBOUND_SUBTYPE`, `UNBOUND_AGENT_STRATUM` | R12 — may have no honest term to bind | no |
@@ -435,6 +435,52 @@ the mechanical half of #10113 and #10116 as much as of this ladder; `--scope
 all` runs them KB-wide, where the umbrella-entry pattern (`Epilepsy` listing
 `Juvenile Myoclonic Epilepsy`, which has its own entry) makes them a backlog in
 the hundreds.
+
+## Shared `disease_term`: `just check-shared-disease-terms`
+
+Two disorder entries can carry the same `disease_term` and pass every other
+gate. Sometimes that is deliberate: design decisions §3a lets a promoted cancer
+stratum (EGFR-mutant NSCLC) anchor to its parent's MONDO term when MONDO has no
+class for the stratum. Sometimes it is two curators who curated the same disease
+under different filenames, which is how #9618 nearly merged three duplicates.
+This check tells the two apart by requiring the deliberate case to say so
+(#10113):
+
+- every entry sharing a `disease_term` has a `mappings.mondo_mappings` row for
+  that CURIE with `mapping_predicate` `skos:exactMatch` or `skos:broadMatch`
+  (SKOS predicates read subject to object, so the narrower stratum records its
+  broader parent as `broadMatch`; the legacy `skos:narrowMatch` spelling is
+  still accepted on existing entries while that backlog migrates —
+  dismech#10165, dismech#16243);
+- at most one entry in the group says `skos:exactMatch`.
+
+A group where every entry says `skos:broadMatch` (or the legacy
+`skos:narrowMatch`) is legal. It means the parent disease has no entry of its
+own yet, as with the five lung adenocarcinoma strata. An entry with no row is
+reported and is never treated as the exact match. `skos:closeMatch` or a
+misspelled predicate is reported too, since `mapping_predicate` has no enum to
+catch it. `Cutaneous_Melanoma` and its `BRAF_V600_Mutant_Melanoma` and
+`NRAS_Mutant_Melanoma` strata are the worked example for the mechanics, though
+they still record the legacy `narrowMatch` spelling.
+
+```bash
+just check-shared-disease-terms            # gate (in `just qc`, ungated in CI)
+just list-shared-disease-terms             # every shared group, with each member's predicate
+just update-shared-disease-term-baseline   # only ever to shrink the baseline
+```
+
+Groups that predate the check are listed in
+`tests/shared_disease_term_baseline.txt`, one row per entry, so a new entry
+that joins a listed group still fails. Rows are keyed on the file path, so
+renaming or merging a listed entry makes its finding read as new: add the
+mapping in the renaming PR rather than re-adding the row. Repairing a listed group is curation, not
+a mechanical fix: some need a `skos:broadMatch` row, some need a parent entry
+created, and some are two entries that should be one. The issue thread sorts
+the current groups into those cases.
+
+`just check-granularity` reports a weaker form of this as `DUPLICATE_ANCHOR`.
+That class is report-only and limited to infectious entries unless run with
+`--scope all`.
 
 ## Adding a new computed metric
 

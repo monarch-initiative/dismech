@@ -788,7 +788,9 @@ def check_pair(
     # neither a misquote nor an incomplete cache, and saying "not found as
     # substring" and stopping sends the curator looking for a paraphrase that
     # does not exist. The fix is a `literal_bracket_patterns` entry in
-    # conf/reference_validator_config.yaml, not a re-quote.
+    # conf/reference_validator_config.yaml, not a re-quote. For a single
+    # snippet an ellipsis over the stripped span also works, and the reason
+    # says so: curators who did not know truncated the quote instead (#9848).
     culprits = index.brackets_explaining_mismatch(pair.snippet, content)
     if culprits:
         spans = (
@@ -804,7 +806,12 @@ def check_pair(
                 f"(note: the snippet matches the cached text exactly once {spans} "
                 f"{verb} kept; bracketed spans are stripped before matching "
                 "unless conf/reference_validator_config.yaml lists a matching "
-                "literal_bracket_patterns entry)"
+                "literal_bracket_patterns entry. To quote across a stripped "
+                "span, replace it with ' ... ': text on either side of a run "
+                "of two or more dots is matched independently, so "
+                "'infection (0.50 [0.31-0.83]), or haematuria' can be written "
+                "'infection (0.50 ... or haematuria'. Bridge only text the "
+                "claim does not depend on)"
             ),
         )
 

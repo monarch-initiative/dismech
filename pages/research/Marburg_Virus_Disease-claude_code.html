@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marburg Virus Disease · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Marburg Virus Disease</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Marburg Virus Disease</h1>
+                
+                <p class="report-subtitle">Marburg Virus Disease — Disease Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-10-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0020500" target="_blank" rel="noopener noreferrer">MONDO:0020500</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-4-8, claude-opus-5-5</span>
+                    
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Marburg Virus Disease — Disease Characteristics Research Report</h1>
+<p><strong>Target:</strong> Marburg Virus Disease · <strong><a href="http://purl.obolibrary.org/obo/MONDO_0020500" target="_blank" rel="noopener noreferrer">MONDO:0020500</a></strong> · Category: Infectious</p>
+<h2>Causal agent (not a host gene)</h2>
+<p>Marburg Virus Disease (MVD) is an acute, frequently fatal viral hemorrhagic fever. <strong>It has no causal host gene</strong> — the template's "Causal gene(s): not recorded" is correct and should remain so. The disease is caused by infection with <strong>Marburg virus (MARV)</strong> and the closely related <strong>Ravn virus (RAVV)</strong>, two members of the species <em>Orthomarburgvirus marburgense</em> (genus <em>Orthomarburgvirus</em>, formerly <em>Marburgvirus</em>), family <strong>Filoviridae</strong>, order <em>Mononegavirales</em> — the same family as <em>Ebolavirus</em>. The "genes" relevant to this entry are therefore the <strong>seven viral genes</strong> (3′-NP–VP35–VP40–GP–VP30–VP24–L-5′), not human genes. Any <code>genetic:</code> content should describe the viral genome and, where relevant, host <strong>susceptibility/entry-factor</strong> genes (notably <em>NPC1</em>), never a Mendelian causal gene.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> MVD is a zoonotic filoviral hemorrhagic fever characterized by abrupt high fever, severe systemic illness, gastrointestinal and hemorrhagic manifestations, and multi-organ dysfunction with shock. Case-fatality ratios (CFR) across recorded outbreaks range from ~24% to ~90%, averaging roughly 50% (WHO). It was the <strong>first filovirus ever recognized</strong>, identified in 1967 after simultaneous outbreaks among laboratory workers in Marburg and Frankfurt (Germany) and Belgrade (then Yugoslavia) who handled tissues and cell cultures from African green monkeys (<em>Chlorocebus/Cercopithecus aethiops</em>) imported from Uganda (Siegert et al., 1967; Martini &amp; Siegert, classic descriptions — PMIDs to verify).</p>
+<p><strong>Key identifiers.</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0020500" target="_blank" rel="noopener noreferrer">MONDO:0020500</a> (Marburg hemorrhagic fever / Marburg virus disease).
+- <strong>ICD-10:</strong> A98.3 ("Marburg virus disease"). <strong>ICD-11:</strong> 1D60.1 (Marburg virus disease) under viral haemorrhagic fevers.
+- <strong>MeSH:</strong> D008379 "Marburg Virus Disease"; agent "Marburgvirus" (MeSH D008380).
+- <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:319218" target="_blank" rel="noopener noreferrer">ORPHA:319218</a> (Marburg hemorrhagic fever) — verify code.
+- <strong>NCBITaxon:</strong> Orthomarburgvirus marburgense / Marburg marburgvirus (NCBITaxon:3052505 / legacy 11269 for "Marburg marburgvirus" — verify against current NCBI Taxonomy, which was restructured when ICTV renamed the genus).
+- <strong>OMIM:</strong> Not applicable (not a Mendelian disease).</p>
+<p><strong>Synonyms.</strong> Marburg hemorrhagic fever (MHF); Marburg disease; "green monkey disease" (historical, from the 1967 index exposure); Marburg virus disease (current WHO-preferred term).</p>
+<p><strong>Data derivation.</strong> Disease-level, aggregated resources (WHO outbreak reports, CDC, Orphanet, peer-reviewed outbreak case series). Not EHR/individual-patient derived; cohorts are small outbreak clusters.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Causal factor:</strong> Infectious — MARV/RAVV (Filoviridae). This is the sole cause; there is no genetic etiology of the disease itself.</p>
+<p><strong>Risk factors (exposure).</strong>
+- <strong>Reservoir contact:</strong> Entry into caves/mines inhabited by the <strong>Egyptian rousette fruit bat, <em>Rousettus aegyptiacus</em></strong> (NCBITaxon:9407) — the confirmed natural reservoir (Towner et al., 2009, <em>PLoS Pathogens</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/19649327/" target="_blank" rel="noopener noreferrer">PMID:19649327</a> — verify). Classic cohorts: miners at Goroumbwala/Durba (DRC, 1998–2000) and tourists/workers at Python Cave, Maramagambo Forest, Uganda.
+- <strong>Occupational:</strong> Mining, bat-exposed tourism/caving, healthcare work, laboratory handling of filoviruses (BSL-4).
+- <strong>Human-to-human:</strong> Direct contact with blood, secretions, organs, or other bodily fluids of infected (living or dead) persons, and with contaminated surfaces/materials; nosocomial amplification and <strong>unsafe burial practices</strong> are major drivers.
+- <strong>Demographics:</strong> All ages/sexes susceptible; occupational exposure skews adult male in mining clusters, but this reflects exposure, not biological susceptibility.</p>
+<p><strong>Protective factors.</strong> No proven host genetic protective variant is established for MVD specifically. By analogy to filovirus entry biology, loss-of-function in the entry receptor <strong>NPC1</strong> confers resistance in cell/animal models (homozygous <em>Npc1</em> null mice resist filovirus challenge; Carette et al., 2011, <em>Nature</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/21866103/" target="_blank" rel="noopener noreferrer">PMID:21866103</a> — verify), but no human protective allele is clinically demonstrated. Protection in practice is behavioral/public-health: avoiding bat-roost exposure, infection prevention and control (IPC), safe burials, and, in outbreaks, candidate vaccines (investigational).</p>
+<p><strong>Gene–environment interactions.</strong> Not characterized in humans beyond the receptor biology above. Host response genetics (interferon pathway, HLA) are plausibly relevant to outcome but not established — flag as a knowledge gap.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Clinical course is typically <strong>triphasic</strong>: (1) generalization phase (days 1–4), (2) early organ phase (days 5–13), (3) late organ/convalescence or terminal phase. Frequencies below are approximate, drawn from outbreak case series (notably Angola 2004–05 and DRC 1998–2000) and WHO descriptions; outbreak-specific proportions vary widely and should be cited to the specific series.</p>
+<p><strong>Generalization phase (abrupt onset):</strong>
+- <strong>Fever, high</strong> — near-universal. <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> (Fever).
+- <strong>Severe headache</strong> — very frequent. <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a> (Headache).
+- <strong>Severe malaise / prostration</strong> — very frequent. <a href="http://purl.obolibrary.org/obo/HP_0003681" target="_blank" rel="noopener noreferrer">HP:0003681</a> (fatigable; or <a href="http://purl.obolibrary.org/obo/HP_0025406" target="_blank" rel="noopener noreferrer">HP:0025406</a> asthenia — verify).
+- <strong>Myalgia and arthralgia</strong> — frequent. <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a> (Myalgia); <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" rel="noopener noreferrer">HP:0002829</a> (Arthralgia).
+- <strong>Chills/rigors</strong> — frequent. <a href="http://purl.obolibrary.org/obo/HP_0025145" target="_blank" rel="noopener noreferrer">HP:0025145</a> (Chills — verify).</p>
+<p><strong>Gastrointestinal (days ~3–7):</strong>
+- <strong>Watery diarrhea</strong> (often severe, cholera-like, major fluid loss) — very frequent. <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a> (Diarrhea).
+- <strong>Nausea and vomiting</strong> — very frequent. <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" rel="noopener noreferrer">HP:0002018</a> (Nausea); <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a> (Vomiting).
+- <strong>Abdominal pain and cramping</strong> — frequent. <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a> (Abdominal pain).
+- <strong>Anorexia</strong> — frequent. <a href="http://purl.obolibrary.org/obo/HP_0002039" target="_blank" rel="noopener noreferrer">HP:0002039</a> (Anorexia).</p>
+<p><strong>Mucocutaneous:</strong>
+- <strong>Non-pruritic maculopapular rash</strong> (~day 2–7, often trunk) — reported in a substantial minority to majority depending on series. <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a> (Skin rash) / <a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" rel="noopener noreferrer">HP:0000509</a>? — use <a href="http://purl.obolibrary.org/obo/HP_0007498" target="_blank" rel="noopener noreferrer">HP:0007498</a> (Maculopapular exanthema — verify).
+- <strong>Pharyngitis/odynophagia, conjunctival injection</strong> — frequent. <a href="http://purl.obolibrary.org/obo/HP_0100737" target="_blank" rel="noopener noreferrer">HP:0100737</a> (Pharyngitis — verify); <a href="http://purl.obolibrary.org/obo/HP_0000525" target="_blank" rel="noopener noreferrer">HP:0000525</a> (Conjunctivitis/injection — verify).
+- <strong>Characteristic "ghost-like" facies</strong> — drawn, expressionless features with deep-set eyes (classic clinical description).</p>
+<p><strong>Hemorrhagic manifestations (days ~5–7 onward; marker of severe disease):</strong>
+- <strong>Bleeding — GI (hematemesis, melena), petechiae/ecchymoses, bleeding from venipuncture sites, gingival, vaginal</strong> — frequent in fatal cases. <a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" rel="noopener noreferrer">HP:0001892</a> (Abnormal bleeding) / <a href="http://purl.obolibrary.org/obo/HP_0011877" target="_blank" rel="noopener noreferrer">HP:0011877</a> (Gastrointestinal hemorrhage — verify); <a href="http://purl.obolibrary.org/obo/HP_0000421" target="_blank" rel="noopener noreferrer">HP:0000421</a> (Epistaxis); <a href="http://purl.obolibrary.org/obo/HP_0000978" target="_blank" rel="noopener noreferrer">HP:0000978</a> (Bruising susceptibility/ecchymoses).
+- <strong>Disseminated intravascular coagulation (DIC)</strong> — in severe disease.</p>
+<p><strong>Hematologic/laboratory abnormalities:</strong>
+- <strong>Thrombocytopenia</strong> — frequent. <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a>. <a href="https://bioregistry.io/LOINC:777" target="_blank" rel="noopener noreferrer">LOINC:777</a>-3 (Platelets).
+- <strong>Early leukopenia / lymphopenia</strong>, later neutrophilia with left shift. <a href="http://purl.obolibrary.org/obo/HP_0001882" target="_blank" rel="noopener noreferrer">HP:0001882</a> (Leukopenia); <a href="http://purl.obolibrary.org/obo/HP_0001888" target="_blank" rel="noopener noreferrer">HP:0001888</a> (Lymphopenia). <a href="https://bioregistry.io/LOINC:6690" target="_blank" rel="noopener noreferrer">LOINC:6690</a>-2 (WBC).
+- <strong>Marked transaminase elevation (AST often &gt; ALT)</strong> — frequent, reflecting hepatocellular injury. <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" rel="noopener noreferrer">HP:0002910</a> (Elevated hepatic transaminase). <a href="https://bioregistry.io/LOINC:1920" target="_blank" rel="noopener noreferrer">LOINC:1920</a>-8 (AST).
+- <strong>Coagulopathy:</strong> prolonged PT/PTT, elevated D-dimer, hypofibrinogenemia.
+- <strong>Renal:</strong> elevated creatinine/BUN, proteinuria, oliguria → AKI. <a href="http://purl.obolibrary.org/obo/HP_0012100" target="_blank" rel="noopener noreferrer">HP:0012100</a> (Abnormal circulating creatinine); <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" rel="noopener noreferrer">HP:0000083</a> (Renal insufficiency).
+- <strong>Electrolyte/metabolic:</strong> hypokalemia, hyponatremia, metabolic acidosis (from fluid losses).
+- <strong>Pancreatitis</strong> (elevated amylase) in some.</p>
+<p><strong>Neurological (later phase, often poor-prognosis):</strong>
+- <strong>Confusion, irritability, agitation, encephalopathy/delirium</strong> — frequent in severe disease. <a href="http://purl.obolibrary.org/obo/HP_0001289" target="_blank" rel="noopener noreferrer">HP:0001289</a> (Confusion — verify); <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" rel="noopener noreferrer">HP:0002353</a> (EEG abnormality if documented).
+- <strong>Seizures, coma</strong> — terminal.</p>
+<p><strong>Cardiovascular / terminal:</strong>
+- <strong>Hypotension and shock</strong> (distributive + hypovolemic), multi-organ failure — the usual proximate cause of death. <a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" rel="noopener noreferrer">HP:0001635</a>/<a href="http://purl.obolibrary.org/obo/HP_0002615" target="_blank" rel="noopener noreferrer">HP:0002615</a> (Hypotension — verify).</p>
+<p><strong>Age of onset:</strong> Acute, within 2–21 days of exposure (any age). <strong>Severity:</strong> severe/life-threatening. <strong>Progression:</strong> rapid (illness to death often within 8–9 days of symptom onset in fatal cases). <strong>Quality-of-life impact:</strong> profound acute incapacitation; survivors may have prolonged convalescence (see §11 sequelae).</p>
+<hr />
+<h2>4. Genetic / Molecular Information (viral)</h2>
+<p><strong>Genome.</strong> ~19 kb negative-sense, non-segmented, single-stranded RNA. Seven genes in fixed order: <strong>NP</strong> (nucleoprotein), <strong>VP35</strong> (polymerase cofactor; type I IFN antagonist), <strong>VP40</strong> (matrix protein; budding, and also an IFN antagonist via Jak/STAT), <strong>GP</strong> (the single surface glycoprotein; mediates attachment and entry), <strong>VP30</strong> (transcription activator), <strong>VP24</strong> (minor matrix/assembly; distinct from Ebola VP24 in IFN strategy), <strong>L</strong> (RNA-dependent RNA polymerase). (Review: Feldmann &amp; Geisbert, <em>Lancet</em> 2011, <a href="https://pubmed.ncbi.nlm.nih.gov/21084112/" target="_blank" rel="noopener noreferrer">PMID:21084112</a> — covers filoviral HF generally; verify.)</p>
+<p><strong>Entry biology / host factors.</strong>
+- <strong>GP</strong> is the sole envelope protein; it is cleaved by host cathepsins in the endosome to expose the receptor-binding domain.
+- <strong>Intracellular receptor: NPC1 (Niemann-Pick C1)</strong> — essential for filovirus membrane fusion (Carette et al., 2011, <a href="https://pubmed.ncbi.nlm.nih.gov/21866103/" target="_blank" rel="noopener noreferrer">PMID:21866103</a>; Côté et al., 2011, <em>Nature</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/21866101/" target="_blank" rel="noopener noreferrer">PMID:21866101</a> — verify).
+- <strong>Attachment factors:</strong> C-type lectins (DC-SIGN, L-SIGN), TIM-1, Axl, and others facilitate uptake, especially in macrophages/dendritic cells.</p>
+<p><strong>Variant/strain notes.</strong> Not a "pathogenic variant" disease in the human-genetics sense. Relevant diversity is <strong>viral lineage</strong>: MARV (multiple variants — e.g., Musoke, Popp, Angola, Ozolin) vs. RAVV. The <strong>Angola variant</strong> was associated with the exceptionally high CFR (~90%) in 2004–05. These are properly encoded as infectious-agent subtypes (NCBITaxon-bound), not host alleles.</p>
+<p><strong>Epigenetics / chromosomal abnormalities:</strong> Not applicable (viral disease).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Infectious agent:</strong> MARV/RAVV (Filoviridae). Primary classification axis for this entry.</li>
+<li><strong>Reservoir/vector ecology:</strong> <em>Rousettus aegyptiacus</em> (Egyptian rousette fruit bat) is the maintenance host; seasonal pulses of viral shedding in juvenile bats correlate with human spillover risk (Amman et al., 2012, <em>PLoS Pathogens</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/23055920/" target="_blank" rel="noopener noreferrer">PMID:23055920</a> — verify). Primates (including humans) are incidental dead-end–to–amplifying hosts.</li>
+<li><strong>Environmental exposure:</strong> cave/mine microenvironments with high bat density; handling bushmeat; nosocomial environments lacking IPC.</li>
+<li><strong>Lifestyle/occupational:</strong> mining, caving/tourism, hunting, healthcare, funerary practices.</li>
+<li>No chemical/toxicant or pollution etiology. ECTO/ENVO terms could capture "exposure to bat-inhabited cave environment" if a <code>environmental:</code> node is desired, but ECTO coverage should be searched before binding (per dismech-terms discipline; do not fabricate an ECTO CURIE).</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating infection → death)</h3>
+<ol>
+<li><strong>Mucosal/percutaneous exposure to MARV</strong> (bat-contaminated environment or infected human fluids) <strong>leads to</strong> viral deposition at the portal of entry.</li>
+<li><strong>GP-mediated attachment</strong> to dendritic cells, monocytes, and macrophages (via DC-SIGN/TIM-1/Axl), followed by endosomal uptake, cathepsin cleavage of GP, and <strong>NPC1-dependent fusion</strong>, <strong>results in</strong> productive infection of these first-responder myeloid cells (the primary targets). <em>(Well demonstrated in vitro and NHP models.)</em></li>
+<li>Infected macrophages/DCs <strong>release large amounts of proinflammatory mediators</strong> (TNF-α, IL-1β, IL-6, IL-8, IFN response chemokines, nitric oxide, reactive oxygen species) — a <strong>dysregulated "cytokine storm."</strong></li>
+<li>In parallel, viral <strong>VP35 and VP40 antagonize type I interferon</strong> (VP35 blocks RIG-I/IRF3 signaling; VP40 impairs Jak/STAT), <strong>leading to</strong> failure of early antiviral control and <strong>unchecked systemic viral replication</strong> with spread to liver, spleen, lymphoid tissue, adrenal glands, and endothelium. <em>(Demonstrated.)</em></li>
+<li>High cytokine levels and direct infection of <strong>dendritic cells impair their maturation/antigen presentation</strong>, <strong>leading to</strong> defective adaptive immune priming.</li>
+<li><strong>Massive "bystander" apoptosis of lymphocytes</strong> (which are <em>not</em> themselves productively infected) <strong>results in</strong> profound lymphopenia and immune collapse, <strong>leading to</strong> inability to clear virus. <em>(Demonstrated; mechanism of bystander death — Fas/TNF, mediator-driven — partly inferred.)</em></li>
+<li>Infection and cytokine action on <strong>vascular endothelium</strong>, together with viral GP effects, <strong>lead to</strong> endothelial activation and increased vascular permeability → <strong>plasma leak, hypovolemia, hypotension.</strong></li>
+<li>Infected macrophages express <strong>tissue factor</strong>, and endothelial injury plus consumption of clotting factors <strong>lead to disseminated intravascular coagulation (DIC)</strong> → simultaneous thrombosis and <strong>hemorrhage</strong>, compounded by thrombocytopenia. <em>(Tissue-factor mechanism shown in filovirus NHP models.)</em></li>
+<li><strong>Direct hepatocellular infection and necrosis</strong> (steatosis, councilman-like bodies) <strong>result in</strong> coagulation-factor deficiency and rising transaminases, <strong>worsening</strong> the coagulopathy.</li>
+<li><strong>Adrenal cortical infection/necrosis</strong> impairs catecholamine/steroid responses, <strong>contributing to</strong> refractory hypotension.</li>
+<li>The convergence of <strong>plasma leak + DIC + hepatic/adrenal failure + fluid/electrolyte loss from GI disease</strong> <strong>leads to</strong> distributive/hypovolemic shock and <strong>multi-organ failure</strong>, the usual proximate cause of death (often day 8–9).</li>
+</ol>
+<p><strong>Branch:</strong> In survivors, timely <strong>adaptive immunity (early, robust IgG and T-cell response)</strong> and lower peak viremia <strong>lead to</strong> viral clearance and recovery; delayed/absent antibody response tracks with fatal outcome. (Reviews: Feldmann &amp; Geisbert 2011, <a href="https://pubmed.ncbi.nlm.nih.gov/21084112/" target="_blank" rel="noopener noreferrer">PMID:21084112</a>; Mehedi et al. on filovirus biology; Messaoudi et al., <em>Nat Rev Microbiol</em> 2015 on filovirus pathogenesis, <a href="https://pubmed.ncbi.nlm.nih.gov/25822829/" target="_blank" rel="noopener noreferrer">PMID:25822829</a> — verify.)</p>
+<h3>Category checklist mapped to GO/CL/UBERON</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> type I interferon antagonism (<a href="http://purl.obolibrary.org/obo/GO_0032480" target="_blank" rel="noopener noreferrer">GO:0032480</a> negative regulation of type I interferon production — verify); RIG-I signaling suppression; coagulation cascade activation (<a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" rel="noopener noreferrer">GO:0007596</a> blood coagulation); inflammatory cytokine signaling (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> inflammatory response).</li>
+<li><strong>Cellular processes:</strong> apoptosis of lymphocytes (<a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> apoptotic process / <a href="http://purl.obolibrary.org/obo/GO_0097194" target="_blank" rel="noopener noreferrer">GO:0097194</a> execution phase of apoptosis); macrophage/DC activation (<a href="http://purl.obolibrary.org/obo/GO_0042116" target="_blank" rel="noopener noreferrer">GO:0042116</a> macrophage activation); viral entry (<a href="http://purl.obolibrary.org/obo/GO_0046718" target="_blank" rel="noopener noreferrer">GO:0046718</a> viral entry into host cell); viral budding (<a href="http://purl.obolibrary.org/obo/GO_0046755" target="_blank" rel="noopener noreferrer">GO:0046755</a>).</li>
+<li><strong>Protein dysfunction (viral effectors):</strong> VP35 dsRNA sequestration; VP40 matrix/budding; GP receptor binding (UniProt entries for MARV GP, VP35, VP40, L).</li>
+<li><strong>Immune involvement:</strong> innate immune evasion + maladaptive hyperinflammation + adaptive immune suppression.</li>
+<li><strong>Tissue-damage mechanisms:</strong> direct cytopathic infection (hepatocytes, endothelium), immune-mediated injury, ischemia from DIC, oxidative/nitrosative stress.</li>
+<li><strong>Cell types (CL):</strong> macrophage <strong><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a></strong>; monocyte <strong><a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a></strong>; dendritic cell <strong><a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a></strong>; hepatocyte <strong><a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a></strong>; endothelial cell <strong><a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a></strong>; T lymphocyte <strong><a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a></strong> (bystander apoptosis).</li>
+<li><strong>Anatomic/cellular compartments:</strong> endosome/lysosome (NPC1; <a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" rel="noopener noreferrer">GO:0005764</a> lysosome; <a href="http://purl.obolibrary.org/obo/GO_0005768" target="_blank" rel="noopener noreferrer">GO:0005768</a> endosome), plasma membrane (budding).</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organs:</strong> <strong>liver</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>) — hepatocellular necrosis/steatosis; <strong>spleen</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>) and <strong>lymphoid tissue</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000479" target="_blank" rel="noopener noreferrer">UBERON:0000479</a>) — lymphoid depletion; <strong>vascular endothelium</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001986" target="_blank" rel="noopener noreferrer">UBERON:0001986</a> endothelium / <a href="http://purl.obolibrary.org/obo/UBERON_0000115" target="_blank" rel="noopener noreferrer">UBERON:0000115</a> lung? — use vasculature <a href="http://purl.obolibrary.org/obo/UBERON_0002049" target="_blank" rel="noopener noreferrer">UBERON:0002049</a>) — systemic leak.</li>
+<li><strong>Secondary involvement:</strong> <strong>kidney</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>) — AKI; <strong>adrenal gland</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002369" target="_blank" rel="noopener noreferrer">UBERON:0002369</a>) — cortical necrosis; <strong>gastrointestinal tract</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001555" target="_blank" rel="noopener noreferrer">UBERON:0001555</a>) — fluid loss, bleeding; <strong>pancreas</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001264" target="_blank" rel="noopener noreferrer">UBERON:0001264</a>); <strong>central nervous system / brain</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>) — encephalopathy; <strong>testis/gonads</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000473" target="_blank" rel="noopener noreferrer">UBERON:0000473</a>) — viral persistence (immune-privileged sites, relevant to late relapse/sexual transmission by analogy to Ebola; data for Marburg more limited).</li>
+<li><strong>Body systems:</strong> hematologic/coagulation, hepatobiliary, cardiovascular, renal, GI, CNS, immune, endocrine.</li>
+<li><strong>Tissue/cell level:</strong> mononuclear phagocytes, hepatocytes, endothelial cells, lymphocytes (see §6).</li>
+<li><strong>Subcellular:</strong> endosome–lysosome (entry), plasma membrane (budding), cytoplasmic inclusion bodies (viral replication factories; <a href="http://purl.obolibrary.org/obo/GO_0039712" target="_blank" rel="noopener noreferrer">GO:0039712</a> — verify).</li>
+<li><strong>Lateralization:</strong> Not applicable (systemic).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Incubation:</strong> 2–21 days (commonly 5–10). (WHO.)</li>
+<li><strong>Onset:</strong> acute/abrupt.</li>
+<li><strong>Course/stages:</strong> generalization (d1–4) → early organ phase with hemorrhage and neurologic signs (d5–13) → convalescence <em>or</em> terminal multi-organ failure/shock. Fatal outcomes typically <strong>day 8–9</strong> after onset.</li>
+<li><strong>Progression rate:</strong> rapid.</li>
+<li><strong>Duration:</strong> self-limited in survivors (acute), followed by a <strong>prolonged convalescence</strong> (weeks–months) with asthenia, and documented <strong>sequelae and viral persistence</strong> in immune-privileged sites.</li>
+<li><strong>Critical intervention window:</strong> early aggressive supportive care (fluids/electrolytes) during the first days markedly affects survival; late presentation with hemorrhage/shock carries high mortality.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population (Epidemiology)</h2>
+<p><strong>Inheritance:</strong> Not applicable (infectious). Transmission is zoonotic (bat→human) then human-to-human; no vertical Mendelian inheritance.</p>
+<p><strong>Epidemiology.</strong> Sporadic outbreaks, predominantly sub-Saharan Africa. Notable events:
+- <strong>1967</strong> Germany/Yugoslavia (index; 31 cases, 7 deaths) — imported monkeys.
+- <strong>1975</strong> South Africa/Zimbabwe traveler cluster.
+- <strong>1980, 1987</strong> Kenya (sporadic, incl. RAVV).
+- <strong>1998–2000</strong> DRC (Durba/Watsa, mining; ~154 cases, ~83% CFR).
+- <strong>2004–2005</strong> <strong>Angola (Uíge)</strong> — largest historical outbreak: ~252 cases, 227 deaths (<strong>~90% CFR</strong>) (Towner et al., 2006, <em>J Virol</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/16731931/" target="_blank" rel="noopener noreferrer">PMID:16731931</a> — verify).
+- <strong>2007, 2008, 2012, 2014, 2017</strong> Uganda (several; miners, cave tourism; RAVV and MARV).
+- <strong>2008</strong> imported cases to Netherlands and USA (cave tourists, Uganda).
+- <strong>2022</strong> Ghana (first; 3 cases).
+- <strong>2023</strong> <strong>Equatorial Guinea</strong> and <strong>Tanzania</strong> (first outbreaks in each).
+- <strong>2024</strong> <strong>Rwanda</strong> (notably high healthcare-worker involvement).
+- <strong>2025</strong> <strong>Tanzania</strong> (further outbreak).</p>
+<p>(Outbreak list per WHO Disease Outbreak News; exact case/death counts should be cited to the specific WHO report or primary paper.)</p>
+<ul>
+<li><strong>Prevalence/incidence:</strong> no endemic steady-state prevalence; disease is outbreak-driven; cumulative recorded cases across history are in the low thousands.</li>
+<li><strong>CFR:</strong> ~24–90% depending on outbreak, variant, and care; WHO cites an average around 50%.</li>
+<li><strong>Geographic distribution:</strong> reservoir range of <em>R. aegyptiacus</em> across sub-Saharan Africa (and parts of N. Africa/Middle East); human outbreaks concentrated in East/Central Africa, with imported cases possible anywhere.</li>
+<li><strong>Sex/age:</strong> no intrinsic sex predisposition; apparent skews reflect occupational exposure.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Biosafety:</strong> Live-virus work requires <strong>BSL-4</strong>; clinical specimens handled with strict precautions.</p>
+<ul>
+<li><strong>Molecular:</strong> <strong>RT-PCR / real-time RT-PCR</strong> for MARV RNA — primary acute diagnostic (highest sensitivity in early viremia). Metagenomic/NGS used for novel-variant identification.</li>
+<li><strong>Antigen detection:</strong> antigen-capture <strong>ELISA</strong>.</li>
+<li><strong>Serology:</strong> <strong>IgM</strong> (early) and <strong>IgG</strong> (later/convalescent) ELISA; seroconversion supports diagnosis/recovery.</li>
+<li><strong>Virus isolation:</strong> cell culture (Vero E6), electron microscopy showing filamentous virions — reference/confirmatory, BSL-4.</li>
+<li><strong>Immunohistochemistry:</strong> on post-mortem tissue (skin, liver) — useful where blood sampling is unsafe.</li>
+<li><strong>Supportive labs:</strong> CBC (thrombocytopenia, lymphopenia→neutrophilia), LFTs (AST≫ALT), coagulation (prolonged PT/PTT, high D-dimer, low fibrinogen), renal panel, electrolytes.</li>
+<li><strong>Clinical criteria:</strong> case definitions are <strong>epidemiologic + clinical + laboratory</strong> (WHO/CDC VHF case definitions); no DSM/scoring system. </li>
+<li><strong>Differential diagnosis:</strong> Ebola virus disease (requires lab differentiation), Lassa fever, Crimean-Congo HF, Rift Valley fever, <strong>severe falciparum malaria</strong> (critical early mimic — always test), typhoid, leptospirosis, rickettsioses, meningococcemia, severe bacterial sepsis, dengue, yellow fever, acute viral hepatitis.</li>
+<li><strong>Genetic/omics diagnostics:</strong> host genetic testing not relevant; viral genomic sequencing is used for outbreak tracing.</li>
+<li><strong>Screening:</strong> no population screening; <strong>contact tracing with 21-day symptom/temperature monitoring</strong> is the operational "screening" tool in outbreaks.</li>
+</ul>
+<p>NCIT/LOINC: RT-PCR for Marburg (LOINC codes exist for filovirus RNA — must be looked up, not typed); NCIT procedure terms for serologic testing / molecular diagnostic assay as applicable.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Mortality:</strong> CFR ~24–90% (variant- and care-dependent); Angola variant historically highest.</li>
+<li><strong>Prognostic factors (poorer):</strong> high peak viremia / high viral load; marked transaminase and creatinine elevation; pronounced hemorrhage and DIC; neurologic involvement; shock; delayed or absent antibody response; late presentation and limited supportive care. (Early robust IgG response and lower viremia favor survival.)</li>
+<li><strong>Proximate cause of death:</strong> multi-organ failure with hypovolemic/distributive shock, often with DIC-related hemorrhage.</li>
+<li><strong>Survivor sequelae / convalescence:</strong> prolonged asthenia, myalgia, arthralgia; reported <strong>uveitis/ocular inflammation, hepatitis, orchitis, myelitis, psychosis, and recurrent/prolonged symptoms</strong>; <strong>viral persistence</strong> in immune-privileged sites (eye, testis, CNS) is described for filoviruses and raises concern for late relapse and possible sexual transmission (better characterized for Ebola; Marburg data more limited — flag as knowledge gap).</li>
+<li><strong>QoL tools:</strong> no MVD-specific instrument; generic (EQ-5D/SF-36) would apply to survivor studies, which are sparse.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>No specific antiviral or monoclonal antibody is approved for MVD.</strong> Management is primarily supportive, with investigational specific therapeutics.</p>
+<ul>
+<li><strong>Supportive care (mainstay, outcome-determining):</strong> aggressive IV fluid and electrolyte repletion; correction of hypovolemia/shock; management of coagulopathy (platelets, FFP as indicated); renal replacement if AKI; oxygenation/ventilatory support; empiric treatment of co-infections (e.g., malaria, bacterial sepsis); symptom control (antipyretics, antiemetics, analgesia). NCIT: supportive care <strong>NCIT:C15747</strong>; fluid/electrolyte therapy; pharmacotherapy <strong>NCIT:C15986</strong>.</li>
+<li><strong>Investigational specific therapeutics:</strong></li>
+<li><strong>Remdesivir (GS-5734)</strong> and <strong>galidesivir (BCX4430)</strong> — nucleoside analog antivirals with activity against filoviruses in NHP models (Warren et al. on BCX4430, <em>Nature</em> 2014, <a href="https://pubmed.ncbi.nlm.nih.gov/24284631/" target="_blank" rel="noopener noreferrer">PMID:24284631</a> — verify).</li>
+<li><strong>Monoclonal antibodies</strong> targeting MARV GP (e.g., MR191 and related; Mire/Geisbert NHP protection studies — PMIDs to verify).</li>
+<li><strong>Favipiravir</strong> — broad RNA-virus activity, evaluated for filoviruses (evidence weaker/mixed).</li>
+<li>NCIT therapeutic modality terms: antiviral pharmacotherapy; monoclonal antibody <strong>NCIT:C20401</strong> (as <code>therapeutic_agent</code> on a pharmacotherapy action).</li>
+<li><strong>Pharmacogenomics:</strong> not applicable.</li>
+<li><strong>Experimental/clinical trials:</strong> platform/outbreak trials (e.g., WHO-coordinated), and vaccine efficacy work; NCT identifiers must be fetched from ClinicalTrials.gov before citing.</li>
+<li><strong>Adverse events / response rates:</strong> no established efficacy benchmarks for MVD specifically; data extrapolated from Ebola and NHP studies.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong></li>
+<li><strong>Vaccines (investigational, none licensed for MVD):</strong> recombinant <strong>VSV-based (VSVΔG-MARV-GP)</strong>, <strong>chimpanzee adenovirus (ChAd3-MARV)</strong>, DNA, and MVA-based candidates; several advanced to Phase 1/2, with accelerated evaluation during the 2023–2025 outbreaks (WHO/CEPI-supported). Cite specific trials by NCT after verification.</li>
+<li><strong>Exposure avoidance:</strong> no unprotected entry into bat-inhabited mines/caves; avoid bushmeat/sick-or-dead primates; bat-population and mine-access controls.</li>
+<li><strong>Secondary prevention / outbreak control:</strong> rapid case identification and isolation; <strong>contact tracing with 21-day monitoring</strong>; strict <strong>IPC</strong> in healthcare settings (PPE, patient isolation); <strong>safe and dignified burials</strong>; laboratory biosafety.</li>
+<li><strong>Tertiary prevention:</strong> early supportive care to prevent progression to shock/organ failure; management of survivor sequelae and persistence (ophthalmologic follow-up; counseling on possible persistence).</li>
+<li><strong>Public health:</strong> surveillance, community engagement/health education, cross-border coordination, ring/targeted vaccination strategies if a vaccine becomes deployable.</li>
+<li><strong>Prophylaxis:</strong> post-exposure monoclonal antibody or antiviral prophylaxis is investigational only.</li>
+</ul>
+<p>NCIT: vaccination <strong>NCIT:C15346</strong>; genetic counseling not applicable.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Reservoir host:</strong> <strong>Egyptian rousette fruit bat, <em>Rousettus aegyptiacus</em></strong> (NCBITaxon:9407) — persistently infected, generally without overt disease; experimental infection studied (Amman, Schuh et al.).</li>
+<li><strong>Nonhuman primates:</strong> African green monkeys (<em>Chlorocebus aethiops</em>, legacy <em>Cercopithecus aethiops</em>) — the 1967 index amplifying host; <strong>rhesus</strong> (<em>Macaca mulatta</em>, NCBITaxon:9544) and <strong>cynomolgus macaques</strong> (<em>Macaca fascicularis</em>, NCBITaxon:9541) develop lethal, human-like disease and are the key challenge models.</li>
+<li><strong>Zoonotic potential:</strong> high; spillover from bats drives all human outbreaks.</li>
+<li><strong>Natural disease in companion animals/wildlife:</strong> not a recognized veterinary clinical disease outside primates; pigs and other species have been probed experimentally for filoviruses but Marburg is not a notable domestic-animal pathogen. OMIA has no Mendelian analog (not applicable).</li>
+<li><strong>Comparative/evolutionary:</strong> mechanisms (NPC1 entry, IFN antagonism) are conserved across filoviruses; cross-species susceptibility tracks NPC1 orthologs.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Nonhuman primate (gold standard):</strong> cynomolgus and rhesus macaques recapitulate the full human syndrome — fever, viremia, coagulopathy/DIC, hepatic injury, hemorrhage, lethality — and are the pivotal models for therapeutics/vaccines (Geisbert, Hensley, Mire laboratories). <strong>Strength:</strong> high fidelity. <strong>Limitation:</strong> cost, BSL-4, ethical/throughput constraints; uniformly lethal challenge may not mirror the survivable spectrum of human disease.</li>
+<li><strong>Rodent models:</strong> wild-type mice/guinea pigs resist unadapted MARV; <strong>mouse- and guinea-pig–adapted MARV</strong> strains, and <strong>immunodeficient (e.g., IFN-receptor knockout, STAT1-KO) and humanized mice</strong> support lethal infection for screening. <strong>Limitation:</strong> adaptation changes virulence determinants; immunodeficient models lack intact immune pathogenesis — partial fidelity.</li>
+<li><strong>In vitro:</strong> Vero E6 and human macrophage/DC/hepatocyte/endothelial cultures for entry, replication, and innate-immune-antagonism studies; NPC1-knockout cell lines demonstrate entry dependence.</li>
+<li><strong>Reservoir model:</strong> experimentally infected <em>R. aegyptiacus</em> colonies for transmission/ecology.</li>
+<li><strong>Resources:</strong> BEI Resources / reference labs (CDC, USAMRIID, PHAC, Bernhard Nocht Institute); model data via PubMed (MGI/ZFIN not applicable to a viral pathogen).</li>
+</ul>
+<p>Model-link fidelity for a dismech entry: NHP challenge = <strong>RECAPITULATES</strong> (HIGH fidelity) for the systemic hemorrhagic syndrome; adapted-rodent/immunodeficient = <strong>PARTIALLY_RECAPITULATES</strong> (MODERATE/LOW; note species-adaptation and immune-deficiency divergences).</p>
+<hr />
+<h2>Key ontology-term summary (leads — verify every CURIE before binding)</h2>
+<ul>
+<li><strong>Agent (NCBITaxon):</strong> Orthomarburgvirus marburgense / Marburg marburgvirus (verify current taxid); reservoir <em>Rousettus aegyptiacus</em> NCBITaxon:9407; NHP models NCBITaxon:9544, 9541.</li>
+<li><strong>Cell types (CL):</strong> <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> macrophage; <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a> monocyte; <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a> dendritic cell; <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a> hepatocyte; <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a> endothelial cell; <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a> T cell.</li>
+<li><strong>Anatomy (UBERON):</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a> liver; <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a> spleen; <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a> kidney; <a href="http://purl.obolibrary.org/obo/UBERON_0002369" target="_blank" rel="noopener noreferrer">UBERON:0002369</a> adrenal gland; <a href="http://purl.obolibrary.org/obo/UBERON_0002049" target="_blank" rel="noopener noreferrer">UBERON:0002049</a> vasculature; <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> brain.</li>
+<li><strong>Processes (GO):</strong> <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> inflammatory response; <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> apoptotic process; <a href="http://purl.obolibrary.org/obo/GO_0046718" target="_blank" rel="noopener noreferrer">GO:0046718</a> viral entry into host cell; <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" rel="noopener noreferrer">GO:0007596</a> blood coagulation; type I IFN negative regulation (verify exact GO id).</li>
+<li><strong>Phenotypes (HP):</strong> <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> Fever; <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a> Diarrhea; <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a> Vomiting; <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a> Thrombocytopenia; <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" rel="noopener noreferrer">HP:0002910</a> Elevated hepatic transaminase; <a href="http://purl.obolibrary.org/obo/HP_0001888" target="_blank" rel="noopener noreferrer">HP:0001888</a> Lymphopenia; <a href="http://purl.obolibrary.org/obo/HP_0000421" target="_blank" rel="noopener noreferrer">HP:0000421</a> Epistaxis; <a href="http://purl.obolibrary.org/obo/HP_0002615" target="_blank" rel="noopener noreferrer">HP:0002615</a> Hypotension (verify); <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a> Headache; <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a> Myalgia.</li>
+<li><strong>Treatments (NCIT):</strong> NCIT:C15747 Supportive Care; NCIT:C15986 Pharmacotherapy; NCIT:C20401 Monoclonal Antibody; NCIT:C15346 Vaccination.</li>
+</ul>
+<hr />
+<h2>Priority citations to fetch and verify (leads, not yet validated)</h2>
+<ul>
+<li>WHO Marburg virus disease fact sheet and Disease Outbreak News (authoritative for CFR, outbreaks, transmission) — not a PMID; cite as WHO with retrieval date.</li>
+<li>Towner JS et al., <em>PLoS Pathog</em> 2009 — <em>R. aegyptiacus</em> reservoir (candidate <strong><a href="https://pubmed.ncbi.nlm.nih.gov/19649327/" target="_blank" rel="noopener noreferrer">PMID:19649327</a></strong>).</li>
+<li>Carette JE et al., <em>Nature</em> 2011 — NPC1 as filovirus entry receptor (candidate <strong><a href="https://pubmed.ncbi.nlm.nih.gov/21866103/" target="_blank" rel="noopener noreferrer">PMID:21866103</a></strong>); Côté M et al., <em>Nature</em> 2011 (candidate <strong><a href="https://pubmed.ncbi.nlm.nih.gov/21866101/" target="_blank" rel="noopener noreferrer">PMID:21866101</a></strong>).</li>
+<li>Towner JS et al., <em>J Virol</em> 2006 — Angola variant/outbreak (candidate <strong><a href="https://pubmed.ncbi.nlm.nih.gov/16731931/" target="_blank" rel="noopener noreferrer">PMID:16731931</a></strong>).</li>
+<li>Amman BR et al., <em>PLoS Pathog</em> 2012 — seasonal bat shedding and spillover (candidate <strong><a href="https://pubmed.ncbi.nlm.nih.gov/23055920/" target="_blank" rel="noopener noreferrer">PMID:23055920</a></strong>).</li>
+<li>Feldmann H, Geisbert TW, <em>Lancet</em> 2011 — filoviral hemorrhagic fever pathogenesis review (candidate <strong><a href="https://pubmed.ncbi.nlm.nih.gov/21084112/" target="_blank" rel="noopener noreferrer">PMID:21084112</a></strong>).</li>
+<li>Messaoudi I et al., <em>Nat Rev Microbiol</em> 2015 — filovirus pathogenesis (candidate <strong><a href="https://pubmed.ncbi.nlm.nih.gov/25822829/" target="_blank" rel="noopener noreferrer">PMID:25822829</a></strong>).</li>
+<li>Warren TK et al., <em>Nature</em> 2014 — BCX4430/galidesivir NHP protection (candidate <strong><a href="https://pubmed.ncbi.nlm.nih.gov/24284631/" target="_blank" rel="noopener noreferrer">PMID:24284631</a></strong>).</li>
+</ul>
+<p><strong>Not-available / knowledge-gap flags for curation:</strong>
+- No human host causal or protective gene established (NPC1 resistance is model/cell-based only).
+- Human-specific data on Marburg viral persistence in immune-privileged sites and late relapse are limited (largely extrapolated from Ebola).
+- Prognostic biomarker thresholds are not standardized for MVD specifically.
+- No licensed vaccine or specific therapeutic as of the knowledge cutoff; trial NCT identifiers must be pulled live from ClinicalTrials.gov.</p>
+<hr />
+<p>If you want, I can now (a) run <code>just fetch-reference</code> on the candidate PMIDs above to confirm which resolve correctly and capture exact abstract snippets, or (b) scaffold this into a <code>kb/disorders/Marburg_Virus_Disease.yaml</code> draft (as an infectious-disease entry with <code>infectious_agent</code>, <code>transmission</code>, and <code>agent_life_cycle</code> per the infectious-disease granularity ladder) with only verified evidence attached. Tell me which, and I'll proceed with tool-backed verification before anything lands in the KB.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.4.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>8</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:25822829</code> (2 mentions) - Associations between DSM-5 section III personality traits and the Minnesota Multiphasic Personality Inventory 2-Restructured Form (MMPI-2-RF) scales in a psychiatric patient sample.</li>
+<li>shared terms: human</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>disease</code>, <code>viral</code>, <code>verify</code>, <code>marburg</code>, <code>outbreak</code>, <code>cell</code>, <code>marv</code>, <code>host</code>, <code>human</code>, <code>fever</code>, <code>virus</code>, <code>model</code>, <code>exposure</code>, <code>shock</code>, <code>reservoir</code>, <code>aegyptiacus</code>, <code>infection</code>, <code>filovirus</code>, <code>response</code>, <code>fluid</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>73</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>66</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>37</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>13</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>NCBITaxon:9407</code> (3 mentions) - the report calls it "Reservoir host:<strong> </strong>Egyptian rousette fruit bat, <em>Rousettus aegyptiacus"; NCBITaxon calls it </em><em>Rousettus aegyptiacus</em>*</li>
+<li><code>HP:0025145</code> (1 mention) - the report calls it "Chills — verify"; HP calls it <strong>Rigors</strong></li>
+<li><code>HP:0100737</code> (1 mention) - the report calls it "Pharyngitis — verify"; HP calls it <strong>Abnormal hard palate morphology</strong></li>
+<li><code>HP:0000525</code> (1 mention) - the report calls it "Conjunctivitis/injection — verify"; HP calls it <strong>Abnormality iris morphology</strong></li>
+<li><code>HP:0011877</code> (1 mention) - the report calls it "Gastrointestinal hemorrhage — verify"; HP calls it <strong>Increased mean platelet volume</strong></li>
+<li><code>UBERON:0002107</code> (2 mentions) - the report calls it "liver", "Primary organs:<strong> </strong>liver"; UBERON calls it <strong>liver</strong></li>
+<li><code>UBERON:0002113</code> (2 mentions) - the report calls it "kidney", "Secondary involvement:<strong> </strong>kidney"; UBERON calls it <strong>kidney</strong></li>
+<li><code>GO:0039712</code> (1 mention) - the report calls it "verify"; GO calls it <strong>obsolete induction by virus of host catalytic activity</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>HP:0003681</code> (1 mention) - HP does not contain this term</li>
+<li><code>HP:0007498</code> (1 mention), reported as "Maculopapular exanthema — verify" - HP does not contain this term</li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0039712</code> (obsolete induction by virus of host catalytic activity) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>MONDO:0020500</code> (2 mentions) - the report calls it "Marburg hemorrhagic fever / Marburg virus disease"; MONDO calls it <strong>Marburg hemorrhagic fever</strong></li>
+<li><code>HP:0000978</code> (1 mention) - the report calls it "Bruising susceptibility/ecchymoses"; HP calls it <strong>Bruising susceptibility</strong></li>
+<li><code>HP:0001882</code> (1 mention) - the report calls it "Leukopenia"; HP calls it <strong>Decreased total leukocyte count</strong>, and lists "Leukopenia" among its other names</li>
+<li><code>HP:0001888</code> (2 mentions) - the report calls it "Lymphopenia"; HP calls it <strong>Decreased total lymphocyte count</strong>, and lists "Lymphopenia" among its other names</li>
+<li><code>HP:0002910</code> (2 mentions) - the report calls it "Elevated hepatic transaminase"; HP calls it <strong>Elevated circulating hepatic transaminase concentration</strong>, and lists "Elevated transaminases" among its other names</li>
+<li><code>HP:0012100</code> (1 mention) - the report calls it "Abnormal circulating creatinine"; HP calls it <strong>Abnormal circulating creatinine concentration</strong>, and lists "Abnormal circulating creatinine level" among its other names</li>
+<li><code>HP:0001289</code> (1 mention) - the report calls it "Confusion — verify"; HP calls it <strong>Confusion</strong></li>
+<li><code>HP:0002353</code> (1 mention) - the report calls it "EEG abnormality if documented"; HP calls it <strong>EEG abnormality</strong>, and lists "EEG abnormalities" among its other names</li>
+<li><code>HP:0002615</code> (2 mentions) - the report calls it "Hypotension — verify"; HP calls it <strong>Hypotension</strong></li>
+<li><code>UBERON:0000479</code> (1 mention) - the report calls it "lymphoid tissue"; UBERON calls it <strong>tissue</strong>, and lists "simple tissue" among its other names</li>
+<li><code>UBERON:0001555</code> (1 mention) - the report calls it "gastrointestinal tract"; UBERON calls it <strong>digestive tract</strong></li>
+<li><code>UBERON:0000955</code> (2 mentions) - the report calls it "central nervous system / brain"; UBERON calls it <strong>brain</strong>, and lists "suprasegmental levels of nervous system" among its other names</li>
+<li><code>UBERON:0000473</code> (1 mention) - the report calls it "testis/gonads"; UBERON calls it <strong>testis</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>UBERON:0002107</code> - called "liver", "Primary organs:<strong> </strong>liver"</li>
+<li><code>UBERON:0002113</code> - called "kidney", "Secondary involvement:<strong> </strong>kidney"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>, <code>LOINC</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Maple_Syrup_Urine_Disease-falcon.html">← Maple Syrup Urine Disease (Falcon)</a>
+                
+                
+                <a href="Marchiafava_Bignami_Disease-falcon.html">Marchiafava-Bignami Disease (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Marburg_Virus_Disease.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Marburg_Virus_Disease-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

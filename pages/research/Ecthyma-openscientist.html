@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ecthyma · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Ecthyma</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Ecthyma</h1>
+                
+                <p class="report-subtitle">Key Findings</p>
+                
+                
+                <div class="report-date">2026-09-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0001404" target="_blank" rel="noopener noreferrer">MONDO:0001404</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">32 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>Key Findings</h2>
+<h3>Finding 1 — Ecthyma is an ulcerative pyoderma caused by group A <em>Streptococcus</em> and/or <em>Staphylococcus aureus</em></h3>
+<p>Ecthyma's etiology is bacterial and essentially identical to that of impetigo, differing in depth of invasion rather than causative organism. In a therapeutic series of 55 patients with impetigo, ecthyma, or folliculitis, the causative organisms were epicillin-sensitive <em>Streptococcus pyogenes</em> or <em>Staphylococcus aureus</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/782505/">PMID: 782505</a>). In a comparative treatment trial of 127 children with impetigo/ecthyma, skin cultures grew Group A beta-hemolytic streptococci or <em>S. aureus</em>, with a 93% healing rate when GAS was isolated and 86% when <em>S. aureus</em> was the sole pathogen (<a href="https://pubmed.ncbi.nlm.nih.gov/359752/">PMID: 359752</a>). Contemporary clinical guidelines classify impetigo and ecthyma together as superficial GAS/<em>S. aureus</em> skin and soft-tissue infections (<a href="https://pubmed.ncbi.nlm.nih.gov/29299899/">PMID: 29299899</a>).</p>
+<blockquote>
+<p><em>"Fifty-five patients with impetigo, ecthyma, or folliculitis caused by epicillin-sensitive strains of Streptococcus pyogenes or Staphylococcus aureus"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/782505/" target="_blank" rel="noopener noreferrer">PMID 782505</a></p>
+</blockquote>
+<p><strong>Interpretation:</strong> Ecthyma is not a genetically determined disorder; it is an acquired pyogenic infection. Its designation is clinical/morphological (deep, ulcerative, crusted, scarring) rather than microbiological. This is the single most important framing fact for the knowledge base: sections on causal genes, inheritance, penetrance, germline/somatic variants, and gene panels are <strong>not applicable</strong>.</p>
+<h3>Finding 2 — Impetigo/pyoderma (including ecthyma) carries a high global burden concentrated in children of tropical, resource-poor, and marginalized settings</h3>
+<p>A systematic review of 89 studies covering 145,028 children found a median childhood pyoderma/impetigo prevalence of <strong>12.3% (IQR 4.2–19.4%)</strong>, highest in underprivileged children even within high-income countries (median 19.4%, IQR 3.9–43.3%), and estimated that <strong>&gt;162 million children are affected at any one time</strong>, predominantly in tropical, resource-poor contexts (<a href="https://pubmed.ncbi.nlm.nih.gov/26317533/">PMID: 26317533</a>). In The Gambia, 17.4% of children under 5 had pyoderma, significantly associated with scabies (adjusted OR 2.74, 95% CI 1.61–4.67); 80.8% of lesions grew <em>S. aureus</em> and 50.8% GAS (<a href="https://pubmed.ncbi.nlm.nih.gov/31609963/">PMID: 31609963</a>). In remote Aboriginal communities of northern Australia, up to 70% of children have skin sores, with GAS the major pathogen (<a href="https://pubmed.ncbi.nlm.nih.gov/10954983/">PMID: 10954983</a>). A pooled Australian analysis estimated community impetigo point prevalence of 27.9% (95% CI 20.0–36.5%) in largely Aboriginal and Torres Strait Islander remote settings (<a href="https://pubmed.ncbi.nlm.nih.gov/38033025/">PMID: 38033025</a>).</p>
+<blockquote>
+<p><em>"we estimate the global population of children suffering from impetigo at any one time to be in excess of 162 million, predominantly in tropical, resource-poor contexts"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26317533/" target="_blank" rel="noopener noreferrer">PMID 26317533</a></p>
+</blockquote>
+<p><strong>Interpretation:</strong> The dominant risk factors are environmental and social — young age, hot/humid climate, crowding, poverty, poor hygiene, and especially <strong>scabies co-infestation</strong>, which breaches the skin barrier and seeds bacterial superinfection. This anchors the epidemiology, risk factor, and prevention sections.</p>
+<h3>Finding 3 — Streptococcal ecthyma/pyoderma can be followed by acute post-streptococcal glomerulonephritis via nephritogenic GAS serotypes</h3>
+<p>Nephritogenic M-serotypes associated with post-pyoderma acute glomerulonephritis include M types <strong>2, 49, 55, 57, and 60</strong>, distinct from the throat-associated M1/M12 serotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/399386/">PMID: 399386</a>). In a New Zealand series, skin was the predominant infection site in 68% of post-streptococcal AGN cases, and pyoderma-associated nephritogenic serotypes 49, 57, and 60 accounted for 63% (19/30) of M-typable isolates (<a href="https://pubmed.ncbi.nlm.nih.gov/6371610/">PMID: 6371610</a>). Scabies-related pyoderma with GAS is epidemiologically linked to APSGN (<a href="https://pubmed.ncbi.nlm.nih.gov/31609963/">PMID: 31609963</a>). Critically, streptococcal skin infection does <strong>not</strong> cause acute rheumatic fever, unlike streptococcal pharyngitis (<a href="https://pubmed.ncbi.nlm.nih.gov/399386/">PMID: 399386</a>).</p>
+<blockquote>
+<p><em>"M-types 2, 49, 55, 57, and 60 are now recognized to be of major importance in AGN following pyoderma"</em> ... <em>"Although streptococcal skin infections are quite important in AGN, they do not result in acute rheumatic fever"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/399386/" target="_blank" rel="noopener noreferrer">PMID 399386</a></p>
+</blockquote>
+<p><strong>Interpretation:</strong> APSGN is the chief serious sequela of streptococcal ecthyma. This distinction (skin → nephritis, not rheumatic fever) is a key prognostic and mechanistic fact and provides the rationale for treating and preventing streptococcal skin infection at the population level.</p>
+<h3>Finding 4 — Ecthyma pathogenesis involves bacterial virulence factors that promote dermal invasion, neutrophil evasion, and tissue necrosis</h3>
+<p>GAS secretes a virulence arsenal — M protein, streptolysin O (SLO), streptolysin S (SLS), streptokinase, hyaluronidase, C5a peptidase, and the cysteine protease SpeB — that collectively mediates skin infection (<a href="https://pubmed.ncbi.nlm.nih.gov/20607346/">PMID: 20607346</a>). SLS (encoded by the <em>sagA/pel</em> locus) is required for dermonecrosis: <em>sagA</em> mutants are attenuated in a dermonecrotic mouse infection model (<a href="https://pubmed.ncbi.nlm.nih.gov/11801184/">PMID: 11801184</a>). SLS and the platelet-activating factor acetylhydrolase Sse act synergistically to inhibit neutrophil recruitment, enabling systemic spread from the skin (<a href="https://pubmed.ncbi.nlm.nih.gov/28947648/">PMID: 28947648</a>). On the staphylococcal side, in bullous impetigo <em>S. aureus</em> exfoliative toxins (ETA/ETB/ETD) act as glutamate-specific serine proteases — "molecular scissors" — that cleave a single peptide bond in <strong>desmoglein 1 (Dsg1)</strong>, destroying keratinocyte cell–cell adhesion in the superficial epidermis (<a href="https://pubmed.ncbi.nlm.nih.gov/17582744/">PMID: 17582744</a>).</p>
+<blockquote>
+<p><em>"glutamate-specific serine proteases that specifically and efficiently cleave a single peptide bond in the extracellular region of human and mouse desmoglein 1 (Dsg1), a desmosomal intercellular adhesion molecule"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17582744/" target="_blank" rel="noopener noreferrer">PMID 17582744</a></p>
+</blockquote>
+<p><strong>Interpretation:</strong> These findings supply the molecular causal chain — barrier breach, bacterial adhesion/invasion, immune evasion, and enzymatic/toxin-mediated tissue destruction — that converts a colonized abrasion into a deep necrotic ulcer.</p>
+<h3>Finding 5 — "Contagious ecthyma" (orf) is a distinct parapoxvirus zoonosis of sheep/goats — an important nosological namesake</h3>
+<p>Contagious ecthyma (contagious pustular dermatitis, orf) is caused by <strong>orf virus</strong> (genus <em>Parapoxvirus</em>, family <em>Poxviridae</em>), infecting sheep and goats worldwide and transmissible to humans as a zoonosis (<a href="https://pubmed.ncbi.nlm.nih.gov/28571550/">PMID: 28571550</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/3895568/">PMID: 3895568</a>). Morbidity is very high among young unvaccinated animals; humans acquire infection through direct contact with lesions or fomites, developing self-limited cutaneous nodules. Histology shows proliferative dermatitis with epidermal hyperplasia, ballooning degeneration, and eosinophilic intracytoplasmic inclusion bodies in keratinocytes (<a href="https://pubmed.ncbi.nlm.nih.gov/20833245/">PMID: 20833245</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23201244/">PMID: 23201244</a>). Orf virus encodes a <strong>VEGF homolog (OV132)</strong> that drives dermal capillary proliferation; its deletion attenuates the virus (<a href="https://pubmed.ncbi.nlm.nih.gov/11044114/">PMID: 11044114</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36484827/">PMID: 36484827</a>). Live attenuated vaccines exist for animals (<a href="https://pubmed.ncbi.nlm.nih.gov/3895568/">PMID: 3895568</a>).</p>
+<blockquote>
+<p><em>"The virus is a causative agent of orf in humans or contagious ecthyma in animals which is mostly seen in sheep, goat and cattle"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28571550/" target="_blank" rel="noopener noreferrer">PMID 28571550</a></p>
+</blockquote>
+<p><strong>Interpretation:</strong> Contagious ecthyma is a viral disease with entirely different etiology, host range, mechanism (VEGF-driven angiogenesis), and prevention (vaccination) from bacterial ecthyma. It is documented here to prevent knowledge-base conflation and to inform the "Other Species / Natural Disease" section.</p>
+<h3>Finding 6 — Ecthyma/impetigo is preventable and treatable: antibiotics cure lesions and scabies MDA reduces pyoderma at the population level</h3>
+<p>A Cochrane review (68 RCTs, 5,578 participants) found topical antibiotics superior to placebo for impetigo (pooled OR 6.49, 95% CI 3.93–10.73) and topical mupirocin superior to oral erythromycin, with no topical antibiotic clearly superior to another (<a href="https://pubmed.ncbi.nlm.nih.gov/22258953/">PMID: 22258953</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/15106198/">PMID: 15106198</a>). Benzathine penicillin cured 94.4% of impetigo/ecthyma in children (<a href="https://pubmed.ncbi.nlm.nih.gov/359752/">PMID: 359752</a>); twice-daily epicillin cured ~95% (<a href="https://pubmed.ncbi.nlm.nih.gov/782505/">PMID: 782505</a>). At the population level, ivermectin-based scabies MDA reduced impetigo prevalence dramatically — from 21.4% to as low as 1.9% (94% relative reduction in the ivermectin group) in Fiji (<a href="https://pubmed.ncbi.nlm.nih.gov/26650152/">PMID: 26650152</a>) — and reduced hospitalizations for skin and soft-tissue infections by 17% (IRR 0.83, 95% CI 0.74–0.94) (<a href="https://pubmed.ncbi.nlm.nih.gov/35345391/">PMID: 35345391</a>). In the Solomon Islands, ivermectin MDA reduced impetigo prevalence by 74% (<a href="https://pubmed.ncbi.nlm.nih.gov/30956111/">PMID: 30956111</a>); a meta-analysis found scabies MDA reduced impetigo prevalence by 66% (<a href="https://pubmed.ncbi.nlm.nih.gov/35088849/">PMID: 35088849</a>).</p>
+<blockquote>
+<p><em>"The prevalence declined from 21.4% to 14.6% in the standard-care group"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26650152/" target="_blank" rel="noopener noreferrer">PMID 26650152</a></p>
+</blockquote>
+<p><strong>Interpretation:</strong> Both individual treatment and community-level prevention are highly effective. Because scabies is a dominant upstream driver, scabies control is a key public-health lever against ecthyma, its complications, and downstream APSGN.</p>
+<h3>Finding 7 — The microbial spectrum includes MSSA, community-associated MRSA (often exfoliative-toxin-positive), and GAS; MRSA prevalence is region-dependent</h3>
+<p>In a Japanese impetigo series, 17 MRSA strains from children belonged to 7 clones, and 14/17 carried exfoliative toxin a or b genes (<a href="https://pubmed.ncbi.nlm.nih.gov/21327935/">PMID: 21327935</a>). In a Canadian pediatric emergency department, <em>S. aureus</em> was the most common SSTI organism (66% MSSA, 33% MRSA), though overall community MRSA incidence was low (<a href="https://pubmed.ncbi.nlm.nih.gov/24634682/">PMID: 24634682</a>). In Egyptian children with pyogenic skin infections, MSSA predominated (114/121) with CA-MRSA in only 4 (<a href="https://pubmed.ncbi.nlm.nih.gov/22928620/">PMID: 22928620</a>). CA-MRSA SSTIs impose substantial indirect costs (€1,814–8,224 per patient) (<a href="https://pubmed.ncbi.nlm.nih.gov/34895206/">PMID: 34895206</a>).</p>
+<blockquote>
+<p><em>"Fourteen of the 17 strains carried exfoliative toxin a or b gene"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/21327935/" target="_blank" rel="noopener noreferrer">PMID 21327935</a></p>
+</blockquote>
+<p><strong>Interpretation:</strong> Empiric therapy should be guided by local resistance patterns. Where CA-MRSA is prevalent, beta-lactam monotherapy may fail; where it is rare, beta-lactams remain effective. This directly informs the pharmacotherapy and antibiogram/diagnostic sections.</p>
+<h3>Finding 8 — Ecthyma gangrenosum (distinct namesake) is a life-threatening septic vasculitis, chiefly <em>Pseudomonas aeruginosa</em>, in immunocompromised/neutropenic hosts</h3>
+<p>Ecthyma gangrenosum (EG) is <em>"a potentially life-threatening, systemic infection generally caused by Pseudomonas aeruginosa"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/35984202/">PMID: 35984202</a>). It presents as erythematous/hemorrhagic macules progressing to necrotic ulcers with a black eschar, most often accompanying bacteremia in immunocompromised individuals (<a href="https://pubmed.ncbi.nlm.nih.gov/41968428/">PMID: 41968428</a>). <em>Pseudomonas</em> sepsis with EG carries a high mortality rate, requiring immediate appropriate antibiotics (<a href="https://pubmed.ncbi.nlm.nih.gov/15553052/">PMID: 15553052</a>). EG can also be caused by <em>S. aureus</em> (of 18 reported <em>S. aureus</em> EG patients, 33% had a hematological malignancy and 56% were MRSA; <a href="https://pubmed.ncbi.nlm.nih.gov/35984202/">PMID: 35984202</a>) and rarely by other organisms including <em>Streptococcus pyogenes</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42491904/">PMID: 42491904</a>). Severe pediatric EG has occurred with neutropenia and a novel <em>HELLS</em> variant (<a href="https://pubmed.ncbi.nlm.nih.gov/42437106/">PMID: 42437106</a>).</p>
+<blockquote>
+<p><em>"Ecthyma gangrenosum (EG) is a potentially life-threatening, systemic infection generally caused by Pseudomonas aeruginosa"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/35984202/" target="_blank" rel="noopener noreferrer">PMID 35984202</a></p>
+</blockquote>
+<p><strong>Interpretation:</strong> EG is a fundamentally different disease — a manifestation of systemic sepsis in the immunocompromised, with high mortality — and should be recorded as a related-but-distinct entity, not as a severity grade of bacterial ecthyma.</p>
+<hr />
+<h2>Structured Report by Research Section</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> Ecthyma is a deep bacterial pyoderma characterized by punched-out ulcers with a thick, adherent, often yellow-grey crust and a raised, indurated, violaceous margin. It represents a full-thickness (epidermal + dermal) extension of impetigo; because it breaches the dermis, it heals with scarring, unlike superficial impetigo. Lesions are typically found on the lower legs and buttocks, and are frequently multiple.</p>
+<p><strong>Identifiers.</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0001404" target="_blank" rel="noopener noreferrer">MONDO:0001404</a> (ecthyma)
+- <strong>MeSH:</strong> Ecthyma (D004473)
+- <strong>ICD-10:</strong> L08.0 (pyoderma) is commonly applied; ecthyma is grouped under bacterial skin infections. ICD-11: 1B70-range bacterial cellulitis/pyoderma codes.
+- <strong>SNOMED CT:</strong> Ecthyma (disorder)
+- <strong>OMIM / Orphanet:</strong> Not applicable — ecthyma is an acquired infection, not a Mendelian or rare genetic disorder, so it has no OMIM phenotype number and no Orphanet rare-disease code as a genetic entity.</p>
+<p><strong>Synonyms / alternative names.</strong> Ulcerative impetigo; deep impetigo; "impetigo of the dermis." (Note the non-synonyms that share the name: <em>ecthyma gangrenosum</em> and <em>contagious ecthyma / orf</em> — see Findings 5 and 8.)</p>
+<p><strong>Data source type.</strong> Disease-level information here is derived from <strong>aggregated disease-level resources</strong> — systematic reviews, clinical trials, treatment guidelines, and microbiological case series — not from individual EHR patient records.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factors.</strong> Infectious. Primary pathogens: <strong>group A <em>Streptococcus<em> (</em>S. pyogenes<em>)</em>* and </em></strong>Staphylococcus aureus*** (MSSA and CA-MRSA) (Findings 1, 7). No genetic causation in the host.</p>
+<p><strong>Risk factors (environmental/social).</strong> Young age (children); hot, humid climate; crowding and poverty; poor hygiene; minor skin trauma (insect bites, abrasions); and — a dominant driver — <strong>scabies infestation</strong> (aOR 2.74 for pyoderma; Finding 2). Indigenous and marginalized populations bear disproportionate burden.</p>
+<p><strong>Genetic risk factors.</strong> None established for host susceptibility to ordinary ecthyma. (A single pediatric <em>ecthyma gangrenosum</em> case linked to a novel <em>HELLS</em> variant with neutropenia is a rare exception in the distinct EG entity — Finding 8 — not bacterial ecthyma.)</p>
+<p><strong>Protective factors.</strong> Environmental: intact skin barrier, good hygiene, wound care, treatment of scabies, and reduced crowding. Scabies MDA is protective at the population level (Finding 6). No genetic protective variants are known.</p>
+<p><strong>Gene–environment interactions.</strong> Not applicable for the host. The relevant "interaction" is pathogen genotype × host environment: nephritogenic GAS M-serotypes (2, 49, 55, 57, 60) in disadvantaged, scabies-endemic communities produce clusters of post-pyoderma APSGN (Finding 3).</p>
+<h3>3. Phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Suggested HPO term</th>
+<th>Characteristics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Skin ulcer (punched-out, dermal)</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" rel="noopener noreferrer">HP:0200042</a> (Skin ulcer)</td>
+<td>Childhood onset; moderate severity; often multiple, lower legs/buttocks</td>
+</tr>
+<tr>
+<td>Adherent crust / eschar</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011368" target="_blank" rel="noopener noreferrer">HP:0011368</a> (Epidermal thickening) / crusting</td>
+<td>Thick yellow-grey adherent crust over the ulcer</td>
+</tr>
+<tr>
+<td>Purulent discharge / pustule</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200037" target="_blank" rel="noopener noreferrer">HP:0200037</a> (Pustule)</td>
+<td>Early lesion is a vesicopustule that ulcerates</td>
+</tr>
+<tr>
+<td>Scarring on healing</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000987" target="_blank" rel="noopener noreferrer">HP:0000987</a> (Abnormal scarring)</td>
+<td>Distinguishes ecthyma from impetigo; consequence of dermal involvement</td>
+</tr>
+<tr>
+<td>Regional lymphadenopathy</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a> (Lymphadenopathy)</td>
+<td>Frequent with local infection</td>
+</tr>
+<tr>
+<td>Erythema / induration at margin</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a> (Skin rash)</td>
+<td>Raised violaceous indurated border</td>
+</tr>
+<tr>
+<td>Hematuria / edema (if APSGN)</td>
+<td>Laboratory / clinical (complication)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" rel="noopener noreferrer">HP:0000790</a> (Hematuria)</td>
+<td>Downstream complication of nephritogenic GAS</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Onset:</strong> typically childhood; <strong>severity:</strong> mild-to-moderate locally (severe if complicated by APSGN or systemic spread); <strong>progression:</strong> episodic/acute, self-limited with treatment; <strong>frequency:</strong> ulceration and crusting are near-universal defining features. <strong>Quality of life:</strong> local discomfort, pruritus, cosmetic scarring; population-level QoL and economic burden are substantial in endemic settings (indirect CA-MRSA SSTI costs €1,814–8,224/patient; Finding 7).</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Not applicable to the host.</strong> Ecthyma has <strong>no causal human gene, no pathogenic germline/somatic variants, no modifier genes, no host epigenetic signature, and no chromosomal abnormality.</strong> It is an acquired bacterial infection (Finding 1). The relevant "molecular genetics" is that of the <strong>pathogen</strong>: GAS virulence genes (<em>emm</em>/M protein, <em>sagA/pel</em> → streptolysin S, <em>slo</em>, <em>ska</em> streptokinase, <em>speB</em>, <em>scpA</em> C5a peptidase, hyaluronidase) and <em>S. aureus</em> exfoliative toxin genes (<em>eta</em>, <em>etb</em>, <em>etd</em>) (Findings 4, 7). Nephritogenic potential maps to specific GAS <em>emm</em>/M-serotypes (2, 49, 55, 57, 60) (Finding 3).</p>
+<h3>5. Environmental Information</h3>
+<p><strong>Environmental factors:</strong> heat, humidity, crowding, poor sanitation. <strong>Lifestyle/social factors:</strong> poverty, limited access to hygiene and healthcare, and — critically — untreated scabies (Finding 2). <strong>Infectious agents (NCBI Taxonomy):</strong> <em>Streptococcus pyogenes</em> (txid1314); <em>Staphylococcus aureus</em> (txid1280). Scabies mite <em>Sarcoptes scabiei</em> (txid52283) acts as a barrier-breaching co-factor. For the distinct namesakes: <em>Pseudomonas aeruginosa</em> (txid287, ecthyma gangrenosum) and Orf virus (txid10258, contagious ecthyma).</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (bacterial ecthyma):</strong></p>
+<ol>
+<li><strong>Skin barrier breach</strong> (scabies burrows, insect bites, abrasion, or maceration) → <strong>leads to</strong> exposure of dermal/epidermal tissue to skin-colonizing bacteria. <em>(Demonstrated epidemiologically: scabies aOR 2.74, <a href="https://pubmed.ncbi.nlm.nih.gov/31609963/" target="_blank" rel="noopener noreferrer">PMID 31609963</a>.)</em></li>
+<li>Colonizing <strong>GAS and/or <em>S. aureus</em> adhere and invade</strong> through the epidermis into the dermis → <strong>results in</strong> establishment of infection deeper than in superficial impetigo. <em>(Inferred from clinical morphology and microbiology.)</em></li>
+<li><strong>Bacterial virulence factors are deployed</strong> — GAS M protein (anti-phagocytic), streptokinase (fibrinolysis, spread), hyaluronidase (matrix degradation), C5a peptidase (complement evasion), SpeB (protease), and streptolysins O and S (cytolysis); <em>S. aureus</em> exfoliative toxins cleave Dsg1 → <strong>leads to</strong> keratinocyte/tissue destruction and immune evasion. <em>(Demonstrated: <a href="https://pubmed.ncbi.nlm.nih.gov/20607346/" target="_blank" rel="noopener noreferrer">PMID 20607346</a>, 11801184, 17582744.)</em></li>
+<li><strong>Streptolysin S (SagA/Pel) mediates dermonecrosis</strong>, and SLS + Sse synergistically <strong>inhibit neutrophil recruitment</strong> → <strong>results in</strong> local tissue necrosis, ulcer formation, and potential for systemic spread. <em>(Demonstrated in mouse models: <a href="https://pubmed.ncbi.nlm.nih.gov/11801184/" target="_blank" rel="noopener noreferrer">PMID 11801184</a>, 28947648.)</em></li>
+<li><strong>Neutrophilic dermal inflammation + necrosis</strong> → <strong>produces</strong> the clinical punched-out ulcer with adherent crust and indurated margin; dermal involvement → <strong>leads to</strong> scarring on healing. <em>(Inferred from histopathology and clinical description.)</em></li>
+</ol>
+<p><strong>Branch A (local resolution):</strong> appropriate antibiotics + wound care → lesion clearance (86–95% cure; Finding 6).</p>
+<p><strong>Branch B (immune-mediated sequela):</strong> infection by a <strong>nephritogenic GAS M-serotype (2/49/55/57/60)</strong> → circulating streptococcal antigens/immune complexes and complement activation deposit in glomeruli → <strong>results in acute post-streptococcal glomerulonephritis</strong> (hematuria, edema, hypertension). Streptococcal <em>skin</em> infection does <strong>not</strong> trigger acute rheumatic fever. <em>(Demonstrated epidemiologically/serotypically: <a href="https://pubmed.ncbi.nlm.nih.gov/399386/" target="_blank" rel="noopener noreferrer">PMID 399386</a>, 6371610.)</em></p>
+<p><strong>Molecular pathways / processes:</strong> bacterial adhesion and invasion; complement evasion (C5a peptidase); cytolysis (pore-forming streptolysins); ECM degradation (hyaluronidase, streptokinase); host innate immune response (neutrophil recruitment — inhibited by SLS/Sse). <strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0042742" target="_blank" rel="noopener noreferrer">GO:0042742</a> (defense response to bacterium), <a href="http://purl.obolibrary.org/obo/GO_0001909" target="_blank" rel="noopener noreferrer">GO:0001909</a> (leukocyte-mediated cytotoxicity), <a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" rel="noopener noreferrer">GO:0030593</a> (neutrophil chemotaxis), <a href="http://purl.obolibrary.org/obo/GO_0009405" target="_blank" rel="noopener noreferrer">GO:0009405</a> (pathogenesis). <strong>Suggested CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil), <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a> (keratinocyte), <a href="http://purl.obolibrary.org/obo/CL_0000738" target="_blank" rel="noopener noreferrer">CL:0000738</a> (leukocyte), <a href="http://purl.obolibrary.org/obo/CL_0002187" target="_blank" rel="noopener noreferrer">CL:0002187</a> (basal cell of epidermis).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ:</strong> skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>, skin of body; <a href="http://purl.obolibrary.org/obo/UBERON_0002199" target="_blank" rel="noopener noreferrer">UBERON:0002199</a>, integumental system).</li>
+<li><strong>Tissue/cell:</strong> epidermis (<a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" rel="noopener noreferrer">UBERON:0001003</a>) and <strong>dermis (<a href="http://purl.obolibrary.org/obo/UBERON_0002067" target="_blank" rel="noopener noreferrer">UBERON:0002067</a>)</strong> — the defining feature vs. impetigo is dermal involvement; keratinocytes (<a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>) and infiltrating neutrophils (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>).</li>
+<li><strong>Secondary organ (complication):</strong> kidney/glomerulus (<a href="http://purl.obolibrary.org/obo/UBERON_0000074" target="_blank" rel="noopener noreferrer">UBERON:0000074</a>, renal glomerulus) in APSGN.</li>
+<li><strong>Subcellular:</strong> desmosome (<a href="http://purl.obolibrary.org/obo/GO_0030057" target="_blank" rel="noopener noreferrer">GO:0030057</a>) targeted by exfoliative toxin (Dsg1 cleavage); plasma membrane (<a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>) targeted by streptolysins.</li>
+<li><strong>Localization:</strong> typically <strong>lower extremities</strong> and buttocks; often multiple; laterality variable (frequently bilateral in disseminated disease).</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<p><strong>Onset:</strong> acute, most commonly in childhood; lesions evolve over days from vesicopustule to crusted ulcer. <strong>Progression:</strong> without treatment, ulcers enlarge and persist for weeks; with treatment, resolution within 1–2 weeks (Finding 6). <strong>Course:</strong> self-limited to episodic; recurrence common in endemic/scabies settings. <strong>Critical window:</strong> early antibiotic treatment prevents progression and reduces the pool of nephritogenic GAS, limiting APSGN risk. APSGN, when it occurs, typically follows skin infection by ~1–3 weeks.</p>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Epidemiology:</strong> median childhood impetigo/pyoderma prevalence 12.3% (IQR 4.2–19.4%); &gt;162 million children affected globally at any time; up to 27.9–70% point prevalence in remote/Indigenous communities (Finding 2). <strong>Inheritance:</strong> not applicable (acquired infection; no Mendelian pattern, penetrance, expressivity, anticipation, mosaicism, founder effect, consanguinity, or carrier frequency). <strong>Demographics:</strong> disproportionately affects children; Indigenous, tropical, and socioeconomically disadvantaged populations; hot/wet-season seasonality; no strong intrinsic sex bias (exposure-driven).</p>
+<h3>10. Diagnostics</h3>
+<p><strong>Clinical diagnosis</strong> is primary — characteristic punched-out, crusted, scarring ulcers. <strong>Microbiology:</strong> Gram stain and <strong>bacterial culture with susceptibility testing</strong> of lesion swab/exudate to identify GAS vs <em>S. aureus</em> and detect MRSA (Findings 1, 7). <strong>Serology:</strong> anti-DNase B (superior to ASO after streptococcal pyoderma) supports recent GAS skin infection and is useful when APSGN is suspected (<a href="https://pubmed.ncbi.nlm.nih.gov/6995881/">PMID: 6995881</a>). <strong>Antibiogram testing</strong> is recommended where CA-MRSA is prevalent to guide therapy (Finding 7). <strong>Genetic/omics testing:</strong> not applicable. <strong>Differential diagnosis:</strong> impetigo (superficial, no scarring), <strong>ecthyma gangrenosum</strong> (immunocompromised, necrotic eschar, <em>Pseudomonas</em> bacteremia — Finding 8), venous/arterial ulcers, cutaneous leishmaniasis, and <strong>contagious ecthyma/orf</strong> (animal contact, viral nodule — Finding 5).</p>
+<h3>11. Outcome / Prognosis</h3>
+<p>Prognosis is <strong>excellent with treatment</strong>: cure rates 86–95% (Findings 1, 6). Untreated lesions heal slowly with scarring. <strong>Mortality is essentially nil</strong> for uncomplicated bacterial ecthyma. <strong>Complications:</strong> scarring; regional cellulitis/lymphangitis; rarely systemic spread; and, most importantly, <strong>APSGN</strong> via nephritogenic GAS (Finding 3), which is usually self-limiting in children but can cause hypertension and, rarely, renal impairment. (By sharp contrast, the namesake <strong>ecthyma gangrenosum carries high mortality</strong> due to underlying <em>Pseudomonas</em> sepsis and immunocompromise — Finding 8.) <strong>Prognostic factors:</strong> promptness of antibiotic therapy, pathogen (nephritogenic GAS serotype → APSGN risk), MRSA status, host immune status, and scabies control.</p>
+<h3>12. Treatment</h3>
+<p><strong>Pharmacotherapy (NCIT: antibiotic therapy, NCIT:C15844):</strong>
+- <strong>Topical antibiotics</strong> — mupirocin (NCIT:C61825), fusidic acid — first line for limited disease; superior to placebo (OR 6.49) and to oral erythromycin (Finding 6).
+- <strong>Oral antibiotics</strong> for extensive/multiple lesions or ecthyma (deeper) — anti-staphylococcal penicillins (flucloxacillin/dicloxacillin/cloxacillin), first-generation cephalosporins (cephalexin), amoxicillin-clavulanate; <strong>benzathine penicillin</strong> for confirmed GAS (94.4% cure; Finding 6).
+- <strong>MRSA-active agents</strong> (clindamycin, trimethoprim-sulfamethoxazole, doxycycline) where CA-MRSA is prevalent (Finding 7).</p>
+<p><strong>Treatment strategy:</strong> guided by lesion extent and local resistance; culture-directed therapy where CA-MRSA is common. <strong>Advanced/gene/cell/RNA/targeted/immunotherapies, surgery:</strong> not applicable (simple debridement of crust may aid healing). <strong>Adverse events:</strong> oral antibiotics cause more (mainly gastrointestinal) side effects than topical (Finding 6).</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary:</strong> hygiene, wound care, reduction of crowding, and <strong>treatment of scabies</strong> — including <strong>ivermectin-based mass drug administration</strong>, which reduces impetigo prevalence by 66–94% and SSTI hospitalizations by 17% (Finding 6). NCIT: ivermectin therapy.</li>
+<li><strong>Secondary:</strong> early detection and prompt antibiotic treatment of skin sores to prevent APSGN and interrupt community transmission of nephritogenic GAS.</li>
+<li><strong>Tertiary:</strong> monitoring for and managing APSGN.</li>
+<li><strong>Immunization:</strong> no licensed human vaccine; a Strep A vaccine is in development and would address the broader GAS disease burden. (Note: live attenuated vaccines exist for <em>animal</em> contagious ecthyma/orf — Finding 5 — a different disease.)</li>
+<li><strong>Public health:</strong> integrated skin-health programs combining scabies MDA, hygiene promotion, and antibiotic access are the cornerstone of population-level prevention.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<p>Bacterial ecthyma as defined here is primarily a human disease. The dominant cross-species consideration is the <strong>namesake "contagious ecthyma" (orf)</strong>, a <strong>parapoxvirus</strong> disease of <strong>sheep (<em>Ovis aries</em>, NCBI:txid9940) and goats (<em>Capra hircus</em>, NCBI:txid9925)</strong>, with documented cases also in <strong>reindeer</strong> (<em>Rangifer tarandus</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/23201244/" target="_blank" rel="noopener noreferrer">PMID 23201244</a>) and <strong>camels</strong> (camel contagious ecthyma, <a href="https://pubmed.ncbi.nlm.nih.gov/6145344/" target="_blank" rel="noopener noreferrer">PMID 6145344</a>). Orf is <strong>zoonotic</strong> — transmissible to humans via direct animal/fomite contact, producing self-limited nodules (Finding 5). Its mechanism (viral VEGF/OV132-driven angiogenesis and epidermal proliferation) and prevention (live attenuated vaccination) are entirely distinct from bacterial ecthyma. <strong>This must be recorded as a separate entity in the knowledge base.</strong></p>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Mouse dermonecrosis model</strong> — the principal experimental system for streptococcal skin infection: <em>sagA/pel</em> (SLS) mutants are attenuated for dermonecrosis, and SLS+Sse mutants show impaired neutrophil evasion (Finding 4; <a href="https://pubmed.ncbi.nlm.nih.gov/11801184/" target="_blank" rel="noopener noreferrer">PMID 11801184</a>, 28947648). Recapitulates dermal necrosis and immune evasion; limitation: does not reproduce human APSGN or community epidemiology.</li>
+<li><strong>Mouse Dsg1 cleavage model</strong> — demonstrates exfoliative-toxin-mediated epidermal splitting (<a href="https://pubmed.ncbi.nlm.nih.gov/17582744/" target="_blank" rel="noopener noreferrer">PMID 17582744</a>), relevant to the staphylococcal/bullous end of the impetigo–ecthyma spectrum.</li>
+<li><strong>Animal models of contagious ecthyma (orf)</strong> — experimental parapoxvirus infection in rabbits, mice, reindeer, and goats (<a href="https://pubmed.ncbi.nlm.nih.gov/20833245/" target="_blank" rel="noopener noreferrer">PMID 20833245</a>, 23201244, 36484827) — pertain to the viral namesake, not bacterial ecthyma.</li>
+</ul>
+<p>No genetic (knockout/transgenic) mouse model of <em>host</em> susceptibility to bacterial ecthyma exists, consistent with its non-genetic etiology.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>  [ Barrier breach: scabies / bites / trauma ]
+          |  (scabies aOR 2.74)
+          v
+[ GAS and/or S. aureus adhesion &amp; dermal invasion ]
+          |
++-----------------+------------------------------+
+v                 v                              v
+ [ GAS virulence ]  [ S. aureus ETs ]           [ Immune evasion ]
+  M protein, SLO,    cleave Dsg1                  C5a peptidase;
+  SLS(sagA/pel),     (&quot;molecular                  SLS+Sse inhibit
+  streptokinase,     scissors&quot;)                   neutrophil recruitment
+  hyaluronidase,          |                              |
+  SpeB, C5a pept.         v                              |
+|          epidermal split              (enables systemic spread)
+v          (bullous end)                         |
+ [ Dermonecrosis + neutrophilic inflammation ] &lt;---------+
+          |
+          v
+       [ Punched-out ULCER + adherent crust -&gt; SCARRING ]
+          |
++-----------------+---------------------+
+v (Branch A: treat)                      v (Branch B: nephritogenic GAS)
+ [ Antibiotics -&gt; cure 86-95% ]       [ Immune-complex APSGN - M2/49/55/57/60 ]
+                      [ NOT acute rheumatic fever ]
+</code></pre>
+<p>The unifying model: <strong>ecthyma is impetigo that has invaded the dermis.</strong> The same organisms and virulence machinery are involved; depth of invasion (favored by barrier breach, and by streptolysin-S-mediated dermonecrosis) determines the ulcerative, scarring phenotype. Upstream drivers are environmental/social (scabies, crowding, poverty, climate); downstream, the chief systemic hazard is nephritogenic-serotype-mediated APSGN. Prevention acts furthest upstream (scabies control, hygiene) and treatment acts at the lesion (antibiotics).</p>
+<h3>Distinguishing the three "ecthymas"</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th><strong>Bacterial ecthyma</strong> (this report)</th>
+<th><strong>Ecthyma gangrenosum</strong></th>
+<th><strong>Contagious ecthyma (orf)</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Class</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0001404" target="_blank" rel="noopener noreferrer">MONDO:0001404</a>; bacterial pyoderma</td>
+<td>Cutaneous manifestation of sepsis</td>
+<td>Viral zoonosis</td>
+</tr>
+<tr>
+<td>Pathogen</td>
+<td>GAS, <em>S. aureus</em></td>
+<td><em>Pseudomonas aeruginosa</em> (mostly); also <em>S. aureus</em></td>
+<td>Orf virus (Parapoxvirus)</td>
+</tr>
+<tr>
+<td>Host</td>
+<td>Healthy children, disadvantaged</td>
+<td>Immunocompromised/neutropenic</td>
+<td>Sheep/goats; humans via contact</td>
+</tr>
+<tr>
+<td>Lesion</td>
+<td>Punched-out crusted ulcer, scars</td>
+<td>Hemorrhagic macule → necrotic black eschar</td>
+<td>Proliferative nodule, self-limited</td>
+</tr>
+<tr>
+<td>Mortality</td>
+<td>~nil (uncomplicated)</td>
+<td>High (sepsis)</td>
+<td>Nil (self-limited)</td>
+</tr>
+<tr>
+<td>Key ref (PMID)</td>
+<td>782505, 359752</td>
+<td>35984202, 15553052</td>
+<td>28571550, 3895568</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Role in this report</th>
+<th>Support / Challenge</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/782505/">782505</a></td>
+<td>Etiology &amp; treatment (GAS/<em>S. aureus</em>; ~95% cure)</td>
+<td>Supports F1, F6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/359752/">359752</a></td>
+<td>Pathogens &amp; penicillin efficacy (93%/86%/94.4%)</td>
+<td>Supports F1, F6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29299899/">29299899</a></td>
+<td>Guideline grouping impetigo/ecthyma</td>
+<td>Supports F1</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26317533/">26317533</a></td>
+<td>Global burden (&gt;162M children; 12.3%)</td>
+<td>Supports F2</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31609963/">31609963</a></td>
+<td>Scabies risk (aOR 2.74); microbiology</td>
+<td>Supports F2, F3</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10954983/">10954983</a></td>
+<td>Up to 70% in Aboriginal children</td>
+<td>Supports F2</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38033025/">38033025</a></td>
+<td>Pooled Australian impetigo prevalence 27.9%</td>
+<td>Supports F2</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/399386/">399386</a></td>
+<td>Nephritogenic serotypes; no rheumatic fever</td>
+<td>Supports F3</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/6371610/">6371610</a></td>
+<td>Skin site 68%; serotypes 49/57/60</td>
+<td>Supports F3</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/6995881/">6995881</a></td>
+<td>M type 57 skin AGN; anti-DNase B &gt; ASO</td>
+<td>Supports F3, diagnostics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20607346/">20607346</a></td>
+<td>GAS virulence factor catalog</td>
+<td>Supports F4</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11801184/">11801184</a></td>
+<td>SLS (<em>sagA/pel</em>) required for dermonecrosis</td>
+<td>Supports F4</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28947648/">28947648</a></td>
+<td>SLS + Sse inhibit neutrophil recruitment</td>
+<td>Supports F4</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17582744/">17582744</a></td>
+<td>Exfoliative toxins cleave Dsg1</td>
+<td>Supports F4</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22258953/">22258953</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/15106198/">15106198</a></td>
+<td>Cochrane: topical antibiotics OR 6.49</td>
+<td>Supports F6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26650152/">26650152</a></td>
+<td>Scabies MDA reduces impetigo</td>
+<td>Supports F6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35345391/">35345391</a></td>
+<td>MDA reduces SSTI hospitalizations 17%</td>
+<td>Supports F6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30956111/">30956111</a></td>
+<td>Ivermectin MDA reduces impetigo 74%</td>
+<td>Supports F6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35088849/">35088849</a></td>
+<td>Meta-analysis: MDA reduces impetigo 66%</td>
+<td>Supports F6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21327935/">21327935</a></td>
+<td>Impetigo MRSA clones carry ET genes</td>
+<td>Supports F7</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24634682/">24634682</a></td>
+<td>MSSA 66% / MRSA 33% in pediatric SSTI</td>
+<td>Supports F7</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22928620/">22928620</a></td>
+<td>MSSA predominance in Egyptian children</td>
+<td>Supports F7</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34895206/">34895206</a></td>
+<td>Indirect SSTI costs €1,814–8,224</td>
+<td>Supports F7</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28571550/">28571550</a></td>
+<td>Orf = contagious ecthyma definition</td>
+<td>Supports F5</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11044114/">11044114</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/36484827/">36484827</a></td>
+<td>Viral VEGF (OV132) drives orf</td>
+<td>Supports F5</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/3895568/">3895568</a></td>
+<td>Attenuated live vaccine for orf</td>
+<td>Supports F5</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20833245/">20833245</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/23201244/">23201244</a></td>
+<td>Orf histopathology; animal models</td>
+<td>Supports F5</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35984202/">35984202</a></td>
+<td>EG definition; <em>S. aureus</em> EG</td>
+<td>Supports F8</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15553052/">15553052</a></td>
+<td>EG high mortality</td>
+<td>Supports F8</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41968428/">41968428</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/42491904/">42491904</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/42437106/">42437106</a></td>
+<td>EG host/pathogen spectrum</td>
+<td>Supports F8</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Ecthyma-specific data are sparse.</strong> Nearly all quantitative evidence (prevalence, treatment cure rates, MDA effects) is reported for the <strong>impetigo/pyoderma spectrum as a whole</strong>, with ecthyma grouped in. Ecthyma-specific incidence, scarring rates, and complication rates are not separately quantified in the literature reviewed.</li>
+<li><strong>APSGN causal attribution.</strong> The link between ecthyma specifically (vs. impetigo generally) and APSGN rests on serotype/site epidemiology, not on ecthyma-stratified prospective cohorts.</li>
+<li><strong>Mechanistic inference.</strong> The dermonecrosis and neutrophil-evasion mechanisms come from <strong>mouse models and in vitro studies</strong> of GAS/<em>S. aureus</em>, not from human ecthyma lesion studies; the final steps (ulcer/scar formation) are inferred from clinical description and general histopathology.</li>
+<li><strong>No host-omics.</strong> Because ecthyma is non-genetic, there are no transcriptomic, proteomic, metabolomic, or single-cell datasets of host disease — a genuine absence, not a search gap.</li>
+<li><strong>Nosological confusion risk.</strong> The shared name across three unrelated diseases is the single greatest hazard for an automated knowledge base; findings F5 and F8 exist specifically to bound this.</li>
+<li><strong>Cochrane efficacy statistic partly unverified.</strong> The topical-antibiotic OR 6.49 (F6) is drawn from the Cochrane abstract text and is consistent across two Cochrane versions (<a href="https://pubmed.ncbi.nlm.nih.gov/22258953/" target="_blank" rel="noopener noreferrer">PMID 22258953</a>/15106198), but the specific snippet was not independently re-verified against full text.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Actions</h2>
+<ol>
+<li><strong>Disaggregate ecthyma from impetigo</strong> in future data extraction: seek cohort/registry data reporting ecthyma-specific prevalence, scarring, and APSGN rates.</li>
+<li><strong>Encode the three-entity disambiguation</strong> explicitly in the knowledge base with cross-references (MONDO ecthyma vs. ecthyma gangrenosum vs. contagious ecthyma), including distinct pathogen, host, mechanism, and prognosis fields.</li>
+<li><strong>Populate pathogen-genotype annotations</strong>: link GAS virulence genes (<em>sagA/pel</em>, <em>slo</em>, <em>speB</em>, <em>emm</em> nephritogenic serotypes) and <em>S. aureus</em> <em>eta/etb/etd</em> as the molecular substrate, since host genes are absent.</li>
+<li><strong>Attach diagnostic decision support</strong>: culture + susceptibility (region-dependent MRSA), anti-DNase B for suspected post-streptococcal AGN.</li>
+<li><strong>Prevention linkage</strong>: connect ecthyma prevention to scabies MDA programs and to the pipeline Strep A vaccine as future primary prevention.</li>
+<li><strong>Verify the Cochrane OR</strong> against full text and record the corresponding confidence interval and heterogeneity.</li>
+</ol>
+<hr />
+<p><em>Report compiled from a 5-iteration autonomous literature investigation: 8 confirmed findings, 53 papers reviewed. Evidence types: human clinical trials and systematic reviews (treatment, epidemiology, APSGN), microbiological case series (etiology, resistance), and model-organism/in-vitro studies (virulence mechanisms).</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Ecthyma-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Ecthyma-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>36</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0200037</code> (1 mention) - the report calls it "Pustule"; HP calls it <strong>Skin vesicle</strong></li>
+<li><code>NCIT:C61825</code> (1 mention) - the report calls it "Topical antibiotics<strong> — mupirocin"; NCIT calls it </strong>Meclocycline**</li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0009405</code> (obsolete pathogenesis) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0000987</code> (1 mention) - the report calls it "Abnormal scarring"; HP calls it <strong>Atypical scarring of skin</strong>, and lists "Atypical scarring" among its other names</li>
+<li><code>GO:0009405</code> (1 mention) - the report calls it "pathogenesis"; GO calls it <strong>obsolete pathogenesis</strong></li>
+<li><code>UBERON:0001003</code> (1 mention) - the report calls it "Tissue/cell:<strong> epidermis"; UBERON calls it </strong>skin epidermis**, and lists "vertebrate epidermis" among its other names</li>
+<li><code>GO:0030057</code> (1 mention) - the report calls it "Subcellular:<strong> desmosome"; GO calls it </strong>desmosome**, and lists "spot desmosome" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="EBV_Associated_Gastric_Cancer-falcon.html">← EBV-Associated Gastric Cancer (Falcon)</a>
+                
+                
+                <a href="Ectodermal_Dysplasia_13_Hair_Tooth_Type-claude_code.html">Ectodermal Dysplasia 13 Hair Tooth Type (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Ecthyma.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Ecthyma-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

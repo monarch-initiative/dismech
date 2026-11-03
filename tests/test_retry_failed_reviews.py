@@ -599,9 +599,35 @@ def test_main_writes_same_linked_summary_to_stdout_and_actions(
         "sweep",
         lambda *args: (["PR #7, run 20: retried failed jobs (attempt 2)."], 0),
     )
+    monkeypatch.setattr(
+        retry,
+        "sweep_issues",
+        lambda *args: (
+            [
+                "Issue #9, run 30 (claude-issue-triage.yml): retried failed jobs (attempt 2)."
+            ],
+            0,
+        ),
+    )
     assert retry.main(["--repo", "owner/repo"]) == 0
     assert capsys.readouterr().out.strip() == output.read_text().strip()
-    assert "https://github.com/owner/repo/actions/runs/20" in output.read_text()
+    text = output.read_text()
+    assert "https://github.com/owner/repo/actions/runs/20" in text
+    assert "## Issue-workflow retry sweep" in text
+    assert "[Issue #9](https://github.com/owner/repo/issues/9)" in text
+    assert "### Restarted issue workflows (1)" in text
+
+
+def test_main_specific_pr_skips_issue_pass_and_issue_errors_fail(monkeypatch):
+    calls = []
+    monkeypatch.setattr(retry, "sweep", lambda *args: ([], 0))
+    monkeypatch.setattr(
+        retry, "sweep_issues", lambda *args: calls.append(args) or (["x: error (E)"], 1)
+    )
+    assert retry.main(["--repo", "o/r", "--specific-pr", "7"]) == 0
+    assert not calls
+    assert retry.main(["--repo", "o/r", "--max-issue-retries", "2"]) == 1
+    assert calls[0][3] == 2
 
 
 def test_workflow_job_is_independent_and_respects_dry_run():
@@ -619,3 +645,129 @@ def test_workflow_job_is_independent_and_respects_dry_run():
         (ROOT / ".github/workflows/claude-code-review.yml").read_text()
     )
     assert review["run-name"].startswith("Review PR #${{")
+
+
+TRIAGE = "claude-issue-triage.yml"
+
+
+def issue_run(**overrides):
+    return run(
+        **{"event": "issues", "pull_requests": [], "display_title": "Triage issue #9"}
+        | overrides
+    )
+
+
+def issue(**overrides):
+    return {"number": 9, "state": "open"} | overrides
+
+
+def issue_reason(row=None, item=None, peers=()):
+    return retry.issue_skip_reason(
+        row or issue_run(), item or issue(), list(peers), NOW, 1
+    )
+
+
+def test_issue_run_is_keyed_by_run_name_not_title():
+    assert retry.run_issue(issue_run(), TRIAGE) == 9
+    dispatched = issue_run(event="workflow_dispatch")
+    assert retry.run_issue(dispatched, TRIAGE) == 9
+    # A legacy run shows the issue's own title; it must not be parsed.
+    assert (
+        retry.run_issue(issue_run(display_title="Curate X (MONDO:1)"), TRIAGE) is None
+    )
+    assert (
+        retry.run_issue(issue_run(display_title="Summarize issue #9"), TRIAGE) is None
+    )
+    assert retry.run_issue(issue_run(event="issue_comment"), TRIAGE) is None
+
+
+def test_issue_retry_guards():
+    assert issue_reason() is None
+    assert issue_reason(item=issue(state="closed"))
+    assert issue_reason(item=issue(pull_request={}))
+    assert issue_reason(issue_run(conclusion="success"))
+    assert issue_reason(issue_run(run_attempt=50))
+    assert issue_reason(issue_run(created_at=(NOW - timedelta(days=30)).isoformat()))
+    assert issue_reason(issue_run(updated_at=(NOW - timedelta(minutes=30)).isoformat()))
+    assert issue_reason(peers=[issue_run(id=21, status="queued", conclusion=None)])
+    newer = issue_run(id=21, created_at=(NOW - timedelta(hours=1)).isoformat())
+    assert issue_reason(peers=[newer])
+    succeeded = issue_run(id=21, conclusion="success", updated_at=NOW.isoformat())
+    assert issue_reason(peers=[succeeded])
+    assert issue_reason(peers=[issue_run(id=21, conclusion="skipped")]) is None
+
+
+def issue_harness(monkeypatch, rows, fresh=(), item=None):
+    writes = []
+
+    def runs(repo, workflow, since, until, status=None, event=None):
+        if since == NOW:
+            return [r for r in fresh if workflow == TRIAGE]
+        return [r for r in rows if workflow == TRIAGE]
+
+    def read(path):
+        if "/actions/runs/" in path:
+            return next(r for r in rows if path.endswith(f"/{r['id']}"))
+        if "/issues/" in path:
+            return item or issue()
+        raise AssertionError(path)
+
+    monkeypatch.setattr(retry, "query_runs", runs)
+    monkeypatch.setattr(retry, "api", read)
+    monkeypatch.setattr(
+        retry, "gh", lambda *args, **kwargs: writes.append((args, kwargs))
+    )
+    return writes
+
+
+def test_issue_sweep_reruns_latest_failure_once(monkeypatch):
+    old = issue_run(id=10, created_at=(NOW - timedelta(days=1)).isoformat())
+    writes = issue_harness(monkeypatch, [old, issue_run()])
+    rows, errors = retry.sweep_issues("owner/repo", NOW)
+    assert errors == 0
+    assert writes == [
+        (("run", "rerun", "20", "--failed", "--repo", "owner/repo"), {"write": True})
+    ]
+    assert any(row.startswith("Issue #9, run 20") for row in rows)
+
+
+@pytest.mark.parametrize("kwargs", [{"dry_run": True}, {"limit": 0}])
+def test_issue_sweep_dry_run_and_zero_budget_never_write(monkeypatch, kwargs):
+    writes = issue_harness(monkeypatch, [issue_run()])
+    retry.sweep_issues("owner/repo", NOW, **kwargs)
+    assert not writes
+
+
+def test_issue_sweep_leaves_closed_issue_and_new_dispatch_alone(monkeypatch):
+    writes = issue_harness(monkeypatch, [issue_run()], item=issue(state="closed"))
+    retry.sweep_issues("owner/repo", NOW)
+    assert not writes
+    dispatched = issue_run(
+        id=40, event="workflow_dispatch", status="in_progress", conclusion=None
+    )
+    writes = issue_harness(monkeypatch, [issue_run()], fresh=[dispatched])
+    retry.sweep_issues("owner/repo", NOW)
+    assert not writes
+
+
+def test_issue_sweep_counts_unkeyed_legacy_failures_on_one_line(monkeypatch):
+    legacy = [
+        issue_run(id=n, display_title=f"Some issue title {n}") for n in (20, 21, 22)
+    ]
+    writes = issue_harness(monkeypatch, legacy)
+    rows, errors = retry.sweep_issues("owner/repo", NOW)
+    assert not writes and errors == 0
+    assert [row for row in rows if "predate" in row] == [
+        f"{TRIAGE}: 3 failed runs predate the issue-number run name and are not retried."
+    ]
+
+
+def test_issue_workflows_carry_run_name_and_manual_dispatch():
+    for workflow, prefix in retry.ISSUE_WORKFLOWS.items():
+        config = yaml.safe_load((ROOT / ".github/workflows" / workflow).read_text())
+        assert config["run-name"].startswith(f"{prefix} #${{{{")
+        # PyYAML reads the bare `on:` key as True.
+        dispatch = config[True]["workflow_dispatch"]["inputs"]["issue_number"]
+        assert dispatch["required"] is True
+    job = yaml.safe_load((ROOT / ".github/workflows/pr-shepherd.yml").read_text())
+    assert job["jobs"]["retry-reviews"]["permissions"]["issues"] == "read"

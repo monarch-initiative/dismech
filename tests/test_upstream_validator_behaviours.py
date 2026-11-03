@@ -24,6 +24,7 @@ Author containing a colon round-trips          linkml/linkml-reference-validator
 ``---`` inside a title does not truncate       linkml/linkml-reference-validator#71
 Ligatures fold in ``normalize_text``           linkml/linkml-reference-validator#73
 ``split_supporting_text`` is public            linkml/linkml-reference-validator#74
+A bot-challenge page is a failed ``url:`` fetch linkml/linkml-reference-validator#117
 ============================================  =========================================
 
 Network retry (linkml/linkml-reference-validator#66) is not covered here: it is a
@@ -518,3 +519,69 @@ def test_an_abstract_stored_in_other_abstract_is_read(tmp_path):
     assert (
         PMIDSource()._parse_abstract(soup) == "Glucose absorption raises sodium uptake."
     )
+
+
+# --------------------------------------------------------------------------
+# Bot-challenge pages (#117, dismech#12747)
+# --------------------------------------------------------------------------
+
+BOOKSHELF_URL = "https://www.ncbi.nlm.nih.gov/books/NBK568319/"
+CHALLENGE_PAGE = (
+    b"<!DOCTYPE html><html><head><title>Checking your browser - reCAPTCHA"
+    b"</title></head><body><p>Checking your browser before accessing.</p>"
+    b"</body></html>"
+)
+
+
+def test_a_bot_challenge_page_is_a_failed_url_fetch(tmp_path, monkeypatch):
+    """Upstream #117: NCBI's reCAPTCHA page is not the document.
+
+    NCBI answers a scripted fetch of a Bookshelf or PMC page with "Checking
+    your browser - reCAPTCHA" on an HTTP 200. Before #117 the validator took it
+    for the reference: ``fetch-reference`` cached it as a success, and
+    validation compared its title against the curated ``reference_title`` and
+    blamed the curator (dismech#12747). The fetch must now fail and write
+    nothing, so the curated title is never compared against a challenge page.
+    """
+    from linkml_reference_validator.etl.sources import url as url_source
+
+    class ChallengedAcquirer:
+        def fetch_bytes(self, url, config):
+            return CHALLENGE_PAGE, "text/html"
+
+    monkeypatch.setattr(url_source, "ContentAcquirer", ChallengedAcquirer)
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    fetcher = ReferenceFetcher(
+        ReferenceValidationConfig(cache_dir=cache, rate_limit_delay=0.0)
+    )
+
+    assert fetcher.fetch(f"url:{BOOKSHELF_URL}") is None
+    assert not list(cache.rglob("*.md")), "the challenge page must not be cached"
+
+
+def test_a_cached_bot_challenge_page_is_never_evidence(tmp_path):
+    """Upstream #117: a challenge page cached by an older version is ignored.
+
+    dismech runs with ``trust_cached_entries: true``, which serves a cache entry
+    as it is on disk. A challenge page written by a validator older than 0.4.0
+    would therefore be trusted forever, so the guard has to hold in that mode.
+    """
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    fetcher = ReferenceFetcher(
+        ReferenceValidationConfig(cache_dir=cache, trust_cached_entries=True)
+    )
+    entry = Path(fetcher.get_cache_path(f"url:{BOOKSHELF_URL}"))
+    entry.write_text(
+        "---\n"
+        f"reference_id: url:{BOOKSHELF_URL}\n"
+        f"extractor_version: {EXTRACTOR_CACHE_VERSION}\n"
+        "url_source_version: 2\n"
+        "title: Checking your browser - reCAPTCHA\n"
+        "content_type: url\n"
+        "---\n\n## Content\n\nChecking your browser\n",
+        encoding="utf-8",
+    )
+
+    assert fetcher._load_from_disk(f"url:{BOOKSHELF_URL}") is None

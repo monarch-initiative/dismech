@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pneumonic Tularemia · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Pneumonic Tularemia</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Pneumonic Tularemia</h1>
+                
+                <p class="report-subtitle">Pneumonic Tularemia — Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0002212" target="_blank" rel="noopener noreferrer">MONDO:0002212</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">44 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Pneumonic Tularemia — Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Pneumonic Tularemia
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0002212" target="_blank" rel="noopener noreferrer">MONDO:0002212</a>
+<strong>Category:</strong> Infectious Disease
+<strong>Causative agent:</strong> <em>Francisella tularensis</em> (Gram-negative facultative intracellular coccobacillus)</p>
+<hr />
+<h2>Summary</h2>
+<p>Pneumonic tularemia is the pulmonary and most lethal clinical form of tularemia, an acute zoonosis caused by the Gram-negative facultative intracellular bacterium <em>Francisella tularensis</em>. It arises either as <strong>primary pneumonic disease</strong> following inhalation of aerosolized organisms (e.g., landscaping activities, laboratory accidents, or a deliberate bioterrorism release) or as <strong>secondary pneumonic disease</strong> through hematogenous spread from other clinical forms. Among the classical clinical forms (ulceroglandular, glandular, oculoglandular, oropharyngeal, typhoidal, and pneumonic), the pneumonic presentation carries the greatest mortality, and it is the form of greatest bioterrorism concern because <em>F. tularensis</em> is one of the most infectious bacteria known — as few as ~10 organisms inhaled can initiate infection. The organism is a <strong>CDC Category A (Tier 1) select agent</strong>.</p>
+<p>Mechanistically, disease follows a well-characterized intracellular pathway: the bacterium invades alveolar macrophages and dendritic cells, escapes the phagosome within hours via a <strong>Type VI secretion system encoded on the Francisella Pathogenicity Island (FPI)</strong>, and replicates in the cytosol. Virulent type A strains actively subvert early innate immunity through an <strong>atypical, under-acylated lipid A</strong> that evades TLR4 recognition. Once in the cytosol, bacterial DNA — liberated by interferon-inducible guanylate-binding proteins (GBPs) and IRGB10 — is sensed by the <strong>AIM2 inflammasome</strong>, driving caspase-1 activation, IL-1β/IL-18 secretion, and pyroptosis. Protective adaptive immunity is Th1-polarized and depends on <strong>IFN-γ, TNF-α, iNOS, and CD4⁺ T cells (T-bet)</strong>.</p>
+<p>Clinically, untreated pneumonic tularemia carries roughly <strong>30% mortality</strong>, but prompt antibiotic therapy reduces case-fatality to below ~2%. Aminoglycosides (streptomycin, gentamicin) are the historical treatment of choice; fluoroquinolones (ciprofloxacin) and doxycycline are effective alternatives, and the <strong>2025 CDC guidelines list fluoroquinolones and doxycycline as first-line options</strong>. Diagnosis relies chiefly on serology (microagglutination) and PCR because culture is insensitive and biohazardous. <strong>No licensed human vaccine exists.</strong> Tularemia is re-emerging across Europe and North America (2024–2025), reinforcing the need for clinical awareness, rapid diagnostics, and preventive measures.</p>
+<hr />
+<h2>Section 1 — Disease Information</h2>
+<p><strong>Overview.</strong> Pneumonic (respiratory) tularemia is the lung-centered manifestation of infection by <em>Francisella tularensis</em>. It presents with fever, cough, dyspnea, pleuritic chest pain, and radiographic infiltrates, often with hilar lymphadenopathy and pleural effusion. Primary pneumonic disease results from inhalation of infectious aerosols; secondary pneumonic disease develops when bacteria seed the lungs from bloodstream dissemination of ulceroglandular, typhoidal, or other forms.</p>
+<p><strong>Key identifiers:</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0002212" target="_blank" rel="noopener noreferrer">MONDO:0002212</a> (tularemia; pneumonic subtype)
+- <strong>MeSH:</strong> Tularemia (D014406); "Tularemia, Pulmonary" as a subheading concept
+- <strong>ICD-10:</strong> A21.2 (pulmonary tularemia); A21.9 (tularemia, unspecified)
+- <strong>ICD-11:</strong> 1B94 (Tularaemia)
+- <strong>SNOMED CT:</strong> Pulmonary tularemia (disorder)
+- <strong>Orphanet:</strong> Tularemia is catalogued as a rare bacterial infectious disease (<a href="https://bioregistry.io/ORPHA:855" target="_blank" rel="noopener noreferrer">ORPHA:855</a> for the parent entity)
+- <strong>NCBI Taxonomy (pathogen):</strong> <em>Francisella tularensis</em> — txid263</p>
+<p><strong>Synonyms / alternative names:</strong> Pulmonary tularemia; respiratory tularemia; pneumonic form of tularemia; "rabbit fever" (lung form); "deer-fly fever" (lung form); Ohara disease / Francis disease (historical, whole-disease synonyms).</p>
+<p><strong>Data source type:</strong> Information is derived from <strong>aggregated disease-level resources</strong> — clinical case series, outbreak investigations, systematic reviews, and experimental animal/in vitro studies — rather than from individual EHR-derived patient records. A 2024 systematic review aggregated 870 cases spanning 1993–2023.</p>
+<hr />
+<h2>Section 2 — Etiology</h2>
+<p><strong>Primary cause (infectious).</strong> Pneumonic tularemia is caused entirely by infection with <em>Francisella tularensis</em>; it is <strong>not a genetic disease</strong>. Human infection is initiated by inhalation of aerosolized bacteria. <em>F. tularensis</em> is among the most infectious bacteria known — inoculation or inhalation of <strong>as few as 10 organisms</strong> initiates infection (Finding F002; <a href="https://pubmed.ncbi.nlm.nih.gov/38294108/">PMID: 38294108</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29183485/">PMID: 29183485</a>).</p>
+<blockquote>
+<p>"requires as few as 10 organisms to cause disease, making this potential bioterrorism agent one of the most infectious bacterial pathogens known" — <a href="https://pubmed.ncbi.nlm.nih.gov/38294108/">PMID: 38294108</a></p>
+</blockquote>
+<p><strong>Environmental / occupational risk factors:</strong>
+- <strong>Aerosol-generating landscaping activities</strong> — lawn mowing and brush cutting were significant risk factors in the Martha's Vineyard primary pneumonic outbreak (odds ratio 9.2, 95% CI 1.6–68.0) (Finding F008; <a href="https://pubmed.ncbi.nlm.nih.gov/11757506/">PMID: 11757506</a>).
+- <strong>Occupational exposure</strong> — laboratory workers, landscapers, farmers, hunters, and those handling infected animals (rabbits, hares, rodents).
+- <strong>Arthropod vectors</strong> — ticks (<em>Dermacentor</em>, <em>Amblyomma</em>), deer flies, mosquitoes (predominant in Scandinavia) — though these more commonly cause ulceroglandular disease.
+- <strong>Animal contact</strong> — lagomorphs, rodents, and domestic cats/dogs. Dog-related exposures accounted for 3.3% of U.S. cases, of which 13% were pneumonic (<a href="https://pubmed.ncbi.nlm.nih.gov/30556330/">PMID: 30556330</a>).
+- <strong>Deliberate aerosol release</strong> — the pneumonic form is the most likely presentation after intentional release (<a href="https://pubmed.ncbi.nlm.nih.gov/29183485/">PMID: 29183485</a>).
+- <strong>Sex/age</strong> — systemic disease occurs more commonly in older patients (<a href="https://pubmed.ncbi.nlm.nih.gov/22911645/">PMID: 22911645</a>).</p>
+<p><strong>Genetic risk / protective factors:</strong> No human germline susceptibility or protective variants are established for tularemia; this is an environmentally/infectiously acquired disease. Host-genetic determinants of severity are described almost exclusively in <strong>mouse models</strong> (e.g., inflammasome genes <em>Aim2</em>, <em>Nlrp3</em>), not in humans. <strong>Gene-environment interactions</strong> in the classical human-disease sense are therefore not applicable; the relevant "gene–environment" axis is the interaction between <strong>host innate-immune genes and the inhaled bacterial dose/strain virulence</strong> (see Section 6).</p>
+<hr />
+<h2>Section 3 — Phenotypes</h2>
+<p>Pneumonic tularemia is an acute, adult-predominant (though all ages affected) febrile respiratory illness with an incubation period typically of <strong>3–5 days (range 1–14 days)</strong>.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Frequency / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever</td>
+<td>Symptom/sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> (Fever)</td>
+<td>Near-universal; abrupt onset</td>
+</tr>
+<tr>
+<td>Cough (often nonproductive)</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" rel="noopener noreferrer">HP:0012735</a> (Cough)</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Dyspnea</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> (Dyspnea)</td>
+<td>Common in severe disease</td>
+</tr>
+<tr>
+<td>Pleuritic chest pain</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0033771" target="_blank" rel="noopener noreferrer">HP:0033771</a> (Pleuritic chest pain)</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Pneumonia / pulmonary infiltrate</td>
+<td>Clinical sign / imaging</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" rel="noopener noreferrer">HP:0002090</a> (Pneumonia)</td>
+<td>Defining feature</td>
+</tr>
+<tr>
+<td>Pleural effusion</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002202" target="_blank" rel="noopener noreferrer">HP:0002202</a> (Pleural effusion)</td>
+<td>Common; may require drainage</td>
+</tr>
+<tr>
+<td>Hilar lymphadenopathy</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100721" target="_blank" rel="noopener noreferrer">HP:0100721</a> (Hilar lymphadenopathy)</td>
+<td>Characteristic radiographic finding</td>
+</tr>
+<tr>
+<td>Chills / rigors</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" rel="noopener noreferrer">HP:0025143</a> (Chills)</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Malaise / fatigue</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003394" target="_blank" rel="noopener noreferrer">HP:0003394</a> / <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a></td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Headache</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a> (Headache)</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Myalgia</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a> (Myalgia)</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Cavitary pneumonia / empyema</td>
+<td>Complication</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006528" target="_blank" rel="noopener noreferrer">HP:0006528</a> / <a href="http://purl.obolibrary.org/obo/HP_0002101" target="_blank" rel="noopener noreferrer">HP:0002101</a></td>
+<td>Reported; e.g., pulmonary empyema cases (<a href="https://pubmed.ncbi.nlm.nih.gov/24655540/">PMID: 24655540</a>)</td>
+</tr>
+<tr>
+<td>Elevated inflammatory markers (ESR, CRP)</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003565" target="_blank" rel="noopener noreferrer">HP:0003565</a> (Elevated ESR)</td>
+<td>Common</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Characteristics:</strong>
+- <strong>Age of onset:</strong> Any age; primarily adult in occupational/aerosol settings.
+- <strong>Severity:</strong> Moderate to severe; pneumonic form is the most severe clinical presentation (Finding F001).
+- <strong>Progression:</strong> Acute and potentially rapidly progressive; can advance to respiratory failure, sepsis, and multi-organ involvement if untreated.
+- <strong>Frequency among affected individuals:</strong> In U.S. case series, pneumonic disease constituted ~12% of all tularemia cases (<a href="https://pubmed.ncbi.nlm.nih.gov/22911645/">PMID: 22911645</a>); in dedicated aerosol outbreaks it predominates (11 of 15 cases primary pneumonic on Martha's Vineyard; <a href="https://pubmed.ncbi.nlm.nih.gov/11757506/">PMID: 11757506</a>).</p>
+<p><strong>Quality-of-life impact:</strong> As an acute, treatable infection, long-term QoL burden is limited in survivors treated promptly; however, delayed treatment can result in prolonged convalescence, pleural complications requiring intervention, and, rarely, death. No disease-specific EQ-5D/SF-36 datasets exist for pneumonic tularemia.</p>
+<hr />
+<h2>Section 4 — Genetic / Molecular Information</h2>
+<p><strong>Not applicable in the human-host genetic sense.</strong> Pneumonic tularemia is an infectious disease with <strong>no causal human genes, pathogenic germline variants, modifier genes, human epigenetic signatures, or chromosomal abnormalities</strong>. There is no OMIM Mendelian entry, no ClinVar variant set, and no inheritance pattern.</p>
+<p>The relevant molecular determinants are <strong>bacterial</strong>:
+- <strong>Francisella Pathogenicity Island (FPI):</strong> a ~16–19 gene cluster including the <em>iglABCD</em> operon encoding a <strong>Type VI secretion system (T6SS)</strong> required for phagosomal escape and intramacrophage growth; FPI mutants are highly attenuated (Finding F003; <a href="https://pubmed.ncbi.nlm.nih.gov/17395722/">PMID: 17395722</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/17233889/">PMID: 17233889</a>).
+- <strong>Regulators:</strong> <em>mglA/mglB</em> control FPI expression.
+- <strong>Effector <em>opiA</em></strong> (a bacterial PI3-kinase) modifies phagosomal PI(3)P to promote escape (<a href="https://pubmed.ncbi.nlm.nih.gov/30057173/">PMID: 30057173</a>).
+- <strong>LPS/lipid A biosynthesis genes</strong> (<em>lpxD1/lpxD2</em>, <em>galU</em>) shape immune evasion (<a href="https://pubmed.ncbi.nlm.nih.gov/28478203/">PMID: 28478203</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/21819572/">PMID: 21819572</a>).</p>
+<p><strong>Host modifier genes (model-organism level):</strong> In mice, <em>Aim2</em>, <em>Nlrp3</em>, <em>Tbx21</em> (T-bet), <em>Ifng</em>, <em>Tnf</em>, and <em>Nos2</em> modify susceptibility/severity (Sections 5–6).</p>
+<hr />
+<h2>Section 5 — Environmental Information</h2>
+<p><strong>Infectious agent (taxon):</strong> <em>Francisella tularensis</em>, NCBI Taxon 263. Two clinically important subspecies:
+- <strong>subsp. <em>tularensis</em> (Type A)</strong> — North America; highly virulent. Subdivided into <strong>type A-west</strong> and the more severe <strong>type A-east</strong> (Finding F009; <a href="https://pubmed.ncbi.nlm.nih.gov/16836829/">PMID: 16836829</a>).
+- <strong>subsp. <em>holarctica</em> (Type B)</strong> — Holarctic (Europe, Asia, North America); less virulent, rarely fatal.</p>
+<blockquote>
+<p>"type A-west infections are less severe than either type B or type A-east infections" — <a href="https://pubmed.ncbi.nlm.nih.gov/16836829/">PMID: 16836829</a></p>
+</blockquote>
+<p><strong>Environmental persistence:</strong> <em>F. tularensis</em> Type A survives in brackish water and salt-influenced soil similarly to Type B, which may explain why Martha's Vineyard sustains pneumonic transmission (<a href="https://pubmed.ncbi.nlm.nih.gov/21136042/">PMID: 21136042</a>). Diverse <em>Francisella</em> species are detectable in environmental water/sediment/soil at active foci (<a href="https://pubmed.ncbi.nlm.nih.gov/19669828/">PMID: 19669828</a>).</p>
+<p><strong>Environmental / lifestyle factors:</strong> Aerosol-generating outdoor work (mowing, brush cutting), hunting/skinning lagomorphs, farming, and laboratory handling. Waterborne outbreaks (contaminated drinking water) are common in Turkey and drive oropharyngeal rather than pneumonic disease (<a href="https://pubmed.ncbi.nlm.nih.gov/42343287/">PMID: 42343287</a>). No specific dietary or smoking association is established for the pneumonic form.</p>
+<hr />
+<h2>Section 6 — Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (inhalation → clinical pneumonia)</h3>
+<ol>
+<li><strong>Inhalation of aerosolized <em>F. tularensis</em></strong> (≥ ~10 organisms) deposits bacteria in the alveolar space → <strong>leads to</strong> uptake by alveolar macrophages and dendritic cells (and alveolar epithelial cells).</li>
+<li><strong>Bacterial invasion of macrophages/DCs</strong> → <strong>results in</strong> formation of the <em>Francisella</em>-containing phagosome (FCP).</li>
+<li><strong>FPI/Type VI secretion system activity</strong> (IglABCD; effector OpiA remodels phagosomal PI(3)P) → <strong>causes</strong> disruption of the phagosomal membrane and <strong>phagosomal escape within a few hours</strong> (demonstrated in vitro and in macrophages) (<a href="https://pubmed.ncbi.nlm.nih.gov/32694562/">PMID: 32694562</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/30057173/">PMID: 30057173</a>).</li>
+<li><strong>Cytosolic replication</strong> → <strong>leads to</strong> high intracellular bacterial burdens.</li>
+<li><em>In parallel,</em> <strong>atypical tetra-acylated lipid A</strong> on the bacterial surface <strong>precludes</strong> efficient TLR4 recognition and cationic antimicrobial peptide binding → <strong>results in</strong> blunted/delayed early innate signaling (chemokines, neutrophil recruitment) — an active immune-evasion branch (demonstrated: prior type A aerosol exposure antagonizes pulmonary LPS response; <em>galU</em> mutant reverses this) (<a href="https://pubmed.ncbi.nlm.nih.gov/28807561/">PMID: 28807561</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26510639/">PMID: 26510639</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/21819572/">PMID: 21819572</a>).</li>
+<li><strong>Cytosolic bacterial DNA is liberated</strong> by interferon-inducible GBP2/GBP5 and IRGB10, which attack the bacterial membrane causing bacteriolysis → <strong>leads to</strong> DNA release (<a href="https://pubmed.ncbi.nlm.nih.gov/25774716/">PMID: 25774716</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/27693356/">PMID: 27693356</a>).</li>
+<li><strong>AIM2 inflammasome senses cytosolic DNA</strong> → <strong>activates</strong> caspase-1 → <strong>drives</strong> processing/secretion of <strong>IL-1β and IL-18</strong> and <strong>pyroptosis</strong> (demonstrated for <em>F. novicida</em>/LVS) (<a href="https://pubmed.ncbi.nlm.nih.gov/21883803/">PMID: 21883803</a>).</li>
+<li><em>Branch:</em> An <strong>ASC-dependent, caspase-1-independent (caspase-8) pathway</strong> also generates IL-18, boosting NK-cell IFN-γ (<a href="https://pubmed.ncbi.nlm.nih.gov/23975862/">PMID: 23975862</a>).</li>
+<li><strong>IL-18 + IL-12 → NK/T-cell IFN-γ</strong>; with TNF-α these <strong>activate iNOS (NOS2)</strong> in macrophages → <strong>results in</strong> nitric-oxide-mediated bacterial killing (demonstrated in LVS aerosol model) (<a href="https://pubmed.ncbi.nlm.nih.gov/19237526/">PMID: 19237526</a>).</li>
+<li><strong>Th1 adaptive response (T-bet–dependent CD4⁺ T cells, plus antibody including IgA)</strong> → <strong>mediates</strong> control and clearance; loss of T-bet or CD4⁺ T cells → <strong>results in</strong> overwhelming infection (<a href="https://pubmed.ncbi.nlm.nih.gov/24421047/">PMID: 24421047</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/19211773/">PMID: 19211773</a>).</li>
+<li><strong>Net effect on tissue:</strong> If bacterial replication outpaces innate/adaptive control → widespread pyroptotic cell death, inflammatory infiltration, necrotizing pneumonia, pleural effusion, bacteremic dissemination → <strong>clinical pneumonic tularemia</strong>, potentially sepsis and death.</li>
+</ol>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> cytosolic DNA sensing → AIM2/ASC/caspase-1; TLR4/MyD88 (subverted by lipid A); interferon (type I &amp; II)-inducible GBP/IRGB10 antibacterial program; iNOS/NO production.</li>
+<li><strong>Cellular processes:</strong> phagocytosis, phagosomal escape, intracellular replication, <strong>pyroptosis</strong> (<a href="http://purl.obolibrary.org/obo/GO_0070269" target="_blank" rel="noopener noreferrer">GO:0070269</a>), inflammasome assembly, inflammation (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>), autophagy/xenophagy (ATG5 modulates immunity, <a href="https://pubmed.ncbi.nlm.nih.gov/42514097/">PMID: 42514097</a>).</li>
+<li><strong>Protein dysfunction (bacterial virulence):</strong> T6SS effector delivery; PI3-kinase effector OpiA alters phosphoinositide signaling.</li>
+<li><strong>Immune involvement:</strong> Th1/IFN-γ-dominant protective immunity; excessive early NLRP3 signaling can be host-detrimental (<a href="https://pubmed.ncbi.nlm.nih.gov/34690967/">PMID: 34690967</a>); antibody (IgG2a, IgA) contributes but requires host IFN-γ/T cells to protect (<a href="https://pubmed.ncbi.nlm.nih.gov/8039881/">PMID: 8039881</a>).</li>
+<li><strong>Metabolic:</strong> macrophage selenoproteins restrict intracellular replication (<a href="https://pubmed.ncbi.nlm.nih.gov/34777335/">PMID: 34777335</a>); acidic-pH lipid A remodeling (<a href="https://pubmed.ncbi.nlm.nih.gov/28807561/">PMID: 28807561</a>).</li>
+<li><strong>Tissue damage mechanisms:</strong> necrotizing granulomatous inflammation, pyroptotic cell death, neutrophil-mediated injury, pleural inflammation.</li>
+</ul>
+<p><strong>GO term suggestions:</strong> <a href="http://purl.obolibrary.org/obo/GO_0070269" target="_blank" rel="noopener noreferrer">GO:0070269</a> (pyroptosis), <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0032731" target="_blank" rel="noopener noreferrer">GO:0032731</a> (positive regulation of IL-1β production), <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" rel="noopener noreferrer">GO:0045087</a> (innate immune response), <a href="http://purl.obolibrary.org/obo/GO_0042742" target="_blank" rel="noopener noreferrer">GO:0042742</a> (defense response to bacterium), <a href="http://purl.obolibrary.org/obo/GO_0071222" target="_blank" rel="noopener noreferrer">GO:0071222</a> (cellular response to LPS).
+<strong>CL term suggestions:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a> (alveolar macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a> (dendritic cell), <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" rel="noopener noreferrer">CL:0000623</a> (natural killer cell), <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" rel="noopener noreferrer">CL:0000624</a> (CD4⁺ T cell), <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil).</p>
+<hr />
+<h2>Section 7 — Anatomical Structures Affected</h2>
+<p><strong>Organ level:</strong>
+- <strong>Primary:</strong> Lung (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>), including alveoli (<a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" rel="noopener noreferrer">UBERON:0002299</a>) and bronchi.
+- <strong>Secondary:</strong> Pleura/pleural cavity (<a href="http://purl.obolibrary.org/obo/UBERON_0002402" target="_blank" rel="noopener noreferrer">UBERON:0002402</a>) — effusion/empyema; hilar/mediastinal lymph nodes (<a href="http://purl.obolibrary.org/obo/UBERON_0002509" target="_blank" rel="noopener noreferrer">UBERON:0002509</a>); with dissemination: spleen (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>), liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>), bone marrow, and rarely heart (myocarditis reported, <a href="https://pubmed.ncbi.nlm.nih.gov/30656604/">PMID: 30656604</a>).
+- <strong>Body systems:</strong> Respiratory system (primary); reticuloendothelial/lymphatic system; potentially cardiovascular (sepsis, rare myocarditis).</p>
+<p><strong>Tissue and cell level:</strong>
+- Alveolar epithelium; pulmonary interstitium.
+- <strong>Target cells:</strong> alveolar macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a>), dendritic cells (<a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a>), and other mononuclear phagocytes are the principal intracellular niche; neutrophils recruited to lung.</p>
+<p><strong>Subcellular level (GO Cellular Component):</strong>
+- Phagosome (<a href="http://purl.obolibrary.org/obo/GO_0045335" target="_blank" rel="noopener noreferrer">GO:0045335</a>) → <em>Francisella</em>-containing vacuole; escape into <strong>cytosol/cytoplasm (<a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a>)</strong> — the replicative compartment. AIM2 inflammasome assembles in the cytosol.</p>
+<p><strong>Localization / lateralization:</strong> Bilateral or unilateral patchy infiltrates; pleural effusions may be unilateral. Hilar adenopathy commonly bilateral.</p>
+<hr />
+<h2>Section 8 — Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> <strong>Acute</strong>, after an incubation of <strong>3–5 days (range 1–14)</strong>. Median incubation ~3 days in Missouri case review (<a href="https://pubmed.ncbi.nlm.nih.gov/22911645/">PMID: 22911645</a>).</li>
+<li><strong>Progression:</strong> Rapid systemic febrile illness; can progress to respiratory failure and sepsis within days if untreated. Not staged like cancer; described as early (febrile, cough) → established pneumonia (infiltrates, effusion) → severe/complicated (empyema, respiratory failure, bacteremia).</li>
+<li><strong>Course pattern:</strong> Acute, monophasic; <strong>self-limited only rarely</strong> — most severe cases require antibiotics. With treatment, recovery is the rule; convalescence over 1–4 weeks.</li>
+<li><strong>Duration:</strong> Days to weeks (acute); not a chronic lifelong disease.</li>
+<li><strong>Remission:</strong> Treatment-induced resolution is standard with appropriate antibiotics. Relapse can occur with bacteriostatic agents (tetracyclines) or short courses.</li>
+<li><strong>Critical periods:</strong> <strong>Early antibiotic initiation is the key intervention window</strong>; delayed therapy increases complication and mortality risk (<a href="https://pubmed.ncbi.nlm.nih.gov/42601640/">PMID: 42601640</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/22652404/">PMID: 22652404</a>).</li>
+</ul>
+<hr />
+<h2>Section 9 — Inheritance and Population</h2>
+<p><strong>Inheritance:</strong> Not applicable — infectious, non-heritable.</p>
+<p><strong>Epidemiology:</strong>
+- Tularemia is a <strong>rare, reportable</strong> zoonosis. The pneumonic form is a minority of cases except in aerosol outbreaks.
+- <strong>Geographic distribution:</strong> Northern hemisphere — North America (esp. south-central USA: Arkansas, Missouri, Oklahoma; and Martha's Vineyard for pneumonic), Scandinavia, Central/Eastern Europe, Turkey, Russia, Japan.
+- <strong>Re-emergence (2024–2025):</strong> rising incidence — Austria 117, Slovenia 38, France 150, Spain/Castile-León 206, and <strong>United States 220 cases in 2024</strong> (Finding F012; <a href="https://pubmed.ncbi.nlm.nih.gov/42641375/">PMID: 42641375</a>). Germany reached a peak incidence in 2024 (<a href="https://pubmed.ncbi.nlm.nih.gov/42601640/">PMID: 42601640</a>).
+- <strong>Primary pneumonic tularemia</strong> is exceptionally rare — Martha's Vineyard is the site of the only two recognized U.S. primary pneumonic outbreaks (1978, 2000) (Finding F008; <a href="https://pubmed.ncbi.nlm.nih.gov/17442781/">PMID: 17442781</a>).</p>
+<blockquote>
+<p>"Martha's Vineyard, Massachusetts, is the site of the only two recognized outbreaks of primary pneumonic tularemia in the United States" — <a href="https://pubmed.ncbi.nlm.nih.gov/17442781/">PMID: 17442781</a></p>
+</blockquote>
+<p><strong>Demographics:</strong>
+- <strong>Sex ratio:</strong> Male predominance in many series (e.g., 65% male in Missouri, <a href="https://pubmed.ncbi.nlm.nih.gov/22911645/">PMID: 22911645</a>), reflecting occupational/recreational exposure; varies by outbreak.
+- <strong>Age:</strong> All ages; systemic/severe disease more common in older adults.
+- <strong>Population-specific variants:</strong> Type A (North America) vs. Type B (Eurasia) geographic segregation; type A-east most virulent.</p>
+<hr />
+<h2>Section 10 — Diagnostics</h2>
+<p><strong>Serology (cornerstone):</strong>
+- <strong>Microagglutination test (MAT):</strong> titer <strong>≥ 1/160</strong> considered positive; seroconversion (≥4-fold rise) in paired sera is confirmatory (Finding F006; <a href="https://pubmed.ncbi.nlm.nih.gov/22090310/">PMID: 22090310</a>). Antibodies may take 2+ weeks to develop, limiting early diagnosis.
+- Serology is preferred because <strong>culture has low sensitivity and biosafety risk</strong>, and PCR lacks standardization (<a href="https://pubmed.ncbi.nlm.nih.gov/20220165/">PMID: 20220165</a>).</p>
+<blockquote>
+<p>"Serology is still considered to be a cornerstone in tularemia diagnosis due to the low sensitivity of bacterial culture and the lack of standardization in PCR methodology" — <a href="https://pubmed.ncbi.nlm.nih.gov/20220165/">PMID: 20220165</a></p>
+</blockquote>
+<ul>
+<li><strong>Rapid immunochromatographic test:</strong> 98.3% sensitivity, 96.5% specificity vs. MAT (<a href="https://pubmed.ncbi.nlm.nih.gov/20220165/">PMID: 20220165</a>).</li>
+</ul>
+<p><strong>Molecular (PCR):</strong>
+- Validated targets: <strong>ISFtu2 insertion element, tul4 (17-kDa), fopA (43-kDa), 23-kDa gene</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/14662930/">PMID: 14662930</a>). Multitarget real-time TaqMan assays improve detection in complex specimens.
+- PCR positive in ~91% of lymph node aspirates where cultures were negative (Finding F006).</p>
+<p><strong>Culture:</strong> Requires cysteine-enriched media; slow-growing; must be handled at <strong>BSL-3</strong> due to aerosol infection risk. Low clinical sensitivity.</p>
+<p><strong>Imaging:</strong> Chest X-ray/CT show patchy infiltrates, hilar/mediastinal lymphadenopathy, pleural effusion, and occasionally cavitation (<a href="https://pubmed.ncbi.nlm.nih.gov/24655540/">PMID: 24655540</a>).</p>
+<p><strong>Laboratory:</strong> Nonspecific — elevated ESR/CRP; leukocytosis variable (more frequent in pediatric cases, <a href="https://pubmed.ncbi.nlm.nih.gov/42343287/">PMID: 42343287</a>).</p>
+<p><strong>Clinical criteria / differential diagnosis:</strong> Consider in patients with pneumonia unresponsive to β-lactams plus relevant exposure (landscaping, animal/tick contact, endemic area). <strong>Differential:</strong> community-acquired bacterial pneumonia, Q fever, psittacosis, plague, anthrax, Legionella, tuberculosis, fungal pneumonia. Tularemia is frequently initially misdiagnosed (<a href="https://pubmed.ncbi.nlm.nih.gov/22911645/">PMID: 22911645</a>).</p>
+<p><strong>Screening:</strong> No population screening; genetic/omics diagnostics not applicable.</p>
+<hr />
+<h2>Section 11 — Outcome / Prognosis</h2>
+<ul>
+<li><strong>Untreated mortality:</strong> ~<strong>30%</strong> (Finding F012; <a href="https://pubmed.ncbi.nlm.nih.gov/42641375/">PMID: 42641375</a>); pneumonic form has the highest mortality of all clinical forms (Finding F001; <a href="https://pubmed.ncbi.nlm.nih.gov/38461051/">PMID: 38461051</a>).</li>
+</ul>
+<blockquote>
+<p>"with the pneumonic presentation resulting in the greatest mortality" — <a href="https://pubmed.ncbi.nlm.nih.gov/38461051/">PMID: 38461051</a></p>
+</blockquote>
+<ul>
+<li><strong>Treated case-fatality (all forms, 870-case systematic review):</strong> 0.7% (aminoglycosides), 0.9% (fluoroquinolones), 1.2% (tetracyclines) — overall low with prompt therapy (Finding F004; <a href="https://pubmed.ncbi.nlm.nih.gov/38294108/">PMID: 38294108</a>).</li>
+<li><strong>Complications:</strong> pleural effusion/empyema (may require drainage), cavitary pneumonia, respiratory failure, bacteremia/sepsis, rare myocarditis, necrotizing abscess formation.</li>
+<li><strong>Recovery:</strong> Excellent with early appropriate antibiotics; full recovery is typical. Prognosis worsens with delayed diagnosis, older age, type A-east strain, and high inhaled dose.</li>
+<li><strong>Prognostic factors:</strong> speed of antibiotic initiation, subspecies/strain (type A-east worst), inoculum size, host age/comorbidity.</li>
+</ul>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Treatment class</th>
+<th>Case-fatality (all forms)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Aminoglycosides (streptomycin, gentamicin)</td>
+<td>0.7%</td>
+<td>Treatment of choice historically</td>
+</tr>
+<tr>
+<td>Fluoroquinolones (ciprofloxacin)</td>
+<td>0.9%</td>
+<td>No fatalities &amp; lowest pleural intervention in pneumonic subset</td>
+</tr>
+<tr>
+<td>Tetracyclines (doxycycline)</td>
+<td>1.2%</td>
+<td>Bacteriostatic; higher relapse</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Section 12 — Treatment</h2>
+<p><strong>Pharmacotherapy (NCIT term suggestions in parentheses):</strong>
+- <strong>Aminoglycosides — streptomycin (NCIT:C839), gentamicin (NCIT:C575):</strong> historical treatment of choice; bactericidal (Finding F004; <a href="https://pubmed.ncbi.nlm.nih.gov/29183485/">PMID: 29183485</a>).</p>
+<blockquote>
+<p>"Streptomycin and gentamicin are currently considered the treatment of choice for tularemia. Quinolone is an effective alternative drug." — <a href="https://pubmed.ncbi.nlm.nih.gov/29183485/">PMID: 29183485</a></p>
+</blockquote>
+<ul>
+<li><strong>Fluoroquinolones — ciprofloxacin (NCIT:C405):</strong> effective oral alternative; in the 870-case review, pneumonic patients on ciprofloxacin had <strong>no fatalities</strong> and the lowest rates of pleural intervention. Oral ciprofloxacin successfully treated cavitary pneumonic disease after drainage (<a href="https://pubmed.ncbi.nlm.nih.gov/24655540/">PMID: 24655540</a>).</li>
+<li><strong>Tetracyclines — doxycycline (NCIT:C692):</strong> bacteriostatic; requires ≥14–21 day courses; higher relapse.</li>
+<li><strong>2025 CDC guidelines</strong> now establish <strong>fluoroquinolones and doxycycline as first-line options</strong> (Finding F012; <a href="https://pubmed.ncbi.nlm.nih.gov/42641375/">PMID: 42641375</a>).</li>
+</ul>
+<blockquote>
+<p>"The 2025 CDC guidelines establish fluoroquinolones and doxycycline as first-line therapeutic options" — <a href="https://pubmed.ncbi.nlm.nih.gov/42641375/">PMID: 42641375</a></p>
+</blockquote>
+<p><strong>Post-exposure prophylaxis:</strong> streptomycin, gentamicin, doxycycline, or ciprofloxacin (<a href="https://pubmed.ncbi.nlm.nih.gov/29183485/">PMID: 29183485</a>).</p>
+<p><strong>Interventional/supportive:</strong> Pleural drainage for empyema/large effusion; oxygen/ventilatory support in respiratory failure; hydration and antipyretics. <strong>No patient isolation required</strong> for pneumonic tularemia (no person-to-person transmission) (<a href="https://pubmed.ncbi.nlm.nih.gov/29183485/">PMID: 29183485</a>).</p>
+<p><strong>Experimental/adjunctive:</strong> Post-exposure immunization with <em>F. tularensis</em> membrane protein fraction (MPF) augmented gentamicin efficacy (100% survival in a mouse pneumonic model) — proof of concept for immunotherapy adjuncts (<a href="https://pubmed.ncbi.nlm.nih.gov/22652404/">PMID: 22652404</a>).</p>
+<p><strong>Pharmacogenomics / targeted / gene / cell / RNA therapies:</strong> Not applicable.</p>
+<hr />
+<h2>Section 13 — Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Avoid aerosol-generating activities in endemic areas; use of masks/PPE during mowing/brush-cutting; safe handling of animal carcasses; tick/insect avoidance and repellents; laboratory biosafety (BSL-3 for cultures). Vector control and public health education.</li>
+<li><strong>Immunization:</strong> <strong>No licensed human vaccine</strong> (Finding F007; <a href="https://pubmed.ncbi.nlm.nih.gov/38461051/">PMID: 38461051</a>).</li>
+</ul>
+<blockquote>
+<p>"there are no approved vaccines against F. tularensis in the United States" — <a href="https://pubmed.ncbi.nlm.nih.gov/38461051/">PMID: 38461051</a></p>
+</blockquote>
+<ul>
+<li>The <strong>unlicensed Live Vaccine Strain (LVS)</strong> protects mice against lethal intranasal/aerosol SCHU S4 challenge (CD4⁺ T-cell– and antibody/IgA-mediated) (<a href="https://pubmed.ncbi.nlm.nih.gov/19211773/">PMID: 19211773</a>).</li>
+<li><strong>Subunit/glycoconjugate candidates:</strong> glucan-particle LPS + FTT0814 subunit vaccine (partial protection, T-cell immunity in a rat aerosol model, <a href="https://pubmed.ncbi.nlm.nih.gov/38713688/">PMID: 38713688</a>); O-antigen glycoconjugate (<a href="https://pubmed.ncbi.nlm.nih.gov/30872471/">PMID: 30872471</a>); MPL-adjuvanted catanionic nanoparticle vaccine (<a href="https://pubmed.ncbi.nlm.nih.gov/28077440/">PMID: 28077440</a>). All remain experimental.</li>
+<li><strong>Secondary prevention:</strong> Prompt recognition and post-exposure prophylaxis after known aerosol exposure or lab accident.</li>
+<li><strong>Public health:</strong> Surveillance and reporting (nationally notifiable), water chlorination (for waterborne foci), rodent/lagomorph control.</li>
+</ul>
+<hr />
+<h2>Section 14 — Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy of hosts (naturally infected):</strong> Lagomorphs — rabbits/hares (<em>Sylvilagus</em>, <em>Lepus</em>); rodents (voles, mice, muskrats, beavers); domestic cats (<em>Felis catus</em>, <a href="https://bioregistry.io/NCBI:9685" target="_blank" rel="noopener noreferrer">NCBI:9685</a>) and dogs (<em>Canis lupus familiaris</em>, <a href="https://bioregistry.io/NCBI:9615" target="_blank" rel="noopener noreferrer">NCBI:9615</a>). Ticks and deer flies are vectors/reservoirs.</li>
+<li><strong>Natural disease &amp; veterinary relevance:</strong> Tularemia is an important zoonosis; cats can transmit to humans via bite/scratch (<a href="https://pubmed.ncbi.nlm.nih.gov/30556330/">PMID: 30556330</a>); domestic dogs facilitate transmission via retrieved carcasses and ticks. Lagomorphs suffer high mortality (epizootics).</li>
+<li><strong>Comparative pathology:</strong> Intracellular macrophage infection and phagosomal escape are conserved across mammalian hosts; mouse pathology closely mirrors human intracellular pathogenesis.</li>
+<li><strong>Zoonotic potential:</strong> High — a prototypical zoonosis. <strong>No human-to-human transmission</strong>, so pneumonic cases need no isolation.</li>
+<li><strong>Cross-species susceptibility:</strong> Broad mammalian host range; extreme susceptibility in mice and lagomorphs.</li>
+</ul>
+<hr />
+<h2>Section 15 — Model Organisms</h2>
+<ul>
+<li><strong>Mouse (<em>Mus musculus</em>, <a href="https://bioregistry.io/NCBI:10090" target="_blank" rel="noopener noreferrer">NCBI:10090</a>) — principal model.</strong> Intranasal/aerosol challenge with <strong>SCHU S4 (type A)</strong> or attenuated <strong>LVS</strong>; BALB/c and C57BL/6 strains widely used. Recapitulates pneumonic pathogenesis, intracellular replication, inflammasome activation, Th1 immunity, and treatment/vaccine responses (Findings F003, F005, F007, F010, F011).</li>
+<li>Knockout models: <em>Aim2⁻/⁻</em>, <em>Nlrp3⁻/⁻</em>, <em>Asc⁻/⁻</em>, <em>Casp1⁻/⁻</em>, <em>Tbx21⁻/⁻</em> (T-bet), <em>Ifng⁻/⁻</em>, <em>Nos2⁻/⁻</em> — dissect inflammasome and Th1 pathways (<a href="https://pubmed.ncbi.nlm.nih.gov/24421047/">PMID: 24421047</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/21883803/">PMID: 21883803</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/33875472/">PMID: 33875472</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34690967/">PMID: 34690967</a>).</li>
+<li><strong>Rat (<em>Rattus norvegicus</em>, <a href="https://bioregistry.io/NCBI:10116" target="_blank" rel="noopener noreferrer">NCBI:10116</a>):</strong> Fischer 344 inhalation model used for vaccine efficacy testing (<a href="https://pubmed.ncbi.nlm.nih.gov/38713688/">PMID: 38713688</a>).</li>
+<li><strong>In vitro / cellular:</strong> Bone-marrow-derived and cell-line macrophages (J774) to study phagosomal escape, cytosolic replication, and inflammasome activation (<a href="https://pubmed.ncbi.nlm.nih.gov/32694562/">PMID: 32694562</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/29482417/">PMID: 29482417</a>).</li>
+<li><strong><em>F. novicida</em> and <em>F. tularensis</em> LVS</strong> serve as reduced-biosafety surrogates for the virulent SCHU S4 strain.</li>
+<li><strong>Model limitations:</strong> <em>F. novicida</em> is attenuated in humans but hypervirulent in mice; LVS is attenuated relative to SCHU S4; mouse inflammasome biology and lipid A responses differ somewhat from humans, so protective correlates do not always translate (<a href="https://pubmed.ncbi.nlm.nih.gov/41410566/">PMID: 41410566</a>).</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code> Inhaled F. tularensis (~10 organisms, type A)
+      |
+      v
+   Alveolar macrophage / DC uptake ---&gt; Francisella-containing phagosome
+      |                                   |
+      |  FPI / T6SS (IglABCD),            |  Atypical tetra-acylated
+      |  effector OpiA (PI3K)             |  lipid A --&gt; evades TLR4
+      v                                   v  (blunted early innate signal)
+     PHAGOSOMAL ESCAPE (hours) ----------&gt; CYTOSOLIC REPLICATION
+      |
+      v
+   GBP2/GBP5 + IRGB10 attack bacteria --&gt; bacteriolysis --&gt; DNA release
+      |
+      v
+AIM2 inflammasome --&gt; caspase-1 --&gt; IL-1b / IL-18 + PYROPTOSIS
+      |                                   |
+      |  (ASC/caspase-8 branch also        |
+      |   makes IL-18, caspase-1-indep.)   v
+      v                          NK/T cells --&gt; IFN-gamma
+   IFN-gamma + TNF-a --&gt; iNOS/NO in macrophages --&gt; bacterial killing
+      |
+      v
+   T-bet+ CD4+ Th1 cells + antibody (IgG2a, IgA) --&gt; CLEARANCE
+      |
+   (If replication outpaces control) --&gt; necrotizing pneumonia,
+pleural effusion, bacteremia, sepsis --&gt; CLINICAL PNEUMONIC TULAREMIA
+</code></pre>
+<p><strong>Upstream vs downstream:</strong> Bacterial invasion, phagosomal escape, and lipid-A-mediated TLR4 evasion are the <strong>upstream</strong> drivers that permit unchecked cytosolic replication. The AIM2 inflammasome, GBP/IRGB10 bacteriolysis, IFN-γ/iNOS, and Th1/CD4⁺ responses are <strong>downstream host-protective</strong> mechanisms; when they are outpaced (high dose, virulent type A-east, delayed antibiotics), tissue injury and death follow. This model integrates 12 confirmed findings and is consistent across in vitro, mouse, rat, and human clinical/outbreak data.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Supports finding</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38461051/">38461051</a></td>
+<td>Vaccine strategies vs <em>Francisella</em></td>
+<td>F001, F007</td>
+<td>Pneumonic = greatest mortality; no approved vaccine</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38294108/">38294108</a></td>
+<td>Systematic review 1993–2023</td>
+<td>F002, F004</td>
+<td>~10-organism dose; comparative fatality by drug class</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29183485/">29183485</a></td>
+<td>Bichat guidelines</td>
+<td>F001, F002, F004</td>
+<td>Pneumonic = bioterrorism form; aminoglycoside first-line</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32694562/">32694562</a></td>
+<td>Immune lymphocytes halt LVS</td>
+<td>F003</td>
+<td>Phagosomal escape &amp; cytosolic replication</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17395722/">17395722</a></td>
+<td>Francisella Pathogenicity Island</td>
+<td>F003</td>
+<td>FPI encodes T6SS</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30057173/">30057173</a></td>
+<td>PI3K effector OpiA</td>
+<td>F003</td>
+<td>Effector promotes phagosomal escape</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19237526/">19237526</a></td>
+<td>Immune-mouse T cells</td>
+<td>F005</td>
+<td>IFN-γ/TNF-α/iNOS dependence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19211773/">19211773</a></td>
+<td>Oral LVS protection</td>
+<td>F005, F007</td>
+<td>CD4⁺ T cells/IgA mediate pulmonary protection</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24421047/">24421047</a></td>
+<td>T-bet &amp; lung immunity</td>
+<td>F005</td>
+<td>T-bet critical for pulmonary immunity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20220165/">20220165</a></td>
+<td>Immunochromatographic test</td>
+<td>F006</td>
+<td>Serology cornerstone; rapid test performance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22090310/">22090310</a></td>
+<td>Central Anatolia cases</td>
+<td>F006</td>
+<td>MAT ≥1/160 threshold</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/14662930/">14662930</a></td>
+<td>Multitarget TaqMan PCR</td>
+<td>F006</td>
+<td>Validated PCR gene targets</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11757506/">11757506</a></td>
+<td>Martha's Vineyard outbreak</td>
+<td>F008</td>
+<td>Landscaping OR 9.2 risk factor</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17442781/">17442781</a></td>
+<td>Martha's Vineyard review</td>
+<td>F008</td>
+<td>Only 2 US primary pneumonic outbreaks</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16836829/">16836829</a></td>
+<td>US molecular epidemiology</td>
+<td>F009</td>
+<td>Type A-east most severe</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28807561/">28807561</a></td>
+<td>Lipid A remodeling</td>
+<td>F010</td>
+<td>Atypical lipid A evades TLR4</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26510639/">26510639</a></td>
+<td>Type A antagonizes TLR4 response</td>
+<td>F010</td>
+<td>Active innate-immune suppression</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21819572/">21819572</a></td>
+<td>galU mutant</td>
+<td>F010</td>
+<td>WT FT suppresses early innate immunity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21883803/">21883803</a></td>
+<td>AIM2 &amp; bacteriolysis</td>
+<td>F011</td>
+<td>AIM2→caspase-1/IL-1β/IL-18/pyroptosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25774716/">25774716</a></td>
+<td>GBP2/GBP5 &amp; AIM2</td>
+<td>F011</td>
+<td>GBPs liberate DNA for AIM2</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27693356/">27693356</a></td>
+<td>IRGB10</td>
+<td>F011</td>
+<td>IRGB10 liberates bacterial ligands</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23975862/">23975862</a></td>
+<td>ASC/caspase-8 IL-18</td>
+<td>F011</td>
+<td>Caspase-1-independent IL-18/IFN-γ branch</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42641375/">42641375</a></td>
+<td>Re-emerging zoonosis</td>
+<td>F012</td>
+<td>30% untreated mortality; 2025 CDC first-line</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Challenging/nuancing evidence:</strong> <em>Aim2</em>/<em>Nlrp3</em> are dispensable for <em>vaccine-induced</em> adaptive immunity (<a href="https://pubmed.ncbi.nlm.nih.gov/33875472/">PMID: 33875472</a>), and NLRP3 can increase host susceptibility (<a href="https://pubmed.ncbi.nlm.nih.gov/34690967/">PMID: 34690967</a>) — indicating inflammasome roles are context-dependent (innate control vs. immunopathology).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Mechanistic data are largely from mouse/in vitro models</strong> using LVS or <em>F. novicida</em> surrogates, not virulent human type A SCHU S4 in humans. Translation to human pneumonic disease is inferred.</li>
+<li><strong>Human pneumonic-specific datasets are sparse</strong> — most clinical series pool all tularemia forms; dedicated primary pneumonic cohorts are limited to rare outbreaks (Martha's Vineyard).</li>
+<li><strong>No human transcriptomic/proteomic/metabolomic profiling</strong> of pneumonic tularemia patients was identified; omics diagnostics are not applicable/available.</li>
+<li><strong>Correlates of protection remain undefined</strong>, hampering vaccine licensure; no licensed human vaccine exists.</li>
+<li><strong>Fatality figures for antibiotics</strong> derive from all-form pooled reviews; pneumonic-only comparative RCTs are lacking (ethically/logistically constrained).</li>
+<li><strong>Strain-virulence determinants</strong> (why type A-east &gt; type B &gt; type A-west) are incompletely mapped at the molecular level.</li>
+<li><strong><a href="https://pubmed.ncbi.nlm.nih.gov/42641375/" target="_blank" rel="noopener noreferrer">PMID 42641375</a></strong> provides key re-emergence and 2025-guideline figures but is a single review source; primary CDC guideline documents should be cross-checked.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Human correlates-of-protection study</strong> in vaccinated (LVS-exposed lab personnel) or convalescent cohorts — define antibody/T-cell signatures predicting protection to guide vaccine endpoints.</li>
+<li><strong>Primary CDC 2025 guideline verification</strong> — obtain and cite the definitive CDC/clinical-guideline document for first-line fluoroquinolone/doxycycline recommendations rather than relying on a review.</li>
+<li><strong>Comparative-effectiveness analysis</strong> of ciprofloxacin vs. gentamicin specifically in pneumonic cases, leveraging pooled outbreak registries, to formalize the observed lower pleural-intervention rate.</li>
+<li><strong>Host single-cell transcriptomics of infected lung</strong> (mouse aerosol SCHU S4) to resolve alveolar-macrophage vs. DC vs. neutrophil trajectories and map AIM2/IFN-γ programs spatially.</li>
+<li><strong>Molecular dissection of type A-east virulence</strong> via comparative genomics/transposon screens to identify determinants of the severity gradient (type A-east &gt; type B &gt; type A-west).</li>
+<li><strong>Advance the glucan-particle/glycoconjugate subunit vaccines</strong> toward dose-optimized aerosol-challenge efficacy and, ultimately, human immunogenicity trials.</li>
+<li><strong>Adjunct immunotherapy translation</strong> — evaluate membrane-protein-fraction post-exposure immunization plus antibiotics (<a href="https://pubmed.ncbi.nlm.nih.gov/22652404/">PMID: 22652404</a>) in higher-order models toward a therapeutic-adjunct strategy.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 12 confirmed findings and ~60 reviewed papers across 5 investigative iterations. Evidence source types span human clinical/outbreak studies, mouse and rat model-organism experiments, and in vitro cellular assays, as annotated throughout.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Pneumonic_Tularemia-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Pneumonic_Tularemia-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>44</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>44</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>44</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>45</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>7</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0002212</code> (3 mentions) - the report calls it "if available", "tularemia; pneumonic subtype"; MONDO calls it <strong>pneumonic tularemia</strong></li>
+<li><code>GO:0070269</code> (2 mentions) - the report calls it "pyroptosis", "Cellular processes:<strong> phagocytosis, phagosomal escape, intracellular replication, </strong>pyroptosis"; GO calls it <strong>pyroptotic inflammatory response</strong></li>
+<li><code>NCIT:C839</code> (1 mention) - the report calls it "Aminoglycosides — streptomycin"; NCIT calls it <strong>Spiramycin</strong></li>
+<li><code>NCIT:C405</code> (1 mention) - the report calls it "Fluoroquinolones — ciprofloxacin"; NCIT calls it <strong>Cyclophosphamide</strong></li>
+<li><code>NCIT:C692</code> (1 mention) - the report calls it "Tetracyclines — doxycycline"; NCIT calls it <strong>Nimodipine</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0100721</code> (1 mention) - the report calls it "Hilar lymphadenopathy"; HP calls it <strong>Mediastinal lymphadenopathy</strong></li>
+<li><code>GO:0032731</code> (1 mention) - the report calls it "positive regulation of IL-1β production"; GO calls it <strong>positive regulation of interleukin-1 beta production</strong>, and lists "positive regulation of IL-1 beta production" among its other names</li>
+<li><code>CL:0000583</code> (2 mentions) - the report calls it "alveolar macrophage", "Target cells:<strong> alveolar macrophages"; CL calls it </strong>alveolar macrophage**</li>
+<li><code>CL:0000624</code> (1 mention) - the report calls it "CD4⁺ T cell"; CL calls it <strong>CD4-positive, alpha-beta T cell</strong></li>
+<li><code>UBERON:0002048</code> (1 mention) - the report calls it "Primary:<strong> Lung"; UBERON calls it </strong>lung**</li>
+<li><code>UBERON:0002402</code> (1 mention) - the report calls it "Secondary:<strong> Pleura/pleural cavity"; UBERON calls it </strong>pleural cavity**</li>
+<li><code>GO:0045335</code> (1 mention) - the report calls it "Phagosome"; GO calls it <strong>phagocytic vesicle</strong>, and lists "phagosome" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>MONDO:0002212</code> - called "if available", "tularemia; pneumonic subtype"</li>
+<li><code>GO:0070269</code> - called "pyroptosis", "Cellular processes:<strong> phagocytosis, phagosomal escape, intracellular replication, </strong>pyroptosis"</li>
+<li><code>CL:0000583</code> - called "alveolar macrophage", "Target cells:** alveolar macrophages"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>, <code>NCBI</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Pneumonic_Plague-openscientist.html">← Pneumonic Plague (OpenScientist)</a>
+                
+                
+                <a href="PNPO_Deficiency-claude_code.html">PNPO Deficiency (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Pneumonic_Tularemia.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Pneumonic_Tularemia-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

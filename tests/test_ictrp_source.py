@@ -77,6 +77,38 @@ def test_absent_record_raises_trial_not_found():
         parse_trial_page(NOT_FOUND_PAGE)
 
 
+@pytest.mark.parametrize(
+    "identifier",
+    ["EUCTR2013-003828-36", "ICTRP:EUCTR2013-003828-36", "2013-003828-36"],
+)
+def test_bare_eudract_number_asks_for_a_country_suffix(identifier, monkeypatch):
+    """A EudraCT number without its country suffix gets EUCTR advice, not ChiCTR's."""
+    source = ICTRPSource(Path("data/ictrp"))
+    monkeypatch.setattr(source, "fetch_page", lambda trial_id: NOT_FOUND_PAGE)
+    with pytest.raises(TrialNotFound) as excinfo:
+        source.serialize(identifier)
+    message = str(excinfo.value)
+    assert "once per recruiting country" in message
+    assert "EUCTR2013-003828-36-XX" in message
+    assert (
+        "https://www.clinicaltrialsregister.eu/ctr-search/search"
+        "?query=2013-003828-36" in message
+    )
+    assert "ChiCTR" not in message
+
+
+@pytest.mark.parametrize("identifier", ["ChiCTR-2100045397", "EUCTR2013-003828-36-FR"])
+def test_other_absent_identifiers_keep_the_generic_message(identifier, monkeypatch):
+    """Only a suffix-less EudraCT number is singled out; a suffixed one is not."""
+    source = ICTRPSource(Path("data/ictrp"))
+    monkeypatch.setattr(source, "fetch_page", lambda trial_id: NOT_FOUND_PAGE)
+    with pytest.raises(TrialNotFound) as excinfo:
+        source.fetch(identifier)
+    message = str(excinfo.value)
+    assert "ChiCTR IDs carry no hyphen" in message
+    assert "recruiting country" not in message
+
+
 def test_serialize_builds_cache_entry(record, monkeypatch):
     source = ICTRPSource(Path("data/ictrp"))
     monkeypatch.setattr(source, "fetch_page", lambda trial_id: CHICTR_PAGE)

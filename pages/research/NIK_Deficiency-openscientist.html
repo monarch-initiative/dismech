@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NIK Deficiency · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>NIK Deficiency</span>
+            </div>
+
+            <header class="report-header">
+                <h1>NIK Deficiency</h1>
+                
+                <p class="report-subtitle">NIK Deficiency (MONDO:0018642): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-10-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0018642" target="_blank" rel="noopener noreferrer">MONDO:0018642</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">21 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>NIK Deficiency (<a href="http://purl.obolibrary.org/obo/MONDO_0018642" target="_blank" rel="noopener noreferrer">MONDO:0018642</a>): A Comprehensive Disease Characteristics Report</h1>
+<h2>Summary</h2>
+<p><strong>NIK Deficiency is an ultra-rare, autosomal-recessive combined primary immunodeficiency caused by biallelic loss-of-function mutations in <em>MAP3K14</em></strong> (<a href="https://bioregistry.io/HGNC:6853" target="_blank" rel="noopener noreferrer">HGNC:6853</a>; NCBI Gene 9020; OMIM *604655; Ensembl ENSG00000006062; UniProt Q99558; chr17q21.31), the gene encoding <strong>NIK (NF-κB–inducing kinase)</strong>. NIK is the apical, rate-limiting kinase of the <strong>non-canonical (alternative) NF-κB pathway</strong>. Disease arises when both alleles carry a kinase-inactivating mutation, abolishing NIK's ability to drive IKKα-mediated processing of the NF-κB2 precursor p100 into active p52, and consequently crippling RelB/p52-dependent transcription. Because NIK also feeds forward into prolonged canonical NF-κB signaling, patients have defects in <em>both</em> arms of the pathway.</p>
+<p>The clinical consequence is a multifaceted combined immunodeficiency. The index report (Willmann et al. 2014, <a href="https://pubmed.ncbi.nlm.nih.gov/25406581/">PMID: 25406581</a>) described patients with recurrent bacterial, viral, and <em>Cryptosporidium</em> infections, who exhibited B-cell lymphopenia, decreased class-switched memory B cells, hypogammaglobulinemia, impaired ICOSL expression, perturbed follicular-helper (Tfh) and memory T cells, and decreased/defective NK cells with impaired immunological-synapse formation. The disease belongs to a tightly related family of <strong>non-canonical NF-κB inborn errors of immunity</strong> (alongside <em>NFKB2</em>, <em>RELB</em>, and <em>CHUK</em>/IKKα defects) that share a striking predisposition to <strong>neutralizing autoantibodies against type I interferon</strong>.</p>
+<p>NIK deficiency sits at the <strong>loss-of-function pole of a bidirectional, dose-dependent NIK disease axis</strong>: too little NIK produces immunodeficiency, while excess NIK activity drives autoimmunity, cancer, sterile inflammation, fibrosis, and metabolic disease (Valiño-Rivas et al. 2019, <a href="https://pubmed.ncbi.nlm.nih.gov/30926358/">PMID: 30926358</a>). Diagnosis currently rests on <strong>functional validation of kinase activity</strong> because no pathogenic <em>MAP3K14</em> variants are deposited in ClinVar, and the gene is strongly loss-of-function–intolerant in the general population (gnomAD pLI ≈ 1.0) yet the disease is recessive. Allogeneic hematopoietic stem cell transplantation (HSCT) can reconstitute the hematopoietic immune compartment but does not repair the radioresistant stromal/thymic architectural defects, so lifelong immunologic and anti-cytokine autoantibody surveillance is required (Köstel Bal et al. 2025, <a href="https://pubmed.ncbi.nlm.nih.gov/41280889/">PMID: 41280889</a>).</p>
+<p>This report synthesizes 8 confirmed findings across 34 reviewed papers into a comprehensive disease-knowledge-base entry covering all 15 requested domains. Where primary human data are sparse (reflecting the extreme rarity of the disorder), mechanism is supported by an extensive murine and in vitro literature, and these evidence levels are flagged throughout.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>F001 — NIK deficiency is a biallelic <em>MAP3K14</em> loss-of-function primary immunodeficiency</h3>
+<p>Willmann et al. (2014) identified a <strong>biallelic mutation in <em>MAP3K14</em> (NIK)</strong> in patients presenting with recurrent bacterial, viral, and <em>Cryptosporidium</em> infections. The mutation abolishes NIK kinase activity, which was <em>"predicted by in silico analysis and confirmed by functional assays"</em> and <em>"leads to defective activation of both canonical and non-canonical NF-κB signalling"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/25406581/">PMID: 25406581</a>). The immunological phenotype is broad and spans all three major lymphocyte lineages: B-cell lymphopenia, decreased class-switched memory B cells, hypogammaglobulinemia (reflecting impaired B-cell survival), impaired ICOSL expression, perturbed Tfh and memory T-cell compartments, and decreased/defective NK cells with impaired immunological-synapse formation. This single landmark paper establishes the causal gene, the recessive (biallelic) inheritance, and the core molecular lesion — loss of NIK kinase activity — that defines the disease.</p>
+<p><strong>Evidence level:</strong> Human clinical + in vitro functional assay.</p>
+<h3>F002 — NIK is the rate-limiting kinase of the non-canonical NF-κB pathway, controlling p100→p52/RelB processing</h3>
+<p>NIK (MAP3K14) is normally held at vanishingly low levels by constitutive degradation through the <strong>TRAF2–TRAF3–cIAP1/2 ubiquitin-ligase complex</strong>. Engagement of TNF-receptor-superfamily receptors — <strong>BAFFR, CD40, LTβR, RANK, and Fn14</strong> — triggers TRAF3 degradation, which stabilizes and allows NIK to accumulate. Accumulated NIK phosphorylates <strong>IKKα</strong>, which in turn phosphorylates <strong>NF-κB2/p100</strong>, driving its proteasomal processing to <strong>p52</strong> and the nuclear translocation of <strong>RelB/p52</strong> heterodimers. Senftleben et al. (2001) established the kinase hierarchy: <em>"IKKalpha is required for B cell maturation, formation of secondary lymphoid organs, increased expression of certain NF-kappaB target genes, and processing of the NF-kappaB2 (p100) precursor. IKKalpha preferentially phosphorylates NF-kappaB2, and this activity requires its phosphorylation by upstream kinases, one of which may be NF-kappaB-inducing kinase (NIK)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/11520989/">PMID: 11520989</a>). Dash et al. (2020) showed in multiple myeloma that lower TRAF3 expression and higher NIK expression mark pathway activation (<a href="https://pubmed.ncbi.nlm.nih.gov/32350909/">PMID: 32350909</a>). In NIK-deficient patients, kinase-dead NIK abolishes p100→p52 processing, collapsing the entire downstream axis.</p>
+<p><strong>Evidence level:</strong> In vitro / model organism (mechanistic hierarchy); human (disease relevance).</p>
+<h3>F003 — Mouse models (aly/aly, NIK KO, conditional) recapitulate the lymphoid defects</h3>
+<p>The spontaneous <strong>alymphoplasia (<em>aly/aly</em>) mouse</strong> carries a loss-of-function point mutation in <em>Nik/Map3k14</em> and displays absence of lymph nodes and Peyer's patches, disrupted lymphoid architecture, and impaired B-cell formation and immunoglobulin production. Ozcan et al. (2026) summarize: <em>"NIK deficiency causes loss of lymph nodes, disruption of lymphoid organ structure and deficits in B-cell formation and immunoglobulin production"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42175627/">PMID: 42175627</a>). Conditional deletion of NIK in adult mice reduces B-cell populations and germinal-center B cells and abrogates BAFF responses: <em>"Germline deletion or inactivation of NIK in mice results in the defective development of B cells and secondary lymphoid organs"</em> (Brightbill et al. 2015, <a href="https://pubmed.ncbi.nlm.nih.gov/26116508/">PMID: 26116508</a>). NIK additionally supports medullary and cortical thymic-epithelial-cell development (Eshima et al. 2020, <a href="https://pubmed.ncbi.nlm.nih.gov/32145062/">PMID: 32145062</a>) and has a cell-intrinsic role in effector/memory T-cell generation (Li et al. 2016, <a href="https://pubmed.ncbi.nlm.nih.gov/26912039/">PMID: 26912039</a>). The murine models thus faithfully reproduce the B-cell, secondary-lymphoid-organ, and thymic-architectural defects seen in patients.</p>
+<p><strong>Evidence level:</strong> Model organism (mouse).</p>
+<h3>F004 — The NIK kinase domain is structurally characterized, active-like without phosphorylation, with a narrow flexible active site</h3>
+<p>Crystal structures of the apo NIK catalytic domain (both human and murine) reveal an <strong>active-like conformation in the absence of phosphorylation</strong>. de Leon-Boenig et al. (2012) report: <em>"Structures of the apo NIK kinase domain from both species reveal an active-like conformation in the absence of phosphorylation. ATP consumption and peptide phosphorylation assays confirm that phosphorylation of NIK does not increase enzymatic activity"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/22921830/">PMID: 22921830</a>). The active site is narrow with a flexible gatekeeper residue. This structural biology explains two important facts about the disease: (1) NIK is regulated primarily by <strong>protein abundance</strong> (stabilization), not by activation-loop phosphorylation, so loss-of-function in disease is achieved by missense mutations that destroy catalytic competence or protein stability rather than by blocking an activating phosphorylation; and (2) the well-defined ATP pocket has enabled structure-based inhibitor design (Li et al. 2013, <a href="https://pubmed.ncbi.nlm.nih.gov/23374866/">PMID: 23374866</a>), relevant to the <em>gain-of-function</em> end of the disease axis.</p>
+<p><strong>Evidence level:</strong> Computational/structural + in vitro biochemistry.</p>
+<h3>F005 — NIK deficiency belongs to the non-canonical NF-κB IEI family that shares anti–type I IFN autoantibody predisposition</h3>
+<p>Human inborn errors of the non-canonical NF-κB axis — <em>NFKB2</em> (p100), <em>RELB</em>, <em>CHUK</em>/IKKα, and <em>MAP3K14</em>/NIK — produce overlapping combined immunodeficiency with hypogammaglobulinemia. A clinically important shared feature is <strong>neutralizing autoantibodies against type I interferon</strong>. Riller et al. (2025) reported that IKKα (CHUK) kinase-domain–deficient patients have diminished non-canonical (and partially impaired canonical) NF-κB with <em>"neutralizing autoantibodies against type I IFN, akin to non-canonical NF-κB pathway deficiencies"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39812688/">PMID: 39812688</a>). RelB deficiency likewise <em>"disrupts the non-canonical NF-κB pathway, underlying a T- and B cell immunodeficiency, which, together with neutralizing autoantibodies against type I IFNs"</em> (Moriya 2026, <a href="https://pubmed.ncbi.nlm.nih.gov/42261849/">PMID: 42261849</a>). Consistent with membership in this family, the NIK-deficiency HSCT follow-up study emphasized monitoring for anti-cytokine autoantibodies (<a href="https://pubmed.ncbi.nlm.nih.gov/41280889/">PMID: 41280889</a>). This predisposition likely reflects failure of central/peripheral tolerance mechanisms that depend on non-canonical NF-κB (AIRE-dependent medullary thymic epithelial cell function).</p>
+<p><strong>Evidence level:</strong> Human clinical (family of disorders).</p>
+<h3>F006 — NIK dosage determines disease direction: loss → immunodeficiency; overactivity → autoimmunity/cancer/fibrosis</h3>
+<p>NIK sits at the center of a <strong>bidirectional, dose-dependent disease axis</strong>. Valiño-Rivas et al. (2019) frame NIK as the apical non-canonical NF-κB kinase whose disease spectrum <em>"now ranges from immunodeficiency (when NIK is defective) to autoimmunity, cancer, sterile inflammation, fibrosis, and metabolic disease when NIK is overactive"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30926358/">PMID: 30926358</a>). NIK deficiency occupies the <strong>loss-of-function pole</strong>. The physiological processes placed at risk by NIK loss are enumerated by Liu et al. (2019): <em>"The non-canonical NF-κB signalling cascade is essential for lymphoid organogenesis, B cell maturation, osteoclast differentiation, and inflammation in mammals"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30894749/">PMID: 30894749</a>). NIK also drives prolonged <em>canonical</em> NF-κB via IKKα/β in endothelium (Kucharzewska et al. 2019, <a href="https://pubmed.ncbi.nlm.nih.gov/30837284/">PMID: 30837284</a>), explaining the combined-pathway defect. TRAF2, the upstream NIK regulator, stimulates NK-cell cytotoxicity (Albini et al. 2025, <a href="https://pubmed.ncbi.nlm.nih.gov/40229245/">PMID: 40229245</a>), consistent with the NK defect observed in patients.</p>
+<p><strong>Evidence level:</strong> Review synthesis + model organism + human.</p>
+<h3>F007 — Gene identifiers confirmed; ClinVar holds no pathogenic <em>MAP3K14</em> variants</h3>
+<p>Programmatic verification established: <strong>MAP3K14 = <a href="https://bioregistry.io/HGNC:6853" target="_blank" rel="noopener noreferrer">HGNC:6853</a>, NCBI Gene 9020, OMIM *604655, Ensembl ENSG00000006062, UniProt Q99558, cytoband 17q21.31, GRCh38 chr17:45,263,119–45,317,112 (minus strand), RefSeq NM_003954.5.</strong> A ClinVar query (<code>MAP3K14[gene]</code>) returned 30 variant records, all classified <strong>VUS or Likely benign</strong> (e.g., p.Ser97Ter VUS; p.Val828fs VUS); <strong>zero Pathogenic/Likely-pathogenic entries</strong>. The disease-causing biallelic kinase-domain variants described in patients are <em>not</em> deposited in ClinVar as pathogenic. This is a critical practical point: a clinical diagnosis cannot currently rely on a ClinVar pathogenicity lookup and must instead be anchored by <strong>functional kinase-activity assays</strong>, exactly as in the index report where pathogenicity was <em>"predicted by in silico analysis and confirmed by functional assays"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/25406581/">PMID: 25406581</a>).</p>
+<p><strong>Evidence level:</strong> Database verification (computational) + human.</p>
+<h3>F008 — <em>MAP3K14</em> is strongly LoF-intolerant in gnomAD (pLI ≈ 1.0), yet the disease is recessive</h3>
+<p>gnomAD constraint metrics for <em>MAP3K14</em> (GRCh38) are: <strong>pLI = 1.00, observed/expected LoF = 0.16 (LOEUF 90% CI 0.11–0.24), LoF Z = 7.09, missense Z = 5.21</strong> — indicating strong depletion of both predicted-LoF and missense variation in the general population. The apparent paradox — a haploinsufficiency-intolerant gene causing a <em>recessive</em> disease — is resolved by the biology: heterozygous carrier parents are clinically unaffected (Willmann et al. 2014, <a href="https://pubmed.ncbi.nlm.nih.gov/25406581/">PMID: 25406581</a>), so the immunodeficiency requires biallelic loss, while the high population constraint likely reflects strong selection against <em>loss</em> in combination with the fact that NIK overactivity (the other pole of the axis) is also deleterious — tight dosage control is evolutionarily favored in both directions.</p>
+<p><strong>Evidence level:</strong> Population genetics (computational) + human.</p>
+<hr />
+<h2>Detailed Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> NIK deficiency is a Mendelian, autosomal-recessive <strong>combined primary immunodeficiency / inborn error of immunity</strong> caused by biallelic loss-of-function mutations in <strong><em>MAP3K14</em></strong>, which encodes <strong>NF-κB–inducing kinase (NIK)</strong>. The disorder produces a multifaceted defect of lymphoid immunity affecting B cells, T cells, and NK cells, together with structural defects of secondary lymphoid organs and thymic epithelium, clinically manifesting as recurrent bacterial, viral, and <em>Cryptosporidium</em> infections.</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0018642" target="_blank" rel="noopener noreferrer">MONDO:0018642</a></td>
+</tr>
+<tr>
+<td>Causal gene</td>
+<td><em>MAP3K14</em> (NIK)</td>
+</tr>
+<tr>
+<td>HGNC</td>
+<td><a href="https://bioregistry.io/HGNC:6853" target="_blank" rel="noopener noreferrer">HGNC:6853</a></td>
+</tr>
+<tr>
+<td>NCBI Gene</td>
+<td>9020</td>
+</tr>
+<tr>
+<td>Gene OMIM</td>
+<td>*604655</td>
+</tr>
+<tr>
+<td>Disease OMIM</td>
+<td>Not recorded</td>
+</tr>
+<tr>
+<td>Ensembl</td>
+<td>ENSG00000006062</td>
+</tr>
+<tr>
+<td>UniProt</td>
+<td>Q99558</td>
+</tr>
+<tr>
+<td>Cytoband</td>
+<td>17q21.31</td>
+</tr>
+<tr>
+<td>RefSeq transcript</td>
+<td>NM_003954.5</td>
+</tr>
+<tr>
+<td>ICD-10 / ICD-11</td>
+<td>No specific code; best coded under combined immunodeficiency (ICD-10 D81.-; ICD-11 4A00.-)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> MAP3K14 non-severe combined immunodeficiency; non-severe combined immunodeficiency caused by mutation in MAP3K14; primary immunodeficiency with multifaceted aberrant lymphoid immunity; NIK deficiency.</p>
+<p><strong>Source of information.</strong> The disease-level knowledge is derived from a small number of <strong>individual patient reports</strong> (index family, Willmann et al. 2014; HSCT long-term follow-up, Köstel Bal et al. 2025) supplemented by <strong>aggregated gene/variant resources</strong> (OMIM, ClinVar, gnomAD) and an extensive <strong>model-organism and in vitro mechanistic literature</strong>. There is no large aggregated clinical registry given the disorder's rarity.</p>
+<h3>2. Etiology</h3>
+<p><strong>Primary cause — genetic.</strong> Biallelic loss-of-function mutations in <em>MAP3K14</em> abolishing NIK kinase activity (F001). The index variant was a kinase-domain mutation confirmed functionally (<a href="https://pubmed.ncbi.nlm.nih.gov/25406581/">PMID: 25406581</a>).</p>
+<p><strong>Genetic risk factors.</strong> The disease is monogenic and fully penetrant with biallelic LoF; there is no evidence for susceptibility loci or modifier genes in humans (too few patients). Carrier status (heterozygous) confers no known clinical risk. <strong>Consanguinity</strong> is a strong contextual risk factor as for most ultra-rare recessive disorders.</p>
+<p><strong>Environmental / infectious contributors.</strong> Environmental factors do not <em>cause</em> the disease but act as the <strong>trigger for clinical presentation</strong>: encapsulated bacteria, herpesviruses (e.g., CMV), and the opportunistic protozoan <strong><em>Cryptosporidium</em></strong> are the organisms that exploit the immune defect. <em>Cryptosporidium</em> infection with potential hepatobiliary involvement is a hallmark that overlaps with other T-cell/combined immunodeficiencies.</p>
+<p><strong>Protective factors.</strong> None specific are documented. In principle, a functional second <em>MAP3K14</em> allele (heterozygosity) is fully protective, consistent with recessive inheritance (F008).</p>
+<p><strong>Gene–environment interactions.</strong> The core interaction is permissive: the genetic lesion removes host defense, and environmental pathogen exposure determines the timing, severity, and organ pattern of disease. No classical GxE modifier data exist.</p>
+<h3>3. Phenotypes</h3>
+<p>Phenotypes are drawn primarily from the index clinical report (F001) and HSCT follow-up (F005). Frequencies are qualitative given the tiny cohort.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Onset</th>
+<th>Severity</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Recurrent bacterial infections</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" rel="noopener noreferrer">HP:0002718</a></td>
+<td>Childhood</td>
+<td>Severe</td>
+<td>Characteristic</td>
+</tr>
+<tr>
+<td>Recurrent viral infections (incl. CMV)</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" rel="noopener noreferrer">HP:0004429</a></td>
+<td>Childhood</td>
+<td>Severe</td>
+<td>Characteristic</td>
+</tr>
+<tr>
+<td>Chronic <em>Cryptosporidium</em> diarrhea</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002028" target="_blank" rel="noopener noreferrer">HP:0002028</a> (chronic diarrhea)</td>
+<td>Childhood</td>
+<td>Severe</td>
+<td>Characteristic</td>
+</tr>
+<tr>
+<td>Sclerosing cholangitis / hepatobiliary involvement</td>
+<td>Clinical/laboratory</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100792" target="_blank" rel="noopener noreferrer">HP:0100792</a></td>
+<td>Childhood</td>
+<td>Severe</td>
+<td>Reported</td>
+</tr>
+<tr>
+<td>B-cell lymphopenia</td>
+<td>Laboratory abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0010976" target="_blank" rel="noopener noreferrer">HP:0010976</a></td>
+<td>Congenital/early</td>
+<td>Severe</td>
+<td>Consistent</td>
+</tr>
+<tr>
+<td>Hypogammaglobulinemia</td>
+<td>Laboratory abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002720" target="_blank" rel="noopener noreferrer">HP:0002720</a></td>
+<td>Early</td>
+<td>Moderate–severe</td>
+<td>Consistent</td>
+</tr>
+<tr>
+<td>Decreased class-switched memory B cells</td>
+<td>Laboratory abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005404" target="_blank" rel="noopener noreferrer">HP:0005404</a></td>
+<td>Early</td>
+<td>Severe</td>
+<td>Consistent</td>
+</tr>
+<tr>
+<td>Decreased/defective NK cells</td>
+<td>Laboratory abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0040218" target="_blank" rel="noopener noreferrer">HP:0040218</a></td>
+<td>Early</td>
+<td>Moderate–severe</td>
+<td>Consistent</td>
+</tr>
+<tr>
+<td>Perturbed Tfh / memory T cells</td>
+<td>Laboratory abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005415" target="_blank" rel="noopener noreferrer">HP:0005415</a> (abnormal T-cell count)</td>
+<td>Early</td>
+<td>Moderate</td>
+<td>Consistent</td>
+</tr>
+<tr>
+<td>Impaired NK immunological synapse</td>
+<td>Cellular phenotype</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td>Predisposition to anti–type I IFN autoantibodies</td>
+<td>Laboratory abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" rel="noopener noreferrer">HP:0002960</a> (autoimmunity)</td>
+<td>Variable</td>
+<td>Variable</td>
+<td>Shared-family feature</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Quality-of-life impact.</strong> Chronic/recurrent infections and chronic diarrhea with hepatobiliary disease substantially impair growth, nutrition, and daily functioning. No formal EQ-5D/SF-36/PROMIS data exist for this ultra-rare disorder.</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Causal gene.</strong> <em>MAP3K14</em> / NIK (identifiers in Section 1; F007).</p>
+<p><strong>Pathogenic variants.</strong> The index disease allele is a <strong>kinase-domain mutation</strong> causing loss of NIK catalytic activity, validated functionally (F001). <strong>No pathogenic or likely-pathogenic <em>MAP3K14</em> variants are currently in ClinVar</strong> (30 records, all VUS/likely-benign; F007). Variant classes expected to cause disease: <strong>missense within the kinase domain</strong> (as in the index case), and in principle <strong>nonsense, frameshift, and splice-site</strong> biallelic LoF alleles. All are <strong>germline</strong>. <strong>Functional consequence: loss of function</strong> (kinase-dead), impairing both non-canonical and canonical NF-κB (F001, F006).</p>
+<p><strong>Allele frequency / constraint.</strong> <em>MAP3K14</em> is strongly LoF-intolerant: <strong>pLI = 1.00, o/e LoF = 0.16 (LOEUF 0.11–0.24), LoF Z = 7.09, missense Z = 5.21</strong> (gnomAD; F008). Disease-causing alleles are private/ultra-rare.</p>
+<p><strong>Modifier genes / epigenetics / chromosomal abnormalities.</strong> No human modifier genes, disease-specific epigenetic marks, or chromosomal abnormalities are documented for NIK deficiency. (Note: in <em>cancers</em>, non-canonical NF-κB activation can occur via <em>MAP3K14</em> dysregulation — e.g., S100A14/UPF1-mediated stabilization of <em>MAP3K14/NFKB2/RELB</em> transcripts, <a href="https://pubmed.ncbi.nlm.nih.gov/42350366/">PMID: 42350366</a> — but this is the opposite, gain-of-activity pole and not the inherited deficiency.)</p>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental/occupational toxins, radiation, pollution:</strong> Not implicated in disease causation.</li>
+<li><strong>Lifestyle factors:</strong> Not applicable (monogenic disorder).</li>
+<li><strong>Infectious agents:</strong> Central to clinical expression. Key organisms include encapsulated <strong>bacteria</strong>, <strong>viruses</strong> (notably CMV and other herpesviruses), and the protozoan <strong><em>Cryptosporidium</em></strong> (NCBI Taxonomy: <em>Cryptosporidium</em> genus), which causes chronic diarrhea and can involve the hepatobiliary tract in immunodeficient hosts. These are <em>opportunistic consequences</em> of the immune defect, not causes of the mutation.</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li><strong>Biallelic LoF mutation in <em>MAP3K14</em></strong> → produces a <strong>kinase-dead NIK protein</strong> (demonstrated: in silico + functional assays, <a href="https://pubmed.ncbi.nlm.nih.gov/25406581/">PMID: 25406581</a>).</li>
+<li>Kinase-dead NIK <strong>fails to phosphorylate IKKα</strong> upon TNF-receptor-superfamily engagement (BAFFR, CD40, LTβR, RANK, Fn14) → <strong>results in</strong> failure of IKKα to phosphorylate p100 (demonstrated mechanistically, <a href="https://pubmed.ncbi.nlm.nih.gov/11520989/">PMID: 11520989</a>).</li>
+<li>Unphosphorylated <strong>p100 is not processed to p52</strong> → <strong>leads to</strong> loss of nuclear RelB/p52 heterodimer transcription (non-canonical NF-κB collapse).</li>
+<li>NIK loss <strong>also impairs sustained canonical NF-κB</strong> (NIK–IKKα/β interaction) → <strong>results in</strong> a combined two-pathway defect (<a href="https://pubmed.ncbi.nlm.nih.gov/30837284/">PMID: 30837284</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25406581/">PMID: 25406581</a>).</li>
+<li><strong>Branch A — Stromal/structural:</strong> Loss of LTβR→NIK→RelB/p52 signaling in stromal and epithelial cells → <strong>leads to</strong> absent/hypoplastic <strong>lymph nodes, Peyer's patches</strong>, disrupted splenic architecture, and defective <strong>thymic epithelial cell</strong> development (demonstrated in mouse; <a href="https://pubmed.ncbi.nlm.nih.gov/42175627/">PMID: 42175627</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/32145062/">PMID: 32145062</a>).</li>
+<li><strong>Branch B — B cells:</strong> Loss of BAFFR/CD40→NIK signaling → <strong>leads to</strong> impaired B-cell survival and maturation → <strong>results in</strong> B-cell lymphopenia, decreased class-switched memory B cells, and hypogammaglobulinemia (<a href="https://pubmed.ncbi.nlm.nih.gov/26116508/">PMID: 26116508</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25406581/">PMID: 25406581</a>).</li>
+<li><strong>Branch C — T cells:</strong> Cell-intrinsic NIK loss → <strong>impairs</strong> effector/memory T-cell generation and Tfh function → <strong>contributes to</strong> impaired antibody help and ICOSL dysregulation (<a href="https://pubmed.ncbi.nlm.nih.gov/26912039/">PMID: 26912039</a>).</li>
+<li><strong>Branch D — NK cells:</strong> NIK/TRAF2-axis loss → <strong>leads to</strong> decreased/defective NK cells with impaired immunological-synapse formation (<a href="https://pubmed.ncbi.nlm.nih.gov/25406581/">PMID: 25406581</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40229245/">PMID: 40229245</a>).</li>
+<li><strong>Branch E — Tolerance (inferred):</strong> Impaired AIRE-dependent medullary thymic epithelial function → <strong>predisposes to</strong> neutralizing anti–type I IFN autoantibodies (inferred from shared non-canonical NF-κB IEI family; <a href="https://pubmed.ncbi.nlm.nih.gov/39812688/">PMID: 39812688</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42261849/">PMID: 42261849</a>).</li>
+<li>Combined cellular and structural defects → <strong>result in</strong> the clinical phenotype: <strong>recurrent bacterial/viral/<em>Cryptosporidium</em> infections</strong>, with chronic diarrhea and hepatobiliary disease.</li>
+</ol>
+<p><strong>Molecular pathways (Reactome/KEGG):</strong> Non-canonical NF-κB signaling (Reactome R-HSA-5676590); canonical NF-κB; TNF-receptor-superfamily signaling.</p>
+<p><strong>Cellular processes &amp; GO terms:</strong> NIK/NF-κB-inducing kinase activity (<a href="http://purl.obolibrary.org/obo/GO_0004704" target="_blank" rel="noopener noreferrer">GO:0004704</a> MAP kinase kinase kinase activity); positive regulation of NF-κB transcription factor activity (<a href="http://purl.obolibrary.org/obo/GO_0051092" target="_blank" rel="noopener noreferrer">GO:0051092</a>); B-cell homeostasis (<a href="http://purl.obolibrary.org/obo/GO_0001782" target="_blank" rel="noopener noreferrer">GO:0001782</a>); lymph node development (<a href="http://purl.obolibrary.org/obo/GO_0048535" target="_blank" rel="noopener noreferrer">GO:0048535</a>); I-κB kinase/NF-κB signaling (<a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" rel="noopener noreferrer">GO:0007249</a>).</p>
+<p><strong>Protein dysfunction:</strong> Loss of kinase function in an otherwise <strong>constitutively active-like</strong> kinase domain regulated by abundance (F004, <a href="https://pubmed.ncbi.nlm.nih.gov/22921830/">PMID: 22921830</a>).</p>
+<p><strong>Immune system involvement:</strong> Combined immunodeficiency (B, T, NK) plus autoimmune/tolerance predisposition (F005).</p>
+<p><strong>Molecular profiling:</strong> In myeloma, low TRAF3 + high NIK expression mark pathway activation (<a href="https://pubmed.ncbi.nlm.nih.gov/32350909/">PMID: 32350909</a>) — a useful readout of the axis, though from the opposite (gain) pole.</p>
+<p><strong>Upstream vs downstream:</strong> Mutation (upstream) → NIK kinase failure → IKKα → p100/p52 (midstream) → RelB/p52 transcriptional programs in B cells, stroma, TECs, T cells, NK cells (downstream) → clinical infection susceptibility.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ level (primary):</strong> Secondary lymphoid organs — <strong>lymph nodes</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" rel="noopener noreferrer">UBERON:0000029</a>), <strong>spleen</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>), <strong>Peyer's patches / gut-associated lymphoid tissue</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001211" target="_blank" rel="noopener noreferrer">UBERON:0001211</a>); <strong>thymus</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002370" target="_blank" rel="noopener noreferrer">UBERON:0002370</a>, thymic epithelium); <strong>bone marrow</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a>).</li>
+<li><strong>Secondary involvement:</strong> <strong>Gastrointestinal tract</strong> (chronic <em>Cryptosporidium</em> diarrhea; <a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank" rel="noopener noreferrer">UBERON:0000160</a>) and <strong>hepatobiliary system / bile ducts</strong> (sclerosing cholangitis; <a href="http://purl.obolibrary.org/obo/UBERON_0002394" target="_blank" rel="noopener noreferrer">UBERON:0002394</a>).</li>
+<li><strong>Body systems:</strong> Immune/hematolymphoid system (primary); digestive and hepatobiliary systems (secondary).</li>
+<li><strong>Tissue/cell level (Cell Ontology):</strong> B cells (<a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a>), including class-switched memory B cells; T cells (<a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a>), follicular-helper and memory subsets; NK cells (<a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" rel="noopener noreferrer">CL:0000623</a>); thymic epithelial cells (<a href="http://purl.obolibrary.org/obo/CL_0002293" target="_blank" rel="noopener noreferrer">CL:0002293</a>); lymphoid stromal cells.</li>
+<li><strong>Subcellular (GO cellular component):</strong> Cytoplasm (<a href="http://purl.obolibrary.org/obo/GO_0005737" target="_blank" rel="noopener noreferrer">GO:0005737</a>, where NIK acts upstream of IKK), nucleus (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>, RelB/p52 translocation target).</li>
+<li><strong>Lateralization:</strong> Systemic/bilateral; not a lateralized disorder.</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> Early — <strong>congenital immune architecture defects</strong> present from development; <strong>clinical infections in infancy/childhood</strong>. Onset pattern is chronic/insidious with recurrent acute infectious episodes.</li>
+<li><strong>Progression:</strong> Without immune reconstitution, the course is a chronic, lifelong combined immunodeficiency with recurrent and opportunistic infections; organ damage (e.g., sclerosing cholangitis) can be progressive and severe.</li>
+<li><strong>Course pattern:</strong> Chronic with episodic infectious exacerbations.</li>
+<li><strong>Remission:</strong> No spontaneous remission; <strong>treatment-induced</strong> immune reconstitution is achievable with HSCT for the hematopoietic compartment, but the <strong>radioresistant stromal/thymic architectural defects persist</strong> after transplant (<a href="https://pubmed.ncbi.nlm.nih.gov/41280889/">PMID: 41280889</a>).</li>
+<li><strong>Critical period:</strong> Early diagnosis and transplant before cumulative infectious/organ damage is the key window of intervention.</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology:</strong> Ultra-rare; only a handful of genetically confirmed cases worldwide. No reliable prevalence/incidence estimates exist.</li>
+<li><strong>Inheritance:</strong> <strong>Autosomal recessive</strong>; requires biallelic LoF. Heterozygous carriers are unaffected (F001, F008).</li>
+<li><strong>Penetrance / expressivity:</strong> Presumed complete penetrance with biallelic LoF; expressivity across the few cases includes the core lymphoid/infectious phenotype.</li>
+<li><strong>Anticipation / mosaicism:</strong> Not applicable / not reported.</li>
+<li><strong>Founder effects / consanguinity:</strong> No founder allele established; consanguinity is the expected context for recessive presentation. Carrier frequency is extremely low, consistent with strong gnomAD constraint (F008).</li>
+<li><strong>Demographics:</strong> No ethnic predilection established; too few cases for sex-ratio or geographic analysis.</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<p><strong>Diagnostic approach.</strong> Because <strong>no pathogenic <em>MAP3K14</em> variants are catalogued in ClinVar</strong> (F007), diagnosis rests on a combination of <strong>genetic sequencing + functional validation</strong>:</p>
+<ul>
+<li><strong>Genetic testing:</strong> <strong>Whole-exome (WES)</strong> or <strong>whole-genome sequencing (WGS)</strong> is the practical route to identify biallelic <em>MAP3K14</em> variants, often via GeneMatcher-style collaboration given rarity. Targeted single-gene or <strong>inborn-errors-of-immunity (IEI) gene panels</strong> that include <em>MAP3K14</em> are appropriate. CMA/karyotyping/FISH are not primary tools (no chromosomal mechanism).</li>
+<li><strong>Functional confirmation (essential):</strong> Assays of <strong>NIK kinase activity</strong> and <strong>p100→p52 processing</strong> in patient cells/transfected constructs — the strategy used in the index report (<a href="https://pubmed.ncbi.nlm.nih.gov/25406581/">PMID: 25406581</a>).</li>
+<li><strong>Immunophenotyping (laboratory):</strong> Flow cytometry showing B-cell lymphopenia, reduced class-switched memory B cells, reduced/defective NK cells, and perturbed memory/Tfh T cells; <strong>serum immunoglobulins</strong> showing hypogammaglobulinemia.</li>
+<li><strong>Autoantibody screen:</strong> Test for <strong>neutralizing anti–type I IFN autoantibodies</strong> (shared family feature; F005).</li>
+<li><strong>Infectious work-up:</strong> Stool microscopy/antigen for <em>Cryptosporidium</em>; CMV viral load; imaging (MRCP) if cholangitis suspected.</li>
+</ul>
+<p><strong>Differential diagnosis:</strong> Other combined immunodeficiencies and CVID-spectrum disorders, especially the related non-canonical NF-κB IEIs (<em>NFKB2</em>, <em>RELB</em>, <em>CHUK</em>/IKKα) and other causes of chronic <em>Cryptosporidium</em> infection (e.g., CD40L deficiency, IL-21R deficiency <a href="https://pubmed.ncbi.nlm.nih.gov/33966600/">PMID: 33966600</a>, DOCK8 deficiency <a href="https://pubmed.ncbi.nlm.nih.gov/41695074/">PMID: 41695074</a>). Distinguishing feature: combined B/T/NK defect with absent secondary lymphoid organs and NIK functional defect.</p>
+<p><strong>Screening:</strong> Not part of standard newborn screening (which detects T-cell lymphopenia via TRECs; NIK deficiency may be TREC-variable). <strong>Cascade/carrier testing</strong> in affected families is appropriate once the variant is known.</p>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Survival/mortality:</strong> No formal survival statistics (ultra-rare). Prognosis without immune reconstitution is guarded due to recurrent/opportunistic infections and organ complications (e.g., sclerosing cholangitis).</li>
+<li><strong>Morbidity:</strong> Substantial — chronic infections, chronic diarrhea/malnutrition, hepatobiliary disease.</li>
+<li><strong>Disease course / complications:</strong> Progressive organ damage possible; CMV disease and <em>Cryptosporidium</em>-associated cholangitis are major threats.</li>
+<li><strong>Recovery potential:</strong> <strong>HSCT</strong> can restore hematopoietic immunity (full donor chimerism and T-cell reconstitution reported) but <strong>does not repair the stromal/thymic architectural defects</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41280889/">PMID: 41280889</a>).</li>
+<li><strong>Prognostic factors:</strong> Early diagnosis, pre-transplant infection/organ-damage burden, and post-transplant immune dysregulation (including anti-cytokine autoantibodies) shape outcome.</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Definitive therapy — allogeneic HSCT:</strong> The principal curative-intent treatment for the hematopoietic immune defect. Both reported patients achieved full donor chimerism and early T-cell reconstitution, but the authors stress the <strong>non-redundant, radioresistant role of non-canonical NF-κB in thymic reconstitution and secondary lymphoid organ development</strong>, which HSCT does not restore (<a href="https://pubmed.ncbi.nlm.nih.gov/41280889/">PMID: 41280889</a>). NCIT suggestion: <strong>Hematopoietic Stem Cell Transplantation (NCIT:C15431)</strong>; Allogeneic Bone Marrow Transplantation (NCIT:C15335).</li>
+<li><strong>Supportive pharmacotherapy:</strong> <strong>Immunoglobulin replacement therapy</strong> (IVIG/SCIG) for hypogammaglobulinemia (NCIT:C584 Immunoglobulin Therapy); <strong>antimicrobial prophylaxis</strong> against bacterial/viral/opportunistic pathogens; targeted treatment of <em>Cryptosporidium</em> (e.g., nitazoxanide) and CMV (e.g., ganciclovir/valganciclovir).</li>
+<li><strong>Monitoring/adjunct:</strong> Long-term immunologic monitoring, including surveillance for immune dysregulation and <strong>anti-cytokine autoantibodies</strong>; the follow-up study suggests future consideration of <strong>thymic regeneration or targeted immune modulation</strong> to address architectural defects (<a href="https://pubmed.ncbi.nlm.nih.gov/41280889/">PMID: 41280889</a>).</li>
+<li><strong>Gene/cell/RNA therapy:</strong> No approved gene therapy; <em>MAP3K14</em> is a conceptual candidate for gene correction given the recessive LoF mechanism, but none exists clinically.</li>
+<li><strong>Pharmacogenomics / NIK inhibitors:</strong> NIK <em>inhibitors</em> (e.g., Cpd33; <a href="https://pubmed.ncbi.nlm.nih.gov/32169603/">PMID: 32169603</a>) are relevant to the <strong>opposite (gain-of-function) pole</strong> of the axis (cancer, bone loss, inflammation) and are <strong>contraindicated</strong> in NIK deficiency.</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> Not preventable at the level of the mutation; <strong>genetic counseling</strong> for consanguineous/affected families and <strong>reproductive options</strong> (preimplantation/prenatal testing once the variant is known).</li>
+<li><strong>Secondary prevention:</strong> Early molecular diagnosis enabling pre-emptive antimicrobial prophylaxis, IgG replacement, and timely HSCT.</li>
+<li><strong>Tertiary prevention:</strong> Infection prophylaxis, nutritional support, and surveillance/management of hepatobiliary disease and anti-cytokine autoantibodies to prevent complications.</li>
+<li><strong>Immunization:</strong> <strong>Live vaccines are contraindicated</strong>; inactivated vaccines may give blunted responses due to antibody-production defects.</li>
+<li><strong>Counseling:</strong> Genetic counseling with cascade carrier testing is central.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy / orthologs:</strong> Human <em>MAP3K14</em> (NCBI Gene 9020); mouse ortholog <em>Map3k14</em> / <em>Nik</em> (NCBI Gene 53859; <em>Mus musculus</em>, NCBI Taxon 10090).</li>
+<li><strong>Natural animal disease:</strong> The <strong>alymphoplasia (<em>aly/aly</em>) mouse</strong> is a spontaneous natural <em>Nik</em> loss-of-function point mutant — the prototypical animal model (F003). No companion-animal (OMIA) natural disease is established.</li>
+<li><strong>Comparative biology / conservation:</strong> The NIK→IKKα→p100/p52 non-canonical NF-κB axis and its role in lymphoid organogenesis, B-cell maturation, and osteoclast differentiation are conserved across mammals (<a href="https://pubmed.ncbi.nlm.nih.gov/30894749/">PMID: 30894749</a>), underpinning the strong translational value of mouse models.</li>
+<li><strong>Zoonosis:</strong> Not applicable.</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Genetic basis</th>
+<th>Phenotype recapitulation</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>aly/aly</em> mouse</td>
+<td>Mammalian, spontaneous</td>
+<td><em>Nik/Map3k14</em> LoF point mutation</td>
+<td>Absent LN/Peyer's patches, disrupted lymphoid architecture, impaired B-cell/Ig production</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42175627/">PMID: 42175627</a></td>
+</tr>
+<tr>
+<td>Germline NIK KO</td>
+<td>Mammalian, knockout</td>
+<td>Full <em>Nik</em> deletion/inactivation</td>
+<td>Defective B-cell development and secondary lymphoid organs</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26116508/">PMID: 26116508</a></td>
+</tr>
+<tr>
+<td>Conditional/adult NIK deletion</td>
+<td>Mammalian, conditional</td>
+<td>Inducible/tissue-specific</td>
+<td>Reduced mature B cells and germinal-center B cells; abrogated BAFF responses</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26116508/">PMID: 26116508</a></td>
+</tr>
+<tr>
+<td>T-cell–conditional NIK KO</td>
+<td>Mammalian, conditional</td>
+<td>T-cell-specific <em>Nik</em> deletion</td>
+<td>Reduced effector/memory T cells; impaired infection response; EAE-resistant</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26912039/">PMID: 26912039</a></td>
+</tr>
+<tr>
+<td>aly/aly thymic epithelium</td>
+<td>Mammalian</td>
+<td><em>Nik</em> LoF</td>
+<td>Abnormal cortical/medullary TEC development</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32145062/">PMID: 32145062</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Recapitulation &amp; limitations.</strong> Mouse models faithfully reproduce the <strong>B-cell, secondary-lymphoid-organ, and thymic-architectural</strong> features of human disease and were instrumental in defining the pathway. Limitations: murine models may not capture the human <strong>anti–type I IFN autoantibody</strong> predisposition or the full <strong>NK-cell/<em>Cryptosporidium</em></strong> susceptibility, and species differences in immune architecture mean phenotype severity does not map 1:1. Resources: MGI (mouse), with aly/aly as the canonical strain.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>  Biallelic MAP3K14 LoF mutation
+    │  (kinase-dead NIK; functionally confirmed)
+    ▼
+  TNFRSF ligation (BAFFR/CD40/LTβR/RANK/Fn14)
+  normally stabilizes NIK via TRAF3 degradation
+    │  ── but kinase-dead NIK cannot act ──
+    ▼
+  NIK fails to phosphorylate IKKα
+    ▼
+  IKKα fails to phosphorylate p100 (NFKB2)
+    ▼
+  p100 NOT processed to p52  ──►  no nuclear RelB/p52
+    │                         │
+    │                         └── (also: impaired sustained canonical NF-κB)
+    ▼
+  ┌─────────┬─────────┬─────────┬─────────┬─────────────┐
+  ▼         ▼         ▼         ▼         ▼             ▼
+Stroma/   B cells   T cells   NK cells  Tolerance    Combined
+TEC                                     (inferred)   two-pathway
+  │         │         │         │         │           defect
+absent LN/ B-lympho- impaired  defective anti-IFN-α
+Peyer's,   penia,    effector/ NK +      autoAb
+disrupted  low memory memory,  impaired  predisposition
+thymus     B, hypo-  Tfh dys-  synapse
+   gammaglob function
+  └─────────┴─────────┴─────────┴─────────┴─────────────┘
+                ▼
+   Recurrent bacterial, viral (CMV), and Cryptosporidium
+   infections; chronic diarrhea; sclerosing cholangitis
+</code></pre>
+<p><strong>The bidirectional dosage axis</strong> (F006) frames NIK deficiency as one pole of a continuum:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>NIK activity</th>
+<th>Consequence</th>
+<th>Example conditions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Loss (this disease)</strong></td>
+<td>Immunodeficiency</td>
+<td>NIK deficiency; aly/aly mouse</td>
+</tr>
+<tr>
+<td><strong>Normal</strong></td>
+<td>Balanced lymphoid development &amp; immunity</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Overactive</strong></td>
+<td>Autoimmunity, cancer, fibrosis, bone loss, metabolic disease</td>
+<td>Myeloma, RA synovium, osteoporosis, neointimal hyperplasia</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>This dosage logic explains the paradox of a recessive disease in a highly LoF-constrained gene (F008): evolution selects against <em>both</em> loss and excess, favoring tight control.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Evidence type</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25406581/">25406581</a></td>
+<td><em>Biallelic LoF mutation in NIK causes PID</em></td>
+<td>Human clinical + in vitro</td>
+<td><strong>Defining paper</strong> — causal gene, inheritance, core defect (F001)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11520989/">11520989</a></td>
+<td><em>Activation by IKKα of second NF-κB pathway</em></td>
+<td>In vitro / mouse</td>
+<td>NIK→IKKα→p100/p52 hierarchy (F002)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26116508/">26116508</a></td>
+<td><em>Conditional NIK deletion disrupts B cells</em></td>
+<td>Mouse</td>
+<td>B-cell/lymphoid organ recapitulation (F003)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42175627/">42175627</a></td>
+<td><em>Adipocyte NIK depletion...</em> (states aly/aly phenotype)</td>
+<td>Mouse</td>
+<td>Lymphoid architecture summary (F003)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32145062/">32145062</a></td>
+<td><em>NIK in cortical thymic epithelial cells</em></td>
+<td>Mouse</td>
+<td>Thymic epithelial defect (F003)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26912039/">26912039</a></td>
+<td><em>Cell-intrinsic NIK in T cells</em></td>
+<td>Mouse</td>
+<td>T-cell effector/memory defect (F003)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22921830/">22921830</a></td>
+<td><em>Crystal structure of NIK catalytic domain</em></td>
+<td>Structural/in vitro</td>
+<td>Active-like, abundance-regulated kinase (F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23374866/">23374866</a></td>
+<td><em>NIK inhibitor design, co-crystals</em></td>
+<td>Structural/in vitro</td>
+<td>Druggable pocket (F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39812688/">39812688</a></td>
+<td><em>IKKα kinase-domain mutations</em></td>
+<td>Human clinical</td>
+<td>Anti-IFN-α autoAb in family (F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42261849/">42261849</a></td>
+<td><em>Inborn errors in NF-κB pathway (RELB)</em></td>
+<td>Human clinical</td>
+<td>Family-shared T/B defect + anti-IFN (F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41280889/">41280889</a></td>
+<td><em>Long-term HSCT outcome in NIK deficiency</em></td>
+<td>Human clinical</td>
+<td>Treatment; architectural limits; autoAb monitoring</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30926358/">30926358</a></td>
+<td><em>NIK as druggable mediator of tissue injury</em></td>
+<td>Review</td>
+<td>Bidirectional dosage axis (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30894749/">30894749</a></td>
+<td><em>NIK-SIX axis / non-canonical NF-κB</em></td>
+<td>Review/mechanism</td>
+<td>Core physiological functions lost (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30837284/">30837284</a></td>
+<td><em>NIK-IKK in endothelium</em></td>
+<td>In vitro</td>
+<td>NIK's canonical-pathway role (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32350909/">32350909</a></td>
+<td><em>Non-canonical NF-κB in myeloma</em></td>
+<td>Human (cancer)</td>
+<td>TRAF3-low/NIK-high readout (F002)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40229245/">40229245</a></td>
+<td><em>TRAF2 in inflammation/cancer</em></td>
+<td>Review</td>
+<td>TRAF2–NIK regulation; NK cytotoxicity (F006)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Supporting/context papers (gain-of-function pole, differentials): <a href="https://pubmed.ncbi.nlm.nih.gov/32169603/">PMID: 32169603</a> (NIK inhibitor, bone), <a href="https://pubmed.ncbi.nlm.nih.gov/42350366/">PMID: 42350366</a> (CRC S100A14/MAP3K14), <a href="https://pubmed.ncbi.nlm.nih.gov/33966600/">PMID: 33966600</a> (IL-21R differential), <a href="https://pubmed.ncbi.nlm.nih.gov/41695074/">PMID: 41695074</a> (DOCK8 differential), <a href="https://pubmed.ncbi.nlm.nih.gov/31709944/">PMID: 31709944</a> (Cryptosporidium context).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Extremely few human cases.</strong> Essentially all human clinical knowledge derives from a single index family (Willmann 2014) plus a long-term HSCT follow-up of two patients (2025). Frequencies, penetrance, expressivity, survival, and QoL statistics cannot be reliably quantified.</li>
+<li><strong>No pathogenic variants in ClinVar.</strong> Diagnosis cannot rely on variant-database pathogenicity and requires functional kinase assays (F007), limiting routine clinical recognition.</li>
+<li><strong>Anti–type I IFN autoantibody link is inferred for NIK specifically.</strong> The predisposition is well-documented for <em>CHUK</em>/IKKα and <em>RELB</em> and is monitored in NIK patients, but direct, quantified human NIK-deficiency autoantibody data remain limited (F005).</li>
+<li><strong>Mouse–human divergence.</strong> Murine models capture lymphoid-architecture and B/T defects but may not fully model NK/<em>Cryptosporidium</em> susceptibility or autoantibody tolerance breakdown (F003).</li>
+<li><strong>No disease-specific OMIM number, ICD code, prevalence, or registry.</strong></li>
+<li><strong>No modifier genes, epigenetic marks, or population-specific founder alleles identified.</strong></li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Deposit functionally validated pathogenic <em>MAP3K14</em> variants in ClinVar/ClinGen</strong> with ACMG/AMP evidence codes (PS3 functional) to enable future molecular diagnosis.</li>
+<li><strong>International case aggregation</strong> via GeneMatcher/IEI consortia to assemble a cohort large enough to estimate penetrance, phenotype spectrum, and survival.</li>
+<li><strong>Systematic anti–type I IFN autoantibody screening</strong> in all genetically confirmed NIK-deficiency patients to quantify the predisposition and its clinical impact (infection severity).</li>
+<li><strong>Standardized functional diagnostic assay</strong> (NIK kinase activity / p100→p52 processing in patient PBMCs or transfected constructs) validated for clinical laboratory use.</li>
+<li><strong>Pre-clinical gene-correction / thymic-regeneration studies</strong> in aly/aly mice to address the HSCT-refractory stromal/thymic architectural defect highlighted by the long-term follow-up (<a href="https://pubmed.ncbi.nlm.nih.gov/41280889/">PMID: 41280889</a>).</li>
+<li><strong>Single-cell transcriptomic profiling</strong> of patient lymphoid tissue/HSCT grafts to map the stromal vs hematopoietic contributions to residual immune dysfunction.</li>
+<li><strong>Natural-history / registry study</strong> (Orphanet-linked) to generate epidemiology, prognosis, and QoL data currently absent.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 8 confirmed findings and 34 reviewed papers over 5 completed investigation iterations. Evidence levels (human clinical / model organism / in vitro / computational) are flagged per finding. NIK deficiency is caused by biallelic loss-of-function mutations in </em><em>MAP3K14</em><em> encoding </em><em>NF-κB–inducing kinase (NIK)</em><em>.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/NIK_Deficiency-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/NIK_Deficiency-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.4.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>21</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0018642</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>NIK deficiency</strong></li>
+<li><code>HP:0002718</code> (1 mention) - the report calls it "Clinical sign"; HP calls it <strong>Recurrent bacterial infections</strong></li>
+<li><code>HP:0004429</code> (1 mention) - the report calls it "Clinical sign"; HP calls it <strong>Recurrent viral infections</strong></li>
+<li><code>HP:0100792</code> (1 mention) - the report calls it "Clinical/laboratory"; HP calls it <strong>Acantholysis</strong></li>
+<li><code>HP:0010976</code> (1 mention) - the report calls it "Laboratory abnormality"; HP calls it <strong>Decreased total B cell count</strong></li>
+<li><code>HP:0002720</code> (1 mention) - the report calls it "Laboratory abnormality"; HP calls it <strong>Decreased circulating IgA concentration</strong></li>
+<li><code>HP:0005404</code> (1 mention) - the report calls it "Laboratory abnormality"; HP calls it <strong>Increased total B cell count</strong></li>
+<li><code>HP:0040218</code> (1 mention) - the report calls it "Laboratory abnormality"; HP calls it <strong>Reduced total natural killer cell count</strong></li>
+<li><code>HP:0005415</code> (1 mention) - the report calls it "abnormal T-cell count"; HP calls it <strong>Decreased total CD8+ T cell proportion</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0004704</code> (obsolete NF-kappaB-inducing kinase activity) (1 mention)</li>
+<li><code>GO:0051092</code> (obsolete positive regulation of NF-kappaB transcription factor activity) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>UBERON:0001211</code> (1 mention) - the report calls it "Peyer's patches / gut-associated lymphoid tissue"; UBERON calls it <strong>Peyer's patch</strong>, and lists "aggregated lymphoid nodule" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Nijmegen_Breakage_Syndrome-like_Disorder-openscientist.html">← Nijmegen Breakage Syndrome-like Disorder (OpenScientist)</a>
+                
+                
+                <a href="Nipah_Virus_Disease-falcon.html">Nipah Virus Disease (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/NIK_Deficiency.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/NIK_Deficiency-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -1,0 +1,88 @@
+schema_version: "1.0"
+hypothesis_id: katp_metabolic_gating_failure
+hypothesis_label: "Failure of KATP metabolic-stress gating as the CMD1O lesion"
+disease: "Dilated Cardiomyopathy 1O"
+kb_status: EMERGING
+report_verdict: PARTIALLY_SUPPORTED
+search_date: "2026-10-24"
+generated_by: "OpenScientist autonomous agent (iterations 1-4)"
+
+status_flags:
+  data_source_accessed: true          # gnomAD + ClinVar + PubMed
+  analysis_executed: true             # 3 computational analyses succeeded
+  fallback_to_literature: false       # analyses succeeded; no silent fallback
+  patient_level_data_used: false
+  structural_analysis_performed: false # Phenix/AlphaFold step skipped (declared)
+
+environment_record: environment.txt
+
+inputs:
+  - id: gnomad_api
+    type: external_api
+    uri: "https://gnomad.broadinstitute.org/api"
+    version: "gnomAD v2.1.1 constraint"
+    retrieved: "2026-10-24"
+    resolved: true
+  - id: ncbi_clinvar
+    type: external_api
+    uri: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/"
+    version: "live (ClinVar)"
+    retrieved: "2026-10-24"
+    resolved: true
+  - id: pubmed
+    type: external_api
+    uri: "search_pubmed MCP tool (NCBI backend)"
+    retrieved: "2026-10-24"
+    resolved: true
+
+analyses:
+  - id: gnomad_constraint
+    input: gnomad_api
+    method: "GraphQL gnomad_constraint query (ABCC9/ENSG00000069431)"
+    outcome: succeeded
+    query: queries/gnomad_abcc9_constraint.graphql
+    output: responses/gnomad_abcc9_constraint.json
+    claim: "ABCC9 LoF-tolerant (pLI~0, LOEUF 0.60) but missense-intolerant (mis_z 7.62)"
+  - id: clinvar_survey
+    input: ncbi_clinvar
+    method: "esearch/esummary with clinsig & review-status filters"
+    outcome: succeeded
+    query: queries/clinvar_abcc9_queries.md
+    output: derived/clinvar_cmd1o_founder_alleles.json
+    claim: "Founder alleles low-confidence (0-star / Conflicting); 0 expert-panel ABCC9 variants; P/LP landscape LoF-dominated"
+  - id: gnomad_A1513T_frequency
+    input: gnomad_api
+    method: "GraphQL clinvar_variants join + arithmetic"
+    outcome: succeeded
+    output: derived/gnomad_A1513T_frequency.json
+    claim: "A1513T combined gnomAD AF ~4.96e-5 (14/282466); gray-zone pathogenicity"
+  - id: sur2a_structural_analysis
+    input: null
+    method: "Phenix/AlphaFold conformational analysis of SUR2A catalytic domain"
+    outcome: skipped
+    note: "No SUR2A structure retrieved; proposed as discriminating test, NOT performed."
+
+outputs:
+  - path: queries/gnomad_abcc9_constraint.graphql
+    sha256: 54aeb516d5692619ba5e4b8674c23a0e5e68590f1db7b441957ff064c58f9bc5
+  - path: responses/gnomad_abcc9_constraint.json
+    sha256: e53bf4b1915dca68d9513a2d1702f24778d11e19aaac23f0bd35aa3d5c55278e
+  - path: queries/clinvar_abcc9_queries.md
+    sha256: 92d894d628f1b79463c7b7247fe3560c64ddb4eabf514acd46b422566a1b0419
+  - path: derived/clinvar_cmd1o_founder_alleles.json
+    sha256: 26c1fb11fe17ba30b8dfef078403107b27935bca3066d48db5b204cf6c6f086e
+  - path: derived/gnomad_A1513T_frequency.json
+    sha256: 4bf54ebbbd104ee9d5bc94cb72a4f0d70f18a8a853f38164536ffba569259eb9
+  - path: logs/pubmed_search_log.md
+    sha256: 11ec7e4c554749a9e7731ec4c9cae4427ee0febfa6bd3660a1bc9c4d1dd3e209
+
+external_identifiers:
+  - "ABCC9 / ENSG00000069431"
+  - "ClinVar VCV 8162 (p.Ala1513Thr), VCV 222477, VCV 856369"
+  - "Key PMIDs: 15034580, 16782803, 20033705, 31983221, 33947203, 38217872, 42290677, 41448431, 39031464"
+
+replay_verification: |
+  To replay: re-run queries/gnomad_abcc9_constraint.graphql against the gnomAD API and
+  the ClinVar terms in queries/clinvar_abcc9_queries.md; recompute sha256 of outputs and
+  compare to this manifest. gnomAD v2.1.1 constraint and legacy ClinVar legacy records are
+  stable; live ClinVar counts may drift as submissions accrue.

@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curation Backlog (Cross-Cutting) - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html" class="active" aria-current="true">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Curation Backlog (Cross-Cutting)</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                <span class="tag">META</span><span class="tag">BACKLOG</span><span class="tag">COVERAGE</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Curation Backlog (Cross-Cutting)</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (30)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Juvenile_Myoclonic_Epilepsy.html">Juvenile Myoclonic Epilepsy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/DNM1_Encephalopathy.html">DNM1 Encephalopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/SNAP25-Related_Developmental_and_Epileptic_Encephalopathy.html">SNAP25 Encephalopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Epilepsy_of_Infancy_with_Migrating_Focal_Seizures.html">Epilepsy of Infancy with Migrating Focal Seizures</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pyridoxine-Dependent_Epilepsy.html">Pyridoxine-Dependent Epilepsy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/PCDH19_Clustering_Epilepsy.html">PCDH19 Clustering Epilepsy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/PNPO_Deficiency.html">PNPO Deficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Epilepsy_with_Myoclonic-Atonic_Seizures.html">Epilepsy with Myoclonic Atonic Seizures</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Mesial_Temporal_Lobe_Epilepsy_with_Hippocampal_Sclerosis.html">Mesial Temporal Lobe Epilepsy with Hippocampal Sclerosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/KCNQ2_Developmental_and_Epileptic_Encephalopathy.html">KCNQ2 Developmental and Epileptic Encephalopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Febrile_Infection-Related_Epilepsy_Syndrome.html">Febrile Infection-Related Epilepsy Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/CPLX1-Related_Developmental_and_Epileptic_Encephalopathy.html">CPLX1-Related DEE</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Tetralogy_of_Fallot.html">Tetralogy of Fallot</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pericarditis.html">Pericarditis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Infective_Endocarditis.html">Infective Endocarditis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Rheumatic_Heart_Disease.html">Rheumatic Heart Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hypoplastic_Left_Heart_Syndrome.html">Hypoplastic Left Heart Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Familial_Atrial_Fibrillation.html">Familial Atrial Fibrillation</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Uveal_Melanoma.html">Uveal Melanoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/FGFR-Altered_Cholangiocarcinoma.html">FGFR Altered Cholangiocarcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Diffuse_Large_B-Cell_Lymphoma.html">Diffuse Large B Cell Lymphoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Kaposi_Sarcoma.html">Kaposi Sarcoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/IDH-Mutant_Cholangiocarcinoma.html">IDH Mutant Cholangiocarcinoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/IDH-Mutant_Astrocytoma.html">IDH Mutant Astrocytoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/RET_Fusion-Positive_Thyroid_Cancer.html">RET Fusion Thyroid Cancer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Li-Fraumeni_Syndrome.html">Li-Fraumeni Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Sturge-Weber_Syndrome.html">Sturge-Weber Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Beare-Stevenson_Cutis_Gyrata_Syndrome.html">Beare-Stevenson Cutis Gyrata Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pituitary_Tumor.html">Pituitary Tumor</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Cushing_Disease.html">Cushing Disease</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (12)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/cerebellar_purkinje_degeneration.html">cerebellar purkinje degeneration</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/immune_checkpoint_blockade.html">immune checkpoint blockade</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/fgfr_gain_of_function_skeletal_dysplasia.html">fgfr gain of function skeletal dysplasia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/rtk_grb2_signaling_adaptation.html">rtk grb2 signaling adaptation</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/fibrotic_response.html">fibrotic response</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/ciliopathy_dysfunction.html">ciliopathy dysfunction</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/cardiac_ion_channel_repolarization.html">cardiac ion channel repolarization</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/hemolytic_anemia_erythrocyte_destruction.html">hemolytic anemia erythrocyte destruction</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/hypothyroidism_thyroid_hormone_deficiency.html">hypothyroidism thyroid hormone deficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/glaucoma_optic_neuropathy.html">glaucoma optic neuropathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/corticotroph_egfr_pomc_acth_activation.html">corticotroph egfr pomc acth activation</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/somatotroph_camp_pka_overactivation.html">somatotroph camp pka overactivation</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/CURATION_BACKLOG.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="curation-backlog-cross-cutting">Curation Backlog (Cross-Cutting)</h1>
+<h2 id="overview">Overview</h2>
+<p>Most dismech project files are <em>thematic</em> — a disease domain, a drug class, a
+mechanism. This one is <strong>orthogonal</strong>: it collects what is outstanding across the
+whole KB, so that "what should I curate next?" has an answer that does not depend
+on picking a theme first.</p>
+<p>Four workstreams, ordered by yield per unit of effort rather than by size. The
+first three are <strong>triage</strong> work — the candidates already exist and need judgement,
+not fresh literature search. The fourth is genuine curation volume.</p>
+<p>Supporting data lives in
+<a href="https://github.com/monarch-initiative/dismech/tree/main/projects/CURATION_BACKLOG"><code>projects/CURATION_BACKLOG/</code></a>;
+regenerate it from the dashboards rather than hand-editing.</p>
+<blockquote>
+<h3 id="how-fast-this-decays">How fast this decays</h3>
+<p>All four workstreams were rebuilt against <code>main</code> @ <code>48bd0eb60c</code> (2026-09-03).
+Treat that date as a short expiry, not a footnote: <strong>61 of workstream 1's
+candidates were curated in the four days</strong> between two rebuilds, and the KB
+grew from 1,937 to 2,535 disorder entries over three weeks.</p>
+<p>The first version of this file was assembled from a tree 9,389 commits behind
+<code>main</code>. The dashboards were regenerated at the time and came back
+byte-identical, which was read as confirmation the figures were current. It was
+not: both the committed and the regenerated dashboards derived from the same
+stale tree, so the check established self-consistency and nothing about
+currency. <code>git log -1 origin/main</code> settles it in one command — run that before
+trusting any count here.</p>
+</blockquote>
+<h2 id="where-the-kb-stands">Where the KB stands</h2>
+<p>Verified against <code>main</code> @ <code>48bd0eb60c</code> (2026-09-03):</p>
+<table>
+<thead>
+<tr>
+<th>Measure</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disorder entries</td>
+<td>2,535</td>
+</tr>
+<tr>
+<td>…with a MONDO-anchored <code>disease_term</code></td>
+<td>2,499</td>
+</tr>
+<tr>
+<td>Distinct curated MONDO IDs (primary, subtype, exact/narrow mapping)</td>
+<td>3,857</td>
+</tr>
+<tr>
+<td>MONDO human-disease terms with an exact dismech page</td>
+<td>2,469 of 23,213 (10.6%)</td>
+</tr>
+<tr>
+<td>…covered exactly <strong>or</strong> by a parent page</td>
+<td>48.3%</td>
+</tr>
+<tr>
+<td>Average weighted compliance</td>
+<td>90.0% (684 violations)</td>
+</tr>
+<tr>
+<td>Entries declaring any module conformance</td>
+<td>1,001 (39.5%)</td>
+</tr>
+<tr>
+<td>Comorbidity entries</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Mechanism modules</td>
+<td>164</td>
+</tr>
+<tr>
+<td>Groupings</td>
+<td>98</td>
+</tr>
+</tbody>
+</table>
+<p>Pathophysiology and phenotype coverage are effectively complete. The gaps are
+everywhere else.</p>
+<h2 id="a-prior-question-is-the-candidate-genuinely-uncovered">A prior question: is the candidate genuinely uncovered?</h2>
+<p>Before curating anything from these lists, check that a curated entry does not
+already cover the concept under a <strong>different MONDO term</strong> — usually the target's
+parent. The lexical preflight cannot see this, which is how issue #10069 was
+filed against a concept <code>Pituitary_Tumor.yaml</code> had covered for ten days.</p>
+<pre><code class="language-bash">uv run python scripts/audit_curation_queue_coverage.py --max-descendants 20
+</code></pre>
+<p>Over the 1,338-stub queue that check finds 3 stubs already curated exactly and
+<strong>641 with a curated ancestor</strong>. Those 641 are mostly not duplicates — they are
+lump/split rulings the queue is presenting as "curate a new entry" (mevalonic
+aciduria and hyper-IgD both under <code>Mevalonate_Kinase_Deficiency</code>; sclerosteosis 2
+under <code>Sclerosteosis</code>). Curating one as a fresh entry creates a contradiction
+rather than resolving it. Details and the over-broad-anchor finding are in #10679.</p>
+<hr />
+<h2 id="workstream-1-mondo-terms-already-linked-from-existing-pages">Workstream 1 — MONDO terms already linked from existing pages</h2>
+<p><strong>397 candidates</strong> (552 → 458 → 397 across three rebuilds; <strong>61 curated in the
+last four days alone</strong>). Data: <code>linked-but-uncurated.tsv</code>.</p>
+<p>These diseases are already referenced <em>by</em> curated entries — as differentials,
+comorbidities, or related conditions — but have no entry of their own. Demand is
+therefore already demonstrated, which makes this the cheapest breadth work in the
+repo: no need to argue the disease is worth curating, only to curate it.</p>
+<p>The churn is the argument for re-deriving before picking. Myocarditis, once top of
+this queue at 4 inbound links, was curated in
+<a href="https://github.com/monarch-initiative/dismech/pull/9954">#9954</a>. Pituitary gland
+adenoma left the list not by being curated but by being <em>recognised</em> — a
+<code>skos:narrowMatch</code> on the entry that already covered it (#10069). And several
+resolved to existing entries the lexical check had missed: <code>velocardiofacial
+syndrome</code> → <code>22q11.2_Deletion_Syndrome</code>, <code>proximal spinal muscular atrophy</code> →
+<code>Spinal_Muscular_Atrophy</code>, <code>RASopathy</code> → <code>RASopathies</code>.</p>
+<p>Ranked by inbound links from existing pages. Top of the queue, with the
+coverage check from the section above already applied:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Links</th>
+<th>MONDO</th>
+<th>Disease</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">3</td>
+<td>MONDO:0044970</td>
+<td>mitochondrial disease</td>
+<td>scope decision needed — likely a Grouping</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td>MONDO:0018564</td>
+<td>3p25.3 microdeletion syndrome</td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td>MONDO:0003709</td>
+<td>agoraphobia</td>
+<td>clear</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td>MONDO:0011786</td>
+<td>allergic rhinitis</td>
+<td>clear</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td>MONDO:0001164</td>
+<td>antisocial personality disorder</td>
+<td>clear</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td>MONDO:0024557</td>
+<td>ataxia-telangiectasia-like disorder 1</td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td>MONDO:0005230</td>
+<td>cellulitis</td>
+<td>clear</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td>MONDO:0017843</td>
+<td>congenital pulmonary sequestration</td>
+<td>clear</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td>MONDO:0008021</td>
+<td>Cowden syndrome</td>
+<td>NEC risk: eponym + numbered series</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td>MONDO:0015474</td>
+<td>cryptosporidiosis</td>
+<td></td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td>MONDO:0015612</td>
+<td>Dent disease</td>
+<td>clear</td>
+</tr>
+<tr>
+<td style="text-align: right;">2</td>
+<td>MONDO:0001521</td>
+<td>intermittent explosive disorder</td>
+<td>clear</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommended next tranche — the psychiatric trio.</strong> <code>agoraphobia</code>,
+<code>antisocial personality disorder</code> and <code>intermittent explosive disorder</code>: two
+inbound links each, all <code>CURATE_ROOT</code>, none in the stub queue, none blocked by a
+curated ancestor, none with an open issue. Psychiatry is thin in the KB and the
+three share a DSM/epidemiology literature base, so they cost less together than
+apart.</p>
+<p><strong>Second tranche — the pituitary follow-on.</strong> <code>acromegaly</code> (MONDO:0019933) and
+<code>hypopituitarism</code> (MONDO:0005152), both clear and unclaimed, both sitting on work
+already in place: <code>Pituitary_Tumor.yaml</code> is now anchored, the
+<code>somatotroph_camp_pka_overactivation</code> module exists, and
+<code>Somatotroph_cAMP_PKA_Pituitary_Tumor_Syndromes</code> groups them. Acromegaly should be
+its own entry that <em>conforms to</em> that module rather than a subtype of pituitary
+tumour — ectopic GHRH-driven acromegaly involves no pituitary tumour at all.</p>
+<ul>
+<li>[x] Curate myocarditis (MONDO:0004496) — done in #9954</li>
+<li>[x] Anchor pituitary gland adenoma (MONDO:0006373) — narrowMatch on <code>Pituitary_Tumor.yaml</code>, #10069</li>
+<li>[ ] Curate the psychiatric trio: agoraphobia, antisocial personality disorder, intermittent explosive disorder</li>
+<li>[ ] Curate acromegaly and hypopituitarism as the pituitary follow-on</li>
+<li>[ ] Decide scope for mitochondrial disease (MONDO:0044970)</li>
+<li>[ ] Curate Cowden syndrome (MONDO:0008021) — <strong>run <code>just preflight-dr</code> first</strong>: NEC flags for numbered series (<code>type 1</code>), eponym collision (<code>Cowden</code>) and synonym aliasing (<code>Duclos</code>, <code>Lhermitte</code>)</li>
+<li>[ ] Work down the remainder of <code>linked-but-uncurated.tsv</code> by inbound-link count</li>
+</ul>
+<p><strong>Do not claim off a stale copy of this list.</strong> Regenerate with
+<code>just gen-dashboard</code>, drop rows curated on current <code>main</code>, then run the coverage
+audit. Skipping the first step is how the myocarditis miss happened; skipping the
+third is how #10069 happened.</p>
+<hr />
+<h2 id="workstream-2-module-conformance-suggestions-awaiting-triage">Workstream 2 — Module-conformance suggestions awaiting triage</h2>
+<p><strong>66 suggestions at cosine ≥ 0.90; 55 still actionable</strong> — 8 have been wired
+since, and 3 name a node that no longer exists. Data:
+<code>conformance-suggestions.tsv</code> (full set of 1,128 in
+<code>research/conforms_to_suggestions.tsv</code>).</p>
+<p><strong>The suggestion set itself is stale and cannot currently be regenerated.</strong>
+<code>research/conforms_to_suggestions.tsv</code> dates from 2026-08-12 and has no committed
+generator, so it predates roughly 600 entries. Only each suggestion's <em>status</em> is
+re-derived here. Recovering or rewriting the node-embedding generator would be
+worth more than triaging what it produced a month ago.</p>
+<p>39.5% of entries declare a <code>conforms_to</code> (up from 31.2%), and a node-embedding
+pass proposed links for some of the rest. The high-confidence tail is small enough to
+review by hand.</p>
+<p><strong>These are suggestions, not findings.</strong> The embedding matches on <em>node label
+similarity</em>, so it is blind to direction and to disease context. Two failure modes
+are already visible in the ≥0.90 set and must be rejected, not applied:</p>
+<ul>
+<li><strong>Direction-blind:</strong> <code>Graves_Disease :: Thyroid Overactivity</code> → <code>hypothyroidism_thyroid_hormone_deficiency#Thyroid Hormone Insufficiency</code> (cosine 0.914). Hyperthyroidism is not hypothyroidism.</li>
+<li><strong>Context-blind:</strong> a generic <code>MAPK Pathway Activation</code> node in <code>Uveal_Melanoma</code>, <code>KIT_Mutant_Melanoma</code>, <code>HER2_Positive_Gastric_Cancer</code>, <code>HER2_Positive_Colorectal_Cancer</code> and <code>FGFR_Altered_Cholangiocarcinoma</code> → <code>fgfr_gain_of_function_skeletal_dysplasia#Sustained MAPK/STAT Signaling</code>. The MAPK claim is right; the <em>skeletal-dysplasia</em> module is not the home for it. If these need a shared anchor, that is an argument for a new module, not for conforming a melanoma to a chondrodysplasia.</li>
+</ul>
+<p>Highest-confidence candidates that do look right:</p>
+<ul>
+<li>[ ] <code>Autosomal_Dominant_Cerebellar_Ataxia_Type_I :: Purkinje Cell Degeneration and Cerebellar Cortical Atrophy</code> → <code>cerebellar_purkinje_degeneration#Purkinje Neuron Degeneration</code> (1.000)</li>
+<li>[ ] <code>HPV_Positive_Head_and_Neck_Cancer :: Immune Evasion</code> → <code>immune_checkpoint_blockade#Adaptive Immune Resistance</code> (1.000)</li>
+<li>[ ] <code>Hypotonia-Cystinuria_Syndrome :: Urinary cystine supersaturation</code> → <code>nephrolithiasis_crystal_nucleation#Urinary Supersaturation</code> (1.000)</li>
+<li>[ ] <code>Duchenne_Muscular_Dystrophy :: Myocardial Fibrosis</code> → <code>cardiomyopathy_maladaptive_remodeling#Ventricular Remodeling</code> (0.971)</li>
+<li>[ ] <code>Glaucoma :: Trabecular Meshwork Dysfunction</code> → <code>glaucoma_optic_neuropathy#Trabecular Meshwork Outflow Dysfunction</code> (0.954)</li>
+<li>[ ] <code>Meckel_Syndrome</code> (two ciliogenesis nodes) → <code>ciliopathy_dysfunction#Basal Body and Transition Zone Dysfunction</code> (0.954, 0.942)</li>
+<li>[ ] <code>Systemic_Sclerosis :: Fibroblast Activation and Fibrosis</code> → <code>fibrotic_response#Mesenchymal Cell Activation</code> (0.946)</li>
+<li>[ ] Triage the remaining ≥0.90 rows in <code>conformance-suggestions.tsv</code>, recording rejects</li>
+<li>[ ] Decide whether the RTK/MAPK oncogene cluster warrants its own module rather than 15 near-miss suggestions</li>
+</ul>
+<p>Each accepted link must satisfy the module's stated conformance bar — the
+biological processes and causal edges the module expects — not just a matching
+node name.</p>
+<hr />
+<h2 id="workstream-3-lowest-compliance-existing-entries">Workstream 3 — Lowest-compliance existing entries</h2>
+<p><strong>Three coherent clusters in the bottom 30.</strong> Data: <code>low-compliance-entries.tsv</code>
+(bottom 60, with the exact missing sections per file). Scores are weighted
+compliance against 2,535 entries; the KB average is 90.0%.</p>
+<p>The epilepsy and cardiac clusters have both improved since the first pass — the
+worst entry was 53.7% and is now 61.9% — but both persist, and a third has
+appeared.</p>
+<h3 id="epilepsy-and-developmental-epileptic-encephalopathy-12-of-the-bottom-30">Epilepsy and developmental epileptic encephalopathy (12 of the bottom 30)</h3>
+<p><code>Juvenile_Myoclonic_Epilepsy</code> (65.8), <code>DNM1_Encephalopathy</code> (67.2),
+<code>SNAP25_Encephalopathy</code> (69.1), <code>Epilepsy_of_Infancy_with_Migrating_Focal_Seizures</code>
+(69.3), <code>Pyridoxine-Dependent_Epilepsy</code> (69.8), <code>PCDH19_Clustering_Epilepsy</code> (69.9),
+<code>PNPO_Deficiency</code> (69.9), <code>Epilepsy_with_Myoclonic_Atonic_Seizures</code> (69.9),
+<code>Mesial_Temporal_Lobe_Epilepsy_with_Hippocampal_Sclerosis</code> (70.3),
+<code>KCNQ2_Developmental_and_Epileptic_Encephalopathy</code> (70.3),
+<code>Febrile_Infection-Related_Epilepsy_Syndrome</code> (70.5), <code>CPLX1-Related_DEE</code> (70.8).</p>
+<p>Shared gaps: <code>environmental</code>, <code>histopathology</code>, <code>definitions</code>, <code>epidemiology</code>,
+<code>experimental_models</code>, <code>classifications</code>, <code>datasets</code>, <code>biochemical</code>. The cluster
+shares a literature base and the ILAE classification vocabulary, so it is far
+cheaper as one tranche — <code>classifications</code> in particular is near-mechanical once
+the ILAE mapping is settled once.</p>
+<ul>
+<li>[ ] Settle the ILAE classification mapping once, then backfill <code>classifications</code> across all 12</li>
+<li>[ ] Backfill <code>definitions</code> (EHR/OMOP phenotype algorithms) — see the <code>create-definitions-from-ohdsi</code> skill</li>
+<li>[ ] Backfill <code>epidemiology</code> + <code>prevalence</code> from a shared incidence source</li>
+<li>[ ] Sweep <code>datasets</code> with <code>just discover-datasets</code>, then <code>just verify-datasets</code></li>
+<li>[ ] Add <code>animal_models</code> with <code>modeled_mechanisms</code> links — not blocked. #8320 described this as invalidating 229 files, but the regression was fixed by making <code>name</code> a class-local <code>recommended</code> attribute rather than the global identifier slot; unnamed models validate. Name a model when you give it <code>modeled_mechanisms</code>, since that is where the label becomes a pathograph node</li>
+</ul>
+<h3 id="structural-and-inflammatory-cardiac-6-of-the-bottom-30">Structural and inflammatory cardiac (6 of the bottom 30)</h3>
+<p><code>Tetralogy_of_Fallot</code> (61.9 — now the lowest-scoring entry in the KB),
+<code>Pericarditis</code> (63.9), <code>Infective_Endocarditis</code> (64.4),
+<code>Rheumatic_Heart_Disease</code> (66.1), <code>Hypoplastic_Left_Heart_Syndrome</code> (67.9),
+<code>Familial_Atrial_Fibrillation</code> (69.8).</p>
+<p>Shared gaps: <code>datasets</code>, <code>clinical_trials</code>, <code>histopathology</code>, <code>definitions</code>,
+<code>biochemical</code>. Congenital-heart trials are well registered on ClinicalTrials.gov,
+so <code>clinical_trials</code> is the cheapest win here.</p>
+<ul>
+<li>[ ] Backfill <code>clinical_trials</code> across the cluster</li>
+<li>[ ] Backfill <code>histopathology</code> — valve and myocardial pathology is well described</li>
+<li>[ ] <code>Tetralogy_of_Fallot</code> first: it is the lowest-scoring entry in the KB</li>
+</ul>
+<h3 id="molecularly-stratified-oncology-8-of-the-bottom-30-new">Molecularly stratified oncology (8 of the bottom 30) — new</h3>
+<p><code>Uveal_Melanoma</code> (65.9), <code>FGFR_Altered_Cholangiocarcinoma</code> (69.3),
+<code>Diffuse_Large_B_Cell_Lymphoma</code> (69.7), <code>Kaposi_Sarcoma</code> (69.9),
+<code>IDH_Mutant_Cholangiocarcinoma</code> (70.3), <code>IDH_Mutant_Astrocytoma</code> (70.6),
+<code>RET_Fusion_Thyroid_Cancer</code> (70.8), <code>Li-Fraumeni_Syndrome</code> (70.9).</p>
+<p>This cluster did not exist at the first pass and is worth reading together with
+the over-broad-anchor finding in #10679: the L4 biomarker-stratum entries
+(<code>IDH_Mutant_AML</code>, and the three colorectal strata) are exactly the entries that
+anchor a parent MONDO term without the <code>skos:narrowMatch</code> mapping design decisions
+L4 requires. Low compliance and loose anchoring look like the same underlying
+thing — these entries were split out of a parent quickly and not finished.</p>
+<ul>
+<li>[ ] Audit the molecular-stratum entries against design decisions L4 — anchor plus <code>narrowMatch</code> mapping, or fold back into the parent</li>
+<li>[ ] Then backfill the shared gaps rather than treating them as eight separate jobs</li>
+</ul>
+<p><code>Sturge-Weber_Syndrome</code> (62.7) and <code>Beare-Stevenson_Cutis_Gyrata_Syndrome</code> (65.9)
+sit in the bottom 10 and belong to no cluster; each needs its own pass.</p>
+<hr />
+<h2 id="workstream-4-outstanding-entries-from-the-original-disease-list">Workstream 4 — Outstanding entries from the original disease list</h2>
+<p><strong>177 rows still outstanding</strong> of the 431 on <code>initial-diseases.tsv</code>
+(207 were flagged as candidates; 30 have been curated since that file was
+written). Data: <code>outstanding-initial-diseases.tsv</code>.</p>
+<p>Split by whether a related entry already exists:</p>
+<ul>
+<li><strong>Tier 1 — no entry at all (~82).</strong> Genuine gaps. Notable: paroxysmal nocturnal
+  haemoglobinuria (open as #6906), Glanzmann thrombasthenia, Bernard-Soulier
+  syndrome, cold agglutinin disease, Evans syndrome, hyper-IgM syndrome,
+  leukocyte adhesion deficiency (and types 1/II), Creutzfeldt-Jakob disease,
+  corticobasal degeneration, normal pressure hydrocephalus, Werner syndrome,
+  Sotos syndrome, Birt-Hogg-Dubé syndrome, NF2-related schwannomatosis, Pendred
+  syndrome, acromegaly, hypopituitarism, MODY types 1 and 2, MRKH syndrome, HELLP
+  syndrome, Hodgkin lymphoma (only the <em>classic</em> subtype is curated).</li>
+<li>
+<p><strong>Tier 2 — a related entry exists (~95).</strong> Usually a missing
+  <code>mappings.mondo_mappings</code> <code>exactMatch</code>/<code>narrowMatch</code> or a <code>has_subtypes</code> term
+  rather than a new file — e.g. beta-thalassaemia major vs <code>Beta_Thalassemia</code>,
+  hereditary retinoblastoma vs <code>Retinoblastoma</code>, Cockayne types 1-3 vs
+  <code>Cockayne_Syndrome</code>, thoracic aortic aneurysm vs
+  <code>Familial_Thoracic_Aortic_Aneurysm_and_Aortic_Dissection</code>.</p>
+</li>
+<li>
+<p>[ ] Decide the <strong>Usher syndrome</strong> subtype policy — 15 of the 177 rows are Usher molecular subtypes (1B-1K, 2A/2C/2D, 3A/3B, type 4) against a single <code>Usher_Syndrome</code> entry. One decision closes ~9% of this list.</p>
+</li>
+<li>[ ] Sweep Tier 2 for mappings that can be added without new entries</li>
+<li>[ ] Open curation issues for the Tier 1 haematology block (7 entries, one literature base)</li>
+<li>[ ] Open curation issues for the Tier 1 immunodeficiency block (LAD 1/II, hyper-IgM, hyper-IgD)</li>
+</ul>
+<hr />
+<h2 id="not-in-scope-here-tracked-elsewhere">Not in scope here (tracked elsewhere)</h2>
+<p>These are real backlogs but have their own homes:</p>
+<ul>
+<li><strong>Comorbidities</strong> — 25 entries against 2,462 disorders, proportionally the
+  largest structural hole. Tracked in
+  <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/COMORBIDITIES.md"><code>projects/COMORBIDITIES.md</code></a>.</li>
+<li><strong>Evidence-quality debt</strong> — 8,114 evidence items with <code>UNSPECIFIED</code>
+  <code>evidence_source</code> and 18,211 tagged <code>OTHER</code>; 295 grandfathered title-as-snippet
+  items in <code>tests/title_snippet_baseline.txt</code>; issue #8296 (182 environmental
+  exposures with no evidence) and #8185 (environmental entries that are disease
+  states, not exposures).</li>
+<li><strong>Animal-model naming</strong> — issue #8320 reported <code>AnimalModel.name</code> as
+  implicitly required, invalidating 224 entries. That regression is fixed: <code>name</code>
+  is now a class-local <code>recommended</code> attribute, not the global <code>identifier</code> slot,
+  and files with and without it validate. 441 of 1,044 models remain unnamed,
+  which is a recommendation gap and not an error — models that reach the
+  pathograph are named 589 times out of 607. The invariant that does matter,
+  no two models in one file sharing a fallback label, is enforced by
+  <code>check_animal_model_labels_are_unique</code> in <code>tests/test_data.py</code>.</li>
+<li><strong>Thematic projects</strong> with large open checklists: <code>REACTOME_DISEASES</code> (659
+  open), <code>CANCER</code> (79), <code>NICU</code> (40), <code>GWAS_MECHANISMS</code> (35), <code>CHILDHOOD_CANCER</code>
+  (35), <code>MONDO_EHR_MAPPINGS</code> (35).</li>
+</ul>
+<h2 id="regenerating-this-backlog">Regenerating this backlog</h2>
+<pre><code class="language-bash">just gen-dashboard        # refreshes dashboard/{capability_metrics,not_yet_curated,priority,reports}.json
+</code></pre>
+<p>The four TSVs under <code>projects/CURATION_BACKLOG/</code> are derived from those dashboards
+plus <code>research/conforms_to_suggestions.tsv</code>. Note that
+<code>dashboard/priority.json</code> reports <code>already_curated: 0</code> / <code>coverage_percent: 0.0</code>
+even though the generator log says it excluded 2,932 already-curated roots — the
+summary appears to count <em>after</em> exclusion, so do not read that 0% as a coverage
+statement.</p>
+        </article>
+    </div>
+</body>
+</html>
