@@ -1,0 +1,1739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xia-Gibbs Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Xia-Gibbs Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Xia-Gibbs Syndrome</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-10-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0014358" target="_blank" rel="noopener noreferrer">MONDO:0014358</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">14 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> XGS is a neurodevelopmental disorder. Its main features are:
+- hypotonia in infancy;
+- global developmental delay, with motor milestones especially late;
+- severely limited or absent expressive speech;
+- moderate-to-severe intellectual disability;
+- structural brain anomalies, most often a thin corpus callosum;
+- mild, nonspecific facial dysmorphism.</p>
+<p>Variable additional features include obstructive sleep apnea (OSA), movement disorders (ataxia, tremor, bradykinesia), seizures, short stature, scoliosis, strabismus, autism spectrum disorder and laryngomalacia.</p>
+<ul>
+<li>GeneReviews (Murdock et al., <a href="https://pubmed.ncbi.nlm.nih.gov/34902026/" target="_blank" rel="noopener noreferrer">PMID:34902026</a>) [cache]: <em>"The main features of Xia-Gibbs syndrome (XGS), present in a majority of affected individuals, include delayed motor milestones, speech delay with severely limited or absent speech, moderate-to-severe cognitive impairment, hypotonia, structural brain anomalies, and nonspecific dysmorphic features."</em></li>
+<li>The discovery paper (Xia et al. 2014, <a href="https://pubmed.ncbi.nlm.nih.gov/24791903/" target="_blank" rel="noopener noreferrer">PMID:24791903</a>) [cache]: <em>"we identified AHDC1 de novo truncating mutations that most likely cause this genetic syndrome."</em></li>
+</ul>
+<p><strong>Identifiers</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>ID</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OMIM (phenotype)</td>
+<td>615829 (XIGIS; formerly MRD25)</td>
+<td>verified</td>
+</tr>
+<tr>
+<td>OMIM (gene)</td>
+<td>615790 (AHDC1)</td>
+<td>verified</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0014358" target="_blank" rel="noopener noreferrer">MONDO:0014358</a></td>
+<td>verified (ClinGen record)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:412069" target="_blank" rel="noopener noreferrer">ORPHA:412069</a>, "AHDC1-related intellectual disability–obstructive sleep apnea–mild dysmorphism syndrome"</td>
+<td>reported by MedGen and the Belgian gentest registry; build the <code>ORPHA:412069</code> cache before citing it</td>
+</tr>
+<tr>
+<td>UMLS / MedGen</td>
+<td>C4014419</td>
+<td>from MedGen</td>
+</tr>
+<tr>
+<td>HGNC</td>
+<td>25230</td>
+<td>verified (ClinGen)</td>
+</tr>
+<tr>
+<td>ClinGen GDV</td>
+<td>CGGV:assertion_59a6c010-…-2021-11-16T170000.000Z — Definitive, AD, ID/Autism GCEP</td>
+<td>cached</td>
+</tr>
+<tr>
+<td>ICD-10 / ICD-11 / MeSH</td>
+<td>No disease-specific code found; MeSH indexes these papers under "Abnormalities, Multiple", "Intellectual Disability" and "DNA-Binding Proteins/genetics"</td>
+<td>not verified; leave unbound</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms:</strong> Xia-Gibbs syndrome; XGS; XIGIS; autosomal dominant intellectual disability 25 (MRD25); AHDC1-related intellectual disability–obstructive sleep apnea–mild dysmorphism syndrome.</p>
+<p><strong>Data provenance:</strong> Most information is aggregated at disease level from case series, the Baylor XGS Registry, GeneReviews, OMIM and Orphanet. There are no EHR-derived cohorts.</p>
+<p><strong>Case counts:</strong>
+- more than 270 individuals by 2021 (<a href="https://pubmed.ncbi.nlm.nih.gov/34950897/" target="_blank" rel="noopener noreferrer">PMID:34950897</a> [cache]: <em>"More than 270 individuals have been diagnosed with XGS worldwide."</em>);
+- more than 390 by 2025 (<a href="https://pubmed.ncbi.nlm.nih.gov/39835152/" target="_blank" rel="noopener noreferrer">PMID:39835152</a> [cache]: <em>"Whole-exome sequencing has identified more than 390 individuals worldwide with XGS"</em>).</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause:</strong> heterozygous, usually <em>de novo</em>, pathogenic variants in <em>AHDC1</em>:
+- <strong>Protein-truncating variants (most cases):</strong> nonsense and frameshift variants in the single coding exon.
+- <strong>Missense variants:</strong> a minority, clustered in conserved domains (<a href="https://pubmed.ncbi.nlm.nih.gov/34950897/" target="_blank" rel="noopener noreferrer">PMID:34950897</a>).
+- <strong>Deletions:</strong> whole-gene or partial <em>AHDC1</em> deletions and 1p36.11 contiguous deletions (<a href="https://pubmed.ncbi.nlm.nih.gov/36054313/" target="_blank" rel="noopener noreferrer">PMID:36054313</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39359946/" target="_blank" rel="noopener noreferrer">PMID:39359946</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/30152016/" target="_blank" rel="noopener noreferrer">PMID:30152016</a>).
+- <strong>Structural rearrangement:</strong> one <em>de novo</em> balanced translocation with a breakpoint in <em>AHDC1</em> intron 1, in a boy with a bicuspid aortic valve, aortic coarctation and PDA (Quintero-Rivera et al. 2015, <a href="https://pubmed.ncbi.nlm.nih.gov/25574029/" target="_blank" rel="noopener noreferrer">PMID:25574029</a>). The paper's title centres on MATR3; secondary sources attribute the AHDC1 breakpoint to it. Verify before citing.</p>
+<p><strong>Genetic risk factors</strong>
+- <strong>Causal:</strong> <em>AHDC1</em> is the only established gene.
+- <strong>Modifier genes:</strong> none established.
+- <strong>Co-occurring diagnoses:</strong> a second Mendelian diagnosis can deepen the phenotype. A Turkish cohort of 5 patients had one with a concurrent <em>CDK13</em> diagnosis that explained a more severe presentation (<a href="https://pubmed.ncbi.nlm.nih.gov/42136190/" target="_blank" rel="noopener noreferrer">PMID:42136190</a>, 2026).
+- <strong>Obstructive sleep apnea:</strong> one study reported rare <em>AHDC1</em> variants in patients with OSA (<a href="https://pubmed.ncbi.nlm.nih.gov/31737670/" target="_blank" rel="noopener noreferrer">PMID:31737670</a>, Biomed Res Int 2019). This is not established as a susceptibility locus.</p>
+<p><strong>Environmental risk factors:</strong> none known. Parental age has not been shown to matter.</p>
+<p><strong>Protective factors:</strong> none known, genetic or environmental.</p>
+<p><strong>Gene–environment interactions:</strong> none described.</p>
+<p><strong>Parental mosaicism:</strong>
+- Maternal germline mosaicism caused recurrence: a prenatal phenotype of hypoplastic corpus callosum recurred in two pregnancies (<a href="https://pubmed.ncbi.nlm.nih.gov/31812316/" target="_blank" rel="noopener noreferrer">PMID:31812316</a>, Eur J Obstet Gynecol Reprod Biol 2020).
+- Somatic mosaicism in a proband (<a href="https://pubmed.ncbi.nlm.nih.gov/34229113/" target="_blank" rel="noopener noreferrer">PMID:34229113</a> [cache]): <em>"we present a case of Xia-Gibbs syndrome caused by mosaicism for an AHDC1 variant."</em>
+- "Double mosaicism": two adjacent <em>de novo</em> AHDC1 variants lying <em>in trans</em> on the same parental haplotype, which implies a post-zygotic origin (<a href="https://pubmed.ncbi.nlm.nih.gov/41738116/" target="_blank" rel="noopener noreferrer">PMID:41738116</a>, 2026).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The two main frequency sources are:
+- <strong>Jiang 2018</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29696776/" target="_blank" rel="noopener noreferrer">PMID:29696776</a>, n=20, registry) [cache full text];
+- <strong>Khayat 2021</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33644933/" target="_blank" rel="noopener noreferrer">PMID:33644933</a>, n=34) [cache]: <em>"five core phenotypes (delayed motor milestones, speech delay, low muscle tone, ID, and hypotonia) in more than 80% of individuals and an additional 12 features that occurred more variably."</em></p>
+<h3>Phenotype table</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Suggested HPO (checked in <code>cache/hp/terms.csv</code>)</th>
+<th>Frequency</th>
+<th>Onset / course</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hypotonia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a> Hypotonia (or <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" rel="noopener noreferrer">HP:0001290</a> Generalized hypotonia)</td>
+<td>90% (18/20, Jiang); &gt;80% (Khayat)</td>
+<td>Neonatal/infantile; often improves</td>
+</tr>
+<tr>
+<td>Global developmental delay</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a></td>
+<td>&gt;80%</td>
+<td>Infancy</td>
+</tr>
+<tr>
+<td>Delayed gross motor development</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002194" target="_blank" rel="noopener noreferrer">HP:0002194</a></td>
+<td>&gt;80%; walking 80% at median 2.5 y (range 1.5–6); all non-walkers male</td>
+<td>Infancy</td>
+</tr>
+<tr>
+<td>Delayed speech and language development</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a></td>
+<td>&gt;80%</td>
+<td>Childhood</td>
+</tr>
+<tr>
+<td>Absent speech</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" rel="noopener noreferrer">HP:0001344</a></td>
+<td>40% no speech; 20% fewer than 50 words; 30% full sentences (Jiang)</td>
+<td>Lifelong</td>
+</tr>
+<tr>
+<td>Intellectual disability</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+<td>&gt;80%; moderate–severe</td>
+<td>Childhood; stable</td>
+</tr>
+<tr>
+<td>Thin corpus callosum</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" rel="noopener noreferrer">HP:0033725</a> (or <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" rel="noopener noreferrer">HP:0002079</a> Hypoplasia of the corpus callosum)</td>
+<td>6/6 re-reviewed MRIs; 60% abnormal MRI (Jiang); the most frequent finding in the Italian cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/42059486/" target="_blank" rel="noopener noreferrer">PMID:42059486</a>)</td>
+<td>Congenital; can be seen prenatally</td>
+</tr>
+<tr>
+<td>Posterior fossa cyst</td>
+<td>not found in cache (look up)</td>
+<td>several (Jiang)</td>
+<td>Congenital</td>
+</tr>
+<tr>
+<td>Delayed CNS myelination; simplified gyral pattern</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002188" target="_blank" rel="noopener noreferrer">HP:0002188</a>; <a href="http://purl.obolibrary.org/obo/HP_0009879" target="_blank" rel="noopener noreferrer">HP:0009879</a></td>
+<td>OMIM synopsis; rare</td>
+<td>Congenital</td>
+</tr>
+<tr>
+<td>Ataxia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a></td>
+<td>65% (13/20, Jiang)</td>
+<td>Childhood/adolescence</td>
+</tr>
+<tr>
+<td>Tremor; bradykinesia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" rel="noopener noreferrer">HP:0001337</a>; <a href="http://purl.obolibrary.org/obo/HP_0002067" target="_blank" rel="noopener noreferrer">HP:0002067</a></td>
+<td>variable (GeneReviews)</td>
+<td>Childhood/adolescence</td>
+</tr>
+<tr>
+<td>Seizure</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></td>
+<td>30% (Jiang), median onset 4 y (9 mo–12 y); onset 2–9 y in the Italian cohort, with posterior epileptiform EEG discharges activated by sleep</td>
+<td>Childhood</td>
+</tr>
+<tr>
+<td>Obstructive sleep apnea</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002870" target="_blank" rel="noopener noreferrer">HP:0002870</a> (<a href="http://purl.obolibrary.org/obo/HP_0025267" target="_blank" rel="noopener noreferrer">HP:0025267</a> Snoring)</td>
+<td>45% (9/20); 3 of the 9 used respiratory support</td>
+<td>Childhood</td>
+</tr>
+<tr>
+<td>Laryngomalacia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001601" target="_blank" rel="noopener noreferrer">HP:0001601</a></td>
+<td>variable</td>
+<td>Infancy</td>
+</tr>
+<tr>
+<td>Strabismus / esotropia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" rel="noopener noreferrer">HP:0000486</a> / <a href="http://purl.obolibrary.org/obo/HP_0000565" target="_blank" rel="noopener noreferrer">HP:0000565</a></td>
+<td>40%</td>
+<td>Childhood</td>
+</tr>
+<tr>
+<td>Scoliosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a></td>
+<td>20% (aged 10–21 y; 3 of 4 operated); more common with truncations in the N-terminal half</td>
+<td>Adolescence; progressive</td>
+</tr>
+<tr>
+<td>Autism / autistic behavior</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" rel="noopener noreferrer">HP:0000717</a> / <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" rel="noopener noreferrer">HP:0000729</a></td>
+<td>25% had a prior diagnosis; M-CHAT shows substantial overlap</td>
+<td>Childhood</td>
+</tr>
+<tr>
+<td>ADHD; anxiety</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" rel="noopener noreferrer">HP:0007018</a>; <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" rel="noopener noreferrer">HP:0000739</a></td>
+<td>variable (GeneReviews)</td>
+<td>Childhood</td>
+</tr>
+<tr>
+<td>Short stature</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a></td>
+<td>variable; partial GH deficiency in some (<a href="https://pubmed.ncbi.nlm.nih.gov/30729726/" target="_blank" rel="noopener noreferrer">PMID:30729726</a>)</td>
+<td>Childhood</td>
+</tr>
+<tr>
+<td>Failure to thrive; feeding difficulties; GERD</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a>; <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" rel="noopener noreferrer">HP:0011968</a>; <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" rel="noopener noreferrer">HP:0002020</a></td>
+<td>variable</td>
+<td>Infancy</td>
+</tr>
+<tr>
+<td>Dysmorphism: hypertelorism, micrognathia, low-set ears, flat/wide nasal bridge</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" rel="noopener noreferrer">HP:0000316</a>; <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" rel="noopener noreferrer">HP:0000347</a>; <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" rel="noopener noreferrer">HP:0000369</a>; <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" rel="noopener noreferrer">HP:0005280</a> / <a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" rel="noopener noreferrer">HP:0000431</a></td>
+<td>common, nonspecific</td>
+<td>Congenital</td>
+</tr>
+<tr>
+<td>Joint hypermobility</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" rel="noopener noreferrer">HP:0001382</a></td>
+<td>OMIM synopsis</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Craniosynostosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" rel="noopener noreferrer">HP:0001363</a></td>
+<td>rare (<a href="https://pubmed.ncbi.nlm.nih.gov/30152016/" target="_blank" rel="noopener noreferrer">PMID:30152016</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/30858058/" target="_blank" rel="noopener noreferrer">PMID:30858058</a>)</td>
+<td>Congenital</td>
+</tr>
+<tr>
+<td>Aplasia cutis congenita</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001057" target="_blank" rel="noopener noreferrer">HP:0001057</a></td>
+<td>rare (<a href="https://pubmed.ncbi.nlm.nih.gov/30152016/" target="_blank" rel="noopener noreferrer">PMID:30152016</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33464633/" target="_blank" rel="noopener noreferrer">PMID:33464633</a>)</td>
+<td>Congenital</td>
+</tr>
+<tr>
+<td>Bicuspid aortic valve</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001647" target="_blank" rel="noopener noreferrer">HP:0001647</a></td>
+<td>rare</td>
+<td>Congenital</td>
+</tr>
+<tr>
+<td>Hearing impairment</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" rel="noopener noreferrer">HP:0000365</a></td>
+<td>rare</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Macular dystrophy</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007754" target="_blank" rel="noopener noreferrer">HP:0007754</a></td>
+<td>rare (OMIM)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Developmental regression</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" rel="noopener noreferrer">HP:0002376</a></td>
+<td>associated with variant position in the Brazilian cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/40501103/" target="_blank" rel="noopener noreferrer">PMID:40501103</a>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Hyperphagia / obesity</td>
+<td>look up "Hyperphagia"; <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" rel="noopener noreferrer">HP:0001513</a></td>
+<td>newly reported as frequent in the Brazilian cohort; mirrors the <em>Ahdc1</em>-deficient mouse</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Additional supporting details</strong>
+- Sex effect (Jiang 2018 [cache]): <em>"Data from developmental milestones showed evidence for delayed speech and that males were more severely affected."</em>
+- Neuroimaging (Jiang 2018 [cache]): <em>"Neuroimaging from six available patients showed an associated thinning of the corpus callosum and posterior fossa cysts."</em>
+- Rare manifestations at a single children's hospital (CHOP, <a href="https://pubmed.ncbi.nlm.nih.gov/30152016/" target="_blank" rel="noopener noreferrer">PMID:30152016</a> [cache]): craniosynostosis, sensorineural hearing loss with a bicuspid aortic valve, cutis aplasia, soft loose skin, and lipoma.
+- The Brazilian cohort (n=16) reported three frequent features not described before (<a href="https://pubmed.ncbi.nlm.nih.gov/40501103/" target="_blank" rel="noopener noreferrer">PMID:40501103</a> [PubMed]: <em>"Three frequent phenotypes, not previously reported, were identified:"</em>): hyperphagia, male genital anomalies, and Achilles tendon shortening.</p>
+<p><strong>Phenotypic subtypes.</strong> A latent class analysis of 85 published cases (Jiang N et al., Eur J Hum Genet 2025, <a href="https://pubmed.ncbi.nlm.nih.gov/39648204/" target="_blank" rel="noopener noreferrer">PMID:39648204</a>) found three classes: an ataxia subtype, a sleep-apnea/short-stature subtype, and a neuropsychological subtype. [PubMed]: <em>"Age and variant type were identified as predictors of class membership."</em></p>
+<p><strong>Psychiatric features.</strong> Challenging behaviour and psychotic-like symptoms have been reported in adolescents (<a href="https://pubmed.ncbi.nlm.nih.gov/42366360/" target="_blank" rel="noopener noreferrer">PMID:42366360</a>, 2026; <a href="https://pubmed.ncbi.nlm.nih.gov/32816441/" target="_blank" rel="noopener noreferrer">PMID:32816441</a>). An adult natural-history case report exists (<a href="https://pubmed.ncbi.nlm.nih.gov/30622101/" target="_blank" rel="noopener noreferrer">PMID:30622101</a>).</p>
+<p><strong>Quality of life.</strong> No EQ-5D, SF-36 or PROMIS studies exist. The largest daily-functioning impacts are:
+- lack of speech, which drives communication dependence;
+- ID combined with behavioural problems;
+- sleep-disordered breathing, which may need CPAP;
+- progressive movement disorders and scoliosis in adolescence.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Gene structure:</strong>
+- <em>AHDC1</em>, chr1p36.11; NCBI Gene ID for human AHDC1 not checked (look up).
+- The whole open reading frame is in <strong>one coding exon</strong>. Pathogenic truncations therefore fall in the last coding exon and are expected to escape nonsense-mediated decay (NMD).
+- <a href="https://pubmed.ncbi.nlm.nih.gov/39835152/" target="_blank" rel="noopener noreferrer">PMID:39835152</a> [cache]: <em>"Notably, only the sixth exon of the AHDC1 gene encodes protein, while the rest are non-coding regions."</em></p>
+<p><strong>Protein:</strong> AHDC1/"Gibbin" is a 1,603-aa nuclear protein with AT-hook DNA-binding motifs. Its functional domains are poorly defined (<a href="https://pubmed.ncbi.nlm.nih.gov/39835152/" target="_blank" rel="noopener noreferrer">PMID:39835152</a>).</p>
+<p><strong>Variant spectrum</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Notes</th>
+<th>Key PMIDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Frameshift / nonsense (de novo)</td>
+<td>Most common. Reported positions span about codon 262–1,330. Recurrent p.Cys791Trpfs*57 (c.2373_2374delTG) in 4/20 registry patients.</td>
+<td>24791903, 29696776, 27148574, 33644933</td>
+</tr>
+<tr>
+<td>Missense (de novo)</td>
+<td>10 individuals; a subset cluster in two conserved regions; phenotypes consistent with XGS</td>
+<td>34950897</td>
+</tr>
+<tr>
+<td>Whole-gene or 5′ deletions</td>
+<td>Support haploinsufficiency</td>
+<td>39359946, 36054313, 30152016, 30615951</td>
+</tr>
+<tr>
+<td>Balanced translocation</td>
+<td>Breakpoint in intron 1</td>
+<td>25574029</td>
+</tr>
+<tr>
+<td>Mosaic / double mosaic</td>
+<td>Somatic and post-zygotic</td>
+<td>34229113, 41738116, 31812316</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Classification:</strong> most variants are ClinVar pathogenic or likely pathogenic under ACMG/AMP criteria (PS2 <em>de novo</em>, PVS1). Missense calls need domain-aware <em>in silico</em> analysis. <a href="https://pubmed.ncbi.nlm.nih.gov/34950897/" target="_blank" rel="noopener noreferrer">PMID:34950897</a> [cache]: <em>"de novo missense variants in AHDC1 are likely diagnostic of XGS when in silico analysis of their position relative to conserved regions is considered together with disease trait manifestations."</em></li>
+<li><strong>Population frequency:</strong> pathogenic variants are absent from gnomAD. The gene is highly constrained against loss of function; exact pLI/LOEUF values not retrieved.</li>
+<li><strong>Origin:</strong> germline, typically <em>de novo</em>. Somatic or post-zygotic mosaicism has been documented.</li>
+<li><strong>Somatic cancer context (not XGS):</strong> AHDC1 appears in Sézary syndrome mutational landscapes (<a href="https://pubmed.ncbi.nlm.nih.gov/26415585/" target="_blank" rel="noopener noreferrer">PMID:26415585</a>), medulloblastoma constraint analyses (<a href="https://pubmed.ncbi.nlm.nih.gov/37549291/" target="_blank" rel="noopener noreferrer">PMID:37549291</a>) and Ewing sarcoma (<a href="https://pubmed.ncbi.nlm.nih.gov/36194562/" target="_blank" rel="noopener noreferrer">PMID:36194562</a>). This is not relevant to XGS causation.</li>
+</ul>
+<p><strong>Functional consequence (contested)</strong>
+- <strong>Haploinsufficiency / loss of function:</strong> supported by whole-gene deletions (<a href="https://pubmed.ncbi.nlm.nih.gov/39359946/" target="_blank" rel="noopener noreferrer">PMID:39359946</a>) and the original interpretation (Yang 2015, <a href="https://pubmed.ncbi.nlm.nih.gov/27148574/" target="_blank" rel="noopener noreferrer">PMID:27148574</a>).
+- <strong>Dominant-negative or neomorphic effect of NMD-escaping truncated protein:</strong>
+  - Truncated products show abnormal nuclear localisation: a diffuse pattern for the short form and nucleolar aggregation for mid-protein truncations (<a href="https://pubmed.ncbi.nlm.nih.gov/33644933/" target="_blank" rel="noopener noreferrer">PMID:33644933</a> [cache]: <em>"Transient expression of wild type and different patient truncated AHDC1 protein forms in human cell lines revealed abnormal patterns of nuclear localization including a diffuse distribution of a short truncated form and nucleolar aggregation in mid-protein truncated forms."</em>).
+  - A Japanese cohort gave direct evidence of NMD escape (<a href="https://pubmed.ncbi.nlm.nih.gov/41653504/" target="_blank" rel="noopener noreferrer">PMID:41653504</a> [PubMed]: <em>"This study provides direct evidence of nonsense-mediated mRNA decay escape."</em>).
+- <strong>Deletion paradox:</strong> in one individual with a deletion, AHDC1 expression was compensated. <a href="https://pubmed.ncbi.nlm.nih.gov/36054313/" target="_blank" rel="noopener noreferrer">PMID:36054313</a> [cache]: <em>"AHDC1 exhibited a mono-allelic expression pattern with no deficiency in overall AHDC1 expression levels."</em></p>
+<p><strong>Genotype–phenotype correlations</strong>
+- Truncations in the N-terminal half are associated with seizures and scoliosis (<a href="https://pubmed.ncbi.nlm.nih.gov/33644933/" target="_blank" rel="noopener noreferrer">PMID:33644933</a> [cache]: <em>"Seizures and scoliosis were more frequently associated with truncations that arise before the midpoint of the protein"</em>).
+- Variant location is associated with epilepsy, scoliosis and regression in the Brazilian cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/40501103/" target="_blank" rel="noopener noreferrer">PMID:40501103</a>).
+- The same recurrent variant can produce markedly different phenotypes. Two Danish patients share c.2849del (<a href="https://pubmed.ncbi.nlm.nih.gov/34229113/" target="_blank" rel="noopener noreferrer">PMID:34229113</a>), and monozygotic twins had discordant epilepsy courses (<a href="https://pubmed.ncbi.nlm.nih.gov/35636160/" target="_blank" rel="noopener noreferrer">PMID:35636160</a>).</p>
+<p><strong>Epigenetics:</strong>
+- Gibbin loss raises DNA methylation at GATA3-dependent mesodermal genes (<a href="https://pubmed.ncbi.nlm.nih.gov/35585237/" target="_blank" rel="noopener noreferrer">PMID:35585237</a>).
+- No published blood DNA-methylation episignature for XGS was found. This is a knowledge gap.</p>
+<p><strong>Chromosomal abnormalities:</strong> 1p36.11 interstitial deletions and duplications that include <em>AHDC1</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30615951/" target="_blank" rel="noopener noreferrer">PMID:30615951</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/28841002/" target="_blank" rel="noopener noreferrer">PMID:28841002</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36054313/" target="_blank" rel="noopener noreferrer">PMID:36054313</a>). Distal 1p36 deletion syndrome and Radio-Tartaglia syndrome (<em>SPEN</em>) are the differential diagnoses for this region.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No environmental, lifestyle or infectious causes or triggers are known. XGS is a purely genetic, developmental disorder. A curator could record a <code>review_notes</code> waiver stating that no environmental factor has been reported.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Heterozygous <em>de novo</em> <em>AHDC1</em> variant (initiating lesion)</strong></li>
+<li>Truncating variants in the single coding exon are the commonest; missense variants and deletions also occur.</li>
+<li>This <strong>leads to</strong> either reduced functional Gibbin (haploinsufficiency) or production of NMD-escaping truncated Gibbin. <em>(Demonstrated: NMD escape, <a href="https://pubmed.ncbi.nlm.nih.gov/41653504/" target="_blank" rel="noopener noreferrer">PMID:41653504</a>; deletions causal, <a href="https://pubmed.ncbi.nlm.nih.gov/39359946/" target="_blank" rel="noopener noreferrer">PMID:39359946</a>.)</em></li>
+<li><strong>The mechanism branches here:</strong></li>
+<li><strong>2a. Truncated Gibbin mislocalises</strong> (diffuse nuclear distribution, or nucleolar aggregation). This <strong>results in</strong> loss of normal chromatin-associated function, and possibly interference with the wild-type allele. <em>(The localisation is demonstrated in vitro by overexpression, <a href="https://pubmed.ncbi.nlm.nih.gov/33644933/" target="_blank" rel="noopener noreferrer">PMID:33644933</a>. Dominant-negative action is inferred, not shown.)</em></li>
+<li><strong>2b. Reduced Gibbin dosage</strong> (deletions) <strong>results in</strong> the same downstream loss of function. <em>(Inferred; one deletion showed compensated expression, <a href="https://pubmed.ncbi.nlm.nih.gov/36054313/" target="_blank" rel="noopener noreferrer">PMID:36054313</a>.)</em></li>
+<li><strong>Loss of Gibbin at enhancers and promoters, where it interacts with zinc-finger transcription factors and methyl-CpG-binding proteins, leads to</strong> aberrant gene-specific DNA hypermethylation and disrupted promoter–enhancer contacts.</li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/35585237/" target="_blank" rel="noopener noreferrer">PMID:35585237</a> [cache]: <em>"The loss of Gibbin causes an increase in DNA methylation at GATA3-dependent mesodermal genes, resulting in a loss of signalling between developing dermal and epidermal cell types."</em></li>
+<li><em>(Demonstrated in hESC/organoid and mouse; neural tissue not yet studied.)</em></li>
+<li><strong>Dysregulated transcription of lineage-specification genes leads to</strong> abnormal mesoderm maturation and defective signalling between mesoderm and ectoderm. This <strong>results in</strong> patterning defects affecting craniofacial structure, the epidermis and the abdominal wall.</li>
+<li>These correspond to the dysmorphism, aplasia cutis and craniosynostosis seen in patients.</li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/35585237/" target="_blank" rel="noopener noreferrer">PMID:35585237</a> [cache]: <em>"In vivo chimeric CRISPR mouse mutants reveal a spectrum of Gibbin-dependent developmental patterning defects affecting craniofacial structure, abdominal wall closure and epidermal stratification that mirror patient phenotypes."</em></li>
+<li><strong>Chromatin and transcriptional dysregulation in the developing brain is proposed to lead to</strong> abnormal neurodevelopment: corpus callosum hypoplasia, posterior fossa anomalies and delayed myelination. These in turn <strong>result in</strong> developmental delay, ID, absent speech, autism, seizures and later ataxia or tremor.</li>
+<li><em>(Largely inferred. <a href="https://pubmed.ncbi.nlm.nih.gov/39835152/" target="_blank" rel="noopener noreferrer">PMID:39835152</a> proposes an analogy with MECP2 and ADNP. No neural-specific mechanistic study exists.)</em></li>
+<li><strong>Branch — airway, tone and growth:</strong></li>
+<li>Hypotonia together with upper-airway anomalies (laryngomalacia) <strong>leads to</strong> OSA. <em>(Clinically inferred.)</em></li>
+<li>Partial GH deficiency in some patients <strong>leads to</strong> short stature (<a href="https://pubmed.ncbi.nlm.nih.gov/30729726/" target="_blank" rel="noopener noreferrer">PMID:30729726</a>).</li>
+<li><strong>Branch — metabolism:</strong></li>
+<li>In mice, <em>Ahdc1</em> deficiency <strong>leads to</strong> reduced energy expenditure, then adiposity and obesity with hyperleptinemia, insulin resistance and fatty liver (<a href="https://pubmed.ncbi.nlm.nih.gov/37819197/" target="_blank" rel="noopener noreferrer">PMID:37819197</a> [cache]).</li>
+<li>This may relate to the hyperphagia reported in humans (<a href="https://pubmed.ncbi.nlm.nih.gov/40501103/" target="_blank" rel="noopener noreferrer">PMID:40501103</a>). <em>(The link is inferred.)</em></li>
+</ol>
+<h3>Checklist detail</h3>
+<ul>
+<li><strong>Pathways:</strong> GATA3- and p63-dependent epithelial programmes, and mesodermal lineage genes. No canonical signalling pathway (Wnt, MAPK, mTOR) is implicated.</li>
+<li><strong>Cellular processes:</strong> transcriptional regulation, chromatin organisation, DNA methylation, epidermal stratification.</li>
+<li><strong>Protein dysfunction:</strong> truncation, mislocalisation and nucleolar aggregation. The Nature 2023 study of phase separation and nucleolar dysfunction in frameshift variants (Mensah et al., <a href="https://pubmed.ncbi.nlm.nih.gov/36755093/" target="_blank" rel="noopener noreferrer">PMID:36755093</a>) lists AHDC1 in its gene data, but the relevance is unconfirmed.</li>
+<li><strong>Metabolic changes:</strong> murine obesity phenotype (above).</li>
+<li><strong>Immune involvement:</strong> none.</li>
+<li><strong>Tissue damage:</strong> none. The disorder is developmental, not degenerative, although the movement disorders do emerge later.</li>
+<li><strong>Omics:</strong></li>
+<li>Blood RNA expression of a deletion carrier (<a href="https://pubmed.ncbi.nlm.nih.gov/36054313/" target="_blank" rel="noopener noreferrer">PMID:36054313</a>).</li>
+<li>Gibbin ChIP and interactome, and methylome, in hESC skin organoids (<a href="https://pubmed.ncbi.nlm.nih.gov/35585237/" target="_blank" rel="noopener noreferrer">PMID:35585237</a>).</li>
+<li>No single-cell or spatial studies of neural tissue; no XGS datasets confirmed in GEO. Run <code>just discover-datasets</code> before adding any.</li>
+</ul>
+<p><strong>Suggested GO terms (from <code>cache/go/terms.csv</code>):</strong>
+- <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" rel="noopener noreferrer">GO:0006325</a> chromatin organization
+- <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" rel="noopener noreferrer">GO:0006357</a> regulation of transcription by RNA polymerase II
+- <a href="http://purl.obolibrary.org/obo/GO_0003677" target="_blank" rel="noopener noreferrer">GO:0003677</a> DNA binding; <a href="http://purl.obolibrary.org/obo/GO_0003682" target="_blank" rel="noopener noreferrer">GO:0003682</a> chromatin binding
+- <a href="http://purl.obolibrary.org/obo/GO_0007498" target="_blank" rel="noopener noreferrer">GO:0007498</a> mesoderm development
+- <a href="http://purl.obolibrary.org/obo/GO_0008544" target="_blank" rel="noopener noreferrer">GO:0008544</a> epidermis development; <a href="http://purl.obolibrary.org/obo/GO_0030216" target="_blank" rel="noopener noreferrer">GO:0030216</a> keratinocyte differentiation
+- <a href="http://purl.obolibrary.org/obo/GO_0007420" target="_blank" rel="noopener noreferrer">GO:0007420</a> brain development; <a href="http://purl.obolibrary.org/obo/GO_0022038" target="_blank" rel="noopener noreferrer">GO:0022038</a> corpus callosum development; <a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" rel="noopener noreferrer">GO:0042552</a> myelination
+- <a href="http://purl.obolibrary.org/obo/GO_0097009" target="_blank" rel="noopener noreferrer">GO:0097009</a> energy homeostasis (mouse)
+- <em>Not in cache, look up:</em> "DNA methylation" or "regulation of DNA methylation".</p>
+<p><strong>Suggested CL terms:</strong>
+- <a href="http://purl.obolibrary.org/obo/CL_0002322" target="_blank" rel="noopener noreferrer">CL:0002322</a> embryonic stem cell
+- <a href="http://purl.obolibrary.org/obo/CL_0002551" target="_blank" rel="noopener noreferrer">CL:0002551</a> fibroblast of dermis
+- <a href="http://purl.obolibrary.org/obo/CL_0002187" target="_blank" rel="noopener noreferrer">CL:0002187</a> basal cell of epidermis; <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a> keratinocyte
+- <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a> neuron; <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" rel="noopener noreferrer">CL:0011020</a> neural progenitor cell; <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" rel="noopener noreferrer">CL:0000128</a> oligodendrocyte (inferred)
+- <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" rel="noopener noreferrer">CL:0000136</a> adipocyte (mouse)</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary:</strong> central nervous system.</li>
+<li><a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> brain; <a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" rel="noopener noreferrer">UBERON:0002336</a> corpus callosum; <a href="http://purl.obolibrary.org/obo/UBERON_0008788" target="_blank" rel="noopener noreferrer">UBERON:0008788</a> posterior cranial fossa; <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a> cerebellum (ataxia); <a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" rel="noopener noreferrer">UBERON:0002316</a> white matter (myelination).</li>
+<li><strong>Secondary:</strong></li>
+<li>Upper airway (<a href="http://purl.obolibrary.org/obo/UBERON_0001737" target="_blank" rel="noopener noreferrer">UBERON:0001737</a> larynx)</li>
+<li>Musculoskeletal (<a href="http://purl.obolibrary.org/obo/UBERON_0001130" target="_blank" rel="noopener noreferrer">UBERON:0001130</a> vertebral column, for scoliosis)</li>
+<li>Skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> skin of body; <a href="http://purl.obolibrary.org/obo/UBERON_0002067" target="_blank" rel="noopener noreferrer">UBERON:0002067</a> dermis)</li>
+<li>Eye (<a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a> retina; <a href="http://purl.obolibrary.org/obo/UBERON_0000053" target="_blank" rel="noopener noreferrer">UBERON:0000053</a> macula lutea)</li>
+<li>Cranium and face; endocrine (GH axis); heart (rare BAV/ASD)</li>
+<li><strong>Subcellular:</strong> <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> nucleus; <a href="http://purl.obolibrary.org/obo/GO_0005654" target="_blank" rel="noopener noreferrer">GO:0005654</a> nucleoplasm; <a href="http://purl.obolibrary.org/obo/GO_0005730" target="_blank" rel="noopener noreferrer">GO:0005730</a> nucleolus (aggregation of mutant protein).</li>
+<li><strong>Lateralisation:</strong> bilateral and symmetric. Eye asymmetry has been reported once (<a href="https://pubmed.ncbi.nlm.nih.gov/38357260/" target="_blank" rel="noopener noreferrer">PMID:38357260</a>).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> congenital. Corpus callosum hypoplasia can be detected prenatally (<a href="https://pubmed.ncbi.nlm.nih.gov/31812316/" target="_blank" rel="noopener noreferrer">PMID:31812316</a>). Hypotonia and feeding problems appear in the neonatal or infantile period.</li>
+<li><strong>Course:</strong> a static neurodevelopmental disorder overall, with features emerging over time:</li>
+<li>movement disorders (ataxia, tremor, bradykinesia) in childhood or adolescence;</li>
+<li>scoliosis at 10–21 years;</li>
+<li>seizures at a median of 4 years;</li>
+<li>regression in a subset (<a href="https://pubmed.ncbi.nlm.nih.gov/40501103/" target="_blank" rel="noopener noreferrer">PMID:40501103</a>).</li>
+<li><strong>Duration:</strong> lifelong. Adults have been described (<a href="https://pubmed.ncbi.nlm.nih.gov/30622101/" target="_blank" rel="noopener noreferrer">PMID:30622101</a>; the age range widened in Jiang 2018).</li>
+<li><strong>Critical periods:</strong></li>
+<li>early childhood, for speech, communication and AAC therapy;</li>
+<li>childhood, for sleep-apnea screening;</li>
+<li>adolescence, for scoliosis and movement-disorder surveillance.</li>
+<li><strong>Remission:</strong> none.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> autosomal dominant (<a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank" rel="noopener noreferrer">HP:0000006</a>); almost all cases <em>de novo</em>.</li>
+<li><strong>Somatic mosaicism:</strong> documented in probands (<a href="https://pubmed.ncbi.nlm.nih.gov/34229113/" target="_blank" rel="noopener noreferrer">PMID:34229113</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41738116/" target="_blank" rel="noopener noreferrer">PMID:41738116</a>), so <a href="http://purl.obolibrary.org/obo/HP_0001442" target="_blank" rel="noopener noreferrer">HP:0001442</a> is a candidate. Apply the <code>somatic-mosaicism</code> skill tiers before binding it, because parental germline mosaicism (<a href="https://pubmed.ncbi.nlm.nih.gov/31812316/" target="_blank" rel="noopener noreferrer">PMID:31812316</a>) must not be bound.</li>
+<li><strong>Penetrance:</strong> presumed complete for truncating variants. <strong>Expressivity:</strong> highly variable, including between identical twins (<a href="https://pubmed.ncbi.nlm.nih.gov/35636160/" target="_blank" rel="noopener noreferrer">PMID:35636160</a>).</li>
+<li><strong>Anticipation:</strong> none. <strong>Founder effects:</strong> none. <strong>Consanguinity:</strong> not relevant. <strong>Carrier frequency:</strong> not applicable.</li>
+<li><strong>Prevalence:</strong> unknown. There are about 390 or more reported cases worldwide (2025), across many countries: USA, Europe, China, Japan, Brazil, India, Turkey, Iran and the DR Congo. A suitable <code>prevalence_class</code> is <code>NOT_YET_DOCUMENTED</code>, or <code>RARE</code> with <code>measure_type: CASES_IN_LITERATURE</code>.</li>
+<li><strong>Sex ratio:</strong></li>
+<li>Roughly balanced: 9 female and 11 male in Jiang 2018.</li>
+<li>Males may be more severely affected (Jiang 2018), but this is not consistently replicated.</li>
+<li><strong>Ethnicity:</strong> the registry was 90% White (ascertainment bias). Cohorts are now published from multiple ancestries.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Clinical criteria:</strong> none. Diagnosis is genetic, because the phenotype is nonspecific.</li>
+<li>Jiang 2018 [cache]: <em>"making DNA testing and the establishment of molecular diagnosis the primary diagnostic tool for XGS."</em></li>
+<li>GeneReviews [cache]: <em>"The diagnosis of XGS is established in a proband with suggestive clinical findings and a heterozygous pathogenic variant in AHDC1 that is predicted to lead to a truncated protein, identified by molecular genetic testing"</em></li>
+<li><strong>Genetic testing:</strong></li>
+<li>First tier: exome or genome sequencing (trio preferred), or an ID/autism/neurodevelopmental gene panel that includes <em>AHDC1</em>.</li>
+<li>Chromosomal microarray detects 1p36.11 deletions. Genome sequencing detects small intragenic or 5′ deletions (<a href="https://pubmed.ncbi.nlm.nih.gov/39359946/" target="_blank" rel="noopener noreferrer">PMID:39359946</a>), and long-read sequencing resolves complex cases (<a href="https://pubmed.ncbi.nlm.nih.gov/36054313/" target="_blank" rel="noopener noreferrer">PMID:36054313</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41738116/" target="_blank" rel="noopener noreferrer">PMID:41738116</a>).</li>
+<li>Low-level mosaicism may need deep sequencing.</li>
+<li>Karyotype and FISH have little role, except for balanced rearrangements.</li>
+<li><strong>Imaging:</strong> brain MRI (thin corpus callosum, posterior fossa cysts, ventricular anomalies, delayed myelination).</li>
+<li><strong>Other tests:</strong></li>
+<li>Polysomnography for OSA. Suggested NCIT term: verify "Polysomnography" before binding.</li>
+<li>EEG.</li>
+<li>Spine radiographs.</li>
+<li>Ophthalmology and audiology.</li>
+<li>GH stimulation testing when growth velocity is poor.</li>
+<li><strong>Biomarkers:</strong> none. No methylation episignature has been published.</li>
+<li><strong>Differential diagnosis:</strong></li>
+<li>1p36 deletion syndrome</li>
+<li>Angelman syndrome (absent speech, ataxia, seizures)</li>
+<li>Pitt-Hopkins syndrome</li>
+<li>Prader-Willi syndrome (hypotonia, hyperphagia, OSA)</li>
+<li>Other chromatin-regulator neurodevelopmental disorders: <em>ADNP</em>, <em>MECP2</em>, <em>PRR12</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38798311/" target="_blank" rel="noopener noreferrer">PMID:38798311</a>), <em>SPEN</em>/Radio-Tartaglia (<a href="https://doi.org/10.26815/acn.2024.00717" target="_blank" rel="noopener noreferrer">DOI:10.26815/acn.2024.00717</a>)</li>
+<li><em>RNU4-2</em>-related neurodevelopmental disorder (<a href="https://pubmed.ncbi.nlm.nih.gov/38821540/" target="_blank" rel="noopener noreferrer">PMID:38821540</a>)</li>
+<li>Mitochondrial and connective-tissue disorders, considered in the CHOP series</li>
+<li><strong>Screening:</strong> no newborn or carrier screening. Prenatal or preimplantation testing is possible once the familial variant is known.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival:</strong> no mortality data. Survival into adulthood is documented (<a href="https://pubmed.ncbi.nlm.nih.gov/30622101/" target="_blank" rel="noopener noreferrer">PMID:30622101</a>), and life expectancy is not known to be reduced.</li>
+<li><strong>Morbidity:</strong></li>
+<li>lifelong ID and limited speech;</li>
+<li>80% achieve independent walking (median 2.5 y);</li>
+<li>90% follow simple commands.</li>
+<li>Main complications: OSA (45%; some need CPAP), seizures (about 30%), scoliosis (20%, often surgical), movement disorders, behavioural and psychiatric problems.</li>
+<li><strong>Prognostic factors:</strong></li>
+<li>Male sex: possibly more severe.</li>
+<li>N-terminal truncation: associated with seizures and scoliosis.</li>
+<li>Age and variant type: predict phenotypic class (<a href="https://pubmed.ncbi.nlm.nih.gov/39648204/" target="_blank" rel="noopener noreferrer">PMID:39648204</a>).</li>
+<li><strong>Recovery:</strong> not applicable. Function improves with therapy, but the core deficits persist.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p>There is <strong>no disease-modifying therapy</strong> and there are no clinical trials. ClinicalTrials.gov shows no XGS-specific registrations; re-check this. Management follows GeneReviews (<a href="https://pubmed.ncbi.nlm.nih.gov/34902026/" target="_blank" rel="noopener noreferrer">PMID:34902026</a>), which states [cache]: <em>"Treatment is symptomatic"</em>.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention</th>
+<th>NCIT (checked in <code>cache/ncit/terms.csv</code>)</th>
+<th>Modality</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Speech/language therapy, AAC</td>
+<td>NCIT:C159273 Speech Language Therapy</td>
+<td>BEHAVIORAL</td>
+<td>Core intervention</td>
+</tr>
+<tr>
+<td>Physical therapy</td>
+<td>NCIT:C15302 Physical Therapy</td>
+<td>BEHAVIORAL</td>
+<td>Hypotonia, motor delay</td>
+</tr>
+<tr>
+<td>Occupational therapy</td>
+<td>NCIT:C121351 Occupational Therapy</td>
+<td>BEHAVIORAL</td>
+<td></td>
+</tr>
+<tr>
+<td>CPAP for OSA</td>
+<td>NCIT:C124040 Continuous Positive Airway Pressure</td>
+<td>DEVICE</td>
+<td>"Many requiring continuous positive airway pressure at night" (Jiang 2018)</td>
+</tr>
+<tr>
+<td>Adenotonsillectomy</td>
+<td>NCIT:C51684 Tonsillectomy with Adenoidectomy</td>
+<td>SURGERY</td>
+<td>Standard OSA care; not XGS-specific evidence</td>
+</tr>
+<tr>
+<td>Antiseizure medication</td>
+<td>NCIT:C15986 Pharmacotherapy + agent (e.g., <a href="http://purl.obolibrary.org/obo/CHEBI_6437" target="_blank" rel="noopener noreferrer">CHEBI:6437</a> levetiracetam)</td>
+<td>SMALL_MOLECULE</td>
+<td>Standard care; no XGS-specific drug data</td>
+</tr>
+<tr>
+<td>Growth hormone (in documented GH deficiency)</td>
+<td>NCIT:C15986 + therapeutic_agent <a href="http://purl.obolibrary.org/obo/CHEBI_749556" target="_blank" rel="noopener noreferrer">CHEBI:749556</a> somatropin / NCIT:C837 Somatropin</td>
+<td>PROTEIN_REPLACEMENT</td>
+<td>Two patients with partial GHD treated for 24 and 9 months (<a href="https://pubmed.ncbi.nlm.nih.gov/30729726/" target="_blank" rel="noopener noreferrer">PMID:30729726</a>); outcome data are limited</td>
+</tr>
+<tr>
+<td>Spinal fusion for scoliosis</td>
+<td>NCIT:C157986 Spinal Fusion</td>
+<td>SURGERY</td>
+<td>3 of 4 scoliosis patients operated (Jiang 2018)</td>
+</tr>
+<tr>
+<td>Melatonin for sleep</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_16796" target="_blank" rel="noopener noreferrer">CHEBI:16796</a> melatonin</td>
+<td>SMALL_MOLECULE</td>
+<td>Typical practice; not XGS-specific evidence</td>
+</tr>
+<tr>
+<td>Behavioural/psychiatric management</td>
+<td>NCIT:C15747 Supportive Care</td>
+<td>OTHER</td>
+<td>Integrative care case (<a href="https://pubmed.ncbi.nlm.nih.gov/42366360/" target="_blank" rel="noopener noreferrer">PMID:42366360</a>)</td>
+</tr>
+<tr>
+<td>Genetic counseling</td>
+<td>NCIT:C15240 Genetic Counseling</td>
+<td>BEHAVIORAL</td>
+<td></td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Anaesthesia:</strong> a latex-free anaesthesia approach was reported for craniosynostosis surgery (<a href="https://pubmed.ncbi.nlm.nih.gov/37927632/" target="_blank" rel="noopener noreferrer">PMID:37927632</a>). Airway caution is warranted because of laryngomalacia and OSA.</li>
+<li><strong>Pharmacogenomics:</strong> none.</li>
+<li><strong>Gene, RNA or cell therapy:</strong> none. Because the truncated protein may act dominantly, allele-specific silencing would be a theoretical option, but it is entirely speculative.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> not possible, because the variants are <em>de novo</em>.</li>
+<li><strong>Recurrence risk:</strong> low, but higher than the population risk because of parental germline mosaicism (<a href="https://pubmed.ncbi.nlm.nih.gov/31812316/" target="_blank" rel="noopener noreferrer">PMID:31812316</a>). Prenatal or preimplantation testing can be offered once the variant is known.</li>
+<li><strong>Tertiary prevention (surveillance, per GeneReviews):</strong></li>
+<li>growth and nutrition at every visit;</li>
+<li>seizures and movement disorders;</li>
+<li>scoliosis checks until skeletal maturity;</li>
+<li>annual vision and hearing;</li>
+<li>sleep and respiratory assessment;</li>
+<li>GH levels if growth velocity is poor.</li>
+<li><strong>Vaccines, prophylaxis, public health:</strong> not applicable.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li>No naturally occurring animal disease was found in OMIA.</li>
+<li><em>AHDC1</em> is conserved across vertebrates: mouse <em>Ahdc1</em> and zebrafish <em>ahdc1</em>. Look up NCBI Gene, MGI and ZFIN IDs before binding.</li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/24791903/" target="_blank" rel="noopener noreferrer">PMID:24791903</a> noted that the coding sequence and the 3′ non-coding exons are highly conserved.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Phenotype recapitulation</th>
+<th>Limitations</th>
+<th>PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chimeric CRISPR <em>Ahdc1</em> mutant mice (NCBITaxon:10090)</td>
+<td>Craniofacial, abdominal wall and epidermal stratification defects that "mirror patient phenotypes"</td>
+<td>Chimeric; neural and behavioural phenotypes not reported</td>
+<td>35585237</td>
+</tr>
+<tr>
+<td><em>Ahdc1</em>-deficient mouse line</td>
+<td>Adiposity from weaning, obesity, reduced energy expenditure, hyperleptinemia, insulin resistance, fatty liver</td>
+<td>Neurodevelopmental phenotype not characterised; obesity is not a core human feature</td>
+<td>37819197</td>
+</tr>
+<tr>
+<td>Zebrafish <em>ahdc1</em> 4-bp insertion (CRISPR; NCBITaxon:7955)</td>
+<td>Fertile; Mendelian ratios; phenotype not yet described</td>
+<td>Not yet phenotyped; deposited in ZFIN</td>
+<td>37054903</td>
+</tr>
+<tr>
+<td>Patient iPSC lines (3 LoF variants; hpscreg.eu)</td>
+<td>Pluripotent; trilineage-competent</td>
+<td>No disease phenotype reported yet</td>
+<td>37054903</td>
+</tr>
+<tr>
+<td>Patient iPSC line FDCHi010-A (c.2062C&gt;T)</td>
+<td>Resource only</td>
+<td>Not phenotyped</td>
+<td>37216737</td>
+</tr>
+<tr>
+<td>Gibbin-mutant hESC-derived skin organoids</td>
+<td>Lack dermal maturation; defective keratinocyte stratification; GATA3-target hypermethylation</td>
+<td>Skin rather than brain</td>
+<td>35585237</td>
+</tr>
+<tr>
+<td>Transient overexpression in human cell lines</td>
+<td>Mislocalisation and nucleolar aggregation of truncated forms</td>
+<td>Supraphysiological expression</td>
+<td>33644933</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Applications:</strong> chromatin and methylation mechanism, epithelial and craniofacial patterning, metabolic regulation, and iPSC-derived neural models (not yet published).</li>
+<li><strong>Model–human mismatch:</strong> no model yet recapitulates the core neurodevelopmental phenotype (ID, absent speech, thin corpus callosum). This would be a good <code>HUMAN_MODEL_MISMATCH</code> or <code>KNOWLEDGE_GAP</code> discussion.</li>
+</ul>
+<hr />
+<h2>Key Knowledge Gaps</h2>
+<ol>
+<li>Whether XGS is caused by haploinsufficiency, by a dominant-negative effect of NMD-escaping protein, or by both (allelic heterogeneity). The deletion data and the NMD-escape data point in different directions.</li>
+<li>Gibbin's neural targets. No brain-specific ChIP, methylome or single-cell data exist.</li>
+<li>No blood DNA-methylation episignature, which would help classify missense VUS.</li>
+<li>No natural-history or prevalence data, and no quality-of-life instruments.</li>
+<li>The hyperphagia and obesity link between the mouse and the Brazilian cohort needs confirmation.</li>
+</ol>
+<hr />
+<h2>Key References</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Citation</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>24791903</td>
+<td>Xia F et al. <em>Am J Hum Genet</em> 2014. Discovery paper</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>27148574</td>
+<td>Yang H et al. <em>Cold Spring Harb Mol Case Stud</em> 2015. Seven additional cases</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>29696776</td>
+<td>Jiang Y et al. <em>Am J Med Genet A</em> 2018. XGS Registry phenotypic spectrum</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>30152016</td>
+<td>Gumus E et al. <em>Am J Med Genet A</em> 2018. CHOP series</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>33644933</td>
+<td>Khayat MM et al. <em>Hum Mutat</em> 2021. n=34; protein localisation</td>
+<td>Human clinical + in vitro</td>
+</tr>
+<tr>
+<td>34950897</td>
+<td>Khayat MM et al. <em>HGG Adv</em> 2021. Missense variants</td>
+<td>Human clinical + computational</td>
+</tr>
+<tr>
+<td>34229113</td>
+<td>Danish cohort, <em>Eur J Med Genet</em> 2021. Mosaicism</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>34902026</td>
+<td>Murdock D et al. <em>GeneReviews</em> 2021</td>
+<td>Review / baseline</td>
+</tr>
+<tr>
+<td>35585237</td>
+<td>Collier A et al. <em>Nature</em> 2022. Gibbin and DNA methylation</td>
+<td>In vitro / model organism</td>
+</tr>
+<tr>
+<td>36054313</td>
+<td>Chander V et al. <em>Hum Mutat</em> 2022. Deletions; long-read sequencing</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>37054903</td>
+<td>Carvalho LML et al. <em>Gene</em> 2023. iPSC and zebrafish</td>
+<td>Model resources</td>
+</tr>
+<tr>
+<td>37819197</td>
+<td><em>Am J Physiol Endocrinol Metab</em> 2023. <em>Ahdc1</em> mouse obesity</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td>39359946</td>
+<td><em>Mol Syndromol</em> 2024. Genome-sequencing deletions</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>39648204</td>
+<td>Jiang N et al. <em>Eur J Hum Genet</em> 2025. Latent class subtypes (n=85)</td>
+<td>Computational/clinical</td>
+</tr>
+<tr>
+<td>39835152</td>
+<td>Li et al. <em>Front Neurol</em> 2025. Gibbin chromatin review</td>
+<td>Review</td>
+</tr>
+<tr>
+<td>40501103</td>
+<td>Sennes MGS et al. <em>Clin Genet</em> 2025. Brazilian cohort (n=16)</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>40844525</td>
+<td><em>Hum Genet</em> 2025. AHDC1 molecular-features review</td>
+<td>Review</td>
+</tr>
+<tr>
+<td>41653504</td>
+<td>Shirai H et al. <em>Brain Dev</em> 2026. Japanese cohort; NMD escape</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>41738116</td>
+<td><em>Am J Med Genet A</em> 2026. Double mosaicism</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>42059486</td>
+<td>Cinelli G et al. <em>Am J Med Genet A</em> 2026. Italian cohort (n=15) plus systematic review</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>42136190</td>
+<td><em>Dev Neurobiol</em> 2026. Turkish cohort</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>30729726</td>
+<td>Cheng X et al. <em>Mol Genet Genomic Med</em> 2019. Partial GH deficiency</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>31812316</td>
+<td><em>Eur J Obstet Gynecol Reprod Biol</em> 2020. Maternal germline mosaicism</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>CGGV:assertion_59a6c010…</td>
+<td>ClinGen GDV, Definitive (2021-11-16)</td>
+<td>Structured source</td>
+</tr>
+</tbody>
+</table></div></details>
+<h2>Sources</h2>
+<ul>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/?term=AHDC1">PubMed AHDC1 search</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/39648204/">Jiang N 2025, latent class analysis (PMID 39648204)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40501103/">Sennes 2025, Brazilian cohort (PMID 40501103)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41653504/">Shirai 2026, Japanese cohort (PMID 41653504)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/27148574/">Yang 2015 (PMID 27148574)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/30729726/">Cheng 2019, GH deficiency (PMID 30729726)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11743279/">AHDC1/Gibbin review, Front Neurol 2025 (PMC11743279)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8694554/">AHDC1 missense mutations (PMC8694554)</a></li>
+<li><a href="https://ncbi.nlm.nih.gov/medgen/C4014419">MedGen C4014419</a></li>
+<li><a href="https://gentest.healthdata.be/disease/2502">Belgian gentest registry, ORPHA 412069</a></li>
+<li><a href="https://git.lsit.ucsb.edu/publicdata/nih-gov/raw/branch/main/www.ncbi.nlm.nih.gov/omim/615829">OMIM 615829 mirror</a></li>
+<li><a href="https://iris.unimore.it/handle/11380/1406570">Cinelli 2026, Italian cohort (IRIS Unimore)</a></li>
+<li><a href="https://www.termedia.pl/Diagnostic-and-clinical-approach-to-a-paediatric-patient-with-skin-aplasia-of-the-head-as-a-rare-manifestation-of-Xia-Gibbs-syndrome-caused-by-a-new-potentially-pathogenic-de-novo-mutation-in-the-AHDC,127,55842,0,1.html">Polish case report, aplasia of the scalp</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Xia%E2%80%93Gibbs_syndrome">Wikipedia: Xia–Gibbs syndrome</a></li>
+<li>Local <code>references_cache/</code> files for PMIDs 24791903, 29696776, 30152016, 33644933, 34229113, 34902026, 34950897, 35585237, 36054313, 37054903, 37819197 and 39835152, plus the ClinGen CGGV record</li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.4.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>42</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>42</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>42</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>95</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>93</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0014358</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>AHDC1-related intellectual disability - obstructive sleep apnea - mild dysmorphism syndrome</strong></li>
+<li><code>NCBITaxon:10090</code> (1 mention) - the report calls it "Chimeric CRISPR <em>Ahdc1</em> mutant mice"; NCBITaxon calls it <strong>Mus musculus</strong></li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="XFE_Progeroid_Syndrome-openscientist.html">← XFE Progeroid Syndrome (OpenScientist)</a>
+                
+                
+                <a href="Yao_Syndrome-perplexity.html">Yao Syndrome (Perplexity) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Xia-Gibbs_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Xia-Gibbs_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

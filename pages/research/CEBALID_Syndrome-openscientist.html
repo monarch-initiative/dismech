@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CEBALID Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>CEBALID Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>CEBALID Syndrome</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-10-30</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0032908" target="_blank" rel="noopener noreferrer">MONDO:0032908</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">7 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p>CEBALID syndrome (also termed <strong>MN1 C-terminal truncation [MCTT] syndrome</strong>) is a Mendelian, congenital neurodevelopmental and craniofacial malformation disorder. It was independently described in 2020 by Mak et al. (<em>Brain</em>) and Miyake et al. (<em>American Journal of Human Genetics</em>), who both identified clusters of individuals with de novo C-terminal truncating <em>MN1</em> variants sharing a remarkably consistent phenotype.</p>
+<p><strong>Key identifiers:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0032908" target="_blank" rel="noopener noreferrer">MONDO:0032908</a></td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>#618774</td>
+</tr>
+<tr>
+<td>Gene</td>
+<td><em>MN1</em> (<a href="https://bioregistry.io/HGNC:7180" target="_blank" rel="noopener noreferrer">HGNC:7180</a>), chromosome 22q12.1</td>
+</tr>
+<tr>
+<td>Synonyms</td>
+<td>MN1 C-terminal truncation syndrome; MCTT; CEBALID syndrome</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>As Dirani et al. (2025) state, <em>"CEBALID syndrome (Craniofacial defects, dysmorphic Ears, Brain Abnormalities, Language delay, and Intellectual Disability) is caused by C-terminal truncated transcriptional activator MN1"</em> and <em>"This novel syndrome ... was recently identified in 2020. Since then, less than 30 cases have been reported worldwide"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40713540/">PMID: 40713540</a>).</p>
+<p><strong>Information source:</strong> The knowledge base is derived from aggregated, disease-level resources—primarily small case series and individual case reports (Mak n=23; Miyake n=3; Dirani n=1) combined with mechanistic model-organism and in vitro studies. There is no EHR/registry-scale dataset.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factor — genetic (de novo, dominant).</strong> CEBALID is a monogenic disorder caused by heterozygous <strong>truncating variants in <em>MN1</em></strong>. Mak et al. identified <em>"a cluster of de novo truncating mutations in MN1 in a cohort of 23 individuals"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31834374/">PMID: 31834374</a>), and Miyake et al. described <em>"three individuals who have de novo MN1 variants that lead to a protein lacking the carboxyl (C) terminus"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31839203/">PMID: 31839203</a>). The variants arise <strong>de novo</strong>, so affected individuals typically have unaffected parents.</p>
+<p><strong>Genetic risk factors.</strong> The sole established genetic risk factor is the presence of a de novo C-terminal truncating <em>MN1</em> variant. The recurrent <strong>p.Arg1295*</strong> variant represents a CpG-associated mutational hotspot rather than a founder allele. No susceptibility loci or modifier genes have been identified.</p>
+<p><strong>Environmental risk factors / protective factors / gene–environment interactions.</strong> None are established. As a de novo dominant malformation syndrome, there are <strong>no known environmental risk factors, protective factors, lifestyle contributors, or gene–environment interactions</strong>. Advanced paternal age is a general (not disease-specific) consideration for de novo variants but has not been formally studied here.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The phenotype is <strong>congenital/neonatal in onset</strong>, <strong>variable in severity but generally severe</strong>, and <strong>non-progressive (malformative/static)</strong> with lifelong disability. Frequencies below derive chiefly from the Mak cohort (n=23) and the Miyake series (n=3).</p>
+<h3>Neurodevelopmental phenotypes</h3>
+<ul>
+<li><strong>Intellectual disability</strong> (<a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a>) — core, high frequency</li>
+<li><strong>Severe expressive/speech language delay</strong> (<a href="http://purl.obolibrary.org/obo/HP_0002474" target="_blank" rel="noopener noreferrer">HP:0002474</a>, <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a>) — hallmark, nearly universal</li>
+<li><strong>Global developmental delay</strong> (<a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a>)</li>
+<li><strong>Hypotonia</strong> (<a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a>)</li>
+</ul>
+<p>Mak et al.: <em>"strikingly similar dysmorphic facial features, especially midface hypoplasia, and intellectual disability with severe expressive language delay"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31834374/">PMID: 31834374</a>).</p>
+<h3>Brain malformation phenotypes</h3>
+<ul>
+<li><strong>Partial/atypical rhombencephalosynapsis</strong> (cerebellar vermis hypoplasia/aplasia with hemispheric fusion) — <strong>8/10 imaged individuals</strong> in Mak et al.</li>
+<li><strong>Perisylvian polymicrogyria</strong> (<a href="http://purl.obolibrary.org/obo/HP_0032420" target="_blank" rel="noopener noreferrer">HP:0032420</a> / <a href="http://purl.obolibrary.org/obo/HP_0002126" target="_blank" rel="noopener noreferrer">HP:0002126</a>)</li>
+<li><strong>Corpus callosum anomalies</strong> including agenesis of the genu (<a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" rel="noopener noreferrer">HP:0001273</a>)</li>
+<li><strong>Ventriculomegaly</strong> (<a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" rel="noopener noreferrer">HP:0002119</a>)</li>
+<li><strong>Abnormal posterior clinoid processes; persistent trigeminal artery</strong></li>
+</ul>
+<p>Mak et al. identified <em>"an atypical form of rhombencephalosynapsis, a distinctive brain malformation characterized by partial or complete loss of the cerebellar vermis with fusion of the cerebellar hemispheres, in 8/10 individuals"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31834374/">PMID: 31834374</a>). Dirani et al. documented a neonate whose MRI <em>"revealed polymicrogyri, agenesis of the genu of the corpus callosum and rhombencephalosynapsis"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40713540/">PMID: 40713540</a>).</p>
+<h3>Craniofacial phenotypes</h3>
+<ul>
+<li><strong>Midface hypoplasia</strong> (<a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" rel="noopener noreferrer">HP:0011800</a>) — hallmark gestalt feature</li>
+<li><strong>Hypertelorism</strong> (<a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" rel="noopener noreferrer">HP:0000316</a>); <strong>downslanting palpebral fissures</strong> (<a href="http://purl.obolibrary.org/obo/HP_0000494" target="_blank" rel="noopener noreferrer">HP:0000494</a>)</li>
+<li><strong>Proptosis / shallow orbits</strong> (<a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" rel="noopener noreferrer">HP:0000520</a>)</li>
+<li><strong>Depressed/broad nasal bridge</strong> (<a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" rel="noopener noreferrer">HP:0005280</a>)</li>
+<li><strong>Small, dysmorphic, low-set ears</strong> (<a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" rel="noopener noreferrer">HP:0000369</a>, <a href="http://purl.obolibrary.org/obo/HP_0000368" target="_blank" rel="noopener noreferrer">HP:0000368</a>)</li>
+<li><strong>High-arched or cleft palate</strong> (<a href="http://purl.obolibrary.org/obo/HP_0000218" target="_blank" rel="noopener noreferrer">HP:0000218</a> / <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" rel="noopener noreferrer">HP:0000175</a>)</li>
+<li><strong>Craniosynostosis and abnormal skull shape</strong> (<a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" rel="noopener noreferrer">HP:0001363</a>)</li>
+</ul>
+<h3>Other systemic phenotypes</h3>
+<ul>
+<li><strong>Conductive and/or sensorineural hearing loss</strong> (<a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" rel="noopener noreferrer">HP:0000405</a> / <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a>)</li>
+<li><strong>Feeding difficulties</strong> (<a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" rel="noopener noreferrer">HP:0011968</a>)</li>
+<li><strong>Multiple joint contractures / arthrogryposis</strong> (<a href="http://purl.obolibrary.org/obo/HP_0002804" target="_blank" rel="noopener noreferrer">HP:0002804</a>) — severe neonatal presentation</li>
+<li><strong>Poor cardiopulmonary adaptation</strong> in severe neonatal cases</li>
+</ul>
+<p>Dirani et al. described a severe neonatal case in which <em>"the patient had poor extra-uterine cardiopulmonary adaptation that required mechanical ventilation, and feeding difficulties were noted with hypotonicity"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40713540/">PMID: 40713540</a>), expanding the phenotype to include congenital arthrogryposis.</p>
+<p><strong>Quality-of-life impact:</strong> Severe expressive language impairment and intellectual disability substantially affect communication, education, and independent daily functioning. Hearing loss, feeding difficulties, and motor/contracture involvement add to care burden. No formal EQ-5D/SF-36/PROMIS data exist for this ultra-rare disorder.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene:</strong> <strong><em>MN1</em></strong> (Meningioma-1), chromosome <strong>22q12.1</strong>, <a href="https://bioregistry.io/HGNC:7180" target="_blank" rel="noopener noreferrer">HGNC:7180</a>. <em>MN1</em> has an unusual <strong>two-exon structure</strong>, and its coding sequence is largely within the terminal exon.</p>
+<p><strong>Pathogenic variant class and location.</strong> All reported CEBALID-causing variants are <strong>truncating (nonsense or frameshift)</strong> and cluster in the <strong>terminal exon or the extreme 3′ region of exon 1</strong>. This genomic location is central to pathogenesis: it causes <strong>escape from nonsense-mediated mRNA decay (NMD)</strong>, so a truncated protein is actually produced. Mak et al.: <em>"All mutations, including the recurrent variant p.Arg1295* observed in 8/21 probands, fall in the terminal exon or the extreme 3' region of exon 1, and are therefore predicted to result in escape from nonsense-mediated mRNA decay"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31834374/">PMID: 31834374</a>); NMD-escape was confirmed in patient fibroblasts.</p>
+<p><strong>Recurrent variant.</strong> <strong>p.Arg1295*</strong> (c.3883C&gt;T) is a recurrent hotspot, present in 8/21 probands in Mak et al.—consistent with a CpG-dinucleotide mutational hotspot, not a population founder effect.</p>
+<p><strong>Functional consequence — gain/change of function.</strong> Miyake et al. demonstrated that <em>"the deletion of the C-terminal region led to increased protein stability, an inhibitory effect on cell proliferation, and enhanced MN1 aggregation in nuclei compared to what occurred in the wild type, suggesting that a gain-of-function mechanism is involved in this disease"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31839203/">PMID: 31839203</a>). Mutant MN1 showed <strong>impaired binding to ZBTB24 and to RING1</strong> (an E3 ubiquitin ligase), proposed to interfere with ubiquitin-mediated proteasomal degradation and thereby increase the amount of the stabilized mutant protein.</p>
+<p><strong>Variant classification (ACMG/AMP):</strong> De novo truncating <em>MN1</em> variants in the NMD-escape region are classified <strong>pathogenic/likely pathogenic</strong> (standard PVS1 loss-of-function logic must be applied cautiously because canonical LOF is <em>not</em> the mechanism—position-aware interpretation is essential). Importantly, <strong>MN1 whole-gene deletions cause a milder/different phenotype</strong>, underscoring that variant <em>position and type</em> drive the CEBALID phenotype.</p>
+<p><strong>Allele frequency:</strong> Absent from population databases (gnomAD); these are private, de novo variants.</p>
+<p><strong>Somatic vs germline:</strong> The CEBALID variants are <strong>germline (de novo)</strong>. Separately—and distinct from CEBALID—<em>MN1</em> is a known somatic oncogene in acute myeloid leukemia (overexpression and <em>MN1</em> fusions such as MN1-ETV6/MN1-TEL), but this involves full-length/N-terminal MN1 overexpression, a different mechanism unrelated to the germline C-terminal truncation syndrome.</p>
+<p><strong>Modifier genes / epigenetics / chromosomal abnormalities:</strong> No disease-specific modifier genes or epigenetic signatures have been reported for CEBALID. No recurrent chromosomal abnormalities are associated (contrast: 22q microdeletions involving <em>MN1</em> produce a distinct, milder presentation).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Not applicable.</strong> CEBALID is a purely genetic, de novo dominant malformation syndrome. No environmental factors, toxins, lifestyle factors, or infectious agents are implicated in its causation or triggering.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li>A <strong>de novo truncating variant</strong> (nonsense/frameshift) arises in the terminal exon / extreme 3′ of exon 1 of <em>MN1</em> → <strong>leads to</strong> a transcript with a premature stop codon positioned to <strong>escape NMD</strong> (demonstrated in patient fibroblasts).</li>
+<li>NMD escape → <strong>results in</strong> translation of a <strong>C-terminally truncated MN1 protein</strong> (rather than no protein).</li>
+<li>Loss of the C-terminus → <strong>impairs binding to RING1 (E3 ubiquitin ligase) and ZBTB24</strong> → <strong>leads to</strong> reduced ubiquitin-mediated proteasomal degradation → <strong>increased mutant protein stability</strong> (demonstrated in vitro).</li>
+<li>Stabilized mutant MN1 → <strong>results in</strong> <strong>enhanced nuclear aggregation</strong> and an <strong>inhibitory effect on cell proliferation</strong> (demonstrated in vitro) — a <strong>gain/change-of-function</strong> state, not haploinsufficiency.</li>
+<li>Altered MN1 coactivator activity → <strong>dysregulates MN1-dependent transcriptional programs</strong>, including <strong>retinoic-acid-receptor (RAR/RXR) signaling</strong> (MN1 synergizes with p160/p300 coactivators) and the <strong>MN1→<em>Tbx22</em> axis</strong> in palate development (<em>inferred</em> link from model organisms to the human phenotype).</li>
+<li>Disrupted transcriptional programs during embryogenesis → <strong>impair intramembranous ossification of cranial bones and posterior palate growth</strong> (demonstrated in <em>Mn1</em> mouse knockouts) and <strong>perturb hindbrain/forebrain patterning</strong> → <strong>results in</strong> the clinical malformations.</li>
+<li><strong>Branch A (craniofacial):</strong> → midface hypoplasia, dysmorphic ears, cleft/high-arched palate, craniosynostosis.
+   <strong>Branch B (brain):</strong> → partial rhombencephalosynapsis, perisylvian polymicrogyria, corpus callosum anomalies → intellectual disability and severe expressive language delay.</li>
+</ol>
+<pre><code> de novo MN1 truncating variant (terminal exon / 3' exon 1)
+    │  escapes NMD (confirmed in fibroblasts)
+    ▼
+ C-terminally truncated MN1 protein produced
+    │  loses RING1 / ZBTB24 binding → less proteasomal degradation
+    ▼
+ ↑ protein stability + nuclear aggregation (GAIN/CHANGE OF FUNCTION)
+    │
+    ▼
+ Dysregulated MN1 transcriptional coactivation
+   ├── RAR/RXR + p160/p300 retinoic-acid signaling (in vitro)
+   └── MN1 → Tbx22 posterior-palate program (mouse)
+    │
+    ▼
+ Impaired membranous ossification / palate growth / hindbrain patterning
+    │
+     ┌──────┴───────┐
+     ▼              ▼
+ CRANIOFACIAL     BRAIN
+ midface hypo-    rhombencephalo-
+ plasia, ears,    synapsis, PMG,
+ palate, cranio-  CC anomalies
+ synostosis       → ID + language delay
+</code></pre>
+<h3>Molecular pathways and protein function</h3>
+<p>MN1 is a <strong>transcriptional coactivator</strong>, not a sequence-specific transcription factor. van Wely et al. showed that <em>"MN1 is a transcription coactivator rather than a sequence-specific transcription factor, and that it may stimulate RAR/RXR-mediated transcription through interaction with p160 and p300"</em> and that <em>"The combination of MN1 and ligand-activated retinoic acid receptor leads to a synergistic induction of expression directed by the LTR"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/12569362/">PMID: 12569362</a>). This places MN1 within <strong>retinoic acid / nuclear-receptor signaling</strong> (RAR-RXR; <a href="http://purl.obolibrary.org/obo/CHEBI_26536" target="_blank" rel="noopener noreferrer">CHEBI:26536</a> retinoic acid), a pathway central to craniofacial and neural development—offering a plausible mechanistic bridge to the CEBALID phenotype. MN1 additionally interacts with homeodomain transcription factors <strong>PBX1 and PKNOX1</strong> and with <strong>ZBTB24</strong>.</p>
+<h3>Developmental genetics of the palate</h3>
+<p>Liu et al. demonstrated that <em>"mice lacking the transcription factor Mn1 have defects in posterior but not anterior palatal growth"</em> and <em>"identified Tbx22, the mouse homolog of the human X-linked cleft palate gene, as a putative downstream target of Mn1 transcriptional activation"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/18948418/">PMID: 18948418</a>). MN1 activated human and mouse <em>Tbx22</em> promoters and dose-dependently increased endogenous <em>Tbx22</em> mRNA, defining an <strong>MN1 → Tbx22</strong> axis for posterior palate development.</p>
+<h3>Cranial bone development</h3>
+<p>Meester-Smoor et al. showed <em>Mn1</em>-null mice <em>"die at birth or shortly thereafter as the result of a cleft palate"</em> and concluded <em>"Mn1 is an important factor in development of membranous bones"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/15870292/">PMID: 15870292</a>). Null mice show agenesis of the alisphenoid, squamosal and vomer bones (formed almost exclusively by intramembranous ossification), with hypoplasia of frontal/parietal/interparietal bones—paralleling the human craniofacial skeletal phenotype.</p>
+<h3>Cell types and processes (ontology suggestions)</h3>
+<ul>
+<li><strong>Cellular processes:</strong> transcriptional coactivation (<a href="http://purl.obolibrary.org/obo/GO_0003713" target="_blank" rel="noopener noreferrer">GO:0003713</a>), RAR/RXR-mediated signaling, regulation of osteoblast differentiation (<a href="http://purl.obolibrary.org/obo/GO_0045667" target="_blank" rel="noopener noreferrer">GO:0045667</a>), intramembranous ossification (<a href="http://purl.obolibrary.org/obo/GO_0001957" target="_blank" rel="noopener noreferrer">GO:0001957</a>), cerebellum/hindbrain development (<a href="http://purl.obolibrary.org/obo/GO_0021549" target="_blank" rel="noopener noreferrer">GO:0021549</a>, <a href="http://purl.obolibrary.org/obo/GO_0030902" target="_blank" rel="noopener noreferrer">GO:0030902</a>), palate development (<a href="http://purl.obolibrary.org/obo/GO_0060021" target="_blank" rel="noopener noreferrer">GO:0060021</a>), protein stabilization/aggregation, ubiquitin-dependent protein catabolism (<a href="http://purl.obolibrary.org/obo/GO_0006511" target="_blank" rel="noopener noreferrer">GO:0006511</a>).</li>
+<li><strong>Cell types (CL):</strong> osteoblast (<a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a>), cranial neural crest cell (<a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" rel="noopener noreferrer">CL:0000333</a>), cerebellar/hindbrain neuronal progenitors, palatal mesenchymal cells.</li>
+<li><strong>Subcellular (GO CC):</strong> nucleus (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>) — site of mutant MN1 aggregation.</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Primary organs/systems:</strong>
+- <strong>Brain / central nervous system</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>) — cerebellum and vermis (<a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" rel="noopener noreferrer">UBERON:0002037</a> / <a href="http://purl.obolibrary.org/obo/UBERON_0004086" target="_blank" rel="noopener noreferrer">UBERON:0004086</a>) with rhombencephalosynapsis; cerebral cortex perisylvian region (polymicrogyria); corpus callosum (<a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" rel="noopener noreferrer">UBERON:0002336</a>).
+- <strong>Craniofacial skeleton</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0010363" target="_blank" rel="noopener noreferrer">UBERON:0010363</a> skeleton of skull) — midface, cranial membranous bones, palate (<a href="http://purl.obolibrary.org/obo/UBERON_0001716" target="_blank" rel="noopener noreferrer">UBERON:0001716</a>), orbits.
+- <strong>Ears</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001690" target="_blank" rel="noopener noreferrer">UBERON:0001690</a>) — external ear dysmorphism; auditory apparatus (hearing loss).</p>
+<p><strong>Secondary/associated involvement:</strong>
+- <strong>Musculoskeletal system</strong> — joint contractures (arthrogryposis) in severe cases; hypotonia.
+- <strong>Cardiopulmonary system</strong> — poor neonatal adaptation in severe presentations (secondary).
+- <strong>Cerebral vasculature</strong> — persistent trigeminal artery.</p>
+<p><strong>Tissue/cell level:</strong> connective/skeletal tissue (membranous bone, osteoblasts), neural tissue (cerebellar and cortical neurons/progenitors), neural-crest-derived craniofacial mesenchyme.</p>
+<p><strong>Subcellular:</strong> nucleus (mutant protein aggregation).</p>
+<p><strong>Lateralization:</strong> Brain malformations are typically <strong>midline/bilateral</strong> (vermis, corpus callosum) or <strong>bilateral</strong> (perisylvian polymicrogyria); craniofacial features are <strong>bilateral and symmetric</strong>.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> <strong>Congenital</strong> (prenatal/neonatal). Structural malformations are established during embryogenesis; dysmorphism and brain anomalies are present at birth, with developmental delay apparent in infancy/early childhood.</li>
+<li><strong>Onset pattern:</strong> Insidious with respect to neurodevelopment (delays recognized over time); malformations are present from birth.</li>
+<li><strong>Progression:</strong> The disorder is <strong>static/non-progressive (malformative)</strong>. There is no neurodegeneration; disability is <strong>lifelong and stable</strong> rather than worsening.</li>
+<li><strong>Disease course:</strong> Chronic, lifelong. No relapsing-remitting or episodic pattern. Severe neonatal presentations (e.g., arthrogryposis with cardiopulmonary maladaptation) carry higher early morbidity/mortality risk.</li>
+<li><strong>Critical period:</strong> The structural/developmental window is <strong>embryonic craniofacial and hindbrain morphogenesis</strong> (already passed by birth), making structural prevention impossible post-natally; early-childhood developmental intervention is the actionable window for functional outcomes.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance pattern:</strong> <strong>Autosomal dominant</strong>, essentially always <strong>de novo</strong>. Mak et al.: <em>"We identified a cluster of de novo truncating mutations in MN1"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31834374/">PMID: 31834374</a>). Recurrence risk for parents of an affected child is low (apart from rare germline mosaicism).</li>
+<li><strong>Penetrance:</strong> Appears <strong>complete</strong> for the recognizable gestalt among carriers of the specific C-terminal truncating variants.</li>
+<li><strong>Expressivity:</strong> <strong>Variable</strong>, ranging from the "classic" gestalt to severe neonatal arthrogryposis presentations.</li>
+<li><strong>Genetic anticipation:</strong> Not applicable (not a repeat-expansion disorder).</li>
+<li><strong>Germline mosaicism:</strong> Theoretically possible but not well documented; relevant for rare recurrence.</li>
+<li><strong>Founder effects / consanguinity:</strong> None. The recurrent <strong>p.Arg1295*</strong> reflects a <strong>CpG mutational hotspot</strong>, not a founder allele; consanguinity is irrelevant for a de novo dominant disorder.</li>
+<li><strong>Carrier frequency:</strong> Not applicable (de novo, not inherited).</li>
+</ul>
+<p><strong>Epidemiology / demographics:</strong>
+- <strong>Prevalence/incidence:</strong> Unknown—ultra-rare. Dirani et al.: <em>"less than 30 cases have been reported worldwide"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40713540/">PMID: 40713540</a>).
+- <strong>Sex ratio:</strong> No established sex predilection.
+- <strong>Ethnic/geographic distribution:</strong> No established predilection; cases reported across multiple populations.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Recommended approach:</strong> Clinical suspicion from the gestalt (<strong>midface hypoplasia + severe expressive language delay + partial rhombencephalosynapsis on MRI</strong>), confirmed by <strong>molecular detection of a heterozygous truncating <em>MN1</em> variant in the terminal exon or extreme 3′ of exon 1</strong>.</p>
+<p><strong>Genetic testing:</strong>
+- <strong>Whole-exome sequencing (WES)</strong> — the principal confirmatory test. Dirani et al.: <em>"Whole exome sequencing confirmed the diagnosis of CEBALID syndrome"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40713540/">PMID: 40713540</a>).
+- <strong>Whole-genome sequencing (WGS)</strong> — also effective.
+- <strong>Single-gene / targeted <em>MN1</em> sequencing</strong> — appropriate when the phenotype is strongly suggestive.
+- <strong>Interpretation caveat:</strong> Variant <strong>position and type are decisive</strong>—3′ truncating (NMD-escape) variants cause CEBALID, whereas <strong>whole-gene deletions produce a different, milder phenotype</strong>. A chromosomal microarray detecting an <em>MN1</em> deletion should <em>not</em> be equated with CEBALID.</p>
+<p><strong>Imaging:</strong>
+- <strong>Brain MRI</strong> is the key diagnostic adjunct, demonstrating <strong>partial rhombencephalosynapsis</strong> (vermian hypoplasia with cerebellar hemisphere fusion), <strong>perisylvian polymicrogyria</strong>, corpus callosum anomalies, abnormal posterior clinoid processes, and persistent trigeminal artery.</p>
+<p><strong>Other clinical tests:</strong>
+- <strong>Audiologic evaluation</strong> (conductive/sensorineural hearing loss).
+- <strong>Ophthalmologic assessment</strong> (shallow orbits/proptosis).
+- No specific biochemical biomarker or metabolic test exists.</p>
+<p><strong>Differential diagnosis:</strong> Other causes of rhombencephalosynapsis (e.g., Gómez-López-Hernández syndrome, VACTERL-H), other midface-hypoplasia syndromes, and other polymicrogyria syndromes. The specific combination of midface hypoplasia, severe expressive language delay, and partial rhombencephalosynapsis plus a 3′ truncating <em>MN1</em> variant is distinguishing.</p>
+<p><strong>Screening:</strong> No population or newborn screening exists (ultra-rare, de novo). Cascade testing of parents is generally uninformative given the de novo origin but may be offered for recurrence-risk counseling and mosaicism assessment.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> No formal survival statistics exist. The disorder is <strong>not inherently lethal</strong> in classic presentations; most reported individuals survive with lifelong disability. <strong>Severe neonatal presentations</strong> (arthrogryposis with cardiopulmonary maladaptation requiring mechanical ventilation) carry elevated early morbidity and potential mortality.</li>
+<li><strong>Morbidity/function:</strong> Substantial, driven by <strong>intellectual disability and severe expressive language impairment</strong>, with additional impact from hearing loss, feeding difficulties, motor involvement, and craniofacial anomalies.</li>
+<li><strong>Disease course:</strong> Static/non-progressive; disability is stable and lifelong.</li>
+<li><strong>Complications:</strong> Feeding difficulties, hearing impairment, sequelae of cleft palate/craniosynostosis, and in severe cases respiratory compromise.</li>
+<li><strong>Prognostic factors:</strong> Severity of brain malformation and neonatal cardiopulmonary/contracture involvement likely predict outcome, though no validated prognostic model exists for this small case set.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>There is no disease-specific or curative pharmacotherapy.</strong> Management is <strong>supportive and multidisciplinary</strong>, targeting individual manifestations:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Intervention</th>
+<th>NCIT concept (suggested)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Developmental</td>
+<td>Early intervention, special education</td>
+<td>Developmental therapy</td>
+</tr>
+<tr>
+<td>Communication</td>
+<td>Speech/language therapy (severe expressive delay)</td>
+<td>Speech Therapy (NCIT:C15336)</td>
+</tr>
+<tr>
+<td>Motor</td>
+<td>Physical &amp; occupational therapy (hypotonia, contractures)</td>
+<td>Physical Therapy (NCIT:C15368); Occupational Therapy (NCIT:C15337)</td>
+</tr>
+<tr>
+<td>Hearing</td>
+<td>Audiologic evaluation, hearing aids</td>
+<td>Audiologic assessment</td>
+</tr>
+<tr>
+<td>Vision</td>
+<td>Ophthalmologic monitoring</td>
+<td>Ophthalmologic examination</td>
+</tr>
+<tr>
+<td>Craniofacial</td>
+<td>Surgical repair of cleft palate; craniosynostosis surgery</td>
+<td>Surgical Procedure (NCIT:C15329)</td>
+</tr>
+<tr>
+<td>Feeding</td>
+<td>Feeding support / nutritional management</td>
+<td>Nutritional Support (NCIT:C15335)</td>
+</tr>
+<tr>
+<td>Neonatal (severe)</td>
+<td>Respiratory support/mechanical ventilation as needed</td>
+<td>Mechanical Ventilation (NCIT:C70902)</td>
+</tr>
+<tr>
+<td>Family</td>
+<td>Genetic counseling</td>
+<td>Genetic Counseling (NCIT:C15648)</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Pharmacogenomics / targeted / gene / cell / RNA therapies:</strong> None currently applicable or in trials for CEBALID.</li>
+<li><strong>Experimental treatments:</strong> No disease-specific clinical trials (no NCT identifiers) are available.</li>
+<li><strong>Personalized medicine:</strong> Limited to position-aware genetic diagnosis for counseling and anticipatory care.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not possible—de novo variant; no modifiable risk factors.</li>
+<li><strong>Secondary prevention:</strong> Early developmental intervention and anticipatory management of hearing, feeding, vision, and craniofacial complications to optimize functional outcomes.</li>
+<li><strong>Tertiary prevention:</strong> Multidisciplinary management of complications (cleft palate repair, craniosynostosis surgery, hearing/feeding support).</li>
+<li><strong>Genetic counseling:</strong> Essential. Because variants are de novo, <strong>recurrence risk for parents is low</strong> (rare germline mosaicism excepted). Prenatal/preimplantation testing is feasible for a known familial variant but rarely indicated given the low recurrence risk.</li>
+<li><strong>Immunization / public health / behavioral / environmental interventions:</strong> Not applicable.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Orthologous gene:</strong> Mouse <strong><em>Mn1</em></strong> (human <em>MN1</em> NCBI Gene ID 4330). The gene and its developmental roles are <strong>evolutionarily conserved</strong>.</li>
+<li><strong>Natural disease in other species:</strong> No naturally occurring CEBALID-equivalent disease is documented in companion animals or wildlife (no OMIA entry for a spontaneous <em>MN1</em> truncation disorder). The animal evidence comes from <strong>engineered mouse models</strong> rather than natural disease.</li>
+<li><strong>Comparative pathology:</strong> <em>Mn1</em>-null mice recapitulate the <strong>craniofacial/palate</strong> component (cleft palate, membranous bone agenesis) but model loss of function rather than the human gain-of-function truncation—an important caveat for cross-species comparison.</li>
+<li><strong>Zoonotic/transmission:</strong> Not applicable (genetic disorder).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse (<em>Mus musculus<em>):</em><em> The principal model. </em><em>Constitutive </em>Mn1<em> knockout</em><em> mice (Meester-Smoor et al.) die at birth from cleft palate and show agenesis/hypoplasia of intramembranous cranial bones; heterozygotes show hypoplastic membranous bones with incomplete-penetrance cleft palate, and </em>Mn1<em>+/− animals followed to 30 months showed no increased tumor incidence (<a href="https://pubmed.ncbi.nlm.nih.gov/15870292/">PMID: 15870292</a>). These models established MN1's role in </em><em>membranous bone and palate development</em><em> and the downstream </em><em>MN1→</em>Tbx22</em></strong> axis (<a href="https://pubmed.ncbi.nlm.nih.gov/18948418/">PMID: 18948418</a>).</li>
+<li><strong>In vitro / cellular models:</strong> Transfection assays (e.g., NIH3T3) demonstrated <strong>MN1 coactivation of RAR/RXR via p160/p300</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/12569362/">PMID: 12569362</a>) and, for the disease variants, <strong>increased protein stability, nuclear aggregation, proliferation inhibition, and altered interactor binding (RING1, ZBTB24, PBX1, PKNOX1)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/31839203/">PMID: 31839203</a>). Patient-derived <strong>fibroblasts</strong> confirmed NMD escape of the mutant transcript.</li>
+<li><strong>Phenotype recapitulation / limitations:</strong> Mouse <em>Mn1</em> knockouts reproduce the <strong>craniofacial/palatal</strong> phenotype well but model <strong>loss of function</strong>, whereas human CEBALID is a <strong>gain/change-of-function</strong> truncation. <strong>No mouse model expressing the human C-terminal truncation has been reported</strong>, and the <strong>brain malformation (rhombencephalosynapsis)</strong> is not captured by existing knockouts—key gaps for mechanistic study.</li>
+</ul>
+<hr />
+<h2>Key Findings (Consolidated)</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Finding</th>
+<th>Primary evidence (PMID)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>F1</td>
+<td>CEBALID is caused by de novo C-terminal truncating <em>MN1</em> variants acting via gain-of-function</td>
+<td>31839203, 31834374</td>
+</tr>
+<tr>
+<td>F2</td>
+<td>Variants escape NMD; recurrent p.Arg1295* in 8/21 probands; truncated protein produced</td>
+<td>31834374</td>
+</tr>
+<tr>
+<td>F3</td>
+<td>Truncated MN1 shows ↑stability, nuclear aggregation, ↓proliferation, impaired RING1/ZBTB24 binding</td>
+<td>31839203</td>
+</tr>
+<tr>
+<td>F4</td>
+<td>Hallmark gestalt: midface hypoplasia + severe expressive language delay + ID</td>
+<td>31834374</td>
+</tr>
+<tr>
+<td>F5</td>
+<td>Distinctive brain malformation: partial rhombencephalosynapsis (8/10 imaged)</td>
+<td>31834374, 40713540</td>
+</tr>
+<tr>
+<td>F6</td>
+<td>MN1 is a RAR/RXR transcriptional coactivator synergizing with p160/p300</td>
+<td>12569362</td>
+</tr>
+<tr>
+<td>F7</td>
+<td>MN1 acts upstream of <em>Tbx22</em>, regulating posterior palate growth</td>
+<td>18948418</td>
+</tr>
+<tr>
+<td>F8</td>
+<td>MN1 essential for intramembranous ossification of cranial bones (mouse null → cleft palate)</td>
+<td>15870292</td>
+</tr>
+<tr>
+<td>F9</td>
+<td>Ultra-rare (&lt;30 cases); AD de novo; WES-confirmed; supportive management</td>
+<td>40713540, 31834374</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Mechanistic Model / Interpretation (Synthesis)</h2>
+<p>CEBALID is best understood as a <strong>dominant "toxic/altered-product" disorder of a developmental transcriptional coactivator</strong>. The unusual two-exon architecture of <em>MN1</em> means that truncating variants in the terminal exon escape NMD and produce a stable, C-terminally truncated protein. Loss of the C-terminus disrupts interactions (RING1, ZBTB24) that normally promote MN1's proteasomal turnover, so the aberrant protein <strong>accumulates and aggregates in the nucleus</strong>, producing a gain/change-of-function rather than simple loss. Because wild-type MN1 normally <strong>coactivates retinoic-acid-receptor signaling</strong> and drives developmental programs including the <strong>MN1→Tbx22</strong> posterior-palate axis and <strong>intramembranous ossification</strong>, the dysregulated mutant perturbs <strong>craniofacial morphogenesis</strong> (midface hypoplasia, ears, palate, cranial bones) and <strong>hindbrain/forebrain patterning</strong> (rhombencephalosynapsis, polymicrogyria), yielding the paired craniofacial–brain phenotype and its neurodevelopmental consequences. The strongest-evidence links are the human genetic/functional data (Mak, Miyake) and the mouse craniofacial data (Meester-Smoor, Liu); the retinoic-acid and <em>Tbx22</em> connections to the full human brain phenotype remain <strong>plausible but partly inferred</strong>.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Evidence type</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31834374/">31834374</a></td>
+<td><em>MN1 C-terminal truncation syndrome ... with partial rhombencephalosynapsis</em> (Mak 2020)</td>
+<td>Human clinical (n=23)</td>
+<td>Defines phenotype gestalt, recurrent p.Arg1295*, NMD-escape mechanism, rhombencephalosynapsis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31839203/">31839203</a></td>
+<td><em>Gain-of-Function MN1 Truncation Variants...</em> (Miyake 2020)</td>
+<td>Human + in vitro (n=3)</td>
+<td>Establishes de novo causation and gain-of-function mechanism (↑stability, aggregation)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40713540/">40713540</a></td>
+<td><em>Extremely rare case of CEBALID presenting as congenital arthrogryposis</em> (Dirani 2025)</td>
+<td>Human case report</td>
+<td>CEBALID acronym, rarity (&lt;30 cases), WES diagnosis, severe neonatal/arthrogryposis spectrum</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15870292/">15870292</a></td>
+<td><em>Targeted disruption of Mn1... membranous bones</em> (Meester-Smoor 2005)</td>
+<td>Mouse model</td>
+<td>MN1 essential for membranous bone &amp; palate development</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18948418/">18948418</a></td>
+<td><em>Mn1 acts upstream of Tbx22...</em> (Liu 2008)</td>
+<td>Mouse model</td>
+<td>MN1→Tbx22 axis for posterior palate growth</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12569362/">12569362</a></td>
+<td><em>MN1 oncoprotein synergizes with RAC3 and p300...</em> (van Wely 2003)</td>
+<td>In vitro</td>
+<td>MN1 is RAR/RXR coactivator via p160/p300</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Context literature (not CEBALID-causal):</strong> Multiple papers (<a href="https://pubmed.ncbi.nlm.nih.gov/33542482/">PMID: 33542482</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26927674/">26927674</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/22905229/">22905229</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/22488406/">22488406</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23646898/">23646898</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/19379599/">19379599</a>) document <em>MN1</em>'s <strong>somatic oncogenic role in AML</strong> (overexpression, MN1 fusions, poor prognosis). These are mechanistically distinct from the germline C-terminal truncation syndrome but reinforce MN1's biology as a dosage-sensitive transcriptional coactivator.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Tiny evidence base:</strong> Fewer than ~30 reported cases; all epidemiology (prevalence, incidence, sex/ethnic distribution, survival) is unavailable or estimated.</li>
+<li><strong>No humanized model:</strong> No mouse or organoid model expressing the human C-terminal truncation; the hallmark <strong>rhombencephalosynapsis</strong> is not recapitulated by existing <em>Mn1</em> knockouts.</li>
+<li><strong>Mechanistic inference:</strong> The RAR/RXR-coactivation and <em>Tbx22</em> pathways are established for wild-type MN1 and palate, but their precise disruption by the truncated protein—and their link to the human brain malformation—remains partly inferred.</li>
+<li><strong>Genotype–phenotype detail:</strong> Why some variants (e.g., arthrogryposis presentations) are more severe is unknown; no validated modifier genes.</li>
+<li><strong>No biomarkers or targeted therapy:</strong> No molecular diagnostic biomarker beyond sequencing; no disease-specific treatment or clinical trials.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Generate a knock-in mouse (or human iPSC-derived organoid)</strong> carrying the recurrent <strong>p.Arg1295*</strong> truncation to test whether the stabilized mutant produces rhombencephalosynapsis and midface hypoplasia—directly modeling gain-of-function.</li>
+<li><strong>Cerebellar/cortical organoids</strong> from patient iPSCs to dissect hindbrain patterning defects and screen for pathway rescue (e.g., retinoic-acid signaling modulators).</li>
+<li><strong>Transcriptomic/ChIP profiling</strong> of mutant vs wild-type MN1 in neural-crest and neural progenitor cells to define dysregulated target genes (test <em>TBX22</em> and RAR/RXR targets).</li>
+<li><strong>Establish an international CEBALID registry</strong> to capture natural history, genotype–phenotype correlations, and outcomes across the &lt;30 known cases and future diagnoses.</li>
+<li><strong>Degradation-targeting proof of concept:</strong> Since the pathogenic protein is abnormally stabilized, test whether restoring its proteasomal turnover (e.g., modulating RING1-mediated ubiquitination) reduces nuclear aggregation in cellular models.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 8 confirmed findings across 5 investigation iterations and 13 reviewed papers. Evidence types span human clinical case series, mouse genetic models, and in vitro functional assays.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/CEBALID_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/CEBALID_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.4.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>12</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="CDKL5_Deficiency_Disorder-claude_code.html">← CDKL5 Deficiency Disorder (Claude Code)</a>
+                
+                
+                <a href="CEDNIK_Syndrome-perplexity.html">CEDNIK Syndrome (Perplexity) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/CEBALID_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/CEBALID_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

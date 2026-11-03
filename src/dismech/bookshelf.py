@@ -72,8 +72,21 @@ TAG_SOURCES: dict[str, str] = {tag: source for source, tag in SOURCE_TAGS.items(
 #: agreement is checked, but it is a candidate, not an equality. ``ONLINE`` is
 #: a live PubMed ``<name>[TI]`` hit on a chapter newer than the snapshot: PubMed
 #: matched the name's words somewhere in the title, and nothing here compared
-#: the two, so it ranks last and is only ever a candidate.
-MATCH_KINDS = ("EXACT", "GENE_SUFFIX", "CONTAINS", "TITLE_IN_NAME", "NEAR", "ONLINE")
+#: the two, so it ranks last and is only ever a candidate. ``GENE_SCOPED`` is
+#: a ``<GENE>-Related …`` title naming one of the entry's ``genetic:`` genes,
+#: found from the gene rather than from any disease name: GeneReviews often
+#: scopes a chapter to a gene's whole spectrum (``Autosomal Dominant
+#: TRPV4-Related Disorders`` covers SED Maroteaux type), which no disease-name
+#: comparison reaches (#9694). It says only that the chapter is about the gene.
+MATCH_KINDS = (
+    "EXACT",
+    "GENE_SUFFIX",
+    "CONTAINS",
+    "TITLE_IN_NAME",
+    "NEAR",
+    "GENE_SCOPED",
+    "ONLINE",
+)
 NEAR_THRESHOLD = 0.95
 
 #: Tokens that carry no disease identity on their own. A name made only of
@@ -116,6 +129,15 @@ _GENE_SUFFIX = re.compile(
 _RETIRED_RAW = re.compile(
     r"\s+[\u2010-\u2015-]\s+RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY\.?$"
 )
+#: The words before a ``Related`` or ``Associated`` in a raw title, back to the
+#: previous comma, full stop or dash: ``Autosomal Dominant TRPV4-``, ``HAMP- and
+#: HJV-``, ``MCM8/MCM9-``, ``BRCA1- and BRCA2-``, ``Syndrome-SHANK3 `` (#9694).
+_RELATED_SPAN = re.compile(
+    r"([^,.\u2013\u2014]*?)[\u2010-\u2015-]?\s*\b(?:Related|Associated)\b"
+)
+#: A gene symbol as GeneReviews prints one: upper case, digits, an internal
+#: hyphen (``RNU4-2``). Case is what tells ``HFE`` from ``Dominant``.
+_SYMBOL = re.compile(r"^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*$")
 _NUMBERISH = re.compile(r"^(?:\d+[a-z]?|[ivx]+)$")
 _NBK = re.compile(r"NBK\d+")
 _PMID = re.compile(r"PMID:(\d+)")
@@ -166,6 +188,25 @@ def _gene_suffix(title: str) -> tuple[str, str]:
     return normalize(found.group("stem")), normalize(found.group("gene"))
 
 
+def gene_symbols(text: str) -> frozenset[str]:
+    """Gene-symbol-shaped tokens of ``text``, as written (``"REN variants"`` -> REN)."""
+    found: set[str] = set()
+    for raw in re.split(r"[\s/,;()]+", text):
+        tok = raw.strip("-\u2010\u2011\u2012\u2013\u2014.:")
+        # ``RNU4-2`` keeps its hyphen; ``Syndrome-SHANK3`` is two words.
+        parts = [tok] if _SYMBOL.match(tok) else re.split(r"[\u2010-\u2015-]", tok)
+        found.update(p for p in parts if len(p) >= 2 and _SYMBOL.match(p))
+    return frozenset(found)
+
+
+def _related_genes(title: str) -> frozenset[str]:
+    """Every ``<GENE>`` a raw title scopes itself to with ``<GENE>-Related``."""
+    found: set[str] = set()
+    for span in _RELATED_SPAN.findall(title):
+        found |= gene_symbols(span)
+    return frozenset(found)
+
+
 @dataclass(frozen=True)
 class Chapter:
     source: str
@@ -212,6 +253,7 @@ class _Row:
     stripped_title: str  #: with a leading ``<GENE>-related`` removed
     gene_stem: str = ""  #: ``<Disease>`` of a ``<Disease> – <GENE>`` title
     suffix_gene: str = ""  #: its ``<GENE>``, normalised
+    related_genes: frozenset[str] = frozenset()  #: ``<GENE>`` of ``<GENE>-Related``
 
 
 @dataclass
@@ -222,6 +264,7 @@ class BookshelfIndex:
     _exact: dict[str, list[int]] = field(default_factory=dict)
     _postings: dict[str, set[int]] = field(default_factory=dict)
     _gene_suffixed: list[int] = field(default_factory=list)
+    _by_related_gene: dict[str, set[int]] = field(default_factory=dict)
     sources: set[str] = field(default_factory=set)
     snapshot_date: str = ""
 
@@ -269,9 +312,14 @@ class BookshelfIndex:
         stripped = _RELATED_PREFIX.sub("", norm_title)
         gene_stem, suffix_gene = _gene_suffix(chapter.title)
         idx = len(self.rows)
-        self.rows.append(_Row(chapter, norm_title, stripped, gene_stem, suffix_gene))
+        related = _related_genes(chapter.title)
+        self.rows.append(
+            _Row(chapter, norm_title, stripped, gene_stem, suffix_gene, related)
+        )
         if gene_stem:
             self._gene_suffixed.append(idx)
+        for gene in related:
+            self._by_related_gene.setdefault(gene, set()).add(idx)
         self.by_pmid[chapter.pmid] = chapter
         if chapter.nbk:
             self.by_nbk[chapter.nbk] = chapter
@@ -403,6 +451,33 @@ class BookshelfIndex:
             matches, key=lambda m: (m.rank, m.chapter.retired, int(m.chapter.pmid))
         )
 
+    def match_genes(
+        self, genes: Iterable[str], sources: Iterable[str] | None = None
+    ) -> list[Match]:
+        """``GENE_SCOPED`` chapters: a ``<GENE>-Related`` (or ``-Associated``) title naming one of ``genes``.
+
+        ``genes`` are the strings of the entry's ``genetic:`` block
+        (:func:`entry_genes`); the symbols in them are compared, case and all,
+        with the symbols a title scopes itself to. This is the gene-side search
+        the disease-name matches cannot make (#9694). A hit is a candidate to
+        read and never a verdict: ``POLG-Related Disorders`` is about every
+        POLG disease, which may or may not include this one.
+        """
+        wanted = set(sources) if sources is not None else self.sources
+        symbols: set[str] = set()
+        for text in genes:
+            symbols |= gene_symbols(text)
+        found: dict[int, str] = {}
+        for symbol in sorted(symbols):
+            for idx in self._by_related_gene.get(symbol, ()):
+                found.setdefault(idx, symbol)
+        matches = [
+            Match(self.rows[idx].chapter, "GENE_SCOPED", symbol)
+            for idx, symbol in found.items()
+            if self.rows[idx].chapter.source in wanted
+        ]
+        return sorted(matches, key=lambda m: (m.chapter.retired, int(m.chapter.pmid)))
+
 
 # -- cache-marker fallback ---------------------------------------------------
 
@@ -476,3 +551,58 @@ def entry_genes(document: dict) -> list[str]:
     return list(
         dict.fromkeys(g.strip() for g in genes if isinstance(g, str) and g.strip())
     )
+
+
+#: ``relationship_type`` values a gene-side chapter search follows. Absent is
+#: kept because most older Mendelian records carry none; a susceptibility,
+#: modifier or somatic-driver gene's chapter is about some other disease.
+_CAUSAL_RELATIONSHIPS = frozenset({None, "CAUSATIVE"})
+
+
+#: ``HP:0001442`` *Typified by somatic mosaicism*: the structured signal that an
+#: entry's causal variant is post-zygotic (see the ``somatic-mosaicism`` skill).
+SOMATIC_MOSAICISM = "HP:0001442"
+
+
+def is_somatic_mosaic(document: dict) -> bool:
+    """Whether an ``inheritance`` block, on the entry or a subtype, binds ``HP:0001442``."""
+    blocks = list(document.get("inheritance") or [])
+    for subtype in document.get("has_subtypes") or []:
+        if isinstance(subtype, dict):
+            blocks.extend(subtype.get("inheritance") or [])
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        term = (block.get("inheritance_term") or {}).get("term") or {}
+        if isinstance(term, dict) and term.get("id") == SOMATIC_MOSAICISM:
+            return True
+    return False
+
+
+def entry_causal_genes(document: dict) -> list[str]:
+    """Gene strings of the ``genetic:`` records that claim to cause the disease.
+
+    The input to the ``GENE_SCOPED`` search (#9694). A record counts when its
+    ``relationship_type`` is ``CAUSATIVE`` or absent and it is not a somatic
+    driver: ``variant_origin`` not ``SOMATIC``, and no "somatic" in its
+    ``name`` or ``association``. ``HRAS-Related Costello Syndrome`` is not a
+    baseline for a thymoma carrying a somatic HRAS mutation. A somatic-mosaic
+    disorder (:func:`is_somatic_mosaic`) is the exception: its causal variant is
+    somatic by definition, and the gene's chapter is the baseline
+    (*PIK3CA-Related Overgrowth Spectrum* for hemimegalencephaly).
+    """
+    mosaic = is_somatic_mosaic(document)
+    genes: list[str] = []
+    for record in document.get("genetic") or []:
+        if not isinstance(record, dict):
+            continue
+        if record.get("relationship_type") not in _CAUSAL_RELATIONSHIPS:
+            continue
+        if not mosaic:
+            if str(record.get("variant_origin") or "").startswith("SOMATIC"):
+                continue
+            prose = f"{record.get('name') or ''} {record.get('association') or ''}"
+            if "somatic" in prose.lower():
+                continue
+        genes.extend(entry_genes({"genetic": [record]}))
+    return list(dict.fromkeys(genes))
