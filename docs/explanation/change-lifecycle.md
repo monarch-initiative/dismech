@@ -124,11 +124,17 @@ action, and nothing to watch.
 | Model | `https://dismech.monarchinitiative.org/pages/models/<model_id>.html` |
 | Project | `https://dismech.monarchinitiative.org/pages/projects/<SLUG>.html` |
 | Browser app | `https://dismech.monarchinitiative.org/app/` |
+| Documentation (this site) | `https://dismech.monarchinitiative.org/elements/<path>/` |
 
 The slug is the filename without its extension, matching case exactly —
 `kb/disorders/Asthma.yaml` becomes `pages/disorders/Asthma.html`, and
 `projects/AOP_40_SKIN_SENSITIZATION.md` becomes
 `pages/projects/AOP_40_SKIN_SENSITIZATION.html`.
+
+Documentation is the exception: it is built by MkDocs rather than rendered from
+YAML, so a page under `docs/` keeps its directory path, drops the `.md` and
+gains a trailing slash — this page, `docs/explanation/change-lifecycle.md`, is
+served at `/elements/explanation/change-lifecycle/`.
 
 ## A worked example, with real numbers
 
@@ -145,10 +151,10 @@ A project report added in PR
 
 Nearly all of that was the regeneration PR waiting in the merge queue, not the
 rendering. **Budget one to two hours from merge to live page, and treat anything
-under four hours as normal.** Those are also two full merge-queue passes for one
-piece of work, which is worth knowing when you plan a batch: five curation PRs
-do not cost five times the wait, because their regeneration collapses into
-whichever `auto/...` PR is open at the time.
+under four hours as normal if the queue is busy.** Those are also two full
+merge-queue passes for one piece of work, which is worth knowing when you plan
+a batch: five curation PRs do not cost five times the wait, because their
+regeneration collapses into whichever `auto/...` PR is open at the time.
 
 ## If it seems stuck
 
@@ -167,8 +173,15 @@ Work backwards through the hops, and check the cheap thing first.
 5. **Is the page a 404 or stale?** A 404 means the regeneration has not landed.
    Content that is present but out of date usually means the page was rendered
    before your change, and the next scheduled run will refresh it.
+6. **Is there a `🐑 PR Shepherd` comment on your PR?** This one is last
+   because it is the least visible, not because it happens late. After two
+   merge-queue ejections with no push in between, the shepherd stops
+   re-enqueuing the PR and says so in a comment. The hold sets no label, no
+   review and no assignee, so nothing else on the PR page shows it, and the PR
+   still satisfies every condition in item 1. Any push to the branch clears the
+   strike count.
 
-Only after all five is it worth reading workflow logs.
+Only after all six is it worth reading workflow logs.
 
 ## See also
 
