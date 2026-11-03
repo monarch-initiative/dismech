@@ -1,4 +1,4 @@
-"""Streaming request path for deep-research-client's Perplexity provider.
+"""Long-running request paths for deep-research-client's Perplexity provider.
 
 ``deep_research_client.providers.perplexity.PerplexityProvider.research``
 sends one non-streaming POST. ``sonar-deep-research`` spends several minutes
@@ -8,22 +8,37 @@ proxy closes such connections at about five minutes) drops the request. The
 run then fails with "Server disconnected without sending a response" or "No
 response content received from Perplexity" (dismech#9357, dismech#15217).
 
-With ``"stream": true`` the API sends server-sent events throughout the
-reasoning phase, which keeps the connection open. This module assembles those
-events into the same ``ResearchResult`` the upstream method returns, and
-:func:`install` swaps it in for the upstream method. The wrapper
-``scripts/run_deep_research_client.sh`` calls :func:`install` before the CLI
-runs. Remove this module once the upstream provider streams.
+Streaming alone does not fix this. Measured through the agent proxy,
+``sonar-deep-research`` with ``"stream": true`` still sends nothing, not even
+response headers, until its search phase ends: a research-sized prompt took
+199 s to return its first byte. Any run whose search phase outlasts the idle
+timeout is dropped the same way (dismech#9357 follow-up).
 
-Three details differ from the non-streaming response:
+So the default path is now Perplexity's asynchronous API
+(:func:`async_poll_research`): ``POST /async/chat/completions`` returns a job
+id at once, and ``GET /async/chat/completions/{id}`` is polled with short
+requests until the job is ``COMPLETED`` or ``FAILED``. No connection is held
+open while the model works. A completed job carries the same
+``choices``/``citations``/``search_results`` shape as the synchronous
+response, so the upstream ``_extract_citations`` reads it unchanged.
+
+The streaming path (:func:`streaming_research`) is kept as a fallback, chosen
+with ``DISMECH_PERPLEXITY_TRANSPORT=stream``, for an account or endpoint
+without the async API. :func:`install` swaps the chosen method in for the
+upstream one. The wrapper ``scripts/run_deep_research_client.sh`` calls
+:func:`install` before the CLI runs. Remove this module once the upstream
+provider no longer holds one connection open for the whole run.
+
+Three details differ from the upstream non-streaming handling:
 
 * ``sonar-deep-research`` opens its output with a ``<think>...</think>``
   reasoning block. It is removed here, so it does not land in the committed
   ``research/*.md`` report. A ``<think>`` that is never closed (a stream cut
   off mid-reasoning) is treated as all-reasoning and stripped to empty, so it
   cannot masquerade as report content.
-* ``citations`` and ``search_results`` arrive on the streamed chunks rather
-  than on one final object, so the last non-empty value seen is kept.
+* On the streaming path, ``citations`` and ``search_results`` arrive on the
+  streamed chunks rather than on one final object, so the last non-empty value
+  seen is kept.
 * The model can decline a query with ``finish_reason=refusal`` (seen for
   Rift Valley fever). That is a content decision, not a transport failure, so
   it is named as such in the raised error.
@@ -36,10 +51,13 @@ warning rather than silently overriding the newer method.
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import json
 import logging
+import os
 import re
+import time
 from collections.abc import Iterable
 from typing import Any
 
@@ -47,6 +65,16 @@ logger = logging.getLogger(__name__)
 
 THINK_BLOCK = re.compile(r"^\s*<think>.*?</think>\s*", re.DOTALL)
 UNCLOSED_THINK = re.compile(r"^\s*<think>(?!.*</think>)", re.DOTALL)
+
+#: Environment variable selecting the request path; ``stream`` picks the
+#: streaming fallback, anything else (or unset) the async submit-and-poll path.
+TRANSPORT_ENV = "DISMECH_PERPLEXITY_TRANSPORT"
+
+#: Seconds between status polls of an async job.
+POLL_INTERVAL_SECONDS = 15.0
+
+#: Terminal statuses of a Perplexity async job.
+_DONE_STATUSES = ("COMPLETED", "FAILED")
 
 # Parameter names of the upstream method this patch was written to replace.
 # Names, not the signature string: ``str(inspect.signature(...))`` includes the
@@ -125,16 +153,9 @@ def assemble_stream(lines: Iterable[str]) -> dict[str, Any]:
     return data
 
 
-async def streaming_research(self, query: str):
-    """Drop-in replacement for ``PerplexityProvider.research`` that streams."""
-    import httpx
-    from deep_research_client.exceptions import ProviderNotConfiguredError
-    from deep_research_client.models import ResearchResult
+def _build_request(self, query: str) -> dict[str, Any]:
+    """Return the chat-completions request body the upstream method would send."""
     from deep_research_client.system_prompts import DEFAULT_RESEARCH_SYSTEM_PROMPT
-
-    logger.info("Starting Perplexity research query (model: %s, streaming)", self.model)
-    if not self.is_available():
-        raise ProviderNotConfiguredError(self.name, self.unavailable_reason())
 
     payload: dict[str, Any] = {
         "model": self.model,
@@ -144,7 +165,6 @@ async def streaming_research(self, query: str):
         ],
         "temperature": self.params.temperature,
         "return_citations": self.params.return_citations,
-        "stream": True,
     }
     if self.params.reasoning_effort != "medium":
         payload["reasoning_effort"] = self.params.reasoning_effort
@@ -152,7 +172,135 @@ async def streaming_research(self, query: str):
         payload["search_recency_filter"] = self.params.search_recency_filter
     if self.params.search_domain_filter:
         payload["search_domain_filter"] = self.params.search_domain_filter
+    return payload
 
+
+def _finalize(self, query: str, data: dict[str, Any], detail: str):
+    """Turn a response dict into a ``ResearchResult``, or raise a named error.
+
+    ``detail`` describes the response for the error raised when it holds no
+    report content.
+    """
+    from deep_research_client.models import ResearchResult
+
+    markdown = strip_think_block(data["choices"][0]["message"]["content"] or "")
+    data["choices"][0]["message"]["content"] = markdown
+    if not markdown.strip():
+        # Distinguish a content refusal (the model declined) from an empty or
+        # truncated response, so a curator does not chase a transport bug.
+        if data.get("finish_reason") == "refusal":
+            raise ValueError(
+                "Perplexity API error: the model refused the query "
+                "(finish_reason=refusal) — a content decision, not a transport failure"
+            )
+        raise ValueError(
+            "Perplexity API error: the response held no report content "
+            f"(finish_reason={data.get('finish_reason')!r}; {detail})"
+        )
+    citations = self._extract_citations(markdown, data)
+    logger.info("Perplexity request completed: %d chars, %d citations", len(markdown), len(citations))
+    return ResearchResult(markdown=markdown, citations=citations, provider=self.name, query=query)
+
+
+def completed_job_data(job: dict[str, Any]) -> dict[str, Any]:
+    """Return the response dict of a completed async job, shaped for :func:`_finalize`.
+
+    Lifts the first choice's ``finish_reason`` to the top level, where the
+    refusal check looks for it, and guarantees ``choices[0].message.content``
+    exists so an empty job reports as empty rather than raising ``KeyError``.
+    """
+    response = dict(job.get("response") or {})
+    choices = response.get("choices") or [{}]
+    first = dict(choices[0])
+    message = dict(first.get("message") or {})
+    message.setdefault("content", "")
+    first["message"] = message
+    if first.get("finish_reason") and "finish_reason" not in response:
+        response["finish_reason"] = first["finish_reason"]
+    response["choices"] = [first, *choices[1:]]
+    return response
+
+
+def async_job_url(api_url: str) -> str:
+    """Return the async-jobs endpoint for a synchronous chat-completions URL.
+
+    ``https://api.perplexity.ai/chat/completions`` becomes
+    ``https://api.perplexity.ai/async/chat/completions``.
+    """
+    base, sep, tail = api_url.rpartition("/chat/completions")
+    if not sep:
+        raise ValueError(f"cannot derive the Perplexity async endpoint from {api_url!r}")
+    return f"{base}/async/chat/completions{tail}"
+
+
+async def async_poll_research(self, query: str):
+    """Drop-in replacement for ``PerplexityProvider.research`` using the async API.
+
+    Submits the request as a job and polls its status with short requests, so
+    no connection stays open while ``sonar-deep-research`` searches. The
+    overall wait is bounded by the provider's configured timeout, defaulting to
+    an hour, because a job can legitimately run for many minutes.
+    """
+    import httpx
+    from deep_research_client.exceptions import ProviderNotConfiguredError
+
+    logger.info("Starting Perplexity research query (model: %s, async job)", self.model)
+    if not self.is_available():
+        raise ProviderNotConfiguredError(self.name, self.unavailable_reason())
+
+    headers = {"Authorization": f"Bearer {self.config.api_key}", "Content-Type": "application/json"}
+    jobs_url = async_job_url(self.api_url)
+    deadline = time.monotonic() + max(float(self.config.timeout or 0), 3600.0)
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+            submitted = await client.post(jobs_url, json={"request": _build_request(self, query)}, headers=headers)
+            if submitted.status_code >= 400:
+                raise ValueError(f"Perplexity API HTTP error: {submitted.status_code} - {submitted.text}")
+            job = submitted.json()
+            job_id = job.get("id")
+            if not job_id:
+                raise ValueError(f"Perplexity API error: async submit returned no job id: {submitted.text[:300]}")
+            logger.info("Perplexity async job %s submitted", job_id)
+            while job.get("status") not in _DONE_STATUSES:
+                if time.monotonic() > deadline:
+                    raise ValueError(
+                        f"Perplexity API error: async job {job_id} still {job.get('status')!r} at the deadline"
+                    )
+                await asyncio.sleep(POLL_INTERVAL_SECONDS)
+                polled = await client.get(f"{jobs_url}/{job_id}", headers=headers)
+                if polled.status_code >= 500:
+                    # A transient server error on one poll is not the job failing.
+                    logger.warning("Perplexity async poll returned %s; retrying", polled.status_code)
+                    continue
+                if polled.status_code >= 400:
+                    raise ValueError(f"Perplexity API HTTP error: {polled.status_code} - {polled.text}")
+                job = polled.json()
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Perplexity API error: {e}") from e
+
+    if job.get("status") == "FAILED":
+        raise ValueError(f"Perplexity API error: async job {job_id} failed: {job.get('error_message')!r}")
+    return _finalize(self, query, completed_job_data(job), f"async job {job_id}")
+
+
+async def streaming_research(self, query: str):
+    """Drop-in replacement for ``PerplexityProvider.research`` that streams.
+
+    The fallback path (``DISMECH_PERPLEXITY_TRANSPORT=stream``). It keeps a
+    connection alive only once the model starts emitting, so a long search
+    phase can still hit an idle timeout; prefer :func:`async_poll_research`.
+    """
+    import httpx
+    from deep_research_client.exceptions import ProviderNotConfiguredError
+
+    logger.info("Starting Perplexity research query (model: %s, streaming)", self.model)
+    if not self.is_available():
+        raise ProviderNotConfiguredError(self.name, self.unavailable_reason())
+
+    payload = _build_request(self, query)
+    payload["stream"] = True
     headers = {
         "Authorization": f"Bearer {self.config.api_key}",
         "Content-Type": "application/json",
@@ -175,30 +323,23 @@ async def streaming_research(self, query: str):
     except Exception as e:
         raise ValueError(f"Perplexity API error: {e}") from e
 
-    data = assemble_stream(lines)
-    markdown = data["choices"][0]["message"]["content"]
-    if not markdown.strip():
-        # Distinguish a content refusal (the model declined) from an empty or
-        # truncated stream, so a curator does not chase a transport bug.
-        if data.get("finish_reason") == "refusal":
-            raise ValueError(
-                "Perplexity API error: the model refused the query "
-                "(finish_reason=refusal) — a content decision, not a transport failure"
-            )
-        data_lines = [line for line in lines if line.startswith("data:")]
-        tail = data_lines[-1][:300] if data_lines else (lines[-1][:300] if lines else "")
-        raise ValueError(
-            "Perplexity API error: the stream ended without any report content "
-            f"(finish_reason={data.get('finish_reason')!r}, {len(lines)} lines, "
-            f"{len(data_lines)} data events; last: {tail!r})"
-        )
-    citations = self._extract_citations(markdown, data)
-    logger.info("Perplexity streaming request completed: %d chars, %d citations", len(markdown), len(citations))
-    return ResearchResult(markdown=markdown, citations=citations, provider=self.name, query=query)
+    data_lines = [line for line in lines if line.startswith("data:")]
+    tail = data_lines[-1][:300] if data_lines else (lines[-1][:300] if lines else "")
+    return _finalize(
+        self,
+        query,
+        assemble_stream(lines),
+        f"stream of {len(lines)} lines, {len(data_lines)} data events; last: {tail!r}",
+    )
+
+
+def selected_transport() -> str:
+    """Return ``"stream"`` or ``"async"``, from :data:`TRANSPORT_ENV`."""
+    return "stream" if os.environ.get(TRANSPORT_ENV, "").strip().lower() == "stream" else "async"
 
 
 def install() -> bool:
-    """Replace the upstream non-streaming Perplexity request with the streaming one.
+    """Replace the upstream Perplexity request with the async (default) or streaming one.
 
     Returns ``False`` (and changes nothing) when the provider is not importable,
     logging a warning so a silent fallback to the non-streaming (timeout-prone)
@@ -225,6 +366,8 @@ def install() -> bool:
             drifted,
             ", ".join(_EXPECTED_PARAMETERS),
         )
-    PerplexityProvider.research = streaming_research
+    method = streaming_research if selected_transport() == "stream" else async_poll_research
+    PerplexityProvider.research = method
     PerplexityProvider._dismech_streaming = True
+    logger.info("Perplexity requests use the %s path", method.__name__)
     return True
