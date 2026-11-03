@@ -956,12 +956,14 @@ check-enum-cache:
 check-enum-cache-offline:
     uv run python -m dismech.enum_cache --schema {{schema_path}} --cache-dir cache --oak-config {{oak_config}} --offline
 
-# Report non-canonical CURIE ordering in enum and ontology term caches.
-# Phase 0 is advisory/read-only: warnings do not fail until the coordinated
-# cache normalization cutover enables strict ordering.
+# Gate: every cache/enums/*.csv and cache/*/terms.csv must be in canonical
+# (codepoint) CURIE order -- the order `just normalize-cache` writes. Read-only,
+# offline, sub-second; exits 1 on an out-of-order row. Runs in `just qc` and as
+# an ungated whole-tree CI step, because appended-at-end rows arrive in
+# kb/-only curation PRs and by merge (#7753). Fix with `just normalize-cache`.
 [group('QC')]
 check-cache-order:
-    uv run python -m dismech.enum_cache --cache-dir cache --check-order
+    uv run python -m dismech.enum_cache --cache-dir cache --check-order --strict-order
 
 # Pre-provision the sqlite:obo:* ontology DBs (with resume/retry) that term
 # validation needs, so a flaky/blocked download does not abort validation
@@ -1139,7 +1141,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-logical-rules check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-logical-rules check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -4488,8 +4490,8 @@ normalize-cache:
 # What this gives up: before, every `validate*` run re-sorted the caches whether
 # or not it had touched them, which quietly repaired ordering broken some other
 # way, most often by a merge of two branches that each appended rows to the same
-# cache file. That case is no longer self-healed here. Ordering is audited only
-# by `check-cache-order`, which is advisory and not part of `qc` or CI;
+# cache file. That case is no longer self-healed here. Ordering is gated by
+# `check-cache-order`, which is in `qc` and runs whole-tree in CI (#7753);
 # `check-term-cache-integrity` checks row structure, not order. Run
 # `just normalize-cache` by hand after such a merge. A missing or unreadable
 # stamp falls back to normalizing, so a degraded run fails safe. (#11005)

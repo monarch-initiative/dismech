@@ -4404,8 +4404,17 @@ Treat committed CSVs under `cache/` as derived, authority-backed artifacts:
 - Never hand-write, append, or reorder cache rows. Populate term caches through
   `just validate-terms` or `just validate`, then use `just normalize-cache` for
   canonical CURIE ordering.
-- Use `just check-term-cache-integrity` for structural validation and
-  `just check-cache-order` for a read-only ordering report.
+- **Committed caches must be in canonical order, and that is gated.**
+  `just check-cache-order` (in `just qc`, and an ungated whole-tree CI step)
+  fails on any `cache/enums/*.csv` or `cache/*/terms.csv` row out of the
+  codepoint CURIE order `just normalize-cache` writes. Do not keep rows
+  appended at end-of-file to avoid a reorder diff: that puts every concurrent
+  PR's cache change in the same final hunk and hands the re-sort to whoever
+  validates next (#7753). If your branch fails it — usually after merging
+  `main` or resolving a cache conflict — run `just normalize-cache` and commit
+  the result; the diff is the misplaced rows moving, nothing else. Never
+  resolve a cache conflict by taking one side wholesale.
+- Use `just check-term-cache-integrity` for structural validation.
 
 ```bash
 just validate-terms kb/disorders/YourFile.yaml
