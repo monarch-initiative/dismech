@@ -68,13 +68,21 @@ def gh_pages(path: str, *params: str) -> list[dict]:
 
 
 def open_claims_for(mondo: str) -> list[dict]:
-    """Open `claim` issues whose title carries exactly this MONDO ID."""
+    """Open `claim` issues the workflow guard would group under this MONDO ID.
+
+    Keyed on the FIRST MONDO in the title, exactly as the guard's
+    `claim_dedupe_guard.mondo_of` (MONDO_RE.search) groups it -- not on any MONDO
+    anywhere in the title. For the normal one-ID title the two are identical; for
+    a pathological multi-ID title the guard groups it under its first ID only, so
+    matching any ID here could stand a session down for a keeper the guard never
+    pairs it with (reviewer note, #16328).
+    """
     hits = []
     for issue in gh_pages(f"repos/{REPO}/issues", "labels=claim", "state=open"):
         if "pull_request" in issue:  # the issues endpoint also returns PRs
             continue
-        title = issue.get("title", "")
-        if any(m == mondo for m in MONDO_RE.findall(title)):
+        m = MONDO_RE.search(issue.get("title", ""))
+        if m and m.group(0) == mondo:
             hits.append(issue)
     return hits
 
@@ -96,18 +104,28 @@ def main() -> int:
         return 2
 
     # Retry until our own just-filed claim is visible, so we never read a list
-    # that predates it and wrongly conclude we are alone / the keeper.
+    # that predates it and wrongly conclude we are alone / the keeper. A gh/API
+    # transport failure is exit 2 (the docstring's contract), not an uncaught
+    # CalledProcessError traceback at exit 1 (reviewer note, #16328).
     members: list[dict] = []
-    for attempt in range(_RETRIES):
-        members = open_claims_for(args.mondo)
-        if any(m["number"] == args.self_issue for m in members):
-            break
-        if attempt < _RETRIES - 1:
-            time.sleep(_RETRY_SLEEP)
-    else:
+    try:
+        for attempt in range(_RETRIES):
+            members = open_claims_for(args.mondo)
+            if any(m["number"] == args.self_issue for m in members):
+                break
+            if attempt < _RETRIES - 1:
+                time.sleep(_RETRY_SLEEP)
+        else:
+            print(
+                f"own claim #{args.self_issue} not visible among open claims for "
+                f"{args.mondo} after {_RETRIES} tries; cannot determine the keeper",
+                file=sys.stderr,
+            )
+            return 2
+    except subprocess.CalledProcessError as exc:
         print(
-            f"own claim #{args.self_issue} not visible among open claims for "
-            f"{args.mondo} after {_RETRIES} tries; cannot determine the keeper",
+            f"gh api call failed ({exc}); cannot determine the keeper for "
+            f"{args.mondo} -- do not assume you are alone, stop and look",
             file=sys.stderr,
         )
         return 2

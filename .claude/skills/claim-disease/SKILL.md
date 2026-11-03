@@ -338,6 +338,11 @@ turns on. Enriching an issue body with a definition or an OMIM ID is not that.
    (Where there is no `gh`, use `mcp__github__issue_write` with
    `state: "closed"`, `state_reason: "duplicate"`, `duplicate_of: <KEEPER>`.)
 
+   **Exit 2 (or any other nonzero that is not 3): do not assume you are the
+   keeper.** It means the check could not read the claim list, or your own claim
+   was not visible in it — stop and look rather than curate on the assumption
+   that nobody else is here.
+
    **Why this matters and why step 6 is not enough.** This is what actually stops
    two sessions both curating one disease — and the colliding sessions are often
    on *different Claude accounts*, so neither can see the other's session; the
