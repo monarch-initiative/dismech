@@ -792,6 +792,54 @@ window.searchData = [
     "source_file": "kb/disorders/Fanconi_Anemia.yaml"
   },
   {
+    "model_key": "Alzheimer_Disease--computational-model-camd-alzheimer-disease-clinical-trial-simulation-model--1",
+    "name": "CAMD Alzheimer Disease Clinical Trial Simulation Model",
+    "description": "Beta-regression drug-disease-trial model of longitudinal ADAS-Cog 11 progression in mild-to-moderate Alzheimer disease, fit jointly to patient-level control-arm data from the Coalition Against Major Diseases (CAMD) database, ADNI natural-history data and summary-level literature data. It estimates disease progression (dependent on time, APOE4 status, age and sex), placebo effect, acetylcholinesterase-inhibitor effects and dropout, and is used for clinical trial simulation. FDA deemed it fit for purpose for designing mild-to-moderate Alzheimer disease trials on 12 June 2013. It is an empirical disease-progression model and does not represent any biological mechanism.",
+    "model_type": "Unclassified",
+    "model_type_raw": "",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:22821139",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Alzheimer Disease",
+    "disease_id": "MONDO:0004975",
+    "category": "Neurodegenerative Disorder",
+    "parents": [
+      "Dementia",
+      "Neurodegenerative Disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [],
+    "num_mechanisms": 0,
+    "findings": [
+      "The CAMD clinical trial simulation tool went through formal regulatory review at FDA and EMA.",
+      "FDA deemed the CAMD clinical trial simulation tool fit for purpose for designing trials in mild to moderate Alzheimer disease on 12 June 2013.",
+      "Modelled ADAS-Cog progression depended on time, APOE4 status, age and sex.",
+      "The model passed predictive checks and external validation."
+    ],
+    "num_findings": 4,
+    "evidence_refs": [
+      "PMID:22821139",
+      "PMID:25669145"
+    ],
+    "num_evidence": 2,
+    "notes": "No modeled_mechanisms link is recorded: the model describes the rate of change of the 11-item ADAS-Cog total, a composite of memory, language, praxis and orientation items, and represents no biological mechanism, so no pathophysiology node in this entry is its target. It was built from mild-to-moderate, trial-eligible patients without consistent amyloid or tau biomarker data. model_type is left unset because no ComputationalModelTypeEnum value fits a statistical disease-progression model; the closest, PHYSIOLOGICAL, is defined as a PBPK or organ model. FDA's fit-for-purpose determination is also listed in its Drug Development Tools Fit-for-Purpose table.",
+    "creation_date": "2025-12-04T16:57:31Z",
+    "page_url": "../../pages/disorders/Alzheimer_Disease.html#computational-model-camd-alzheimer-disease-clinical-trial-simulation-model",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Alzheimer_Disease.yaml"
+  },
+  {
     "model_key": "CDK8-Related_Disorder--computational-model-cdk8-cyclin-c-molecular-dynamics--0",
     "name": "CDK8\u2013Cyclin C Molecular Dynamics",
     "description": "Reference, Ser62Leu and Arg178Gln CDK8\u2013cyclin C structures with ATP were compared by molecular dynamics. The modeling used CDK8 structure 4F7S and an aligned CDK9 ATP template, with unresolved regions modeled in MOE and replicate simulations in GROMACS. The variants were predicted to restrict substrate-pocket opening without grossly changing the overall fold.",
@@ -4163,6 +4211,69 @@ window.searchData = [
     "source_file": "kb/modules/cellular_senescence.yaml"
   },
   {
+    "model_key": "Familial_Long_QT_Syndrome--computational-model-populations-of-human-ventricular-action-potential-models-passini-2017--3",
+    "name": "Populations of Human Ventricular Action Potential Models (Passini 2017)",
+    "description": "In silico drug-trial framework in which the O'Hara-Rudy dynamic (ORd) human ventricular action potential model is expanded into a population of 1,213 control models whose ionic-current conductances vary, retaining only models consistent with human experimental recordings. Reference compounds are applied as multi-channel pore block (IC50 and Hill coefficient), and the occurrence of repolarization abnormalities across the population is used to predict clinical torsade de pointes risk. It models drug-induced (acquired) proarrhythmia in wild-type cells, not the inherited channel defects that define this entry; it is linked here through the drug-unmasking node that the two forms share.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "O'Hara-Rudy ORd human ventricular action potential model (PMID:21637795)",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:28955244",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Familial Long QT Syndrome",
+    "disease_id": "MONDO:0019171",
+    "category": "Genetic",
+    "parents": [
+      "Cardiac Arrhythmia",
+      "Channelopathy"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [
+      "SCN5A",
+      "KCNH2",
+      "KCNQ1",
+      "KCND3",
+      "CACNA1C",
+      "KCNJ2"
+    ],
+    "perturbation_ids": [
+      "hgnc:10593",
+      "hgnc:6251",
+      "hgnc:6294",
+      "hgnc:6239",
+      "hgnc:1390",
+      "hgnc:6263"
+    ],
+    "modeled_mechanisms": [
+      "QT-Prolonging Drug Unmasking of Reduced Repolarization Reserve",
+      "Early Afterdepolarizations"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "Repolarization abnormalities in the model population predicted clinical torsade de pointes risk for 62 reference compounds with 89% accuracy.",
+      "The in silico classification was more accurate than a published animal comparator, the rabbit isolated Langendorff heart (89% for 62 compounds against 75% for 64 compounds).",
+      "Simulated action potential duration changes agreed with rabbit QT interval and hiPSC-cardiomyocyte calcium-transient changes for the compounds compared."
+    ],
+    "num_findings": 3,
+    "evidence_refs": [
+      "PMID:28955244"
+    ],
+    "num_evidence": 1,
+    "notes": "No FDA regulatory action on this model was found in the cited sources. Each compound is modelled as block of up to seven currents (INa, INaL, IKr, IKs, Ito, ICaL and IK1); the perturbations list the genes encoding the principal channel for each current.",
+    "creation_date": "2026-04-14T05:37:14Z",
+    "page_url": "../../pages/disorders/Familial_Long_QT_Syndrome.html#computational-model-populations-of-human-ventricular-action-potential-models-passini-2017",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Long_QT_Syndrome.yaml"
+  },
+  {
     "model_key": "Stem_Cell_Exhaustion_Module--computational-model-predicting-clonal-self-renewal-and-extinction-of-hematopoietic-stem-cells--2",
     "name": "Predicting Clonal Self-Renewal and Extinction of Hematopoietic Stem Cells",
     "description": "Stochastic model of hematopoietic stem cell clone dynamics that predicts the probability of a clone self-renewing versus going extinct, reconciling the observed persistence of some clones with the loss of most.",
@@ -5978,6 +6089,55 @@ window.searchData = [
     "source_file": "kb/disorders/Multiple_Sclerosis.yaml"
   },
   {
+    "model_key": "Diabetes_mellitus--computational-model-uva-padova-type-1-diabetes-simulator--4",
+    "name": "UVA/Padova Type 1 Diabetes Simulator",
+    "description": "Simulator of glucose-insulin dynamics with a population of in silico subjects with type 1 diabetes, built on the Dalla Man meal model of the glucose-insulin system. The 2013 version (S2013) adds nonlinear insulin-dependent glucose utilization in hypoglycemia and glucagon kinetics, secretion and action. It is used for in silico trials of glucose sensors, insulin dosing and closed-loop (artificial pancreas) controllers, and its developers report that FDA accepted it in 2008 as a substitute for animal trials in pre-clinical testing of insulin treatment strategies; no FDA document recording that decision is cited here. It describes the type 1 diabetes subtype only, not the other forms this umbrella entry covers.",
+    "model_type": "Physiological",
+    "model_type_raw": "PHYSIOLOGICAL",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "Dalla Man meal simulation model of the glucose-insulin system (PMID:17926672)",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:24876534",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Diabetes mellitus",
+    "disease_id": "MONDO:0005015",
+    "category": "Complex",
+    "parents": [
+      "endocrine pancreas disorder",
+      "glucose metabolism disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Chronic Hyperglycemia (shared diabetic complication cascade)"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "The simulator's developers report that FDA accepted it in January 2008 as a substitute for animal trials in pre-clinical testing of insulin treatment strategies.",
+      "The S2013 version describes hypoglycemic events better than the earlier version."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:17926672",
+      "PMID:24876534",
+      "PMID:37743740"
+    ],
+    "num_evidence": 3,
+    "notes": "Placed on this umbrella entry rather than on Type_I_Diabetes at the maintainer's direction on issue #16321. The simulator is distributed under licence by the University of Virginia and is not in a public repository.",
+    "creation_date": "2026-02-21T15:39:12Z",
+    "page_url": "../../pages/disorders/Diabetes_mellitus.html#computational-model-uva-padova-type-1-diabetes-simulator",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Diabetes_Mellitus.yaml"
+  },
+  {
     "model_key": "Advanced_Sleep_Phase_Syndrome--computational-model-vanselow-per2-multisite-phosphorylation-oscillator--0",
     "name": "Vanselow PER2 Multisite-Phosphorylation Oscillator",
     "description": "Five-variable ordinary differential equation extension of a Goodwin oscillator that separates PER2 into unphosphorylated, singly phosphorylated, doubly phosphorylated, and nuclear species. The FASPS perturbation reduces the second phosphorylation rate, representing loss of the human PER2 S662 priming site, and tests how competing phosphorylation routes change clock period.",
@@ -6841,7 +7001,7 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 140,
+  "total_models": 143,
   "total_source_entries": 64,
   "total_model_types": 11,
   "total_runnable": 4,

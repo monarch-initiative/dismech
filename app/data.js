@@ -132590,7 +132590,7 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 38,
     "num_treatments": 10,
-    "causal_graph_edges": "36",
+    "causal_graph_edges": "37",
     "causal_graph_longest_path": "2"
   },
   {
@@ -235218,6 +235218,96 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Kaya-Barakat-Masson Syndrome",
+    "disease_id": "MONDO:0030878",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-11-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive neurodevelopmental disorder caused by biallelic pathogenic variants in YIF1B - mostly truncating or whole-gene deletions, with a minority of hypomorphic missense alleles - which encodes a ubiquitous membrane protein required for anterograde endoplasmic-reticulum-to-cell-membrane trafficking, Golgi apparatus morphology, and primary cilium integrity in neurons. Affected individuals have severe-to-profound developmental delay with little or no speech, postnatal (secondary) microcephaly, a mixed movement disorder (axial hypotonia with peripheral hypertonia, dystonia, and dyskinesia), seizures, feeding difficulties, ophthalmologic involvement, and in a subset central hypoventilation. Brain MRI shows nonspecific changes, most often corpus callosum hypoplasia, cerebellar hypoplasia, and white-matter abnormalities.",
+    "pathophysiology": [
+      "YIF1B Loss of Function",
+      "Impaired Anterograde Membrane Trafficking",
+      "Disrupted Brain Development"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "endoplasmic reticulum to Golgi vesicle-mediated transport",
+      "Golgi organization"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Absent speech",
+      "Secondary microcephaly",
+      "Hypotonia",
+      "Spasticity",
+      "Dystonia",
+      "Seizure",
+      "Feeding difficulties",
+      "Visual impairment",
+      "Hypoventilation",
+      "Hypoplasia of the corpus callosum",
+      "Cerebellar hypoplasia",
+      "Abnormal myelination",
+      "Autistic behavior"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Gastrointestinal",
+      "Ophthalmologic",
+      "Autonomic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001344",
+      "HP:0005484",
+      "HP:0001252",
+      "HP:0001257",
+      "HP:0001332",
+      "HP:0001250",
+      "HP:0011968",
+      "HP:0000505",
+      "HP:0002791",
+      "HP:0002079",
+      "HP:0001321",
+      "HP:0012447",
+      "HP:0000729"
+    ],
+    "frequencies": [],
+    "genes": [
+      "YIF1B"
+    ],
+    "treatments": [
+      "Symptomatic and supportive management",
+      "Gastrostomy tube placement",
+      "Assisted ventilation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Kaya-Barakat-Masson_Syndrome.yaml",
+    "page_url": "../pages/disorders/Kaya-Barakat-Masson_Syndrome.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Kearns-Sayre syndrome",
     "disease_id": "MONDO:0010787",
     "category": "Mendelian",
@@ -248976,7 +249066,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 18,
     "num_treatments": 5,
-    "causal_graph_edges": "33",
+    "causal_graph_edges": "35",
     "causal_graph_longest_path": "5"
   },
   {
@@ -422565,17 +422655,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3919,
+  "total_disorder_pages": 3920,
   "total_subtypes": 4999,
-  "total_disorders_and_subtypes": 8918,
-  "total_unique_evidence_sources": 58260,
-  "total_unique_publications": 54508,
+  "total_disorders_and_subtypes": 8919,
+  "total_unique_evidence_sources": 58271,
+  "total_unique_publications": 54518,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3917,
-  "total_unique_pathological_events": 25688,
+  "total_pathographs": 3918,
+  "total_unique_pathological_events": 25690,
   "total_modules": 226,
-  "total_research_reports": 4031,
+  "total_research_reports": 4032,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 129
