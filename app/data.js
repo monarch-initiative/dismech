@@ -73735,6 +73735,96 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "CNGB3-Related Retinopathy",
+    "disease_id": "MONDO:0100446",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-11-02T23:47:27Z",
+    "updated_date": null,
+    "subtypes": [
+      "ACHM3",
+      "CNGB3 Progressive Cone Dystrophy"
+    ],
+    "description": "CNGB3-related retinopathy is an autosomal recessive cone photoreceptor disorder caused by biallelic pathogenic variants in CNGB3, which encodes the beta (modulatory) subunit of the cone cyclic nucleotide-gated (CNG) channel. The channel is the cGMP-gated cation channel in the cone outer segment whose closure generates the cone light response, so loss of CNGB3 leaves cones unable to respond to light. CNGB3 is the most common achromatopsia gene, accounting for roughly half of patients, and its usual phenotype is complete achromatopsia (ACHM3): congenital loss of colour vision, poor visual acuity, photophobia and pendular nystagmus with absent cone and normal or mildly reduced rod electroretinogram responses. Some families instead have a later-onset, progressive cone dystrophy, and macular outer-retinal changes progress slowly with age in achromats as well. This entry captures the CNGB3-specific gene-disease mechanism and spectrum; Achromatopsia.yaml models the ACHM3 subtype within the broader achromatopsia umbrella and points here.",
+    "pathophysiology": [
+      "CNGB3 Cone CNG Channel Beta Subunit Deficiency",
+      "Loss of Functional Cone CNG Channels",
+      "Failure of the Cone Light Response",
+      "Congenital Cone Dysfunction",
+      "ER Stress-Associated Cone Apoptosis",
+      "Slow Cone Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "phototransduction, visible light",
+      "detection of light stimulus involved in visual perception",
+      "visual perception",
+      "response to endoplasmic reticulum stress",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Achromatopsia",
+      "Tritanomaly",
+      "Reduced visual acuity",
+      "Photophobia",
+      "Pendular nystagmus",
+      "Undetectable cone electroretinogram",
+      "Central scotoma",
+      "Hypermetropia",
+      "Macular atrophy",
+      "Cone/cone-rod dystrophy"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011516",
+      "HP:0000552",
+      "HP:0007663",
+      "HP:0000613",
+      "HP:0012043",
+      "HP:0030465",
+      "HP:0000603",
+      "HP:0000540",
+      "HP:0007401",
+      "HP:0000548"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "CNGB3"
+    ],
+    "treatments": [
+      "AAV CNGB3 gene augmentation (investigational)",
+      "Intravitreal CNTF implant (investigational, ineffective)",
+      "Low vision aids and tinted filters",
+      "Genetic counseling",
+      "Ophthalmologic surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CNGB3-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/CNGB3-Related_Retinopathy.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "CNS Neuroblastoma, FOXR2-Activated",
     "disease_id": "MONDO:0859597",
     "category": "",
@@ -116078,7 +116168,7 @@ window.searchData = [
     "num_pathophysiology": 18,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "53",
+    "causal_graph_edges": "55",
     "causal_graph_longest_path": "11"
   },
   {
@@ -209470,6 +209560,78 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 0,
     "causal_graph_edges": "20",
+    "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "IMPG2-related Recessive Retinopathy",
+    "disease_id": "MONDO:0700241",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-11-02T23:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "IMPG2-related recessive retinopathy is an inherited retinal disease caused by biallelic pathogenic variants in IMPG2, which encodes interphotoreceptor matrix proteoglycan 2 (SPACRCAN, also IPM200), one of the two large chondroitin-sulfate proteoglycans of the interphotoreceptor matrix (IPM) that fills the subretinal space around photoreceptor outer segments. Unlike its paralog IMPG1 (SPACR), IMPG2 carries a putative transmembrane domain and sits at the inner-segment side of the matrix, where it is required for IMPG1 to be positioned correctly in the outer-segment compartment. The predominant recessive presentation is an early-onset retinitis pigmentosa (RP56) with progressive visual-field loss and loss of visual acuity, and macular involvement is a frequent, relatively early feature; the single reported recessive patient carrying a missense allele presented with a maculopathy as the leading feature. Reported biallelic alleles are mostly null (nonsense, genomic deletion) with occasional missense alleles, and a SEA-domain deletion allele is retained in the endoplasmic reticulum in vitro. Only a small number of biallelic families have been reported, and no disease-specific treatment exists.",
+    "pathophysiology": [
+      "Biallelic IMPG2 Loss of Function",
+      "Interphotoreceptor Matrix Disorganization",
+      "Subretinal Material Accumulation",
+      "Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "retinal rod cell",
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "extracellular matrix organization",
+      "photoreceptor cell maintenance"
+    ],
+    "phenotypes": [
+      "Rod-cone dystrophy",
+      "Constriction of peripheral visual field",
+      "Reduced visual acuity",
+      "Macular atrophy",
+      "Nyctalopia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000510",
+      "HP:0001133",
+      "HP:0007663",
+      "HP:0007401",
+      "HP:0000662"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "IMPG2"
+    ],
+    "treatments": [
+      "Supportive and complication-directed care",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "IMPG2-related_Recessive_Retinopathy.yaml",
+    "page_url": "../pages/disorders/IMPG2-related_Recessive_Retinopathy.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "6"
   },
   {
@@ -422221,17 +422383,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3915,
-  "total_subtypes": 4997,
-  "total_disorders_and_subtypes": 8912,
-  "total_unique_evidence_sources": 58215,
-  "total_unique_publications": 54467,
+  "total_disorder_pages": 3917,
+  "total_subtypes": 4999,
+  "total_disorders_and_subtypes": 8916,
+  "total_unique_evidence_sources": 58244,
+  "total_unique_publications": 54494,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3913,
-  "total_unique_pathological_events": 25676,
+  "total_pathographs": 3915,
+  "total_unique_pathological_events": 25682,
   "total_modules": 226,
-  "total_research_reports": 4027,
+  "total_research_reports": 4029,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 129
