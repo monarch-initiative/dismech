@@ -206,9 +206,13 @@ look. The two cases read identically in the diff and are opposite in kind.
 | the fact is textbook and no abstract states it crisply | move it to `notes`, no evidence |
 | a DR report asserted it and the cited abstract does not contain it | **drop the claim** — it is unverified, not merely unquotable |
 
-`Total checks: 0` in reference-validator output means zero issues were counted;
-it does not mean no evidence was examined. Use the wrapper's affirmative
-`Snippets checked: N/N verified` summary to describe cache-backed coverage.
+The validator's summary counts what it compared: `Snippets checked`,
+`Snippets skipped`, `Snippets unavailable`, `Titles checked`, and
+`Issues found`. `Snippets checked: 0` (with "No snippet comparisons were
+performed.") means nothing was compared, which is not a pass. Older validators
+printed `Total checks: 0`, which counted issues, not checks. Use
+`just count-verified-snippets`' `Snippets checked: N/N verified` line to describe
+cache-backed coverage.
 
 `DOI:` and `PMID:` snippets are checked by the same authoritative validator.
 A missing source, missing body, or mismatched quote fails validation; a failed
@@ -229,17 +233,29 @@ weaken an evidence constraint require explicit approval from `cmungall`
 
 "Exact substring" means exact **after normalization, on both sides**.
 `SupportingTextValidator.normalize_text` (in `linkml-reference-validator`, and
-reused by `just count-verified-snippets`) spells out Greek letters, lowercases,
-replaces every non-word non-space character with a space, then collapses runs of
-whitespace with `re.sub(r"\s+", " ", ...)`. Python's `\s` on `str` patterns
-matches Unicode whitespace, so most publisher typography folds away on both
-sides:
+reused by `just count-verified-snippets`) folds Latin ligatures, spells out Greek
+letters, lowercases and collapses whitespace (Python's `\s` matches Unicode
+whitespace). Since linkml-reference-validator 0.5.0 it no longer turns *every*
+symbol into a space. Symbols that carry meaning become words: `<` `>` `≤` `≥`
+become `lt` `gt` `le` `ge`, `±` becomes `pm`, a minus sign before a number stays
+on it (`-2.5` is `neg2.5`), and a point or comma between digits stays part of
+the number (`10.5`). All other punctuation is still a space. A match must also
+start and end on **whole words**: `activates` does not match `inactivates`, and
+`5 mM` does not match `10.5 mM`.
+
+Most publisher typography still folds away on both sides:
 
 | In the source | Write in the snippet |
 |---|---|
 | U+2009 thin space (common around `=` in Nature journals) | an ordinary space |
 | U+00A0 no-break space | an ordinary space |
-| U+2013 en dash, U+2212 minus (ranges, negative exponents) | an ordinary hyphen |
+| U+2013 en dash in a range (`3.97–6.38`, `1–12`) | an ordinary hyphen |
+| U+2212 `−`, or an en dash or U+2010 `‐` printed as a minus (`z score, –1.98`) | an ordinary `-` |
+| `≥` `≤`, or MEDLINE's ASCII `>/=` `</=` | either spelling (`>=` and `<=` also work) |
+| `±`, `+/-`, `+/–` | any of them |
+| U+00B7 middle-dot decimal (Lancet: `57·4`) | `57.4` |
+| U+00B5 micro sign `µ` | `µ` or `μ` |
+| `ﬁ`-style ligatures | plain `fi` |
 | U+00D7 multiplication sign | see the traps below |
 
 So `"AUC = 0.933"` typed with ordinary spaces matches source text reading
@@ -282,21 +298,26 @@ verbatim are equally valid and need no repair; several hundred `kb/disorders`
 snippets do exactly that.
 
 **The traps — characters that do *not* vanish.** Each of these survives
-normalization on one side only, so the comparison fails:
+normalization on one side only, or means something different, so the comparison
+fails:
 
+- **A dropped or changed comparison or sign.** `ratios 3:1` does not match
+  `ratios ≥3:1`, and `-2.5 fold` does not match `2.5 fold`. This is the point of
+  the 0.5.0 rule: quote the symbol.
+- **Number separators.** A point or comma between digits is part of the number,
+  so quote numbers with the source's own separators: `0.8, 7.3` does not match
+  `0.8,7.3`, and `10 000` does not match `10,000`.
+- **A spaced ASCII hyphen as a minus.** `range - 4.72` reads as a range dash, so
+  it does not match a source's `range − 4.72`. Write `−` or `-4.72`. The reverse
+  also holds: a range spaced on one side only (`18 –65`) reads as `18` and `-65`.
+- **Starting a quote on a sign or mid-word.** A quote beginning `-3881 and…`
+  reads its first word as `neg3881`; start on a whole word instead.
 - **`x` for `×`.** `x` is a word character and survives, while U+00D7 becomes a
   space, so `"7.03 x 10-48"` does *not* match `7.03 × 10−48`. Include the
   literal `×`, or end the quote before the scientific-notation clause.
 - **Mid-word invisibles.** U+00AD soft hyphen and U+200B zero-width space
   normalize to a *space*, splitting the word: cached `diffi<U+00AD>culties`
   becomes `diffi culties` and never matches `difficulties`.
-- **Ligatures.** U+FB01 `ﬁ` is a word character and survives unchanged, so
-  cached `speciﬁc` does not match `specific`. Note the asymmetry: `just
-  count-verified-snippets` folds ligatures in its relaxed cache-defect pass
-  (#8048, `normalize_relaxed` in `src/dismech/reference_snippet_audit.py`) but
-  the gating `linkml-reference-validator` does not — so such a snippet can pass
-  the fast check and fail the pre-PR sweep.
-- **Micro sign.** U+00B5 `µ` survives, since only U+03BC `μ` is in `greek_map`.
 
 If a quote you copied verbatim still fails, run `just count-verified-snippets` —
 it names the span it could not find rather than leaving you guessing.

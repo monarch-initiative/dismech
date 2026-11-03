@@ -4130,12 +4130,22 @@ Non-negotiable rules:
   prose describing repository state is content, and it rots.
 
 **Publisher typography folds — a snippet need not be byte-identical.** Both
-sides of the comparison are normalized (`normalize_text` maps every non-word
-non-space character to a space, then collapses whitespace with `\s+`, which in
-Python matches Unicode whitespace). So an ordinary space matches the U+2009 thin
-spaces Nature journals put around `=`, and a hyphen matches an en dash or
-unicode minus in a range: `"AUC = 0.933"` typed normally matches the source. In
-the #9308 tranche 8 of 15 snippets were not byte-exact and all 15 verified.
+sides of the comparison are normalized (`normalize_text` maps punctuation to a
+space, then collapses whitespace with `\s+`, which in Python matches Unicode
+whitespace). So an ordinary space matches the U+2009 thin spaces Nature
+journals put around `=`, and a hyphen matches an en dash in a range:
+`"AUC = 0.933"` typed normally matches the source. In the #9308 tranche 8 of 15
+snippets were not byte-exact and all 15 verified.
+
+**Signs, comparisons and numbers are not punctuation (linkml-reference-validator
+0.5.0).** `<` `>` `≤` `≥` (and MEDLINE's `>/=` `</=`) become `lt` `gt` `le`
+`ge`, `±` and `+/-` become `pm`, a minus sign stays on its number, and a point
+or comma between digits stays in it. So a snippet that drops or flips one no
+longer verifies: `ratios 3:1` fails against `ratios ≥3:1`, and `0.8, 7.3` fails
+against `0.8,7.3`. Publisher spellings of the same thing still match: an en dash
+or `−` printed as a minus, a Lancet middle-dot decimal (`57·4` is `57.4`), and
+`+/–`. A match must also start and end on whole words, so `activates` does not
+match `inactivates`.
 
 **Greek letters are transliterated, so both spellings verify.** `normalize_text`
 maps them through `greek_map` on both sides: `α3β3` becomes `alpha3beta3`, `γ`
@@ -4156,8 +4166,9 @@ than any typography.
 Prefer plain ASCII for characters that are **invisible or lookalikes** — those
 are a trap for the next curator, and they buy nothing. Existing snippets that copied
 the source's thin spaces and en dashes verbatim are equally valid and need no
-repair. The characters that do **not** fold are `x` typed for `×`, mid-word soft
-hyphens and zero-width spaces, `ﬁ`-style ligatures, and the U+00B5 micro sign.
+repair. The characters that do **not** fold are `x` typed for `×`, and mid-word
+soft hyphens and zero-width spaces. (`ﬁ`-style ligatures and the U+00B5 micro
+sign now do: `µ` matches `μ`.)
 Full detail, including why this matters, in `.claude/skills/dismech-references`.
 
 To check how a candidate will compare, call the real normalizer rather than a

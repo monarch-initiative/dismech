@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1200/jco.22.01649
+extractor_version: 1
 title: Niraparib and Abiraterone Acetate for Metastatic Castration-Resistant Prostate Cancer
 authors:
 - Kim N. Chi
@@ -246,7 +247,8 @@ journal: Journal of Clinical Oncology
 year: '2023'
 doi: 10.1200/jco.22.01649
 content_type: abstract_only
-full_text_attempted: true
+is_preprint: false
+full_text_declined: landing_page_only
 ---
 
 # Niraparib and Abiraterone Acetate for Metastatic Castration-Resistant Prostate Cancer
@@ -256,4 +258,20 @@ full_text_attempted: true
 
 ## Content
 
-PURPOSEMetastatic castration-resistant prostate cancer (mCRPC) remains a lethal disease with current standard-of-care therapies. Homologous recombination repair (HRR) gene alterations, including BRCA1/2 alterations, can sensitize cancer cells to poly (ADP-ribose) polymerase inhibition, which may improve outcomes in treatment-naïve mCRPC when combined with androgen receptor signaling inhibition.METHODSMAGNITUDE (ClinicalTrials.gov identifier: NCT03748641 ) is a phase III, randomized, double-blinded study that evaluates niraparib and abiraterone acetate plus prednisone (niraparib + AAP) in patients with (HRR+, n = 423) or without (HRR−, n = 247) HRR-associated gene alterations, as prospectively determined by tissue/plasma-based assays. Patients were assigned 1:1 to receive niraparib + AAP or placebo + AAP. The primary end point, radiographic progression-free survival (rPFS) assessed by central review, was evaluated first in the BRCA1/2 subgroup and then in the full HRR+ cohort, with secondary end points analyzed for the full HRR+ cohort if rPFS was statistically significant. A futility analysis was preplanned in the HRR− cohort.RESULTSMedian rPFS in the BRCA1/2 subgroup was significantly longer in the niraparib + AAP group compared with the placebo + AAP group (16.6 v 10.9 months; hazard ratio [HR], 0.53; 95% CI, 0.36 to 0.79; P = .001). In the overall HRR+ cohort, rPFS was significantly longer in the niraparib + AAP group compared with the placebo + AAP group (16.5 v 13.7 months; HR, 0.73; 95% CI, 0.56 to 0.96; P = .022). These findings were supported by improvement in the secondary end points of time to symptomatic progression and time to initiation of cytotoxic chemotherapy. In the HRR− cohort, futility was declared per the prespecified criteria. Treatment with niraparib + AAP was tolerable, with anemia and hypertension as the most reported grade ≥ 3 adverse events.CONCLUSIONCombination treatment with niraparib + AAP significantly lengthened rPFS in patients with HRR+ mCRPC compared with standard-of-care AAP.[Media: see text]
+PURPOSE
+
+Metastatic castration-resistant prostate cancer (mCRPC) remains a lethal disease with current standard-of-care therapies. Homologous recombination repair (HRR) gene alterations, including BRCA1/2 alterations, can sensitize cancer cells to poly (ADP-ribose) polymerase inhibition, which may improve outcomes in treatment-naïve mCRPC when combined with androgen receptor signaling inhibition.
+
+METHODS
+
+MAGNITUDE (ClinicalTrials.gov identifier: NCT03748641 ) is a phase III, randomized, double-blinded study that evaluates niraparib and abiraterone acetate plus prednisone (niraparib + AAP) in patients with (HRR+, n = 423) or without (HRR−, n = 247) HRR-associated gene alterations, as prospectively determined by tissue/plasma-based assays. Patients were assigned 1:1 to receive niraparib + AAP or placebo + AAP. The primary end point, radiographic progression-free survival (rPFS) assessed by central review, was evaluated first in the BRCA1/2 subgroup and then in the full HRR+ cohort, with secondary end points analyzed for the full HRR+ cohort if rPFS was statistically significant. A futility analysis was preplanned in the HRR− cohort.
+
+RESULTS
+
+Median rPFS in the BRCA1/2 subgroup was significantly longer in the niraparib + AAP group compared with the placebo + AAP group (16.6 v 10.9 months; hazard ratio [HR], 0.53; 95% CI, 0.36 to 0.79; P = .001). In the overall HRR+ cohort, rPFS was significantly longer in the niraparib + AAP group compared with the placebo + AAP group (16.5 v 13.7 months; HR, 0.73; 95% CI, 0.56 to 0.96; P = .022). These findings were supported by improvement in the secondary end points of time to symptomatic progression and time to initiation of cytotoxic chemotherapy. In the HRR− cohort, futility was declared per the prespecified criteria. Treatment with niraparib + AAP was tolerable, with anemia and hypertension as the most reported grade ≥ 3 adverse events.
+
+CONCLUSION
+
+Combination treatment with niraparib + AAP significantly lengthened rPFS in patients with HRR+ mCRPC compared with standard-of-care AAP.
+
+[Media: see text]

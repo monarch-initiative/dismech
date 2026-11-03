@@ -36,6 +36,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from ruamel.yaml import YAML
 
 from dismech.frontmatter import naive_frontmatter_text, split_frontmatter
+from dismech.reference_cache_names import cache_filenames
 
 _YAML = YAML(typ="safe")
 _YAML.allow_duplicate_keys = False
@@ -208,19 +209,16 @@ def _validate_contract(
         ]
 
     reasons: list[str] = []
-    expected_name = (
-        frontmatter.reference_id.replace(":", "_")
-        .replace("/", "_")
-        .replace("?", "_")
-        .replace("=", "_")
-        + ".md"
-    )
-    matches_filename = path.name == expected_name
+    accepted_names = cache_filenames(frontmatter.reference_id)
+    expected_name = accepted_names[0]
+    matches_filename = path.name in accepted_names
     # DOI identifiers are case-insensitive in practice, and the tracked cache
     # corpus contains mixed-case DOI filenames. Match those names
     # case-insensitively so Linux CI agrees with the repo's existing files.
     if frontmatter.reference_id.startswith("DOI:"):
-        matches_filename = path.name.casefold() == expected_name.casefold()
+        matches_filename = path.name.casefold() in {
+            name.casefold() for name in accepted_names
+        }
     if not matches_filename:
         reasons.append(f"filename must match reference_id ({expected_name})")
 
@@ -441,15 +439,6 @@ def read_empty_cache(path: Path) -> EmptyCache | None:
     )
 
 
-def _cache_stem(reference_id: str) -> str:
-    return (
-        reference_id.replace(":", "_")
-        .replace("/", "_")
-        .replace("?", "_")
-        .replace("=", "_")
-    )
-
-
 def resolve_cache_file(cache_dir: Path, reference_id: str) -> Path | None:
     """Locate the cache file the fetcher wrote for ``reference_id``.
 
@@ -461,16 +450,18 @@ def resolve_cache_file(cache_dir: Path, reference_id: str) -> Path | None:
     reference_id = reference_id.strip()
     if not reference_id:
         return None
-    direct = cache_dir / f"{_cache_stem(reference_id)}.md"
-    if direct.is_file():
-        return direct
-    wanted = f"{_cache_stem(reference_id)}.md".casefold()
+    candidates = cache_filenames(reference_id)
+    for candidate in candidates:
+        direct = cache_dir / candidate
+        if direct.is_file():
+            return direct
+    wanted = {candidate.casefold() for candidate in candidates}
     try:
         names = os.listdir(cache_dir)
     except OSError:
         return None
     for name in names:
-        if name.casefold() == wanted:
+        if name.casefold() in wanted:
             return cache_dir / name
     return None
 
