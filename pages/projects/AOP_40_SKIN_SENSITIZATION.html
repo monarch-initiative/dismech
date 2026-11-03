@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skin Sensitization AOP: Assays, Key Events, and Where dismech Disagrees - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html" class="active" aria-current="true">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Skin Sensitization AOP: Assays, Key Events, and Where dismech Disagrees</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                <span class="tag">FRAMEWORK_ALIGNMENT</span><span class="tag">EVIDENCE</span><span class="tag">EXTERNAL_COLLABORATION</span><span class="tag">ENVIRONMENTAL_EXPOSURE</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Skin Sensitization AOP: Assays, Key Events, and Where dismech Disagrees</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (17)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Contact_Dermatitis.html">Contact Dermatitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Atopic_Dermatitis.html">Atopic Dermatitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Autoimmune_Pancreatitis.html">Autoimmune Pancreatitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Bacterial_Vaginosis.html">Bacterial Vaginosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chlamydia_Pneumoniae_Pneumonia.html">Chlamydia Pneumoniae Pneumonia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chorioamnionitis.html">Chorioamnionitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Clostridioides_difficile_Infection.html">Clostridioides difficile Infection</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Familial_Pityriasis_Rubra_Pilaris.html">Familial Pityriasis Rubra Pilaris</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/G6PC3_Deficiency.html">G6PC3 Deficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pouchitis.html">Pouchitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pyoderma_Gangrenosum.html">Pyoderma Gangrenosum</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/SAPHO_Syndrome.html">SAPHO Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Scabies.html">Scabies</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Shigellosis.html">Shigellosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Amniotic_Fluid_Embolism.html">Amniotic Fluid Embolism</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Spotted_fever_rickettsiosis.html">Spotted Fever Rickettsiosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Subacute_Inflammatory_Demyelinating_Polyneuropathy.html">Subacute Inflammatory Demyelinating Polyneuropathy</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/AOP_40_SKIN_SENSITIZATION.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="skin-sensitization-aop-assays-key-events-and-where-dismech-disagrees">Skin Sensitization AOP: Assays, Key Events, and Where dismech Disagrees</h1>
+<h2 id="scope">Scope</h2>
+<p>This page carries the AOP 40 use case out of
+<a href="AOP_EMOD_ALIGNMENT.md">AOP_EMOD_ALIGNMENT</a>, where it began as a third pilot
+alongside the lead and liver-fibrosis cases. It outgrew that page for a reason worth
+stating: the other two pilots ask whether dismech content <em>can be aligned to</em> an AOP.
+This one found a place where dismech content <strong>bears on whether an AOP's own Key Event
+assignment is right</strong>, which is a different and more useful relationship. The alignment
+project keeps the schema questions; this page keeps the worked case.</p>
+<p>The target is <a href="https://aopwiki.org/aops/40">AOP 40</a>, <em>Covalent Protein binding leading to
+Skin Sensitisation</em>. Unlike the other two pilots it enters from a <strong>review article</strong>, and
+it is the only case where the assay-to-Key-Event mapping is already published: Aleksic M,
+Rajagopal R, de-Ávila R, Spriggs S, Gilmour N. <em>The skin sensitization adverse outcome
+pathway: exploring the role of mechanistic understanding for higher tier risk assessment.</em>
+Crit Rev Toxicol 2024;54(2):69–91
+(<a href="https://pubmed.ncbi.nlm.nih.gov/38385441/">PMID:38385441</a>,
+doi:<a href="https://doi.org/10.1080/10408444.2024.2308816">10.1080/10408444.2024.2308816</a>).
+Open access under CC BY-NC-ND.</p>
+<p>Structurally it is the <strong>inverse</strong> of the liver fibrosis case: there, one
+microphysiological system instrumented several Key Events of one AOP; here, a whole OECD
+test-guideline battery exists in which each guideline is aligned to a <em>single</em> Key Event,
+and the integration happens in a layer above the assays.</p>
+<h2 id="how-to-read-the-snippets">How to read the snippets</h2>
+<p>Snippets are verbatim substrings of the article's PDF text layer, with three normalizations
+and no others: line-break hyphenation rejoined, the superscript <code>TM</code> left inline as the text
+layer emits it (<code>KeratinoSens TM</code>, <code>GARD TM skin</code>), and — where marked ‡ — the running
+header and page number removed where a sentence crosses the page 3/4 break. The space in
+<code>OECD TG 442 C</code> is the article's own. These have <strong>not</strong> been put through dismech's
+reference validator, because AOP-Wiki aside, this article's full text is not in the
+reference cache: <code>references_cache/PMID_38385441.md</code> and
+<code>references_cache/DOI_10.1080_10408444.2024.2308816.md</code> both hold abstract-only records
+(<code>content_type: unavailable</code> on the DOI record), and the publisher refuses automated
+fetches. Treat them as transcribed, not machine-verified.</p>
+<h2 id="key-events-against-the-assays-aligned-to-them">Key Events against the assays aligned to them</h2>
+<p>Key Event titles and identifiers are AOP-Wiki's, read from the 2026-10-03 bulk XML export;
+the article itself uses only <code>KE1</code>–<code>KE4</code> and does not cite AOP-Wiki identifiers, so the
+first two columns are a join, not a quotation.</p>
+<table>
+<thead>
+<tr>
+<th>KE</th>
+<th>Event (AOP-Wiki)</th>
+<th>Assays / methods</th>
+<th>OECD TG</th>
+<th>Snippet supporting the mapping</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>KE1 <em>(MIE)</em></td>
+<td><a href="https://aopwiki.org/events/396">396</a> Covalent Binding, Protein</td>
+<td>DPRA, ADRA, kDPRA</td>
+<td>442C</td>
+<td>"OECD TG 442 C describes the direct peptide reactivity assay (DPRA), amino acid derivative reactivity assay (ADRA) and the kinetic DPRA (kDPRA), which are test methods addressing KE1 (the binding of haptens to proteins in the skin" ‡</td>
+</tr>
+<tr>
+<td>KE2</td>
+<td><a href="https://aopwiki.org/events/826">826</a> Activation, Keratinocytes</td>
+<td>KeratinoSens™, LuSens</td>
+<td>442D</td>
+<td>"OECD TG 442D describes the KeratinoSens TM and LuSens methods which address KE2 (the activation of keratinocytes"</td>
+</tr>
+<tr>
+<td>KE3</td>
+<td><a href="https://aopwiki.org/events/398">398</a> Activation, Dendritic Cells</td>
+<td>h-CLAT, U-SENS™, IL-8 Luc assay, GARD™skin</td>
+<td>442E</td>
+<td>"OECD TG 442E describes the Human Cell Line Activation test (hCLAT), U937 cell line activation Test (USens TM ), Interleukin-8 Reporter Gene Assay (IL 8 Luc assay) and Genomic Allergen Rapid Detection (GARD TM ) for assessment of skin sensitizers (GARD TM skin) which are test methods addressing KE3 (the activation of dendritic cells (DCs))"</td>
+</tr>
+<tr>
+<td>KE4</td>
+<td><a href="https://aopwiki.org/events/272">272</a> Activation/Proliferation, T-cells</td>
+<td>mouse LLNA and its variants</td>
+<td>429, 442A, 442B</td>
+<td>"The LLNA, in fact, addresses KE4, measuring T cell proliferation in treated mice rather than established sensitization."</td>
+</tr>
+<tr>
+<td>AO</td>
+<td><a href="https://aopwiki.org/events/827">827</a> sensitisation, skin</td>
+<td>none aligned; patch testing is diagnostic</td>
+<td>—</td>
+<td>"ACD is diagnosed by specialist dermatological investigations involving patch testing to identify the allergen to which an individual is allergic and enable allergen avoidance."</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Every validated guideline assay is aligned to exactly one Key Event, and two of the five
+Events have no validated non-animal assay at all.</strong> The second clause is the article's own
+emphasis, stated twice:</p>
+<blockquote>
+<p>Currently, there are no NAMs addressing KE4 (the activation and proliferation of a T cell
+response), which are sufficiently progressed for implementation in OECD TG or for use in a
+Next Generation Risk Assessment (NGRA)</p>
+<p>It remains difficult to envisage robust, sensitive, and reproducible assays addressing
+this KE in vitro in the near future.</p>
+</blockquote>
+<h3 id="methods-that-sit-beside-the-battery">Methods that sit beside the battery</h3>
+<p>Named in the article, aligned to a Key Event's biology but not carrying a guideline.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Nearest KE</th>
+<th>Status in the article</th>
+<th>Snippet</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Peroxidase Peptide Reactivity Assay (PPRA)</td>
+<td>KE1</td>
+<td>reactivity assay adapted to activate pro-haptens; not in TG 442C</td>
+<td>"adaptations to existing reactivity assays, aiming to incorporate "activation" of nonelectrophilic chemicals to their electrophilic metabolites which then bind to the model nucleophiles (e.g. Peroxidase Peptide Reactivity Assay (PPRA)"</td>
+</tr>
+<tr>
+<td>DEREK Nexus, OECD QSAR Toolbox, TIMES, ToxTree</td>
+<td>KE1</td>
+<td><em>in silico</em>, chemistry and mechanistic domain</td>
+<td>"several in silico tools, providing useful information on chemistry and mechanistic domain of sensitizers (e.g. DEREK Nexus, OECD QSAR Toolbox, TIMES, ToxTree)"</td>
+</tr>
+<tr>
+<td>SenCeeTox®, SENS-IS, EpiSensA, VITOSENS</td>
+<td>KE2</td>
+<td>transcriptional biomarker signatures</td>
+<td>"Genes downstream of the Nrf2 pathway and other cellular stress markers have been evaluated as signatures for sensitizer-induced transcriptional changes in novel in vitro assays, such as SenCeeTox V R , SENS-IS, EpiSensA, and VITOSENS"</td>
+</tr>
+<tr>
+<td>Buehler test, Guinea pig maximization Test (GPMT)</td>
+<td>—</td>
+<td><em>in vivo</em> evidence; <strong>no KE assigned</strong></td>
+<td>"In vivo evidence (red box) comes from mouse local lymph node assay (LLNA) (OECD 2010a ) and its variants (OECD 2010b , 2018 ) and Buehler and Guinea pig maximization Test (GPMT) (OECD 2022b )."</td>
+</tr>
+</tbody>
+</table>
+<h2 id="one-assay-is-aligned-to-a-key-event-its-biology-does-not-match">One assay is aligned to a Key Event its biology does not match</h2>
+<p>Worth carrying out of the table, because it is a documented misalignment rather than a
+clean row, and it is the kind of thing a KE cross-reference would have to be able to record:</p>
+<blockquote>
+<p>Interestingly, the IL 8 assay, which is the only OECD validated cytokine assay (Watanabe
+et al. 2007 ; Sand et al. 2018 ) was developed as a marker for APC activation (KE3) rather
+than keratinocyte inflammation (KE2), possibly due to the cell type used in the assay</p>
+</blockquote>
+<p>The article generalizes the same caution across all of TG 442E — "While read outs from all
+these assays have been aligned to KE3, some of these assays are also representative of the
+events leading up to KE3." So KE3 alignment for this battery is an <em>assignment</em>, not a
+measurement boundary.</p>
+<h2 id="models-and-approaches-spanning-more-than-one-key-event">Models and approaches spanning more than one Key Event</h2>
+<p>The article treats single-assay-to-single-KE alignment as the floor, not the usable unit:</p>
+<blockquote>
+<p>With the exception of the GARD TM skin assay in certain circumstances (JRC EC 2021 ),
+these NAMs should not be used alone for hazard and potency categorization, but the output
+should be combined with information from other NAMs within a DA.</p>
+</blockquote>
+<p>Two different kinds of thing span several Key Events, and they are worth keeping apart.</p>
+<p><strong>An assay that itself reads out several Key Events.</strong> This is the only place the article
+uses the phrase:</p>
+<blockquote>
+<p>SENS-IS and GARDskin TM dose response assays (Cottrez et al. 2015 , 2016 ; Gradin et al.
+2021 ), which cover multiple KEs, show some promise in providing more quantitative skin
+sensitizing potency assessment by predicting a skin sensitization class
+(strong/moderate/weak/non-sensitizing). However, it remains to be seen how these can be
+utilized in risk assessment.</p>
+</blockquote>
+<p><strong>A defined approach (DA) that integrates outputs from assays aligned to different Key
+Events.</strong> These are multi-KE by construction rather than by readout.</p>
+<table>
+<thead>
+<tr>
+<th>Model / approach</th>
+<th>What the article says it does</th>
+<th>Snippet</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>SARA model</strong> (Skin Allergy Risk Assessment)</td>
+<td>derives a human-relevant point of departure with quantified uncertainty; adapted with NICEATM for UN GHS classification; separately incorporates clinical contact-allergy experience</td>
+<td>"The SARA model allows derivation of a human relevant point of departure with quantifiable uncertainty and a risk metric for use in quantitative risk assessment (Reynolds et al. 2019 ) and has recently been adapted in collaboration with NICEATM to address UN GHS classification" · "clinical experience and established trends in contact allergy have been used within the SARA model DA to enable a prediction of the risk of induction of skin sensitization to a given exposure arising from a consumer product"</td>
+</tr>
+<tr>
+<td>Bayesian Integrated Testing Strategy (ITS)</td>
+<td>listed as an additional DA (Jaworska et al. 2013)</td>
+<td>"Additional DAs include Bayesian Integrated Testing Strategy (ITS) (Jaworska et al. 2013 ), Artificial Neural Network (Tsujita-Inoue et al. 2015 ) and a series of linear regression models"</td>
+</tr>
+<tr>
+<td>Artificial Neural Network</td>
+<td>additional DA (Tsujita-Inoue et al. 2015)</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>Linear regression models</td>
+<td>additional DAs (Natsch and Gerberick 2022a, 2022b; Natsch 2023)</td>
+<td>as above</td>
+</tr>
+<tr>
+<td>The three DAs in OECD guideline 497</td>
+<td>integrate individual assay data for classification; <strong>the article does not name them</strong></td>
+<td>"Three DAs are currently included in the OECD guideline 497 (OECD 2023a ) which allow data from the individual assays to be integrated for chemical classification"</td>
+</tr>
+<tr>
+<td>Quantitative AOP models (qAOP)</td>
+<td>the forward-looking multi-KE integration layer</td>
+<td>"Utilization of the quantitative data of KEs and additional elements of AOPs may ultimately be achieved through quantitative AOP models (qAOP) (Zgheib et al. 2019 ; Spinu et al. 2020 ), which may help us avoid the linear interpolation of the quantitative outputs of the KEs in the AOP"</td>
+</tr>
+</tbody>
+</table>
+<p>Three things this table deliberately does not say.</p>
+<ul>
+<li><strong>"SARA-ICE" is not the article's name for it.</strong> The article says "SARA model" throughout
+  and describes the NICEATM collaboration as an adaptation addressing UN GHS classification,
+  citing a manuscript in preparation (Reynolds et al. 2023). It never writes the
+  string <code>SARA-ICE</code>. If that name is wanted here it needs its own source.</li>
+<li><strong>No DA's Key Event inputs are enumerated.</strong> The article says DAs combine outputs from
+  assays that are each aligned to a Key Event, which makes them multi-KE, but it does not
+  state which assays feed SARA, the Bayesian ITS, the ANN, or the regression models.
+  Writing a per-model KE list from this source alone would be invention.</li>
+<li><strong>The three OECD 497 DAs are unnamed in the article.</strong> Their identities (the 2o3 and
+  ITS-style approaches) are not quotable from here.</li>
+</ul>
+<h2 id="where-the-articles-own-ke4-mapping-lives">Where the article's own KE4 mapping lives</h2>
+<p>The LLNA-to-KE4 mapping in the table above is stated only in the Figure 2 caption, with a
+correction attached ("rather than established sensitization"). The body text says just that
+the LLNA is the sole validated assay measuring T cell proliferation, without naming a Key
+Event. Anyone reusing that row should know the alignment rests on a caption.</p>
+<p>No assay is aligned to the adverse outcome anywhere in the article. Patch testing appears
+only as <strong>diagnosis of ACD in patients</strong>, which is a different claim from an assay
+instrumenting a Key Event.</p>
+<h2 id="what-does-dismech-tell-us-about-il-8">What does dismech tell us about IL-8?</h2>
+<p>The misalignment above is stated in the article as a suspicion — the assay "was developed
+as a marker for APC activation (KE3) rather than keratinocyte inflammation (KE2), possibly
+due to the cell type used in the assay." AOP 40 nonetheless has the whole of TG 442E,
+IL-8 Luc included, aligned to KE3. dismech holds an independent body of curated IL-8
+mechanism, assembled from disease literature by curators who were not looking at AOP 40,
+and it can be asked what cell it thinks produces IL-8 and what it thinks follows.</p>
+<p><strong>The census has two tiers, and the distinction matters for how much weight the answer
+carries.</strong> 54 pathophysiology nodes across 46 files in <code>kb/</code> mention IL-8 somewhere. Of
+those, <strong>14 nodes across 13 files</strong> carry it <em>structurally</em> — bound in a descriptor, named
+in the node's own <code>name</code>, or named in a causal edge's description — and those are the ones
+below. The other <strong>40 nodes across 37 files</strong> mention it only in free-text prose inside the
+node <code>description</code>, where no query can reach it and nothing ties it to a particular cell.</p>
+<p>Among the 14 structural nodes, the bound <code>cell_types</code> are:</p>
+<table>
+<thead>
+<tr>
+<th>Cell bound on the node</th>
+<th>Entries</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>keratinocyte</td>
+<td><a href="../disorders/Atopic_Dermatitis.html">Atopic Dermatitis</a> (with mast cell), <a href="../disorders/Familial_Pityriasis_Rubra_Pilaris.html">Familial Pityriasis Rubra Pilaris</a> (two nodes), <a href="../disorders/Scabies.html">Scabies</a> (with fibroblast)</td>
+</tr>
+<tr>
+<td>other epithelium</td>
+<td><a href="../disorders/Bacterial_Vaginosis.html">Bacterial Vaginosis</a> (vaginal squamous), <a href="../disorders/Chlamydia_Pneumoniae_Pneumonia.html">Chlamydia Pneumoniae Pneumonia</a> (respiratory)</td>
+</tr>
+<tr>
+<td>microvascular endothelial cell</td>
+<td><a href="../disorders/Spotted_fever_rickettsiosis.html">Spotted Fever Rickettsiosis</a></td>
+</tr>
+<tr>
+<td>T-helper 17 / T-helper 1 cell</td>
+<td><a href="../disorders/Pyoderma_Gangrenosum.html">Pyoderma Gangrenosum</a>, <a href="../disorders/SAPHO_Syndrome.html">SAPHO Syndrome</a> (with macrophage)</td>
+</tr>
+<tr>
+<td>neutrophil</td>
+<td><a href="../disorders/G6PC3_Deficiency.html">G6PC3 Deficiency</a>, <a href="../disorders/SAPHO_Syndrome.html">SAPHO Syndrome</a> (recruitment node)</td>
+</tr>
+<tr>
+<td>none bound</td>
+<td><a href="../disorders/Autoimmune_Pancreatitis.html">Autoimmune Pancreatitis</a> (ductal epithelium, stated in prose), <a href="../disorders/Chorioamnionitis.html">Chorioamnionitis</a>, <a href="../disorders/Clostridioides_difficile_Infection.html">Clostridioides difficile Infection</a>, <a href="../disorders/Subacute_Inflammatory_Demyelinating_Polyneuropathy.html">Subacute Inflammatory Demyelinating Polyneuropathy</a></td>
+</tr>
+</tbody>
+</table>
+<p><strong>No structurally-annotated IL-8 node in dismech places production in a dendritic cell,
+and in the description-only tier exactly one node does.</strong> That node is
+<a href="../disorders/Pouchitis.html">Pouchitis</a> → <code>Mucosal Immune Dysregulation</code>, which binds neutrophil, dendritic cell and T
+cell on a node whose description names four cytokines at once ("TNF-alpha, IL-1beta, IL-6,
+IL-8") alongside neutrophil infiltration and Th1/Th17 activity, and which has no outgoing
+edges. So the dendritic cell there is part of the node's cellular cast, not an assertion
+that a dendritic cell produces IL-8 — but it is the one place in the corpus where the two
+appear on the same node, and the claim has to be stated with that exception rather than
+without it.</p>
+<p>Keratinocyte remains the most frequent single answer. That is not a refutation of the KE3
+alignment — a cell line's readout is a property of the assay, not of the disease literature
+— but it is independent corroboration of the article's own doubt, from a corpus with no
+stake in the question.</p>
+<p><strong>Almost every IL-8 causal edge in dismech ends in neutrophil recruitment.</strong> Ten entries,
+each curated separately — eight of them terminating in a recruitment or infiltration node:</p>
+<p>Source node and <code>downstream</code> target are written exactly as they appear in the file, so each
+row can be checked by grepping the entry.</p>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Edge carrying IL-8</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../disorders/Autoimmune_Pancreatitis.html">Autoimmune Pancreatitis</a></td>
+<td>Increased Ductal Interleukin-8 Expression → Neutrophilic Duct Infiltration</td>
+</tr>
+<tr>
+<td><a href="../disorders/Chorioamnionitis.html">Chorioamnionitis</a></td>
+<td>Proinflammatory Cytokine and Chemokine Production → Neutrophil Chemotaxis into the Chorioamniotic Membranes</td>
+</tr>
+<tr>
+<td><a href="../disorders/Clostridioides_difficile_Infection.html">Clostridioides difficile Infection</a></td>
+<td>Toxin Production (TcdA/TcdB) → Neutrophil Recruitment and Inflammation</td>
+</tr>
+<tr>
+<td><a href="../disorders/Pyoderma_Gangrenosum.html">Pyoderma Gangrenosum</a></td>
+<td>Th17/Th1-Skewed Cytokine Amplification → Neutrophil Recruitment to the Dermis</td>
+</tr>
+<tr>
+<td><a href="../disorders/Chlamydia_Pneumoniae_Pneumonia.html">Chlamydia Pneumoniae Pneumonia</a></td>
+<td>Respiratory Epithelial Cytadherence and IL-8 Signaling → Apoptotic Neutrophil Macrophage Transfer</td>
+</tr>
+<tr>
+<td><a href="../disorders/Bacterial_Vaginosis.html">Bacterial Vaginosis</a></td>
+<td>Vaginolysin-Mediated Epithelial Pore Formation and Signalling → Epithelial Barrier Disruption and Mucosal Immune Activation</td>
+</tr>
+<tr>
+<td><a href="../disorders/Scabies.html">Scabies</a></td>
+<td>Keratinocyte and Fibroblast Cytokine and Keratinization Response → Dermal Leukocyte and Granulocyte Infiltration</td>
+</tr>
+<tr>
+<td><a href="../disorders/G6PC3_Deficiency.html">G6PC3 Deficiency</a></td>
+<td>Neutrophil functional defects → Crohn disease</td>
+</tr>
+<tr>
+<td><a href="../disorders/Familial_Pityriasis_Rubra_Pilaris.html">Familial Pityriasis Rubra Pilaris</a></td>
+<td>Keratinocyte NF-kappaB Hyperactivation → Keratinocyte Chemokine and Cytokine Production</td>
+</tr>
+<tr>
+<td><a href="../disorders/Atopic_Dermatitis.html">Atopic Dermatitis</a></td>
+<td>TOPK-STAT3 Signaling Axis → Type 2 Immune Response; → Secondary Inflammatory Amplification</td>
+</tr>
+</tbody>
+</table>
+<p>Two rows are the exceptions, and neither points at a dendritic cell.
+<a href="../disorders/Atopic_Dermatitis.html">Atopic Dermatitis</a> routes IL-8 into Th2 polarization and IgE alongside IL-6 and IL-33 rather
+than to neutrophils. <a href="../disorders/Familial_Pityriasis_Rubra_Pilaris.html">Familial Pityriasis Rubra Pilaris</a> names CXCL8 on the <em>upstream</em> edge —
+NF-kappaB driving its transcription — so that edge ends in cytokine production itself, and
+the chain then continues into IL-23/IL-17 amplification rather than into recruitment.
+Nothing in the corpus routes IL-8 to dendritic-cell activation, which is the Key Event the
+assay reading it out is aligned to.</p>
+<p><strong>Where IL-8 appears as a measurement rather than as a mechanism, it carries no
+direction.</strong> Two entries hold it in <code>biochemical</code> —
+<a href="../disorders/Shigellosis.html">Shigellosis</a>, as one of a group ("Inflammatory cytokines (IL-1β, IL-18, IL-8)") with
+<code>frequency: VERY_FREQUENT</code> and the elevation stated in <code>notes</code>, and
+<a href="../disorders/Amniotic_Fluid_Embolism.html">Amniotic Fluid Embolism</a>, whose <code>presence</code> field reads "Markedly increased in an individual
+fatal case". Neither sets a <code>direction</code>. So the corpus's clearest statements that IL-8 goes
+<em>up</em> in a disease are the ones a query for an increased readout would miss entirely, which
+is the same encoding problem as the three pathograph spellings below, reached from the
+marker side.</p>
+<p><a href="../disorders/Shigellosis.html">Shigellosis</a> holds it in <em>both</em> places, which is worth noting because the second one is
+invisible to the census above: its <code>Inflammasome sensing and pyroptotic inflammation</code> node
+names IL-8 release among the pyroptotic cytokines and binds macrophage and enterocyte, but
+only in free text and with no outgoing edges at all. That is the shape of the
+description-only tier in general — a real mechanistic claim, with real bound cells, that
+every structural query misses.</p>
+<h3 id="what-this-says-to-aop-wiki-and-what-it-does-not">What this says to AOP-Wiki, and what it does not</h3>
+<p>The useful claim is narrow and worth keeping narrow. dismech cannot say which Key Event an
+assay should be aligned to; that is a judgement about what a cell line reports under a test
+guideline. What it can say is <strong>what the disease literature holds about the biology the
+assay is named for</strong> — and here that answer points at keratinocyte and epithelial
+production feeding neutrophil recruitment, which is the KE2 compartment and its immediate
+consequence, not dendritic-cell activation.</p>
+<p>Two things follow that are worth putting to the AOP 40 authors:</p>
+<ul>
+<li><strong>KE 826 (Activation, Keratinocytes) has a <code>measurement-methodology</code> field, and the IL-8
+  Luc assay is not in it.</strong> If the assay's readout is in part a KE2 marker, as the review
+  states, the methodology text on the Key Event is where that belongs — independently of
+  which guideline the assay sits in.</li>
+<li><strong>The misalignment is a property of the edge, not of either node.</strong> Recording it needs a
+  place to say "this assay is aligned to KE3 and its readout is a KE2 marker." Neither
+  AOP-Wiki's Key Event records nor dismech's node annotations can currently hold that
+  sentence, which is the same gap
+  <a href="AOP_EMOD_ALIGNMENT.md#1-should-a-pathophysiology-node-be-able-to-carry-a-key-event-cross-reference">question 1</a>
+  is about, reached from the opposite direction.</li>
+</ul>
+<h3 id="three-caveats-on-the-dismech-side">Three caveats on the dismech side</h3>
+<ul>
+<li><strong>The queryable signal is far thinner than the corpus mentions.</strong> IL-8 appears in 267
+  strings across 77 files in <code>kb/</code>, but only <strong>six</strong> of those are ontology-grounded
+  descriptor bindings; 53 are evidence snippets and 50 are node descriptions. The finding
+  above comes from reading prose, not from a query that could be re-run as a gate — and the
+  first version of this section proved the point by missing a node. A census over node
+  names, descriptor bindings and causal-edge descriptions does not see a mechanism stated
+  only in a node's own <code>description</code> on a node with no outgoing edges, which is how
+  <a href="../disorders/Shigellosis.html">Shigellosis</a>'s inflammasome node and 39 others were absent from the table until a reviewer
+  found one of them.</li>
+<li><strong>Increase is encoded three incompatible ways.</strong> <a href="../disorders/SAPHO_Syndrome.html">SAPHO Syndrome</a> and
+  <a href="../disorders/Spotted_fever_rickettsiosis.html">Spotted Fever Rickettsiosis</a> bind <code>GO:0032637</code> <em>interleukin-8 production</em> with
+  <code>modifier: INCREASED</code>; <a href="../disorders/Chlamydia_Pneumoniae_Pneumonia.html">Chlamydia Pneumoniae Pneumonia</a> binds <code>GO:0032757</code> <em>positive
+  regulation of interleukin-8 production</em> with no modifier; <a href="../disorders/Autoimmune_Pancreatitis.html">Autoimmune Pancreatitis</a> states
+  it in the node <strong>name</strong> alone, binding no process descriptor at all. All three assert the
+  same thing. A filter on <code>modifier: INCREASED</code> finds two of them, a filter on the GO term
+  finds one, and nothing short of reading node names finds the third.</li>
+<li><strong>The strongest-looking row is the most carefully hedged.</strong> <a href="../disorders/Autoimmune_Pancreatitis.html">Autoimmune Pancreatitis</a> is
+  the only node in <code>kb/</code> named for increased IL-8 expression, and its curator recorded
+  <code>causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES</code>, <code>directness: INDIRECT</code>, and an
+  explanation stating that the evidence is differential qPCR between AIP subtypes and "was
+  not a chemotaxis or IL-8 blockade experiment." Do not cite it as demonstrated causation.
+  <a href="../disorders/Subacute_Inflammatory_Demyelinating_Polyneuropathy.html">Subacute Inflammatory Demyelinating Polyneuropathy</a> is hedged the same way: CSF IL-8 as a
+  biomarker of blood-nerve barrier dysfunction, with the node description saying outright
+  that the evidence is from GBS and CIDP and is "not SIDP-specific."</li>
+</ul>
+<h2 id="what-this-case-adds-to-the-alignment-project">What this case adds to the alignment project</h2>
+<ul>
+<li><strong>It is the first case where the MIE is both instrumented and curated.</strong> The lead and
+  liver pilots both found the molecular initiating event unmapped and unmeasured. Here KE1
+  is the most thoroughly assayed Event of the five — three guideline methods plus PPRA and
+  four <em>in silico</em> tools — <em>and</em> <a href="../disorders/Contact_Dermatitis.html">Contact Dermatitis</a> now carries a direct counterpart node,
+  <code>Covalent hapten-protein adduct formation</code> (<code>biological_scale: MOLECULAR</code>), wired from
+  <code>Hapten exposure</code> and backed by a peptide-adduct snippet (PMID:20631061). So for the
+  first time across the three pilots, both ends of an MIE correspondence exist.</li>
+</ul>
+<p>That node is also the clearest instance yet of the binding problem this project keeps
+  running into: its <code>notes</code> record that GO has no term for non-enzymatic covalent
+  modification of a protein by a xenobiotic electrophile, and that CHEBI files <em>hapten</em> as
+  a role and so outside the bindable enum. An AOP MIE that nothing in GO or CHEBI can name
+  is a different kind of gap from an unmapped one.
+- <strong>Most of the chain is curated, and the gaps are not where the earlier pilots' were.</strong>
+  Against AOP 40's five Events, the allergic arm of <a href="../disorders/Contact_Dermatitis.html">Contact Dermatitis</a> holds counterparts
+  for KE1, KE3 (<code>Skin innate immune activation during sensitization</code>, binding Langerhans
+  cell and dendritic cell) and KE4 (<code>Allergen-specific T-cell priming</code>, binding
+  <code>GO:0042110</code> <em>T cell activation</em> with CD8-positive T cell and dendritic cell). Two
+  observations fall out of that:</p>
+<p><strong>KE2 is skipped on the arm that needs it.</strong> The entry does carry
+  <code>Keratinocyte activation and proinflammatory mediator release</code> with <code>GO:0032980</code>
+  <em>keratinocyte activation</em>, which is a clean KE 826 counterpart — but it sits on the
+  <strong>irritant</strong> chain (irritant exposure → barrier disruption → keratinocyte activation →
+  inflammatory cell recruitment), not the hapten chain, which runs adduct formation →
+  innate activation → T-cell priming with no keratinocyte step. AOP 40 is a sensitization
+  pathway, so its KE2 belongs on the allergic arm. This is a concrete curation lead, and it
+  is the same compartment the IL-8 section argues the IL-8 Luc assay is really reading.</p>
+<p><strong>The AO is not missing, it is fused with KE4.</strong> AO 827 <em>sensitisation, skin</em> is the
+  established sensitized state, and that is what <code>Allergen-specific T-cell priming</code>
+  describes — "establishing the adaptive immune memory required for later flares" — in the
+  same node as the T-cell activation that is KE4. Past that point the entry continues
+  <em>beyond</em> the AOP's scope into elicitation: re-exposure-driven recruitment, resident memory
+  T-cell flare, and the <code>Contact dermatitis</code> phenotype (<code>HP:0032282</code>). So the earlier
+  pilots' endpoint gap does not reproduce here. What replaces it is a harder modelling
+  question: one dismech node standing for two AOP-Wiki Events.
+- <strong>It supplies two tests for any future Key Event cross-reference slot</strong>, and neither can
+  be met by a bare identifier. A slot recording "this node corresponds to KE3" must also be
+  able to record the IL-8 case, where the assay's own biology sits at KE2 while the
+  alignment is at KE3 — and the KE4/AO case, where one node answers to two Events at once.
+  The second needs an explicit aggregation relation, not just a list of identifiers.
+- <strong>It is the first case running in the other direction.</strong> The lead and liver pilots ask
+  what an AOP can contribute to dismech. The IL-8 section asks what dismech's corpus says
+  about a Key Event assignment the AOP's own review article flags as uncertain, and gets a
+  usable answer. That is a second, separate reason to keep curating against AOPs, and it is
+  the one that gives the collaboration something to send back upstream.</p>
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li>[ ] Put the IL-8 KE2/KE3 question to the AOP 40 authors, together with the
+      <code>measurement-methodology</code> observation on KE 826.</li>
+<li>[ ] Decide whether the three encodings of increased IL-8 in <code>kb/</code> should be normalised,
+      and if so to which one. This is a corpus-wide question about <code>modifier</code> versus
+      <code>positive regulation of</code> GO terms, not specific to IL-8.</li>
+<li>[ ] Check whether the same KE2/KE3 reading holds for the other TG 442E assays, which the
+      article says are "also representative of the events leading up to KE3."</li>
+<li>[ ] Curate a keratinocyte-activation step onto the <strong>allergic</strong> arm of Contact_Dermatitis.
+      The entry's existing <code>GO:0032980</code> node sits on the irritant chain, so AOP 40's KE2 has
+      no counterpart on the chain that corresponds to it. This is the one Event of the five
+      with no node on the right arm, and it is the compartment the IL-8 section argues the
+      IL-8 Luc assay is actually reading.</li>
+<li>[ ] Decide how a node standing for two AOP-Wiki Events should be recorded, using
+      <code>Allergen-specific T-cell priming</code> (KE4 + AO 827) as the test case. This is the
+      aggregation-relation question, and it is now a worked instance rather than a
+      hypothetical.</li>
+</ul>
+        </article>
+    </div>
+</body>
+</html>
