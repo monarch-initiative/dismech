@@ -2,18 +2,39 @@
 
 An OECD Test Guideline is the authoritative statement of what a validated test method
 measures. It is also unstructured prose, which means a claim sourced from it cannot be
-checked without re-reading the PDF — and claims sourced from it do go wrong.
+checked without re-reading the PDF.
 
-The motivating case is IL-8. TG 442D names IL-8 as one of four marker genes quantified
-by RT-qPCR in the EpiSensA and Epi2SensA test methods, which address **Key Event 2** of
-the skin sensitisation AOP, keratinocyte activation. The **IL-8 Luc assay** is a
-different thing: a dendritic-cell activation method, **Key Event 3**, covered by TG
-442E. TG 442D says as much in its own paragraph 5. A published figure placed IL-8 under
-Key Event 3, and both halves of the conflation are already curated in this repository
-(see [#15944](https://github.com/monarch-initiative/dismech/issues/15944)).
+## Why the method name is not enough: IL-8 in TG 442D and TG 442E
 
-Two features of the guideline make that mistake easy, and both are things an extraction
-can preserve:
+Two guidelines in this series address different key events of the skin sensitisation
+AOP, and **IL-8 appears in both, meaning something different each time.**
+
+- **TG 442D — Key Event 2, keratinocyte activation.** IL-8 is one of four marker genes
+  (with ATF3, GCLM and DNAJB4) quantified by RT-qPCR in the EpiSensA and Epi2SensA test
+  methods, in reconstructed human epidermis.
+- **TG 442E — Key Event 3, dendritic cell activation.** TG 442E covers the **IL-8 Luc
+  assay**, a luciferase reporter method. TG 442D points at it in its own paragraph 5:
+  "the OECD TG 442E addresses the activation of dendritic cells, the third key event of
+  the skin sensitisation AOP".
+
+Both usages are correct and they are not interchangeable. The string `IL-8` does not
+distinguish a marker gene at one key event from a reporter assay at another; only the
+guideline, the method and the paragraph do. Both are already curated here as separate
+models (see
+[#15944](https://github.com/monarch-initiative/dismech/issues/15944)), so the
+distinction is one this repository already depends on.
+
+It is an easy distinction to lose. While
+[#16338](https://github.com/monarch-initiative/dismech/issues/16338) was being written,
+the proposal itself claimed that a published figure had misplaced IL-8 at Key Event 3 —
+reasoning from TG 442D alone, where IL-8 is a Key Event 2 marker gene, without checking
+TG 442E, which covers the reporter assay and makes Key Event 3 correct. There was no
+error in the paper. The mistake was in the proposal, which is the sharpest argument for
+recording which guideline, which method, which key event, and which paragraph each fact
+came from: that record settles the question in one lookup.
+
+Two features of the guidelines make the distinction easy to lose, and both are things an
+extraction can preserve:
 
 - **A gene symbol carries no key event on its own.** `IL-8` means one thing in a list of
   reconstructed-human-epidermis marker genes and another in the name of a reporter
@@ -83,12 +104,19 @@ with the source guideline as a property of the record.
 
 It checks that each recorded quote is a real substring of the paragraph it cites. That
 catches a fabricated quote, a quote attributed to the wrong appendix (it says where the
-sentence actually is), a value with no quote, and a citation to an out-of-scope
-paragraph.
+sentence actually is), and a citation to an out-of-scope paragraph.
+
+It also rejects three shapes that would otherwise pass as citations without being any:
+a bare value with no quote at all (`"key_event": 2`), a quote that normalises to nothing
+(`"(TM)"`, whitespace — the empty string is a substring of every paragraph), and a quote
+below a five-word floor. The floor is `MIN_QUOTE_WORDS`, the same as the repository's
+`MIN_SNIPPET_WORDS` for evidence snippets and for the same reason: a three-word fragment
+matches in many paragraphs, so neither the match nor the "appears in &lt;other
+paragraph&gt;" diagnosis means anything.
 
 **It cannot tell whether a quoted sentence supports the value attached to it.** A quote
-can be verbatim, correctly located, and cited for a claim it does not make — which is
-the IL-8 error itself. That needs a reader, and
+can be verbatim, correctly located, and cited for a claim it does not make — a TG 442D
+marker-gene sentence recorded against Key Event 3, say. That needs a reader, and
 `test_the_checker_cannot_tell_whether_a_quote_supports_its_value` pins the limitation so
 nobody mistakes a green run for a correct extraction.
 

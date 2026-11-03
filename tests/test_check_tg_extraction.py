@@ -8,7 +8,8 @@ check here and is exactly the error the extraction exists to prevent.
 
 from __future__ import annotations
 
-from scripts.check_tg_extraction import check, normalise
+from scripts.check_snippet_length import MIN_SNIPPET_WORDS
+from scripts.check_tg_extraction import MIN_QUOTE_WORDS, check, normalise
 
 INDEX = {
     "paragraphs": [
@@ -158,3 +159,37 @@ def test_the_checker_cannot_tell_whether_a_quote_supports_its_value() -> None:
         ),
     )
     assert problems == []
+
+
+def test_a_bare_value_is_reported_rather_than_skipped() -> None:
+    """`"key_event": 2` is the exact shape this tool exists to reject.
+
+    It is not an object, so it carries neither a quote nor a paragraph. Skipping a
+    non-object field meant this record came back clean, with an exit code of 0.
+    """
+    problems = check(INDEX, [{"method": "KeratinoSens", "fields": {"key_event": 2}}])
+    assert problems == ["KeratinoSens / key_event: value carries no quote"]
+
+
+def test_a_quote_that_normalises_to_nothing_does_not_verify() -> None:
+    """"" is a substring of every paragraph, so this would verify against anything."""
+    for quote in ("(TM)", "™", "   "):
+        problems = check(
+            INDEX, record("name", value="x", paragraph="442D/GI/3", quote=quote)
+        )
+        assert len(problems) == 1, f"{quote!r} should not verify"
+        assert "empty once normalised" in problems[0]
+
+
+def test_a_quote_below_the_word_floor_does_not_verify() -> None:
+    """A fragment matches in too many places for the match to locate anything."""
+    problems = check(
+        INDEX, record("name", value="x", paragraph="442D/IA/1", quote="the test method")
+    )
+    assert len(problems) == 1
+    assert f"below the {MIN_QUOTE_WORDS}-word floor" in problems[0]
+
+
+def test_the_word_floor_matches_the_evidence_snippet_floor() -> None:
+    """Same floor, and the same reason, as the repository's snippet-length gate."""
+    assert MIN_QUOTE_WORDS == MIN_SNIPPET_WORDS

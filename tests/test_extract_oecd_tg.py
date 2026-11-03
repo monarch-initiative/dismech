@@ -11,7 +11,12 @@ Each test below pins a failure that happened while the parser was written.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from scripts.extract_oecd_tg import classify_division, is_in_scope_section, parse_pages
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # "GENERAL INTRODUCTION" and "Appendix IA:" are rendered as indented title blocks.
 DIVISION = "        GENERAL INTRODUCTION"
@@ -178,3 +183,41 @@ def test_appendix_ic_heading_variant_is_in_scope() -> None:
     assert not is_in_scope_section("PROCEDURE")
     assert not is_in_scope_section("DATA AND REPORTING")
     assert not is_in_scope_section("APPENDIX IA - ANNEX 1: PROFICIENCY SUBSTANCES")
+
+
+def test_committed_index_numbering_is_contiguous_in_every_division() -> None:
+    """Guards the heading regex against silently truncating an in-scope section.
+
+    `SECTION_HEADING_RE` matches any flush-left upper-case line, which includes table
+    rows such as "C EGDMA EGDMA EGDMA". Today every such row falls inside a section that
+    is already out of scope, so nothing is lost. One inside an in-scope section would
+    close the in-scope run early and drop the paragraphs after it -- with no error, and
+    no sign in the output except a gap in the numbering. So the numbering is the guard.
+    """
+    index = json.loads(
+        (REPO_ROOT / "data" / "oecd_tg" / "tg442d-paragraphs.json").read_text()
+    )
+    by_division: dict[str, list[int]] = {}
+    for paragraph in index["paragraphs"]:
+        key = paragraph["appendix"] or "GI"
+        by_division.setdefault(key, []).append(paragraph["paragraph_number"])
+
+    assert set(by_division) == {"GI", "IA", "IB", "IC", "ID"}
+    for division, numbers in sorted(by_division.items()):
+        assert numbers == sorted(numbers), f"{division} is out of order: {numbers}"
+        assert numbers == list(range(1, len(numbers) + 1)), (
+            f"{division} numbering is not 1..N: {numbers}"
+        )
+
+
+def test_committed_index_paragraphs_are_whole_sentences() -> None:
+    """A paragraph cut mid-sentence means a quote taken from its end cannot verify."""
+    index = json.loads(
+        (REPO_ROOT / "data" / "oecd_tg" / "tg442d-paragraphs.json").read_text()
+    )
+    truncated = [
+        p["citation_key"]
+        for p in index["paragraphs"]
+        if not p["text"].rstrip().endswith((".", ".)", ".”"))
+    ]
+    assert truncated == []

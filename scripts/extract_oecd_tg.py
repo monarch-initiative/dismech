@@ -6,8 +6,9 @@ This script turns the PDF into a paragraph index: every numbered paragraph of th
 in-scope sections, with the division and paragraph number that cite it.
 
 It extracts text and nothing else. Which paragraph supports which fact about a method is
-a judgement, made against this index rather than against the PDF, and recorded by
-`extract_tg_methods` (see `docs/oecd-tg-extraction.md`).
+a judgement, made against this index rather than against the PDF. The records carrying
+those judgements are checked by `scripts/check_tg_extraction.py`; the skill that writes
+them is still to come (see `docs/oecd-tg-extraction.md` and issue #16338).
 
 Paragraph numbering restarts in every division, so a bare paragraph number is ambiguous
 across the five methods TG 442D describes. The citation key therefore carries both:

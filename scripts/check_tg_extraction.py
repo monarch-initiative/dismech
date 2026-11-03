@@ -60,6 +60,12 @@ FOLD = {
 }
 
 
+# A quote shorter than this cannot locate anything: a three-word fragment matches in
+# many paragraphs, which makes both the match and the "appears in <other paragraph>"
+# diagnosis meaningless. Same floor, and the same reason, as MIN_SNIPPET_WORDS in
+# scripts/check_snippet_length.py.
+MIN_QUOTE_WORDS = 5
+
 # The ASCII renderings a curator types for a trademark marker, dropped to match FOLD.
 TRADEMARK_ASCII_RE = re.compile(r"\(\s*(?:tm|r)\s*\)", re.IGNORECASE)
 
@@ -79,16 +85,19 @@ def normalise(text: str) -> str:
 
 
 def iter_quotes(records: list[dict]) -> list[tuple[str, str, str, str]]:
-    """Yield (method, field, citation_key, quote) for every quoted fact.
+    """Return (method, field, citation_key, quote) for every field of every record.
 
-    A record's fields each carry `value`, `quote` and `paragraph`. A field with no
-    quote is reported separately, as an unsourced value, rather than skipped.
+    A record's fields each carry `value`, `quote` and `paragraph`. Every field is
+    returned, including one that carries no quote and one written as a bare value
+    (`"key_event": 2`) rather than as an object. Those are the shapes this tool exists
+    to reject, so they are reported as unsourced rather than skipped.
     """
     found: list[tuple[str, str, str, str]] = []
     for record in records:
         method = str(record.get("method", "<unnamed>"))
         for name, field in sorted(record.get("fields", {}).items()):
             if not isinstance(field, dict):
+                found.append((method, name, "", ""))
                 continue
             found.append(
                 (
@@ -117,6 +126,9 @@ def check(index: dict, records: list[dict]) -> list[str]:
         if not key:
             problems.append(f"{where}: quote carries no paragraph reference")
             continue
+        # The citation is checked before the quote's own usability: "cites a paragraph
+        # that is not in the index" names a concrete fix, and holds whatever the quote
+        # turns out to look like.
         if key not in paragraphs:
             problems.append(
                 f"{where}: cites {key}, which is not in the index "
@@ -124,6 +136,18 @@ def check(index: dict, records: list[dict]) -> list[str]:
             )
             continue
         needle = normalise(quote)
+        if not needle:
+            # "(TM)" or whitespace alone normalises to nothing, and "" is a substring
+            # of every paragraph, so this would otherwise verify against anything.
+            problems.append(f"{where}: quote is empty once normalised")
+            continue
+        words = len(needle.split())
+        if words < MIN_QUOTE_WORDS:
+            problems.append(
+                f"{where}: quote is {words} word(s), below the {MIN_QUOTE_WORDS}-word "
+                f"floor -- a fragment matches in too many places to locate anything"
+            )
+            continue
         if needle in paragraphs[key]:
             continue
         elsewhere = sorted(k for k, text in paragraphs.items() if needle in text)
