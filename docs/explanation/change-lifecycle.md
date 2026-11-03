@@ -174,8 +174,8 @@ Work backwards through the hops, and check the cheap thing first.
    Content that is present but out of date usually means the page was rendered
    before your change, and the next scheduled run will refresh it.
 6. **Is there a `🐑 PR Shepherd` comment on your PR?** This one is last
-   because it is the least visible, not because it happens late. After two
-   merge-queue ejections with no push in between, the shepherd stops
+   because it is the least visible, not because it happens late. By default,
+   after two merge-queue ejections with no push in between, the shepherd stops
    re-enqueuing the PR and says so in a comment. The hold sets no label, no
    review and no assignee, so nothing else on the PR page shows it, and the PR
    still satisfies every condition in item 1. Any push to the branch clears the
