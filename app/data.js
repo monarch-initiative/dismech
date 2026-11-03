@@ -403615,7 +403615,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 11,
     "num_treatments": 10,
-    "causal_graph_edges": "40",
+    "causal_graph_edges": "42",
     "causal_graph_longest_path": "8"
   },
   {
@@ -422224,8 +422224,8 @@ window.searchMetrics = {
   "total_disorder_pages": 3915,
   "total_subtypes": 4997,
   "total_disorders_and_subtypes": 8912,
-  "total_unique_evidence_sources": 58210,
-  "total_unique_publications": 54462,
+  "total_unique_evidence_sources": 58215,
+  "total_unique_publications": 54467,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 3913,
@@ -422233,7 +422233,7 @@ window.searchMetrics = {
   "total_modules": 226,
   "total_research_reports": 4027,
   "total_classifications": 21,
-  "total_comorbidities": 51,
+  "total_comorbidities": 55,
   "total_groupings": 129
 };
 window.dispatchEvent(new Event('searchDataReady'));
