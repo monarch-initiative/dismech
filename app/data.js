@@ -114104,6 +114104,96 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Congenital Plasminogen Activator Inhibitor Type 1 Deficiency",
+    "disease_id": "MONDO:0013227",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited Blood Coagulation Disorder"
+    ],
+    "creation_date": "2026-11-02T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive bleeding disorder caused by biallelic loss-of-function variants in SERPINE1, which encodes plasminogen activator inhibitor 1 (PAI-1), the main physiological inhibitor of tissue-type and urokinase-type plasminogen activators. Without PAI-1, clots form normally but plasminogen activation is unopposed, so plasmin lyses them early. The bleeding is mild to moderate and characteristically delayed: it follows injury, trauma or surgery, and spontaneous bleeding does not occur, although intracranial and joint bleeding after mild trauma have been reported. Women often present earlier, with heavy menstrual bleeding and postpartum haemorrhage. Heterozygous carriers do not bleed. Most known patients come from an Old Order Amish kindred in Indiana carrying a founder frameshift (c.699_700dupTA). In that kindred, homozygous young adults also develop myocardial fibrosis. In mice, cardiac fibrosis follows loss of PAI-1's restraint on cardiomyocyte TGF-beta signalling. Antifibrinolytics (tranexamic acid, epsilon-aminocaproic acid) treat and prevent bleeding.",
+    "pathophysiology": [
+      "Biallelic SERPINE1 Loss of Function",
+      "Unopposed Plasminogen Activation",
+      "Derepressed Cardiomyocyte TGF-beta Signaling"
+    ],
+    "cell_types": [
+      "cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "negative regulation of fibrinolysis",
+      "fibrinolysis",
+      "transforming growth factor beta receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Hyperfibrinolysis",
+      "Prolonged bleeding after surgery",
+      "Joint hemorrhage",
+      "Intracranial hemorrhage",
+      "Menorrhagia",
+      "Post-partum hemorrhage",
+      "Bruising susceptibility",
+      "Epistaxis",
+      "Myocardial fibrosis"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Neurological",
+      "Reproductive",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0040236",
+      "HP:0004846",
+      "HP:0005261",
+      "HP:0002170",
+      "HP:0000132",
+      "HP:0011891",
+      "HP:0000978",
+      "HP:0000421",
+      "HP:0001685"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SERPINE1"
+    ],
+    "treatments": [
+      "Antifibrinolytic Therapy",
+      "Fresh Frozen Plasma",
+      "Hormonal Suppression for Heavy Menstrual Bleeding",
+      "Avoidance of Drugs Affecting Coagulation and High-Risk Activities"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Plasminogen_Activator_Inhibitor_Type_1_Deficiency.yaml",
+    "page_url": "../pages/disorders/Congenital_Plasminogen_Activator_Inhibitor_Type_1_Deficiency.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Congenital Primary Lymphedema of Gordon",
     "disease_id": "MONDO:0035500",
     "category": "Mendelian",
@@ -263600,6 +263690,98 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Megalencephaly-polymicrogyria-polydactyly-hydrocephalus Syndrome 3",
+    "disease_id": "MONDO:0014408",
+    "category": "Mendelian",
+    "parents": [
+      "megalencephaly-polymicrogyria-postaxial polydactyly-hydrocephalus syndrome"
+    ],
+    "creation_date": "2026-11-02T23:55:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Megalencephaly-polymicrogyria-polydactyly-hydrocephalus syndrome 3 (MPPH3) is the CCND2 form of MPPH syndrome, a congenital brain overgrowth disorder. It is caused by heterozygous, usually de novo, variants in the last exon of CCND2 that alter residues around the GSK-3beta phosphorylation site Thr280 or truncate the protein before it. The variant cyclin D2 escapes phosphorylation-dependent proteasomal degradation and accumulates, keeping cortical progenitors cycling. Affected children have megalencephaly with bilateral perisylvian polymicrogyria, ventriculomegaly or hydrocephalus, oromotor dysfunction, intellectual disability and, frequently, epilepsy and postaxial polydactyly. Cyclin D2 stabilization is also the proposed point of convergence with the PIK3R2 (MPPH1) and AKT3 (MPPH2) forms, where upstream PI3K-AKT activation inhibits GSK-3beta.",
+    "pathophysiology": [
+      "Distal CCND2 Variant Disrupting the Thr280 Phosphodegron",
+      "Resistance of Cyclin D2 to Proteasomal Degradation",
+      "Expansion of Proliferating Cortical Progenitors"
+    ],
+    "cell_types": [
+      "cortical neural progenitor cell",
+      "radial glial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:0000681"
+    ],
+    "biological_processes": [
+      "proteasomal degradation of cyclin D2",
+      "neural progenitor proliferation"
+    ],
+    "phenotypes": [
+      "Megalencephaly",
+      "Bilateral Perisylvian Polymicrogyria",
+      "Ventriculomegaly",
+      "Hydrocephalus",
+      "Oromotor Dysfunction",
+      "Intellectual Disability",
+      "Epilepsy",
+      "Postaxial Polydactyly",
+      "Hypoglycemia",
+      "Infantile Spasms",
+      "Global Developmental Delay",
+      "Hypotonia",
+      "Absent Speech"
+    ],
+    "phenotype_categories": [
+      "Nervous System",
+      "Musculoskeletal",
+      "Metabolism/Homeostasis"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001355",
+      "HP:0032407",
+      "HP:0002119",
+      "HP:0000238",
+      "HP:0011968",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0100259",
+      "HP:0001943",
+      "HP:0012469",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0001344"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CCND2"
+    ],
+    "treatments": [
+      "Ventricular Shunting for Hydrocephalus",
+      "Antiseizure Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Megalencephaly-polymicrogyria-polydactyly-hydrocephalus_Syndrome_3.yaml",
+    "page_url": "../pages/disorders/Megalencephaly-polymicrogyria-polydactyly-hydrocephalus_Syndrome_3.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Meier-Gorlin syndrome",
@@ -422383,17 +422565,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3917,
+  "total_disorder_pages": 3919,
   "total_subtypes": 4999,
-  "total_disorders_and_subtypes": 8916,
-  "total_unique_evidence_sources": 58244,
-  "total_unique_publications": 54494,
+  "total_disorders_and_subtypes": 8918,
+  "total_unique_evidence_sources": 58260,
+  "total_unique_publications": 54508,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3915,
-  "total_unique_pathological_events": 25682,
+  "total_pathographs": 3917,
+  "total_unique_pathological_events": 25688,
   "total_modules": 226,
-  "total_research_reports": 4029,
+  "total_research_reports": 4031,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 129
