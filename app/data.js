@@ -73735,6 +73735,96 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "CNGB3-Related Retinopathy",
+    "disease_id": "MONDO:0100446",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-11-02T23:47:27Z",
+    "updated_date": null,
+    "subtypes": [
+      "ACHM3",
+      "CNGB3 Progressive Cone Dystrophy"
+    ],
+    "description": "CNGB3-related retinopathy is an autosomal recessive cone photoreceptor disorder caused by biallelic pathogenic variants in CNGB3, which encodes the beta (modulatory) subunit of the cone cyclic nucleotide-gated (CNG) channel. The channel is the cGMP-gated cation channel in the cone outer segment whose closure generates the cone light response, so loss of CNGB3 leaves cones unable to respond to light. CNGB3 is the most common achromatopsia gene, accounting for roughly half of patients, and its usual phenotype is complete achromatopsia (ACHM3): congenital loss of colour vision, poor visual acuity, photophobia and pendular nystagmus with absent cone and normal or mildly reduced rod electroretinogram responses. Some families instead have a later-onset, progressive cone dystrophy, and macular outer-retinal changes progress slowly with age in achromats as well. This entry captures the CNGB3-specific gene-disease mechanism and spectrum; Achromatopsia.yaml models the ACHM3 subtype within the broader achromatopsia umbrella and points here.",
+    "pathophysiology": [
+      "CNGB3 Cone CNG Channel Beta Subunit Deficiency",
+      "Loss of Functional Cone CNG Channels",
+      "Failure of the Cone Light Response",
+      "Congenital Cone Dysfunction",
+      "ER Stress-Associated Cone Apoptosis",
+      "Slow Cone Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "phototransduction, visible light",
+      "detection of light stimulus involved in visual perception",
+      "visual perception",
+      "response to endoplasmic reticulum stress",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Achromatopsia",
+      "Tritanomaly",
+      "Reduced visual acuity",
+      "Photophobia",
+      "Pendular nystagmus",
+      "Undetectable cone electroretinogram",
+      "Central scotoma",
+      "Hypermetropia",
+      "Macular atrophy",
+      "Cone/cone-rod dystrophy"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011516",
+      "HP:0000552",
+      "HP:0007663",
+      "HP:0000613",
+      "HP:0012043",
+      "HP:0030465",
+      "HP:0000603",
+      "HP:0000540",
+      "HP:0007401",
+      "HP:0000548"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "CNGB3"
+    ],
+    "treatments": [
+      "AAV CNGB3 gene augmentation (investigational)",
+      "Intravitreal CNTF implant (investigational, ineffective)",
+      "Low vision aids and tinted filters",
+      "Genetic counseling",
+      "Ophthalmologic surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CNGB3-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/CNGB3-Related_Retinopathy.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "CNS Neuroblastoma, FOXR2-Activated",
     "disease_id": "MONDO:0859597",
     "category": "",
@@ -114014,6 +114104,96 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Congenital Plasminogen Activator Inhibitor Type 1 Deficiency",
+    "disease_id": "MONDO:0013227",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited Blood Coagulation Disorder"
+    ],
+    "creation_date": "2026-11-02T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive bleeding disorder caused by biallelic loss-of-function variants in SERPINE1, which encodes plasminogen activator inhibitor 1 (PAI-1), the main physiological inhibitor of tissue-type and urokinase-type plasminogen activators. Without PAI-1, clots form normally but plasminogen activation is unopposed, so plasmin lyses them early. The bleeding is mild to moderate and characteristically delayed: it follows injury, trauma or surgery, and spontaneous bleeding does not occur, although intracranial and joint bleeding after mild trauma have been reported. Women often present earlier, with heavy menstrual bleeding and postpartum haemorrhage. Heterozygous carriers do not bleed. Most known patients come from an Old Order Amish kindred in Indiana carrying a founder frameshift (c.699_700dupTA). In that kindred, homozygous young adults also develop myocardial fibrosis. In mice, cardiac fibrosis follows loss of PAI-1's restraint on cardiomyocyte TGF-beta signalling. Antifibrinolytics (tranexamic acid, epsilon-aminocaproic acid) treat and prevent bleeding.",
+    "pathophysiology": [
+      "Biallelic SERPINE1 Loss of Function",
+      "Unopposed Plasminogen Activation",
+      "Derepressed Cardiomyocyte TGF-beta Signaling"
+    ],
+    "cell_types": [
+      "cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "negative regulation of fibrinolysis",
+      "fibrinolysis",
+      "transforming growth factor beta receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Hyperfibrinolysis",
+      "Prolonged bleeding after surgery",
+      "Joint hemorrhage",
+      "Intracranial hemorrhage",
+      "Menorrhagia",
+      "Post-partum hemorrhage",
+      "Bruising susceptibility",
+      "Epistaxis",
+      "Myocardial fibrosis"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Neurological",
+      "Reproductive",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0040236",
+      "HP:0004846",
+      "HP:0005261",
+      "HP:0002170",
+      "HP:0000132",
+      "HP:0011891",
+      "HP:0000978",
+      "HP:0000421",
+      "HP:0001685"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SERPINE1"
+    ],
+    "treatments": [
+      "Antifibrinolytic Therapy",
+      "Fresh Frozen Plasma",
+      "Hormonal Suppression for Heavy Menstrual Bleeding",
+      "Avoidance of Drugs Affecting Coagulation and High-Risk Activities"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Plasminogen_Activator_Inhibitor_Type_1_Deficiency.yaml",
+    "page_url": "../pages/disorders/Congenital_Plasminogen_Activator_Inhibitor_Type_1_Deficiency.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Congenital Primary Lymphedema of Gordon",
     "disease_id": "MONDO:0035500",
     "category": "Mendelian",
@@ -116078,7 +116258,7 @@ window.searchData = [
     "num_pathophysiology": 18,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "53",
+    "causal_graph_edges": "55",
     "causal_graph_longest_path": "11"
   },
   {
@@ -132410,7 +132590,7 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 38,
     "num_treatments": 10,
-    "causal_graph_edges": "36",
+    "causal_graph_edges": "37",
     "causal_graph_longest_path": "2"
   },
   {
@@ -209473,6 +209653,78 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "IMPG2-related Recessive Retinopathy",
+    "disease_id": "MONDO:0700241",
+    "category": "Mendelian",
+    "parents": [
+      "Ophthalmological Disease",
+      "Retinal Dystrophy",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-11-02T23:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "IMPG2-related recessive retinopathy is an inherited retinal disease caused by biallelic pathogenic variants in IMPG2, which encodes interphotoreceptor matrix proteoglycan 2 (SPACRCAN, also IPM200), one of the two large chondroitin-sulfate proteoglycans of the interphotoreceptor matrix (IPM) that fills the subretinal space around photoreceptor outer segments. Unlike its paralog IMPG1 (SPACR), IMPG2 carries a putative transmembrane domain and sits at the inner-segment side of the matrix, where it is required for IMPG1 to be positioned correctly in the outer-segment compartment. The predominant recessive presentation is an early-onset retinitis pigmentosa (RP56) with progressive visual-field loss and loss of visual acuity, and macular involvement is a frequent, relatively early feature; the single reported recessive patient carrying a missense allele presented with a maculopathy as the leading feature. Reported biallelic alleles are mostly null (nonsense, genomic deletion) with occasional missense alleles, and a SEA-domain deletion allele is retained in the endoplasmic reticulum in vitro. Only a small number of biallelic families have been reported, and no disease-specific treatment exists.",
+    "pathophysiology": [
+      "Biallelic IMPG2 Loss of Function",
+      "Interphotoreceptor Matrix Disorganization",
+      "Subretinal Material Accumulation",
+      "Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "retinal rod cell",
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "extracellular matrix organization",
+      "photoreceptor cell maintenance"
+    ],
+    "phenotypes": [
+      "Rod-cone dystrophy",
+      "Constriction of peripheral visual field",
+      "Reduced visual acuity",
+      "Macular atrophy",
+      "Nyctalopia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000510",
+      "HP:0001133",
+      "HP:0007663",
+      "HP:0007401",
+      "HP:0000662"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "IMPG2"
+    ],
+    "treatments": [
+      "Supportive and complication-directed care",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "IMPG2-related_Recessive_Retinopathy.yaml",
+    "page_url": "../pages/disorders/IMPG2-related_Recessive_Retinopathy.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "INPP5K-Related Congenital Muscular Dystrophy",
     "disease_id": "MONDO:0024607",
     "category": "Mendelian",
@@ -223026,16 +223278,19 @@ window.searchData = [
       "Brain atrophy",
       "Autistic behavior",
       "Attention deficit hyperactivity disorder",
-      "Flexion contracture"
+      "Flexion contracture",
+      "Respiratory distress"
     ],
     "phenotype_categories": [
       "Neurological",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Respiratory"
     ],
     "phenotype_hpo_categories": [
       "Limbs",
       "Musculoskeletal",
-      "Nervous System"
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0001249",
@@ -223056,7 +223311,8 @@ window.searchData = [
       "HP:0012444",
       "HP:0000729",
       "HP:0007018",
-      "HP:0001371"
+      "HP:0001371",
+      "HP:0002098"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -223077,7 +223333,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Intellectual_Developmental_Disorder_With_Speech_Delay_And_Axonal_Peripheral_Neuropathy.yaml",
     "page_url": "../pages/disorders/Intellectual_Developmental_Disorder_With_Speech_Delay_And_Axonal_Peripheral_Neuropathy.html",
-    "num_phenotypes": 19,
+    "num_phenotypes": 20,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 5,
@@ -234960,6 +235216,96 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "73",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Kaya-Barakat-Masson Syndrome",
+    "disease_id": "MONDO:0030878",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-11-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive neurodevelopmental disorder caused by biallelic pathogenic variants in YIF1B - mostly truncating or whole-gene deletions, with a minority of hypomorphic missense alleles - which encodes a ubiquitous membrane protein required for anterograde endoplasmic-reticulum-to-cell-membrane trafficking, Golgi apparatus morphology, and primary cilium integrity in neurons. Affected individuals have severe-to-profound developmental delay with little or no speech, postnatal (secondary) microcephaly, a mixed movement disorder (axial hypotonia with peripheral hypertonia, dystonia, and dyskinesia), seizures, feeding difficulties, ophthalmologic involvement, and in a subset central hypoventilation. Brain MRI shows nonspecific changes, most often corpus callosum hypoplasia, cerebellar hypoplasia, and white-matter abnormalities.",
+    "pathophysiology": [
+      "YIF1B Loss of Function",
+      "Impaired Anterograde Membrane Trafficking",
+      "Disrupted Brain Development"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "endoplasmic reticulum to Golgi vesicle-mediated transport",
+      "Golgi organization"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Absent speech",
+      "Secondary microcephaly",
+      "Hypotonia",
+      "Spasticity",
+      "Dystonia",
+      "Seizure",
+      "Feeding difficulties",
+      "Visual impairment",
+      "Hypoventilation",
+      "Hypoplasia of the corpus callosum",
+      "Cerebellar hypoplasia",
+      "Abnormal myelination",
+      "Autistic behavior"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Gastrointestinal",
+      "Ophthalmologic",
+      "Autonomic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001344",
+      "HP:0005484",
+      "HP:0001252",
+      "HP:0001257",
+      "HP:0001332",
+      "HP:0001250",
+      "HP:0011968",
+      "HP:0000505",
+      "HP:0002791",
+      "HP:0002079",
+      "HP:0001321",
+      "HP:0012447",
+      "HP:0000729"
+    ],
+    "frequencies": [],
+    "genes": [
+      "YIF1B"
+    ],
+    "treatments": [
+      "Symptomatic and supportive management",
+      "Gastrostomy tube placement",
+      "Assisted ventilation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Kaya-Barakat-Masson_Syndrome.yaml",
+    "page_url": "../pages/disorders/Kaya-Barakat-Masson_Syndrome.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Kearns-Sayre syndrome",
@@ -248720,7 +249066,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 18,
     "num_treatments": 5,
-    "causal_graph_edges": "33",
+    "causal_graph_edges": "35",
     "causal_graph_longest_path": "5"
   },
   {
@@ -263434,6 +263780,98 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Megalencephaly-polymicrogyria-polydactyly-hydrocephalus Syndrome 3",
+    "disease_id": "MONDO:0014408",
+    "category": "Mendelian",
+    "parents": [
+      "megalencephaly-polymicrogyria-postaxial polydactyly-hydrocephalus syndrome"
+    ],
+    "creation_date": "2026-11-02T23:55:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Megalencephaly-polymicrogyria-polydactyly-hydrocephalus syndrome 3 (MPPH3) is the CCND2 form of MPPH syndrome, a congenital brain overgrowth disorder. It is caused by heterozygous, usually de novo, variants in the last exon of CCND2 that alter residues around the GSK-3beta phosphorylation site Thr280 or truncate the protein before it. The variant cyclin D2 escapes phosphorylation-dependent proteasomal degradation and accumulates, keeping cortical progenitors cycling. Affected children have megalencephaly with bilateral perisylvian polymicrogyria, ventriculomegaly or hydrocephalus, oromotor dysfunction, intellectual disability and, frequently, epilepsy and postaxial polydactyly. Cyclin D2 stabilization is also the proposed point of convergence with the PIK3R2 (MPPH1) and AKT3 (MPPH2) forms, where upstream PI3K-AKT activation inhibits GSK-3beta.",
+    "pathophysiology": [
+      "Distal CCND2 Variant Disrupting the Thr280 Phosphodegron",
+      "Resistance of Cyclin D2 to Proteasomal Degradation",
+      "Expansion of Proliferating Cortical Progenitors"
+    ],
+    "cell_types": [
+      "cortical neural progenitor cell",
+      "radial glial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:0000681"
+    ],
+    "biological_processes": [
+      "proteasomal degradation of cyclin D2",
+      "neural progenitor proliferation"
+    ],
+    "phenotypes": [
+      "Megalencephaly",
+      "Bilateral Perisylvian Polymicrogyria",
+      "Ventriculomegaly",
+      "Hydrocephalus",
+      "Oromotor Dysfunction",
+      "Intellectual Disability",
+      "Epilepsy",
+      "Postaxial Polydactyly",
+      "Hypoglycemia",
+      "Infantile Spasms",
+      "Global Developmental Delay",
+      "Hypotonia",
+      "Absent Speech"
+    ],
+    "phenotype_categories": [
+      "Nervous System",
+      "Musculoskeletal",
+      "Metabolism/Homeostasis"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001355",
+      "HP:0032407",
+      "HP:0002119",
+      "HP:0000238",
+      "HP:0011968",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0100259",
+      "HP:0001943",
+      "HP:0012469",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0001344"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CCND2"
+    ],
+    "treatments": [
+      "Ventricular Shunting for Hydrocephalus",
+      "Antiseizure Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Megalencephaly-polymicrogyria-polydactyly-hydrocephalus_Syndrome_3.yaml",
+    "page_url": "../pages/disorders/Megalencephaly-polymicrogyria-polydactyly-hydrocephalus_Syndrome_3.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Meier-Gorlin syndrome",
@@ -403611,7 +404049,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 11,
     "num_treatments": 10,
-    "causal_graph_edges": "40",
+    "causal_graph_edges": "42",
     "causal_graph_longest_path": "8"
   },
   {
@@ -422217,19 +422655,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3915,
-  "total_subtypes": 4997,
-  "total_disorders_and_subtypes": 8912,
-  "total_unique_evidence_sources": 58210,
-  "total_unique_publications": 54462,
+  "total_disorder_pages": 3920,
+  "total_subtypes": 4999,
+  "total_disorders_and_subtypes": 8919,
+  "total_unique_evidence_sources": 58271,
+  "total_unique_publications": 54518,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3913,
-  "total_unique_pathological_events": 25676,
+  "total_pathographs": 3918,
+  "total_unique_pathological_events": 25690,
   "total_modules": 226,
-  "total_research_reports": 4027,
+  "total_research_reports": 4032,
   "total_classifications": 21,
-  "total_comorbidities": 51,
+  "total_comorbidities": 55,
   "total_groupings": 129
 };
 window.dispatchEvent(new Event('searchDataReady'));

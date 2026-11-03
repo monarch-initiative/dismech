@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1111/pcmr.70041
+extractor_version: 1
 title: Germline Cancer Susceptibility Variants in Patients With Uveal Melanoma
 authors:
 - Pauliina E. Repo
@@ -17,6 +18,7 @@ journal: "Pigment Cell &amp; Melanoma Research"
 year: '2025'
 doi: 10.1111/pcmr.70041
 content_type: abstract_only
+is_preprint: false
 full_text_attempted: true
 ---
 
@@ -27,4 +29,6 @@ full_text_attempted: true
 
 ## Content
 
-ABSTRACTSome patients with uveal melanoma (UM) show genetic cancer predisposition: ~2% harbor a pathogenic or likely pathogenic (P/LP) germline variant in BAP1 or, rarely, in 20 other cancer‐associated genes. Up to 75% of patients with familial UM (FUM) lack genetic diagnosis, prompting a search beyond BAP1. We studied with exome sequencing blood samples from 106 patients with UM and higher‐than‐average risk of cancer (UM ≤ 45 years of age, bilateral or familial UM, or personal history of non‐ocular cancer) and no P/LP variants in BAP1. Sixteen (15%; 95% confidence interval [CI] 9–23) patients carried at least one P/LP variant in dominant cancer genes (CHEK2, DDX41, FANCM, HOXB13, RAD50, SDHA, SDHB) and fifteen in recessive ones. Only CHEK2 and FANCM have previously been reported in patients with UM. Six patients (6%; 95% CI 2–12) carried multilocus P/LP variants. Their median age at diagnosis of UM was 51 (range, 22–69) years, 9 years less than the cohort median of 60 (range, 13–89). This suggests a role for co‐occurring pathogenic variants and potentially multilocus inherited neoplasia allele syndrome (MINAS) in UM predisposition. None with FUM carried P/LP variants, warranting investigation of further genes, lower penetrance variants, and multi‐gene heterozygosity in UM predisposition.
+ABSTRACT
+
+Some patients with uveal melanoma (UM) show genetic cancer predisposition: ~2% harbor a pathogenic or likely pathogenic (P/LP) germline variant in BAP1 or, rarely, in 20 other cancer‐associated genes. Up to 75% of patients with familial UM (FUM) lack genetic diagnosis, prompting a search beyond BAP1. We studied with exome sequencing blood samples from 106 patients with UM and higher‐than‐average risk of cancer (UM ≤ 45 years of age, bilateral or familial UM, or personal history of non‐ocular cancer) and no P/LP variants in BAP1. Sixteen (15%; 95% confidence interval [CI] 9–23) patients carried at least one P/LP variant in dominant cancer genes (CHEK2, DDX41, FANCM, HOXB13, RAD50, SDHA, SDHB) and fifteen in recessive ones. Only CHEK2 and FANCM have previously been reported in patients with UM. Six patients (6%; 95% CI 2–12) carried multilocus P/LP variants. Their median age at diagnosis of UM was 51 (range, 22–69) years, 9 years less than the cohort median of 60 (range, 13–89). This suggests a role for co‐occurring pathogenic variants and potentially multilocus inherited neoplasia allele syndrome (MINAS) in UM predisposition. None with FUM carried P/LP variants, warranting investigation of further genes, lower penetrance variants, and multi‐gene heterozygosity in UM predisposition.

@@ -52,15 +52,19 @@ reading of the published record, not an FDA qualification.
 
 Ladder marks: ● met, ◐ partly met, ○ not met, ? not determined.
 
+Where level 1 is `?` (code or parameters not public, or reproducibility not checked), the marks
+for levels 2–4 record this report's reading of the published evidence for each level on its own.
+They are not met in the cumulative sense until level 1 is determined.
+
 ## Summary
 
 | Model | Type | Ladder 0·1·2·3·4 | FDA status | FDA-side strength | DisMech target | In DisMech |
 |---|---|---|---|---|---|---|
-| Pembrolizumab every-6-weeks PK and exposure–response | Population PK, exposure–response | ●●●●● | Basis of 2020 dosing approval | Strong | `Cutaneous_Melanoma` | No |
-| CiPA in silico torsade model | Cardiac electrophysiology (modified O'Hara-Rudy) | ●●●●● | Developed largely in FDA labs; advisory committee endorsed the approach in 2017 | Strong | `Long_QT_Syndrome` | Yes, partly |
-| Ibrutinib PBPK | Physiologically based pharmacokinetic | ●●●●● | Informed drug–drug interaction labeling | Moderate | `Chronic_Lymphocytic_Leukemia` | No |
-| UVA/Padova type 1 diabetes simulator | Glucose–insulin physiology, virtual population | ●●●●◐ | Reported accepted in place of animal studies (2008) | Developer-reported | New type 1 diabetes entry | No |
-| Populations of human cardiac models | Cardiac electrophysiology, model population | ●●●●◐ | None | None | `Long_QT_Syndrome` | No |
+| Pembrolizumab every-6-weeks PK and exposure–response | Population PK, exposure–response | ●?●●● | Basis of 2020 dosing approval | Strong | `Cutaneous_Melanoma` | No |
+| CiPA in silico torsade model | Cardiac electrophysiology (modified O'Hara-Rudy) | ●●●●◐ | Developed largely in FDA labs; advisory committee endorsed the approach in 2017 | Strong | `Long_QT_Syndrome` | Yes, partly |
+| Ibrutinib PBPK | Physiologically based pharmacokinetic | ●?●●◐ | Informed drug–drug interaction labeling | Moderate | `Chronic_Lymphocytic_Leukemia` | No |
+| UVA/Padova type 1 diabetes simulator | Glucose–insulin physiology, virtual population | ●?●●◐ | Reported accepted in place of animal studies (2008) | Developer-reported | `Type_I_Diabetes` | No |
+| Populations of human cardiac models | Cardiac electrophysiology, model population | ●?●●◐ | None | None | `Long_QT_Syndrome` | No |
 | CAMD Alzheimer's disease progression model | Disease progression (placebo, drop-out) | not scored | Fit-for-Purpose, 12 Jun 2013 | Strong | `Alzheimer_Disease` | No |
 | MCP-Mod | Dose-finding statistical method | not scored | Fit-for-Purpose, 26 May 2016 | Strong | None | Not applicable |
 | BOIN design | Dose-finding statistical method | not scored | Fit-for-Purpose, 10 Dec 2021 | Strong | None | Not applicable |
@@ -81,7 +85,7 @@ ladder levels were not scored for this report.
   with observed exposures under 2 mg/kg every 3 weeks, 200 mg every 3 weeks and 10 mg/kg every
   2 weeks, supported by exposure–response analyses across the development program. Interim
   pharmacokinetics and response came from KEYNOTE-555 cohort B, in melanoma.
-- **Validation:** ●●●●●. Interim KEYNOTE-555 data checked the predicted exposures; FDA reported an
+- **Validation:** ●?●●●. Interim KEYNOTE-555 data checked the predicted exposures; FDA reported an
   overall response rate of 39% (95% CI 24–55) in the first 44 patients.
 - **Reproducibility:** Not checked.
 - **FDA status:** Accelerated approval of the new schedule on 28 April 2020. Continued approval may
@@ -89,7 +93,7 @@ ladder levels were not scored for this report.
 - **FDA-side document:**
   [FDA approves new dosing regimen for pembrolizumab](https://www.fda.gov/drugs/drug-approvals-and-databases/fda-approves-new-dosing-regimen-pembrolizumab).
   Strength: Strong.
-- **DisMech:** Not present. Pembrolizumab is a treatment on 66 entries; `Cutaneous_Melanoma` is the
+- **DisMech:** Not present. Pembrolizumab is mentioned in 66 entries; `Cutaneous_Melanoma` is the
   proposed home because the confirming cohort was melanoma. This is a model of a drug, not a
   disease mechanism; see the open question in dismech#16321.
 - **References:** Lala et al., Eur J Cancer 2020,
@@ -105,8 +109,9 @@ ladder levels were not scored for this report.
 - **Data integrated:** In vitro block data for several cardiac ion channels are the model input.
   Outputs are compared with reference drugs of known clinical risk. FDA's page also describes
   checks against human stem-cell cardiomyocyte assays and phase 1 ECG biomarkers.
-- **Validation:** ●●●●●. Trained on 12 reference drugs and assessed on further drugs of known
-  risk.
+- **Validation:** ●●●●◐. Trained on 12 reference drugs and assessed on further drugs of known
+  risk. As with the populations-of-models benchmark below, that assessment is retrospective on
+  compounds whose clinical risk was already known, so level 4 is partly met.
 - **Reproducibility:** Code at [github.com/FDA/CiPA](https://github.com/FDA/CiPA).
 - **FDA status:** An FDA advisory committee endorsed the approach in March 2017, pending ongoing
   validation studies.
@@ -131,9 +136,9 @@ ladder levels were not scored for this report.
   adjustments for co-medications.
 - **Data integrated:** Built from in vitro data. Verified against clinical studies of a strong
   CYP3A4 inhibitor and a strong inducer.
-- **Validation:** ●●●●●. Predictions for unstudied interactions were used on the label. The
-  hepatic-impairment prediction overestimated exposure against interim clinical data, and a clinical
-  hepatic-impairment study was still required.
+- **Validation:** ●?●●◐. Predictions for unstudied interactions were used on the label, but those
+  were not then confirmed by observation. The hepatic-impairment prediction overestimated exposure
+  against interim clinical data, and a clinical hepatic-impairment study was still required.
 - **Reproducibility:** Not checked; Simcyp is commercial software.
 - **FDA status:** Secondary sources report that 24 drug–drug interaction and dosing claims on the
   2013 label came from model predictions without clinical studies. The FDA review on Drugs@FDA has
@@ -141,7 +146,7 @@ ladder levels were not scored for this report.
 - **FDA-side document:**
   [FDA-hosted sponsor slides on post-approval MIDD for ibrutinib](https://fda.gov/media/112937/download).
   Strength: Moderate.
-- **DisMech:** Not present. Ibrutinib is a treatment on 6 entries; `Chronic_Lymphocytic_Leukemia` is
+- **DisMech:** Not present. Ibrutinib is mentioned in 6 entries; `Chronic_Lymphocytic_Leukemia` is
   the proposed home. This is a model of a drug, not a disease mechanism.
 - **References:** de Zwart et al., Clin Pharmacol Ther 2016,
   [PMID:27367453](https://pubmed.ncbi.nlm.nih.gov/27367453/); survey of PBPK in NDA reviews,
@@ -155,7 +160,7 @@ ladder levels were not scored for this report.
   (artificial pancreas) control algorithms.
 - **Data integrated:** Meal-test data from people with and without diabetes calibrate the model.
   Later versions added hypoglycemia counter-regulation (S2013) and single-day scenarios (S2017).
-- **Validation:** ●●●●◐. Used to screen control algorithms before human trials; prospective
+- **Validation:** ●?●●◐. Used to screen control algorithms before human trials; prospective
   agreement with trial outcomes is reported by the developers but not assessed here.
 - **Reproducibility:** Distributed commercially as T1DMS by The Epsilon Group; source not public.
 - **FDA status:** The developers report that FDA accepted the simulator in January 2008 as a
@@ -163,8 +168,10 @@ ladder levels were not scored for this report.
   A 2020 preprint reports that FDA evaluated 140 candidate algorithms with it, leading to 16
   investigational device exemptions.
 - **FDA-side document:** None found. Strength: Developer-reported.
-- **DisMech:** Not present. There is no type 1 diabetes entry or stub; type 1 diabetes appears only
-  as a subtype inside `Diabetes_Mellitus`.
+- **DisMech:** Not present. `Type_I_Diabetes` (MONDO:0005147, type 1 diabetes mellitus) exists and
+  has no `computational_models` block, so it is the proposed home. Type 1 diabetes also appears as
+  a subtype inside `Diabetes_Mellitus`, and stubs exist for monogenic and susceptibility subtypes
+  such as `Type_1_Diabetes_Mellitus_2`.
 - **References:** Dalla Man et al., IEEE Trans Biomed Eng 2007,
   [PMID:17926672](https://pubmed.ncbi.nlm.nih.gov/17926672/); Dalla Man et al., J Diabetes Sci
   Technol 2014, [PMID:24876534](https://pubmed.ncbi.nlm.nih.gov/24876534/); Visentin et al., J
@@ -177,7 +184,7 @@ ladder levels were not scored for this report.
 - **Context of use:** Predict clinical pro-arrhythmic risk of drugs.
 - **Data integrated:** Models calibrated to human recordings; in silico trials of 62 reference
   compounds at several concentrations, compared with known clinical risk.
-- **Validation:** ●●●●◐. 89% accuracy against clinical risk; the NC3Rs reports up to 75% for animal
+- **Validation:** ●?●●◐. 89% accuracy against clinical risk; the NC3Rs reports up to 75% for animal
   studies on similar data sets. The benchmark is retrospective on known compounds.
 - **Reproducibility:** Not checked.
 - **FDA status:** None. Recognized by the UK NC3Rs with the 2017 International 3Rs Prize.

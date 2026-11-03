@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1055/s-0043-1770384
+extractor_version: 1
 title: Chemoprevention in Inherited Colorectal Cancer Syndromes
 authors:
 - Ophir Gilad
@@ -9,7 +10,8 @@ journal: Clinics in Colon and Rectal Surgery
 year: '2024'
 doi: 10.1055/s-0043-1770384
 content_type: abstract_only
-full_text_attempted: true
+is_preprint: false
+full_text_declined: "access_type:publisher_free"
 ---
 
 # Chemoprevention in Inherited Colorectal Cancer Syndromes
@@ -19,4 +21,6 @@ full_text_attempted: true
 
 ## Content
 
-AbstractCancer prevention in hereditary gastrointestinal predisposition syndromes relies primarily on intensive screening (e.g., colonoscopy) or prophylactic surgery (e.g., colectomy). The use of chemopreventive agents as an adjunct to these measures has long been studied both in the general population and in hereditary cancer patients, in whom the risk of malignancy, and therefore the potential risk reduction, is considerably greater. However, to date only few compounds have been found to be effective, safe, and tolerable for widespread use. Furthermore, many of the studies involving these rare syndromes suffer from small sample sizes, heterogeneous patient cohorts, short follow-up duration, and lack of standardized endpoints, creating challenges to draw generalizable conclusion regarding efficacy. The following review summarizes the current data on various chemopreventive compounds used in Lynch syndrome and familial adenomatous polyposis in addition to several agents that are currently being investigated.
+Abstract
+
+Cancer prevention in hereditary gastrointestinal predisposition syndromes relies primarily on intensive screening (e.g., colonoscopy) or prophylactic surgery (e.g., colectomy). The use of chemopreventive agents as an adjunct to these measures has long been studied both in the general population and in hereditary cancer patients, in whom the risk of malignancy, and therefore the potential risk reduction, is considerably greater. However, to date only few compounds have been found to be effective, safe, and tolerable for widespread use. Furthermore, many of the studies involving these rare syndromes suffer from small sample sizes, heterogeneous patient cohorts, short follow-up duration, and lack of standardized endpoints, creating challenges to draw generalizable conclusion regarding efficacy. The following review summarizes the current data on various chemopreventive compounds used in Lynch syndrome and familial adenomatous polyposis in addition to several agents that are currently being investigated.

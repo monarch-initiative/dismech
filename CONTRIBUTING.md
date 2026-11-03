@@ -465,8 +465,9 @@ To understand the curation guidelines:
 
 ## Regenerating Site Content
 
-After making changes to `kb/disorders/*.yaml` files, a github job will regenerate the site. You don't need to
-know the details but we provide them here anyway:
+After making changes to `kb/disorders/*.yaml` files, a GitHub job regenerates the site — in a pull request of
+its own, which is why your page does not appear the moment your PR merges. For when to expect it and where it
+lands, see [The Life of a Change](docs/explanation/change-lifecycle.md). The manual commands are below.
 
 ### Browser App & HTML Pages
 
@@ -589,6 +590,9 @@ default = no-refresh
 5. Have your agent address CI failures and review findings, in one push per round (every push drops the approval)
 6. The PR is merged automatically once it is approved, passing all checks, conflict-free, more than
    3 days old, and not assigned to a person. Assign it to yourself to hold it.
+7. A separate automated PR re-renders the affected pages, and the site rebuilds once that merges —
+   typically one to two hours after your own PR lands. See
+   [The Life of a Change](docs/explanation/change-lifecycle.md).
 
 ## Questions?
 
