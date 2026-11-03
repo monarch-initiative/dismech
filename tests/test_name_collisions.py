@@ -58,6 +58,18 @@ def test_partial_or_repeated_subtypes_are_unstratified(subtypes):
     assert _kinds({"genetic": rows}) == {"X": "UNSTRATIFIED"}
 
 
+def test_cross_section_match_does_not_hide_an_unstratified_pair():
+    """Review of #16431: classifying the whole name let CROSS_SECTION win."""
+    d = {
+        "pathophysiology": [{"name": "Fatigue"}],
+        "phenotypes": [{"name": "Fatigue"}, {"name": "Fatigue"}],
+    }
+    kinds = sorted(c.kind for c in find_name_collisions(d))
+    assert kinds == ["CROSS_SECTION", "UNSTRATIFIED"]
+    (pair,) = [c for c in find_name_collisions(d) if c.kind == "UNSTRATIFIED"]
+    assert {r.source for r in pair.rows} == {"phenotypes"}
+
+
 def test_cross_section_includes_variants_and_animal_models():
     d = {
         "pathophysiology": [{"name": "Nephrocalcinosis"}],
@@ -148,6 +160,23 @@ def test_stratified_and_cross_section_do_not_fail_the_gate(tmp_path):
     assert mod.main([str(entry)]) == 0
 
 
+def test_extra_copy_of_a_grandfathered_name_fails(tmp_path, monkeypatch, capsys):
+    """Review of #16431: the baseline grandfathers a row count, not just a name."""
+    import check_name_collisions as mod
+
+    entry = tmp_path / "Example.yaml"
+    entry.write_text(
+        "name: Example\nphenotypes:\n- name: Fatigue\n- name: Fatigue\n- name: Fatigue\n",
+        encoding="utf-8",
+    )
+    key = f"{mod._display(entry)}\tphenotypes\tFatigue"
+    monkeypatch.setattr(mod, "load_baseline", lambda: {key: 2})
+    assert mod.main([str(entry)]) == 1
+    monkeypatch.setattr(mod, "load_baseline", lambda: {key: 3})
+    assert mod.main([str(entry)]) == 0
+    capsys.readouterr()
+
+
 def test_missing_path_is_a_usage_error(tmp_path, capsys):
     import check_name_collisions as mod
 
@@ -174,7 +203,10 @@ def test_baseline_is_well_formed_and_sorted():
         if line and not line.startswith("#")
     ]
     assert rows == sorted(rows)
-    assert all(len(r.split("\t")) == 3 for r in rows)
+    for row in rows:
+        fields = row.split("\t")
+        assert len(fields) == 4, row
+        assert int(fields[3]) >= 2, row
 
 
 def test_gate_is_wired_into_qc_and_ci():

@@ -114,14 +114,26 @@ def baseline_key(path: str, collision: NameCollision) -> str:
     return f"{path}\t{collision.rows[0].source}\t{collision.name}"
 
 
-def load_baseline() -> set[str]:
+def load_baseline() -> dict[str, int]:
+    """``{path<TAB>section<TAB>name: grandfathered row count}``.
+
+    The count is part of the grandfather: a third copy of a name grandfathered
+    with two rows is a new accident, not the old one (the same reason
+    ``check_block_scalar_comments`` stores occurrence counts).
+    """
     if not BASELINE_PATH.exists():
-        return set()
-    return {
-        line
-        for line in BASELINE_PATH.read_text(encoding="utf-8").splitlines()
-        if line.strip() and not line.startswith("#")
-    }
+        return {}
+    baseline: dict[str, int] = {}
+    for line in BASELINE_PATH.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        key, _, count = line.rpartition("\t")
+        baseline[key] = int(count)
+    return baseline
+
+
+def _baseline_lines(baseline: dict[str, int]) -> list[str]:
+    return [f"{key}\t{count}" for key, count in sorted(baseline.items())]
 
 
 def describe(collision: NameCollision) -> str:
@@ -167,17 +179,24 @@ def main(argv: list[str] | None = None) -> int:
     gated = [(p, c) for p, c in found if c.kind == GATED]
     baseline = load_baseline()
 
+    live = {baseline_key(p, c): len(c.rows) for p, c in gated}
+
     if args.update_baseline:
-        live = {baseline_key(p, c) for p, c in gated}
-        kept = sorted(baseline & live)
+        # Shrink only: drop fixed names and lower counts; never add or raise.
+        kept = {
+            key: min(count, live[key]) for key, count in baseline.items() if key in live
+        }
         header = [
             line
             for line in BASELINE_PATH.read_text(encoding="utf-8").splitlines()
             if line.startswith("#")
         ]
-        BASELINE_PATH.write_text("\n".join(header + kept) + "\n", encoding="utf-8")
+        BASELINE_PATH.write_text(
+            "\n".join(header + _baseline_lines(kept)) + "\n", encoding="utf-8"
+        )
         print(
-            f"kept {len(kept)} of {len(baseline)} baseline row(s); removed {len(baseline) - len(kept)}"
+            f"kept {len(kept)} of {len(baseline)} baseline row(s); "
+            f"removed {len(baseline) - len(kept)}"
         )
         return 0
 
@@ -198,10 +217,14 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  {path}: {c.name!r} <- {describe(c)}")
         return 0
 
-    new = [(p, c) for p, c in gated if baseline_key(p, c) not in baseline]
+    new = [
+        (p, c) for p, c in gated if len(c.rows) > baseline.get(baseline_key(p, c), 0)
+    ]
     stale: list[str] = []
     if not args.paths:
-        stale = sorted(baseline - {baseline_key(p, c) for p, c in gated})
+        stale = sorted(
+            key for key, count in baseline.items() if live.get(key, 0) < count
+        )
 
     if stale:
         print(

@@ -453,7 +453,14 @@ class NameCollision(NamedTuple):
 
 
 def find_name_collisions(disorder: dict[str, Any]) -> list[NameCollision]:
-    """Every name more than one node row shares, classified (issue #15443)."""
+    """Every name more than one node row shares, classified (issue #15443).
+
+    Rows are first grouped by section, so a name can yield more than one
+    collision: two unstratified phenotype rows that also share their name with
+    a pathophysiology node are reported as ``UNSTRATIFIED`` (the phenotype
+    pair) *and* ``CROSS_SECTION`` (all three rows). Classifying the name as a
+    whole would let the cross-section match hide the gated within-section one.
+    """
     by_name: dict[str, list[GraphNodeRow]] = {}
     for row in iter_graph_node_rows(disorder):
         by_name.setdefault(row.name, []).append(row)
@@ -461,13 +468,22 @@ def find_name_collisions(disorder: dict[str, Any]) -> list[NameCollision]:
     for name, rows in by_name.items():
         if len(rows) < 2:
             continue
-        if len({row.source for row in rows}) > 1:
-            kind = "CROSS_SECTION"
-        else:
-            subtypes = [row.subtype for row in rows]
+        by_source: dict[str, list[GraphNodeRow]] = {}
+        for row in rows:
+            by_source.setdefault(row.source, []).append(row)
+        for section_rows in by_source.values():
+            if len(section_rows) < 2:
+                continue
+            subtypes = [row.subtype for row in section_rows]
             distinct = all(subtypes) and len(set(subtypes)) == len(subtypes)
             kind = "STRATIFIED" if distinct else "UNSTRATIFIED"
-        collisions.append(NameCollision(name=name, kind=kind, rows=tuple(rows)))
+            collisions.append(
+                NameCollision(name=name, kind=kind, rows=tuple(section_rows))
+            )
+        if len(by_source) > 1:
+            collisions.append(
+                NameCollision(name=name, kind="CROSS_SECTION", rows=tuple(rows))
+            )
     return collisions
 
 
