@@ -1141,7 +1141,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-logical-rules check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1747,6 +1747,26 @@ check-causal-targets *files:
 [group('QC')]
 list-causal-targets *files:
     uv run python scripts/check_causal_targets.py --report "$@"
+
+# Rows sharing a pathograph node name collapse into ONE node, silently: the
+# graph keys nodes on `name` and the last row wins (#15443). Gates only the
+# UNSTRATIFIED class -- same-section rows not told apart by distinct `subtype:`
+# values -- with the existing backlog grandfathered in
+# tests/name_collision_baseline.txt (shrink-only). Offline, whole KB by default.
+[group('QC')]
+check-name-collisions *files:
+    uv run python scripts/check_name_collisions.py "$@"
+
+# Census of every name collision (UNSTRATIFIED / STRATIFIED / CROSS_SECTION),
+# exit 0. Pass `--format tsv` for one row per collision.
+[group('QC')]
+list-name-collisions *args:
+    uv run python scripts/check_name_collisions.py --report "$@"
+
+# Drop baseline rows that no longer collide. Never adds a row.
+[group('QC')]
+update-name-collision-baseline:
+    uv run python scripts/check_name_collisions.py --update-baseline
 
 # What a `conforms_to` link claims but nothing checks: whether the conforming
 # node carries the module node's content. The anchor itself IS a foreign key
