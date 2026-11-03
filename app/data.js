@@ -223026,16 +223026,19 @@ window.searchData = [
       "Brain atrophy",
       "Autistic behavior",
       "Attention deficit hyperactivity disorder",
-      "Flexion contracture"
+      "Flexion contracture",
+      "Respiratory distress"
     ],
     "phenotype_categories": [
       "Neurological",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Respiratory"
     ],
     "phenotype_hpo_categories": [
       "Limbs",
       "Musculoskeletal",
-      "Nervous System"
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0001249",
@@ -223056,7 +223059,8 @@ window.searchData = [
       "HP:0012444",
       "HP:0000729",
       "HP:0007018",
-      "HP:0001371"
+      "HP:0001371",
+      "HP:0002098"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -223077,7 +223081,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Intellectual_Developmental_Disorder_With_Speech_Delay_And_Axonal_Peripheral_Neuropathy.yaml",
     "page_url": "../pages/disorders/Intellectual_Developmental_Disorder_With_Speech_Delay_And_Axonal_Peripheral_Neuropathy.html",
-    "num_phenotypes": 19,
+    "num_phenotypes": 20,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 5,
