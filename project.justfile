@@ -4793,3 +4793,20 @@ jev-audit-cache *args:
 [group('Schedule')]
 schedule-expand config=".claude/schedule-config.yaml" *flags:
     uv run python -m dismech.schedule --config {{config}} {{flags}}
+
+# ============== OECD Test Guideline extraction (#16338) ==============
+
+# Rebuild the paragraph index for a Test Guideline PDF. The PDF is not committed;
+# `data/oecd_tg/MANIFEST.yaml` pins the bytes the committed index was built from.
+# Extraction uses pypdf's layout mode: the default mode inserts spaces inside words
+# on this document, which would make every quote unusable as a verbatim quote.
+extract-oecd-tg pdf out="data/oecd_tg/tg442d-paragraphs.json":
+    @uv run python scripts/extract_oecd_tg.py {{pdf}} --out {{out}}
+
+# Each quote must be a real substring of the paragraph it cites. This cannot tell
+# whether a quote supports the value it is attached to -- a verbatim quote cited for a
+# claim it does not make passes, and that needs a reader. Pass no --records to report
+# on the index alone.
+# Check extracted Test Guideline facts against the paragraphs they cite
+check-tg-extraction *args="":
+    @uv run python scripts/check_tg_extraction.py {{args}}
