@@ -99450,6 +99450,95 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Chudley-McCullough Syndrome",
+    "disease_id": "MONDO:0011411",
+    "category": "Mendelian",
+    "parents": [
+      "Syndromic sensorineural hearing loss",
+      "Malformation of cortical development"
+    ],
+    "creation_date": "2026-11-02T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Chudley-McCullough syndrome is an autosomal recessive disorder caused by biallelic loss-of-function variants in GPSM2 (also called LGN). It combines severe to profound sensorineural hearing loss with a characteristic set of brain malformations: partial agenesis of the corpus callosum, frontal polymicrogyria and subcortical gray matter heterotopia, which are close to universal, together with cerebellar dysplasia, ventriculomegaly and arachnoid cysts in most patients. Some patients have hydrocephalus, often from obstruction at the foramen of Monro. Despite the brain malformations, most patients develop normally apart from the hearing loss, although seizures and developmental delay occur in a minority. Families first reported with nonsyndromic recessive deafness (DFNB82) were later found to have the same brain malformations on imaging, so DFNB82 and Chudley-McCullough syndrome are one disorder. GPSM2 binds inhibitory G-protein alpha subunits (GNAI). In cochlear and vestibular hair cells the GPSM2-GNAI complex sits at the tips of the tallest stereocilia and is needed for their elongation; in dividing progenitors it orients the mitotic spindle, which is the proposed basis of the brain malformations.",
+    "pathophysiology": [
+      "GPSM2 Loss of Function",
+      "Loss of the GPSM2-GNAI Stereocilia Tip Complex",
+      "Defective Stereocilia Elongation and Hair Bundle Morphogenesis",
+      "Defective Mitotic Spindle Orientation in Neural Progenitors",
+      "Impaired Neuronal Growth Cone Actin Dynamics",
+      "Malformation of Cortical and Callosal Development"
+    ],
+    "cell_types": [
+      "auditory hair cell",
+      "vestibular hair cell",
+      "neural progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000202",
+      "CL:0000609",
+      "CL:0011020"
+    ],
+    "biological_processes": [
+      "auditory receptor cell stereocilium organization",
+      "establishment of mitotic spindle orientation"
+    ],
+    "phenotypes": [
+      "Sensorineural hearing impairment",
+      "Auditory neuropathy spectrum disorder",
+      "Partial agenesis of the corpus callosum",
+      "Frontal polymicrogyria",
+      "Subcortical heterotopia",
+      "Cerebellar dysplasia",
+      "Ventriculomegaly",
+      "Arachnoid cyst",
+      "Hydrocephalus",
+      "Seizure",
+      "Delayed speech and language development"
+    ],
+    "phenotype_categories": [
+      "Ear",
+      "Nervous System"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000407",
+      "HP:0001338",
+      "HP:0006821",
+      "HP:0032391",
+      "HP:0007033",
+      "HP:0002119",
+      "HP:0100702",
+      "HP:0000238",
+      "HP:0001250",
+      "HP:0000750"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "GPSM2"
+    ],
+    "treatments": [
+      "Cochlear implantation",
+      "Ventricular shunting for hydrocephalus"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Chudley-McCullough_Syndrome.yaml",
+    "page_url": "../pages/disorders/Chudley-McCullough_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Chung-Jansen Syndrome",
     "disease_id": "MONDO:0035133",
     "category": "Mendelian",
@@ -422655,17 +422744,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3920,
+  "total_disorder_pages": 3921,
   "total_subtypes": 4999,
-  "total_disorders_and_subtypes": 8919,
-  "total_unique_evidence_sources": 58271,
-  "total_unique_publications": 54518,
+  "total_disorders_and_subtypes": 8920,
+  "total_unique_evidence_sources": 58287,
+  "total_unique_publications": 54533,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3918,
-  "total_unique_pathological_events": 25690,
+  "total_pathographs": 3919,
+  "total_unique_pathological_events": 25696,
   "total_modules": 226,
-  "total_research_reports": 4032,
+  "total_research_reports": 4033,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 129
