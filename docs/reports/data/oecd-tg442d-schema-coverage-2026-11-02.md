@@ -37,9 +37,9 @@ test methods across four appendices: KeratinoSens™, LuSens, EpiSensA, Epi2Sens
 | Method name | `name` | `NamedThing.name` | ✅ | ✅ |
 | Cell line and its derivation | `cell_types`, `cell_source` | `CellularSystem.cell_types` / `cell_source`; `CellLineModel.passage_range`, `authentication_method` | ✅ | ✅ |
 | Model category (2D line vs reconstructed human epidermis) | `experimental_model_type` enum | class hierarchy (`CellLineModel` vs `ThreeDCellCulture`) plus `biological_organization_level`, `complexity_level` | ⚠️ no RhE value | ✅ |
-| Tissue model product (LabCyte EPI-MODEL24, EpiDerm™ EPI-200) | `culture_system`, `tissue_term` | `three_d_architecture`, `matrix_composition` | ✅ free text | ⚠️ no product-identity slot |
+| Tissue model product (LabCyte EPI-MODEL24, EpiDerm™ EPI-200) | `culture_system` (free text), `tissue_term` (UBERON) | `three_d_architecture`, `matrix_composition` | ⚠️ free text | ⚠️ no product-identity slot |
 | Sensing pathway (Keap1 → Nrf2 → ARE) | readout `biological_processes` (GO-bound) | `Pathway` (`pathway_database`, `pathway_id`) | ✅ | ✅ |
-| **Marker genes** (*ATF3*, *IL-8*, *GCLM*, *DNAJB4*) | — | `Gene` (`gene_symbol`, `ensembl_id`, `fold_change`, `p_value`) | ❌ | ✅ |
+| **Marker genes** (*ATF3*, *IL-8*, *GCLM*, *DNAJB4*) | `ExperimentalReadout.biomarker_term` (NCIT) | `Gene` (`gene_symbol`, `ensembl_id`, `fold_change`, `p_value`) | ⚠️ NCIT, not HGNC; no fold-change | ✅ |
 | Which mechanism the method measures | `modeled_mechanisms[].target` → a pathophysiology node | `ModelsRelationship.biological_system_modeled` | ✅ | ⚠️ not a pathograph node |
 | Limitations (no oxidative metabolism, hence the pro-hapten blind spot) | `limitations`, typed `divergences` | `StructuredConcordanceResult` quantifies match but carries no typed caveat | ✅ | ⚠️ |
 | Inter- and intra-laboratory reproducibility (~85%) | — | `Reproducibility` | ❌ | ✅ |
@@ -59,11 +59,12 @@ test methods across four appendices: KeratinoSens™, LuSens, EpiSensA, Epi2Sens
 
 ## What the two columns say together
 
-**The schemas are complementary, not redundant.** NAMO holds the performance and
-gene-expression facts DisMech cannot: `ModelPerformance`, `Reproducibility`, and a `Gene`
-class carrying fold-change and significance. DisMech holds the mechanism linkage and the
-typed caveats NAMO cannot: a model links to a named pathophysiology node, and its
-shortfalls are recorded as classified `divergences` rather than as prose.
+**The schemas are complementary, not redundant.** NAMO holds the quantitative facts
+DisMech has no slot for — `ModelPerformance`, `Reproducibility` — and models a marker gene
+as a gene, with fold-change and significance beside it, where DisMech can only name it as
+an NCIT biomarker. DisMech holds the mechanism linkage and the typed caveats NAMO has no
+slot for: a model links to a named pathophysiology node, and its shortfalls are recorded
+as classified `divergences` rather than as prose.
 
 **Neither holds a method's regulatory standing.** Eight rows are ❌ in both columns, and
 seven of them belong to one group: the Test Guideline identity, the AOP key event, the
@@ -75,8 +76,20 @@ biology fact rather than a regulatory one.
 
 **Two DisMech gaps are narrow and separately fixable.** The model-type enum has no value
 for reconstructed human epidermis, so EpiSensA and Epi2SensA would both be typed `OTHER`.
-And a DisMech readout cannot name a gene, which matters because four of the five methods in
-442D have gene-expression readouts.
+And a DisMech readout can name a gene only as an NCIT biomarker — `BiomarkerTerm` admits
+gene products and imposes no hierarchy — not as an HGNC gene the way `gene_term` does
+elsewhere in the schema, and with nowhere to put the fold-induction value or its
+threshold. That matters for the two methods TG 442D describes as quantifying gene
+expression:
+
+> The test methods currently described in this Test Guideline include three in vitro
+> ARE-Nrf2 luciferase test methods and two test methods based on gene expression
+> quantification
+
+The two are EpiSensA and Epi2SensA, which read endogenous *ATF3*, *IL-8*, *GCLM* and
+*DNAJB4* by RT-qPCR. The other three report an ARE-driven luciferase reporter, which is
+an engineered construct rather than an endogenous transcript, and so is a different
+curation problem.
 
 **NAMO has OECD only as a prefix.** `OECD:` is declared and used in two example CURIEs.
 There is no class for a Test Guideline, no enum for acceptance or validation status, and no
