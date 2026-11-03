@@ -53,7 +53,11 @@ jobs:
         include: ${{ fromJson(needs.setup.outputs.matrix) }}
     concurrency:
       group: curation-scanner-${{ matrix.effort }}
-      cancel-in-progress: true
+      # false, not true (#4990 M1, #5105): cancelling a run that had already
+      # pushed a branch but not opened its PR left the issue looking untouched,
+      # and the next run started the same work again. A waiting run can still be
+      # displaced by a newer one; a running one is never interrupted.
+      cancel-in-progress: false
     permissions:
       contents: write
       pull-requests: write
@@ -105,6 +109,21 @@ jobs:
       - name: Install just
         run: |
           uv tool install rust-just
+
+      # Deterministic, not left to the agent (#5105): which issues already have
+      # an open PR that closes or addresses them. Read from the pulls list
+      # endpoint, which is immediately consistent, unlike search. The prompt
+      # below forbids selecting these, and the agent re-runs --check right
+      # before `gh pr create` to cover a PR opened while this run was working.
+      - name: Find issues that already have an open PR
+        id: open-pr-issues
+        env:
+          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          issues="$(python3 .github/scripts/open_pr_issue_index.py --list)"
+          echo "issues=$issues" >> "$GITHUB_OUTPUT"
+          echo "issues with an open PR: ${issues:-none}"
 
       - name: Set up latest Claude Code
         id: setup-claude-code
@@ -158,6 +177,7 @@ jobs:
             EFFORT TIER: ${{ matrix.effort }}
             EFFORT SELECTOR: ${{ matrix.selector }}
             MANUAL NOTE: ${{ inputs.note || '' }}
+            ISSUES WITH AN OPEN PR: ${{ steps.open-pr-issues.outputs.issues || 'none' }}
 
             You are running an automated curation scanner for the dismech repository.
 
@@ -189,8 +209,23 @@ jobs:
             than guessing. Never take evidence-claim-mismatch work in a general job,
             including an unlabelled PR linked to an evidence-claim-mismatch issue.
 
-            Before selecting an issue, check its timeline and linked PRs. If an open
-            PR already addresses it, do not open a duplicate. In `evidence_review`,
+            ISSUES WITH AN OPEN PR lists, by number, every issue that an open PR
+            already closes or addresses (computed before this run started from the
+            live PR list; see `.github/scripts/open_pr_issue_index.py`). Never select
+            an issue on that list: the open PR is where that work continues, so pick
+            the PR instead if it is eligible, or leave both alone. This rule is
+            absolute; an issue's own timeline never overrides it.
+
+            Immediately before you run `gh pr create` for an issue, run
+            `python3 .github/scripts/open_pr_issue_index.py --check <issue-number>`.
+            If it exits 1, another PR was opened while you worked: do not create
+            yours. Push nothing further, comment on the existing PR with anything
+            useful you found, and stop. In a PR that only does part of an umbrella
+            issue's work, write `Refs #<issue>`, not `Closes`/`Addresses`, so the
+            issue stays selectable for its remaining parts.
+
+            Before selecting an issue, also check its timeline and linked PRs. If an
+            open PR already addresses it, do not open a duplicate. In `evidence_review`,
             a linked PR may lack the task labels: consider that PR as a candidate,
             and if it is unassigned and you select it as this run's single target,
             add `curation` and `evidence-claim-mismatch` and work on that PR. Do not
