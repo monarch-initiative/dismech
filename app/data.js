@@ -245725,7 +245725,8 @@ window.searchData = [
       "Central Nervous System Tumors",
       "Choroid Plexus Carcinoma",
       "Leukemia",
-      "Multiple Primary Cancers"
+      "Multiple Primary Cancers",
+      "Neuroblastoma Predisposition"
     ],
     "phenotype_categories": [
       "Neoplastic"
@@ -245747,7 +245748,8 @@ window.searchData = [
       "HP:0100836",
       "HP:0030392",
       "HP:0002488",
-      "HP:0002664"
+      "HP:0002664",
+      "HP:0003006"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -245764,7 +245766,8 @@ window.searchData = [
       "Genetic Counseling and Cascade Testing",
       "Radiation Avoidance",
       "Metformin Chemoprevention (Investigational)",
-      "Cell-Free DNA (Liquid Biopsy) Surveillance (Investigational)"
+      "Cell-Free DNA (Liquid Biopsy) Surveillance (Investigational)",
+      "Neuroblastoma Surveillance"
     ],
     "environmental": [],
     "biochemical": [
@@ -245772,10 +245775,10 @@ window.searchData = [
     ],
     "source_file": "Li-Fraumeni_Syndrome.yaml",
     "page_url": "../pages/disorders/Li-Fraumeni_Syndrome.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 9,
     "num_pathophysiology": 19,
     "num_genes": 1,
-    "num_treatments": 7,
+    "num_treatments": 8,
     "causal_graph_edges": "47",
     "causal_graph_longest_path": "8"
   },
@@ -257247,9 +257250,11 @@ window.searchData = [
       "DFNA22",
       "DFNB37"
     ],
-    "description": "MYO6-related hearing loss encompasses autosomal dominant nonsyndromic hearing loss 22 (DFNA22) and autosomal recessive nonsyndromic hearing loss 37 (DFNB37), both caused by pathogenic variants in MYO6 encoding the unconventional myosin VI motor protein. Myosin VI is unique among myosins in moving toward the minus end of actin filaments and is essential for stereocilia maintenance in cochlear hair cells. Dominant (DFNA22) mutations typically cause progressive postlingual sensorineural hearing loss with juvenile onset that accelerates after age 40, while recessive (DFNB37) mutations cause congenital profound deafness. A subset of families with dominant MYO6 mutations also present with hypertrophic cardiomyopathy featuring left ventricular hypertrophy, reflecting the role of myosin VI in cardiac tissue. MYO6 accounts for approximately 2.4% of autosomal dominant sensorineural hearing loss.\n",
+    "description": "MYO6-related hearing loss encompasses autosomal dominant nonsyndromic hearing loss 22 (DFNA22) and autosomal recessive nonsyndromic hearing loss 37 (DFNB37), both caused by pathogenic variants in MYO6 encoding the unconventional myosin VI motor protein. Myosin VI is unique among myosins in moving toward the minus end of actin filaments and is essential for stereocilia maintenance in cochlear hair cells. Dominant (DFNA22) mutations typically cause progressive postlingual sensorineural hearing loss with juvenile onset that accelerates after age 40, while recessive (DFNB37) mutations cause congenital profound deafness. A subset of families with dominant MYO6 mutations also present with hypertrophic cardiomyopathy featuring left ventricular hypertrophy, reflecting the role of myosin VI in cardiac tissue. MYO6 accounts for approximately 2.4% of autosomal dominant sensorineural hearing loss families in Japan and 6.2% in a Korean series. Truncating, splice-site, missense and overexpression alleles are reported, so hair cells appear sensitive to myosin VI dosage as well as motor function. Mouse models show the chain from defective myosin VI to stereocilia fusion, hair cell degeneration and reduced inner hair cell ribbon synapse release. There is no disease-modifying therapy; allele-selective Cas9 editing has rescued hearing in a semi-dominant mouse model, while neonatal gene replacement failed in the null mouse.\n",
     "pathophysiology": [
+      "Myosin VI Motor and Dosage Dysfunction",
       "Stereocilia Dysfunction in Cochlear Hair Cells",
+      "Hair Cell Degeneration",
       "Inner Hair Cell Ribbon Synapse Exocytosis Defect",
       "Progressive Sensorineural Hearing Loss",
       "Cardiac Involvement"
@@ -257263,13 +257268,18 @@ window.searchData = [
       "CL:0000589"
     ],
     "biological_processes": [
+      "Stereocilium maintenance",
       "Actin cytoskeleton organization",
       "Endocytosis",
+      "Cell death",
       "Exocytosis"
     ],
     "phenotypes": [
       "Sensorineural hearing impairment",
       "Progressive hearing impairment",
+      "Postlingual sensorineural hearing impairment",
+      "Congenital profound sensorineural hearing impairment",
+      "Profound sensorineural hearing impairment",
       "Hypertrophic cardiomyopathy",
       "Left ventricular hypertrophy"
     ],
@@ -257283,6 +257293,9 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0000407",
       "HP:0001730",
+      "HP:0008596",
+      "HP:0008527",
+      "HP:0011476",
       "HP:0001639",
       "HP:0001712"
     ],
@@ -257293,18 +257306,20 @@ window.searchData = [
     ],
     "treatments": [
       "Hearing aids",
-      "Cochlear implantation"
+      "Cochlear implantation",
+      "Allele-selective Cas9 editing of the mutant Myo6 allele (preclinical)",
+      "AAV Myo6 gene replacement (preclinical)"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "MYO6_Hearing_Loss.yaml",
     "page_url": "../pages/disorders/MYO6_Hearing_Loss.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
     "num_genes": 2,
-    "num_treatments": 2,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 4,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "MYPN-Related Cardiomyopathy",
@@ -303777,6 +303792,87 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Opsoclonus-Myoclonus Syndrome",
+    "disease_id": "MONDO:0015247",
+    "category": "",
+    "parents": [],
+    "creation_date": "2026-10-30T18:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Opsoclonus-myoclonus syndrome, also called opsoclonus-myoclonus-ataxia syndrome, dancing eyes syndrome or Kinsbourne syndrome, is a rare immune-mediated disorder of childhood whose cardinal features are opsoclonus, myoclonus, ataxia and disturbance of behaviour and sleep. An expert panel allows the diagnosis when three of four features are present: opsoclonus, ataxia or myoclonus, behaviour change or sleep disturbance, and neuroblastoma.\nOpsoclonus is the defining sign and is specific in form rather than merely in appearance: spontaneous, arrhythmic, large-amplitude conjugate saccades in all directions of gaze with no intersaccadic interval, which is what separates it from nystagmus. As it settles it may become ocular flutter. It is attributed to instability in the balance between brainstem omnipause and burst neurons that normally generate saccades.\nAbout half of affected children have an underlying peripheral neuroblastic tumour, most often neuroblastoma, and in the other direction the syndrome occurs in 2 to 3 per cent of children with neuroblastoma. The tumours are never intracranial and are usually early stage. Resecting the tumour does not treat the neurological disease.\nThe immune basis is better established than its target. Routine cerebrospinal fluid studies are usually normal and commercial autoantibody panels usually negative, while cerebrospinal fluid oligoclonal bands and an expanded B-cell population are present in most untreated patients and correlate with neurological severity. No reproducible antigen has been identified, which remains the central unknown and is recorded as a knowledge gap. Treatment is immunotherapy, and the only randomised trial in the disease showed that adding intravenous immunoglobulin to prednisone and risk-adapted chemotherapy raised the response rate from 41 to 81 per cent.",
+    "pathophysiology": [
+      "Neuroblastic Tumour Trigger",
+      "Parainfectious Immune Trigger",
+      "Intrathecal B-Cell Expansion and Oligoclonal IgG Synthesis",
+      "Cerebellar and Brainstem Saccadic Instability"
+    ],
+    "cell_types": [
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "immunoglobulin production"
+    ],
+    "phenotypes": [
+      "Opsoclonus",
+      "Myoclonus",
+      "Ataxia",
+      "Irritability",
+      "Sleep Disturbance",
+      "Neuroblastoma",
+      "Dysarthria",
+      "Cognitive Impairment",
+      "Speech and Language Impairment",
+      "Developmental Regression",
+      "Cerebellar Atrophy"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Neurological",
+      "Behavioral",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0010543",
+      "HP:0001336",
+      "HP:0001251",
+      "HP:0000737",
+      "HP:0002360",
+      "HP:0003006",
+      "HP:0001260",
+      "HP:0100543",
+      "HP:0002463",
+      "HP:0002376",
+      "HP:0001272"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Intravenous Immunoglobulin",
+      "Corticosteroids or ACTH",
+      "Rituximab",
+      "Tumour Resection",
+      "Physical, Occupational and Speech Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Opsoclonus_Myoclonus_Syndrome.yaml",
+    "page_url": "../pages/disorders/Opsoclonus-Myoclonus_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Optic Atrophy 13 With Retinal and Foveal Abnormalities",
     "disease_id": "MONDO:0008135",
     "category": "Mendelian",
@@ -310984,6 +311080,62 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "26",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "PHOX2B-Related Neuroblastic Tumor Susceptibility",
+    "disease_id": "MONDO:0700041",
+    "category": "",
+    "parents": [],
+    "creation_date": "2026-10-30T17:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "NPARM",
+      "PARM"
+    ],
+    "description": "Germline variants in PHOX2B predispose to tumours of the sympathetic nervous system: neuroblastoma, ganglioneuroblastoma and ganglioneuroma. PHOX2B was the first gene in which germline mutations were shown to predispose to neuroblastoma, reported in 2004 in a familial case and in a patient with the Hirschsprung disease and neuroblastoma association.\nWhat makes this predisposition unusual is how sharply the risk tracks the kind of variant. PHOX2B variants fall into two classes. Polyalanine repeat mutations, which expand a 20-alanine tract and account for most congenital central hypoventilation syndrome, carry a tumour risk of about 1 to 2 per cent. Non-polyalanine repeat mutations, which are missense, frameshift or truncating, carry a risk of about 45 per cent. The original series put it at 6 of 13 patients with a missense or frameshift variant against 2 of 161 with a polyalanine expansion. Within the polyalanine class, risk rises with the length of the expansion, and essentially all reported tumours occurred in carriers of the largest expansions.\nThe tumours that result are predominantly differentiated: in a series of thirteen, nine were differentiated, including five ganglioneuromas, three ganglioneuroblastomas and one differentiating neuroblastoma. That is not the whole picture, and the entry does not present it as such. Four were poorly differentiated, three patients had stage 4 and one stage 3 disease, and segmental chromosomal alterations were found in all six tumours tested by array comparative genomic hybridisation.\nPHOX2B predisposition almost always comes with other neurocristopathies, most often congenital central hypoventilation syndrome and Hirschsprung disease, which are curated separately. Surveillance is recommended for carriers, on the same schedule as for germline ALK.",
+    "pathophysiology": [
+      "Germline PHOX2B Variant",
+      "Disrupted Autonomic Neuroblast Differentiation"
+    ],
+    "cell_types": [
+      "migratory neural crest cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000333"
+    ],
+    "biological_processes": [
+      "noradrenergic neuron differentiation"
+    ],
+    "phenotypes": [
+      "Neuroblastic Tumor"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0004376"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PHOX2B"
+    ],
+    "treatments": [
+      "Neuroblastoma Surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PHOX2B-Related_Neuroblastic_Tumor_Susceptibility.yaml",
+    "page_url": "../pages/disorders/PHOX2B-Related_Neuroblastic_Tumor_Susceptibility.html",
+    "num_phenotypes": 1,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "PIK3CA-Mutant Breast Cancer",
@@ -388680,6 +388832,111 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Systemic Lupus Erythematosus 18",
+    "disease_id": "MONDO:1060185",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "systemic lupus erythematosus"
+    ],
+    "creation_date": "2026-11-03T04:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Systemic lupus erythematosus 18 (SLEB18) is a rare monogenic form of SLE caused by biallelic loss-of-function variants in PLD4, a 5' exonuclease that normally degrades single-stranded RNA and DNA within endolysosomes. Loss of this nuclease activity allows ssRNA/ssDNA substrates to accumulate in the endolysosomal compartment, driving excessive activation of the endosomal nucleic-acid sensors TLR7 and TLR9, with a cGAS-STING-dependent contribution to the downstream signal. The resulting hyperactivation of type I interferon, NF-kB and MAPK signaling is most pronounced in PLD4-expressing plasmacytoid dendritic cells and monocytes, and drives cell-intrinsic expansion of plasmacytoid dendritic cells and plasma cells, autoantibody production (anti-dsDNA, anti-dsRNA) and immune-complex deposition. All five reported patients developed proliferative or membranoproliferative lupus nephritis, with haematological, cutaneous, articular and serosal involvement in most. Pld4-deficient mice reproduce the autoimmune and nephritic phenotype and respond to the JAK inhibitor baricitinib, which also suppressed the type I interferon signature in patient PBMCs, nominating JAK inhibition as a mechanism-targeted therapy. The discovering authors denote the disorder \"PLD4 deficiency disorder\" (PLDD).",
+    "pathophysiology": [
+      "PLD4 Loss-of-Function Variant",
+      "Impaired Endolysosomal Nucleic Acid Clearance",
+      "TLR7 and TLR9 Hyperactivation",
+      "STING-Dependent Signal Amplification",
+      "Type I Interferon Pathway Hyperactivation",
+      "Autoantibody Production and Plasma Cell Expansion",
+      "Immune Complex-Mediated Lupus Nephritis"
+    ],
+    "cell_types": [
+      "plasmacytoid dendritic cell",
+      "monocyte",
+      "B cell",
+      "plasma cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000784",
+      "CL:0000576",
+      "CL:0000236",
+      "CL:0000786"
+    ],
+    "biological_processes": [
+      "toll-like receptor 7 signaling pathway",
+      "toll-like receptor 9 signaling pathway",
+      "positive regulation of type I interferon production",
+      "type I interferon-mediated signaling pathway"
+    ],
+    "phenotypes": [
+      "Lupus nephritis",
+      "Proteinuria",
+      "Hematuria",
+      "Crescentic glomerulonephritis",
+      "Stage 5 chronic kidney disease",
+      "Leukopenia",
+      "Anemia",
+      "Thrombocytopenia",
+      "Malar rash",
+      "Arthralgia/arthritis",
+      "Serositis",
+      "Antinuclear antibody positivity",
+      "Anti-dsDNA antibody positivity",
+      "Hypocomplementemia"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Hematological",
+      "Dermatological",
+      "Musculoskeletal",
+      "Immunological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0033726",
+      "HP:0000093",
+      "HP:0000790",
+      "HP:0008653",
+      "HP:0003774",
+      "HP:0001882",
+      "HP:0001903",
+      "HP:0001873",
+      "HP:0025300",
+      "HP:0005059",
+      "HP:0045073",
+      "HP:0003493",
+      "HP:0020151",
+      "HP:0004431"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PLD4 biallelic loss-of-function variants"
+    ],
+    "treatments": [
+      "JAK Inhibitor Therapy (Baricitinib)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Systemic_Lupus_Erythematosus_18.yaml",
+    "page_url": "../pages/disorders/Systemic_Lupus_Erythematosus_18.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Systemic Mastocytosis",
     "disease_id": "MONDO:0016586",
     "category": "Complex",
@@ -422744,15 +423001,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3921,
-  "total_subtypes": 4999,
-  "total_disorders_and_subtypes": 8920,
-  "total_unique_evidence_sources": 58287,
-  "total_unique_publications": 54533,
+  "total_disorder_pages": 3924,
+  "total_subtypes": 5001,
+  "total_disorders_and_subtypes": 8925,
+  "total_unique_evidence_sources": 58302,
+  "total_unique_publications": 54547,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3919,
-  "total_unique_pathological_events": 25696,
+  "total_pathographs": 3922,
+  "total_unique_pathological_events": 25711,
   "total_modules": 226,
   "total_research_reports": 4033,
   "total_classifications": 21,
