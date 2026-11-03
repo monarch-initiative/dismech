@@ -135,11 +135,11 @@ class _FakeProvider:
     model = "sonar-deep-research"
     api_url = "https://api.perplexity.ai/chat/completions"
 
-    class config:  # noqa: N801 - mirrors the upstream attribute name
+    class config:
         api_key = "test-key"
         timeout = 600
 
-    class params:  # noqa: N801
+    class params:
         system_prompt = "system"
         temperature = 0.1
         return_citations = True
@@ -172,6 +172,8 @@ def _run_async_path(monkeypatch, responses):
             assert "stream" not in body["request"]
             return httpx.Response(200, json={"id": "job-1", "status": "CREATED"})
         status, payload = next(states)
+        if status == "RAISE":
+            raise httpx.ConnectError("boom", request=request)
         return httpx.Response(status, json=payload)
 
     real_client = httpx.AsyncClient
@@ -200,6 +202,21 @@ def test_async_path_polls_until_completed_and_strips_reasoning(monkeypatch):
     assert result.citations == ["https://a"]
     assert calls[0] == ("POST", "https://api.perplexity.ai/async/chat/completions")
     assert calls[1:] == [("GET", "https://api.perplexity.ai/async/chat/completions/job-1")] * 3
+
+
+def test_async_path_retries_transport_error_and_rate_limit(monkeypatch):
+    done = {
+        "id": "job-1",
+        "status": "COMPLETED",
+        "response": {"choices": [{"message": {"content": "# Report"}, "finish_reason": "stop"}]},
+    }
+    # A dropped poll (transport error) and a 429 must both be retried, not abort the run.
+    result, calls = _run_async_path(
+        monkeypatch,
+        [("RAISE", None), (429, {}), (200, {"id": "job-1", "status": "IN_PROGRESS"}), (200, done)],
+    )
+    assert result.markdown == "# Report"
+    assert calls[1:] == [("GET", "https://api.perplexity.ai/async/chat/completions/job-1")] * 4
 
 
 def test_async_path_reports_a_failed_job(monkeypatch):

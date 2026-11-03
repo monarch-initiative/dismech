@@ -267,13 +267,28 @@ async def async_poll_research(self, query: str):
                         f"Perplexity API error: async job {job_id} still {job.get('status')!r} at the deadline"
                     )
                 await asyncio.sleep(POLL_INTERVAL_SECONDS)
-                polled = await client.get(f"{jobs_url}/{job_id}", headers=headers)
-                if polled.status_code >= 500:
-                    # A transient server error on one poll is not the job failing.
-                    logger.warning("Perplexity async poll returned %s; retrying", polled.status_code)
+                if time.monotonic() > deadline:
+                    # The sleep may have crossed the deadline; do not spend one more request.
+                    raise ValueError(
+                        f"Perplexity API error: async job {job_id} still {job.get('status')!r} at the deadline"
+                    )
+                try:
+                    polled = await client.get(f"{jobs_url}/{job_id}", headers=headers)
+                except httpx.TransportError as e:
+                    # A dropped or timed-out poll is the proxy flakiness this path exists to
+                    # survive: the job is still running server-side, so retry until the deadline.
+                    logger.warning("Perplexity async poll for job %s raised %s; retrying", job_id, e)
+                    continue
+                if polled.status_code >= 500 or polled.status_code == 429:
+                    # A transient server error or rate-limit on one poll is not the job failing.
+                    logger.warning(
+                        "Perplexity async poll for job %s returned %s; retrying", job_id, polled.status_code
+                    )
                     continue
                 if polled.status_code >= 400:
-                    raise ValueError(f"Perplexity API HTTP error: {polled.status_code} - {polled.text}")
+                    raise ValueError(
+                        f"Perplexity API HTTP error: {polled.status_code} - {polled.text} (job {job_id})"
+                    )
                 job = polled.json()
     except ValueError:
         raise
