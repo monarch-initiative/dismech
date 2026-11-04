@@ -306191,6 +306191,106 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Oropouche Fever",
+    "disease_id": "MONDO:0000345",
+    "category": "Infectious Disease",
+    "parents": [
+      "Arbovirus Infection"
+    ],
+    "creation_date": "2026-11-04T01:15:28Z",
+    "updated_date": null,
+    "subtypes": [
+      "Congenital"
+    ],
+    "description": "Oropouche fever is an emerging, usually self-limiting acute arboviral febrile illness caused by Oropouche virus (OROV), a tri-segmented negative-sense RNA orthobunyavirus of the Simbu serogroup transmitted to humans chiefly by the biting midge Culicoides paraensis. It presents as a dengue-like syndrome of fever, headache, myalgia and arthralgia with a characteristic recurrence of symptoms after apparent recovery; a minority develop aseptic meningitis or meningoencephalitis. The 2023-2024 re-emergence across the Americas brought the first reported deaths (from coagulopathy with liver involvement) and the first evidence of vertical transmission with fetal loss and congenital microcephaly.",
+    "pathophysiology": [
+      "Culicoides Midge Inoculation and Viral Entry",
+      "OROV Genome Replication and Interferon Antagonism",
+      "Viraemia and Systemic Inflammatory Response",
+      "Hepatotropic Infection",
+      "Systemic Coagulopathy",
+      "Central Nervous System Neuroinvasion",
+      "Transplacental Vertical Transmission",
+      "Fetal Neurodevelopmental Injury"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "viral genome replication",
+      "NSs-mediated suppression of the host type I interferon response",
+      "hepatocyte necrosis",
+      "neuroinflammatory response",
+      "microglial cell activation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Chills",
+      "Myalgia",
+      "Arthralgia",
+      "Vomiting",
+      "Abnormal bleeding",
+      "Thrombocytopenia",
+      "Decreased total leukocyte count",
+      "Elevated hepatic transaminase",
+      "Meningitis",
+      "Viral encephalitis",
+      "Acute demyelinating polyneuropathy",
+      "Microcephaly"
+    ],
+    "phenotype_categories": [
+      "Phenotype",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0025143",
+      "HP:0003326",
+      "HP:0002829",
+      "HP:0002013",
+      "HP:0001892",
+      "HP:0001873",
+      "HP:0001882",
+      "HP:0002910",
+      "HP:0001287",
+      "HP:0033993",
+      "HP:0007131",
+      "HP:0000252"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Oropouche_Fever.yaml",
+    "page_url": "../pages/disorders/Oropouche_Fever.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Oroya fever",
     "disease_id": "MONDO:0018984",
     "category": "Infectious Disease",
@@ -425008,17 +425108,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3945,
-  "total_subtypes": 5004,
-  "total_disorders_and_subtypes": 8949,
-  "total_unique_evidence_sources": 58557,
-  "total_unique_publications": 54792,
+  "total_disorder_pages": 3946,
+  "total_subtypes": 5005,
+  "total_disorders_and_subtypes": 8951,
+  "total_unique_evidence_sources": 58563,
+  "total_unique_publications": 54798,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3943,
-  "total_unique_pathological_events": 25831,
+  "total_pathographs": 3944,
+  "total_unique_pathological_events": 25839,
   "total_modules": 226,
-  "total_research_reports": 4053,
+  "total_research_reports": 4054,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 129
