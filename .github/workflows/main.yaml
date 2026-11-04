@@ -538,6 +538,16 @@ jobs:
           # src/tests changes). Deterministic, offline, and sub-second.
           Check term cache structural integrity :: uv run python -m dismech.term_cache_integrity cache
 
+          # Ungated and whole-tree for the same reason, and the cache's other
+          # merge-shaped failure. Rows appended at end-of-file instead of in
+          # canonical CURIE order put every concurrent curation PR's cache change
+          # in the same terminal hunk, and any later PR that runs `just
+          # normalize-cache` inherits the re-sort as unrelated churn (#7753). The
+          # merge_group run catches two individually sorted PRs whose union is
+          # not. This is the same order `just normalize-cache` writes, so a
+          # failure means "run it and commit the result". Offline, sub-second.
+          Check cache rows are in canonical order :: uv run python -m dismech.enum_cache --cache-dir cache --check-order --strict-order
+
           # Ungated and whole-KB on purpose, for the same reason as the cache check
           # above: this fires on kb/-only curation PRs, which no src/tests path
           # filter would catch. An RGD `Not4Curation` term exists, matches its
@@ -680,6 +690,12 @@ jobs:
           # backlog is grandfathered in tests/causal_target_baseline.txt, so this
           # gates new breakage only.
           Check pathograph targets resolve :: uv run python scripts/check_causal_targets.py
+
+          # Ungated and whole-KB for the same reason as the target check above.
+          # Two rows sharing a `name` become one pathograph node and every row
+          # but the last silently drops out of the graph (#15443). Only the
+          # UNSTRATIFIED class gates; the backlog is grandfathered, shrink-only.
+          Check pathograph node names do not collide :: uv run python scripts/check_name_collisions.py
 
           # Two disorder entries on one `disease_term` must each record it in
           # `mappings.mondo_mappings` as skos:exactMatch (at most one) or

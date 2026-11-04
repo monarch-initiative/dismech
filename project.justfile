@@ -956,12 +956,14 @@ check-enum-cache:
 check-enum-cache-offline:
     uv run python -m dismech.enum_cache --schema {{schema_path}} --cache-dir cache --oak-config {{oak_config}} --offline
 
-# Report non-canonical CURIE ordering in enum and ontology term caches.
-# Phase 0 is advisory/read-only: warnings do not fail until the coordinated
-# cache normalization cutover enables strict ordering.
+# Gate: every cache/enums/*.csv and cache/*/terms.csv must be in canonical
+# (codepoint) CURIE order -- the order `just normalize-cache` writes. Read-only,
+# offline, sub-second; exits 1 on an out-of-order row. Runs in `just qc` and as
+# an ungated whole-tree CI step, because appended-at-end rows arrive in
+# kb/-only curation PRs and by merge (#7753). Fix with `just normalize-cache`.
 [group('QC')]
 check-cache-order:
-    uv run python -m dismech.enum_cache --cache-dir cache --check-order
+    uv run python -m dismech.enum_cache --cache-dir cache --check-order --strict-order
 
 # Pre-provision the sqlite:obo:* ontology DBs (with resume/retry) that term
 # validation needs, so a flaky/blocked download does not abort validation
@@ -1139,7 +1141,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-logical-rules check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1745,6 +1747,26 @@ check-causal-targets *files:
 [group('QC')]
 list-causal-targets *files:
     uv run python scripts/check_causal_targets.py --report "$@"
+
+# Rows sharing a pathograph node name collapse into ONE node, silently: the
+# graph keys nodes on `name` and the last row wins (#15443). Gates only the
+# UNSTRATIFIED class -- same-section rows not told apart by distinct `subtype:`
+# values -- with the existing backlog grandfathered in
+# tests/name_collision_baseline.txt (shrink-only). Offline, whole KB by default.
+[group('QC')]
+check-name-collisions *files:
+    uv run python scripts/check_name_collisions.py "$@"
+
+# Census of every name collision (UNSTRATIFIED / STRATIFIED / CROSS_SECTION),
+# exit 0. Pass `--format tsv` for one row per collision.
+[group('QC')]
+list-name-collisions *args:
+    uv run python scripts/check_name_collisions.py --report "$@"
+
+# Drop baseline rows that no longer collide. Never adds a row.
+[group('QC')]
+update-name-collision-baseline:
+    uv run python scripts/check_name_collisions.py --update-baseline
 
 # What a `conforms_to` link claims but nothing checks: whether the conforming
 # node carries the module node's content. The anchor itself IS a foreign key
@@ -4488,8 +4510,8 @@ normalize-cache:
 # What this gives up: before, every `validate*` run re-sorted the caches whether
 # or not it had touched them, which quietly repaired ordering broken some other
 # way, most often by a merge of two branches that each appended rows to the same
-# cache file. That case is no longer self-healed here. Ordering is audited only
-# by `check-cache-order`, which is advisory and not part of `qc` or CI;
+# cache file. That case is no longer self-healed here. Ordering is gated by
+# `check-cache-order`, which is in `qc` and runs whole-tree in CI (#7753);
 # `check-term-cache-integrity` checks row structure, not order. Run
 # `just normalize-cache` by hand after such a merge. A missing or unreadable
 # stamp falls back to normalizing, so a degraded run fails safe. (#11005)
@@ -4802,3 +4824,20 @@ jev-audit-cache *args:
 [group('Schedule')]
 schedule-expand config=".claude/schedule-config.yaml" *flags:
     uv run python -m dismech.schedule --config {{config}} {{flags}}
+
+# ============== OECD Test Guideline extraction (#16338) ==============
+
+# Rebuild the paragraph index for a Test Guideline PDF. The PDF is not committed;
+# `data/oecd_tg/MANIFEST.yaml` pins the bytes the committed index was built from.
+# Extraction uses pypdf's layout mode: the default mode inserts spaces inside words
+# on this document, which would make every quote unusable as a verbatim quote.
+extract-oecd-tg pdf out="data/oecd_tg/tg442d-paragraphs.json":
+    @uv run python scripts/extract_oecd_tg.py {{pdf}} --out {{out}}
+
+# Each quote must be a real substring of the paragraph it cites. This cannot tell
+# whether a quote supports the value it is attached to -- a verbatim quote cited for a
+# claim it does not make passes, and that needs a reader. Pass no --records to report
+# on the index alone.
+# Check extracted Test Guideline facts against the paragraphs they cite
+check-tg-extraction *args="":
+    @uv run python scripts/check_tg_extraction.py {{args}}

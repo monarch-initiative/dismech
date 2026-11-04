@@ -1129,6 +1129,36 @@ happen in the other four `BARE_TARGET_SLOTS` (`phenotypes[].sequelae`,
 `downstream`-only gate above and still surface only through
 `just check-causal-targets`' report.
 
+### Two Rows With One Name Are One Node (dismech#15443)
+
+`dismech.graph` keys pathograph nodes on `name`, so two rows that share a name
+render as **one** node, and every row but the last drops out of the graph. It
+validates, renders, and passes `check-causal-targets`, because a target naming
+two rows still resolves. The sections involved are the eight node sections plus
+animal models and variants.
+
+```bash
+just check-name-collisions                      # gate (in `just qc` and CI)
+just list-name-collisions                       # census of all three classes
+just list-name-collisions --format tsv
+```
+
+- **`UNSTRATIFIED` is gated.** Two rows in one section not told apart by
+  distinct `subtype:` values (one has none, or both have the same one) are
+  almost always an accident. Merge them, or rename one and update any bare
+  `target:` that named it. The backlog is grandfathered in
+  `tests/name_collision_baseline.txt`, which only shrinks.
+- **`STRATIFIED` is reported, not a defect.** The same phenotype for CAIS and
+  for PAIS, each row with its own `subtype:`, is what *Subtype Naming
+  Conventions* asks for. Do not rename those rows to make the report go away:
+  `name` is the foreign-key and bare-target key, and the graph's inability to
+  show stratified rows separately is a graph limitation, still undecided.
+- **`CROSS_SECTION` is reported.** A pathophysiology node and a phenotype with
+  the same name are one node, and an edge between them becomes a self-loop
+  (the case the `downstream` self-loop gate above catches). When you add a
+  phenotype with the same name as a mechanism node, give one of them a
+  distinct name.
+
 ### Phenotypes Nothing Points At (dismech#11935)
 
 `check-causal-targets` asks which declared edges name a target that resolves to
@@ -4404,8 +4434,17 @@ Treat committed CSVs under `cache/` as derived, authority-backed artifacts:
 - Never hand-write, append, or reorder cache rows. Populate term caches through
   `just validate-terms` or `just validate`, then use `just normalize-cache` for
   canonical CURIE ordering.
-- Use `just check-term-cache-integrity` for structural validation and
-  `just check-cache-order` for a read-only ordering report.
+- **Committed caches must be in canonical order, and that is gated.**
+  `just check-cache-order` (in `just qc`, and an ungated whole-tree CI step)
+  fails on any `cache/enums/*.csv` or `cache/*/terms.csv` row out of the
+  codepoint CURIE order `just normalize-cache` writes. Do not keep rows
+  appended at end-of-file to avoid a reorder diff: that puts every concurrent
+  PR's cache change in the same final hunk and hands the re-sort to whoever
+  validates next (#7753). If your branch fails it — usually after merging
+  `main` or resolving a cache conflict — run `just normalize-cache` and commit
+  the result; the diff is the misplaced rows moving, nothing else. Never
+  resolve a cache conflict by taking one side wholesale.
+- Use `just check-term-cache-integrity` for structural validation.
 
 ```bash
 just validate-terms kb/disorders/YourFile.yaml
