@@ -1,19 +1,24 @@
 ---
 title: A Simple Tree for Pathograph Node Classification
-status: BRAINSTORM
+status: ENACTED
 description: >-
-  Proposes a `node_class` vocabulary for pathophysiology nodes ordered as a
-  causal cascade: genomic -> environmental -> molecular activity -> molecular
+  A `node_class` vocabulary for pathophysiology nodes ordered as a causal
+  cascade: genomic -> environmental -> molecular activity -> molecular
   substance -> pathway -> cellular -> tissue/organ -> systemic -> outcome, plus
   a DISPOSITION tier and cross-cutting classes (compensation, intervention
-  point). Validated against every pathophysiology node in the KB; replaces the
-  improvised 55-value free-text `role` vocabulary.
+  point). Validated against every pathophysiology node in the KB. Since tree
+  v1.0 (2026-11-04) its classes are the values of the optional
+  `Pathophysiology.node_class` slot.
 tags: [SCHEMA_EVOLUTION, PATHOGRAPH, PATHOPHYSIOLOGY, BRAINSTORM]
 ---
 
 # A Simple Tree for Pathograph Node Classification
 
-**Status: brainstorm.** One slot, one flat enum, values ordered as a cascade.
+**Status: v1.0 enacted (2026-11-04).** One slot, one flat enum, values ordered
+as a cascade: the tree's classes are the values of the optional `node_class`
+slot (see *Tree v1.0 and the `node_class` slot* below). The leaf column for the
+seed table, the modifier axis, and deriving the seed table from the definitions
+are still open.
 
 ## The tree
 
@@ -246,9 +251,10 @@ equally trustworthy:
 
 | # | rule | class | confidence | fires on |
 |---|---|---|---|---:|
+| 0 | curated `node_class` (since v1.0) | its tier | CURATED | — |
 | 1 | one HIGH seeded GO BP class | that class | HIGH | 51.2% |
 | 2 | >1 HIGH seeded GO BP class | `CONFLICT` | — | 6.2% |
-| 3 | GO MF present | ACTIVITY | HIGH | 3.2% |
+| 3 | GO MF present | ACTIVITY | MEDIUM (HIGH until 2026-11) | 3.2% |
 | 4 | CHEBI present | SUBSTANCE | MEDIUM | 1.8% |
 | 5 | gene present | GENOMIC | **LOW** | 5.5% |
 | 6 | UBERON without CL | TISSUE | **LOW** | 5.0% |
@@ -314,10 +320,12 @@ same pass, and expect the number to get worse before it gets better.
   a consequence of note 3e in the tree file -- patient-level outcomes are
   curated in `phenotypes:`, not `pathophysiology:` -- but it is invisible from
   the rule table, which reads as though every class is reachable. `ENVIRONMENTAL`
-  and `DISPOSITION` are unseeded for the same reason.
+  and `DISPOSITION` are unseeded for the same reason. Since v1.0 a curated
+  `node_class` (rule 0) is the one route to all three.
 - **`MEDIUM` never appears in the seed table** (574 HIGH, 66 LOW), even though
-  the CHEBI rule emits it. The three-level confidence scale is really two levels
-  in the seeded path, and the gate that matters is HIGH vs not-HIGH.
+  the CHEBI rule and, since 2026-11, the GO MF rule emit it. The three-level
+  confidence scale is really two levels in the seeded path, and the gate that
+  matters is HIGH vs not-HIGH.
 
 ## Conformance edges are an independent check on the classes
 
@@ -346,6 +354,34 @@ and every row is derived from the pair list `--format conformance` prints:
 ```bash
 just node-class-scan --format conformance-gates
 ```
+
+**Recalibrated 2026-11-04: GO MF is MEDIUM.** The table above was measured when
+GO MF terms sat on about 3% of nodes. Once about 3,000 nodes carried one, the
+both-sides-HIGH mismatch had risen to 13.8% (251/1,816) while the BP-only row
+stayed at 7.4%: the whole rise came from pairs the MF rule decided, which
+disagreed 133 times in 232. Most are lesion nodes bound to the wild-type
+activity of their gene (*Germline PTEN Loss of Function*, carrying the PTEN
+phosphatase activity) conforming to a module node that the seed table files as
+CELLULAR. The HIGH rating had rested on 91% of MF-bearing nodes carrying the
+curator's MOLECULAR scale tag, which cannot separate ACTIVITY from GENOMIC; the
+conformance check can, and the rule failed it. The gate table now files each
+pair under its weaker side. At the time of the change:
+
+| pairs, by weaker side | mismatch |
+|---|---:|
+| both sides curated (`node_class`) | — (0/0) |
+| HIGH (seeded GO BP) | **7.4%** (125/1,694) |
+| MEDIUM (GO MF or CHEBI) | **59.2%** (154/260) |
+| LOW (gene, UBERON or CL) | 39.2% (317/809) |
+| all pairs | 21.6% (596/2,763) |
+
+Two module nodes show that both sides of a mismatched pair can be wrong:
+`germline_two_hit_tumor_predisposition#Constitutional First-Hit Tumor
+Suppressor Inactivation` is a lesion node, but its only GO term is *negative
+regulation of cell population proliferation*, seeded CELLULAR. Classifying a
+node's `genetic_context` as GENOMIC before any term rule was tried and made the
+HIGH row worse (11.7%), because module nodes carry no `genetic_context` and only
+the disorder side moved.
 
 The gene/CL/UBERON fallbacks more than quadruple the disagreement rate. They are
 useful for coverage and useless for adjudication, so `--format conformance`
@@ -854,21 +890,25 @@ absence from our tree is correct, not an oversight.
 
 - **8 tiers or 6?** Tiers 3/4 (molecular vs pathway) and 7/8 (systemic vs
   outcome) are the two joins most likely to be argued about. Cheap to test.
-- **Does this replace `biological_scale` or sit beside it?** Tiers 3-7 are
-  close to a refinement of MOLECULAR/CELLULAR/TISSUE/ORGANISM. Two slots saying
-  nearly the same thing would be worse than either alone — most likely
-  `node_class` supersedes `biological_scale` and the 3,704 existing values
-  migrate mechanically.
-- **Adoption.** `biological_scale` sits at 30.1% after being added. But the
-  ontology-seeding result above changes the arithmetic: seed from the term
-  vocabulary (a few hundred terms) rather than from the 30% of nodes already
-  hand-tagged, and coverage is bounded by grounding coverage (69% carry a GO BP
-  term) instead of by curator throughput.
+- **Does this replace `biological_scale` or sit beside it?** *Settled
+  2026-11-04: beside it.* The prediction here was that `node_class` would
+  supersede `biological_scale` and its values would migrate mechanically. They
+  cannot: scale is the coarser slot (MOLECULAR alone covers four tiers), so a
+  class gives a scale but a scale does not give a class. By then the slot also
+  carried over 19,000 values rather than 3,704. The two now coexist, with a
+  report-only check that a curated class's tier agrees with the scale; see
+  *Tree v1.0 and the `node_class` slot* below and design decision 14.
+- **Adoption.** `biological_scale` sat at 30.1% when it was added and at 68.5%
+  by 2026-10. Seeding from the term vocabulary bounds a suggestion's coverage
+  by grounding coverage (69% carry a GO BP term) instead of by curator
+  throughput, but a suggestion is not a curated class: no entry was backfilled
+  from the scanner when the slot was added, and 15% of nodes carry no ontology
+  term at all, so only curation reaches them.
 
 ## Next step
 
 Started: [`kb/node_classes/pathograph_node_classes.txt`](../../../kb/node_classes/pathograph_node_classes.txt) — the tree as a plain text file, leaves being real `[Disease] <node name>`
-pairs, representatives only. No schema slot and no enum yet; the tree is curated content under `kb/node_classes/`.
+pairs, representatives only; the tree is curated content under `kb/node_classes/`.
 Its `STILL UNPLACED` section is where the design is already failing and is the
 most useful part to argue with.
 
@@ -887,6 +927,65 @@ Then, in order:
    random draws plus a sweep of MPATH/MeSH/SNOMED/NCIT. The build notes at the
    foot of the tree file record what each draw forced, including the leaves that
    reversed earlier decisions.
+3. ~~Declare the leaf set and add the slot~~ — **done 2026-11-04**, as tree
+   v1.0 and an optional `node_class`; see the next section. Item 1 is still
+   open: `role` stays free text, and its description now points kind-of-thing
+   claims at `node_class`.
+
+## Tree v1.0 and the `node_class` slot (2026-11-04)
+
+The tree carries a `# VERSION` line and versioning rules in its header: adding
+a class is a minor version, and renaming, moving or removing one is a major
+version, because it changes the meaning of curated values or stops them
+validating. The 86 classes under the nine cascade tiers and DISPOSITION are the
+permissible values of `PathographNodeClassEnum`, generated by
+`just gen-node-class-enum` into `src/dismech/schema/pathograph_node_class.yaml`;
+each value carries the class it sits under as `is_a`, so a value's tier can be
+read from the schema alone, and `just node-classes --check-enum` (an ungated CI
+step) fails while the enum and the tree disagree. Not values: ALSO CLASSES (a compensating or targeted node is also a
+cellular or tissue effect, and a single-valued slot cannot carry both answers),
+DEBUNDLE TARGETS and STILL UNPLACED (worklists). Guidance for assigning a value
+is in CLAUDE.md under *Pathograph Node Classes*; the reasoning is design
+decision 14. No entry was backfilled.
+
+**Class against scale.** `just node-class-scan --format scale` compares a
+curated class's tier with the node's own `biological_scale` and reports
+disagreements without failing. Compatible scales: GENOMIC and ACTIVITY →
+MOLECULAR; SUBSTANCE → MOLECULAR or ORGANISM; PATHWAY → MOLECULAR or CELLULAR;
+CELLULAR → CELLULAR; TISSUE → TISSUE; SYSTEMIC → ORGANISM (organ failure also
+TISSUE); OUTCOME → TISSUE or ORGANISM; ENVIRONMENTAL and DISPOSITION → any. The
+two-scale tiers follow BiologicalScaleEnum's own descriptions, which file a
+chemical that accumulates under MOLECULAR and a chronically elevated metabolite
+under ORGANISM, kinase activity under MOLECULAR and intracellular signalling
+under CELLULAR. The check runs on curated classes only. Run on the scanner's
+suggestions it is mostly noise: the nodes it calls SUBSTANCE from a CHEBI term
+split 38% MOLECULAR, 16% CELLULAR, 6% TISSUE and 40% ORGANISM by their curated
+scale.
+
+**Debundle outcomes are recorded.** Between 2026-09-16 and 2026-11-04
+curators split ten bundled nodes the tree cited. The tree's examples had been
+re-pointed to one half or deleted, so the outcomes were invisible; they are now
+`:split_from` attributes on the halves, which `--verify-kb` checks against the
+KB (the old node must be gone). Three of the ten had been DEBUNDLE TARGETS with
+`:split` proposals, and all three were split along the proposed line. One
+proposed class was wrong (a growth half proposed as COMPENSATION was curated as
+reduced growth). Build note 3w in the tree has the list.
+
+**The definitions, scored again.** `just node-classes --evaluate` now scores a
+tier's definition over every example beneath it, where it had reported 0% for
+want of examples attached to the tier itself. With the GO `is_a` closure read
+from go-basic.obo (the 2026-07-26 release, through the new `--go-obo` flag):
+own-example recall is unchanged at 44% (536/1,210), and the tier definitions
+reach 63% (MOLECULAR ACTIVITY), 56% (PATHWAY), 27% (MOLECULAR SUBSTANCE) and 2%
+(ENVIRONMENTAL, whose examples rarely carry an ECTO `triggers` term). Used to
+classify the whole KB at tier level, the definitions fire on 40% of nodes (34%
+one tier, 6% more than one), agree with the seed table on 79% of the nodes it
+rates HIGH, and mismatch on 17.4% (198/1,139) of the `conforms_to` pairs where
+both sides get one tier, against 7.4% for the seed table. Deriving the seed rows
+from the definitions would therefore still cost accuracy, and stays deferred.
+That comparison has no recipe: each node was tiered by the definitions its
+terms satisfy (one tier, or none) and compared with the scanner's class on the
+same node and on the same `conforms_to` pairs.
 
 ## Appendix — reproducing the numbers
 
