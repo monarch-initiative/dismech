@@ -69,13 +69,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from dismech.mondo_ols import (  # noqa: E402
+from dismech.mondo_ols import (
     OlsLookupError,
     OlsTermNotFound,
     fetch_mondo_release,
     fetch_mondo_term,
 )
-from dismech.repo_root import repo_root  # noqa: E402
+from dismech.repo_root import repo_root
 
 CACHE_VERSION = 1
 CSV_HEADERS = [
@@ -273,13 +273,13 @@ def classify(row: ValidityRow, cache: dict, cited: dict[str, list[str]]) -> Find
     # carry NCBIGene fillers for the animal's own gene.
     genes = tuple(g for g in facts.get("genes", ()) if g.upper().startswith("HGNC:"))
     labels = tuple(facts.get("gene_labels", {}).get(g, "") for g in genes)
-    common = dict(
-        mondo_label=facts.get("label", ""),
-        mondo_genes=genes,
-        mondo_gene_labels=labels,
-        replaced_by=tuple(facts.get("replaced_by", ())),
-        cited_in=cited_in,
-    )
+    common = {
+        "mondo_label": facts.get("label", ""),
+        "mondo_genes": genes,
+        "mondo_gene_labels": labels,
+        "replaced_by": tuple(facts.get("replaced_by", ())),
+        "cited_in": cited_in,
+    }
     if facts.get("obsolete"):
         return Finding(row, OBSOLETE, **common)
     if not genes:

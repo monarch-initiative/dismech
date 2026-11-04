@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
-import list_clingen_mondo_gene_mismatches as audit  # noqa: E402
+import list_clingen_mondo_gene_mismatches as audit
 
 HEADER = ",".join(f'"{h}"' for h in audit.CSV_HEADERS)
 SEPARATOR = ",".join(['"+++"'] * len(audit.CSV_HEADERS))
