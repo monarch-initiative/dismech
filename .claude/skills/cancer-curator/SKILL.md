@@ -80,8 +80,8 @@ lesion, and the cell of origin is that node's `cell_types`.
       label: hematopoietic stem cell
 ```
 
-- `role: trigger` marks nothing. `role` is free text with ~90 values in the KB,
-  and the derivation reads structured markers only.
+- `role: trigger` marks nothing. `role` is free text with well over a hundred
+  values in the KB, and the derivation reads structured markers only.
 - For a cancer with no host lesion to mark (HPV, H. pylori, asbestos, UV), the
   marker is the `environmental[].influences_mechanisms` link carrying
   `environmental_effect: TRIGGERS`. It only speaks when no lesion is recorded.

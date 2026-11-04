@@ -1,16 +1,16 @@
 """Parser for the compact pathograph node-class tree.
 
-``kb/node_classes/pathograph_node_classes.txt`` holds a candidate
-classification of pathograph nodes as an indented plain-text tree whose leaves
-are real ``(node name, disease)`` pairs from ``kb/disorders/``. The format was
-written by hand because compactness is the point: the whole classification is
-readable in one screen and a category can be added, moved, or argued with in a
-single line. This module makes that text machine-readable without giving up the
-compactness, so the tree can be checked in CI and converted to YAML/JSON when
-the design settles.
+``kb/node_classes/pathograph_node_classes.txt`` holds a classification of
+pathograph nodes as an indented plain-text tree whose leaves are real
+``(node name, disease)`` pairs from ``kb/disorders/``. The format was written
+by hand because compactness is the point: the whole classification is readable
+in one screen and a category can be added, moved, or argued with in a single
+line. This module makes that text machine-readable without giving up the
+compactness, so the tree can be checked in CI and converted to YAML/JSON.
 
-The tree is curated content (it lives under ``kb/``) but has no schema slot
-yet, so no disorder entry references a class by name.
+The tree is curated content (it lives under ``kb/``). Since its v1.0 its
+classes are also the values of ``Pathophysiology.node_class``, through an enum
+this module generates (:func:`render_enum_module`, ``just gen-node-class-enum``).
 
 Grammar
 -------
@@ -48,6 +48,7 @@ level per line, and an example may carry attributes but not class children.
 
 from __future__ import annotations
 
+import functools
 import json
 import re
 import sys
@@ -66,6 +67,29 @@ EXAMPLE_RE = re.compile(r"^\[(?P<disease>[^\[\]]+)\]\s*(?P<node>.*)$")
 ATTR_RE = re.compile(r"^:(?P<key>[A-Za-z][\w-]*)\s*(?P<value>.*)$")
 #: ``NAME -- gloss`` -- the separator is a spaced double dash.
 GLOSS_SEP = " -- "
+#: Attribute recording that an example's node was split out of a bundled node
+#: the tree used to cite. ``--verify-kb`` checks the old node is really gone.
+SPLIT_FROM = "split_from"
+#: ``# VERSION 1.0 (2026-11-04)`` -- the one comment line a tool reads.
+VERSION_RE = re.compile(r"^# VERSION (?P<version>\d+\.\d+)\b", re.MULTILINE)
+#: Top-level classes whose subtrees are not ``node_class`` values. ALSO CLASSES
+#: answers a different question than the slot (a compensating node is also a
+#: cellular or tissue effect); DEBUNDLE TARGETS and STILL UNPLACED are worklists.
+NON_VALUE_ROOTS = frozenset({"ALSO CLASSES", "DEBUNDLE TARGETS", "STILL UNPLACED"})
+#: The schema module ``just gen-node-class-enum`` writes; dismech.yaml imports it.
+ENUM_SCHEMA = Path(__file__).parent / "schema" / "pathograph_node_class.yaml"
+ENUM_NAME = "PathographNodeClassEnum"
+ENUM_HEADER = (
+    "# GENERATED from kb/node_classes/pathograph_node_classes.txt by\n"
+    "# `just gen-node-class-enum`. Do not edit by hand: edit the tree and\n"
+    "# regenerate. tests/test_node_classes.py fails while the two disagree.\n"
+)
+#: What to do when ``--verify-kb`` finds an example whose node has gone.
+STALE_EXAMPLE_HINT = (
+    "an example names a node or entry that is gone: re-point a renamed one; if "
+    "the node was SPLIT, file each half under its own class with "
+    f"':{SPLIT_FROM} <old node name>' instead of deleting the example"
+)
 
 
 class ParseError(ValueError):
@@ -274,6 +298,140 @@ def parse_file(path: str | Path) -> list[ClassNode]:
     return parse_text(p.read_text(encoding="utf-8"), source=str(p))
 
 
+def tree_version(text: str) -> str | None:
+    """The ``# VERSION x.y`` the tree declares, or None.
+
+    The parser ignores comments; this is the one comment line a tool reads, so
+    the generated ``node_class`` enum can say which version of the tree it was
+    generated from.
+    """
+    match = VERSION_RE.search(text)
+    return match.group("version") if match else None
+
+
+def node_class_values(roots: list[ClassNode]) -> list[tuple[ClassNode, ClassNode | None]]:
+    """``(class, parent)`` for every class that is a ``node_class`` value.
+
+    Tree order, so the generated enum reads like the tree. A top-level class
+    (a tier) has no parent.
+    """
+    out: list[tuple[ClassNode, ClassNode | None]] = []
+
+    def walk(node: ClassNode, parent: ClassNode | None) -> None:
+        out.append((node, parent))
+        for child in node.children:
+            walk(child, node)
+
+    for root in roots:
+        if root.name not in NON_VALUE_ROOTS:
+            walk(root, None)
+    return out
+
+
+def to_linkml_enum(roots: list[ClassNode], version: str) -> dict[str, Any]:
+    """The ``node_class`` enum as a LinkML schema module, ready for YAML.
+
+    Each value's ``title`` is the class name, its ``description`` the gloss and
+    its ``is_a`` the class it sits under, so the tier of any value can be read
+    back from the schema without the tree (see :func:`node_class_tiers`).
+    """
+    values: dict[str, dict[str, str]] = {}
+    for node, parent in node_class_values(roots):
+        value: dict[str, str] = {"title": node.name}
+        if node.gloss:
+            value["description"] = node.gloss
+        if parent is not None:
+            value["is_a"] = parent.id
+        values[node.id] = value
+    return {
+        "id": "https://w3id.org/monarch-initiative/dismech/pathograph_node_class",
+        "name": "dismech-pathograph-node-class",
+        "title": "Pathograph Node Classes",
+        "version": version,
+        "description": (
+            "The kinds of causal claim a pathophysiology node can make: the "
+            "classes under the nine cascade tiers and DISPOSITION in "
+            "kb/node_classes/pathograph_node_classes.txt, whose worked examples "
+            "and build notes are the guidance for assigning one. Generated from "
+            "that file; design decision 14 records why the vocabulary is curated "
+            "content rather than an ontology."
+        ),
+        "imports": ["linkml:types"],
+        "prefixes": {
+            "linkml": "https://w3id.org/linkml/",
+            "dismech": "https://w3id.org/monarch-initiative/dismech/",
+        },
+        "default_prefix": "dismech",
+        "enums": {
+            ENUM_NAME: {
+                "description": (
+                    "Pathograph node classes, the range of Pathophysiology "
+                    "node_class. A value without is_a is a tier; every other "
+                    "value names the class it sits under."
+                ),
+                "permissible_values": values,
+            }
+        },
+    }
+
+
+def render_enum_module(roots: list[ClassNode], version: str) -> str:
+    """The generated schema module's text."""
+    import yaml
+
+    body = yaml.safe_dump(
+        to_linkml_enum(roots, version), sort_keys=False, width=88, allow_unicode=True
+    )
+    return ENUM_HEADER + body
+
+
+def stale_enum_problem(tree_path: str | Path, enum_path: str | Path = ENUM_SCHEMA) -> str | None:
+    """Why the committed enum does not match the tree, or None when it does.
+
+    Parsed YAML is compared, not text, so a formatter cannot make it fail.
+    """
+    import yaml
+
+    text = Path(tree_path).read_text(encoding="utf-8")
+    version = tree_version(text)
+    if version is None:
+        return f"{tree_path} declares no '# VERSION x.y' line"
+    expected = to_linkml_enum(parse_text(text, source=str(tree_path)), version)
+    try:
+        committed = yaml.safe_load(Path(enum_path).read_text(encoding="utf-8"))
+    except OSError:
+        committed = None
+    if committed != expected:
+        return (
+            f"{enum_path} does not match {tree_path} (tree version {version}): "
+            "run `just gen-node-class-enum` and commit both files"
+        )
+    return None
+
+
+@functools.lru_cache(maxsize=4)
+def node_class_tiers(path: str | Path = ENUM_SCHEMA) -> dict[str, str]:
+    """Each ``node_class`` value mapped to the id of the tier it sits under.
+
+    Read from the generated enum rather than the tree, so it needs no checkout
+    paths and agrees with what ``linkml-validate`` accepts.
+    """
+    import yaml
+
+    data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    values = data["enums"][ENUM_NAME]["permissible_values"]
+    tiers: dict[str, str] = {}
+    for value in values:
+        top, seen = value, set()
+        while (values[top] or {}).get("is_a"):
+            if top in seen:
+                raise ValueError(f"{path}: is_a cycle at {top}")
+            seen.add(top)
+            top = values[top]["is_a"]
+        tiers[value] = top
+    return tiers
+
+
 def iter_classes(
     roots: list[ClassNode], _trail: tuple[str, ...] = ()
 ) -> Iterator[tuple[tuple[str, ...], ClassNode]]:
@@ -352,9 +510,15 @@ def verify_examples(
 
     problems: list[str] = []
     for trail, ex in iter_examples(roots):
+        where = " > ".join(trail)
+        for old in ex.attributes.get(SPLIT_FROM, []):
+            if (old, ex.disease) in known:
+                problems.append(
+                    f"line {ex.line}: :{SPLIT_FROM} names {old!r}, but "
+                    f"{ex.disease} still has a node of that name ({where})"
+                )
         if (ex.node, ex.disease) in known:
             continue
-        where = " > ".join(trail)
         if ex.disease not in diseases:
             problems.append(
                 f"line {ex.line}: no such entry {ex.disease!r} ({where})"
@@ -382,9 +546,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--format",
-        choices=("check", "yaml", "json", "text", "summary"),
+        choices=("check", "yaml", "json", "text", "summary", "linkml-enum"),
         default="check",
-        help="output format; 'check' parses and reports nothing on success",
+        help="output format; 'check' parses and reports nothing on success; "
+        "'linkml-enum' prints the generated node_class enum module",
+    )
+    parser.add_argument(
+        "--write-enum",
+        action="store_true",
+        help=f"write the generated node_class enum module to {ENUM_SCHEMA.name} "
+        "in the package's schema directory",
+    )
+    parser.add_argument(
+        "--check-enum",
+        action="store_true",
+        help=f"fail if the committed {ENUM_SCHEMA.name} does not match the tree",
     )
     parser.add_argument(
         "--verify-kb",
@@ -414,7 +590,14 @@ def main(argv: list[str] | None = None) -> int:
         "--evaluate",
         action="store_true",
         help="evaluate every definition against its examples and the whole KB "
-        "(needs the local OAK GO sqlite build for the is_a closure; slow)",
+        "(slow; the GO is_a closure comes from --go-obo or the local OAK GO "
+        "sqlite build, which is never downloaded implicitly)",
+    )
+    parser.add_argument(
+        "--go-obo",
+        metavar="PATH",
+        help="with --evaluate: read the GO is_a closure from this OBO file "
+        "(e.g. go-basic.obo) instead of the local sqlite:obo:go build",
     )
     args = parser.parse_args(argv)
 
@@ -451,24 +634,47 @@ def main(argv: list[str] | None = None) -> int:
         print(f"checked {len(defined)} definitions", file=sys.stderr)
 
     if args.evaluate:
-        from dismech.node_class_definitions import evaluate_tree, go_ancestors
+        from dismech.node_class_definitions import (
+            evaluate_tree,
+            go_ancestors,
+            obo_ancestors,
+        )
+        from dismech.oak_db import local_build_present
 
+        if args.go_obo:
+            ancestors = obo_ancestors(args.go_obo)
+        elif local_build_present("sqlite:obo:go"):
+            ancestors = go_ancestors()
+        else:
+            # Opening the adapter would download the build silently (CLAUDE.md,
+            # "An oak_db test needs two guards"), so ask instead.
+            print(
+                "error: --evaluate needs the GO is_a closure: pass --go-obo "
+                "go-basic.obo, or fetch the build with `just fetch-ontology-dbs go`",
+                file=sys.stderr,
+            )
+            return 2
         kb_dirs = [Path(d) for d in (args.kb_dir or ["kb/disorders", "kb/modules"])]
-        reports = evaluate_tree(roots, kb_dirs, go_ancestors())
+        reports = evaluate_tree(roots, kb_dirs, ancestors)
         print(f"{'class':58s} {'ex':>4s} {'hit':>4s} {'recall':>7s} {'kb':>6s}  cross-hits")
         for r in reports:
             cross = ", ".join(
                 f"{' > '.join(k[-1:])}={v}" for k, v in sorted(r.cross_hits.items(), key=lambda kv: -kv[1])[:4]
             )
+            # A tier's examples sit on its leaves; score it over all of them.
+            tier = r.subtree_examples > r.examples
+            ex, hit = (r.subtree_examples, r.subtree_matched) if tier else (r.examples, r.examples_matched)
+            recall = r.subtree_recall if tier else r.recall
             print(
-                f"{' > '.join(r.path)[:58]:58s} {r.examples:4d} {r.examples_matched:4d} "
-                f"{100 * r.recall:6.0f}% {r.kb_matched:6d}  {cross}"
+                f"{' > '.join(r.path)[:58]:58s} {ex:4d} {hit:4d} "
+                f"{100 * recall:6.0f}%{'*' if tier else ' '}{r.kb_matched:6d}  {cross}"
             )
         total_ex = sum(r.examples for r in reports)
         total_hit = sum(r.examples_matched for r in reports)
         print(
             f"\n{len(reports)} definitions; {total_hit}/{total_ex} of their own examples "
-            f"satisfied ({100 * total_hit / total_ex if total_ex else 0:.0f}%)",
+            f"satisfied ({100 * total_hit / total_ex if total_ex else 0:.0f}%); "
+            "* = scored over every example beneath the class",
             file=sys.stderr,
         )
 
@@ -481,7 +687,24 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 2
-        problems = verify_examples(roots, kb_dirs)
+        problems.extend(verify_examples(roots, kb_dirs))
+
+    if args.check_enum:
+        stale = stale_enum_problem(args.path)
+        if stale:
+            problems.append(stale)
+
+    if args.format == "linkml-enum" or args.write_enum:
+        version = tree_version(Path(args.path).read_text(encoding="utf-8"))
+        if version is None:
+            print(f"error: {args.path} declares no '# VERSION x.y' line", file=sys.stderr)
+            return 1
+        module = render_enum_module(roots, version)
+        if args.write_enum:
+            ENUM_SCHEMA.write_text(module, encoding="utf-8")
+            print(f"wrote {ENUM_SCHEMA} (tree version {version})", file=sys.stderr)
+        if args.format == "linkml-enum":
+            print(module, end="")
 
     if args.format == "json":
         print(json.dumps(to_dict(roots), indent=2))
@@ -494,6 +717,8 @@ def main(argv: list[str] | None = None) -> int:
     elif args.format == "summary":
         classes = list(iter_classes(roots))
         examples = list(iter_examples(roots))
+        version = tree_version(Path(args.path).read_text(encoding="utf-8"))
+        print(f"tree version {version or 'undeclared'}")
         print(f"{len(roots)} top-level classes, {len(classes)} classes total")
         print(f"{len(examples)} examples across {len({e.disease for _, e in examples})} entries")
         leaves = [n for _, n in classes if not n.children]
@@ -502,6 +727,12 @@ def main(argv: list[str] | None = None) -> int:
             f"{len(defined)} classes carry a logical definition "
             f"({sum(1 for n in leaves if n.definition)} of {len(leaves)} leaves)"
         )
+        splits = {
+            (ex.disease, old)
+            for _, ex in examples
+            for old in ex.attributes.get(SPLIT_FROM, [])
+        }
+        print(f"{len(splits)} cited nodes recorded as since split by curators (:{SPLIT_FROM})")
         for trail, node in classes:
             if len(trail) == 1:
                 n = sum(1 for t, _ in examples if t[0] == node.name)
@@ -510,6 +741,8 @@ def main(argv: list[str] | None = None) -> int:
     for problem in problems:
         print(f"{args.path}: {problem}", file=sys.stderr)
     if problems:
+        if args.verify_kb:
+            print(f"hint: {STALE_EXAMPLE_HINT}", file=sys.stderr)
         print(f"error: {len(problems)} problems", file=sys.stderr)
         return 1
     if args.format == "check":

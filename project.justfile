@@ -1578,9 +1578,10 @@ check-not4curation *args:
 # `conformance` compares every conforms_to edge's two sides, which is an
 # INDEPENDENT check on the classes because conforming pairs are curated as
 # "same kind of thing" by an unrelated process. Conformance is gated on both
-# sides being HIGH confidence by default -- letting the gene/CL/UBERON fallbacks
-# in multiplies the mismatch rate several times over; pass --include-low to see
-# the rest, or `--format conformance-gates` for the current rate under each gate.
+# sides being curated or HIGH confidence by default -- letting the GO MF, CHEBI
+# and gene/CL/UBERON rules in multiplies the mismatch rate several times over;
+# pass --include-low to see the rest, or `--format conformance-gates` for the
+# current rate at each confidence level.
 # Read-only: the tree and seed table under kb/node_classes/ are inputs.
 [group('QC')]
 node-class-scan *args:
@@ -1601,18 +1602,29 @@ node-role-audit *args:
 
 # Parse and check the compact pathograph node-class tree
 # (kb/node_classes/pathograph_node_classes.txt). The tree is curated content
-# with no schema slot yet; its leaves are real (node, disease) pairs, and a
-# tree whose leaves have drifted from the KB is worse than no tree because it
-# still looks grounded. Bare invocation checks the
-# grammar only (instant); --verify-kb also resolves every cited leaf against
-# kb/ (slow: parses the whole KB); --check-definitions verifies every `=`
-# line's term labels against the caches (--online: against OLS); --evaluate
-# runs each logical definition over its own examples and the whole KB (needs
-# the local OAK GO sqlite). --format yaml|json|text emits the tree, `text`
-# being a stable round-trip of the compact form.
+# whose classes are also the values of Pathophysiology.node_class; its leaves
+# are real (node, disease) pairs, and a tree whose leaves have drifted from the
+# KB is worse than no tree because it still looks grounded. Bare invocation
+# checks the grammar only (instant); --verify-kb also resolves every cited leaf
+# against kb/ and checks each :split_from (slow: parses the whole KB);
+# --check-definitions verifies every `=` line's term labels against the caches
+# (--online: against OLS); --evaluate runs each logical definition over its own
+# examples and the whole KB, taking the GO is_a closure from --go-obo <file> or
+# the local OAK GO sqlite (never downloaded implicitly). --format
+# yaml|json|text emits the tree, `text` being a stable round-trip of the
+# compact form; --format linkml-enum prints the generated node_class enum.
 [group('QC')]
 node-classes *args:
     uv run python -m dismech.node_classes {{args}}
+
+# Regenerate src/dismech/schema/pathograph_node_class.yaml, the enum behind
+# Pathophysiology.node_class, from the node-class tree. Run it after changing a
+# class or gloss in kb/node_classes/pathograph_node_classes.txt, bump the
+# tree's VERSION line by its VERSIONING rules, and commit both files together;
+# tests/test_node_classes.py fails while they disagree.
+[group('Schema')]
+gen-node-class-enum:
+    uv run python -m dismech.node_classes --write-enum
 
 # Validate the Claude Code skill files under .claude/skills/ (#11758). A skill
 # whose SKILL.md is missing or miscased is simply never loaded -- no error, and

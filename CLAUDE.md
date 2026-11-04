@@ -1251,18 +1251,58 @@ sufficient condition over the node's ontology-bound slots
 `src/dismech/node_class_definitions.py`); judgement classes (DISPOSITION,
 OUTCOME, STILL UNPLACED …) deliberately carry none. A companion
 `pathograph_node_class_go_seed.tsv` maps GO biological-process terms to
-classes. There is **no schema slot yet**: no disorder entry names a class, and
-the scanner applies the vocabulary read-only. Edit the tree by PR like any
-other `kb/` content.
+classes. Edit the tree by PR like any other `kb/` content.
+
+**The tree is versioned, and its classes are the values of a slot.** Since
+tree v1.0 (2026-11-04) the classes under the nine cascade tiers and DISPOSITION
+are the permissible values of an optional `Pathophysiology.node_class`
+(`PathographNodeClassEnum`, generated into
+`src/dismech/schema/pathograph_node_class.yaml`). ALSO CLASSES, DEBUNDLE
+TARGETS and STILL UNPLACED are not values. A change to a class or a gloss is
+therefore a schema change: run `just gen-node-class-enum` and bump the tree's
+`# VERSION` line by the rules in its header, in the same PR
+(`just node-classes --check-enum`, an ungated CI step, compares the tree with
+the enum). No entry was backfilled; nothing has to carry the slot.
+
+Assigning `node_class`:
+
+- **The most specific class whose gloss fits the node's own claim**, judged
+  against the worked examples under it. A tier is fine when no leaf fits;
+  leave the slot absent when nothing does.
+- **One value.** A node that needs two classes is making two claims; split it.
+- **Classify the claim, not the gene.** A lesion node is often bound to the
+  wild-type molecular function of its gene; whether it is a GENOMIC class (the
+  allele) or a MOLECULAR ACTIVITY one (the lost activity) depends on what the
+  node asserts, not on that term.
+- **The scanner's class is a hint.** It reads a curated `node_class` first; its
+  term-based suggestions are tier-level only. Its GO molecular-function rule is
+  MEDIUM confidence because on `conforms_to` pairs it disagrees with the module
+  side more often than not, for the reason above.
+- **It is not `biological_scale`.** Set both where both apply;
+  `--format scale` lists nodes whose class tier and scale disagree
+  (report-only), which usually means one of the two is wrong or the node is
+  bundling two claims.
+
+When a curation PR renames a node the tree cites, `--verify-kb` fails (an
+ungated CI step) and the example needs re-pointing. When it **splits** one,
+file each half under its own class with `:split_from <old node name>` instead
+of deleting the example; `--verify-kb` checks the old node is really gone.
 
 ```bash
 just node-classes --verify-kb              # grammar + every cited leaf resolves in kb/
+just node-classes --format summary         # version, counts, recorded splits
 just node-classes --check-definitions      # definition labels vs the term caches (--online: OLS)
-just node-classes --evaluate               # each definition vs its examples and the KB (needs GO sqlite)
+just node-classes --evaluate --go-obo go-basic.obo   # each definition vs its examples and the KB
+just gen-node-class-enum                   # regenerate the node_class enum from the tree
 just node-class-scan                       # apply the seed table across kb/: coverage
 just node-class-scan --format debundle     # nodes whose own GO terms span two classes
+just node-class-scan --format conformance-gates  # conforms_to agreement at each confidence level
+just node-class-scan --format scale        # node_class tier vs biological_scale (report-only)
 just node-role-audit                       # the free-text `role` slot against the edges
 ```
+
+`--evaluate` without `--go-obo` uses the local `sqlite:obo:go` build and exits
+with a message, rather than downloading it, when the build is absent.
 
 Design record: `docs/superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md`.
 

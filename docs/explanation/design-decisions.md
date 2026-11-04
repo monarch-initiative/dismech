@@ -1926,16 +1926,17 @@ should work from this list:
    MPATH gap into a silent NCIt gap, and the register gains nothing on that axis. Decide
    alongside Q2.
 
-## 14. Pathograph node classes are curated content under `kb/`, not a schema slot and not a new ontology (2026-09-15)
+## 14. Pathograph node classes are curated content under `kb/`, not a new ontology (2026-09-15; slot added 2026-11-04)
 
 **Decision.** The pathograph node-class tree
 (`kb/node_classes/pathograph_node_classes.txt`, with its GO seed table alongside) is
-**curated content, edited by pull request like any other `kb/` entry**. It is **not** a
-schema slot: no `Disease` entry names a node class, no enum carries the vocabulary, and
-`node_class_scan` applies it read-only. It is also **not** a new ontology in the sense
-§1 forbids: it mints no CURIEs, and where a class *can* be stated in existing ontology
-terms it carries a `= ...` logical definition over the GO / CL / UBERON / CHEBI / ECTO
-slots a node already binds, checked against those ontologies.
+**curated content, edited by pull request like any other `kb/` entry**. Since tree
+v1.0 its classes under the cascade tiers and DISPOSITION are also the permissible values
+of an optional `Pathophysiology.node_class` slot, through an enum generated from the tree
+(see the revision below). It is **not** a new ontology in the sense §1 forbids: it mints
+no CURIEs, and where a class *can* be stated in existing ontology terms it carries a
+`= ...` logical definition over the GO / CL / UBERON / CHEBI / ECTO slots a node already
+binds, checked against those ontologies.
 
 **Why `kb/` and not `docs/`.** The tree began life as a design artifact under
 `docs/superpowers/`, and the argument for moving it is that its leaves are real
@@ -1957,14 +1958,41 @@ own, but the *leaves* are anchored to existing ontologies wherever a term exists
 the classes without a definition are the ones no ontology term can decide (a standing
 disposition, the body pushing back, "aetiology unresolved"). That is reuse, not minting.
 
-**What would change this.** Two things are deliberately deferred. (1) A `node_class`
-slot on `Pathophysiology`, which would also settle whether it supersedes
-`biological_scale` (it is close to a refinement of it; two slots saying nearly the same
-thing would be worse than either). (2) Deriving the seed table from the definitions and
-retiring the hand-labelled GO rows. Both wait on the leaf set stabilising. The design
-record is
+**What would change this.** As recorded on 2026-09-15, two things were deferred until
+the leaf set stabilised: (1) a `node_class` slot on `Pathophysiology`, which would also
+settle whether it supersedes `biological_scale`; (2) deriving the seed table from the
+definitions and retiring the hand-labelled GO rows. The design record is
 [`docs/superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md`](../superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md);
 the tree's own build notes record what each draw forced.
+
+**Revision (2026-11-04): the slot exists, beside `biological_scale`.** No draw was run
+after the seventh, so waiting for the leaf set to stabilise had no process behind it,
+while the slots the tree was meant to inform kept growing: `biological_scale` went from
+about 30% of nodes to about 68%, and the free-text `role` from 69 normalised values to
+over 150. So the tree was declared **v1.0** and given versioning rules in its header (a
+new class is a minor version; a rename, move or removal is a major one, because it
+changes or invalidates curated values), and (1) was settled:
+
+- `node_class` is optional and single-valued, ranged on `PathographNodeClassEnum`,
+  which `just gen-node-class-enum` generates from the tree into
+  `src/dismech/schema/pathograph_node_class.yaml`; a test fails while the two disagree.
+  Values are the classes under the nine cascade tiers and DISPOSITION, each carrying
+  the class it sits under as `is_a`. ALSO CLASSES are excluded because a compensating
+  or targeted node is also a cellular or tissue effect, which a single-valued slot
+  cannot say; DEBUNDLE TARGETS and STILL UNPLACED are worklists.
+- **It does not supersede `biological_scale`.** The two answer different questions
+  (what kind of claim, and at what scale its substrate sits), and scale cannot be
+  migrated into class mechanically: MOLECULAR alone covers four tiers. A report-only
+  check (`just node-class-scan --format scale`) flags a node whose class tier and scale
+  disagree. Whether the slot should later replace `biological_scale` is left to the
+  coverage the slot actually reaches.
+- No entry was backfilled. Nothing in `kb/` is required to carry the slot, and the
+  scanner's term-based suggestions are not written into entries: they are tier-level,
+  and on lesion nodes the GO molecular-function rule mostly disagrees with the module
+  side of `conforms_to` pairs (it is rated MEDIUM confidence for that reason).
+
+(2) stays deferred: as a classifier the definitions agree less with `conforms_to` pairs
+than the seed table does, so retiring the seed rows is not yet a free swap.
 
 ## 15. Affected genomic regions use names and qualitative landmarks (2026-09-21)
 

@@ -7,14 +7,22 @@ from pathlib import Path
 import pytest
 
 from dismech.node_classes import (
+    ENUM_NAME,
+    ENUM_SCHEMA,
+    NON_VALUE_ROOTS,
+    STALE_EXAMPLE_HINT,
     ClassNode,
     ParseError,
     iter_classes,
     iter_examples,
+    node_class_values,
     parse_file,
     parse_text,
+    render_enum_module,
     render_text,
+    stale_enum_problem,
     to_dict,
+    tree_version,
     verify_examples,
 )
 
@@ -179,6 +187,33 @@ def test_verify_examples_reports_missing_entry_and_missing_node(tmp_path):
     assert any("has no pathophysiology node named 'Ghost Node'" in p for p in problems)
 
 
+def test_split_from_must_name_a_node_that_is_gone(tmp_path):
+    """`:split_from` records that a cited bundle was split; it is only true while
+    the bundled node no longer exists in the entry."""
+    kb = tmp_path / "disorders"
+    kb.mkdir()
+    (kb / "Real_Disease.yaml").write_text(
+        "name: Real Disease\npathophysiology:\n"
+        "- name: Half One\n- name: Half Two\n- name: Still Bundled\n",
+        encoding="utf-8",
+    )
+    roots = parse_text(
+        "TOP\n"
+        "  [Real_Disease] Half One\n"
+        "    :split_from Half One and Half Two\n"
+        "  [Real_Disease] Half Two\n"
+        "    :split_from Still Bundled\n"
+    )
+    problems = verify_examples(roots, [kb])
+    assert len(problems) == 1
+    assert ":split_from names 'Still Bundled'" in problems[0]
+
+
+def test_tree_version_reads_the_version_comment():
+    assert tree_version("# title\n# VERSION 1.0 (2026-11-04)\nTOP\n") == "1.0"
+    assert tree_version("# no version here\nTOP\n") is None
+
+
 # --- the committed tree itself -------------------------------------------------
 
 
@@ -226,7 +261,9 @@ def test_committed_tree_examples_resolve_in_kb():
     roots = parse_file(TREE)
     kb_dirs = [ROOT / "kb" / "disorders", ROOT / "kb" / "modules"]
     problems = verify_examples(roots, kb_dirs)
-    assert not problems, "unresolved examples:\n" + "\n".join(problems)
+    assert not problems, (
+        "unresolved examples:\n" + "\n".join(problems) + f"\n{STALE_EXAMPLE_HINT}"
+    )
 
 
 def test_committed_tree_every_class_has_a_gloss_or_examples():
@@ -260,6 +297,53 @@ def test_committed_tree_definitions_parse_and_cached_labels_are_right():
     problems = check_labels(curie_labels(defined), cache_label_lookup(ROOT / "cache"))
     wrong, _unchecked = triage_label_problems(problems, authoritative=False)
     assert not wrong, "\n".join(p.render("the term cache") for p in wrong)
+
+
+def test_committed_tree_declares_a_version():
+    assert tree_version(TREE.read_text(encoding="utf-8")), (
+        "the tree needs a '# VERSION x.y' line; the enum generator reads it"
+    )
+
+
+@pytest.mark.ci_step_twin("dismech.node_classes --check-enum")
+def test_committed_node_class_enum_matches_the_tree():
+    """The `node_class` enum is generated from the tree; parsed YAML is
+    compared, not text, so a reformatting tool cannot fail it."""
+    problem = stale_enum_problem(TREE)
+    assert problem is None, problem
+
+
+def test_stale_enum_problem_names_the_fix(tmp_path):
+    tree = tmp_path / "tree.txt"
+    tree.write_text("# VERSION 1.0\nTOP -- a tier\n  leaf\n", encoding="utf-8")
+    enum = tmp_path / "enum.yaml"
+    enum.write_text(render_enum_module(parse_file(tree), "1.0"), encoding="utf-8")
+    assert stale_enum_problem(tree, enum) is None
+    tree.write_text("# VERSION 1.0\nTOP -- a tier\n  leaf\n  new leaf\n", encoding="utf-8")
+    assert "just gen-node-class-enum" in stale_enum_problem(tree, enum)
+    tree.write_text("TOP\n", encoding="utf-8")
+    assert "VERSION" in stale_enum_problem(tree, enum)
+
+
+def test_node_class_values_are_the_cascade_tiers_and_disposition():
+    roots = parse_file(TREE)
+    values = node_class_values(roots)
+    ids = {node.id for node, _ in values}
+    excluded = [r for r in roots if r.name in NON_VALUE_ROOTS]
+    assert len(excluded) == len(NON_VALUE_ROOTS), "a NON_VALUE_ROOTS name no longer matches a tier"
+    for root in excluded:
+        assert not {n.id for _, n in iter_classes([root])} & ids
+    assert all(parent is None or parent.id in ids for _, parent in values)
+    assert {"GENOMIC_EFFECT", "CELL_DEATH", "DISPOSITION", "OUTCOME"} <= ids
+
+
+def test_schema_uses_the_generated_enum_for_node_class():
+    import yaml
+
+    schema = yaml.safe_load((ROOT / "src/dismech/schema/dismech.yaml").read_text(encoding="utf-8"))
+    assert ENUM_SCHEMA.stem in schema["imports"]
+    assert schema["slots"]["node_class"]["range"] == ENUM_NAME
+    assert "node_class" in schema["classes"]["Pathophysiology"]["slots"]
 
 
 def test_committed_tree_definitions_sit_on_cascade_tiers_not_judgement_classes():
