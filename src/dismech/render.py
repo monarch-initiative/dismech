@@ -120,6 +120,12 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # into the template so the vocabulary and its prose stay in one place, the
     # same rule `module_categories` follows.
     env.globals["quote_role_tooltip"] = quote_role_tooltip
+    # Enum values shown on a page (#16531). `title` would lowercase an acronym
+    # (MRI -> Mri), so labels come from the schema instead. Registered here for
+    # the same reason as `basename` below: _evidence.html.j2 is compiled into
+    # module pages too.
+    env.filters["enum_label"] = enum_label
+    env.globals["enum_tooltip"] = enum_tooltip
     # File name of an evidence artifact image, for its caption. Registered here
     # rather than by the disorder renderer because the evidence partial
     # (_evidence.html.j2) is compiled into module pages too (#10329), and a
@@ -6120,6 +6126,87 @@ def quote_role_tooltip(value: str | None) -> str:
     if not description:
         return str(value)
     return _QUOTE_ROLE_PREAMBLE + description
+
+
+# Page labels for enums whose schema `title` cannot be the page label. A title on
+# a value with a `meaning` must equal the ontology's label (`just
+# validate-terms-schema`), and NCIT's "Single Photon Emission Computed Tomography"
+# or "Therapeutic Procedure" is not how a pill should read. Acronyms stay acronyms
+# here, and `enum_tooltip` spells them out. Everything else takes its label from
+# the schema.
+_ENUM_LABEL_OVERRIDES: dict[str, dict[str, str]] = {
+    "ImagingModalityEnum": {
+        "MRI": "MRI",
+        "FUNCTIONAL_MRI": "Functional MRI",
+        "CT": "CT",
+        "MICRO_CT": "Micro-CT",
+        "PET": "PET",
+        "SPECT": "SPECT",
+        "ULTRASOUND": "Ultrasound",
+        "XRAY": "X-ray",
+        "OCT": "OCT",
+        "OTHER": "Other",
+    },
+    "RegulatoryVariantCategoryEnum": {
+        "LOE": "LOE",
+        "mLOE": "mLOE",
+        "GOE": "GOE",
+        "LOF": "LOF",
+        "GOF": "GOF",
+        "DN": "DN",
+    },
+    "MedicalActionCategoryEnum": {
+        "THERAPEUTIC": "Therapeutic",
+        "DIAGNOSTIC": "Diagnostic",
+        "SCREENING": "Screening",
+        "COUNSELING_INFORMATIONAL": "Counseling / Informational",
+    },
+}
+
+
+@cache
+def _enum_permissible_values(enum_name: str) -> dict:
+    """One enum's permissible values from the schema, or {} if it is absent."""
+    enum_def = (_load_schema().get("enums") or {}).get(enum_name) or {}
+    return enum_def.get("permissible_values") or {}
+
+
+def enum_label(value: object, enum_name: str) -> str:
+    """Display label for an enum value, keeping the casing the schema gives it.
+
+    An unrecognized value still renders, because hiding it would hide a curation
+    error behind a page that looks fine. It is only tidied, never title-cased.
+    """
+    if value is None or value == "":
+        return ""
+    key = str(value)
+    override = _ENUM_LABEL_OVERRIDES.get(enum_name, {}).get(key)
+    if override:
+        return override
+    meta = _enum_permissible_values(enum_name).get(key)
+    title = meta.get("title") if isinstance(meta, dict) else None
+    if title:
+        return str(title)
+    text = key.replace("_", " ")
+    return text.capitalize() if text.isupper() else text
+
+
+def enum_tooltip(value: object, enum_name: str) -> str:
+    """Hover text for an enum pill, or empty for a value the schema does not have.
+
+    A pill shortened from its schema title spells that title out (`MRI` shows
+    "Magnetic Resonance Imaging"). Any other pill already reads as its title, so
+    it shows the value's `description`.
+    """
+    key = str(value)
+    meta = _enum_permissible_values(enum_name).get(key)
+    if not isinstance(meta, dict):
+        return ""
+    title = meta.get("title")
+    override = _ENUM_LABEL_OVERRIDES.get(enum_name, {}).get(key)
+    if title and override and override != title:
+        return str(title)
+    return _collapse_whitespace(meta.get("description"))
 
 
 def _find_enum_for_value(value: str, enums: dict) -> str | None:
