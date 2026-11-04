@@ -250565,6 +250565,85 @@ window.searchData = [
     "causal_graph_longest_path": "1"
   },
   {
+    "name": "Lujo Hemorrhagic Fever",
+    "disease_id": "MONDO:0017872",
+    "category": "Infectious",
+    "parents": [
+      "viral infectious disease",
+      "viral hemorrhagic fever"
+    ],
+    "creation_date": "2026-11-04T03:26:46Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Lujo hemorrhagic fever is a severe arenaviral viral hemorrhagic fever caused by Lujo virus, a mammarenavirus first recognized in a nosocomial Southern African outbreak. Disease starts with an abrupt febrile systemic phase, commonly followed during the first week by pharyngitis, chest pain, rash, minor bleeding, and cervicofacial swelling; fatal cases can progress in the second week to disseminated intravascular coagulation, shock, multi-organ failure, and late neurologic signs. LUJV entry is unusual among arenaviruses: the viral glycoprotein uses NRP2 at the cell surface and CD63 to support low-pH endosomal fusion, and productive virion release requires LUJV Z late-domain function plus site-1-protease cleavage of the glycoprotein precursor.",
+    "pathophysiology": [
+      "NRP2/CD63-Dependent Lujo Virus Entry",
+      "Z-Protein Budding and S1P-Dependent Glycoprotein Maturation",
+      "Systemic Arenaviral Illness",
+      "Consumptive Coagulopathy and Shock"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "LUJV glycoprotein-mediated endocytosis",
+      "viral budding",
+      "viral glycoprotein precursor processing",
+      "viral genome replication",
+      "blood coagulation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Myalgia",
+      "Pharyngitis",
+      "Chest pain",
+      "Skin rash",
+      "Facial edema",
+      "Abnormal bleeding",
+      "Shock",
+      "Disseminated intravascular coagulation"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0003326",
+      "HP:0025439",
+      "HP:0100749",
+      "HP:0000988",
+      "HP:0000282",
+      "HP:0001892",
+      "HP:0031273",
+      "HP:0005521"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Ribavirin-Containing Empiric Antiviral Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lujo_Hemorrhagic_Fever.yaml",
+    "page_url": "../pages/disorders/Lujo_Hemorrhagic_Fever.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Lung Carcinoma",
     "disease_id": "MONDO:0005138",
     "category": "Cancer",
@@ -331369,6 +331448,98 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Powassan Virus Disease",
+    "disease_id": "MONDO:0000276",
+    "category": "Infectious Disease",
+    "parents": [
+      "Arbovirus Infection"
+    ],
+    "creation_date": "2026-11-04T02:33:28Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Powassan virus disease is an emerging tick-borne flaviviral infection of North America (and parts of Russia), transmitted by Ixodes ticks. Most infections are asymptomatic or cause a febrile illness, but severe neuroinvasive disease (meningitis, encephalitis) carries a case-fatality of roughly 10-30% and leaves about half of survivors with long-term neurological sequelae. Its geographic range and reported incidence are both increasing, and there is no licensed vaccine or specific antiviral.",
+    "pathophysiology": [
+      "Tick-Bite Inoculation and Flaviviral Entry",
+      "Peripheral Replication and Viremia",
+      "Blood-Brain Barrier Disruption and Neuroinvasion",
+      "Neuroinflammation and Glial Activation",
+      "Neuronal Death"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "Langerhans cell",
+      "brain microvascular endothelial cell",
+      "microglial cell",
+      "astrocyte",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000453",
+      "CL:2000044",
+      "CL:0000129",
+      "CL:0000127",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "endocytosis involved in viral entry into host cell",
+      "cytokine-mediated signaling pathway",
+      "neuroinflammatory response",
+      "neuron apoptotic process",
+      "cellular senescence"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Viral encephalitis",
+      "Meningitis",
+      "Seizure",
+      "Aphasia",
+      "Ataxia",
+      "Paralysis",
+      "Memory impairment",
+      "Cognitive impairment",
+      "Ophthalmoplegia"
+    ],
+    "phenotype_categories": [
+      "Phenotype"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Immune",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0033993",
+      "HP:0001287",
+      "HP:0001250",
+      "HP:0002381",
+      "HP:0001251",
+      "HP:0003470",
+      "HP:0002354",
+      "HP:0100543",
+      "HP:0000602"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Powassan_Virus_Disease.yaml",
+    "page_url": "../pages/disorders/Powassan_Virus_Disease.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Prader-Willi Syndrome",
@@ -425108,17 +425279,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3946,
+  "total_disorder_pages": 3948,
   "total_subtypes": 5005,
-  "total_disorders_and_subtypes": 8951,
-  "total_unique_evidence_sources": 58563,
-  "total_unique_publications": 54798,
+  "total_disorders_and_subtypes": 8953,
+  "total_unique_evidence_sources": 58576,
+  "total_unique_publications": 54811,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3944,
-  "total_unique_pathological_events": 25839,
+  "total_pathographs": 3946,
+  "total_unique_pathological_events": 25846,
   "total_modules": 226,
-  "total_research_reports": 4054,
+  "total_research_reports": 4056,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 129
