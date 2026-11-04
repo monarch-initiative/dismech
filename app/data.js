@@ -339190,6 +339190,137 @@ window.searchData = [
     "causal_graph_longest_path": "12"
   },
   {
+    "name": "Pseudohypoaldosteronism Type IB1 Autosomal Recessive",
+    "disease_id": "MONDO:0009917",
+    "category": "Mendelian",
+    "parents": [
+      "Pseudohypoaldosteronism type 1",
+      "Autosomal recessive disease"
+    ],
+    "creation_date": "2026-11-01T07:35:18Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pseudohypoaldosteronism type IB1 (PHA1B1) is the SCNN1A-related form of autosomal recessive, systemic (multi-organ) pseudohypoaldosteronism type 1, and the most frequently genotyped of the three ENaC subunit forms. Biallelic loss-of-function variants in SCNN1A, which encodes the alpha subunit of the amiloride-sensitive epithelial sodium channel (ENaC), remove the subunit the channel cannot function without. Failure of ENaC-mediated sodium reabsorption in the aldosterone-sensitive distal nephron causes renal salt wasting, volume depletion and failure of potassium and hydrogen ion secretion, so affected infants present in the first weeks of life with vomiting, poor feeding, dehydration, hyperkalemia and metabolic acidosis despite high renin and aldosterone. ENaC loss in the colon and sweat glands adds extra-renal salt loss, and loss in the airway leaves excess airway surface liquid with recurrent chest symptoms. Truncating alleles cause a lifelong course; missense alleles that leave partial channel activity can cause a mild or transient one. Treatment is lifelong sodium chloride with potassium control. The SCNN1B (PHA1B2) and SCNN1G (PHA1B3) forms share the mechanism and are separate MONDO concepts.",
+    "pathophysiology": [
+      "Biallelic SCNN1A loss of function",
+      "Distal nephron ENaC sodium reabsorption failure",
+      "Impaired distal potassium and hydrogen ion secretion",
+      "Extracellular volume depletion",
+      "Compensatory renin-angiotensin-aldosterone activation",
+      "Sweat duct sodium reabsorption failure",
+      "Colonic sodium absorption failure",
+      "Airway epithelial sodium absorption failure"
+    ],
+    "cell_types": [
+      "kidney collecting duct principal cell",
+      "epithelial cell of sweat gland",
+      "colon epithelial cell",
+      "bronchial epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:1001431",
+      "CL:1000448",
+      "CL:0011108",
+      "CL:0002328"
+    ],
+    "biological_processes": [
+      "renal sodium ion absorption",
+      "renal potassium excretion",
+      "sodium ion homeostasis",
+      "regulation of blood volume by renin-angiotensin",
+      "sodium ion transmembrane transport"
+    ],
+    "phenotypes": [
+      "Hyponatremia",
+      "Hyperkalemia",
+      "Metabolic acidosis",
+      "Renal salt wasting",
+      "Increased circulating renin concentration",
+      "Increased circulating aldosterone concentration",
+      "Dehydration",
+      "Hypotension",
+      "Hypovolemic shock",
+      "Vomiting",
+      "Failure to thrive in infancy",
+      "Cardiac arrest",
+      "Elevated sweat chloride",
+      "Atopic dermatitis",
+      "Wheezing",
+      "Cough",
+      "Recurrent respiratory infections",
+      "Bronchiectasis",
+      "Female infertility"
+    ],
+    "phenotype_categories": [
+      "Metabolic/Laboratory",
+      "Renal",
+      "Systemic",
+      "Cardiovascular",
+      "Gastrointestinal",
+      "Growth",
+      "Integument",
+      "Respiratory",
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002902",
+      "HP:0002153",
+      "HP:0001942",
+      "HP:0000127",
+      "HP:0000848",
+      "HP:0000859",
+      "HP:0001944",
+      "HP:0002615",
+      "HP:0031274",
+      "HP:0002013",
+      "HP:0001531",
+      "HP:0001695",
+      "HP:0012236",
+      "HP:0001047",
+      "HP:0030828",
+      "HP:0012735",
+      "HP:0002205",
+      "HP:0002110",
+      "HP:0008222"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "SCNN1A"
+    ],
+    "treatments": [
+      "High-dose sodium chloride supplementation",
+      "Sodium bicarbonate",
+      "Potassium-binding resin",
+      "Mineralocorticoid replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pseudohypoaldosteronism_Type_IB1_Autosomal_Recessive.yaml",
+    "page_url": "../pages/disorders/Pseudohypoaldosteronism_Type_IB1_Autosomal_Recessive.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Pseudohypoaldosteronism Type IB2 Autosomal Recessive",
     "disease_id": "MONDO:0859317",
     "category": "Mendelian",
@@ -352214,6 +352345,107 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "8",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Rift Valley Fever",
+    "disease_id": "MONDO:0017880",
+    "category": "Infectious",
+    "parents": [
+      "Viral hemorrhagic fever"
+    ],
+    "creation_date": "2026-11-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rift Valley fever (RVF) is a mosquito-borne, zoonotic viral disease caused by Rift Valley fever virus (RVFV), a tri-segmented negative-sense RNA phlebovirus of the family Phenuiviridae, order Bunyavirales. It is a disease primarily of domestic ruminants in Africa and the Arabian Peninsula, in which it causes abortion storms and high neonatal mortality; humans are infected as an epizootic spillover, chiefly by bites of infected mosquitoes (notably floodwater Aedes, which maintain the virus transovarially, and Culex, which amplify epidemics) and by direct contact with the blood, tissues and aborted materials of viraemic livestock. The great majority of human infections are a self-limiting febrile illness, but a minority progress to one of three severe syndromes - a viral hemorrhagic fever with hepatic necrosis, a delayed retinitis that can cause permanent visual loss, and a meningoencephalitis. Large outbreaks follow periods of heavy rainfall and flooding that expand mosquito populations, which links RVF epidemiology to climate and makes it a recognised emerging and re-emerging arboviral threat. The severe hemorrhagic form converges on the shared vascular and hemostatic lesion of the viral hemorrhagic fevers.",
+    "pathophysiology": [
+      "RVFV Replication and NSs-Mediated Interferon Antagonism",
+      "High Viremia and Hepatotropic Spread",
+      "Hepatocellular Necrosis",
+      "Endothelial Activation and Damage",
+      "Increased Vascular Permeability",
+      "Coagulopathy and Disseminated Intravascular Coagulation",
+      "Delayed Retinitis",
+      "Meningoencephalitis"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "viral genome replication",
+      "NSs-mediated suppression of type I interferon induction",
+      "hepatocyte apoptotic process",
+      "endothelial cell activation",
+      "regulation of vascular permeability"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Myalgia",
+      "Headache",
+      "Hepatitis",
+      "Elevated hepatic transaminases",
+      "Jaundice",
+      "Hemorrhage",
+      "Thrombocytopenia",
+      "Disseminated intravascular coagulation",
+      "Retinal hemorrhage",
+      "Vision loss",
+      "Encephalitis"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0003326",
+      "HP:0002315",
+      "HP:0012115",
+      "HP:0002910",
+      "HP:0000952",
+      "HP:0001892",
+      "HP:0001873",
+      "HP:0005521",
+      "HP:0000573",
+      "HP:0000572",
+      "HP:0002383"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Supportive care",
+      "Ribavirin (investigational)",
+      "Favipiravir (investigational)",
+      "Livestock vaccination (population-level control)",
+      "Investigational human vaccines"
+    ],
+    "environmental": [
+      "Occupational contact with viraemic livestock tissues"
+    ],
+    "biochemical": [],
+    "source_file": "Rift_Valley_Fever.yaml",
+    "page_url": "../pages/disorders/Rift_Valley_Fever.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Riley-Day Syndrome",
@@ -388706,6 +388938,90 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Striate Palmoplantar Keratoderma Type 1",
+    "disease_id": "MONDO:0007859",
+    "category": "Mendelian",
+    "parents": [
+      "Palmoplantar Keratoderma",
+      "Desmosomal Disease"
+    ],
+    "creation_date": "2026-11-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Striate palmoplantar keratoderma type 1 (SPPK1; PPKS1; OMIM 148700) is an autosomal dominant thickening of the skin of the palms and soles caused by heterozygous loss-of-function variants in DSG1, which encodes desmoglein 1, a desmosomal cadherin expressed in the suprabasal and upper layers of the epidermis. Almost all reported alleles are nonsense, frameshift or splice-site variants that introduce a premature termination codon, so the disease is caused by haploinsufficiency rather than by a dominant-negative protein. A single missense allele at a residue needed for adhesion has also been reported. Halving desmoglein 1 reduces the number and size of suprabasal desmosomes, and the spinous and granular keratinocytes separate from one another (widened intercellular spaces and partial acantholysis). Desmoglein 1 also has a signalling role beyond adhesion: it damps EGFR-ERK1/2 signalling via Erbin to let keratinocytes complete terminal differentiation, and this brake is reduced in SPPK1 epidermis. Clinically, linear hyperkeratotic bands run along the volar fingers onto the palm, with focal hyperkeratosis at pressure points of the sole that often precedes the palmar changes. The pattern is not fixed: the same gene, and sometimes the same allele, produces focal or diffuse rather than striate keratoderma in some families, which is why OMIM and MONDO name the disease \"striate, focal, or diffuse\". Lesions are worst where pressure and friction are greatest and can be painful when walking. Treatment is supportive, with keratolytics, paring and footwear.",
+    "pathophysiology": [
+      "DSG1 Heterozygous Loss-of-Function Variants",
+      "Reduced Suprabasal Desmosome Number and Size",
+      "Loss of Suprabasal Keratinocyte Adhesion",
+      "Reduced DSG1-Dependent Suppression of EGFR-ERK Signaling",
+      "Abnormal Keratinocyte Terminal Differentiation"
+    ],
+    "cell_types": [
+      "Keratinocyte",
+      "Suprabasal keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:4033013"
+    ],
+    "biological_processes": [
+      "Desmosome organization",
+      "Cell-cell adhesion",
+      "ERK1 and ERK2 cascade",
+      "Epidermal growth factor receptor signaling pathway",
+      "Keratinocyte differentiation"
+    ],
+    "phenotypes": [
+      "Striate Palmoplantar Hyperkeratosis",
+      "Focal Plantar Hyperkeratosis",
+      "Diffuse Palmoplantar Hyperkeratosis",
+      "Plantar Pain",
+      "Hyperkeratosis at Mechanically Stressed Extra-palmoplantar Sites",
+      "Nail Dystrophy",
+      "Acantholysis"
+    ],
+    "phenotype_categories": [
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0007501",
+      "HP:0007497",
+      "HP:0007447",
+      "HP:6001399",
+      "HP:0000962",
+      "HP:0008404",
+      "HP:0100792"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "DSG1"
+    ],
+    "treatments": [
+      "Topical Keratolytics",
+      "Footwear and Customised Insoles"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Striate_Palmoplantar_Keratoderma_Type_1.yaml",
+    "page_url": "../pages/disorders/Striate_Palmoplantar_Keratoderma_Type_1.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Striate Palmoplantar Keratoderma Type 2",
@@ -425686,17 +426002,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3953,
+  "total_disorder_pages": 3956,
   "total_subtypes": 5008,
-  "total_disorders_and_subtypes": 8961,
-  "total_unique_evidence_sources": 58632,
-  "total_unique_publications": 54867,
+  "total_disorders_and_subtypes": 8964,
+  "total_unique_evidence_sources": 58673,
+  "total_unique_publications": 54907,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3951,
-  "total_unique_pathological_events": 25873,
+  "total_pathographs": 3954,
+  "total_unique_pathological_events": 25883,
   "total_modules": 226,
-  "total_research_reports": 4061,
+  "total_research_reports": 4064,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 129
