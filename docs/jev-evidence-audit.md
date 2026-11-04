@@ -94,7 +94,7 @@ pairs as unassessed. No KB files are changed.
 ## Queue reviews for the curation agent
 
 The `Evidence–Claim Mismatch Issues` workflow reads the latest overall queue on
-dismech-evals `main` and opens up to five issues each Tuesday. Manual dispatch
+dismech-evals `main` and opens up to ten issues each Tuesday. Manual dispatch
 can preview or create up to 25 issues. Its schedule follows the repository's
 cron profiles, including the `off` switch.
 
