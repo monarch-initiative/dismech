@@ -107934,6 +107934,85 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Complex Cortical Dysplasia With Other Brain Malformations 2",
+    "disease_id": "MONDO:0014116",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-11-03T06:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A malformation of cortical development caused by de novo heterozygous variants in KIF5C, which encodes a neuronal kinesin-1 heavy chain that powers ATP-dependent, microtubule-based anterograde transport. Pathogenic variants cluster at the motor-domain residue Glu237, abolish the motor's ATPase activity and are thought to act by a dominant-negative mechanism; the resulting transport failure perturbs neuronal migration during corticogenesis. Affected individuals have a distinctive, often frontal-predominant cortical dysplasia/dysgyria (with pachygyria), variable microcephaly, infantile-onset epilepsy, hypotonia, severe developmental delay with absent language, and behavioral problems.",
+    "pathophysiology": [
+      "KIF5C Kinesin-1 Motor Loss of Function",
+      "Impaired Neuronal Migration",
+      "Malformation of Cortical Development"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "neuron migration",
+      "anterograde axonal transport"
+    ],
+    "phenotypes": [
+      "Microcephaly",
+      "Global developmental delay",
+      "Seizure",
+      "Pachygyria",
+      "Abnormal cortical gyration",
+      "Absent speech",
+      "Hypotonia",
+      "Abnormal corpus callosum morphology",
+      "Ventriculomegaly",
+      "Spasticity",
+      "Motor stereotypy",
+      "Self-injurious behavior"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000252",
+      "HP:0001263",
+      "HP:0001250",
+      "HP:0001302",
+      "HP:0002536",
+      "HP:0001344",
+      "HP:0001252",
+      "HP:0001273",
+      "HP:0002119",
+      "HP:0001257",
+      "HP:0000733",
+      "HP:0100716"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KIF5C"
+    ],
+    "treatments": [
+      "Antiseizure pharmacotherapy",
+      "Developmental and rehabilitative therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Complex_Cortical_Dysplasia_With_Other_Brain_Malformations_2.yaml",
+    "page_url": "../pages/disorders/Complex_Cortical_Dysplasia_With_Other_Brain_Malformations_2.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Complex Hereditary Spastic Paraplegia",
     "disease_id": "MONDO:0015150",
     "category": "Mendelian",
@@ -200196,7 +200275,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "19",
     "causal_graph_longest_path": "6"
   },
   {
@@ -210400,6 +210479,73 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "IRF7 Deficiency",
+    "disease_id": "MONDO:0014597",
+    "category": "Mendelian",
+    "parents": [
+      "inborn error of immunity",
+      "autosomal recessive disease"
+    ],
+    "creation_date": "2026-11-03T15:15:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "IRF7 deficiency is an autosomal recessive inborn error of immunity caused by biallelic loss-of-function variants in IRF7, the transcription factor that amplifies virus-induced type I and type III interferon production. Plasmacytoid dendritic cells, the main interferon-alpha producers, express it constitutively. Without IRF7, patient leukocytes, plasmacytoid dendritic cells and fibroblasts make little or no type I and III interferon in response to virus, except IFN-beta, which IRF3 can still induce.\nThe clinical picture is narrow. Affected people are otherwise healthy, with normal adaptive immunity and serological evidence of many uneventful viral infections, but are prone to critical respiratory viral disease: often a single episode, though some patients have had several consecutive ones. Presentations include life-threatening influenza pneumonia with acute respiratory distress syndrome in the index child, and critical COVID-19 pneumonia, RSV or adenovirus disease in later patients. Seven patients from six families are described in the largest series, with onset from 6 months to 50 years; one died of COVID-19 pneumonia. Residual IFN-beta and compensatory adaptive immunity are thought to explain the narrow susceptibility. There is no specific treatment; management is supportive care of the acute episode and annual influenza and COVID-19 vaccination after diagnosis.",
+    "pathophysiology": [
+      "IRF7 Loss of Function",
+      "Failure of Type I and III Interferon Amplification",
+      "Uncontrolled Viral Replication in Respiratory Cells"
+    ],
+    "cell_types": [
+      "plasmacytoid dendritic cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000784"
+    ],
+    "biological_processes": [
+      "type I interferon production",
+      "type III interferon production",
+      "defense response to virus"
+    ],
+    "phenotypes": [
+      "Severe viral infection",
+      "Pneumonia",
+      "Acute respiratory distress syndrome",
+      "Respiratory failure"
+    ],
+    "phenotype_categories": [
+      "Immunological",
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0031691",
+      "HP:0002090",
+      "HP:0033677",
+      "HP:0002878"
+    ],
+    "frequencies": [],
+    "genes": [
+      "IRF7"
+    ],
+    "treatments": [
+      "Viral vaccination",
+      "Supportive care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "IRF7_Deficiency.yaml",
+    "page_url": "../pages/disorders/IRF7_Deficiency.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "IRIDA Syndrome",
     "disease_id": "MONDO:0008788",
     "category": "Mendelian",
@@ -219831,6 +219977,76 @@ window.searchData = [
     "num_genes": 3,
     "num_treatments": 11,
     "causal_graph_edges": "20",
+    "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Inclusion Conjunctivitis",
+    "disease_id": "MONDO:0005808",
+    "category": "Infectious Disease",
+    "parents": [
+      "Chlamydia trachomatis infectious disease",
+      "Bacterial conjunctivitis"
+    ],
+    "creation_date": "2026-09-30T10:00:51Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Inclusion conjunctivitis is a sporadic oculogenital Chlamydia trachomatis infection in which serovar D-K elementary bodies reach the conjunctiva during adult exposure to infected genital secretions or neonatal exposure during delivery, enter conjunctival epithelial cells, replicate inside intracellular inclusions through the chlamydial elementary-body/reticulate-body cycle, and elicit subacute or chronic follicular conjunctivitis.",
+    "pathophysiology": [
+      "Conjunctival elementary-body uptake",
+      "Chlamydial inclusion replication cycle",
+      "Chlamydial ocular inflammatory pathology"
+    ],
+    "cell_types": [
+      "conjunctival epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:1000432"
+    ],
+    "biological_processes": [
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Conjunctival inflammation",
+      "Follicular conjunctivitis",
+      "Conjunctival hyperemia",
+      "Conjunctival papillary reaction",
+      "Ocular discharge",
+      "Eyelid swelling"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000509",
+      "HP:6001385",
+      "HP:0030953",
+      "HP:0030946",
+      "HP:0100540"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Systemic antichlamydial therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Inclusion_Conjunctivitis.yaml",
+    "page_url": "../pages/disorders/Inclusion_Conjunctivitis.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "3"
   },
   {
@@ -238134,6 +238350,141 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Kyasanur Forest Disease",
+    "disease_id": "MONDO:0017881",
+    "category": "Infectious",
+    "parents": [
+      "Viral Hemorrhagic Fever"
+    ],
+    "creation_date": "2026-11-03T11:44:35Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Kyasanur forest disease is an Indian Western Ghats tick-borne viral hemorrhagic fever caused by Kyasanur Forest disease virus, an orthoflavivirus maintained in an enzootic cycle involving Haemaphysalis ticks and forest vertebrates. Humans are incidental hosts infected mainly by bites of infected Haemaphysalis spinigera ticks while working in or near forests, plantations or cattle-grazing areas, or less commonly after contact with sick or dead monkeys. After a 3- to 8-day incubation, the first illness phase is an acute febrile syndrome with headache, severe myalgia, vomiting, leukopenia, thrombocytopenia, transaminitis and mucosal hemorrhage in a minority of patients; about 20% of cases relapse after remission into a second febrile phase dominated by neurologic symptoms. Primary human endothelial cells and monocyte-derived dendritic cells are permissive to KFDV in vitro: infected endothelial cells up-regulate E-selectin, ICAM1 and VCAM1, show increased leukocyte adhesion, and receive activating signals from infected dendritic cells, providing a direct and cytokine-mediated route into the shared viral hemorrhagic fever endothelial-injury program.",
+    "pathophysiology": [
+      "KFDV Replication in Human Endothelial Cells",
+      "KFDV Replication in Monocyte-Derived Dendritic Cells",
+      "Endothelial Cell Adhesion and Cytokine Activation",
+      "KFDV-Induced Endothelial Tight-Junction Disorganization",
+      "Increased Vascular Permeability"
+    ],
+    "cell_types": [
+      "endothelial cell",
+      "dendritic cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0000451"
+    ],
+    "biological_processes": [
+      "viral genome replication",
+      "interleukin-6 production",
+      "tumor necrosis factor production",
+      "endothelial cell activation",
+      "tight junction organization",
+      "regulation of vascular permeability"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Myalgia",
+      "Vomiting",
+      "Abdominal Pain",
+      "Diarrhea",
+      "Conjunctival Hyperemia",
+      "Lacrimation Abnormality",
+      "Abnormal Retinal Morphology",
+      "Abnormal Vitreous Humor Morphology",
+      "Palatal Papulovesicular Eruption",
+      "Lymphadenopathy",
+      "Hepatosplenomegaly",
+      "Leukopenia",
+      "Thrombocytopenia",
+      "Elevated Circulating Hepatic Transaminase Concentration",
+      "Hematemesis",
+      "Epistaxis",
+      "Bleeding Per Rectum",
+      "Pulmonary Edema",
+      "Confusion"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Neurological",
+      "Musculoskeletal",
+      "Gastrointestinal",
+      "Ophthalmologic",
+      "Dermatologic",
+      "Immune",
+      "Hematologic",
+      "Biochemical",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0003326",
+      "HP:0002013",
+      "HP:0002027",
+      "HP:0002014",
+      "HP:0030953",
+      "HP:0000632",
+      "HP:0000479",
+      "HP:0004327",
+      "HP:0033700",
+      "HP:0002716",
+      "HP:0001433",
+      "HP:0001882",
+      "HP:0001873",
+      "HP:0002910",
+      "HP:0002248",
+      "HP:0000421",
+      "HP:0002573",
+      "HP:0100598",
+      "HP:0001289"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Supportive Care",
+      "Formalin-Inactivated KFD Vaccination"
+    ],
+    "environmental": [
+      "Occupational and Forest Exposure",
+      "Deforestation and Forest Encroachment"
+    ],
+    "biochemical": [
+      "Hypoalbuminemia",
+      "Elevated Alkaline Phosphatase",
+      "Hyperbilirubinemia",
+      "Increased Circulating Immunoglobulin Concentration",
+      "Proteinuria"
+    ],
+    "source_file": "Kyasanur_Forest_Disease.yaml",
+    "page_url": "../pages/disorders/Kyasanur_Forest_Disease.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Kyphoscoliotic Ehlers-Danlos Syndrome",
     "disease_id": "MONDO:0016002",
     "category": "Mendelian",
@@ -239089,6 +239440,110 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "7",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "LCK Deficiency",
+    "disease_id": "MONDO:0014334",
+    "category": "Mendelian",
+    "parents": [
+      "Primary Immunodeficiency",
+      "Combined Immunodeficiency"
+    ],
+    "creation_date": "2026-11-03T14:10:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "LCK deficiency is an autosomal recessive combined immunodeficiency caused by biallelic loss-of-function variants in LCK, the Src-family kinase that starts T-cell receptor signalling. When the receptor engages peptide-MHC, LCK phosphorylates the ITAMs of the CD3 and zeta chains, which recruits ZAP70, and then activates ZAP70 itself. Without LCK the receptor cannot signal, so thymocytes fail selection, few T cells leave the thymus, and those that do respond poorly to antigen.\nAbout nine patients in five families have been described. The complete-loss alleles (p.L341P, p.C465R) and a truncating allele give profound T-cell lymphopenia with an oligoclonal repertoire, recurrent and severe infections from infancy, failure to thrive and chronic diarrhoea, plus early inflammatory and autoimmune disease in the first case. A characteristic laboratory clue is reduced surface density of CD4 (and often CD8) on the remaining T cells. A hypomorphic allele (p.P440S) leaves enough signalling for some conventional T cells to mature but not regulatory T cells, and in the matching knock-in mouse CD4 T cells drive intestinal inflammation that regulatory T-cell transfer prevents. A splice allele with residual expression of a longer isoform gives a later-onset picture dominated by HPV skin disease and virus-induced squamous cell carcinoma. Allogeneic haematopoietic stem cell transplantation is the only curative treatment, with mixed outcomes in the few cases transplanted.",
+    "pathophysiology": [
+      "LCK Loss of Kinase Function",
+      "Failure of Proximal TCR Signalling",
+      "Arrested Thymic T Cell Development",
+      "Defective T Cell Effector Function",
+      "Failure of Regulatory T Cell Development",
+      "CD4 T Cell-Driven Intestinal Inflammation"
+    ],
+    "cell_types": [
+      "T cell",
+      "CD4-positive, alpha-beta T cell",
+      "CD8-positive, alpha-beta T cell",
+      "regulatory T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000624",
+      "CL:0000625",
+      "CL:0000815"
+    ],
+    "biological_processes": [
+      "T cell receptor signaling pathway",
+      "positive regulation of cytosolic calcium ion concentration",
+      "T cell differentiation in thymus",
+      "regulatory T cell differentiation"
+    ],
+    "phenotypes": [
+      "Recurrent infections",
+      "Recurrent respiratory infections",
+      "Recurrent mucocutaneous candidiasis",
+      "Failure to thrive",
+      "Chronic diarrhea",
+      "Decreased total T cell count",
+      "Decreased total CD4+ T cell count",
+      "Autoimmunity",
+      "Panniculitis",
+      "Vasculitis",
+      "Increased circulating IgM concentration",
+      "Verrucae",
+      "Squamous cell carcinoma of the skin"
+    ],
+    "phenotype_categories": [
+      "Immunological",
+      "Clinical",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002719",
+      "HP:0002205",
+      "HP:0002728",
+      "HP:0001508",
+      "HP:0002028",
+      "HP:0005403",
+      "HP:5210418",
+      "HP:0002960",
+      "HP:0012490",
+      "HP:0002633",
+      "HP:0003496",
+      "HP:0200043",
+      "HP:0006739"
+    ],
+    "frequencies": [],
+    "genes": [
+      "LCK"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "LCK_Deficiency.yaml",
+    "page_url": "../pages/disorders/LCK_Deficiency.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "LDLR-Related Familial Hypercholesterolemia",
@@ -241262,6 +241717,132 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Lassa Fever",
+    "disease_id": "MONDO:0005820",
+    "category": "Infectious",
+    "parents": [
+      "Viral Hemorrhagic Fever"
+    ],
+    "creation_date": "2026-11-03T05:48:20Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Lassa fever is a West African Old World arenaviral hemorrhagic fever caused by Lassa virus, an enveloped bisegmented RNA virus maintained chiefly in the peri-domestic rodent Mastomys natalensis. Humans acquire infection through exposure to infected rodent excreta or contaminated bushmeat or food, and secondary household and healthcare transmission can occur through infected body fluids. Disease begins after a 6- to 21-day incubation with a nonspecific febrile syndrome and, in severe cases, progresses to systemic endothelial and mononuclear-phagocyte infection, protein C pathway endotheliopathy, platelet dysfunction, capillary leak, shock, renal failure, and multi-organ failure. Sensorineural hearing loss during late acute disease or convalescence is a distinctive Lassa sequela among the viral hemorrhagic fevers. Supportive care is the treatment backbone; ribavirin is guideline-recommended but remains off-label with a contested clinical evidence base.",
+    "pathophysiology": [
+      "LASV GP1 Receptor Switch and Endosomal Fusion",
+      "NP-Mediated Innate Immune Antagonism and T-Cell Suppression",
+      "Systemic LASV Dissemination to Vascular and Myeloid Targets",
+      "Endothelial Infection with Muted Innate Activation",
+      "Protein C Pathway Endotheliopathy and Platelet Dysfunction",
+      "Increased Vascular Permeability",
+      "Immune-Mediated Vasculitic Hearing Injury"
+    ],
+    "cell_types": [
+      "T cell",
+      "vascular endothelial cell",
+      "mononuclear phagocyte",
+      "dendritic cell",
+      "platelet",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000115",
+      "CL:0000113",
+      "CL:0000451",
+      "CL:0000233",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "virion attachment to host cell",
+      "receptor-mediated endocytosis of virus by host cell",
+      "symbiont-mediated suppression of host innate immune response",
+      "viral genome replication",
+      "endothelial cell activation",
+      "platelet aggregation",
+      "regulation of vascular permeability",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Sore Throat",
+      "Retrosternal Chest Pain",
+      "Vomiting",
+      "Diarrhea",
+      "Thrombocytopenia",
+      "Abnormal Bleeding",
+      "Facial Edema",
+      "Elevated Hepatic Transaminases",
+      "Proteinuria",
+      "Shock",
+      "Seizure",
+      "Renal insufficiency",
+      "Sensorineural Hearing Impairment"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Hematologic",
+      "Vascular",
+      "Hepatic",
+      "Renal",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Ear",
+      "Genitourinary",
+      "Head and Neck",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0025439",
+      "HP:0100749",
+      "HP:0002013",
+      "HP:0002014",
+      "HP:0001873",
+      "HP:0001892",
+      "HP:0000282",
+      "HP:0002910",
+      "HP:0000093",
+      "HP:0031273",
+      "HP:0001250",
+      "HP:0000083",
+      "HP:0000407"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "LARGE1",
+      "IL21"
+    ],
+    "treatments": [
+      "Supportive Care for Vascular Leak, Shock, and Renal Injury",
+      "Ribavirin Antiviral Pharmacotherapy",
+      "Favipiravir Antiviral Pharmacotherapy"
+    ],
+    "environmental": [
+      "Climate-sensitive Mastomys reservoir expansion"
+    ],
+    "biochemical": [],
+    "source_file": "Lassa_Fever.yaml",
+    "page_url": "../pages/disorders/Lassa_Fever.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Late-Onset Pompe Disease",
@@ -259357,6 +259938,76 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Malignant otitis externa caused by Pseudomonas aeruginosa",
+    "disease_id": "MONDO:0041095",
+    "category": "Infectious Disease",
+    "parents": [
+      "Malignant otitis externa",
+      "Pseudomonas aeruginosa infectious disease"
+    ],
+    "creation_date": "2026-11-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Malignant otitis externa caused by Pseudomonas aeruginosa is an invasive infection in which P. aeruginosa colonizes the external acoustic meatus, breaches local epithelial defenses in an older or immunocompromised host, spreads through adjacent soft tissue and temporal-bone compartments, and can progress to skull-base osteomyelitis with facial or lower cranial nerve palsies.",
+    "pathophysiology": [
+      "External auditory canal Pseudomonas invasion",
+      "Regional skull-base soft-tissue and bone extension",
+      "Cranial nerve foraminal involvement"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Ear pain",
+      "External ear canal edema",
+      "Otorrhea",
+      "External auditory canal granulation tissue",
+      "Skull-base osteomyelitis",
+      "Facial palsy",
+      "Cranial nerve paralysis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Ear",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0030766",
+      "HP:6000956",
+      "HP:0002754",
+      "HP:0010628",
+      "HP:0006824"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Prolonged antipseudomonal pharmacotherapy",
+      "Adjunctive hyperbaric oxygen for refractory necrotizing otitis externa",
+      "Surgical debridement or mastoidectomy"
+    ],
+    "environmental": [
+      "Diabetes mellitus and immunocompromise",
+      "Aural water exposure and cerumen irrigation"
+    ],
+    "biochemical": [],
+    "source_file": "Malignant_Otitis_Externa_Caused_By_Pseudomonas_Aeruginosa.yaml",
+    "page_url": "../pages/disorders/Malignant_otitis_externa_caused_by_Pseudomonas_aeruginosa.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Malignant Peripheral Nerve Sheath Tumor",
     "disease_id": "MONDO:0017827",
     "category": "Cancer",
@@ -265655,6 +266306,124 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "8",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Meningococcemia",
+    "disease_id": "MONDO:0042972",
+    "category": "Infectious Disease",
+    "parents": [
+      "Sepsis"
+    ],
+    "creation_date": "2026-11-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Meningococcemia is the bloodstream and septicemic form of invasive Neisseria meningitidis disease. Meningococci acquired from human nasopharyngeal carriers invade the blood in a complement-susceptible host, evade serum bactericidal killing, adhere to human microvascular endothelium, release lipooligosaccharide-rich outer-membrane material, and drive sepsis, petechiae, purpura, disseminated intravascular coagulation, shock, distal ischemia, and other end-organ complications.",
+    "pathophysiology": [
+      "Nasopharyngeal Meningococcal Acquisition and Invasion",
+      "Complement-Gated Meningococcal Bacteremia",
+      "LOS- and IL-10-Associated Systemic Inflammation",
+      "Circulating Myocardial Depressant Activity",
+      "Type-IV-Pilus Dermal Endothelial Adhesion",
+      "ADAM10-Mediated EPCR Shedding",
+      "Protein C Anticoagulant Failure and Microvascular Thrombosis"
+    ],
+    "cell_types": [
+      "monocyte",
+      "dermal microvascular endothelial cell",
+      "endothelial cell",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000576",
+      "CL:0011030",
+      "CL:0000115",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "adhesion of symbiont to host",
+      "complement activation",
+      "lipopolysaccharide-mediated signaling pathway",
+      "inflammatory response",
+      "membrane protein ectodomain proteolysis",
+      "blood coagulation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Sepsis",
+      "Petechiae",
+      "Purpura",
+      "Purpura fulminans",
+      "Disseminated Intravascular Coagulation",
+      "Shock",
+      "Gangrene",
+      "Acute adrenal insufficiency"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Dermatological",
+      "Hematologic",
+      "Cardiovascular",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Endocrine",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0100806",
+      "HP:0000967",
+      "HP:0000979",
+      "HP:0005521",
+      "HP:0031273",
+      "HP:0100758",
+      "HP:0008207"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "C5",
+      "C6",
+      "C7",
+      "C8A",
+      "C8B",
+      "C9",
+      "CFP",
+      "CFD",
+      "MBL2"
+    ],
+    "treatments": [
+      "Early parenteral antibiotic therapy",
+      "Critical-care resuscitation for shock and Waterhouse-Friderichsen syndrome",
+      "MenACWY and MenB vaccination",
+      "MenACWY and MenB vaccination plus antibiotic prophylaxis during anti-C5 therapy",
+      "Antibiotic chemoprophylaxis for close contacts"
+    ],
+    "environmental": [
+      "Pharmacologic terminal complement blockade",
+      "Tobacco smoke exposure",
+      "Household crowding and congregate social mixing"
+    ],
+    "biochemical": [
+      "Plasma meningococcal lipopolysaccharide burden",
+      "Plasma interleukin-10",
+      "Blood meningococcal DNA copy number",
+      "Blood macrophage migration inhibitory factor"
+    ],
+    "source_file": "Meningococcemia.yaml",
+    "page_url": "../pages/disorders/Meningococcemia.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 7,
+    "num_genes": 9,
+    "num_treatments": 5,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Menke-Hennekam Syndrome",
@@ -281851,6 +282620,87 @@ window.searchData = [
     "num_genes": 0,
     "num_treatments": 1,
     "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Mycoplasma Encephalitis",
+    "disease_id": "MONDO:0019377",
+    "category": "Infectious Disease",
+    "parents": [
+      "Infectious encephalitis",
+      "Mycoplasmoides infection"
+    ],
+    "creation_date": "2026-09-30T10:37:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mycoplasma encephalitis is infectious encephalitis associated with Mycoplasmoides pneumoniae in which respiratory infection can be followed by neuroinvasion or postinfectious immune injury that inflames the brain.",
+    "pathophysiology": [
+      "Mycoplasmoides Respiratory Infection",
+      "Direct CNS Mycoplasmoides Invasion",
+      "Postinfectious Neural Autoantibody Injury",
+      "Cerebral Vaso-Occlusion",
+      "Brain Inflammation",
+      "Systemic Febrile Response"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "blood coagulation",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Infectious Encephalitis",
+      "Ataxia",
+      "Reduced Consciousness",
+      "Fever",
+      "Headache",
+      "Seizure",
+      "CSF Pleocytosis",
+      "Movement Disorder",
+      "Cerebral Infarct"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Constitutional",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002383",
+      "HP:0001251",
+      "HP:0004372",
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0001250",
+      "HP:0012229",
+      "HP:0100022",
+      "HP:0025722"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT",
+      "RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Anti-Mycoplasma Antibiotics",
+      "Corticosteroid Therapy",
+      "Intravenous Immunoglobulin"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mycoplasma_Encephalitis.yaml",
+    "page_url": "../pages/disorders/Mycoplasma_Encephalitis.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "19",
     "causal_graph_longest_path": "4"
   },
   {
@@ -316321,7 +317171,8 @@ window.searchData = [
     "updated_date": null,
     "subtypes": [
       "Intracellular Antigen PNS",
-      "Surface Antigen PNS"
+      "Surface Antigen PNS",
+      "Opsoclonus-Myoclonus Syndrome"
     ],
     "description": "Paraneoplastic neurological syndromes are rare immune-mediated neurologic disorders triggered by cancer but not caused by direct tumor invasion, metastasis, infection, ischemia, or metabolic disturbance. Tumor expression of antigens shared with the nervous system can elicit high-risk or intermediate-risk neural autoantibodies and T-cell responses that injure the central nervous system, peripheral nervous system, neuromuscular junction, or muscle. Diagnosis integrates the neurologic phenotype, antibody risk category, cancer status, and follow-up using the PNS-Care framework.",
     "pathophysiology": [
@@ -331019,6 +331870,97 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "35",
     "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "Primary Amebic Meningoencephalitis",
+    "disease_id": "MONDO:0000290",
+    "category": "Infectious Disease",
+    "parents": [
+      "Protozoal infection"
+    ],
+    "creation_date": "2026-11-03T17:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Primary amebic meningoencephalitis is a fulminant central-nervous-system infection caused by Naegleria fowleri after nasal water exposure. The ameba crosses the cribriform plate along olfactory nerves, invades the brain, and produces rapidly progressive meningoencephalitis with neutrophilic CSF inflammation, cerebral edema, necrosis, herniation, and high mortality.",
+    "pathophysiology": [
+      "Nasal-Olfactory Amebic Neuroinvasion",
+      "Contact-Dependent Trophozoite Cytotoxicity",
+      "Contact-Independent Secreted Cytolysis",
+      "Protease-Mediated Extracellular Matrix Disassembly",
+      "Microglial Cytokine and Oxidant Activation",
+      "Fulminant Necrotizing Meningoencephalitis",
+      "Raised Intracranial Pressure and Herniation"
+    ],
+    "cell_types": [
+      "microglial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000129"
+    ],
+    "biological_processes": [
+      "cell adhesion",
+      "phagocytosis",
+      "exocytosis",
+      "proteolysis",
+      "extracellular matrix disassembly",
+      "positive regulation of cytokine production"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Nausea and vomiting",
+      "Nuchal rigidity",
+      "Altered mental status",
+      "Seizure",
+      "Coma",
+      "Anosmia",
+      "Neutrophilic cerebrospinal-fluid pleocytosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0002017",
+      "HP:0031179",
+      "HP:0001298",
+      "HP:0001250",
+      "HP:0001259",
+      "HP:0000458",
+      "HP:0012229"
+    ],
+    "frequencies": [
+      "88% at presentation in 256 classifiable global cases",
+      "82% at presentation in 256 classifiable global cases",
+      "57% at presentation in 256 classifiable global cases",
+      "35% at presentation in 256 classifiable global cases",
+      "50% at presentation in 256 classifiable global cases",
+      "41.6% at presentation in a 24-patient India systematic review",
+      "13% at presentation in 256 classifiable global cases",
+      "Median CSF WBC 1238/\u00b5L with median 82% neutrophils in 237 reported cases"
+    ],
+    "genes": [],
+    "treatments": [
+      "Multidrug PAM pharmacotherapy",
+      "Neurocritical intracranial-pressure control"
+    ],
+    "environmental": [
+      "Nasal exposure to N. fowleri-contaminated warm freshwater"
+    ],
+    "biochemical": [],
+    "source_file": "Primary_Amebic_Meningoencephalitis.yaml",
+    "page_url": "../pages/disorders/Primary_Amebic_Meningoencephalitis.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Primary Bile Acid Malabsorption",
@@ -355237,6 +356179,138 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "19",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "SLC25A46-Related Hereditary Motor And Sensory Neuropathy",
+    "disease_id": "MONDO:0014671",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary neurological disease",
+      "peripheral nervous system disease",
+      "mitochondrial disease"
+    ],
+    "creation_date": "2026-11-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "HMSN6B is an autosomal recessive axonal Charcot-Marie-Tooth neuropathy combined with optic atrophy, caused by biallelic variants in SLC25A46. The gene encodes a highly derived member of the SLC25 mitochondrial carrier family that is unusual in two ways: it sits in the outer mitochondrial membrane rather than the inner one, and it has no identified transported substrate. It is instead the closest human relative of yeast Ugo1, an adaptor of the mitochondrial fusion machinery, and it works as a structural organiser of mitochondrial membrane dynamics.\n\nThe protein sits at the membrane sites where mitochondria divide and merge, in discrete foci at branch points and tube tips alongside DRP1 and OPA1, and it forms complexes with the fusion GTPases MFN1, MFN2 and OPA1, with the MICOS cristae-organising complex through MIC60, and with the ER membrane protein complex at ER-mitochondria contacts. Losing it therefore breaks three things at once: the fission-fusion balance, so the network becomes hyperfused and hyperfilamentous; cristae architecture, which shortens the folds that house the respiratory complexes; and non-vesicular lipid transfer, which shifts mitochondrial phospholipid composition. The downstream cost is paid by neurons that must deliver and position mitochondria along very long processes. Enlarged, incompletely divided organelles are transported and distributed abnormally, and the cells that fail are the predicted ones: retinal ganglion cells and their optic nerve axons, long peripheral motor and sensory axons, and cerebellar Purkinje cells.\n\nSeverity tracks how much functional protein a genotype leaves, and it does so through two distinct molecular routes rather than one. Most pathogenic missense variants destabilise the protein, which is then ubiquitylated by MULAN and MARCH5 and stripped from the outer membrane by p97 and the proteasome; the degree of destabilisation tracks disease severity, protein stability itself correlating inversely with it. Milder variants leave protein abundance largely intact and instead disturb a specific interaction, such as the one with MIC60. That graded relationship is why one gene spans a spectrum whose ends are usually named as different diseases: near-complete loss presents as lethal congenital pontocerebellar hypoplasia (PCH1E) or Leigh syndrome, while partially functional alleles give the childhood-onset optic atrophy and axonal neuropathy that this entry covers, and the mildest reported case is an apparently isolated optic neuropathy with only subclinical neuropathy on electrophysiology. This entry is scoped to the neuropathy-with-optic-atrophy rung; PCH1E is curated as a subtype of Pontocerebellar_Hypoplasia.\n\nNo disease-modifying treatment exists and management is supportive. The one encouraging therapeutic result is preclinical: systemic AAV-PHP.B delivery of Slc25a46 to knockout mice rescued premature death, improved nerve conduction and mobility, and normalised mitochondrial morphology in both central and peripheral nervous tissue. A natural-history study was registered to collect the longitudinal data the disease lacks; its current recruitment status has not been re-checked against the registry.",
+    "pathophysiology": [
+      "Biallelic SLC25A46 Loss of Function",
+      "Destabilization and Proteasomal Degradation of SLC25A46",
+      "Loss of SLC25A46 at Mitochondrial Fission and Fusion Sites",
+      "Dysregulated MFN1/MFN2 and OPA1 Oligomerization",
+      "Impaired Interorganellar Lipid Transfer at ER-Mitochondria Contacts",
+      "Altered Mitochondrial Phospholipid Composition",
+      "Disrupted MICOS Complex and Cristae Architecture",
+      "Aberrant Mitochondrial Network Morphology",
+      "Respiratory Chain Deficiency and Bioenergetic Failure",
+      "Impaired Mitochondrial Transport and Distribution in Neuronal Processes",
+      "Distal Axonal Degeneration of Long Peripheral Nerves",
+      "Retinal Ganglion Cell and Optic Nerve Axon Degeneration",
+      "Cerebellar Purkinje Cell Degeneration"
+    ],
+    "cell_types": [
+      "patient-derived dermal fibroblast",
+      "neuron",
+      "motor neuron",
+      "sensory neuron",
+      "retinal ganglion cell",
+      "Purkinje cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000540",
+      "CL:0000100",
+      "CL:0000101",
+      "CL:0000740",
+      "CL:0000121"
+    ],
+    "biological_processes": [
+      "proteasomal degradation of mutant SLC25A46",
+      "mitochondrial fission",
+      "mitochondrial fusion",
+      "phospholipid transfer between the ER and mitochondria",
+      "cristae formation",
+      "mitochondrion organization",
+      "oxidative phosphorylation",
+      "mitochondrion transport along microtubule",
+      "mitochondrion localization",
+      "maintenance of peripheral axons"
+    ],
+    "phenotypes": [
+      "Optic atrophy",
+      "Axonal sensorimotor peripheral neuropathy",
+      "Distal muscle weakness",
+      "Distal sensory impairment",
+      "Distal amyotrophy",
+      "Areflexia",
+      "Pes cavus",
+      "Scoliosis",
+      "Decreased compound muscle action potential amplitude",
+      "Gait ataxia",
+      "Cerebellar atrophy",
+      "Dysarthria",
+      "Reduced visual acuity",
+      "Optic disc pallor",
+      "Nystagmus",
+      "Myoclonus",
+      "Spasticity"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Neurologic",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000648",
+      "HP:0003477",
+      "HP:0002460",
+      "HP:0002936",
+      "HP:0003693",
+      "HP:0001284",
+      "HP:0001761",
+      "HP:0002650",
+      "HP:0033383",
+      "HP:0002066",
+      "HP:0001272",
+      "HP:0001260",
+      "HP:0007663",
+      "HP:0000543",
+      "HP:0000639",
+      "HP:0001336",
+      "HP:0001257"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SLC25A46"
+    ],
+    "treatments": [
+      "Physical Therapy and Rehabilitation",
+      "Genetic Counseling",
+      "Orthopedic Surgery for Foot Deformity",
+      "Low-Vision Support"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Cerebral N-acetylaspartate",
+      "Cerebral lactate"
+    ],
+    "source_file": "SLC25A46-Related_Hereditary_Motor_And_Sensory_Neuropathy.yaml",
+    "page_url": "../pages/disorders/SLC25A46-Related_Hereditary_Motor_And_Sensory_Neuropathy.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "46",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "SLC26A1-Related Hypersulfaturia",
@@ -384330,6 +385404,94 @@ window.searchData = [
     "causal_graph_longest_path": "10"
   },
   {
+    "name": "Staphylococcus Aureus Pneumonia",
+    "disease_id": "MONDO:0041879",
+    "category": "Infectious Disease",
+    "parents": [
+      "Staphylococcus aureus infection",
+      "Staphylococcal pneumonia"
+    ],
+    "creation_date": "2026-09-30T10:37:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Staphylococcus aureus pneumonia is bacterial pneumonia caused by S. aureus, including post-influenza and healthcare-associated forms in which agr-regulated alpha-hemolysin, Panton-Valentine leukocidin, PSM-alpha toxins, ADAM10 signaling, leukocyte lysis, and neutrophil-rich inflammation can produce necrotizing pulmonary disease.",
+    "pathophysiology": [
+      "Lower Airway Staphylococcus aureus Seeding",
+      "Influenza Type I IFN Type 17 Suppression",
+      "Agr Quorum-Sensing Virulence Activation",
+      "Alpha-Hemolysin ADAM10 Barrier Disruption",
+      "PSM-Alpha Neutrophil Necroptosis",
+      "Panton-Valentine Leukocidin Leukocyte Injury"
+    ],
+    "cell_types": [
+      "T cell",
+      "pulmonary alveolar epithelial cell",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000322",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "cell-cell adhesion",
+      "necroptotic process"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Tachycardia",
+      "Hemoptysis",
+      "Pleural Effusion",
+      "Leukopenia",
+      "Septic Shock",
+      "Pulmonary Hemorrhage",
+      "Respiratory Failure"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Cardiovascular",
+      "Respiratory",
+      "Blood"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0001649",
+      "HP:0002105",
+      "HP:0002202",
+      "HP:0001882",
+      "HP:0031273",
+      "HP:0040223",
+      "HP:0002878"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "MRSA-active antibiotic therapy",
+      "MSSA beta-lactam therapy",
+      "Toxin-suppressing antibiotic therapy",
+      "Anti-alpha-toxin monoclonal antibody prophylaxis"
+    ],
+    "environmental": [
+      "Antecedent influenza infection"
+    ],
+    "biochemical": [],
+    "source_file": "Staphylococcus_Aureus_Pneumonia.yaml",
+    "page_url": "../pages/disorders/Staphylococcus_Aureus_Pneumonia.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Staphylococcus Discitis",
     "disease_id": "MONDO:8000001",
     "category": "Infectious Disease",
@@ -384400,6 +385562,74 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "14",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Staphyloenterotoxemia",
+    "disease_id": "MONDO:0005971",
+    "category": "Infectious Disease",
+    "parents": [
+      "staphylococcal infection"
+    ],
+    "creation_date": "2026-11-03T19:31:54Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Staphyloenterotoxemia is staphylococcal food poisoning: an acute, vomiting-predominant food intoxication caused by ingestion of preformed Staphylococcus aureus enterotoxin. Enterotoxigenic S. aureus contaminates handled food, multiplies during warm storage, and secretes heat- and protease-resistant staphylococcal enterotoxins that survive cooking and digestion even when viable bacteria are no longer central to the illness. Ingested enterotoxin crosses the upper intestinal epithelium and activates mast-cell, serotonin, and vagal-afferent signaling, producing rapid nausea, violent vomiting, abdominal cramping, and sometimes diarrhea after a short incubation period. Disease is typically self-limited and is managed with fluid and electrolyte support rather than antistaphylococcal therapy.",
+    "pathophysiology": [
+      "Gastrointestinal staphylococcal enterotoxin exposure",
+      "Enterotoxin intestinal transcytosis",
+      "Submucosal mast-cell mediator release",
+      "Vagal emetic reflex activation",
+      "Enterotoxin-associated intestinal secretory response"
+    ],
+    "cell_types": [
+      "mast cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000097"
+    ],
+    "biological_processes": [
+      "histamine secretion by mast cell",
+      "serotonin receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Vomiting",
+      "Nausea",
+      "Abdominal cramps",
+      "Diarrhea"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive"
+    ],
+    "phenotype_ids": [
+      "HP:0002013",
+      "HP:0002018",
+      "HP:0002027",
+      "HP:0002014"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Fluid and electrolyte supportive care"
+    ],
+    "environmental": [
+      "Food containing preformed staphylococcal enterotoxin"
+    ],
+    "biochemical": [],
+    "source_file": "Staphyloenterotoxemia.yaml",
+    "page_url": "../pages/disorders/Staphyloenterotoxemia.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Stargardt Disease",
@@ -407285,6 +408515,64 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Ureaplasma Urethritis",
+    "disease_id": "MONDO:0007007",
+    "category": "Infectious Disease",
+    "parents": [
+      "Urethritis"
+    ],
+    "creation_date": "2026-09-30T10:37:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Ureaplasma urethritis is a sexually transmitted nongonococcal urethritis in which high-burden Ureaplasma urealyticum, especially the former biovar 2 lineage, colonizes the anterior urethra and helps drive polymorphonuclear urethral inflammation with dysuria, urethral discharge, or urethral discomfort. Detection of Ureaplasma can also represent asymptomatic carriage, so organism load, species identity, and coinfecting urethral pathogens are critical context for attributing urethritis to Ureaplasma.",
+    "pathophysiology": [
+      "High-Burden Urethral Ureaplasma Colonization",
+      "Ureaplasma Urea Catabolism and Surface Persistence",
+      "Ureaplasma IgA1 Cleavage",
+      "Neutrophilic Urethral Inflammation"
+    ],
+    "cell_types": [
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "urea catabolic process",
+      "proteolysis",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Dysuria",
+      "Urethral Discharge"
+    ],
+    "phenotype_categories": [
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0100518",
+      "HP:6000108"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Doxycycline or Azithromycin for Nongonococcal Urethritis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Ureaplasma_Urethritis.yaml",
+    "page_url": "../pages/disorders/Ureaplasma_Urethritis.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Urinary Bladder Small Cell Neuroendocrine Carcinoma",
     "disease_id": "MONDO:0004114",
     "category": "",
@@ -423001,17 +424289,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3924,
-  "total_subtypes": 5001,
-  "total_disorders_and_subtypes": 8925,
-  "total_unique_evidence_sources": 58302,
-  "total_unique_publications": 54547,
+  "total_disorder_pages": 3938,
+  "total_subtypes": 5002,
+  "total_disorders_and_subtypes": 8940,
+  "total_unique_evidence_sources": 58476,
+  "total_unique_publications": 54716,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3922,
-  "total_unique_pathological_events": 25711,
+  "total_pathographs": 3936,
+  "total_unique_pathological_events": 25784,
   "total_modules": 226,
-  "total_research_reports": 4033,
+  "total_research_reports": 4046,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 129
