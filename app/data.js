@@ -31577,6 +31577,87 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "EMILIN1-Related Arterial Tortuosity Syndrome",
+    "disease_id": "MONDO:0971179",
+    "category": "Mendelian",
+    "parents": [
+      "inherited cutis laxa",
+      "hereditary disorder of connective tissue"
+    ],
+    "creation_date": "2026-11-03T19:15:04Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive heritable connective tissue disorder caused by biallelic loss-of-function variants in EMILIN1, which encodes a structural component of the elastic fiber network located at the interface between the fibrillin microfibril scaffold and the elastin core. The defining report describes an entity combining arterial tortuosity, aneurysm formation, cutis laxa and bone fragility, resembling EFEMP2 (fibulin-4)-related autosomal recessive cutis laxa type 1B. Onset is in the neonatal period or early childhood. Absence of EMILIN1 impairs extracellular deposition of EFEMP2 and lysyl oxidase activity, so elastogenesis and collagen crosslinking are both defective; Emilin1 knockout mice show elastic fiber, collagen fibril and trabecular bone abnormalities. ClinGen counts five probands from two publications, all male.",
+    "pathophysiology": [
+      "EMILIN1 Loss of Function",
+      "Impaired EFEMP2 Deposition and LOX Activity",
+      "Impaired Elastogenesis",
+      "Defective Collagen Fibrillogenesis",
+      "Aberrant Growth Factor Signaling"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "elastic fiber assembly",
+      "collagen fibril organization",
+      "TGF-beta receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Arterial tortuosity",
+      "Increased susceptibility to fractures",
+      "Aortic root aneurysm",
+      "Cutis laxa",
+      "Joint hypermobility",
+      "Arterial stenosis",
+      "Congenital heart malformations",
+      "Pulmonic stenosis",
+      "Dysmorphic facial features",
+      "Short stature"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Skeletal",
+      "Integument",
+      "Musculoskeletal",
+      "Craniofacial",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0005116",
+      "HP:0002659",
+      "HP:0002616",
+      "HP:0000973",
+      "HP:0001382",
+      "HP:0100545",
+      "HP:0001627",
+      "HP:0001642",
+      "HP:0001999",
+      "HP:0004322"
+    ],
+    "frequencies": [],
+    "genes": [
+      "EMILIN1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Arterial_Tortuosity-Bone_Fragility_Syndrome.yaml",
+    "page_url": "../pages/disorders/EMILIN1-Related_Arterial_Tortuosity_Syndrome.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Arterial Tortuosity Syndrome",
     "disease_id": "MONDO:0008818",
     "category": "Mendelian",
@@ -182588,6 +182669,120 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "HAVCR2-Related Cancer Predisposition",
+    "disease_id": "MONDO:1060169",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary neoplastic syndrome"
+    ],
+    "creation_date": "2026-11-03T19:15:04Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive germline predisposition caused by loss-of-function missense variants in HAVCR2, which encodes the inhibitory immune checkpoint receptor TIM-3. The recurrent alleles (p.Tyr82Cys on an East Asian and Polynesian founder chromosome, p.Ile97Met in patients of European ancestry, and the rarer p.Thr101Ile) misfold the TIM-3 IgV domain and abolish its plasma membrane expression, removing a brake on T-cell and innate immune activation. The clinical spectrum runs from subcutaneous panniculitis-like T-cell lymphoma (SPTCL) alone, through SPTCL complicated by hemophagocytic lymphohistiocytosis (HLH), to HLH with no lymphoma at all. Onset is usually in childhood, adolescence or young adulthood, earlier in biallelic carriers than in patients without a germline variant. Disease typically responds to immunosuppression and to JAK inhibition, and lymphoma can recur as clonally unrelated episodes, which is why the condition is treated as a constitutional predisposition rather than as a property of one tumor.",
+    "pathophysiology": [
+      "Germline HAVCR2 Loss of Function",
+      "TIM-3 Misfolding and Loss of Plasma Membrane Expression",
+      "Persistent Immune Activation and Inflammatory Cytokine Release",
+      "Macrophage Activation and Hemophagocytosis",
+      "Cytotoxic T-cell Infiltration of Subcutaneous Fat"
+    ],
+    "cell_types": [
+      "CD8-positive, alpha-beta T cell",
+      "macrophage",
+      "adipocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000625",
+      "CL:0000235",
+      "CL:0000136"
+    ],
+    "biological_processes": [
+      "protein folding",
+      "protein localization to plasma membrane",
+      "negative regulation of T cell activation",
+      "tumor necrosis factor production",
+      "interleukin-1 beta production",
+      "inflammatory response",
+      "IL6-JAK-STAT3 signaling",
+      "macrophage activation",
+      "phagocytosis",
+      "T cell mediated cytotoxicity"
+    ],
+    "phenotypes": [
+      "Subcutaneous panniculitis-like T-cell lymphoma",
+      "Hemophagocytic lymphohistiocytosis",
+      "Hemophagocytosis",
+      "Fever",
+      "Anemia",
+      "Neutropenia",
+      "Hyperferritinemia",
+      "Hypertriglyceridemia",
+      "Thrombocytopenia",
+      "Hypofibrinogenemia",
+      "Hepatosplenomegaly",
+      "Subcutaneous nodules",
+      "Lobular panniculitis"
+    ],
+    "phenotype_categories": [
+      "Neoplasm",
+      "Hematologic",
+      "Constitutional",
+      "Laboratory",
+      "Abdominal",
+      "Integumentary"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0012190",
+      "HP:0012156",
+      "HP:6000980",
+      "HP:0001945",
+      "HP:0001903",
+      "HP:0001875",
+      "HP:0003281",
+      "HP:0002155",
+      "HP:0001873",
+      "HP:0011900",
+      "HP:0001433",
+      "HP:0001482",
+      "HP:0012490"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HAVCR2"
+    ],
+    "treatments": [
+      "Corticosteroids plus Ciclosporin",
+      "Ruxolitinib",
+      "Multiagent Chemotherapy",
+      "Hematopoietic Stem Cell Transplantation",
+      "Genetic Counseling and Family Testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "HAVCR2-Related_Cancer_Predisposition.yaml",
+    "page_url": "../pages/disorders/HAVCR2-Related_Cancer_Predisposition.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "HCN1-Related Developmental and Epileptic Encephalopathy",
     "disease_id": "MONDO:0014377",
     "category": "Mendelian",
@@ -288376,6 +288571,124 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Neonatal Severe Primary Hyperparathyroidism",
+    "disease_id": "MONDO:0009397",
+    "category": "Mendelian",
+    "parents": [
+      "Endocrine disorder",
+      "Disorder of Calcium Metabolism"
+    ],
+    "creation_date": "2026-11-03T19:15:04Z",
+    "updated_date": null,
+    "subtypes": [
+      "Biallelic NSHPT",
+      "Monoallelic NSHPT"
+    ],
+    "description": "Neonatal severe primary hyperparathyroidism (NSHPT) is the biallelic, loss-of-function end of the CASR allelic series. Homozygous or compound heterozygous inactivating variants in CASR, the parathyroid and renal calcium-sensing receptor, remove most or all of the receptor's ability to read extracellular calcium. Parathyroid chief cells then keep secreting PTH at calcium concentrations that should silence them, all four glands become hyperplastic, and the kidney retains calcium rather than excreting it. The result, within the first days to weeks of life, is extreme PTH-dependent hypercalcaemia with hypocalciuria and hyperparathyroid bone disease: demineralisation, fractures and a deformed, bell-shaped chest. Affected infants present with hypotonia, poor feeding, dehydration, failure to thrive and respiratory distress, and the disease carries a high mortality without intervention. Acute management lowers calcium with hydration, diuretics, calcitonin and bisphosphonates; the calcimimetic cinacalcet controls some cases and fails in others; total parathyroidectomy is generally the definitive treatment and is followed by hungry bone syndrome and, usually, permanent hypoparathyroidism. The heterozygous counterpart of the same receptor defect is familial hypocalciuric hypercalcaemia type 1, a benign lifelong condition in which parathyroidectomy is not indicated.",
+    "pathophysiology": [
+      "Biallelic CASR Loss of Function",
+      "Raised Parathyroid Calcium Set Point",
+      "Parathyroid Chief Cell Hyperplasia",
+      "Unrestrained Parathyroid Hormone Secretion",
+      "Increased Renal Tubular Calcium Reabsorption",
+      "PTH-Driven Skeletal Demineralization",
+      "Severe Neonatal Hypercalcemia"
+    ],
+    "cell_types": [
+      "parathyroid chief cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000446"
+    ],
+    "biological_processes": [
+      "cellular response to calcium ion",
+      "parathyroid cell proliferation",
+      "parathyroid hormone secretion",
+      "renal tubular calcium reabsorption",
+      "bone resorption"
+    ],
+    "phenotypes": [
+      "Hypercalcemia",
+      "Elevated circulating parathyroid hormone level",
+      "Hypocalciuria",
+      "Parathyroid hyperplasia",
+      "Osteopenia",
+      "Increased susceptibility to fractures",
+      "Bell-shaped thorax",
+      "Respiratory distress",
+      "Neonatal hypotonia",
+      "Failure to thrive",
+      "Feeding difficulties",
+      "Constipation",
+      "Dehydration",
+      "Lethargy"
+    ],
+    "phenotype_categories": [
+      "Biochemical",
+      "Endocrine",
+      "Skeletal",
+      "Respiratory",
+      "Neuromuscular",
+      "Growth",
+      "Gastrointestinal",
+      "Metabolic",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003072",
+      "HP:0003165",
+      "HP:0003127",
+      "HP:0008208",
+      "HP:0000938",
+      "HP:0002659",
+      "HP:0001591",
+      "HP:0002098",
+      "HP:0001319",
+      "HP:0001508",
+      "HP:0011968",
+      "HP:0002019",
+      "HP:0001944",
+      "HP:0001254"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "CASR"
+    ],
+    "treatments": [
+      "Total Parathyroidectomy",
+      "Bisphosphonate (Pamidronate)",
+      "Cinacalcet",
+      "Acute Medical Management of Hypercalcaemia",
+      "Postoperative Calcium and Calcitriol",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum total and ionised calcium",
+      "Intact parathyroid hormone"
+    ],
+    "source_file": "Neonatal_Severe_Primary_Hyperparathyroidism.yaml",
+    "page_url": "../pages/disorders/Neonatal_Severe_Primary_Hyperparathyroidism.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Nephrogenic Syndrome of Inappropriate Antidiuresis",
     "disease_id": "MONDO:0010356",
     "category": "",
@@ -315496,6 +315809,102 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Palmoplantar Keratoderma-Esophageal Carcinoma Syndrome",
+    "disease_id": "MONDO:0007856",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary neoplastic syndrome",
+      "palmoplantar keratoderma"
+    ],
+    "creation_date": "2026-11-03T19:15:04Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Palmoplantar keratoderma-esophageal carcinoma syndrome, usually called tylosis with esophageal cancer (TOC), is an autosomal dominant cancer predisposition syndrome caused by heterozygous germline gain-of-function missense variants in RHBDF2, which encodes the catalytically inactive rhomboid protein iRHOM2. The reported variants cluster in a few adjacent codons of the cytoplasmic N-terminus. Focal, non-epidermolytic thickening of the skin at the weight-bearing and friction sites of the palms and soles appears in childhood, usually by 7 to 8 years and at the latest by puberty, with complete penetrance; it can be complicated by fissuring and infection. Oral and esophageal leukokeratosis occur, and carriers have a very high lifetime risk of esophageal squamous cell carcinoma, estimated at 95% by age 65 in the large Liverpool family, presenting from the mid-fifties onward and no earlier than sporadic disease. In patient keratinocytes the mutant iRHOM2 increases ADAM17 maturation and the shedding of EGF-family ligands, raising EGFR activity and producing a hyperproliferative, wound-healing-like epidermis; amphiregulin is the ligand that drives the skin phenotype in mouse models. Management centres on annual endoscopic surveillance with biopsy, which in the Liverpool family detected most cancers at stage 1.",
+    "pathophysiology": [
+      "Germline RHBDF2 Gain-of-Function Variant",
+      "Increased ADAM17 Maturation and Ectodomain Shedding in Keratinocytes",
+      "Amphiregulin-Driven EGFR Hyperactivation",
+      "Keratinocyte Hyperproliferation and Wound-Healing-Like Epidermal State",
+      "Stress Keratin K16 Upregulation with Loss of K6",
+      "Pre-Dysplastic Transcriptional Reprogramming of Esophageal Epithelium"
+    ],
+    "cell_types": [
+      "epidermal keratinocyte",
+      "esophageal squamous epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0002252"
+    ],
+    "biological_processes": [
+      "membrane protein ectodomain proteolysis",
+      "ADAM17 protein maturation",
+      "epidermal growth factor receptor signaling pathway",
+      "keratinocyte proliferation",
+      "wound healing",
+      "keratin filament organization"
+    ],
+    "phenotypes": [
+      "Focal Palmoplantar Keratoderma",
+      "Skin Fissures and Secondary Infection",
+      "Oral Leukokeratosis",
+      "Esophageal Leukokeratosis",
+      "Esophageal Squamous Cell Carcinoma",
+      "Dysphagia",
+      "Odynophagia",
+      "Weight Loss"
+    ],
+    "phenotype_categories": [
+      "Integumentary",
+      "Digestive",
+      "Neoplastic",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0007497",
+      "HP:0031057",
+      "HP:0002745",
+      "HP:0012859",
+      "HP:0011459",
+      "HP:0002015",
+      "HP:0032043",
+      "HP:0001824"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "RHBDF2"
+    ],
+    "treatments": [
+      "Annual Endoscopic Surveillance With Biopsy",
+      "Surgical Resection of Screen-Detected Esophageal Cancer",
+      "Emollients, Specialist Footwear and Treatment of Fissures",
+      "Oral Retinoids",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Palmoplantar_Keratoderma-Esophageal_Carcinoma_Syndrome.yaml",
+    "page_url": "../pages/disorders/Palmoplantar_Keratoderma-Esophageal_Carcinoma_Syndrome.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Palmoplantar Keratoderma Nagashima Type",
     "disease_id": "MONDO:0014272",
     "category": "Mendelian",
@@ -336264,6 +336673,7 @@ window.searchData = [
       "CSTB",
       "EPM2A",
       "NHLRC1",
+      "SLC7A6OS",
       "NEU1"
     ],
     "treatments": [],
@@ -336273,7 +336683,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Progressive_Myoclonus_Epilepsy.html",
     "num_phenotypes": 6,
     "num_pathophysiology": 5,
-    "num_genes": 4,
+    "num_genes": 5,
     "num_treatments": 0,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
@@ -346451,6 +346861,137 @@ window.searchData = [
     "num_genes": 2,
     "num_treatments": 6,
     "causal_graph_edges": "22",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Renal-Hepatic-Pancreatic Dysplasia 2",
+    "disease_id": "MONDO:0014174",
+    "category": "Mendelian",
+    "parents": [
+      "Ciliopathy",
+      "Cystic Kidney Disease",
+      "Genetic Kidney Disease"
+    ],
+    "creation_date": "2026-11-03T19:15:04Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Renal-hepatic-pancreatic dysplasia 2 (RHPD2) is an autosomal recessive ciliopathy caused by biallelic NEK8 variants. NEK8 is a NIMA-related serine/threonine kinase of the ciliary inversin compartment. The disease was first described in fetuses carrying a homozygous NEK8 nonsense variant, with enlarged cystic kidneys, liver and pancreas and developmental heart disease (an Ivemark II-like picture). Later reports added renal hypodysplasia, situs inversus, cardiomegaly with septal hypertrophy, bile duct paucity, narrow thorax and short bowed femurs. Most reported patients die before or around birth or in the first year of life. A minority survive into childhood with progressive kidney and liver failure.",
+    "pathophysiology": [
+      "Biallelic NEK8 Loss of Function",
+      "Inversin Compartment NEK8 Kinase Signaling Failure",
+      "Hippo Pathway YAP/TAZ Dysregulation",
+      "Reduced Polycystin Gene Expression and c-MYC Upregulation",
+      "Replication Stress and DNA Damage",
+      "Defective Nodal Left-Right Patterning",
+      "Congenital Cardiac Malformation",
+      "Renal Cystic Dysplasia",
+      "Hepatobiliary Ductal Plate Malformation and Fibrosis",
+      "Pancreatic Cystic Dysplasia and Fibrosis"
+    ],
+    "cell_types": [
+      "kidney epithelial cell",
+      "cholangiocyte",
+      "pancreatic ductal cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002518",
+      "CL:1000488",
+      "CL:0002079"
+    ],
+    "biological_processes": [
+      "hippo signaling",
+      "cellular response to fluid shear stress",
+      "DNA damage response",
+      "determination of left/right symmetry",
+      "heart development",
+      "kidney development",
+      "liver development",
+      "pancreas development"
+    ],
+    "phenotypes": [
+      "Cystic renal dysplasia",
+      "Enlarged kidney",
+      "Renal hypoplasia",
+      "Renal interstitial fibrosis",
+      "Anhydramnios",
+      "Stage 5 chronic kidney disease",
+      "Hepatic cysts",
+      "Malformation of the hepatic ductal plate",
+      "Hepatic fibrosis",
+      "Reduced number of intrahepatic bile ducts",
+      "Cholestasis",
+      "Pancreatic cysts",
+      "Pancreatic fibrosis",
+      "Situs inversus",
+      "Asplenia",
+      "Cardiomegaly",
+      "Ventricular septal hypertrophy",
+      "Ventricular septal defect",
+      "Narrow chest",
+      "Femoral bowing",
+      "Agenesis of corpus callosum",
+      "Aplasia/Hypoplasia of the cerebellar vermis"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Prenatal",
+      "Hepatic",
+      "Pancreatic",
+      "Laterality",
+      "Cardiovascular",
+      "Skeletal",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0000800",
+      "HP:0000105",
+      "HP:0000089",
+      "HP:0032948",
+      "HP:0025700",
+      "HP:0003774",
+      "HP:0001407",
+      "HP:0006563",
+      "HP:0001395",
+      "HP:0006571",
+      "HP:0001396",
+      "HP:0001737",
+      "HP:0100732",
+      "HP:0001696",
+      "HP:0001746",
+      "HP:0001640",
+      "HP:0005144",
+      "HP:0001629",
+      "HP:0000774",
+      "HP:0002980",
+      "HP:0001274",
+      "HP:0006817"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NEK8"
+    ],
+    "treatments": [
+      "Organ Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Renal-Hepatic-Pancreatic_Dysplasia_2.yaml",
+    "page_url": "../pages/disorders/Renal-Hepatic-Pancreatic_Dysplasia_2.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "36",
     "causal_graph_longest_path": "5"
   },
   {
@@ -361926,6 +362467,89 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "26",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Salmonella Gastroenteritis",
+    "disease_id": "MONDO:0005950",
+    "category": "Infectious Disease",
+    "parents": [
+      "Salmonellosis",
+      "Gastroenteritis"
+    ],
+    "creation_date": "2026-09-30T10:00:51Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Salmonella gastroenteritis is acute nontyphoidal Salmonella enteric infection acquired when contaminated food, milk, water, or animal contact delivers Salmonella enterica serovars to the distal ileum and colon. The organism uses M-cell uptake and SPI-1 type III secretion effectors to cross and invade the epithelium, activates caspase-1 and neutrophilic inflammation, exploits the inflamed gut lumen as a tetrathionate-supported respiratory niche, and causes diarrhea, fever, abdominal pain, and occasional bloody diarrhea, with rare bacteremia in susceptible hosts.",
+    "pathophysiology": [
+      "Proton Pump Inhibitor Gastric Acid Suppression",
+      "Foodborne Salmonella Ingestion",
+      "M-Cell FimH-GP2 Uptake",
+      "SPI-1 Type III Secretion and Enterocyte Invasion",
+      "SipB Caspase-1 IL-1\u03b2 Activation",
+      "SopB-Dependent Fluid Secretion",
+      "Neutrophilic Enterocolitis",
+      "Tetrathionate-Respiring Salmonella Bloom",
+      "Inflammatory-Secretory Diarrhea",
+      "Nontyphoidal Salmonella Bacteremia"
+    ],
+    "cell_types": [
+      "M cell of gut",
+      "enterocyte",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000682",
+      "CL:0000584",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "adhesion of symbiont to host",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Diarrhea",
+      "Fever",
+      "Abdominal Pain",
+      "Vomiting",
+      "Bloody Diarrhea",
+      "Dehydration"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0002014",
+      "HP:0001945",
+      "HP:0002027",
+      "HP:0002013",
+      "HP:0025085",
+      "HP:0001944"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "IL12RB1"
+    ],
+    "treatments": [
+      "Fluid and Electrolyte Rehydration",
+      "Severe or High-Risk Case Antimicrobial Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Salmonella_Gastroenteritis.yaml",
+    "page_url": "../pages/disorders/Salmonella_Gastroenteritis.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Sandestig-Stefanova Syndrome",
@@ -420800,6 +421424,101 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Xanthogranulomatous Pyelonephritis",
+    "disease_id": "MONDO:0007022",
+    "category": "Infectious Disease",
+    "parents": [
+      "Chronic pyelonephritis"
+    ],
+    "creation_date": "2026-11-03T22:13:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Xanthogranulomatous pyelonephritis is a rare chronic destructive bacterial kidney infection in which obstructing stones and persistent upper-tract uropathogens drive suppurative inflammation, incomplete phagolysosomal bacterial degradation, lipid-laden macrophage accumulation, granulomatous parenchymal replacement, and an enlarged masslike kidney that often mimics renal malignancy.",
+    "pathophysiology": [
+      "Obstructed Infected Collecting System",
+      "Chronic Suppurative Renal Inflammation",
+      "Incomplete Phagolysosomal Bacterial Degradation",
+      "Foam-Cell Xanthogranulomatous Inflammation",
+      "Renal Parenchymal Replacement",
+      "Perinephric and Psoas Extension"
+    ],
+    "cell_types": [
+      "neutrophil",
+      "macrophage",
+      "macrophage derived foam cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000235",
+      "CL:0000517"
+    ],
+    "biological_processes": [
+      "chronic inflammatory response",
+      "phagocytosis",
+      "macrophage activation",
+      "macrophage derived foam cell differentiation"
+    ],
+    "phenotypes": [
+      "Flank pain",
+      "Fever",
+      "Recurrent urinary tract infections",
+      "Hydronephrosis",
+      "Bacteriuria",
+      "Leukocytosis",
+      "Anemia",
+      "Pyuria",
+      "Hematuria",
+      "Abdominal mass",
+      "Sepsis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0030157",
+      "HP:0001945",
+      "HP:0000010",
+      "HP:0000126",
+      "HP:0012461",
+      "HP:0001974",
+      "HP:0001903",
+      "HP:0012085",
+      "HP:0000790",
+      "HP:0031500",
+      "HP:0100806"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Culture-directed antibiotic therapy",
+      "Percutaneous urinary and abscess drainage",
+      "Nephron-sparing partial nephrectomy for focal disease",
+      "Nephrectomy for diffuse destructive disease"
+    ],
+    "environmental": [
+      "Obstructive nephrolithiasis"
+    ],
+    "biochemical": [],
+    "source_file": "Xanthogranulomatous_Pyelonephritis.yaml",
+    "page_url": "../pages/disorders/Xanthogranulomatous_Pyelonephritis.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Xeroderma Pigmentosum",
     "disease_id": "MONDO:0019600",
     "category": "Mendelian",
@@ -424289,17 +425008,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3938,
-  "total_subtypes": 5002,
-  "total_disorders_and_subtypes": 8940,
-  "total_unique_evidence_sources": 58476,
-  "total_unique_publications": 54716,
+  "total_disorder_pages": 3945,
+  "total_subtypes": 5004,
+  "total_disorders_and_subtypes": 8949,
+  "total_unique_evidence_sources": 58557,
+  "total_unique_publications": 54792,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3936,
-  "total_unique_pathological_events": 25784,
+  "total_pathographs": 3943,
+  "total_unique_pathological_events": 25831,
   "total_modules": 226,
-  "total_research_reports": 4046,
+  "total_research_reports": 4053,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 129
