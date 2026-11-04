@@ -300402,7 +300402,7 @@ window.searchData = [
     "num_pathophysiology": 16,
     "num_genes": 19,
     "num_treatments": 6,
-    "causal_graph_edges": "97",
+    "causal_graph_edges": "107",
     "causal_graph_longest_path": "5"
   },
   {
@@ -322395,6 +322395,112 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "ARFGEF2-Related Periventricular Nodular Heterotopia",
+    "disease_id": "MONDO:0011966",
+    "category": "Mendelian",
+    "parents": [
+      "Malformation of cortical development"
+    ],
+    "creation_date": "2026-11-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Periventricular nodular heterotopia 2 (PVNH2) is an autosomal recessive malformation of cortical development caused by biallelic loss-of-function variants in ARFGEF2. ARFGEF2 encodes BIG2 (brefeldin-A-inhibited guanine nucleotide-exchange factor 2), which activates ADP-ribosylation factor (ARF) GTPases to drive vesicle budding and membrane trafficking through the Golgi. Loss of BIG2 impairs the vesicular trafficking that neural progenitors in the ventricular zone need both to proliferate and to migrate, so affected individuals have reduced cortical neuron production (microcephaly) together with neurons that fail to migrate away from the periventricular region and instead form nodular heterotopia lining the lateral ventricles. The combination presents as congenital or progressive microcephaly, periventricular nodular heterotopia, developmental delay or intellectual disability, and seizures. It is distinguished from the common X-linked dominant FLNA form of periventricular nodular heterotopia by its recessive inheritance, its microcephaly, and its trafficking mechanism.",
+    "pathophysiology": [
+      "ARFGEF2/BIG2 Loss of Function",
+      "Impaired Golgi Vesicle Trafficking",
+      "Mislocalization of Adhesion Molecules",
+      "Reduced Neural Progenitor Proliferation",
+      "Failure of Neuronal Migration",
+      "Cortical Malformation and Hyperexcitability"
+    ],
+    "cell_types": [
+      "radial glial cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000681",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "Golgi vesicle transport",
+      "protein localization to plasma membrane",
+      "neural precursor cell proliferation",
+      "neuron migration"
+    ],
+    "phenotypes": [
+      "Periventricular nodular heterotopia",
+      "Progressive microcephaly",
+      "Seizures",
+      "Global developmental delay",
+      "Involuntary movements",
+      "Dystonia",
+      "Left ventricular noncompaction cardiomyopathy",
+      "Hypotonia",
+      "Spastic tetraparesis",
+      "Feeding difficulties",
+      "Hypoplasia of the corpus callosum",
+      "Cerebral atrophy",
+      "Abnormal basal ganglia MRI signal intensity",
+      "Growth impairment",
+      "Recurrent respiratory infections"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Cardiovascular",
+      "Constitutional",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0032388",
+      "HP:0000253",
+      "HP:0001250",
+      "HP:0001263",
+      "HP:0004305",
+      "HP:0001332",
+      "HP:0011664",
+      "HP:0001252",
+      "HP:0002273",
+      "HP:0011968",
+      "HP:0002079",
+      "HP:0002059",
+      "HP:0012751",
+      "HP:0001510",
+      "HP:0002205"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ARFGEF2"
+    ],
+    "treatments": [
+      "Antiseizure pharmacotherapy",
+      "Supportive and rehabilitative care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Periventricular_Nodular_Heterotopia_2.yaml",
+    "page_url": "../pages/disorders/ARFGEF2-Related_Periventricular_Nodular_Heterotopia.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Periventricular Nodular Heterotopia 8",
@@ -426002,17 +426108,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3956,
+  "total_disorder_pages": 3957,
   "total_subtypes": 5008,
-  "total_disorders_and_subtypes": 8964,
-  "total_unique_evidence_sources": 58673,
-  "total_unique_publications": 54907,
+  "total_disorders_and_subtypes": 8965,
+  "total_unique_evidence_sources": 58682,
+  "total_unique_publications": 54916,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3954,
-  "total_unique_pathological_events": 25883,
+  "total_pathographs": 3955,
+  "total_unique_pathological_events": 25888,
   "total_modules": 226,
-  "total_research_reports": 4064,
+  "total_research_reports": 4066,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 129
