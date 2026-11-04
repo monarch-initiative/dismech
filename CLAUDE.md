@@ -2738,6 +2738,27 @@ Rules for filling it:
   an assertion to the record whose own evidence cites it.
 - **Quote the source row as evidence**, as with any structured-source citation.
 
+**A locus that should not be a subtype is a `genetic:` row, graded `DISPUTED`
+or `REFUTED`.** `relationship_type` is the curator's own reading of the
+gene-disease claim, and it is where a contested or retracted locus is recorded
+so the concept is not re-nominated. The two values are different claims, and
+they mirror the ClinGen/GenCC split that `gene_disease_validity` already
+carries:
+
+| The literature says | `relationship_type` |
+|---|---|
+| The claim is open: conflicting evidence, or a single report nobody has replicated or contradicted | `DISPUTED` |
+| The claim is closed against: the refuting evidence significantly outweighs the original report | `REFUTED` |
+
+A `REFUTED` row must cite the refutation in its `evidence`, not only the paper
+that made the claim. Where ClinGen or a GenCC submitter has graded the pair,
+copy that tier into `gene_disease_validity` as well; the two slots then say the
+same thing from two sources, and `just check-gene-validity` can see the second.
+Never write a `has_subtypes` row for such a locus: a subtype row asserts the
+subtype exists, and a `REFUTE` evidence item hanging off it does not undo
+that. `Hereditary_Spastic_Paraplegia` (ZFYVE27, `DISPUTED`, with the
+ClinGen Disputed record quoted) is the worked example for the open case.
+
 ```bash
 just check-gene-validity                              # gate: recorded ClinGen tier vs its CGGV: record
 just list-gene-validity --format tsv --kind backfill  # the mechanical worklist
