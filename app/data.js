@@ -51788,6 +51788,79 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Bacterial Conjunctivitis",
+    "disease_id": "MONDO:0006668",
+    "category": "Infectious Disease",
+    "parents": [
+      "Conjunctivitis",
+      "Bacterial infectious disease",
+      "Eye infectious disorder"
+    ],
+    "creation_date": "2026-11-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Gonococcal conjunctivitis",
+      "Inclusion conjunctivitis",
+      "Trachoma"
+    ],
+    "description": "Bacterial conjunctivitis is an acquired ocular-surface infection in which extracellular pyogenic bacteria such as Haemophilus influenzae, Streptococcus pneumoniae, Moraxella catarrhalis, and Staphylococcus aureus are inoculated onto the conjunctiva, induce antimicrobial epithelial responses, and cause an acute mucopurulent conjunctivitis.",
+    "pathophysiology": [
+      "Conjunctival bacterial inoculation",
+      "Pediatric nasopharyngeal eye-ear seeding",
+      "Conjunctival epithelial antimicrobial response",
+      "Purulent conjunctival inflammation"
+    ],
+    "cell_types": [
+      "conjunctival epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:1000432"
+    ],
+    "biological_processes": [
+      "antimicrobial humoral response",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Conjunctival hyperemia",
+      "Purulent eye discharge",
+      "Acute otitis media"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Ear"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Immune"
+    ],
+    "phenotype_ids": [
+      "HP:0030953",
+      "HP:0034427",
+      "HP:0000371"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Topical antibiotic therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bacterial_Conjunctivitis.yaml",
+    "page_url": "../pages/disorders/Bacterial_Conjunctivitis.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Bacterial meningitis caused by gram-negative bacteria",
     "disease_id": "MONDO:0041825",
     "category": "Infectious Disease",
@@ -238657,7 +238730,8 @@ window.searchData = [
     "genes": [],
     "treatments": [
       "Supportive Care",
-      "Formalin-Inactivated KFD Vaccination"
+      "Formalin-Inactivated KFD Vaccination",
+      "Tick Repellent and Acaricide Prevention"
     ],
     "environmental": [
       "Occupational and Forest Exposure",
@@ -238675,8 +238749,8 @@ window.searchData = [
     "num_phenotypes": 21,
     "num_pathophysiology": 5,
     "num_genes": 0,
-    "num_treatments": 2,
-    "causal_graph_edges": "10",
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "5"
   },
   {
@@ -305683,6 +305757,92 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Orbital Cellulitis",
+    "disease_id": "MONDO:0006881",
+    "category": "Infectious Disease",
+    "parents": [
+      "Cellulitis",
+      "Bacterial infectious disease"
+    ],
+    "creation_date": "2026-09-30T10:00:51Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Orbital cellulitis is a bacterial infection of the postseptal orbital soft tissues. It most often follows ethmoid or other paranasal sinusitis, whose bacteria can cross thin medial orbital walls or valveless venous channels and seed an acute orbital infection that causes chemosis, proptosis, painful ophthalmoplegia, subperiosteal or orbital abscess, and sight- or life-threatening intracranial complications.",
+    "pathophysiology": [
+      "Sinonasal Bacterial Extension",
+      "Postseptal Orbital Soft-Tissue Infection",
+      "Orbital Abscess Formation",
+      "Orbital Compartment Syndrome",
+      "Optic Nerve and Vascular Compression",
+      "Cavernous Sinus Septic Thrombosis"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Proptosis",
+      "Ophthalmoplegia",
+      "Chemosis",
+      "Diplopia",
+      "Eye Movement-Induced Pain",
+      "Visual Loss",
+      "Periorbital Edema",
+      "Eyelid Erythema",
+      "Fever",
+      "Optic Neuropathy",
+      "Meningitis",
+      "Brain Abscess"
+    ],
+    "phenotype_categories": [
+      "Ocular",
+      "Constitutional",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000520",
+      "HP:0000602",
+      "HP:0012375",
+      "HP:0000651",
+      "HP:0030857",
+      "HP:0000572",
+      "HP:0100539",
+      "HP:0040323",
+      "HP:0001945",
+      "HP:0001138",
+      "HP:0001287",
+      "HP:0030049"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Intravenous Broad-Spectrum Antibiotics",
+      "Adjunctive Systemic Corticosteroids",
+      "Abscess Drainage and Sinus Ventilation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Elevated C-reactive protein"
+    ],
+    "source_file": "Orbital_Cellulitis.yaml",
+    "page_url": "../pages/disorders/Orbital_Cellulitis.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Organophosphate Poisoning",
     "disease_id": "MONDO:0800386",
     "category": "Environmental",
@@ -321940,6 +322100,99 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "21",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Peritonsillar Abscess",
+    "disease_id": "MONDO:0005906",
+    "category": "Infectious Disease",
+    "parents": [
+      "Bacterial infectious disease",
+      "Abscess"
+    ],
+    "creation_date": "2026-09-30T10:00:51Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Peritonsillar abscess is a localized pyogenic infection around the palatine tonsil in which oropharyngeal bacteria, most prominently Fusobacterium necrophorum and group A Streptococcus, spread from tonsillar mucosa or Weber minor salivary glands through the salivary duct system into the peritonsillar space and form a pus collection. Abscess expansion displaces the soft palate and uvula, irritates the pterygoid muscle region, and produces severe sore throat, odynophagia, dysphagia, trismus, referred ear pain, and a muffled \"hot potato\" voice; untreated or complicated infections can extend into deep neck spaces, the airway, the mediastinum, or the internal jugular venous system.",
+    "pathophysiology": [
+      "Polymicrobial Tonsillar and Weber Gland Infection",
+      "Salivary Duct Spread to the Peritonsillar Space",
+      "Peritonsillar Pus Collection",
+      "Soft Palate and Uvula Edema",
+      "Pterygoid Region Irritation",
+      "Contiguous Deep Neck and Mediastinal Extension",
+      "Internal Jugular Septic Thrombophlebitis"
+    ],
+    "cell_types": [
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "response to bacterium",
+      "inflammatory response",
+      "neutrophil activation",
+      "blood coagulation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Sore Throat",
+      "Odynophagia",
+      "Dysphagia",
+      "Trismus",
+      "Hot Potato Voice",
+      "Uvular Deviation",
+      "Ear Pain",
+      "Cervical Lymphadenopathy",
+      "Deep Neck and Mediastinal Extension",
+      "Lemierre Syndrome"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Head and neck",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Ear",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0033050",
+      "HP:0032043",
+      "HP:0002015",
+      "HP:0000211",
+      "HP:0030766",
+      "HP:0025289"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Drainage",
+      "Antibiotic therapy",
+      "Adjunct systemic corticosteroid therapy",
+      "Abscess tonsillectomy for selected or recurrent disease"
+    ],
+    "environmental": [
+      "Smoking"
+    ],
+    "biochemical": [],
+    "source_file": "Peritonsillar_Abscess.yaml",
+    "page_url": "../pages/disorders/Peritonsillar_Abscess.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Perivascular Epithelioid Cell Neoplasm",
@@ -368692,6 +368945,85 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Septic Peritonitis",
+    "disease_id": "MONDO:0005195",
+    "category": "Infectious Disease",
+    "parents": [
+      "Infectious peritonitis",
+      "Bacterial infectious disease"
+    ],
+    "creation_date": "2026-11-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Septic peritonitis is an acquired intra-abdominal bacterial infection in which a gastrointestinal leak, biliary leak, postoperative dehiscence, or traumatic perforation contaminates the peritoneal cavity. Enteric aerobic and anaerobic organisms seed the mesothelial surface, activate resident sentinel cells, recruit neutrophils, and can progress from purulent local peritonitis to abdominal sepsis, septic shock, and multiple organ dysfunction unless surgical or percutaneous source control and antimicrobial therapy interrupt ongoing contamination.",
+    "pathophysiology": [
+      "Gastrointestinal Barrier Failure",
+      "Polymicrobial Peritoneal Seeding",
+      "Mesothelial Innate Cytokine Release",
+      "Purulent Peritoneal Inflammation",
+      "Fibrinous Loculation and Abscess Formation",
+      "Abdominal Sepsis"
+    ],
+    "cell_types": [
+      "mesothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000077"
+    ],
+    "biological_processes": [
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Sepsis",
+      "Abdominal pain",
+      "Hypoactive bowel sounds",
+      "Abdominal guarding",
+      "Abdominal distention",
+      "Shock",
+      "Fever",
+      "Tachycardia",
+      "Dehydration"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0100806",
+      "HP:0002027",
+      "HP:0030144",
+      "HP:0032546",
+      "HP:0003270",
+      "HP:0031273",
+      "HP:0001945",
+      "HP:0001649",
+      "HP:0001944"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Surgical Source Control",
+      "Broad-Spectrum Antimicrobial Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Procalcitonin",
+      "C-reactive protein"
+    ],
+    "source_file": "Septic_Peritonitis.yaml",
+    "page_url": "../pages/disorders/Septic_Peritonitis.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Septicemic Plague",
     "disease_id": "MONDO:0005956",
     "category": "Infectious Disease",
@@ -410157,6 +410489,81 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Usutu Virus Disease",
+    "disease_id": null,
+    "category": "Infectious",
+    "parents": [],
+    "creation_date": "2026-11-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Usutu virus disease is the human illness caused by Usutu virus (USUV), a mosquito-borne flavivirus (genus Orthoflavivirus, family Flaviviridae) of the Japanese encephalitis serocomplex and a close relative of West Nile virus. USUV is maintained in an enzootic cycle between Culex mosquitoes and birds, in which it can cause mass die-offs - notably of Eurasian blackbirds and owls - and it has spread and emerged across Europe since the early 2000s. Humans and horses are incidental, dead-end hosts infected by the bite of an infected mosquito. Most human infections are asymptomatic or cause only a mild febrile illness with rash and headache, but a minority - especially immunocompromised people - develop neuroinvasive disease (meningitis, encephalitis or meningoencephalitis), the first such human cases being recognised in Europe from 2009. It is an emerging arbovirus whose range and human recognition are expanding alongside West Nile virus.",
+    "pathophysiology": [
+      "USUV Cutaneous Inoculation and Interferon Antagonism",
+      "Viremia and Systemic Dissemination",
+      "Neuroinvasion and CNS Infection",
+      "Neuroinflammation",
+      "Meningoencephalitis"
+    ],
+    "cell_types": [
+      "neuron",
+      "microglial cell",
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000129",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "viral genome replication",
+      "flaviviral suppression of host type I interferon signaling",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Skin rash",
+      "Jaundice",
+      "Encephalitis",
+      "Meningitis",
+      "Resting tremor"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0000988",
+      "HP:0000952",
+      "HP:0002383",
+      "HP:0001287",
+      "HP:0002322"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Supportive care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Usutu_Virus_Disease.yaml",
+    "page_url": "../pages/disorders/Usutu_Virus_Disease.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Uterine Leiomyoma",
     "disease_id": "MONDO:0007886",
     "category": "Complex",
@@ -425279,17 +425686,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3948,
-  "total_subtypes": 5005,
-  "total_disorders_and_subtypes": 8953,
-  "total_unique_evidence_sources": 58576,
-  "total_unique_publications": 54811,
+  "total_disorder_pages": 3953,
+  "total_subtypes": 5008,
+  "total_disorders_and_subtypes": 8961,
+  "total_unique_evidence_sources": 58632,
+  "total_unique_publications": 54867,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3946,
-  "total_unique_pathological_events": 25846,
+  "total_pathographs": 3951,
+  "total_unique_pathological_events": 25873,
   "total_modules": 226,
-  "total_research_reports": 4056,
+  "total_research_reports": 4061,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 129
