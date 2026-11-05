@@ -167,19 +167,54 @@ dropped while the number survives.
 
 ## Citing a guideline from a KB entry
 
-Not yet possible with a verified snippet. `just fetch-reference
-DOI:10.1787/9789264229822-en` resolves and titles correctly — "Test No. 442D: In Vitro
-Skin Sensitisation" — but caches with `content_type: unavailable`, because the OECD
-iLibrary landing page carries no abstract. There is no body for
-`linkml-reference-validator` to match a quote against, so an entry can name the
-guideline but cannot quote it.
+Cite `OECDTG:442D` and quote a sentence of the guideline:
 
-The paragraph index is the missing body, and the repository already has the pattern for
-this: a structured-database source (`src/dismech/structured_sources/`) that writes a
-line-oriented `references_cache/` file whose rows are stable quotable substrings, as
-`ORPHA:`, `CGGV:`, `ICEES:` and `NCIT:` do. Until that exists, a method carried into a
-disease entry cites the literature for its evidence and names the guideline and
-paragraph in prose.
+```yaml
+evidence:
+- reference: OECDTG:442D
+  supports: SUPPORT
+  evidence_source: OTHER
+  snippet: "a luciferase reporter gene under the control of the antioxidant response element of the human AKR1C2 gene"
+  explanation: TG 442D states which regulatory element the KeratinoSens reporter carries.
+```
+
+`evidence_source: OTHER` is right here: a Test Guideline is a regulatory consensus
+document, not a study. Where the guideline reports a method's performance it is
+restating validation work done elsewhere, so such a quote also takes
+`quote_role: REVIEW_SYNTHESIS`.
+
+**The DOI does not work for this, which is why the prefix exists.** `just
+fetch-reference DOI:10.1787/9789264229822-en` resolves and titles correctly — "Test
+No. 442D: In Vitro Skin Sensitisation" — but caches with `content_type: unavailable`,
+because the OECD iLibrary landing page carries no abstract. There is no body for
+`linkml-reference-validator` to match a quote against. The workaround already visible
+in `kb/` was to cite a method's own primary paper and quote *its* introduction for a
+fact about the guideline, under `quote_role: BACKGROUND` — which attributes a
+regulatory statement to a research article that was only mentioning it.
+
+`OECDTestGuidelineSource` renders the committed paragraph index into
+`references_cache/OECDTG_442D.md`, the way `ORPHA:`, `CGGV:`, `ICEES:` and `NCIT:`
+cache their records, so each in-scope paragraph becomes a stable quotable substring:
+
+```bash
+just oecd-tg-list                      # the guidelines that have a cache file
+just oecd-tg-rebuild                   # rebuild every references_cache/OECDTG_*.md
+just oecd-tg-rebuild --id OECDTG:442D  # just one
+just fetch-reference OECDTG:442D       # routes to the same rebuild
+```
+
+The cache file is **generated** — never hand-edit it, as with every other
+`references_cache/` file. Unlike the other structured sources there is nothing to
+download: the paragraph index is committed, so a rebuild needs no network, and the
+only way to change the body is to re-extract from the pinned PDF. If an edit to the
+renderer leaves the committed file stale,
+`test_committed_cache_file_matches_a_fresh_render` fails and names the recipe.
+
+**Two limits before you quote it.** The body carries only the in-scope sections (see
+*Scope* above), so a licence term or a cell-line supplier — all of which sit in
+PROCEDURE — cannot be quoted from it at all. And a quote being verbatim says nothing
+about whether it supports the claim it is attached to, which is the same limitation
+the checker has, below.
 
 ## What the checker does and does not establish
 

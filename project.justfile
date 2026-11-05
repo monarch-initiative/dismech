@@ -3798,7 +3798,7 @@ fetch-reference +identifiers:
     for identifier in "${ids[@]}"; do
         echo "Fetching reference: $identifier"
         case "$identifier" in
-            CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*|ICTRP:*|ictrp:*|CGGV:*|CGDS:*|ORPHA:*|Orphanet:*|ICEES:*|NCIT:*)
+            CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*|ICTRP:*|ictrp:*|CGGV:*|CGDS:*|ORPHA:*|Orphanet:*|ICEES:*|NCIT:*|OECDTG:*|oecdtg:*)
                 if [ ${#flags[@]} -gt 0 ]; then
                     echo "Note: ${flags[*]} ignored for $identifier; structured-source records are always rebuilt." >&2
                 fi
@@ -3853,6 +3853,13 @@ fetch-reference +identifiers:
                 ;;
             ICEES:*)
                 uv run python -m dismech.structured_sources.cli rebuild icees --id "$identifier"
+                ;;
+            # The paragraph index is committed, so unlike the other structured
+            # prefixes there is nothing to refresh and no network call: the
+            # rebuild renders `data/oecd_tg/*-paragraphs.json`. The guideline PDF
+            # is pinned by sha256 in that manifest and is not needed here.
+            OECDTG:*|oecdtg:*)
+                uv run python -m dismech.structured_sources.cli rebuild oecd-tg --id "$identifier"
                 ;;
             NCIT:*)
                 # `rebuild ncit` opens sqlite:obo:ncit, and OAK downloads that
@@ -4859,3 +4866,14 @@ extract-oecd-tg pdf out="data/oecd_tg/tg442d-paragraphs.json":
 # Check extracted Test Guideline facts against the paragraphs they cite
 check-tg-extraction *args="":
     @uv run python scripts/check_tg_extraction.py {{args}}
+
+# Rebuild references_cache/OECDTG_*.md from the committed paragraph indexes, so a KB
+# entry can cite `OECDTG:442D` and quote a paragraph. Offline and deterministic: the
+# index is committed, the PDF is not needed, and re-running changes nothing unless the
+# index did. Commit the cache file alongside the entry that cites it.
+oecd-tg-rebuild *args="":
+    @uv run python -m dismech.structured_sources.cli rebuild oecd-tg {{args}}
+
+# Which Test Guidelines have a quotable record
+oecd-tg-list:
+    @uv run python -m dismech.structured_sources.cli list oecd-tg
