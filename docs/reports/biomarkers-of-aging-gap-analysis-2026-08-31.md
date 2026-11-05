@@ -291,6 +291,13 @@ it is a model output over many features. If clocks become a substantial part of 
 whether they belong in `biochemical:` or in `computational_models:` is a genuine open
 design question, not a curation detail.
 
+A later case sharpens the question. RetiME (Xu et al. 2026, DOI:10.1038/s41551-026-01822-4)
+predicts 13-year mortality from a single fundus photograph. It has no analyte to bind, so the
+`biochemical:` route would record an imaging procedure as the biomarker, and it was trained on
+death itself, so it measures the outcome rather than any upstream mechanism. It was curated in
+the `inflammaging` module's `computational_models:`, linked only to the morbidity and mortality
+node, as EpInflammAge already is there.
+
 ## Recommendations
 
 **Tier 1 — close the module biomarker gap.** Add `biochemical:` blocks with
