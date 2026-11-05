@@ -5661,6 +5661,129 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "ACTB-Related Syndromic Thrombocytopenia",
+    "disease_id": "MONDO:0100433",
+    "category": "Mendelian",
+    "parents": [
+      "Syndromic constitutional thrombocytopenia",
+      "Non-muscle actinopathy"
+    ],
+    "creation_date": "2026-11-04T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant non-muscle actinopathy caused by heterozygous ACTB variants in the 3' coding region (exons 5 and 6), defined in 2018 as a clinical entity distinct from Baraitser-Winter cerebrofrontofacial syndrome. Affected people have mild developmental delay, borderline to mild intellectual disability, microcephaly, minor non-specific facial anomalies, and thrombocytopenia with platelet anisocytosis and enlarged platelets; some have leukocytosis with eosinophilia. Thrombocytopenia is usually found on routine testing and has not been associated with spontaneous bleeding. The variants (missense, small in-frame deletions, and frameshifts in the last exon) do not trigger nonsense-mediated decay. In patient cells they lower the beta-actin to gamma-actin ratio, redistribute thrombocytopenia-associated actin-binding proteins onto beta-actin filaments, and disorder the microtubule marginal band of proplatelet swellings and platelets, impairing the final stage of platelet maturation. ClinGen classifies the gene-disease relationship as Moderate.",
+    "pathophysiology": [
+      "Heterozygous ACTB 3' Coding Region Variant",
+      "Impaired Beta-Actin Polymerization and Profilin Binding",
+      "Reduced Beta-Actin to Gamma-Actin Ratio",
+      "Recruitment of Thrombocytopenia-Associated Actin-Binding Proteins to Beta-Actin Filaments",
+      "Disordered Microtubule Marginal Band in Proplatelets and Platelets",
+      "Impaired Terminal Platelet Maturation",
+      "Altered Neutrophil Function"
+    ],
+    "cell_types": [
+      "megakaryocyte",
+      "platelet",
+      "dermal fibroblast",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000556",
+      "CL:0000233",
+      "CL:0000057",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "actin filament polymerization",
+      "actin filament bundle assembly",
+      "microtubule cytoskeleton organization",
+      "platelet formation"
+    ],
+    "phenotypes": [
+      "Thrombocytopenia",
+      "Enlarged Platelets",
+      "Platelet Anisocytosis",
+      "Prolonged Bleeding After Surgery",
+      "Increased Megakaryocyte Count",
+      "Leukocytosis",
+      "Eosinophilia",
+      "Monocytosis",
+      "Impaired Neutrophil Chemotaxis",
+      "Recurrent Infections",
+      "Microcephaly",
+      "Developmental Delay",
+      "Delayed Speech and Language Development",
+      "Intellectual Disability",
+      "Periventricular Nodular Heterotopia",
+      "Telecanthus",
+      "Thin Upper Lip Vermilion",
+      "Epicanthus",
+      "Upslanted Palpebral Fissures",
+      "Broad Nasal Tip",
+      "Cleft Lip",
+      "Patent Ductus Arteriosus",
+      "Delayed Fracture Healing"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Immunologic",
+      "Neurological",
+      "Craniofacial",
+      "Cardiovascular",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001873",
+      "HP:0040185",
+      "HP:0032438",
+      "HP:0004846",
+      "HP:0005513",
+      "HP:0001974",
+      "HP:0001880",
+      "HP:0012311",
+      "HP:0040238",
+      "HP:0002719",
+      "HP:0000252",
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0001256",
+      "HP:0032388",
+      "HP:0000506",
+      "HP:0000219",
+      "HP:0000286",
+      "HP:0000582",
+      "HP:0000455",
+      "HP:0410030",
+      "HP:0001643",
+      "HP:0032537"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "ACTB"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ACTB-Related_Syndromic_Thrombocytopenia.yaml",
+    "page_url": "../pages/disorders/ACTB-Related_Syndromic_Thrombocytopenia.html",
+    "num_phenotypes": 23,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "ACTH-Independent Macronodular Adrenal Hyperplasia 3",
     "disease_id": "MONDO:0700299",
     "category": "Mendelian",
@@ -49686,6 +49809,158 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "BCL11A-Related Intellectual Disability",
+    "disease_id": "MONDO:0014914",
+    "category": "Mendelian",
+    "parents": [
+      "BAFopathy",
+      "Syndromic intellectual disability",
+      "Neurodevelopmental disorder"
+    ],
+    "creation_date": "2026-11-04T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant neurodevelopmental disorder caused by heterozygous loss-of-function variants in BCL11A, a C2H2 zinc-finger transcriptional repressor that is also a subunit of the BAF (SWI/SNF) chromatin-remodeling complex. Most variants arise de novo; truncating variants predominate, and the recurrent N-terminal missense variants are hypomorphic. The core features are developmental delay or intellectual disability of variable severity, hypotonia, postnatal microcephaly, behavioral abnormalities and autism, strabismus and joint laxity, with mild and non-specific facial features. Persistence of fetal hemoglobin (HbF) is found in every individual tested and is clinically silent: in adult erythroid cells BCL11A represses the gamma-globin genes HBG1 and HBG2, and halving its dose leaves gamma-globin partly derepressed. Brain MRI most often shows a small cerebellar vermis and a small pons, consistent with BCL11A expression in developing Purkinje cells and brainstem. Bcl11a heterozygous mice have smaller brains, impaired social memory and abnormal social behavior. ClinGen classifies the gene-disease relationship as Definitive.",
+    "pathophysiology": [
+      "BCL11A Haploinsufficiency",
+      "Gamma-Globin Derepression in Adult Erythroid Cells",
+      "Dysregulated Neuronal Transcription",
+      "Impaired Cortical Projection Neuron Development",
+      "Purkinje Cell Dysfunction",
+      "Reduced Brain Growth"
+    ],
+    "cell_types": [
+      "erythroblast",
+      "cerebral cortex neuron",
+      "Purkinje cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000765",
+      "CL:0010012",
+      "CL:0000121"
+    ],
+    "biological_processes": [
+      "negative regulation of transcription by RNA polymerase II",
+      "regulation of gene expression",
+      "cerebral cortex radially oriented cell migration",
+      "neuron apoptotic process",
+      "neural precursor cell proliferation",
+      "cerebellar cortex development",
+      "dendrite development"
+    ],
+    "phenotypes": [
+      "Intellectual Disability",
+      "Delayed Speech and Language Development",
+      "Speech Apraxia",
+      "Motor Delay",
+      "Hypotonia",
+      "Postnatal Microcephaly",
+      "Autistic Behavior",
+      "Behavioral Abnormalities",
+      "Sleep Disturbance",
+      "Seizure",
+      "Ataxia",
+      "Cerebellar Vermis Hypoplasia",
+      "Hypoplasia of the Pons",
+      "Corpus Callosum Abnormality",
+      "Strabismus",
+      "Blue Sclerae",
+      "Persistence of Fetal Hemoglobin",
+      "Joint Hypermobility",
+      "Scoliosis",
+      "Constipation",
+      "Autonomic Dysfunction",
+      "Malar Flattening",
+      "Thin Upper Lip Vermilion",
+      "Downslanted Palpebral Fissures",
+      "External Ear Abnormality",
+      "Thick or Everted Lower Lip Vermilion",
+      "Wide Nose",
+      "Full Cheeks",
+      "Epicanthus",
+      "Cleft or High Palate",
+      "Gastroesophageal Reflux",
+      "Feeding Difficulties"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Ophthalmologic",
+      "Hematologic",
+      "Musculoskeletal",
+      "Gastrointestinal",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0011098",
+      "HP:0001270",
+      "HP:0001252",
+      "HP:0005484",
+      "HP:0000729",
+      "HP:0000708",
+      "HP:0002360",
+      "HP:0001250",
+      "HP:0001251",
+      "HP:0001320",
+      "HP:0012110",
+      "HP:0001273",
+      "HP:0000486",
+      "HP:0000592",
+      "HP:0011904",
+      "HP:0001382",
+      "HP:0002650",
+      "HP:0002019",
+      "HP:0002270",
+      "HP:0000272",
+      "HP:0000219",
+      "HP:0000494",
+      "HP:0000356",
+      "HP:0000179",
+      "HP:0000445",
+      "HP:0000293",
+      "HP:0000286",
+      "HP:0000174",
+      "HP:0002020",
+      "HP:0011968"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "BCL11A"
+    ],
+    "treatments": [
+      "Symptom-Directed Supportive Care",
+      "Anti-Seizure Medication",
+      "Speech and Language Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Fetal Hemoglobin"
+    ],
+    "source_file": "BCL11A-Related_Intellectual_Disability.yaml",
+    "page_url": "../pages/disorders/BCL11A-Related_Intellectual_Disability.html",
+    "num_phenotypes": 32,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "BDV Syndrome",
     "disease_id": "MONDO:0859150",
     "category": "Mendelian",
@@ -73927,7 +74202,7 @@ window.searchData = [
     ],
     "phenotypes": [
       "Achromatopsia",
-      "Tritanomaly",
+      "Tritanopic colour vision defect",
       "Reduced visual acuity",
       "Photophobia",
       "Pendular nystagmus",
@@ -73944,7 +74219,7 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0011516",
-      "HP:0000552",
+      "HP:0011518",
       "HP:0007663",
       "HP:0000613",
       "HP:0012043",
@@ -73975,7 +74250,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "23",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "6"
   },
   {
@@ -104319,13 +104594,18 @@ window.searchData = [
       "Impaired lymphocyte proliferative response",
       "Reduced NK cell number",
       "Chronic diarrhea",
-      "Invasive fungal infection"
+      "Invasive fungal infection",
+      "Decreased circulating IgG2 concentration",
+      "Increased circulating IgG concentration",
+      "Severe varicella zoster infection",
+      "Hemophagocytosis"
     ],
     "phenotype_categories": [
       "Infectious",
       "Hematologic",
       "Immunologic",
-      "Gastrointestinal"
+      "Gastrointestinal",
+      "Laboratory"
     ],
     "phenotype_hpo_categories": [
       "Blood",
@@ -104342,7 +104622,11 @@ window.searchData = [
       "HP:0031402",
       "HP:0040218",
       "HP:0002028",
-      "HP:0002841"
+      "HP:0002841",
+      "HP:0008348",
+      "HP:0003237",
+      "HP:0032170",
+      "HP:0012156"
     ],
     "frequencies": [
       "OBLIGATE",
@@ -104361,7 +104645,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Combined_Immunodeficiency_Due_To_CTPS1_Deficiency.yaml",
     "page_url": "../pages/disorders/Combined_Immunodeficiency_Due_to_CTPS1_Deficiency.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 11,
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
@@ -125778,7 +126062,10 @@ window.searchData = [
       "Recurrent invasive viral infections",
       "Chronic diarrhea and colitis",
       "Failure to thrive",
-      "Granulomatous inflammation"
+      "Granulomatous inflammation",
+      "Hypogammaglobulinemia",
+      "Recurrent sinopulmonary infections",
+      "Cytomegalovirus viremia"
     ],
     "phenotype_categories": [
       "Immunological",
@@ -125793,7 +126080,8 @@ window.searchData = [
       "Digestive",
       "Growth",
       "Immune",
-      "Metabolism"
+      "Metabolism",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0005403",
@@ -125803,7 +126091,10 @@ window.searchData = [
       "HP:0004429",
       "HP:0002028",
       "HP:0001508",
-      "HP:0032252"
+      "HP:0032252",
+      "HP:0004313",
+      "HP:0005425",
+      "HP:5210146"
     ],
     "frequencies": [],
     "genes": [
@@ -125820,7 +126111,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "DOCK2_Deficiency.yaml",
     "page_url": "../pages/disorders/DOCK2_Deficiency.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 11,
     "num_pathophysiology": 9,
     "num_genes": 2,
     "num_treatments": 4,
@@ -270963,6 +271254,100 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Microcornea-Myopic Chorioretinal Atrophy",
+    "disease_id": "MONDO:0014195",
+    "category": "Mendelian",
+    "parents": [
+      "Anterior segment dysgenesis",
+      "Inherited retinal dystrophy"
+    ],
+    "creation_date": "2026-11-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Microcornea-myopic chorioretinal atrophy (MMCAT) is a rare autosomal recessive developmental eye disorder caused by biallelic variants in ADAMTS18, which encodes a secreted zinc-dependent metalloproteinase of the ADAMTS family. It was first described in consanguineous Saudi families as a combination of small corneas, myopia with chorioretinal atrophy, telecanthus and posteriorly rotated ears. Later reports widened the ocular phenotype to anterior segment dysgenesis (ectopic pupils, posterior embryotoxon, angle anomalies with developmental glaucoma), lens abnormalities (childhood cataract, ectopia lentis, a small spherical lens), rhegmatogenous retinal detachment and a generalised retinal dystrophy, most often of cone-rod type. Microcornea is the most consistently reported feature; refractive error ranges from high myopia to hyperopia, and the facial features have been reported mainly in families of Arab ancestry. The mechanism by which loss of ADAMTS18 disturbs eye development is not established: ADAMTS18 is expressed in the developing lens and retina, cleaves fibronectin and regulates fibronectin matrix assembly in vitro, and Adamts18-null mice have a posterior lens-capsule defect but a structurally and functionally normal retina.",
+    "pathophysiology": [
+      "Biallelic ADAMTS18 Loss-of-Function Variants",
+      "Loss of ADAMTS18 Extracellular Metalloproteinase Activity",
+      "Disordered Extracellular Matrix Remodeling in the Developing Eye",
+      "Anterior Segment and Lens Maldevelopment",
+      "Retinal and Choroidal Degeneration"
+    ],
+    "cell_types": [
+      "lens fiber cell",
+      "photoreceptor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011004",
+      "CL:0000210"
+    ],
+    "biological_processes": [
+      "extracellular matrix organization",
+      "lens development in camera-type eye"
+    ],
+    "phenotypes": [
+      "Microcornea",
+      "High myopia",
+      "Chorioretinal atrophy",
+      "Cone/cone-rod dystrophy",
+      "Telecanthus",
+      "Posteriorly rotated ears",
+      "Ectopia pupillae",
+      "Ectopia lentis",
+      "Juvenile cataract",
+      "Rhegmatogenous retinal detachment",
+      "Developmental glaucoma",
+      "Strabismus",
+      "Taurodontia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Craniofacial",
+      "Dental"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Head and Neck"
+    ],
+    "phenotype_ids": [
+      "HP:0000482",
+      "HP:0011003",
+      "HP:0000533",
+      "HP:0000548",
+      "HP:0000506",
+      "HP:0000358",
+      "HP:0009918",
+      "HP:0001083",
+      "HP:0001118",
+      "HP:0012230",
+      "HP:0001087",
+      "HP:0000486",
+      "HP:0000679"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "ADAMTS18"
+    ],
+    "treatments": [
+      "Spectacle correction of refractive error",
+      "Surveillance and surgical management of ocular complications"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Microcornea-Myopic_Chorioretinal_Atrophy.yaml",
+    "page_url": "../pages/disorders/Microcornea-Myopic_Chorioretinal_Atrophy.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Microcytic Anemia With Liver Iron Overload",
     "disease_id": "MONDO:0008787",
     "category": "Mendelian",
@@ -286849,6 +287234,118 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "NRROS-Related Microgliopathy",
+    "disease_id": "MONDO:0030033",
+    "category": "Mendelian",
+    "parents": [
+      "microgliopathy",
+      "neurodegenerative disease"
+    ],
+    "creation_date": "2026-11-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "NRROS-related microgliopathy (seizures, early-onset, with neurodegeneration and brain calcifications; SENEBAC, MIM 618875) is an autosomal recessive, usually lethal infantile neurodegenerative disorder caused by biallelic loss-of-function variants in NRROS (negative regulator of reactive oxygen species, also called LRRC33). NRROS is a leucine-rich repeat transmembrane protein expressed by microglia and CNS perivascular macrophages that binds latent TGF-beta1 and presents it at the cell surface, where integrin alpha-v beta-8 releases the active cytokine to signal locally on the presenting microglial cell. Without NRROS, microglia lose this autocrine TGF-beta1 signal and do not acquire or maintain their homeostatic identity. Development is usually normal or mildly delayed until seizures begin in the first two years of life. Seizures are drug-resistant, and children then lose developmental skills, develop acquired microcephaly, and show progressive cerebral atrophy, white matter loss and punctate or serpiginous calcification at the grey-white matter junction. Most reported children have died by about three years of age.",
+    "pathophysiology": [
+      "NRROS Loss of Function",
+      "Loss of Microglial Autocrine TGF-beta1 Activation",
+      "Failure of Homeostatic Microglial Identity",
+      "Perivascular Foamy Macrophage Accumulation",
+      "Neuronal Loss and Reactive Gliosis",
+      "Deep White Matter Myelin Loss",
+      "Dystrophic Brain Calcification"
+    ],
+    "cell_types": [
+      "microglial cell",
+      "perivascular macrophage",
+      "foamy macrophage",
+      "neuron",
+      "astrocyte",
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000129",
+      "CL:0000881",
+      "CL:0000517",
+      "CL:0000540",
+      "CL:0000127",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "TGF-beta receptor signaling in microglia",
+      "microglia development",
+      "microglial cell activation",
+      "astrocyte activation",
+      "myelination"
+    ],
+    "phenotypes": [
+      "Drug-resistant epilepsy",
+      "Epileptic spasms",
+      "Myoclonic seizures",
+      "Developmental regression",
+      "Intracranial calcification",
+      "Cerebral atrophy",
+      "Reduced cerebral white matter volume",
+      "Delayed myelination",
+      "Ventriculomegaly",
+      "Thin corpus callosum",
+      "Acquired microcephaly",
+      "Hypotonia",
+      "Failure to thrive",
+      "Areflexia",
+      "Dystonia"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0011097",
+      "HP:0032794",
+      "HP:0002376",
+      "HP:0430048",
+      "HP:0002059",
+      "HP:0034295",
+      "HP:0012448",
+      "HP:0002119",
+      "HP:0033725",
+      "HP:0000253",
+      "HP:0001252",
+      "HP:0001508",
+      "HP:0001284",
+      "HP:0001332"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "NRROS"
+    ],
+    "treatments": [
+      "Antiseizure Pharmacotherapy",
+      "Ketogenic Diet",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "NRROS-Related_Microgliopathy.yaml",
+    "page_url": "../pages/disorders/NRROS-Related_Microgliopathy.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "NTHL1-deficiency Tumor Predisposition Syndrome",
     "disease_id": "MONDO:0100502",
     "category": "Mendelian",
@@ -289298,6 +289795,80 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "29",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Nephrotic Syndrome Type 18",
+    "disease_id": "MONDO:0032581",
+    "category": "Mendelian",
+    "parents": [
+      "Familial Idiopathic Steroid-Resistant Nephrotic Syndrome"
+    ],
+    "creation_date": "2026-11-04T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive steroid-resistant nephrotic syndrome caused by biallelic hypomorphic variants in NUP133, which encodes a scaffold nucleoporin of the Y-complex that builds the outer rings of the nuclear pore complex. NUP133 was added to the nucleoporin genes of SRNS in a 2018 report of outer-ring nucleoporin variants; few families are known, and a pooled review gives a median onset of 9 years and a median age at kidney failure of 13 years. Biopsy shows focal segmental glomerulosclerosis. Patient alleles weaken the binding of NUP133 to its Y-complex partner NUP107. Knocking NUP133 out of human podocytes impairs nuclear pore assembly, alters the podocyte transcriptome and disturbs RhoGTPase and actin cytoskeleton regulation, while patient alleles re-expressed in the same cells give only mild defects. Partial knockdown in zebrafish causes proteinuria and foot process effacement without a gross pore assembly defect. The same gene causes Galloway-Mowat syndrome 8, in which nephrotic syndrome is combined with microcephaly and brain anomalies; ClinGen lumps the two as one disease spectrum and classifies the relationship as Moderate.",
+    "pathophysiology": [
+      "Biallelic NUP133 Hypomorphic Variants",
+      "Weakened NUP107-NUP133 Y-Complex Interaction",
+      "Reduced Nuclear Pore Complex Assembly",
+      "Altered Podocyte Transcriptome",
+      "Disturbed RhoGTPase and Actin Cytoskeleton Regulation",
+      "Podocyte Injury and Glomerular Filtration Barrier Failure"
+    ],
+    "cell_types": [
+      "podocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000653"
+    ],
+    "biological_processes": [
+      "nuclear pore organization",
+      "regulation of actin cytoskeleton organization",
+      "Cdc42 protein signal transduction",
+      "glomerular filtration"
+    ],
+    "phenotypes": [
+      "Steroid-Resistant Nephrotic Syndrome",
+      "Proteinuria",
+      "Focal Segmental Glomerulosclerosis",
+      "Podocyte Foot Process Effacement",
+      "Kidney Failure"
+    ],
+    "phenotype_categories": [
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0012588",
+      "HP:0000093",
+      "HP:0000097",
+      "HP:0031266",
+      "HP:0003774"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "NUP133"
+    ],
+    "treatments": [
+      "Renin-angiotensin-aldosterone system inhibition",
+      "Immunosuppressant Discontinuation",
+      "Kidney Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Nephrotic_Syndrome_Type_18.yaml",
+    "page_url": "../pages/disorders/Nephrotic_Syndrome_Type_18.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Nephrotic Syndrome Type 2",
@@ -310278,7 +310849,7 @@ window.searchData = [
     "num_pathophysiology": 16,
     "num_genes": 4,
     "num_treatments": 5,
-    "causal_graph_edges": "23",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "8"
   },
   {
@@ -343362,6 +343933,91 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "RDH12-Related Dominant Retinopathy",
+    "disease_id": "MONDO:0800100",
+    "category": "Mendelian",
+    "parents": [
+      "Retinitis Pigmentosa",
+      "Inherited Retinal Dystrophy"
+    ],
+    "creation_date": "2026-11-04T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "RDH12-related dominant retinopathy is a rare, late-onset and comparatively mild rod-cone dystrophy (autosomal dominant retinitis pigmentosa) caused by a single heterozygous frameshift in the penultimate coding exon of RDH12. It is allelic to, and clinically very different from, the recessive RDH12 disease (Leber congenital amaurosis 13 / early-onset severe retinal dystrophy). Four families have been published, carrying three single-base deletions within 20 nucleotides of one another (c.759del, c.763del and c.778del, the last first reported as 776delG). Affected people present with night blindness and peripheral field loss, mid-peripheral bone-spicule pigmentation, attenuated vessels and disc pallor, while central acuity and macular structure are relatively preserved; expressivity varies within a family, and one carrier was recognised as affected only by adaptive optics imaging.\nRDH12 is an NADPH-dependent retinal reductase of the photoreceptor inner segment that clears all-trans-retinal and other aldehydes. Heterozygous carriers of recessive loss-of-function alleles are unaffected, so simple haploinsufficiency does not explain the dominant disease. All three dominant frameshifts are predicted to escape nonsense-mediated decay and to produce a truncated protein ending in the same novel C-terminal peptide. Whether that protein acts by a toxic gain of function or by dominant-negative interference with wild-type RDH12 is not settled; both are recorded here as alternative hypotheses, and neither has been tested directly. Patient iPSC-derived retinal organoids show fewer, shorter photoreceptors late in differentiation, with reduced RDH12 expression and disrupted vitamin A pathway and cone phototransduction gene expression.",
+    "pathophysiology": [
+      "Heterozygous RDH12 Penultimate-Exon Frameshift",
+      "NMD-Escaping Transcript Encoding RDH12 With a Novel C-Terminus",
+      "Toxic Gain of Function of the Aberrant C-Terminal Peptide",
+      "Dominant-Negative Interference With Wild-Type RDH12",
+      "Disrupted Vitamin A Pathway and Cone Phototransduction Gene Expression",
+      "Photoreceptor Segment Shortening and Loss",
+      "Late-Onset Rod-Cone Degeneration"
+    ],
+    "cell_types": [
+      "photoreceptor cell",
+      "retinal cone cell",
+      "retinal rod cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000210",
+      "CL:0000573",
+      "CL:0000604"
+    ],
+    "biological_processes": [
+      "retinol metabolic process",
+      "cone phototransduction",
+      "photoreceptor cell maintenance"
+    ],
+    "phenotypes": [
+      "Nyctalopia",
+      "Constriction of peripheral visual field",
+      "Rod-cone dystrophy",
+      "Abnormal electroretinogram",
+      "Spicular pigmentation of the retina",
+      "Attenuation of retinal blood vessels",
+      "Optic disc pallor",
+      "Perifoveal ring of hyperautofluorescence",
+      "Central thinning of the outer nuclear layer",
+      "Macular edema"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000662",
+      "HP:0001133",
+      "HP:0000510",
+      "HP:0000512",
+      "HP:0007737",
+      "HP:0007843",
+      "HP:0000543",
+      "HP:0030629",
+      "HP:6000367",
+      "HP:0040049"
+    ],
+    "frequencies": [],
+    "genes": [
+      "RDH12"
+    ],
+    "treatments": [
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "RDH12-Related_Dominant_Retinopathy.yaml",
+    "page_url": "../pages/disorders/RDH12-Related_Dominant_Retinopathy.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "RDH5-Related Retinopathy",
     "disease_id": "MONDO:0100443",
     "category": "Mendelian",
@@ -358747,6 +359403,92 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "23",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "SMARCC1-associated Developmental Dysgenesis Syndrome",
+    "disease_id": "MONDO:0700123",
+    "category": "Mendelian",
+    "parents": [
+      "BAFopathy"
+    ],
+    "creation_date": "2026-11-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Heterozygous, frequently de novo, loss-of-function or damaging missense variants in SMARCC1 reduce the dose of functional BAF155, a core scaffold subunit of the SWI/SNF (BAF) ATP-dependent chromatin-remodeling complex. Haploinsufficiency is the proposed disease mechanism.",
+    "pathophysiology": [
+      "SMARCC1 Loss-of-Function",
+      "BAF Complex Chromatin-Remodeling Dysfunction",
+      "Aberrant H3K27me3 Accumulation",
+      "De-repressed Wnt Signaling",
+      "Dysregulated Neurodevelopmental Transcription",
+      "Impaired Neurogenesis and Neuronal Differentiation",
+      "Structural Brain Dysgenesis"
+    ],
+    "cell_types": [
+      "radial glial cell",
+      "neural stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000681",
+      "CL:0000047"
+    ],
+    "biological_processes": [
+      "chromatin remodeling",
+      "canonical Wnt signaling pathway",
+      "regulation of neurogenesis",
+      "neuron differentiation"
+    ],
+    "phenotypes": [
+      "Hydrocephalus",
+      "Aqueductal stenosis",
+      "Ventriculomegaly",
+      "Abnormal corpus callosum morphology",
+      "Abnormal heart morphology",
+      "Global developmental delay",
+      "Seizure",
+      "Abnormality of the skeletal system"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Cardiovascular",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000238",
+      "HP:0002410",
+      "HP:0002119",
+      "HP:0001273",
+      "HP:0001627",
+      "HP:0001263",
+      "HP:0001250",
+      "HP:0000924"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "SMARCC1"
+    ],
+    "treatments": [
+      "Neurosurgical CSF diversion"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SMARCC1-associated_Developmental_Dysgenesis_Syndrome.yaml",
+    "page_url": "../pages/disorders/SMARCC1-associated_Developmental_Dysgenesis_Syndrome.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "SNAP25-Related Developmental and Epileptic Encephalopathy",
@@ -394398,6 +395140,97 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "TOPORS-Related Retinopathy",
+    "disease_id": "MONDO:0700233",
+    "category": "Mendelian",
+    "parents": [
+      "Retinitis pigmentosa",
+      "Inherited Retinal Dystrophy"
+    ],
+    "creation_date": "2026-11-04T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "TOPORS-related retinopathy (retinitis pigmentosa 31, RP31) is an autosomal dominant rod-cone degeneration caused by heterozygous variants in TOPORS, which encodes topoisomerase I-binding arginine/serine-rich protein, a RING domain E3 ligase with both ubiquitin and SUMO1 ligase activity. TOPORS is expressed in all tissues tested, yet its disease-causing variants are known only to damage the retina. In photoreceptors the protein sits at the basal body of the connecting cilium, and knockdown in zebrafish embryos prevents outer segment formation, so the disease is grouped with the photoreceptor ciliopathies. Most pathogenic alleles are frameshift or nonsense changes confined to a short stretch near the C-terminus in the last exon (residues 807 to 867), with a smaller number of missense changes. Whether these alleles act by haploinsufficiency or by a dominant-negative effect is unresolved. Patients present with night blindness, progressive constriction of the visual field and reduced electroretinogram responses, and later lose central vision; some young patients show a distinctive perivascular cuff of retinal pigment epithelium atrophy along the vascular arcades, and one missense allele causes a milder pericentral dystrophy. TOPORS accounts for roughly 1 percent of autosomal dominant retinitis pigmentosa, more in the French Canadian founder population.",
+    "pathophysiology": [
+      "Heterozygous TOPORS Last-Exon Variant",
+      "Loss of TOPORS Ligase Function at the Photoreceptor Basal Body",
+      "Photoreceptor Connecting Cilium and Outer Segment Defect",
+      "Rod Photoreceptor Degeneration",
+      "Secondary Cone Degeneration"
+    ],
+    "cell_types": [
+      "photoreceptor cell",
+      "retinal rod cell",
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000210",
+      "CL:0000604",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "photoreceptor cell outer segment organization",
+      "photoreceptor cell maintenance"
+    ],
+    "phenotypes": [
+      "Rod-cone dystrophy",
+      "Night blindness",
+      "Constriction of peripheral visual field",
+      "Abnormal electroretinogram",
+      "Reduced visual acuity",
+      "Perivascular cuff of retinal pigment epithelium atrophy",
+      "Pericentral retinitis pigmentosa",
+      "Spicular pigmentation of the retina",
+      "Attenuation of retinal blood vessels",
+      "Optic disc pallor",
+      "Macular edema",
+      "Cataract",
+      "Epiretinal membrane"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000510",
+      "HP:0000662",
+      "HP:0001133",
+      "HP:0000512",
+      "HP:0007663",
+      "HP:0007722",
+      "HP:0007947",
+      "HP:0007737",
+      "HP:0007843",
+      "HP:0000543",
+      "HP:0040049",
+      "HP:0000518",
+      "HP:0100014"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "TOPORS"
+    ],
+    "treatments": [
+      "Genetic Counseling",
+      "Gene Augmentation Therapy (Proposed)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TOPORS-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/TOPORS-Related_Retinopathy.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "TP63-Related Ectodermal Dysplasia Spectrum",
     "disease_id": "MONDO:1040001",
     "category": "Genetic",
@@ -426228,17 +427061,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3958,
+  "total_disorder_pages": 3966,
   "total_subtypes": 5009,
-  "total_disorders_and_subtypes": 8967,
-  "total_unique_evidence_sources": 58698,
-  "total_unique_publications": 54930,
+  "total_disorders_and_subtypes": 8975,
+  "total_unique_evidence_sources": 58793,
+  "total_unique_publications": 55017,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3956,
-  "total_unique_pathological_events": 25897,
+  "total_pathographs": 3964,
+  "total_unique_pathological_events": 25943,
   "total_modules": 226,
-  "total_research_reports": 4067,
+  "total_research_reports": 4075,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 130
