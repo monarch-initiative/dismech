@@ -208677,6 +208677,85 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "IDH3B-Related Retinopathy",
+    "disease_id": "MONDO:0800393",
+    "category": "Mendelian",
+    "parents": [
+      "Retinitis pigmentosa",
+      "Inherited Retinal Dystrophy"
+    ],
+    "creation_date": "2026-11-04T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "IDH3B-related retinopathy is an autosomal recessive, nonsyndromic retinitis pigmentosa (RP46) caused by biallelic loss-of-function variants in IDH3B, which encodes the beta subunit of mitochondrial NAD-dependent isocitrate dehydrogenase (IDH3, NAD-IDH). IDH3 is the tricarboxylic acid (TCA) cycle enzyme that oxidises isocitrate to alpha-ketoglutarate while reducing NAD+ to NADH. Patient lymphoblasts retain only a few percent of normal NAD-IDH activity, with a several hundred-fold rise in the Km for NAD, while the NADP-dependent mitochondrial isoenzyme IDH2 is normal. Affected individuals present in adulthood with rod-cone degeneration: subnormal visual acuity, impaired dark adaptation and night blindness, concentric visual field constriction, pale optic discs, attenuated arterioles, intraretinal pigment deposits and reduced rod and cone electroretinogram amplitudes, without signs of systemic mitochondrial disease. Why a deficiency of a ubiquitous TCA-cycle enzyme damages only the retina is not settled. The discovering authors proposed that IDH2 with the mitochondrial transhydrogenase substitutes for IDH3 in other tissues but not in the retina, and ex vivo mouse retina runs its mitochondria close to maximal capacity. Two independent Idh3b-null mouse lines lose IDH3 activity and accumulate isocitrate in the retina but do not develop retinal degeneration, so the human retinal vulnerability is not reproduced in mice. Only a handful of patients have been reported, and ClinGen rates the gene-disease relationship Moderate.",
+    "pathophysiology": [
+      "IDH3B Biallelic Loss of Function",
+      "NAD-Dependent Isocitrate Dehydrogenase Deficiency",
+      "Impaired Isocitrate Oxidation in the TCA Cycle",
+      "Photoreceptor Mitochondrial Energy Insufficiency",
+      "Rod and Cone Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "photoreceptor cell",
+      "retinal rod cell",
+      "retinal cone cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000210",
+      "CL:0000604",
+      "CL:0000573"
+    ],
+    "biological_processes": [
+      "isocitrate metabolic process",
+      "tricarboxylic acid cycle",
+      "photoreceptor cell maintenance"
+    ],
+    "phenotypes": [
+      "Retinitis pigmentosa",
+      "Nyctalopia",
+      "Constriction of peripheral visual field",
+      "Reduced visual acuity",
+      "Reduced electroretinogram amplitudes",
+      "Intraretinal pigment deposits",
+      "Optic disc pallor",
+      "Attenuation of retinal arterioles",
+      "Subcapsular cataract"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000510",
+      "HP:0000662",
+      "HP:0001133",
+      "HP:0007663",
+      "HP:0000654",
+      "HP:0007703",
+      "HP:0000543",
+      "HP:0007843",
+      "HP:0000523"
+    ],
+    "frequencies": [],
+    "genes": [
+      "IDH3B"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "IDH3B-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/IDH3B-Related_Retinopathy.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Acute Myeloid Leukemia, IDH-Mutated",
     "disease_id": "MONDO:0018874",
     "category": "",
@@ -427864,17 +427943,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3972,
+  "total_disorder_pages": 3973,
   "total_subtypes": 5014,
-  "total_disorders_and_subtypes": 8986,
-  "total_unique_evidence_sources": 58907,
-  "total_unique_publications": 55123,
+  "total_disorders_and_subtypes": 8987,
+  "total_unique_evidence_sources": 58916,
+  "total_unique_publications": 55131,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3970,
-  "total_unique_pathological_events": 25981,
+  "total_pathographs": 3971,
+  "total_unique_pathological_events": 25985,
   "total_modules": 226,
-  "total_research_reports": 4081,
+  "total_research_reports": 4082,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 130
