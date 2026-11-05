@@ -426,7 +426,7 @@ We audited all disorder entries with vaccine treatments and curated/enriched **2
 | `Tuberculosis` | `BCG Vaccination` (`NCIT:C298`) | **Completed** | `Alveolar Macrophage Entry and Phagosome Maturation Arrest`, `Extrapulmonary Hematogenous Dissemination` |
 | `Congenital_Rubella_Syndrome` | `Pre-Conception and Childhood Live-Attenuated Rubella Vaccination (MMR)` (`NCIT:C15346`) | **Completed (New Entry)** | `Maternal Rubella Viremia and Transplacental Viral Entry` |
 | `Hepatitis_E` | `Recombinant Hepatitis E Capsid Vaccine (HEV 239 / Hecolin)` (`NCIT:C15346`) | **Completed** | `Hepatotropic HEV Infection and Replication` |
-| `Buruli_Ulcer` | `Bacillus Calmette-Guerin (BCG) Cross-Protective Vaccination` (`NCIT:C15346`, `NCIT:C298`) | **Completed** | `Mycolactone-mediated tissue destruction` |
+| `Buruli_Ulcer` | `Bacillus Calmette-Guerin (BCG) Cross-Protective Vaccination` (`NCIT:C15346`, `NCIT:C298`) | **Not wired** | — (the available evidence is about other vaccines in mice, and BCG gives no long-term protection) |
 | `Clostridioides_difficile_Infection` | `Bezlotoxumab` (`NCIT:C153084`, `MONOCLONAL_ANTIBODY`) | **Completed** | `Epithelial Cell Death and Barrier Disruption` (+ `Toxin Production (TcdA/TcdB)` conformed to `toxoid_neutralizing_humoral_immunity`) |
 | `Prostate_Adenocarcinoma` | `Sipuleucel-T Autologous Cellular Immunotherapy` (`NCIT:C15262`, `CELL_THERAPY`) | **Completed** | *(Autologous cellular immunotherapy treatment entry; `PMID:40315400`)* |
 | `Cutaneous_Melanoma` | `Talimogene Laherparepvec (T-VEC) Oncolytic Viral Immunotherapy` (`NCIT:C15262`, `OTHER`) | **Completed** | *(Oncolytic viral immunotherapy treatment entry; `PMID:32714859`)* |
@@ -445,9 +445,9 @@ We audited all disorder entries with vaccine treatments and curated/enriched **2
 | `Invasive_Non-Typhoidal_Salmonellosis` | `Experimental iNTS vaccination` (`NCIT:C15346`) | **Completed** | `Invasive NTS bacteremia` |
 | `Leptospirosis` | `Recombinant vaccine strategy development (investigational prevention)` (`NCIT:C15346`) | **Completed** | `Hematogenous leptospiral dissemination` |
 | `Rift_Valley_Fever` | `Livestock vaccination (population-level control)` & `Investigational human vaccines` (`NCIT:C15346`) | **Completed** | `RVFV Replication and NSs-Mediated Interferon Antagonism` |
-| `Hantavirus_Pulmonary_Syndrome` | `Human Andes virus immune plasma` (`NCIT:C15259`, `BIOLOGIC`) | **Completed** | `Rodent-borne hantavirus infection`, `Pulmonary endothelial barrier dysfunction` |
+| `Hantavirus_Pulmonary_Syndrome` | `Human Andes virus immune plasma` (`NCIT:C15259`, `OTHER`) | **Completed** | `Pulmonary endothelial barrier dysfunction` (plasma is given after admission, so no edge onto acquisition) |
 | `Plague` | `Investigational F1-V Subunit and Attenuated Plague Vaccination` (`NCIT:C15346`) | **Completed** | `Type III Secretion System Deployment`, `Phagocytosis Inhibition and Bacterial Replication` |
-| `Tularemia` | `Live Vaccine Strain (LVS) Francisella tularensis Vaccination` (`NCIT:C15346`) | **Completed** | `Arthropod-Borne and Zoonotic Acquisition`, `Macrophage Phagosomal Escape and Cytosolic Replication` |
+| `Tularemia` | `Live Vaccine Strain (LVS) Francisella tularensis Vaccination` (`NCIT:C15346`) | **Completed** | `Macrophage Phagosomal Escape and Cytosolic Replication` (a vaccine does not prevent exposure, so no edge onto acquisition) |
 | `Lyme_Disease` | `OspA Lyme Disease Vaccination` (`NCIT:C15346`) | **Completed** | `Tick-Borne Transmission and Enzootic Cycle`, `Spirochete Invasion and Dissemination` |
 | `Leprosy` | `BCG and Mycobacterium indicus pranii Immunoprophylaxis` (`NCIT:C15346`) | **Completed** | `Intracellular Residence in Macrophages and Schwann Cells (Cell-Penetrant Drug Requirement)` |
 | `Hepatitis_C` | `Investigational Prophylactic HCV Vaccination` (`NCIT:C15346`) | **Completed** | `HCV attachment and hepatocyte entry`, `HCV genome replication and early viremia` |
@@ -456,8 +456,8 @@ We audited all disorder entries with vaccine treatments and curated/enriched **2
 | `Cervical_Adenocarcinoma` | `HPV Vaccination` (`NCIT:C15346`) | **Completed** | `HPV E6/E7-Mediated Oncogenesis in Glandular Epithelium` |
 | `HPV_Positive_Head_and_Neck_Cancer` | `HPV Vaccination` (`NCIT:C15346`) | **Completed** | `Viral Oncogene Integration`, `E6-Mediated p53 Degradation`, `E7-Mediated pRB Inactivation` |
 | `Aflatoxin_Related_HCC` | `HBV Vaccination` (`NCIT:C15346`) | **Completed** | `HBV-Induced YTHDF2 Upregulation` |
-| `Pancreatic_Ductal_Adenocarcinoma` | `Experimental Mutant KRAS Vaccine for Residual Disease` (`NCIT:C15346`) | **Completed** | `KRAS Oncogene Activation` |
-| `Complement_Component_3_Deficiency` | `Vaccination Against Encapsulated Bacteria` (`NCIT:C15346`) | **Completed** | `Impaired C3b Opsonophagocytosis` |
+| `Pancreatic_Ductal_Adenocarcinoma` | `Experimental Mutant KRAS Vaccine for Residual Disease` (`NCIT:C15346`) | **Not wired** | — (the vaccine targets cells expressing mutant KRAS rather than inhibiting KRAS activation; no node-level evidence yet) |
+| `Complement_Component_3_Deficiency` | `Vaccination Against Encapsulated Bacteria` (`NCIT:C15346`) | **Not wired** | — (vaccine antibody cannot restore C3b opsonization without C3) |
 | `Specific_Antibody_Deficiency` | `Pneumococcal Conjugate Vaccination` (`NCIT:C15346`) | **Completed** | `Failure of T-Independent Type 2 B Cell Activation`, `Absent Protective Anticapsular Antibody` |
 | `IRF7_Deficiency` | `Viral vaccination` (`NCIT:C15346`) | **Completed** | `Uncontrolled Viral Replication in Respiratory Cells` |
 | `Immunodeficiency_67` | `Antipneumococcal Vaccination` (`NCIT:C15346`) | **Completed** | `Invasive Pyogenic Bacterial Infection` |
