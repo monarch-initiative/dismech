@@ -3074,6 +3074,71 @@ alternative-models-research provider slug *args="":
     rmdir "$staging_dir" 2>/dev/null || true
     exit ${dr_status:-0}
 
+# Print the prompt `just claim-confirmation` would send for one use case in
+# templates/claim_confirmation/, and stop. Rendered through the client's own
+# template processor, so the preview cannot drift from what a run sends.
+# Print it first: the claim list is the whole experiment, and a run costs real
+# time and credit.
+# Example: just claim-confirmation-prompt paul_2023_pesticides
+[group('Research')]
+claim-confirmation-prompt slug:
+    uv run python scripts/claim_confirmation_vars.py {{slug}} --format prompt
+
+# Deep research asking whether each claim drawn from a single source is
+# independently confirmed, contradicted, or untested elsewhere. Independent
+# excludes the source's own companion papers and papers that merely cite it, so
+# the answer separates an established finding from a single-source one.
+#
+# Unlike its siblings, every variable is hand-written in
+# templates/claim_confirmation/<slug>.yaml, because nothing here can derive a
+# claim list: which assertions of a source are worth checking is the curator's
+# judgement. Committing the spec is what makes a run reproducible rather than
+# hand-assembled and lost.
+#
+# This answers "has anyone else reported this", not "does my quote say what I
+# attached it to" -- the second is claim-evidence mismatch (#10609, #12106) and
+# needs the cached document, not the literature.
+# Examples:
+#   just claim-confirmation-prompt paul_2023_pesticides
+#   just claim-confirmation openscientist paul_2023_pesticides
+[group('Research')]
+claim-confirmation provider slug *args="":
+    #!/usr/bin/env bash
+    set -e
+    entry=$(uv run python scripts/claim_confirmation_vars.py {{slug}} --format entry)
+    out_dir="{{research_dir}}/claim_confirmation"
+    mkdir -p "$out_dir"
+    output_file="$out_dir/$entry-claim-confirmation-{{slug}}-deep-research-{{provider}}.md"
+    requested_provider="{{provider}}"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
+    # The variable values are multi-line, so they go through a NUL-separated
+    # file: command substitution would drop the separators.
+    uv run python scripts/claim_confirmation_vars.py {{slug}} --format null > "$staging_dir/vars"
+    var_args=()
+    while IFS= read -r -d '' record; do
+        var_args+=(--var "$record")
+    done < "$staging_dir/vars"
+    rm -f "$staging_dir/vars"
+    echo "Claim confirmation: $entry [{{slug}}] ({{provider}}) -> $output_file"
+    provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+    {{dr_client}} research \
+        --template {{templates_dir}}/claim_confirmation_research.md \
+        "${var_args[@]}" \
+        $provider_arg \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
+        {{dr_validation}} \
+        {{dr_term_validation}} \
+        {{dr_fallback}} \
+        {{args}} || dr_status=$?
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
+    fi
+    rmdir "$staging_dir" 2>/dev/null || true
+    exit ${dr_status:-0}
+
 # Report which revision of a research template produced each report, and how
 # many predate the current prompt. A report records `template_file:` as a bare
 # path, so the file behind it changes while the reference does not (#10183).
