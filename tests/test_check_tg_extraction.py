@@ -142,6 +142,16 @@ def test_whitespace_and_case_do_not_decide_a_match() -> None:
     assert normalise("α-Sens®") == "alpha-sens"
 
 
+def test_both_alpha_characters_the_guideline_uses_fold_together() -> None:
+    """TG 442D paragraph ID/3 writes the method name once with U+237A.
+
+    Every other mention uses U+03B1, so without folding both the same name
+    compares two ways and a quote copied from one sentence fails against the
+    other.
+    """
+    assert normalise("⍺-Sens®") == normalise("α-Sens®") == "alpha-sens"
+
+
 def test_the_checker_cannot_tell_whether_a_quote_supports_its_value() -> None:
     """The error this whole exercise exists to catch needs a reader, not a script.
 

@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bacterial Conjunctivitis · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Bacterial Conjunctivitis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Bacterial Conjunctivitis</h1>
+                
+                <p class="report-subtitle">Key Findings</p>
+                
+                
+                <div class="report-date">2026-09-30</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0006668" target="_blank" rel="noopener noreferrer">MONDO:0006668</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">30 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>Key Findings</h2>
+<h3>1. Disease Information</h3>
+<p>Bacterial conjunctivitis is inflammation of the conjunctiva — the transparent mucous membrane lining the inner eyelids (palpebral conjunctiva) and covering the sclera (bulbar conjunctiva) — caused by pyogenic bacteria. It is the eye disease most commonly seen by general practitioners and is estimated to represent approximately <strong>1% of all primary-care consultations</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/17970823/">PMID: 17970823</a>).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0006668" target="_blank" rel="noopener noreferrer">MONDO:0006668</a>
+- <strong>ICD-10:</strong> H10.0 (mucopurulent conjunctivitis); ICD-11: 9A60.1 (conjunctivitis)
+- <strong>MeSH:</strong> Conjunctivitis, Bacterial (D003234)
+- <strong>Ophthalmia neonatorum:</strong> ICD-10 P39.1 / A54.31 (gonococcal), A74.0 (chlamydial); <strong>Trachoma:</strong> ICD-10 A71
+- OMIM/Orphanet: not applicable (non-Mendelian infectious disease)</p>
+<p><strong>Synonyms / alternative names:</strong> acute bacterial conjunctivitis, mucopurulent conjunctivitis, "pink eye" (a lay term shared with viral and allergic forms), purulent conjunctivitis; subtype-specific names include ophthalmia neonatorum / neonatal conjunctivitis, adult inclusion conjunctivitis (chlamydial), gonococcal (hyperacute) conjunctivitis, and trachoma (chronic chlamydial).</p>
+<p><strong>Information source:</strong> Content here is derived from <strong>aggregated disease-level resources</strong> — systematic reviews, RCTs, microbiological case series, and clinical cohorts — rather than a single patient EHR dataset.</p>
+<h3>2. Etiology</h3>
+<p>The primary cause is <strong>infectious</strong> — direct bacterial colonization and overgrowth on the ocular surface. There is <strong>no established Mendelian genetic etiology</strong>; genetic risk factors, causal variants, and susceptibility loci are not applicable to this acquired infection.</p>
+<p><strong>Predominant pathogens by age (Finding F002):</strong> A <em>Clinical Evidence</em> systematic review established that "the main bacterial pathogens are <em>Haemophilus influenzae</em> and <em>Streptococcus pneumoniae</em> in adults and children, and <em>Moraxella catarrhalis</em> in children" (<a href="https://pubmed.ncbi.nlm.nih.gov/22348418/">PMID: 22348418</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/21718563/">PMID: 21718563</a>).</p>
+<p><strong>Risk factors (environmental / host):</strong>
+- <strong>Age</strong> — pediatric predominance of bacterial (vs viral) forms; neonatal exposure during vaginal delivery.
+- <strong>Contact-lens wear</strong> — shifts flora toward gram-negative organisms and raises keratitis risk. "Contact lens wearers may be more likely to develop gram-negative infections. Bacterial keratitis occurs in up to 30 per 100,000 contact lens wearers" (<a href="https://pubmed.ncbi.nlm.nih.gov/22348418/">PMID: 22348418</a>). Contact-lens overnight wear, tap-water rinsing, and swimming/showering in lenses are documented behavioral risks (<a href="https://pubmed.ncbi.nlm.nih.gov/42223562/">PMID: 42223562</a>).
+- <strong>Sexual activity / STI exposure</strong> — for gonococcal and chlamydial adult conjunctivitis.
+- <strong>Vaginal delivery from an infected mother</strong> — for neonatal conjunctivitis; bloody discharge and vaginal delivery strongly predict chlamydial neonatal infection (F005).
+- <strong>Crowding / poor sanitation / repeated childhood infection</strong> — for endemic trachoma.
+- <strong>Concurrent upper-respiratory infection / otitis media</strong> — nasopharyngeal seeding in children (F008).</p>
+<p><strong>Protective factors:</strong> Intact tear-film innate immunity (lysozyme, lactoferrin, defensins — see F007), good contact-lens hygiene, prenatal STI screening and treatment of mothers, and ocular prophylaxis at birth (F012). No protective genetic alleles are established.</p>
+<p><strong>Gene–environment interactions:</strong> Not applicable in the Mendelian sense. The relevant "host–environment" interaction is between ocular-surface innate immune competence (defensin induction via TLRs) and bacterial virulence/exposure.</p>
+<h3>3. Phenotypes</h3>
+<p>Bacterial conjunctivitis presents with <strong>clinical signs and symptoms</strong> rather than laboratory-defined abnormalities. Characteristic features (with suggested HPO terms):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency / notes</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Conjunctival hyperaemia ("red eye")</td>
+<td>Clinical sign</td>
+<td>Near-universal; 95.1% in chlamydial series</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" rel="noopener noreferrer">HP:0000509</a> (Conjunctivitis)</td>
+</tr>
+<tr>
+<td>Mucopurulent / purulent discharge</td>
+<td>Symptom/sign</td>
+<td>Hallmark; associated with <em>H. influenzae</em> (present in 77% of <em>H. influenzae</em> cases)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025321" target="_blank" rel="noopener noreferrer">HP:0025321</a> (Eye discharge)</td>
+</tr>
+<tr>
+<td>Early-morning glued/matted eyelids</td>
+<td>Symptom</td>
+<td>Strong bacterial predictor (F015)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" rel="noopener noreferrer">HP:0000509</a></td>
+</tr>
+<tr>
+<td>Tarsal follicles</td>
+<td>Clinical sign</td>
+<td>85.4% in chlamydial conjunctivitis (follicular)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" rel="noopener noreferrer">HP:0000509</a></td>
+</tr>
+<tr>
+<td>Foreign-body / gritty sensation, irritation</td>
+<td>Symptom</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100539" target="_blank" rel="noopener noreferrer">HP:0100539</a> (Eye pain)</td>
+</tr>
+<tr>
+<td>Eyelid edema / swelling</td>
+<td>Sign</td>
+<td>Prominent in neonatal and gonococcal forms</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000198" target="_blank" rel="noopener noreferrer">HP:0000198</a></td>
+</tr>
+<tr>
+<td>Photophobia (with corneal involvement)</td>
+<td>Symptom</td>
+<td>Signals keratitis, sight-threatening</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" rel="noopener noreferrer">HP:0000613</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Onset / severity / progression:</strong> Typically <strong>acute onset</strong>, mild-to-moderate severity, and <strong>self-limited</strong> course over days (see F003). Hyperacute onset (&lt;24 h, copious discharge) suggests <em>Neisseria gonorrhoeae</em>. Chronic/subacute follicular presentation suggests <em>Chlamydia</em>. Lateralization is often <strong>unilateral at onset</strong> (88.0% unilateral in adult chlamydial series, F006), frequently becoming bilateral.</p>
+<p><strong>Quality-of-life impact:</strong> Generally short-lived; discomfort, temporary visual blurring from discharge, and social/occupational disruption (school/work exclusion). Sight-threatening forms (gonococcal keratitis, trachoma) carry major long-term QoL and disability burden through corneal scarring and blindness.</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Not applicable at the human germline level.</strong> Bacterial conjunctivitis has no causal genes, pathogenic ACMG/AMP variants, modifier genes, inheritance pattern, or chromosomal abnormalities. The relevant molecular biology is (a) <strong>host innate-immune gene expression</strong> — notably the β-defensin genes <em>DEFB1</em>, <em>DEFB4A</em>, <em>DEFB109</em> and cytokines <em>IL6</em>/<em>IL8</em> (see F007, F010), and (b) <strong>bacterial virulence genotypes</strong>, including β-lactamase and altered penicillin-binding-protein resistance determinants in <em>H. influenzae</em> and <em>S. pneumoniae</em> (F009). No population allele frequencies, somatic/germline distinctions, or epigenetic disease mechanisms apply to the host.</p>
+<h3>5. Environmental Information</h3>
+<p><strong>Infectious agents (NCBI Taxonomy):</strong>
+- <em>Haemophilus influenzae</em> (txid727), including non-typeable strains — leading pediatric pathogen (F002, F008, F014)
+- <em>Streptococcus pneumoniae</em> (txid1313)
+- <em>Moraxella catarrhalis</em> (txid480) — children
+- <em>Staphylococcus aureus</em> (txid1280), incl. MRSA — neonates and adults
+- <em>Chlamydia trachomatis</em> (txid813) — neonatal, adult inclusion, trachoma
+- <em>Neisseria gonorrhoeae</em> (txid485) — hyperacute
+- <em>Pseudomonas aeruginosa</em> (txid287) — contact-lens/gram-negative
+- Viridans streptococci (e.g., <em>S. mitis/oralis</em>) — rare neonatal opportunists (<a href="https://pubmed.ncbi.nlm.nih.gov/42104291/">PMID: 42104291</a>)</p>
+<p><strong>Environmental / lifestyle factors:</strong> contact-lens hygiene behaviors, crowding, hand-to-eye contact and fomite transmission, monsoon-season community surges in South/Southeast Asia (<a href="https://pubmed.ncbi.nlm.nih.gov/42667473/">PMID: 42667473</a>), and sexual behavior for STI-related forms.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li><strong>Bacterial exposure and adhesion</strong> to the ocular surface (via fomites, hand-to-eye contact, nasopharyngeal seeding, birth-canal exposure, or sexual inoculation) <strong>leads to</strong> colonization of the conjunctival/corneal epithelium.</li>
+<li>Colonization <strong>is normally opposed by</strong> tear-film innate antimicrobials (lysozyme, lactoferrin, surfactant protein-D, cationic peptides) and epithelial β-defensins hBD1–4; <strong>breach or saturation of this barrier leads to</strong> productive infection (F007). <em>Inferred as rate-limiting from in-vitro and expression data.</em></li>
+<li>Bacterial cell-wall components — <strong>LPS</strong> (gram-negative) and <strong>lipoteichoic acid / peptidoglycan</strong> (gram-positive) — engage epithelial <strong>Toll-like receptors (TLR2/TLR4/TLR5)</strong>, which <strong>results in</strong> activation of <strong>NF-κB and MAPK (p65, p38, JNK, ERK)</strong> signaling (F010).</li>
+<li>This <strong>leads to</strong> transcription of pro-inflammatory cytokines/chemokines, especially <strong>IL-6 and IL-8</strong>, and induction of inducible defensins (<em>DEFB4A</em> via infection, <em>DEFB109</em> via TLR2) (F007, F010).</li>
+<li>IL-8 chemotaxis <strong>results in</strong> <strong>neutrophil recruitment</strong> to the conjunctiva, producing the characteristic <strong>mucopurulent exudate</strong> and clinical signs (hyperaemia, discharge, glued lids).</li>
+<li><strong>Branch A — self-limited resolution (most cases):</strong> innate + adaptive clearance <strong>leads to</strong> symptom resolution within days, independent of antibiotics (F001, F003, F014).</li>
+<li><strong>Branch B — corneal invasion (gram-negative/Pseudomonas):</strong> bacterial <strong>elastase</strong> degrades tight-junction proteins ZO-1 and occludin, and host <strong>MMP13</strong> is induced TLR5-dependently, which <strong>results in</strong> epithelial/basement-membrane breakdown, corneal ulceration, and potential perforation (F010).</li>
+<li><strong>Branch C — hyperacute gonococcal:</strong> <em>N. gonorrhoeae</em> penetrates intact epithelium <strong>leading to</strong> rapid keratitis and corneal perforation (mean ~11 days) if untreated (F004).</li>
+<li><strong>Branch D — chronic chlamydial/trachoma:</strong> repeated <em>C. trachomatis</em> infection drives an <strong>immunologically mediated</strong> chronic follicular response that <strong>leads to</strong> conjunctival (trachomatous) scarring, trichiasis, and blindness (F011).</li>
+</ol>
+<p><strong>Molecular pathways:</strong> NF-κB signaling, MAPK cascades (ERK/JNK/p38), TLR signaling. <strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" rel="noopener noreferrer">GO:0007249</a> (I-κB kinase/NF-κB signaling), <a href="http://purl.obolibrary.org/obo/GO_0050830" target="_blank" rel="noopener noreferrer">GO:0050830</a> (defense response to Gram-positive bacterium), <a href="http://purl.obolibrary.org/obo/GO_0050829" target="_blank" rel="noopener noreferrer">GO:0050829</a> (defense response to Gram-negative bacterium), <a href="http://purl.obolibrary.org/obo/GO_0071222" target="_blank" rel="noopener noreferrer">GO:0071222</a> (cellular response to lipopolysaccharide), <a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" rel="noopener noreferrer">GO:0030593</a> (neutrophil chemotaxis). <strong>Cell types (CL):</strong> conjunctival epithelial cell (<a href="http://purl.obolibrary.org/obo/CL_0000082" target="_blank" rel="noopener noreferrer">CL:0000082</a> epithelial cell), corneal epithelial cell (<a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" rel="noopener noreferrer">CL:0000575</a>), neutrophil (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>). <strong>CHEBI:</strong> lipopolysaccharide (<a href="http://purl.obolibrary.org/obo/CHEBI_16412" target="_blank" rel="noopener noreferrer">CHEBI:16412</a>), peptidoglycan, lipoteichoic acid.</p>
+<p>Key supporting evidence: Pseudomonas elastase caused "significant degradation of ZO-1 and occludin," dropping transepithelial resistance from 323 to 104 Ω/cm² (<a href="https://pubmed.ncbi.nlm.nih.gov/34232259/">PMID: 34232259</a>); MMP13 showed "increased expression … in a Toll-like receptor 5-dependent manner" (<a href="https://pubmed.ncbi.nlm.nih.gov/25589337/">PMID: 25589337</a>); LTA/LPS induced "phosphorylation of p65, p38, JNK, and ERK, along with increased IL-6, IL-8" (<a href="https://pubmed.ncbi.nlm.nih.gov/40578588/">PMID: 40578588</a>); defensins hBD1–4 are "constitutively expressed in conjunctival epithelial cells" (<a href="https://pubmed.ncbi.nlm.nih.gov/20526610/">PMID: 20526610</a>).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Primary organ:</strong> eye — specifically the <strong>conjunctiva</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" rel="noopener noreferrer">UBERON:0001811</a>), palpebral and bulbar. <strong>Body system:</strong> visual/sensory system; conjunctival epithelium (<a href="http://purl.obolibrary.org/obo/UBERON_0007037" target="_blank" rel="noopener noreferrer">UBERON:0007037</a>).</li>
+<li><strong>Secondary / complication sites:</strong> cornea (<a href="http://purl.obolibrary.org/obo/UBERON_0000964" target="_blank" rel="noopener noreferrer">UBERON:0000964</a>) in keratitis; middle ear (<a href="http://purl.obolibrary.org/obo/UBERON_0001756" target="_blank" rel="noopener noreferrer">UBERON:0001756</a>) in conjunctivitis–otitis syndrome; nasopharynx (<a href="http://purl.obolibrary.org/obo/UBERON_0001728" target="_blank" rel="noopener noreferrer">UBERON:0001728</a>) as reservoir; eyelid (<a href="http://purl.obolibrary.org/obo/UBERON_0000010" target="_blank" rel="noopener noreferrer">UBERON:0000010</a>); lacrimal apparatus.</li>
+<li><strong>Tissue/cell level:</strong> conjunctival and corneal <strong>epithelium</strong> (epithelial tissue); infiltrating <strong>neutrophils</strong>; goblet cells (mucin). <strong>CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000082" target="_blank" rel="noopener noreferrer">CL:0000082</a>, <a href="http://purl.obolibrary.org/obo/CL_0000575" target="_blank" rel="noopener noreferrer">CL:0000575</a>, <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>.</li>
+<li><strong>Subcellular:</strong> epithelial tight junctions (<a href="http://purl.obolibrary.org/obo/GO_0005923" target="_blank" rel="noopener noreferrer">GO:0005923</a> bicellular tight junction; ZO-1/occludin) targeted by proteases; NF-κB nuclear translocation (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> nucleus); plasma-membrane TLR receptors (<a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>).</li>
+<li><strong>Lateralization:</strong> frequently <strong>unilateral at onset</strong>, commonly progressing to <strong>bilateral</strong>; gonococcal is typically unilateral by direct inoculation.</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> usually <strong>acute</strong> in bacterial forms; <strong>hyperacute</strong> (&lt;24 h) for gonococcal; <strong>subacute/chronic</strong> for chlamydial; <strong>neonatal onset</strong> within days–weeks of birth for ophthalmia neonatorum.</li>
+<li><strong>Age of onset:</strong> any age; pediatric predominance for typical bacterial forms; neonatal for ON; young adults for chlamydial (median age 26, F006).</li>
+<li><strong>Progression rate &amp; course:</strong> typically <strong>self-limited</strong>, resolving within about a week. "About 50% of patients recover within four days without antibiotic therapy" (<a href="https://pubmed.ncbi.nlm.nih.gov/17585426/">PMID: 17585426</a>); in a modern PCR cohort, "improvement (96%) and resolution (86%) were observed by day 5" (F014). Trachoma follows a <strong>chronic, relapsing, progressive</strong> course over years toward scarring.</li>
+<li><strong>Remission:</strong> predominantly <strong>spontaneous</strong>; antibiotics modestly accelerate cure.</li>
+<li><strong>Critical periods:</strong> neonatal window (prophylaxis/prompt treatment prevents blindness); early treatment of gonococcal disease is "mandatory to avoid … corneal ulceration and perforation" (F004).</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Inheritance:</strong> Not applicable — non-genetic infectious disease. Penetrance, expressivity, anticipation, mosaicism, founder effects, consanguinity, and carrier frequency are all not applicable.</p>
+<p><strong>Epidemiology:</strong> Extremely common; ~1% of primary-care visits (<a href="https://pubmed.ncbi.nlm.nih.gov/17970823/">PMID: 17970823</a>). Pediatric bacterial conjunctivitis is frequent, often with otitis (F008). <strong>Neonatal:</strong> in a 10-year Singapore cohort of 797 neonates, 17.5% were <em>C. trachomatis</em>-positive, 10.2% <em>S. aureus</em>, 4.1% MRSA, and <em>N. gonorrhoeae</em> only 0.75% (F005). A European survey found CT/NG conjunctivitis incidence of ~6 per 100,000 live births (<a href="https://pubmed.ncbi.nlm.nih.gov/42545922/">PMID: 42545922</a>). <strong>Trachoma:</strong> population trachomatous-scarring prevalence 8.2% region-wide (12.6% in adults ≥15 y) in Amhara, Ethiopia (<a href="https://pubmed.ncbi.nlm.nih.gov/33985443/">PMID: 33985443</a>); the leading infectious cause of blindness worldwide (F011).</p>
+<p><strong>Geographic distribution:</strong> Trachoma endemic in poorest regions (sub-Saharan Africa, parts of Asia/Middle East); seasonal community surges reported across South/Southeast Asia. <strong>Sex ratio:</strong> roughly balanced overall; adult chlamydial conjunctivitis series was 67.8% male (F006); gonococcal cases skew male in reported series.</p>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical diagnosis</strong> predominates; most cases are treated empirically without culture.</li>
+<li><strong>Clinical prediction rule (F015):</strong> three history items discriminate bacterial etiology — "early morning glued eye(s), itch, and a history of conjunctivitis. The first … increased the likelihood of a bacterial cause, whereas the other two decreased it," AUC 0.74; baseline bacterial prevalence 32% could be shifted to 4% or 77% (<a href="https://pubmed.ncbi.nlm.nih.gov/15201195/">PMID: 15201195</a>).</li>
+<li><strong>Laboratory tests:</strong> conjunctival swab <strong>Gram stain and culture</strong> (chocolate agar for fastidious organisms); <strong>NAAT/PCR</strong> for <em>C. trachomatis</em> and <em>N. gonorrhoeae</em>, and increasingly for <em>H. influenzae</em> (the pathogen most associated with pediatric conjunctivitis by PCR case-control, aOR 4.59, F014). PCR real-time assays validated for ocular swabs in trachoma (<a href="https://pubmed.ncbi.nlm.nih.gov/29463279/">PMID: 29463279</a>).</li>
+<li><strong>Cytology/biopsy:</strong> follicular reaction and inclusion bodies in chlamydial disease; neutrophil-predominant exudate in acute bacterial disease.</li>
+<li><strong>When to escalate:</strong> hyperacute purulent discharge → urgent Gram stain/culture for gonococcus; contact-lens wearer with corneal infiltrate → corneal scrape culture, in-vivo confocal microscopy, PCR (<a href="https://pubmed.ncbi.nlm.nih.gov/42223562/">PMID: 42223562</a>).</li>
+<li><strong>Genetic testing / omics / newborn screening:</strong> not applicable for host diagnosis. <strong>Differential diagnosis:</strong> viral (adenoviral) conjunctivitis (~80% of infectious conjunctivitis is viral), allergic conjunctivitis, blepharitis, keratitis, and iritis. Notably, adult chlamydial conjunctivitis is misdiagnosed as adenoviral in 63.6% of cases (F006).</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Overall excellent prognosis</strong> for typical acute bacterial conjunctivitis: self-limited, with high spontaneous remission and outcomes not differing by antibiotic use (F001, F003, F014). Mortality essentially nil for uncomplicated disease.</li>
+<li><strong>Complications:</strong> bacterial <strong>keratitis</strong> (up to 30/100,000 contact-lens wearers), corneal ulceration/<strong>perforation</strong> (gonococcal), and <strong>blindness</strong> from trachomatous scarring. Gonococcal keratoconjunctivitis caused corneal perforation at a mean of 11 days (F004).</li>
+<li><strong>Prognostic factors:</strong> pathogen (gonococcal/Pseudomonas/chlamydial worse), contact-lens wear, corneal involvement, immune status, and delay to effective treatment.</li>
+<li><strong>Disability/QoL:</strong> minimal for common forms; major and permanent for trachoma-related blindness and corneal perforation.</li>
+</ul>
+<h3>12. Treatment</h3>
+<p><strong>Core principle — antibiotic stewardship (F001, F003, F014):</strong> Cochrane meta-analysis of 21 RCTs (8,805 participants) found topical antibiotics increased clinical recovery by 26% (RR 1.26; 95% CI 1.09–1.46) and microbiological cure by 53% (RR 1.53; 95% CI 1.34–1.74), but many cases are self-limited (<a href="https://pubmed.ncbi.nlm.nih.gov/37482371/">PMID: 37482371</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36912752/">PMID: 36912752</a>). <strong>Delayed prescribing</strong> cuts antibiotic use (53% vs 99%) with minimal loss of benefit (<a href="https://pubmed.ncbi.nlm.nih.gov/16847013/">PMID: 16847013</a>).</p>
+<p><strong>Pharmacotherapy (NCIT-suggested classes):</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Agent / class</th>
+<th>Evidence</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Azithromycin 1.5%</strong> eye drops (macrolide)</td>
+<td>Non-inferior to tobramycin, earlier cure at D3, 6 vs 36 drops (<a href="https://pubmed.ncbi.nlm.nih.gov/20223555/">PMID: 20223555</a>); pediatric superiority D3 47.1% vs 28.7% (<a href="https://pubmed.ncbi.nlm.nih.gov/24526744/">PMID: 24526744</a>)</td>
+<td>Convenient short course; active vs <em>H. influenzae</em> and <em>C. trachomatis</em></td>
+</tr>
+<tr>
+<td><strong>Fluoroquinolones</strong> (ciprofloxacin, ofloxacin, moxifloxacin)</td>
+<td>Most active in resistant pediatric isolates (<a href="https://pubmed.ncbi.nlm.nih.gov/10817723/">PMID: 10817723</a>); did NOT increase ocular complications (RR 0.70)</td>
+<td>Preferred for contact-lens/gram-negative and keratitis risk</td>
+</tr>
+<tr>
+<td><strong>Aminoglycosides</strong> (tobramycin 0.3%)</td>
+<td>Standard comparator, effective</td>
+<td>Non-fluoroquinolones increased complications (RR 4.05)</td>
+</tr>
+<tr>
+<td><strong>Chloramphenicol</strong></td>
+<td>Widely used first-line (UK OTC)</td>
+<td>Stewardship concern with OTC availability</td>
+</tr>
+<tr>
+<td><strong>Systemic ceftriaxone</strong></td>
+<td>Mandatory for <strong>gonococcal</strong> disease (F004)</td>
+<td>Prevents perforation; add topical</td>
+</tr>
+<tr>
+<td><strong>Oral erythromycin/azithromycin</strong></td>
+<td>For neonatal/adult <strong>chlamydial</strong> disease</td>
+<td>Systemic needed (nasopharyngeal clearance)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Surgical/advanced:</strong> tectonic penetrating keratoplasty or amniotic membrane for corneal perforation (F004; <a href="https://pubmed.ncbi.nlm.nih.gov/19340722/">PMID: 19340722</a>). Gene, cell, RNA, targeted, and immunotherapies are not applicable.</p>
+<p><strong>Adverse events:</strong> antibiotic-associated adverse events in ~20% of treated children (8% requiring a medical visit) argue further for stewardship (F014).</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> hand hygiene, fomite control, contact-lens hygiene, school-based screening, and community awareness reduce transmission (<a href="https://pubmed.ncbi.nlm.nih.gov/42667473/">PMID: 42667473</a>).</li>
+<li><strong>Neonatal ocular prophylaxis (F012):</strong> meta-analysis showed erythromycin and povidone-iodine both reduce chlamydial ophthalmia vs silver nitrate (RR 0.71 and RR 0.52) (<a href="https://pubmed.ncbi.nlm.nih.gov/20630358/">PMID: 20630358</a>). Povidone-iodine 2.5% reduces conjunctival CFU comparably to chloramphenicol (<a href="https://pubmed.ncbi.nlm.nih.gov/26065506/">PMID: 26065506</a>); 1.25% is as effective as 2.5% (<a href="https://pubmed.ncbi.nlm.nih.gov/26876399/">PMID: 26876399</a>). However, one RCT found higher ON incidence after povidone-iodine than tetracycline (15.4% vs 5.2%, p=0.001), partly from sterile/toxic conjunctivitis (<a href="https://pubmed.ncbi.nlm.nih.gov/21439642/">PMID: 21439642</a>).</li>
+<li><strong>Policy shift:</strong> prenatal STI screening/treatment has rendered gonococcal/chlamydial ON rare; several high-income countries have suspended universal prophylaxis in favor of risk-based models and antibiotic stewardship (<a href="https://pubmed.ncbi.nlm.nih.gov/41344385/">PMID: 41344385</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42545922/">PMID: 42545922</a>).</li>
+<li><strong>Trachoma:</strong> WHO <strong>SAFE</strong> strategy (Surgery, Antibiotics [azithromycin mass drug administration], Facial cleanliness, Environmental improvement). No vaccine exists for any bacterial cause of conjunctivitis (immunization not directly applicable, though pneumococcal/Hib vaccines may indirectly reduce burden).</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<p>Bacterial conjunctivitis occurs naturally across many species. In <strong>dogs and cats</strong> (NCBI Taxon 9615, 9685), conjunctival scrapings show classic inflammatory changes — "increased numbers of degenerating epithelial cells, fibrin, inflammatory cells, bacteria, and inclusion bodies" (<a href="https://pubmed.ncbi.nlm.nih.gov/858688/">PMID: 858688</a>). Veterinary-important agents include <em>Chlamydia felis</em> (feline), <em>Moraxella bovis</em> (infectious bovine keratoconjunctivitis, "pinkeye" in cattle), and <em>Mycoplasma</em> spp. <strong>Zoonotic potential</strong> is limited for the common human pathogens, though ocular exposure to animal <em>Chlamydia</em> is described. Comparative pathology shows conserved epithelial-inflammatory mechanisms across mammals.</p>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Mouse cornea infection models</strong> (<em>Mus musculus</em>, NCBI Taxon 10090) are central to mechanistic study of gram-negative keratitis: <em>P. aeruginosa</em> corneal infection demonstrated TLR5-dependent MMP13 induction driving ulceration (<a href="https://pubmed.ncbi.nlm.nih.gov/25589337/">PMID: 25589337</a>).</li>
+<li><strong>In-vitro / cellular models:</strong> immortalized <strong>human corneal epithelial cells (HCECs)</strong> used to dissect LTA/LPS → NF-κB/MAPK → IL-6/IL-8 signaling and A20 regulation (<a href="https://pubmed.ncbi.nlm.nih.gov/40578588/">PMID: 40578588</a>); transepithelial-resistance and gentamicin-protection assays for elastase-mediated barrier disruption and Pseudomonas invasion (<a href="https://pubmed.ncbi.nlm.nih.gov/34232259/">PMID: 34232259</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42162726/">PMID: 42162726</a>).</li>
+<li><strong>Applications:</strong> these models recapitulate epithelial barrier breakdown, cytokine induction, and neutrophilic inflammation. <strong>Limitations:</strong> they do not fully capture the multi-year immune-mediated scarring of human trachoma or the polymicrobial nasopharyngeal seeding of pediatric conjunctivitis–otitis syndrome.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>   EXPOSURE / INOCULATION
+   (fomite, hand-eye, nasopharynx, birth canal, sexual)
+     |
+     v
+   ADHESION to conjunctival/corneal epithelium
+     |
+     [ Tear-film + epithelial innate defense ]
+     lysozyme, lactoferrin, hBD1-4, SP-D  --- (barrier; often clears)
+     |  (breach/saturation)
+     v
+   TLR2/4/5 sensing of LPS / LTA / peptidoglycan
+     |
+     v
+   NF-kB + MAPK (p65, p38, JNK, ERK) activation
+     |
+     v
+   IL-6 / IL-8 + inducible defensins (DEFB4A, DEFB109)
+     |
+     v
+   NEUTROPHIL recruitment -&gt; MUCOPURULENT EXUDATE
+     |
+   +---------+-----------------+------------------+----------------+
+   |         |                 |                  |                |
+   v         v                 v                  v                v
+ SELF-      Pseudomonas      Gonococcal        Chlamydial       Conjunctivitis-
+ LIMITED    elastase +       epithelial        chronic          otitis (peds):
+ (most)     host MMP13 -&gt;    penetration -&gt;    immune-mediated  nasopharyngeal
+ resolve    ZO-1/occludin    keratitis -&gt;      scarring -&gt;      H. influenzae
+ in ~1 wk   loss -&gt; ulcer/   perforation       trichiasis/      seeds eye + ear
+    perforation      (~11 days)        BLINDNESS
+</code></pre>
+<p><strong>Upstream vs downstream:</strong> Bacterial adhesion and innate-barrier breach are upstream; TLR/NF-κB/MAPK signaling and cytokine output are the central hub; the neutrophilic exudate is the proximate cause of clinical signs. The four branches (self-limited, gram-negative keratitis, gonococcal perforation, chlamydial scarring) diverge based on pathogen virulence and chronicity, and dictate prognosis and treatment urgency. The pediatric conjunctivitis–otitis syndrome is a distinct epidemiologic branch driven by shared nasopharyngeal <em>H. influenzae</em> strains — identical by pulsed-field gel electrophoresis in conjunctiva and middle-ear fluid (F008).</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Topic</th>
+<th>Supports</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37482371/">37482371</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/36912752/">36912752</a></td>
+<td>Antibiotics vs placebo (Cochrane)</td>
+<td>F001 — modest antibiotic benefit; self-limited</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22348418/">22348418</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/21718563/">21718563</a></td>
+<td>Bacterial conjunctivitis (Clinical Evidence)</td>
+<td>F002 — pathogens by age; contact-lens risk</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16847013/">16847013</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/17585426/">17585426</a></td>
+<td>Management strategies RCT / eye washing</td>
+<td>F003 — spontaneous remission; delayed prescribing</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18064057/">18064057</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/2964092/">2964092</a></td>
+<td>Gonococcal keratoconjunctivitis</td>
+<td>F004 — perforation; treatment urgency</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41062949/">41062949</a></td>
+<td>Predictors of neonatal chlamydia</td>
+<td>F005 — ON pathogen distribution</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42419863/">42419863</a></td>
+<td>Adult chlamydial conjunctivitis</td>
+<td>F006 — misdiagnosis, follicular signs</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23880529/">23880529</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/20526610/">20526610</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/33174018/">33174018</a></td>
+<td>Tear antimicrobials / defensins</td>
+<td>F007 — innate barrier</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16094231/">16094231</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/16148850/">16148850</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/24953451/">24953451</a></td>
+<td>Conjunctivitis-otitis syndrome</td>
+<td>F008 — nasopharyngeal seeding</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10817723/">10817723</a></td>
+<td>Pediatric resistance</td>
+<td>F009 — β-lactamase, penicillin-nonsusceptible pneumococcus</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34232259/">34232259</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/25589337/">25589337</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/40578588/">40578588</a></td>
+<td>Elastase / MMP13 / A20-LTA</td>
+<td>F010 — corneal invasion &amp; signaling</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34797827/">34797827</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/31306419/">31306419</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/33985443/">33985443</a></td>
+<td>Trachoma scarring</td>
+<td>F011 — immune-mediated blindness</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20630358/">20630358</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/21439642/">21439642</a></td>
+<td>Prophylaxis meta-analysis / RCT</td>
+<td>F012 — ON prevention</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20223555/">20223555</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/24526744/">24526744</a></td>
+<td>Azithromycin 1.5% RCTs</td>
+<td>F013 — effective short-course therapy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39428088/">39428088</a></td>
+<td>Etiology &amp; outcomes PCR case-control</td>
+<td>F014 — H. influenzae; outcomes</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15201195/">15201195</a></td>
+<td>Predicting bacterial cause</td>
+<td>F015 — clinical prediction rule</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Across the evidence base, human clinical trials and cohorts (F001–F006, F008–F009, F011–F015) converge on a self-limited disease with age-specific pathogens and a stewardship-oriented management paradigm, while in-vitro/model-organism work (F007, F010) supplies the mechanistic barrier-and-signaling narrative. No reviewed paper contradicts the central self-limited-with-high-risk-exceptions framing; the strongest tension is between universal neonatal prophylaxis mandates and modern stewardship evidence (<a href="https://pubmed.ncbi.nlm.nih.gov/41344385/">PMID: 41344385</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42545922/">PMID: 42545922</a>).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ul>
+<li><strong>Genetic sections are largely not applicable.</strong> As an acquired infection, bacterial conjunctivitis lacks causal genes, inheritance, and germline variants; host-susceptibility genetics (e.g., defensin polymorphisms, TLR variants) are under-studied and unquantified.</li>
+<li><strong>Clinical-vs-bacterial distinction is imperfect.</strong> Empiric diagnosis without culture means reported "bacterial" cohorts likely include viral cases; even PCR studies detect bacteria in a majority of asymptomatic controls (57% in F014), complicating causal attribution beyond <em>H. influenzae</em>.</li>
+<li><strong>Mechanistic data are model-derived.</strong> The NF-κB/MAPK/IL-8 and elastase/MMP13 pathways come from corneal-cell and mouse-keratitis models; direct in-vivo conjunctival human confirmation is limited, and these represent keratitis (a complication) more than uncomplicated conjunctivitis.</li>
+<li><strong>Resistance is evolving.</strong> β-lactamase <em>H. influenzae</em>, penicillin-nonsusceptible pneumococcus, and fluoroquinolone-resistant gonococcus data are region- and era-specific and require ongoing surveillance.</li>
+<li><strong>Prophylaxis evidence is conflicting</strong> (povidone-iodine efficacy vs toxicity), and optimal risk-based neonatal strategies are unsettled.</li>
+</ul>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>PCR-based etiologic surveillance</strong> integrating conjunctival and nasopharyngeal sampling to refine pathogen attribution and monitor resistance trends, extending the case-control design of <a href="https://pubmed.ncbi.nlm.nih.gov/39428088/">PMID: 39428088</a>.</li>
+<li><strong>Validate and deploy the clinical prediction rule</strong> (glued eye / itch / prior conjunctivitis; F015) prospectively to guide delayed prescribing and reduce antibiotic use.</li>
+<li><strong>Head-to-head neonatal prophylaxis RCTs</strong> (povidone-iodine concentrations vs risk-based no-prophylaxis with prenatal screening) powered for both efficacy and toxic-conjunctivitis endpoints.</li>
+<li><strong>Mechanistic studies in human conjunctival organoids / air-liquid-interface epithelium</strong> to confirm TLR→NF-κB/MAPK→IL-8 signaling and defensin induction under physiologic infection, bridging the corneal-cell model gap.</li>
+<li><strong>Host-susceptibility genetics</strong> — targeted association of <em>DEFB4A</em> copy number and TLR2/4/5 variants with recurrent or severe bacterial conjunctivitis.</li>
+<li><strong>Stewardship implementation research</strong> — measure real-world impact of delayed-prescribing pathways and OTC-availability policy on antibiotic consumption and resistance (<a href="https://pubmed.ncbi.nlm.nih.gov/20875257/">PMID: 20875257</a>).</li>
+</ol>
+<hr />
+<p><em>Report compiled from 15 confirmed findings and 72 reviewed papers across 5 investigation iterations. Evidence source types are noted inline: human clinical (trials/cohorts), model organism (mouse keratitis), in vitro (corneal/conjunctival epithelial cells), and systematic-review syntheses. Genetic-etiology, inheritance, and germline-variant template sections are marked not applicable, consistent with an acquired infectious disease.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Bacterial_Conjunctivitis-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Bacterial_Conjunctivitis-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>42</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>42</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>42</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:25589337</code> <em>(abstract only)</em>: "increased expression … in a Toll-like receptor 5-dependent manner"</li>
+<li>closest text in source: "aeruginosa infection induced an increased expression of MMP13 in mouse corneas from 6 to 24 hours after infection in a Toll-liked receptor 5-dependent manner"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0006668</code> (3 mentions) - the report calls it "if available"; MONDO calls it <strong>bacterial conjunctivitis</strong></li>
+<li><code>HP:0000509</code> (3 mentions) - the report calls it "Conjunctivitis", "Strong bacterial predictor (F015)", "85.4% in chlamydial conjunctivitis (follicular)"; HP calls it <strong>Conjunctivitis</strong></li>
+<li><code>HP:0025321</code> (1 mention) - the report calls it "Eye discharge"; HP calls it <strong>Copper accumulation in liver</strong></li>
+<li><code>HP:0100539</code> (1 mention) - the report calls it "Eye pain"; HP calls it <strong>Periorbital edema</strong></li>
+<li><code>HP:0000198</code> (1 mention) - the report calls it "Prominent in neonatal and gonococcal forms"; HP calls it <strong>Absence of Stensen duct</strong></li>
+<li><code>HP:0000613</code> (1 mention) - the report calls it "Signals keratitis, sight-threatening"; HP calls it <strong>Photophobia</strong></li>
+<li><code>UBERON:0000964</code> (1 mention) - the report calls it "Secondary / complication sites:<strong> cornea"; UBERON calls it </strong>cornea**</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0007249</code> (1 mention) - the report calls it "I-κB kinase/NF-κB signaling"; GO calls it <strong>canonical NF-kappaB signal transduction</strong>, and lists "I-kappaB kinase/NF-kappaB signaling" among its other names</li>
+<li><code>UBERON:0001811</code> (1 mention) - the report calls it "conjunctiva", "Primary organ:<strong> eye — specifically the </strong>conjunctiva"; UBERON calls it <strong>conjunctiva</strong>, and lists "tunica conjunctiva" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>HP:0000509</code> - called "Conjunctivitis", "Strong bacterial predictor (F015)", "85.4% in chlamydial conjunctivitis (follicular)"</li>
+<li><code>UBERON:0001811</code> - called "conjunctiva", "Primary organ:<strong> eye — specifically the </strong>conjunctiva"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Bacillary_Angiomatosis-openscientist.html">← Bacillary Angiomatosis (OpenScientist)</a>
+                
+                
+                <a href="Bacterial_meningitis-cyberian-codex.html">Bacterial meningitis (Cyberian Codex) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Bacterial_Conjunctivitis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Bacterial_Conjunctivitis-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

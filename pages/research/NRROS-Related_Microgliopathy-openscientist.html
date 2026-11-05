@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NRROS-Related Microgliopathy · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>NRROS-Related Microgliopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>NRROS-Related Microgliopathy</h1>
+                
+                <p class="report-subtitle">NRROS-Related Microgliopathy (SENEBAC): Comprehensive Disease Characterization</p>
+                
+                
+                <div class="report-date">2026-11-04</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0030033" target="_blank" rel="noopener noreferrer">MONDO:0030033</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">11 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>NRROS-Related Microgliopathy (SENEBAC): Comprehensive Disease Characterization</h1>
+<p><strong>Disease:</strong> NRROS-Related Microgliopathy — <em>Seizures, Early-onset, with Neurodegeneration And Brain Calcification</em> (SENEBAC)
+<strong>Causal gene:</strong> <strong>NRROS</strong> (Negative Regulator of Reactive Oxygen Species; also known as <em>LRRC33</em>; <a href="https://bioregistry.io/HGNC:25124" target="_blank" rel="noopener noreferrer">HGNC:25124</a>; NCBI Gene 375387; UniProt Q86YC3; cytoband 3q29)
+<strong>Identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0030033" target="_blank" rel="noopener noreferrer">MONDO:0030033</a> · <a href="https://bioregistry.io/OMIM:618875" target="_blank" rel="noopener noreferrer">OMIM:618875</a>
+<strong>Category:</strong> Mendelian, autosomal recessive, ultra-rare</p>
+<blockquote>
+<p><strong>Causal gene stated up front:</strong> This disorder is caused by <strong>biallelic loss-of-function variants in the NRROS gene</strong> (also called <strong>LRRC33</strong>). The OMIM phenotype title ("Seizures, early-onset, with neurodegeneration and brain calcification"; SENEBAC) is descriptive and does not name a gene, but all identifiers above (<a href="http://purl.obolibrary.org/obo/MONDO_0030033" target="_blank" rel="noopener noreferrer">MONDO:0030033</a>, <a href="https://bioregistry.io/OMIM:618875" target="_blank" rel="noopener noreferrer">OMIM:618875</a>) point to the same NRROS-related entity.</p>
+</blockquote>
+<hr />
+<h2>Summary</h2>
+<p>NRROS-Related Microgliopathy is an ultra-rare, autosomal-recessive, infantile-onset, progressive and usually lethal neurodegenerative disorder caused by <strong>biallelic loss-of-function (LoF) variants in the NRROS gene</strong> (also called <em>LRRC33</em>). NRROS is a microglial/macrophage transmembrane "milieu" protein whose principal function is to anchor latent transforming growth factor-β1 (TGF-β1) at the cell surface, where it enables highly localized, integrin-αVβ8-dependent activation of the cytokine. A second, distinct function of NRROS is to serve as an endoplasmic-reticulum-based negative regulator of the NADPH oxidase subunit NOX2, restraining reactive oxygen species (ROS) production.</p>
+<p>The disease mechanism follows a coherent causal chain: biallelic NRROS LoF variants produce absent or non-functional protein that fails to anchor latent TGF-β1 at the microglial surface; this abolishes local integrin-αVβ8-dependent TGF-β1 activation, depriving microglia of the autocrine/paracrine TGF-β1 signal required for their homeostatic maturation program. The resulting microglial dysfunction — compounded by a loss of NOX2 restraint that permits excess oxidative damage — produces a calcifying leukoencephalopathy with combined grey- and white-matter degeneration, foamy macrophage infiltration, and dystrophic intracranial calcification. Clinically, affected children typically develop normally for several months, then present with drug-resistant epilepsy, developmental regression, acquired microcephaly, and relentless neurodegeneration, with a median age at death of approximately 3 years.</p>
+<p>Fewer than ~15 individuals have been reported worldwide. Diagnosis is molecular (exome or genome sequencing) supported by a characteristic neuroimaging signature of progressive cerebral atrophy, white-matter volume loss/delayed myelination, and punctate or serpiginous calcifications at the grey-white matter junction. There is no disease-modifying therapy; management is entirely supportive and palliative, with genetic counseling as the only means of prevention. The Nrros-knockout mouse and the Lrrc33-deficient mouse faithfully recapitulate key features, and human biallelic TGFB1 deficiency causes a convergent encephalopathy, together validating the mechanistic model.</p>
+<hr />
+<h2>Section 1 — Disease Information</h2>
+<p><strong>Overview.</strong> NRROS-Related Microgliopathy (SENEBAC) is a Mendelian, infantile-onset neurodegenerative disease characterized by the triad of early-onset drug-resistant seizures, progressive neurodegeneration with developmental regression, and intracranial (brain) calcification. It is a disorder of microglial dysfunction (a "microgliopathy") driven by failure of localized TGF-β1 activation in the central nervous system.</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0030033" target="_blank" rel="noopener noreferrer">MONDO:0030033</a></td>
+</tr>
+<tr>
+<td>OMIM (phenotype)</td>
+<td>618875 (SENEBAC)</td>
+</tr>
+<tr>
+<td>Gene</td>
+<td>NRROS / LRRC33 — <a href="https://bioregistry.io/HGNC:25124" target="_blank" rel="noopener noreferrer">HGNC:25124</a>; NCBI Gene 375387; Ensembl ENSG00000174004; UniProt Q86YC3</td>
+</tr>
+<tr>
+<td>Cytoband</td>
+<td>3q29</td>
+</tr>
+<tr>
+<td>ICD-10 / ICD-11 / MeSH / Orphanet</td>
+<td>No NRROS-specific code (ultra-rare; not separately coded)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> Seizures, early-onset, with neurodegeneration and brain calcification; SENEBAC; NRROS-related microgliopathy; NRROS-related lethal microgliopathy.</p>
+<p><strong>Information source.</strong> The knowledge base for this disease is derived from aggregated, disease-level primary literature — small case series and systematic case-based reviews of individual patients identified via research exome/genome sequencing — rather than from large EHR-based or registry cohorts. This reflects the extreme rarity of the condition.</p>
+<hr />
+<h2>Section 2 — Etiology</h2>
+<p><strong>Primary cause (genetic).</strong> The disease is caused exclusively by <strong>biallelic (autosomal-recessive) loss-of-function variants in NRROS</strong>. Dong et al. (2020) reported six individuals from four families with bi-allelic NRROS variants (<a href="https://pubmed.ncbi.nlm.nih.gov/32197075/">PMID: 32197075</a>): <em>"We report six individuals from four families with bi-allelic variants in NRROS."</em> Subsequent reports (Macintosh 2022; Madaan 2022) expanded the cohort to ~15 individuals.</p>
+<p><strong>Genetic risk factors.</strong> The only established risk factor is inheritance of two LoF NRROS alleles. Variant classes include nonsense, frameshift, splice-site, and damaging missense variants affecting two functional NRROS domains. A <strong>recurrent c.1981delC (p.Leu661Serfs*97)</strong> frameshift was observed in two families, attributed to a likely founder effect (<a href="https://pubmed.ncbi.nlm.nih.gov/35716448/">PMID: 35716448</a>): <em>"The most common reported genetic variation was c.1981delC; (p.Leu661Serfs</em>97) observed in two families (likely due to a founder effect)."<em> Other reported variants include c.185T&gt;C (p.Leu62Pro), c.310C&gt;T (p.Gln104Ter), and c.1359del (p.Ser454Alafs</em>11). Consanguinity contributes to recessive inheritance in some families.</p>
+<p><strong>Environmental risk factors.</strong> None identified. This is a monogenic disorder; no toxic, infectious, lifestyle, or occupational contributor has been described.</p>
+<p><strong>Protective factors.</strong> None identified (genetic or environmental). No protective modifier alleles have been reported.</p>
+<p><strong>Gene–environment interactions.</strong> None established. Given the fully penetrant monogenic etiology, the disease is not known to depend on environmental modifiers.</p>
+<hr />
+<h2>Section 3 — Phenotypes</h2>
+<p>Phenotypes derive principally from the Madaan 2022 systematic review (n=11 children, 6 girls), Dong 2020, and Macintosh 2022.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency</th>
+<th>Onset / course</th>
+<th>HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Drug-resistant epilepsy</td>
+<td>Clinical sign</td>
+<td>11/11 (100%)</td>
+<td>Median onset ~12 mo; refractory, progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0032794" target="_blank" rel="noopener noreferrer">HP:0032794</a> (and <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a> Seizure)</td>
+</tr>
+<tr>
+<td>Epileptic/infantile spasms</td>
+<td>Clinical sign</td>
+<td>3/11</td>
+<td>Infantile</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012469" target="_blank" rel="noopener noreferrer">HP:0012469</a></td>
+</tr>
+<tr>
+<td>Developmental regression</td>
+<td>Symptom</td>
+<td>Majority (normal early development in 7/11, then regression)</td>
+<td>Median ~12 mo</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" rel="noopener noreferrer">HP:0002376</a></td>
+</tr>
+<tr>
+<td>Progressive cerebral atrophy</td>
+<td>Imaging/structural</td>
+<td>All</td>
+<td>Progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" rel="noopener noreferrer">HP:0002059</a></td>
+</tr>
+<tr>
+<td>Cerebral white-matter abnormality / loss</td>
+<td>Imaging/structural</td>
+<td>All</td>
+<td>Progressive; delayed myelination</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" rel="noopener noreferrer">HP:0002500</a>; <a href="http://purl.obolibrary.org/obo/HP_0012448" target="_blank" rel="noopener noreferrer">HP:0012448</a> (Delayed CNS myelination)</td>
+</tr>
+<tr>
+<td>Intracranial calcification</td>
+<td>Imaging/structural</td>
+<td>8/11</td>
+<td>Punctate/serpiginous at grey-white junction</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002514" target="_blank" rel="noopener noreferrer">HP:0002514</a> (Cerebral calcification)</td>
+</tr>
+<tr>
+<td>Acquired (secondary) microcephaly</td>
+<td>Physical sign</td>
+<td>Reported</td>
+<td>Acquired, progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005484" target="_blank" rel="noopener noreferrer">HP:0005484</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Phenotype characteristics.</strong> Onset is typically <strong>infantile</strong> (early development normal in 7/11 before seizure onset and regression at a median of 12 months). Severity is <strong>severe</strong>; course is <strong>progressive</strong> and usually fatal. Madaan 2022 quantified the natural history (<a href="https://pubmed.ncbi.nlm.nih.gov/35716448/">PMID: 35716448</a>): <em>"The median age at seizure onset and developmental regression was 12 months, and the median age at death was 36 months. Intracranial calcifications were described in eight of eleven children."</em></p>
+<p>Macintosh 2022 documented the neuropathology (<a href="https://pubmed.ncbi.nlm.nih.gov/35099671/">PMID: 35099671</a>): <em>"Pathological examination revealed both extensive grey and white matter involvement, dystrophic calcifications, and infiltration of foamy macrophages."</em></p>
+<p><strong>Quality-of-life impact.</strong> Profound. Affected children experience refractory seizures, loss of acquired motor and cognitive milestones, acquired microcephaly, and progressive neurological disability leading to early death; impact on daily functioning is total, requiring full caregiving support. No formal EQ-5D/SF-36 QoL instrument data exist for this ultra-rare disease.</p>
+<hr />
+<h2>Section 4 — Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> NRROS / LRRC33 (<a href="https://bioregistry.io/HGNC:25124" target="_blank" rel="noopener noreferrer">HGNC:25124</a>; NCBI Gene 375387; Ensembl ENSG00000174004; UniProt Q86YC3), on chromosome 3q29. Associated OMIM phenotype 618875.</p>
+<p><strong>Pathogenic variants.</strong>
+- <strong>Classification:</strong> Reported variants are pathogenic/likely pathogenic LoF (ACMG/AMP); some damaging missense variants affect conserved functional domains.
+- <strong>Variant types:</strong> Nonsense (e.g., c.310C&gt;T, p.Gln104Ter), frameshift (c.1981delC p.Leu661Serfs<em>97; c.1359del p.Ser454Alafs</em>11), splice-site, and missense (c.185T&gt;C, p.Leu62Pro).
+- <strong>Allele frequency:</strong> All reported pathogenic variants are extremely rare/absent in population databases (gnomAD), consistent with a severe recessive phenotype.
+- <strong>Origin:</strong> Germline, biallelic (autosomal recessive).
+- <strong>Functional consequence:</strong> Loss of function. Functional studies showed mutant NRROS proteins co-localize intracellularly with latent TGF-β1 but fail to anchor it at the cell surface (<a href="https://pubmed.ncbi.nlm.nih.gov/32197075/">PMID: 32197075</a>): <em>"these variants result in aberrant NRROS proteins with impaired ability to anchor latent TGF-β1 on the cell surface."</em></p>
+<p><strong>Modifier genes.</strong> None established. The recurrent founder variant suggests population-specific recurrence rather than modifier effects.</p>
+<p><strong>Epigenetic information (gene regulation).</strong> NRROS/LRRC33 expression is epigenetically modulated: TLR ligands down-regulate LRRC33 via H3K4me3 and H3K27me3 chromatin modifications (<a href="https://pubmed.ncbi.nlm.nih.gov/24550525/">PMID: 24550525</a>). This pertains to normal gene regulation rather than a disease-specific epimutation.</p>
+<p><strong>Chromosomal abnormalities.</strong> None reported; the disease results from point/small indel variants, not large structural rearrangements.</p>
+<hr />
+<h2>Section 5 — Environmental Information</h2>
+<p>No environmental, lifestyle, or infectious contributors are implicated in NRROS-Related Microgliopathy. The disease is monogenic and recessive. Of mechanistic note, NRROS's normal physiology intersects with host defense — NRROS-deficient phagocytes show enhanced bactericidal activity against <em>E. coli</em> and <em>Listeria</em> due to increased ROS (<a href="https://pubmed.ncbi.nlm.nih.gov/24739962/">PMID: 24739962</a>) — but no infectious trigger is required for or associated with the human neurodegenerative disease.</p>
+<hr />
+<h2>Section 6 — Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li><strong>Biallelic NRROS LoF variants</strong> → absent or non-functional NRROS/LRRC33 protein (<em>loss of function; demonstrated</em>).</li>
+<li>→ <strong>Failure to anchor latent proTGF-β1 at the microglial/macrophage cell surface</strong> (<em>demonstrated by flow cytometry; Dong 2020</em>). Mutant protein co-localizes with latent TGF-β1 intracellularly but is not displayed at the surface.</li>
+<li>→ <strong>Loss of integrin-αVβ8-dependent local activation of TGF-β1</strong> (<em>demonstrated in Lrrc33/NRROS biology; Qin 2018</em>).</li>
+<li>→ <strong>Deficient autocrine/paracrine TGF-β1 signaling</strong> that normally maintains the microglial homeostatic/maturation program → <strong>microglial dysmaturation and dysfunction</strong> (<em>inferred from mouse convergence with TGF-β1 deficiency</em>).</li>
+<li>→ <strong>(Branch) Loss of NOX2 restraint</strong> permits excess phagocyte ROS and oxidative CNS tissue damage (<em>inferred contribution from Noubade 2014 NRROS-NOX2 biology</em>).</li>
+<li>→ <strong>Neuroinflammation, foamy macrophage infiltration, dysmyelination / white-matter loss, grey-matter degeneration, and dystrophic calcification</strong> (<em>demonstrated neuropathology; Macintosh 2022</em>).</li>
+<li>→ <strong>Clinical disease:</strong> infantile drug-resistant epilepsy, developmental regression, acquired microcephaly, progressive neurodegeneration, and early death (median ~36 months).</li>
+</ol>
+<pre><code>NRROS biallelic LoF
+│
+▼
+No surface anchoring of latent TGF-β1 ───────────┐
+│                                         │ (branch)
+▼                                         ▼
+Loss of integrin-αVβ8 activation of TGF-β1   Loss of NOX2 restraint
+│                                         │
+▼                                         ▼
+Deficient microglial TGF-β1 signaling      Excess phagocyte ROS
+│                                         │
+└──────────────┬──────────────────────────┘
+       ▼
+     Microglial dysfunction + oxidative CNS damage
+       ▼
+ Leukoencephalopathy: dysmyelination, grey+white matter
+ degeneration, foamy macrophages, dystrophic calcification
+       ▼
+ Drug-resistant epilepsy, regression, microcephaly,
+ progressive neurodegeneration, early death (~3 yr)
+</code></pre>
+<h3>Mechanistic detail</h3>
+<p><strong>Molecular pathway — TGF-β1 activation.</strong> NRROS/LRRC33 is a transmembrane leucine-rich-repeat "milieu molecule" that covalently links proTGF-β1 and presents it on the microglial surface for localized, integrin-αVβ8-dependent activation (<a href="https://pubmed.ncbi.nlm.nih.gov/29909984/">PMID: 29909984</a>): <em>"LRRC33 on the surface of microglia functions as a milieu molecule and enables highly localized, integrin-αVβ8-dependent TGF-β activation."</em> The structural basis for LRRC33's specificity for TGF-β1 and its integrin recognition was resolved by Duan et al. 2022 (<a href="https://pubmed.ncbi.nlm.nih.gov/36008481/">PMID: 36008481</a>). GO term: <strong><a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" rel="noopener noreferrer">GO:0007179</a></strong> (TGF-β receptor signaling pathway).</p>
+<p><strong>Second function — NOX2 / ROS regulation.</strong> NRROS was originally defined (Noubade et al. 2014, <em>Nature</em>) as an ER-resident negative regulator of NOX2 (<a href="https://pubmed.ncbi.nlm.nih.gov/24739962/">PMID: 24739962</a>): <em>"NRROS is localized to the endoplasmic reticulum, where it directly interacts with nascent NOX2 (also known as gp91(phox) and encoded by Cybb) monomer ... and facilitates the degradation of NOX2 through the endoplasmic-reticulum-associated degradation pathway."</em> NRROS-deficient phagocytes produce increased ROS and NRROS-deficient mice develop severe EAE from CNS oxidative damage, supporting an oxidative-injury branch (<a href="http://purl.obolibrary.org/obo/GO_2000377" target="_blank" rel="noopener noreferrer">GO:2000377</a>, regulation of ROS metabolic process; <a href="http://purl.obolibrary.org/obo/CHEBI_26523" target="_blank" rel="noopener noreferrer">CHEBI:26523</a>, reactive oxygen species).</p>
+<p><strong>Cellular processes.</strong> Microglial cell activation/maturation (<a href="http://purl.obolibrary.org/obo/GO_0001774" target="_blank" rel="noopener noreferrer">GO:0001774</a>), myelination (<a href="http://purl.obolibrary.org/obo/GO_0042552" target="_blank" rel="noopener noreferrer">GO:0042552</a>), neuroinflammation, and dystrophic calcification. <strong>Cell types:</strong> microglia (<a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" rel="noopener noreferrer">CL:0000129</a>) and CNS/perivascular macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000881" target="_blank" rel="noopener noreferrer">CL:0000881</a>).</p>
+<p><strong>Protein dysfunction.</strong> Loss of function via truncation or destabilizing missense; retained intracellular latent-TGF-β1 binding but lost surface display and activation.</p>
+<p><strong>Immune system involvement.</strong> NRROS/LRRC33 is also a negative regulator of multiple Toll-like receptors and NF-κB signaling (<a href="https://pubmed.ncbi.nlm.nih.gov/23545260/">PMID: 23545260</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24550525/">PMID: 24550525</a>). Dysregulated innate-immune/microglial homeostasis is central to the CNS pathology.</p>
+<p><strong>Subcellular components.</strong> Plasma membrane (<a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>, TGF-β1 presentation), ER (<a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a>, NOX2 regulation), and mitochondrion (<a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a>; mitochondrial ultrastructural abnormalities seen on EM, Macintosh 2022).</p>
+<hr />
+<h2>Section 7 — Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ / system:</strong> Central nervous system (brain) — the nervous system is the primary and essentially exclusive system affected. <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> (brain).</li>
+<li><strong>Tissue level:</strong> Both grey matter (<a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" rel="noopener noreferrer">UBERON:0000956</a>, cerebral cortex) and white matter (<a href="http://purl.obolibrary.org/obo/UBERON_0003544" target="_blank" rel="noopener noreferrer">UBERON:0003544</a>, cerebral white matter) are affected — "extensive grey and white matter involvement" (Macintosh 2022).</li>
+<li><strong>Cell populations:</strong> Microglia (<a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" rel="noopener noreferrer">CL:0000129</a>) and infiltrating foamy macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000881" target="_blank" rel="noopener noreferrer">CL:0000881</a>) are the key cellular players.</li>
+<li><strong>Subcellular:</strong> Plasma membrane (<a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>), endoplasmic reticulum (<a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a>), mitochondria (<a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a>).</li>
+<li><strong>Localization / lateralization:</strong> Diffuse and bilateral; calcifications are typically located at the grey-white matter junction (punctate/serpiginous).</li>
+</ul>
+<hr />
+<h2>Section 8 — Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Infantile. Early development is often normal (7/11 children), followed by seizure onset and developmental regression at a <strong>median of ~12 months</strong>. Onset pattern is subacute-to-chronic with regression.</li>
+<li><strong>Progression:</strong> Relentlessly progressive — progressive cerebral atrophy, white-matter loss, and acquired microcephaly. No remission.</li>
+<li><strong>Disease course:</strong> Progressive neurodegenerative; <strong>median age at death ~36 months</strong> (Madaan 2022).</li>
+<li><strong>Critical period:</strong> The first 1–3 years of life represent the window of clinical manifestation; by extension, any disease-modifying intervention (hypothetical) would need to act very early, likely before irreversible neurodegeneration.</li>
+</ul>
+<hr />
+<h2>Section 9 — Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> Autosomal recessive (biallelic NRROS LoF). Consanguinity reported; recurrent founder variant c.1981delC in two families.</li>
+<li><strong>Penetrance / expressivity:</strong> Apparently complete penetrance in reported biallelic LoF individuals; the phenotype is consistently severe, though age at death varies.</li>
+<li><strong>Epidemiology:</strong> Ultra-rare. Fewer than ~15 individuals reported worldwide; no formal prevalence/incidence estimate exists (Orphanet-level ultra-rare, &lt;1/1,000,000).</li>
+<li><strong>Founder effect:</strong> Yes — the recurrent c.1981delC (p.Leu661Serfs*97) frameshift.</li>
+<li><strong>Carrier frequency:</strong> Not established; pathogenic alleles are extremely rare in gnomAD.</li>
+<li><strong>Sex ratio:</strong> No strong skew reported (6 girls among 11 in Madaan 2022); consistent with autosomal-recessive inheritance.</li>
+<li><strong>Geographic distribution:</strong> Scattered case reports; no defined endemic region.</li>
+</ul>
+<hr />
+<h2>Section 10 — Diagnostics</h2>
+<p><strong>Primary diagnostic route — molecular.</strong> Diagnosis is established by identifying biallelic NRROS variants via <strong>whole-exome sequencing (WES)</strong> or <strong>whole-genome sequencing (WGS)</strong>; all reported families were ascertained by exome sequencing (<a href="https://pubmed.ncbi.nlm.nih.gov/32197075/">PMID: 32197075</a>). Single-gene NRROS testing and epilepsy/leukodystrophy/neurodegeneration gene panels are appropriate when the phenotype is recognized. Chromosomal microarray and karyotyping are not informative (no structural abnormality).</p>
+<p><strong>Neuroimaging.</strong> Characteristic and diagnostically useful:
+- Progressive cerebral atrophy and cerebral white-matter volume loss / delayed myelination.
+- <strong>Punctate or serpiginous calcifications at the grey-white matter junction</strong> (CT is most sensitive for calcification). Madaan 2022: <em>"Punctate or serpiginous calcifications at the grey-white matter junction and acquired microcephaly are further c[haracteristic features]"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/35716448/">PMID: 35716448</a>).</p>
+<p><strong>Neuropathology (where available).</strong> Extensive grey + white matter degeneration, dystrophic calcification, foamy macrophage infiltration, and mitochondrial ultrastructural abnormalities on EM (Macintosh 2022).</p>
+<p><strong>Electrophysiology.</strong> EEG demonstrates epileptiform/epileptic-encephalopathy patterns consistent with drug-resistant epilepsy and infantile/epileptic spasms.</p>
+<p><strong>Biomarkers.</strong> No disease-specific blood or CSF biomarker is established; diagnosis is molecular.</p>
+<p><strong>Differential diagnosis.</strong> Other infantile leukoencephalopathies with intracranial calcification — notably Aicardi-Goutières syndrome, cerebroretinal microangiopathy with calcifications and cysts (CRMCC/CTC1-related; <a href="https://pubmed.ncbi.nlm.nih.gov/28072696/">PMID: 28072696</a>), congenital (TORCH) infections, Coats plus, and other microgliopathies/leukodystrophies. NRROS testing distinguishes this entity.</p>
+<p><strong>Screening.</strong> Carrier screening and cascade testing of at-risk relatives once a familial variant is known; prenatal/preimplantation testing is feasible for known biallelic variants.</p>
+<hr />
+<h2>Section 11 — Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival / life expectancy:</strong> Poor. Median age at death ~36 months (Madaan 2022). The disease is usually lethal in early childhood.</li>
+<li><strong>Mortality:</strong> Disease-specific; death results from progressive neurodegeneration and its complications (refractory seizures, respiratory/nutritional failure).</li>
+<li><strong>Morbidity / disability:</strong> Profound and universal — loss of developmental milestones, refractory epilepsy, acquired microcephaly, and severe neurological disability.</li>
+<li><strong>Disease course / complications:</strong> Relentlessly progressive; complications include status epilepticus, aspiration, feeding difficulty, and respiratory compromise.</li>
+<li><strong>Recovery potential:</strong> None; no recovery or remission reported.</li>
+<li><strong>Prognostic factors:</strong> Biallelic LoF genotype predicts the severe phenotype; no validated molecular prognostic biomarker beyond genotype.</li>
+</ul>
+<hr />
+<h2>Section 12 — Treatment</h2>
+<p><strong>No disease-modifying or curative therapy exists.</strong> Management is entirely <strong>symptomatic, supportive, and palliative</strong>:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention</th>
+<th>Role</th>
+<th>NCIT suggestion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Antiseizure/anticonvulsant medications</td>
+<td>Seizure control (often refractory)</td>
+<td>C264 (Anticonvulsant Agent)</td>
+</tr>
+<tr>
+<td>Rehabilitation (PT/OT/speech)</td>
+<td>Function/comfort</td>
+<td>C15917 (Rehabilitation Therapy)</td>
+</tr>
+<tr>
+<td>Nutritional &amp; respiratory support</td>
+<td>Supportive care</td>
+<td>C15277 (Supportive Care)</td>
+</tr>
+<tr>
+<td>Palliative / end-of-life care</td>
+<td>Comfort</td>
+<td>C15284 (Palliative Care)</td>
+</tr>
+<tr>
+<td>Genetic counseling</td>
+<td>Family guidance/prevention</td>
+<td>C15516 (Genetic Counseling)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Advanced therapeutics.</strong> No gene therapy, cell therapy, RNA-based therapy, or TGF-β1-replacement trials have been reported for this indication. Conceptually, because the downstream effector is localized TGF-β1 activation, strategies restoring microglial TGF-β1 signaling or NRROS function are of theoretical interest but remain unexplored clinically.</p>
+<p><strong>Pharmacogenomics / personalized medicine.</strong> None established.</p>
+<hr />
+<h2>Section 13 — Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not applicable in the conventional sense (monogenic). Prevention is through <strong>genetic counseling</strong> and reproductive options for carrier couples (prenatal diagnosis, preimplantation genetic testing) once a familial biallelic NRROS genotype is known.</li>
+<li><strong>Secondary prevention / screening:</strong> Cascade carrier testing of relatives; no population newborn screen exists given rarity.</li>
+<li><strong>Tertiary prevention:</strong> Supportive management to limit complications (aspiration, status epilepticus).</li>
+<li><strong>Counseling:</strong> Autosomal-recessive recurrence risk is 25% for carrier couples; genetic counseling is central.</li>
+<li><strong>Immunization / public health / environmental interventions:</strong> Not applicable.</li>
+</ul>
+<hr />
+<h2>Section 14 — Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / orthologs:</strong> Mouse ortholog <em>Nrros</em> (NCBI Gene 70571; NCBITaxon:10090). The gene and its TGF-β1/NOX2 functions are evolutionarily conserved in mammals.</li>
+<li><strong>Natural disease in other species:</strong> No naturally occurring companion-animal or wildlife disease specifically attributed to NRROS has been reported (no OMIA entry noted).</li>
+<li><strong>Comparative biology:</strong> The mouse recapitulates the human phenotype (see Section 15), supporting conservation of the disease mechanism. The TGF-β1/LRRC33 axis is also studied extensively in mouse tumor immunology.</li>
+<li><strong>Zoonotic potential:</strong> Not applicable (non-infectious genetic disease).</li>
+</ul>
+<hr />
+<h2>Section 15 — Model Organisms</h2>
+<ul>
+<li><strong>Mouse (primary mammalian model).</strong> The <strong>Nrros-knockout mouse</strong> and the <strong>Lrrc33-deficient mouse</strong> are the principal models.</li>
+<li><em>Phenotype recapitulation:</em> Strong. Dong 2020 states (<a href="https://pubmed.ncbi.nlm.nih.gov/32197075/">PMID: 32197075</a>): <em>"The phenotypic features in affected individuals are consistent with those observed in the Nrros knockout mouse, and they overlap with those seen in the human condition associated with TGF-β1 deficiency."</em> Qin 2018 showed Lrrc33⁻/⁻ mice have microglial dysfunction from loss of localized TGF-β1 activation. Noubade 2014 showed Nrros-deficient mice develop severe EAE from CNS oxidative damage (ROS branch).</li>
+<li><em>Model types available:</em> Constitutive knockout; the NOX2-interaction and TGF-β1-presentation functions have both been dissected in mouse.</li>
+<li><em>Limitations:</em> Mouse models may not fully capture the human calcification phenotype or exact clinical course; the two NRROS functions (TGF-β1 vs NOX2) are partly separable in different mouse studies.</li>
+<li><strong>Convergent human genetic model — TGFB1 deficiency.</strong> Biallelic human TGFB1 LoF causes severe infantile inflammatory bowel disease and encephalopathy (<a href="https://pubmed.ncbi.nlm.nih.gov/29483653/">PMID: 29483653</a>). This confirms CNS dependence on TGF-β1 — the downstream effector of NRROS — and supports the mechanistic model.</li>
+<li><strong>In vitro / cellular.</strong> Flow-cytometry assays of surface vs intracellular latent TGF-β1 anchoring in cells expressing wild-type vs mutant NRROS (Dong 2020) provided the functional proof of the anchoring defect. Structural studies (Duan 2022) defined LRRC33–TGF-β1–integrin specificity.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>NRROS-Related Microgliopathy is best understood as a <strong>microglial TGF-β1-activation deficiency with a superimposed oxidative-damage component</strong>. The unifying insight is that NRROS/LRRC33 has two conserved jobs in myeloid/microglial cells: (1) at the <strong>plasma membrane</strong>, it anchors and presents latent TGF-β1 for integrin-αVβ8-dependent local activation; and (2) in the <strong>ER</strong>, it degrades nascent NOX2 to restrain ROS. Biallelic LoF simultaneously removes a pro-homeostatic signal (TGF-β1) and a brake on oxidative stress (NOX2). In the CNS, microglia critically depend on autocrine/paracrine TGF-β1 to adopt and maintain their homeostatic identity; losing this signal yields dysfunctional microglia, while unrestrained ROS adds oxidative tissue injury. The combined insult produces a calcifying leukoencephalopathy with grey- and white-matter degeneration and foamy macrophage infiltration, which clinically manifests as early-onset refractory epilepsy, regression, microcephaly, and progressive, usually fatal neurodegeneration.</p>
+<p>The model is strongly triangulated: (i) patient variants functionally fail to anchor TGF-β1 (in vitro), (ii) the Nrros/Lrrc33 mouse phenocopies the disease, and (iii) human TGFB1 deficiency — the downstream effector — independently causes encephalopathy. The relative contributions of the TGF-β1 (upstream, best-supported) versus NOX2/ROS (branch, inferred) arms to the human calcification phenotype remain to be fully quantified.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32197075/">32197075</a></td>
+<td>Bi-allelic LoF NRROS variants impairing active TGF-β1 delivery cause severe infantile neurodegeneration</td>
+<td>Establishes causality (6 individuals/4 families), anchoring defect, mouse/TGF-β1 convergence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35716448/">35716448</a></td>
+<td>Delineating the epilepsy phenotype of NRROS-related microgliopathy</td>
+<td>Natural history (n=11): onset ~12 mo, death ~36 mo, calcification 8/11, founder variant</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35099671/">35099671</a></td>
+<td>Novel biallelic NRROS variants; lethal microgliopathy</td>
+<td>Neuropathology: grey+white matter, dystrophic calcification, foamy macrophages, mitochondrial EM</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29909984/">29909984</a></td>
+<td>A milieu molecule for TGF-β required for microglia function</td>
+<td>Defines NRROS/LRRC33 microglial TGF-β1 activation (integrin-αVβ8)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24739962/">24739962</a></td>
+<td>NRROS negatively regulates ROS during host defence and autoimmunity</td>
+<td>ER/NOX2 function; ROS branch; EAE</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29483653/">29483653</a></td>
+<td>Human TGF-β1 deficiency causes IBD and encephalopathy</td>
+<td>Confirms CNS dependence on downstream TGF-β1</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36008481/">36008481</a></td>
+<td>Specificity of TGF-β1 signal by LRRC33 and integrin</td>
+<td>Structural basis of LRRC33–TGF-β1–integrin</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23545260/">23545260</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/24550525/">24550525</a></td>
+<td>LRRC33 inhibits TLR/NF-κB; epigenetically modulated</td>
+<td>Immune-regulatory role; H3K4me3/H3K27me3 regulation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28072696/">28072696</a></td>
+<td>CRMCC case report</td>
+<td>Differential diagnosis (calcifying leukoencephalopathy, CTC1)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Supporting tumor-immunology literature (<a href="https://pubmed.ncbi.nlm.nih.gov/35181792/">PMID: 35181792</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40992270/">40992270</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/31600200/">31600200</a>) corroborates the LRRC33/TGF-β1 axis in myeloid cells, reinforcing the mechanistic foundation.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ul>
+<li><strong>Very small N (&lt;~15 patients).</strong> All epidemiology, natural-history, and genotype-phenotype statements rest on small case series; prevalence/incidence are unquantified.</li>
+<li><strong>TGF-β1 vs NOX2 contribution.</strong> The relative weight of lost TGF-β1 signaling (best-supported) versus the NOX2/ROS oxidative branch (inferred) in producing human calcification and neurodegeneration is not quantitatively resolved.</li>
+<li><strong>No validated biomarker.</strong> No blood/CSF biomarker exists for diagnosis or disease monitoring.</li>
+<li><strong>No therapeutic data.</strong> No trials of any disease-modifying approach; all treatment is supportive.</li>
+<li><strong>Mechanism-to-calcification link.</strong> The precise mechanism linking microglial dysfunction/ROS to dystrophic grey-white junction calcification is not fully elucidated.</li>
+<li><strong>Citation caveat.</strong> One cited abstract snippet (<a href="https://pubmed.ncbi.nlm.nih.gov/29483653/" target="_blank" rel="noopener noreferrer">PMID:29483653</a>) was logged as a title-derived paraphrase in the knowledge state; the underlying claim (human TGF-β1 deficiency → encephalopathy) is correct and consistent with the paper's subject.</li>
+</ul>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>International patient registry &amp; natural-history study</strong> to refine prevalence, genotype-phenotype correlations, and survival with larger N.</li>
+<li><strong>Dissect the TGF-β1 vs NOX2 contributions</strong> using conditional/separation-of-function Nrros mouse alleles (TGF-β1-presentation-dead vs NOX2-binding-dead) to attribute calcification and neurodegeneration to each arm.</li>
+<li><strong>Microglial single-cell/spatial transcriptomics</strong> from patient-derived iPSC microglia or mouse models to map the dysmaturation signature and identify druggable nodes.</li>
+<li><strong>Biomarker discovery</strong> (CSF/plasma neurofilament, TGF-β pathway readouts, ROS markers) for diagnosis and potential trial endpoints.</li>
+<li><strong>Preclinical therapeutic exploration:</strong> test whether restoring TGF-β1 signaling (e.g., engineered/targeted TGF-β1 delivery to microglia) or antioxidant/NOX2 modulation mitigates phenotype in Nrros mouse models; evaluate gene-replacement feasibility given the early critical window.</li>
+<li><strong>Standardized imaging protocol</strong> (CT for calcification + MRI for white matter) to enable earlier recognition and differential diagnosis from Aicardi-Goutières/CRMCC.</li>
+</ol>
+<hr />
+<p><em>Report compiled from an autonomous multi-iteration investigation (8 confirmed findings; 18 papers reviewed). Evidence sources span human clinical case series, mouse models, in vitro functional assays, and structural/computational studies.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/NRROS-Related_Microgliopathy-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/NRROS-Related_Microgliopathy-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>13</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0030033</code> (3 mentions) - the report calls it "MONDO"; MONDO calls it <strong>seizures, early-onset, with neurodegeneration and brain calcifications</strong></li>
+<li><code>HP:0002376</code> (1 mention) - the report calls it "Median ~12 mo"; HP calls it <strong>Developmental regression</strong></li>
+<li><code>HP:0002059</code> (1 mention) - the report calls it "Progressive"; HP calls it <strong>Cerebral atrophy</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0012469</code> (1 mention) - the report calls it "Infantile"; HP calls it <strong>Infantile spasms</strong></li>
+<li><code>HP:0005484</code> (1 mention) - the report calls it "Acquired, progressive"; HP calls it <strong>Secondary microcephaly</strong>, and lists "Acquired microcephaly" among its other names</li>
+<li><code>CL:0000129</code> (2 mentions) - the report calls it "Cell populations:<strong> Microglia"; CL calls it </strong>microglial cell**, and lists "microglia" among its other names</li>
+<li><code>GO:0005886</code> (2 mentions) - the report calls it "Subcellular:<strong> Plasma membrane"; GO calls it </strong>plasma membrane**, and lists "cellular membrane" among its other names</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>OMIM</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="NRAS_Mutant_Melanoma-falcon.html">← NRAS Mutant Melanoma (Falcon)</a>
+                
+                
+                <a href="NTHL1-deficiency_Tumor_Predisposition_Syndrome-falcon.html">NTHL1-deficiency Tumor Predisposition Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/NRROS-Related_Microgliopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/NRROS-Related_Microgliopathy-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
