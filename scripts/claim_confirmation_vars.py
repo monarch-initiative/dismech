@@ -45,7 +45,9 @@ def use_case(slug: str) -> dict:
     """Load one use-case spec, insisting on every variable the template needs."""
     spec_path = USE_CASES / f"{slug}.yaml"
     if not spec_path.is_file():
-        available = ", ".join(sorted(p.stem for p in USE_CASES.glob("*.yaml"))) or "none"
+        available = (
+            ", ".join(sorted(p.stem for p in USE_CASES.glob("*.yaml"))) or "none"
+        )
         raise SystemExit(f"No use case {slug!r}. Available: {available}")
     spec = safe_load_path(spec_path)
     missing = [k for k in ("entry", *HAND_WRITTEN) if not spec.get(k)]
@@ -63,7 +65,9 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument("slug", help="use case in templates/claim_confirmation/, without .yaml")
+    ap.add_argument(
+        "slug", help="use case in templates/claim_confirmation/, without .yaml"
+    )
     ap.add_argument(
         "--format",
         choices=("null", "entry", "prompt"),
