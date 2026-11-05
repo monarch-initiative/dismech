@@ -264,16 +264,37 @@ An extracted record is not KB content. It becomes content as an
 prose and carries the method's identity so two entries citing one method are
 checkably citing the same thing:
 
-- `name`: the method as the guideline writes it, trademark included
-- `experimental_model_type`: `CELL_LINE` for KeratinoSens™, LuSens and α-Sens®;
-  `ORGANOID` for the RhE-based EpiSensA and Epi2SensA
+- `name`: the method as the guideline writes it, trademark included. The
+  trademark can be load-bearing: α-Sens and α-Sens® are two different
+  constructs, and `442D/ID/3` is where the guideline says so
+- `experimental_model_type`: `CELL_LINE` for KeratinoSens™, LuSens and α-Sens®.
+  For the RhE-based EpiSensA and Epi2SensA use `OTHER`, with the tissue model
+  named in `description`. **Not `ORGANOID`**, which the enum defines as a
+  self-organising culture; a reconstructed human epidermis is keratinocytes
+  seeded on a membrane and lifted to an air–liquid interface. `Contact_Dermatitis`
+  already files EpiSensA as `OTHER`, so this is also the consistent choice
 - `modeled_mechanisms`: the keratinocyte-activation node, with `model_scale`
   — these assays observe `MOLECULAR` or `CELLULAR` state, so a link to a
   tissue- or organism-level node is an upward extrapolation and needs
   `limitations` or a typed `divergences` entry
-- `evidence`: the guideline is the source. Cite it as a DOI
-  (`10.1787/9789264229822-en`) and quote the paragraph, exactly as the record
-  does
+- `divergences`: prefer a typed entry over prose wherever one fits. A transgenic
+  reporter standing in for endogenous pathway activity is `PROXY_QUANTITY`;
+  LuSens's rat *NQO1* element in a human cell is `SPECIES_MISMATCH`; the absent
+  dendritic-cell and lymph-node compartments are `BOUNDARY_OMISSION`
+
+**Evidence cannot yet come from the guideline.** `just fetch-reference
+DOI:10.1787/9789264229822-en` resolves and titles correctly but caches with
+`content_type: unavailable`, so there is no body for a snippet to match and an
+exact-quote evidence item citing that DOI cannot verify. Until a structured
+source exists for the guideline (see `docs/oecd-tg-extraction.md`), cite the
+method's **primary literature** — the validation and inter-laboratory papers the
+guideline's own reference list names — and keep the extracted record as the
+audited statement of what the guideline says.
+
+Do not work around this by quoting another paper's introduction *as though* it
+were the guideline. Where a paper does restate a regulatory fact, that is a real
+citation and takes `quote_role: BACKGROUND`; what it is not is a substitute for
+the guideline on facts no paper states.
 
 Do not copy the extraction JSON into the entry. The record is the audited
 source; the entry states what that disease's curator needs from it.

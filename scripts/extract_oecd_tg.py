@@ -145,13 +145,6 @@ def normalise(text: str) -> str:
 # defect pypdf's `plain` mode produces ("con sidered"); they survived because the
 # gap sits at a hyphen, where it reads as ordinary punctuation.
 #
-# A line ending in a hyphen is a word broken at the line break, so joining the two
-# lines with a space splits the word: "non-" + "sensitisers" became
-# "non- sensitisers", which no curator would type and which therefore cannot be
-# quoted at all. This is the same defect as the mid-word gap pypdf's `plain` mode
-# produces ("con sidered"); it survived because the gap sits at a hyphen, where it
-# looks like ordinary punctuation.
-#
 # The hyphen itself is kept. Every such break in TG 442D is a lexical compound --
 # "up-regulated", "Kelch-like", "IL-8", "Reverse Transcription-quantitative" -- and
 # keeping a character the source printed fails conservatively if a guideline ever
