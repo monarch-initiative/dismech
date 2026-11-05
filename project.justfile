@@ -1220,6 +1220,18 @@ assay-inventory *args="":
 model-inventory *args="":
     uv run python scripts/model_inventory.py {{args}}
 
+# Filter `computational_models` for quantitative medicine (QM) candidates: one
+# step per part of FDA's definition (mechanistic, rerunnable, outputs mapped to
+# a LOINC test or HPO phenotype, tied to a treatment target or an FDA surrogate
+# endpoint), then the survivors' decision links with relationship, fidelity and
+# typed divergences. Counts each step; ranks nothing, since a link is "not a
+# quality score" (docs/explanation/model-credibility.md). Report-only, exits 0.
+#   just model-qm-candidates
+#   just model-qm-candidates --format tsv --out tmp/qm_candidates.tsv
+[group('QC')]
+model-qm-candidates *args="":
+    uv run python scripts/model_qm_candidates.py {{args}}
+
 # For a named entity, the schema path of every string match, whether the holding
 # object carries a bound term, and whether the mention is identity, prose or
 # citation metadata. Run it when grep finds a name that drug-exposure-query does
