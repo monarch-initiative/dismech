@@ -69,9 +69,19 @@ def test_every_enum_named_by_a_template_is_in_the_schema() -> None:
 
 
 @pytest.mark.parametrize("enum_name", sorted(_ENUM_LABEL_OVERRIDES))
-def test_overrides_name_real_values(enum_name: str) -> None:
+def test_overrides_cover_exactly_the_enum_values(enum_name: str) -> None:
+    """A new value in one of these enums must be given a pill label here."""
     values = set(SCHEMA_ENUMS[enum_name]["permissible_values"])
-    assert set(_ENUM_LABEL_OVERRIDES[enum_name]) <= values
+    assert set(_ENUM_LABEL_OVERRIDES[enum_name]) == values
+
+
+def test_diagnostic_tooltip_agrees_with_the_slot_description() -> None:
+    """The pill states the slot's meaning as a fact, so its wording is written out."""
+    schema = yaml.safe_load((SRC / "schema" / "dismech.yaml").read_text())
+    slot = schema["classes"]["ImagingFinding"]["slot_usage"]["diagnostic"]
+    meaning = "pathognomonic or defines a diagnostic criterion"
+    assert meaning in slot["description"]
+    assert meaning in (SRC / "templates" / "disorder.html.j2").read_text()
 
 
 @pytest.mark.parametrize(

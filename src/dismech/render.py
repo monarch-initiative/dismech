@@ -6144,6 +6144,8 @@ _ENUM_LABEL_OVERRIDES: dict[str, dict[str, str]] = {
         "SPECT": "SPECT",
         "ULTRASOUND": "Ultrasound",
         "XRAY": "X-ray",
+        "MAMMOGRAPHY": "Mammography",
+        "ANGIOGRAPHY": "Angiography",
         "OCT": "OCT",
         "OTHER": "Other",
     },
@@ -6159,6 +6161,7 @@ _ENUM_LABEL_OVERRIDES: dict[str, dict[str, str]] = {
         "THERAPEUTIC": "Therapeutic",
         "DIAGNOSTIC": "Diagnostic",
         "SCREENING": "Screening",
+        "MONITORING": "Monitoring",
         "COUNSELING_INFORMATIONAL": "Counseling / Informational",
     },
 }
