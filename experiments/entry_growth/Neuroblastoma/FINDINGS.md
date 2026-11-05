@@ -63,13 +63,14 @@ commits about this entry alone began.
 - **3 November 2026: the pin** (#16320), which changed 185 disorder files to fix
   snippets for a stricter reference validator. No count in this entry moved.
 
-Within the October commits, four steps changed the shape of the graph rather
+Within the October commits, five steps changed the shape of the graph rather
 than its size:
 
 | Commit | PR | Change |
 |---|---|---|
 | `93c7a8d9bd1` | #15079 | Phenotypes 7 → 15 |
 | `cb82bbd6d5b` | #15105 | First conformance: 2 nodes, 1 module |
+| `e14197d1f2a` | #15264 | Phenotypes 15 → 16; phenotypes with a causal in-edge 0 → 1 |
 | `fcc1b51fa00` | #15356 | Phenotypes with a causal in-edge 1 → 14 of 16 |
 | `e93f0d582ae` | #15336 | Modules conformed to 2 → 4 |
 

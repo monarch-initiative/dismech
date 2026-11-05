@@ -92,14 +92,20 @@ def commits_touching(repo: str, path: str, until: str) -> list[tuple[str, str, s
     return rows
 
 
+def empty_tree(repo: str) -> str:
+    """The id of the empty tree, in this repository's hash format."""
+    return git(repo, "hash-object", "-t", "tree", "/dev/null").strip()
+
+
 def disorder_files_changed(repo: str, commit: str) -> int:
     """How many kb/disorders/ files the commit changed, against its first parent.
 
     Separates a commit about this entry from a sweep across the knowledge base.
+    A root commit has no parent, so it is compared with the empty tree.
     """
-    changed = git(
-        repo, "diff", "--name-only", f"{commit}^", commit, "--", "kb/disorders/"
-    )
+    parents = git(repo, "rev-list", "--parents", "-n", "1", commit).split()[1:]
+    base = parents[0] if parents else empty_tree(repo)
+    changed = git(repo, "diff", "--name-only", base, commit, "--", "kb/disorders/")
     return len(changed.splitlines())
 
 
