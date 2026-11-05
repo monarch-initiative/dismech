@@ -61,20 +61,51 @@ one of them.
 
 ## Step 3 — the fields
 
-Extract what the in-scope sections actually state. These are the fields TG 442D
-supports; a guideline in another series will support a different set, and the
-vocabulary should grow by reading rather than by anticipation.
+**Biology and materials first. The regulatory skeleton is secondary.** A method's
+name tells you nothing; what distinguishes it is the cell or tissue it runs in,
+the construct or transcript it reads, and the chemistry it can and cannot see.
+Extract that before validation status and performance, and order the record so it
+reads as science rather than as paperwork. Validation and performance matter, but
+a record with a validation route and no substrate describes a certificate, not an
+assay.
+
+**Biology and materials — the substrate:**
 
 | Field | What it holds | Typically found in |
 |---|---|---|
-| `method_name` | the method as the guideline writes it | appendix ¶1–2 |
-| `guideline` | TG number and adoption date | manifest + GI |
+| `method_family` | the guideline's own grouping of its methods | GI ¶2 |
+| `measurement_basis` | reporter transgene, or endogenous transcript | appendix ¶1, ¶9 |
 | `key_event` | which AOP key event it addresses | appendix ¶1 |
 | `mechanism` | the biology the readout depends on | appendix ¶1 |
-| `test_system` | cell line, or the named RhE/tissue model | appendix ¶1, ¶3 |
-| `readout` | what is measured, and by what assay | appendix ¶1 |
-| `marker_genes` | the genes quantified, where applicable | appendix ¶1, ¶3 |
-| `reporter_construct` | the reporter and its response element | appendix ¶1 |
+| `initiating_chemistry` | the chemical reaction the method detects | appendix ¶5 |
+| `response_arms` | which biological response(s) the readout spans | appendix ¶1 |
+| `host_cell_line` | the named line, if the guideline names one | appendix ¶3, ¶8 |
+| `tissue_matrix` | 2D culture, or a named 3D model and its interface | appendix ¶3, ¶5 |
+| `regulatory_element` | the response element, **and its species** | appendix ¶8 |
+| `reporter_construct` | reporter gene(s) and promoter arrangement | appendix ¶8 |
+| `internal_viability_control` | a second reporter in the same cells | appendix ¶8 |
+| `marker_genes` | the endogenous genes quantified | appendix ¶1, ¶3 |
+| `marker_gene_interpretation` | what each gene reports biologically | appendix ¶1 |
+| `readout` | the measured quantity and the assay | appendix ¶8, ¶9 |
+| `exposure_route` | in the medium, or applied to the tissue surface | appendix ¶4, ¶5 |
+| `culture_conditions` | serum, xeno-free, and similar | appendix ¶2 |
+
+**Domain of applicability — what the substrate lets it see:**
+
+| Field | What it holds | Typically found in |
+|---|---|---|
+| `metabolic_competence` | the system's capacity to activate chemicals | appendix ¶5 |
+| `prohapten_detection` | whether pro-/pre-haptens are caught or missed | appendix ¶5 |
+| `mechanistic_blind_spot` | chemistry the mechanism cannot register | appendix ¶5 |
+| `assay_interference` | artefacts arising from the readout itself | appendix ¶5 |
+| `lipophilicity_limit` | the LogP / logKow range that can be tested | appendix ¶3, ¶4 |
+| `cytotoxicity_threshold` | the viability floor for a valid call | appendix ¶9 |
+| `positive_call` | the decision rule and its cut-offs | appendix ¶9 |
+
+**Regulatory standing — secondary:**
+
+| Field | What it holds | Typically found in |
+|---|---|---|
 | `validation_route` | validation study, then which peer review | appendix ¶2 |
 | `validation_status` | VRM, validated similar method, or PS-based | appendix ¶3, GI ¶3 |
 | `reviewing_body` | the named body that peer-reviewed it | appendix ¶2 |
@@ -83,6 +114,18 @@ vocabulary should grow by reading rather than by anticipation.
 | `performance_caveat` | the guideline's own limit on those figures | appendix ¶3 |
 | `reproducibility_within_laboratory` | within-laboratory, separately | appendix ¶3 |
 | `reproducibility_between_laboratory` | between-laboratory, separately | appendix ¶3 |
+| `proficiency_substances` | how many a laboratory must demonstrate | appendix ¶10 |
+
+These are the fields TG 442D supports; another guideline will support a different
+set, and the vocabulary should grow by reading rather than by anticipation.
+
+**A supplier is not a material fact, but it can index one.** The RhE model a
+method uses is part of its identity — EpiSensA and Epi2SensA differ in tissue
+model and nothing else biologically — and each model has a sole supplier. Record
+the **model**, which is biology; leave licences, material transfer agreements and
+reagent sourcing out, which are procurement. In TG 442D those sit in `PROCEDURE`
+and the annexes, outside the extracted scope, and there is nowhere in the dismech
+or NAMO schema to put them.
 
 Record shape, one object per field:
 
