@@ -479,6 +479,70 @@ class BookshelfIndex:
         return sorted(matches, key=lambda m: (m.chapter.retired, int(m.chapter.pmid)))
 
 
+# -- purpose-statement abstracts (#11848) ------------------------------------
+
+#: The opening of a GeneReviews *Overview*-format abstract: "The purpose of this
+#: overview is to: 1.. Describe the clinical characteristics of …". The
+#: wording varies a little ("The purpose of this GeneReview is to", "The goals
+#: of this overview on … is to"), so the pattern allows a short span between
+#: the noun and ``is to``.
+_PURPOSE_STATEMENT = re.compile(
+    r"\b(?:purpose|goals?) of this (?:overview|genereview)\b[^.]{0,200}?\bis to\b",
+    re.IGNORECASE,
+)
+#: The section heading of a structured GeneReviews abstract, the section the
+#: phenotype baseline is read from. PubMed prints it in capitals.
+_CLINICAL_CHARACTERISTICS = "CLINICAL CHARACTERISTICS"
+
+
+def is_purpose_statement_only(text: str) -> bool:
+    """True when a cached chapter abstract is a statement of purpose and nothing else.
+
+    GeneReviews publishes two kinds of chapter. A disease- or gene-specific
+    chapter has a structured PubMed abstract whose ``CLINICAL
+    CHARACTERISTICS`` section lists the phenotype. A chapter in the *Overview*
+    format does not: its PubMed abstract only says what the chapter will do
+    ("The purpose of this overview is to: 1.. Describe the clinical
+    characteristics of …"). The format is not always named in the title:
+    *Primary Ciliary Dyskinesia* and *Joubert Syndrome* are written as
+    overviews too, and the older retired Overviews still carry a structured
+    abstract. So the test reads the record: a purpose statement and no
+    ``CLINICAL CHARACTERISTICS`` section.
+
+    The full chapter on Bookshelf does describe the clinical picture; only the
+    PubMed abstract, which is what ``references_cache/`` holds, is empty of it.
+    """
+    flat = re.sub(r"\s+", " ", text)
+    return (
+        _PURPOSE_STATEMENT.search(flat) is not None
+        and _CLINICAL_CHARACTERISTICS not in text
+    )
+
+
+def cached_chapter_text(cache_dir: Path, pmid: str) -> str | None:
+    """The body of ``references_cache/PMID_<pmid>.md`` below its frontmatter, or ``None``."""
+    path = cache_dir / f"PMID_{pmid}.md"
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    if text.startswith("---"):
+        end = text.find("\n---", 3)
+        if end != -1:
+            text = text[end + 4 :]
+    return text
+
+
+def is_purpose_only_chapter(cache_dir: Path, pmid: str) -> bool:
+    """Whether the cached abstract of chapter ``pmid`` is purpose-statement only.
+
+    ``False`` when the chapter is not cached: nothing has been read, so nothing
+    is claimed.
+    """
+    text = cached_chapter_text(cache_dir, pmid)
+    return text is not None and is_purpose_statement_only(text)
+
+
 # -- cache-marker fallback ---------------------------------------------------
 
 #: What an ``efetch``-rendered Bookshelf citation looks like in a

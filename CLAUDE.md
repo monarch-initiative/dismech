@@ -4403,7 +4403,13 @@ because GeneReviews often covers a disease inside a gene's spectrum chapter
 Searching PubMed by hand, use `genereviews[book]`, never `GeneReviews[TI]`,
 which matches nothing. An entry whose only tagged chapters are retired ones
 reports `TAGGED_RETIRED`, never gating: the tag is correct (a retired chapter is
-still GeneReviews), but the baseline is withdrawn content (#16018). Nothing gates on StatPearls: it is a point-of-care
+still GeneReviews), but the baseline is withdrawn content (#16018). An entry
+whose current tagged chapters all cache as an Overview-format statement of
+purpose ("The purpose of this overview is to: …", no `CLINICAL
+CHARACTERISTICS` section) reports `TAGGED_OVERVIEW`, also never gating: the
+cache holds no phenotype baseline to mine, so the entry takes its phenotypes
+from elsewhere and says so in `notes:` (#11848). `just fetch-reference` warns
+on both kinds of chapter when it caches one. Nothing gates on StatPearls: it is a point-of-care
 reference across all of medicine with a light editorial process, citable for
 orientation (and taggable as `StatPearls`) but never a baseline, and its absence
 is never a gap. `just tag-references` now decides chapter membership from the
