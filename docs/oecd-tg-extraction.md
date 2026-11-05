@@ -121,7 +121,7 @@ quantification". That division decides almost everything else.
 |---|---|---|
 | What is measured | a transgenic luciferase reporter | four endogenous transcripts by RT-qPCR |
 | Response arms seen | Nrf2–ARE cytoprotective only | **inflammatory** (ATF3, IL-8) **and cytoprotective** (GCLM, DNAJB4) |
-| Substrate | adherent keratinocyte monolayer | 3D reconstructed human epidermis, air–liquid interface |
+| Substrate | adherent keratinocyte culture (2D is implied, never stated) | 3D reconstructed human epidermis, air–liquid interface |
 | Chemical delivery | dissolved or dispersed in the exposure medium | applied directly to the tissue surface |
 | Lipophilic range | LogP above 7 may be insoluble | lipophilic vehicles usable, logKow > 3.5 testable |
 | Metabolic capacity | "limited metabolic capability of the cell line used" | "similar metabolic capacity as human skin, but further confirmation is still needed" |
