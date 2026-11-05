@@ -146578,11 +146578,16 @@ window.searchData = [
       "Kyphoscoliotic EDS",
       "Dermatosparaxis EDS",
       "Classical-like EDS",
-      "Periodontal EDS"
+      "Periodontal EDS",
+      "Classical EDS type 2"
     ],
     "description": "Ehlers-Danlos syndrome comprises a group of heritable disorders caused by mutations in genes encoding collagens or collagen-modifying enzymes. Defective collagen synthesis and assembly weaken connective tissues throughout the body, producing generalized tissue fragility. The result is joint hypermobility and dislocation, skin hyperextensibility and poor wound healing, and, in vascular subtypes, life-threatening arterial and organ rupture.",
     "pathophysiology": [
       "Collagen Abnormalities",
+      "Fibrillar Collagen Chain Defect",
+      "Procollagen N-Propeptide Processing Deficiency",
+      "Collagen Lysyl Hydroxylase 1 Deficiency",
+      "Tenascin-X Deficiency",
       "Connective Tissue Fragility",
       "Tissue Injury and Dysfunction",
       "Integrin-Mediated Mechanotransduction Dysregulation",
@@ -146699,11 +146704,11 @@ window.searchData = [
     "source_file": "Ehlers-Danlos_Syndrome.yaml",
     "page_url": "../pages/disorders/Ehlers-Danlos_Syndrome.html",
     "num_phenotypes": 20,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 10,
     "num_genes": 9,
     "num_treatments": 4,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Ehlers-Danlos Syndrome, COL5A1-related",
@@ -305790,6 +305795,7 @@ window.searchData = [
       "Eyelid Erythema",
       "Fever",
       "Optic Neuropathy",
+      "Cavernous Sinus Thrombosis",
       "Meningitis",
       "Brain Abscess"
     ],
@@ -305799,6 +305805,7 @@ window.searchData = [
       "Neurologic"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
       "Cardiovascular",
       "Constitutional",
       "Eye",
@@ -305819,6 +305826,7 @@ window.searchData = [
       "HP:0040323",
       "HP:0001945",
       "HP:0001138",
+      "HP:0033724",
       "HP:0001287",
       "HP:0030049"
     ],
@@ -305835,11 +305843,11 @@ window.searchData = [
     ],
     "source_file": "Orbital_Cellulitis.yaml",
     "page_url": "../pages/disorders/Orbital_Cellulitis.html",
-    "num_phenotypes": 12,
+    "num_phenotypes": 13,
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "5"
   },
   {
@@ -344827,6 +344835,118 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "ROGDI-Related Kohlschutter-Tonz Syndrome",
+    "disease_id": "MONDO:0009185",
+    "category": "Mendelian",
+    "parents": [
+      "developmental and epileptic encephalopathy",
+      "amelogenesis imperfecta",
+      "ectodermal dysplasia syndrome"
+    ],
+    "creation_date": "2026-11-04T16:20:18Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive neurodevelopmental and dental disorder caused by biallelic loss-of-function variants in ROGDI. It presents with the triad of early-onset, often drug-resistant epileptic encephalopathy, global developmental delay or psychomotor regression with severe intellectual disability and spasticity, and hypomineralized (hypomature) amelogenesis imperfecta with yellow-brown discoloration of both primary and permanent teeth. ROGDI is a subunit of the Rabconnectin-3 complex that assembles the vacuolar proton-pumping ATPase (V-ATPase), and defective V-ATPase-driven acidification is the leading model linking the enamel and neurological features.",
+    "pathophysiology": [
+      "ROGDI Loss of Function",
+      "Impaired Rabconnectin-3-Dependent V-ATPase Assembly",
+      "Defective Ameloblast Acidification During Enamel Maturation",
+      "Hypomineralized Enamel",
+      "Neuronal Presynaptic Dysfunction"
+    ],
+    "cell_types": [
+      "ameloblast",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000059",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "V-ATPase assembly",
+      "cyclic acidification of maturation-stage enamel",
+      "enamel mineralization",
+      "synaptic vesicle lumen acidification"
+    ],
+    "phenotypes": [
+      "Amelogenesis imperfecta",
+      "Yellow-brown discoloration of the teeth",
+      "Epileptic encephalopathy",
+      "Status epilepticus",
+      "Global developmental delay",
+      "Developmental regression",
+      "Severe intellectual disability",
+      "Spasticity",
+      "Dystonia",
+      "Absent speech",
+      "Attention deficit hyperactivity disorder",
+      "Self-injurious behavior",
+      "Feeding difficulties",
+      "Hypohidrosis",
+      "Nephrocalcinosis",
+      "Distal renal tubular acidosis"
+    ],
+    "phenotype_categories": [
+      "Dental",
+      "Neurological",
+      "Neurodevelopmental",
+      "Behavioral",
+      "Gastrointestinal",
+      "Integumentary",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000705",
+      "HP:0006286",
+      "HP:0200134",
+      "HP:0002133",
+      "HP:0001263",
+      "HP:0002376",
+      "HP:0010864",
+      "HP:0001257",
+      "HP:0001332",
+      "HP:0001344",
+      "HP:0007018",
+      "HP:0100716",
+      "HP:0011968",
+      "HP:0000966",
+      "HP:0000121",
+      "HP:0008341"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "ROGDI"
+    ],
+    "treatments": [
+      "Antiseizure Pharmacotherapy",
+      "Restorative Dental Treatment",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ROGDI-Related_Kohlschutter-Tonz_Syndrome.yaml",
+    "page_url": "../pages/disorders/ROGDI-Related_Kohlschutter-Tonz_Syndrome.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "ROS1-Rearranged Non-Small Cell Lung Cancer",
@@ -426108,19 +426228,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3957,
-  "total_subtypes": 5008,
-  "total_disorders_and_subtypes": 8965,
-  "total_unique_evidence_sources": 58682,
-  "total_unique_publications": 54916,
+  "total_disorder_pages": 3958,
+  "total_subtypes": 5009,
+  "total_disorders_and_subtypes": 8967,
+  "total_unique_evidence_sources": 58698,
+  "total_unique_publications": 54930,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3955,
-  "total_unique_pathological_events": 25888,
+  "total_pathographs": 3956,
+  "total_unique_pathological_events": 25897,
   "total_modules": 226,
-  "total_research_reports": 4066,
+  "total_research_reports": 4067,
   "total_classifications": 21,
   "total_comorbidities": 55,
-  "total_groupings": 129
+  "total_groupings": 130
 };
 window.dispatchEvent(new Event('searchDataReady'));
