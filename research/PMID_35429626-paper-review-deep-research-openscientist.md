@@ -357,3 +357,38 @@ Checked with `linkml-reference-validator` 0.5.1.
 | Off topic | 0 |
 
 All extracted references resolved successfully.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 16 |
+| Resolved | 15 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 1 |
+| Terms whose name was checked | 5 |
+| Terms named correctly | 2 |
+| Terms named as a **different** term | 2 |
+| Terms whose name is worth a second look | 1 |
+
+### Terms the report names something else
+
+These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
+
+- `UBERON:0022353` (2 mentions) - the report calls it "PCC"; UBERON calls it **posterior cingulate cortex**
+- `UBERON:0006088` (2 mentions) - the report calls it "IPC"; UBERON calls it **inferior parietal cortex**
+
+### Terms whose name is worth a second look
+
+The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a *related* synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:
+
+- `CHEBI:38462` (4 mentions) - the report calls it "acetylcholinesterase inhibitor", "acetylcholinesterase inhibition"; CHEBI calls it **EC 3.1.1.7 (acetylcholinesterase) inhibitor**, and lists "acetylcholinesterase inhibitor" among its other names
+
+### Terms named inconsistently
+
+The report gives these identifiers more than one name of its own:
+
+- `CHEBI:38462` - called "acetylcholinesterase inhibitor", "acetylcholinesterase inhibition"
