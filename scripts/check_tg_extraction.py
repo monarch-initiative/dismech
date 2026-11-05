@@ -42,6 +42,11 @@ FOLD = {
     "®": "",  # ®
     "°": " degrees ",  # °
     "α": "alpha",
+    # TG 442D paragraph ID/3 writes the α-Sens® name once with U+237A, the APL
+    # functional symbol, where every other mention uses U+03B1. Without this the
+    # same name folds two ways and a quote copied from one sentence will not
+    # verify against the other.
+    "⍺": "alpha",
     "β": "beta",
     "μ": "u",  # micro sign vs mu
     "µ": "u",
