@@ -36324,7 +36324,8 @@ window.searchData = [
     "environmental": [
       "Prenatal and perinatal epidemiologic associations",
       "Prenatal valproate exposure",
-      "Prenatal and early-childhood heavy metal exposure"
+      "Prenatal and early-childhood heavy metal exposure",
+      "Prenatal residential proximity to agricultural pesticide application"
     ],
     "biochemical": [],
     "source_file": "Autism_Spectrum_Disorder.yaml",
@@ -36333,7 +36334,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 5,
     "num_treatments": 4,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "3"
   },
   {
@@ -134507,6 +134508,127 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "6",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Diffuse Cerebral and Cerebellar Atrophy-Intractable Seizures-Progressive Microcephaly Syndrome",
+    "disease_id": "MONDO:0014335",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-11-05T00:48:16Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Diffuse cerebral and cerebellar atrophy - intractable seizures - progressive microcephaly syndrome (MSCCA, OMIM 615760) is the autosomal recessive disorder caused by biallelic loss-of-function variants in QARS1, the gene encoding the cytosolic glutaminyl-tRNA synthetase (GlnRS). GlnRS is the only enzyme that charges glutamine onto cytosolic tRNA-Gln, so it is required for incorporation of glutamine into every protein translated in the cytosol. The founding report described two unrelated families with progressive postnatal microcephaly, severe infantile-onset seizures, and atrophy of the cerebral cortex and cerebellar vermis with milder cerebellar hemispheric atrophy. Pathogenic alleles act through two routes that converge on reduced aminoacylation: N-terminal-domain missense variants that lower catalytic efficiency and destabilise the enzyme, and catalytic-core missense or truncating variants that cause misfolding, aggregation and loss of activity. Later reports widened the phenotype considerably. At the severe end are neonatal-onset epileptic encephalopathies with diffuse cerebral atrophy and deficient myelination, sometimes without cerebellar involvement; at the mild end are homozygous missense genotypes with microcephaly and severe intellectual disability but no epilepsy, severe postnatal growth failure with only minor imaging changes, and childhood-onset focal epilepsy that responds to monotherapy. Management is symptomatic; no disease-modifying treatment exists.",
+    "pathophysiology": [
+      "Biallelic QARS1 Loss-of-Function Variants",
+      "Reduced GlnRS Catalytic Efficiency",
+      "GlnRS Misfolding and Aggregation",
+      "Deficient Glutaminyl-tRNA Aminoacylation",
+      "Neural Cell Death in the Developing Brain",
+      "Progressive Loss of Cerebral and Cerebellar Volume"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "protein folding",
+      "glutaminyl-tRNA aminoacylation",
+      "cell death"
+    ],
+    "phenotypes": [
+      "Progressive Microcephaly",
+      "Seizure",
+      "Epileptic Encephalopathy",
+      "Focal-onset Seizures",
+      "Cerebral Cortical Atrophy",
+      "Cerebellar Vermis Atrophy",
+      "Cerebellar Atrophy",
+      "CNS Hypomyelination",
+      "Delayed Myelination",
+      "Thin Corpus Callosum",
+      "Hypoplasia of the Corpus Callosum",
+      "Ventriculomegaly",
+      "Pachygyria",
+      "Cerebral Visual Impairment",
+      "Facial Dysmorphism",
+      "Global Developmental Delay",
+      "Severe Intellectual Disability",
+      "Hypotonia",
+      "Severe Postnatal Growth Retardation",
+      "Short Stature",
+      "High Myopia",
+      "Cutaneous Syndactyly of Toes",
+      "Orofacial Dyskinesia",
+      "Hand Stereotypies",
+      "Acute Para-infectious Encephalopathy"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic",
+      "Craniofacial",
+      "Growth",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000253",
+      "HP:0001250",
+      "HP:0200134",
+      "HP:0007359",
+      "HP:0002120",
+      "HP:0006855",
+      "HP:0001272",
+      "HP:0003429",
+      "HP:0012448",
+      "HP:0033725",
+      "HP:0002079",
+      "HP:0002119",
+      "HP:0001302",
+      "HP:0100704",
+      "HP:0001999",
+      "HP:0001263",
+      "HP:0010864",
+      "HP:0001252",
+      "HP:0008850",
+      "HP:0004322",
+      "HP:0011003",
+      "HP:0010621",
+      "HP:0002310",
+      "HP:0000733",
+      "HP:0006846"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "QARS1"
+    ],
+    "treatments": [
+      "Antiseizure Pharmacotherapy",
+      "Intravenous Methylprednisolone for Para-infectious Encephalopathy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Diffuse_Cerebral_and_Cerebellar_Atrophy-Intractable_Seizures-Progressive_Microcephaly_Syndrome.yaml",
+    "page_url": "../pages/disorders/Diffuse_Cerebral_and_Cerebellar_Atrophy-Intractable_Seizures-Progressive_Microcephaly_Syndrome.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Diffuse Large B-Cell Lymphoma",
@@ -427943,17 +428065,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3973,
+  "total_disorder_pages": 3974,
   "total_subtypes": 5014,
-  "total_disorders_and_subtypes": 8987,
-  "total_unique_evidence_sources": 58916,
-  "total_unique_publications": 55131,
+  "total_disorders_and_subtypes": 8988,
+  "total_unique_evidence_sources": 58927,
+  "total_unique_publications": 55141,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3971,
-  "total_unique_pathological_events": 25985,
+  "total_pathographs": 3972,
+  "total_unique_pathological_events": 25991,
   "total_modules": 226,
-  "total_research_reports": 4082,
+  "total_research_reports": 4083,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 130
