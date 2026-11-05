@@ -118150,6 +118150,7 @@ window.searchData = [
       "LDL Cholesterol",
       "HDL Cholesterol",
       "C-Reactive Protein",
+      "Lipoprotein(a)",
       "Troponin I"
     ],
     "source_file": "Coronary_Artery_Disease.yaml",
@@ -120374,6 +120375,127 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Craniosynostosis and Dental Anomalies",
+    "disease_id": "MONDO:0013615",
+    "category": "Mendelian",
+    "parents": [
+      "Syndromic Craniosynostosis"
+    ],
+    "creation_date": "2026-11-04T23:54:07Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Craniosynostosis and dental anomalies (CRSDA) is an autosomal recessive syndromic craniosynostosis caused by biallelic loss-of-function variants in IL11RA, which encodes the alpha subunit of the interleukin 11 receptor. Loss of membrane IL-11 receptor signalling removes a restraint on cranial suture fusion and on tooth number. Affected individuals have premature fusion of several cranial sutures (often pansynostosis), maxillary and midface hypoplasia with a Crouzon-like face, variable proptosis, relative prognathism, conductive hearing loss, and dental anomalies that include delayed or failed tooth eruption, retained primary teeth and supernumerary teeth. Limbs are spared, which separates it clinically from the FGFR craniosynostosis syndromes.",
+    "pathophysiology": [
+      "Biallelic IL11RA Loss of Function",
+      "Loss of IL-11 Classic Signalling in Cranial Mesenchyme",
+      "Reduced IL-11-Dependent Bone Remodelling",
+      "Premature Multisuture Cranial Synostosis",
+      "Impaired Craniofacial Skeletal Growth",
+      "Disturbed Tooth Development and Eruption",
+      "Middle Ear Anomalies"
+    ],
+    "cell_types": [
+      "cranial suture mesenchymal cell",
+      "osteoclast",
+      "osteoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0008019",
+      "CL:0000092",
+      "CL:0000062"
+    ],
+    "biological_processes": [
+      "interleukin-11-mediated signaling pathway",
+      "cranial suture morphogenesis",
+      "osteoclast differentiation",
+      "bone remodeling",
+      "odontogenesis",
+      "tooth eruption"
+    ],
+    "phenotypes": [
+      "Multiple suture craniosynostosis",
+      "Pansynostosis",
+      "Brachycephaly",
+      "Copper beaten skull",
+      "Chiari type I malformation",
+      "Hypoplasia of the maxilla",
+      "Midface retrusion",
+      "Proptosis",
+      "Mandibular prognathia",
+      "Convex nasal ridge",
+      "Supernumerary tooth",
+      "Delayed eruption of teeth",
+      "Ectopic tooth eruption",
+      "Persistence of primary teeth",
+      "Dental malocclusion",
+      "Conductive hearing impairment",
+      "Joint hypermobility",
+      "Intervertebral disk degeneration",
+      "Scoliosis",
+      "Platybasia",
+      "Basilar invagination"
+    ],
+    "phenotype_categories": [
+      "Craniofacial",
+      "Neurological",
+      "Ophthalmological",
+      "Dental",
+      "Hearing",
+      "Musculoskeletal",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011324",
+      "HP:0011325",
+      "HP:0000248",
+      "HP:0034271",
+      "HP:0007099",
+      "HP:0000327",
+      "HP:0011800",
+      "HP:0000520",
+      "HP:0000303",
+      "HP:0000444",
+      "HP:0011069",
+      "HP:0000684",
+      "HP:4000093",
+      "HP:0006335",
+      "HP:0000689",
+      "HP:0000405",
+      "HP:0001382",
+      "HP:0008419",
+      "HP:0002650",
+      "HP:0002691",
+      "HP:0012366"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "IL11RA"
+    ],
+    "treatments": [
+      "Cranial Vault Remodelling Surgery",
+      "Dental Extraction for Failed Eruption"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Craniosynostosis_And_Dental_Anomalies.yaml",
+    "page_url": "../pages/disorders/Craniosynostosis_and_Dental_Anomalies.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Creatine Transporter Deficiency",
@@ -205184,6 +205306,121 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Hypomagnesemia, Seizures, and Intellectual Disability 1",
+    "disease_id": "MONDO:0020787",
+    "category": "Mendelian",
+    "parents": [
+      "Hypomagnesemia, Seizures, and Intellectual Disability"
+    ],
+    "creation_date": "2026-11-04T23:54:07Z",
+    "updated_date": null,
+    "subtypes": [
+      "Monoallelic",
+      "Biallelic"
+    ],
+    "description": "Hypomagnesemia, seizures, and intellectual disability 1 (HOMGSMR1, also called HSMR syndrome) is caused by loss-of-function variants in CNNM2, which encodes cyclin M2, a membrane protein of the basolateral membrane of the distal convoluted tubule that is required for renal magnesium reabsorption and is also expressed in the brain. Most patients carry a single CNNM2 variant, often arising de novo, and have hypomagnesemia from renal magnesium wasting that supplementation does not fully correct, generalized seizures in childhood that often remit, mild to moderate intellectual disability with impaired speech and motor skills, and frequently severe obesity. Patients with biallelic CNNM2 variants have a more severe disease, with refractory seizures from the first days of life, severe intellectual disability, microcephaly and structural brain abnormalities. Zebrafish knockdown and knockout mouse models show that CNNM2 is needed for brain development independently of serum magnesium.",
+    "pathophysiology": [
+      "CNNM2 Loss-of-Function Variants",
+      "Disrupted Mg-ATP Binding by the CBS Module",
+      "Reduced CNNM2 Plasma Membrane Expression",
+      "Loss of CNNM2-Dependent Magnesium Transport",
+      "Impaired Distal Convoluted Tubule Magnesium Reabsorption",
+      "Reduced Intestinal Magnesium Absorption",
+      "Systemic Magnesium Depletion",
+      "Impaired Neurodevelopment",
+      "Neuronal Hyperexcitability and Hypersynchrony"
+    ],
+    "cell_types": [
+      "kidney distal convoluted tubule epithelial cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:1000849",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "protein localization to plasma membrane",
+      "magnesium ion transmembrane transport",
+      "intestinal magnesium absorption",
+      "magnesium ion homeostasis",
+      "brain development",
+      "action potential"
+    ],
+    "phenotypes": [
+      "Hypomagnesemia",
+      "Renal magnesium wasting",
+      "Generalized-onset seizure",
+      "Infantile spasms",
+      "Epileptic encephalopathy",
+      "Status epilepticus",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Motor delay",
+      "Hyperkinetic movements",
+      "Autism",
+      "Obesity",
+      "Severe global developmental delay",
+      "Microcephaly",
+      "CNS hypomyelination",
+      "Extra-axial cerebrospinal fluid accumulation",
+      "Basal ganglia calcification"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Renal",
+      "Neurological",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002917",
+      "HP:0005567",
+      "HP:0002197",
+      "HP:0012469",
+      "HP:0200134",
+      "HP:0002133",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0001270",
+      "HP:0002487",
+      "HP:0000717",
+      "HP:0001513",
+      "HP:0011344",
+      "HP:0000252",
+      "HP:0003429",
+      "HP:0012510",
+      "HP:0002135"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CNNM2"
+    ],
+    "treatments": [
+      "Magnesium supplementation",
+      "Antiseizure medication"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypomagnesemia_Seizures_And_Intellectual_Disability_1.yaml",
+    "page_url": "../pages/disorders/Hypomagnesemia,_Seizures,_and_Intellectual_Disability_1.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "42",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Hypomagnesemia, Seizures, and Intellectual Disability 2",
     "disease_id": "MONDO:0020788",
     "category": "Mendelian",
@@ -217202,20 +217439,33 @@ window.searchData = [
     ],
     "phenotypes": [
       "Severe Viral Pneumonia",
-      "Haemophagocytosis and Hyperinflammation"
+      "Haemophagocytosis and Hyperinflammation",
+      "Viral encephalitis",
+      "Post-vaccination varicella zoster virus infection",
+      "Recurrent fever",
+      "Disseminated intravascular coagulation"
     ],
     "phenotype_categories": [
       "Respiratory",
-      "Hematologic"
+      "Hematologic",
+      "Neurological",
+      "Infectious",
+      "Constitutional"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Immune",
+      "Metabolism",
+      "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0002090",
-      "HP:0012156"
+      "HP:0012156",
+      "HP:0033993",
+      "HP:4000166",
+      "HP:0001954",
+      "HP:0005521"
     ],
     "frequencies": [],
     "genes": [
@@ -217229,11 +217479,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Immunodeficiency_65_IRF9_Deficiency.yaml",
     "page_url": "../pages/disorders/Immunodeficiency_65_IRF9_Deficiency.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 6,
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "7"
   },
   {
@@ -257754,6 +258004,105 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "19",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "MSX2-Related Craniosynostosis",
+    "disease_id": "MONDO:0011481",
+    "category": "Mendelian",
+    "parents": [
+      "Syndromic Craniosynostosis"
+    ],
+    "creation_date": "2026-11-04T23:54:07Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant syndromic craniosynostosis, first described as the Boston type, caused by heterozygous missense variants at proline 148 in the homeodomain of the transcription factor MSX2. The original p.Pro148His variant increases the stability of MSX2 binding to its DNA targets and acts as a gain of function; p.Pro148Leu has since been found in further families. Increased MSX2 activity in the calvarial sutures expands the pool of proliferating osteogenic cells at the osteogenic fronts and leads to premature suture fusion. Expression is highly variable, from isolated sagittal, metopic or unicoronal synostosis to frontal bossing, turribrachycephaly and cloverleaf skull. Headache, poor vision and seizures occur, intelligence is normal, and minor hand and foot anomalies have been described. Only a handful of families have been reported.",
+    "pathophysiology": [
+      "MSX2 Homeodomain Gain-of-Function Variant",
+      "Expanded Osteogenic Front Progenitor Pool",
+      "Premature Calvarial Suture Fusion"
+    ],
+    "cell_types": [
+      "calvarial osteoprogenitor"
+    ],
+    "cell_type_ids": [
+      "CL:0007010"
+    ],
+    "biological_processes": [
+      "osteoblast proliferation",
+      "osteoblast differentiation",
+      "intramembranous ossification"
+    ],
+    "phenotypes": [
+      "Craniosynostosis",
+      "Cloverleaf skull",
+      "Brachyturricephaly",
+      "Frontal bossing",
+      "Scaphocephaly",
+      "Trigonocephaly",
+      "Unicoronal synostosis",
+      "Endocranial erosions",
+      "Underdeveloped supraorbital ridges",
+      "Headache",
+      "Visual impairment",
+      "Seizure",
+      "Cleft palate",
+      "Supernumerary tooth",
+      "Triphalangeal thumb",
+      "3-4 finger syndactyly",
+      "Cutaneous syndactyly",
+      "Short first metatarsal",
+      "Aplasia of the middle phalanges of the toes"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Neurological",
+      "Ophthalmological",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001363",
+      "HP:0002676",
+      "HP:0000244",
+      "HP:0002007",
+      "HP:0030799",
+      "HP:0000243",
+      "HP:0011315",
+      "HP:0009891",
+      "HP:0002315",
+      "HP:0000505",
+      "HP:0001250",
+      "HP:0000175",
+      "HP:0011069",
+      "HP:0001199",
+      "HP:0006101",
+      "HP:0012725",
+      "HP:0010105",
+      "HP:0100387"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MSX2"
+    ],
+    "treatments": [
+      "Cranial vault surgery"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "MSX2-Related_Craniosynostosis.yaml",
+    "page_url": "../pages/disorders/MSX2-Related_Craniosynostosis.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "MT-ATP6/MT-ATP8-Related Infantile Hypertrophic Cardiomyopathy",
@@ -322477,7 +322826,8 @@ window.searchData = [
       "ABI (Ankle-Brachial Index)",
       "LDL Cholesterol",
       "HbA1c",
-      "CRP"
+      "CRP",
+      "Lipoprotein(a)"
     ],
     "source_file": "Peripheral_Artery_Disease.yaml",
     "page_url": "../pages/disorders/Peripheral_Artery_Disease.html",
@@ -329497,6 +329847,126 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "26",
     "causal_graph_longest_path": "14"
+  },
+  {
+    "name": "CSNK2B-Related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0032889",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-11-04T23:54:07Z",
+    "updated_date": null,
+    "subtypes": [
+      "IDCS"
+    ],
+    "description": "CSNK2B-related neurodevelopmental disorder (Poirier-Bienvenu neurodevelopmental syndrome, POBINDS) is an autosomal dominant disorder caused by heterozygous, usually de novo, pathogenic variants in CSNK2B, which encodes CK2beta, the regulatory beta subunit of the serine/threonine protein kinase CK2. Most individuals have developmental delay or intellectual disability, ranging from borderline to profound, and early-onset epilepsy, most often generalized tonic-clonic or myoclonic seizures beginning in the first two years of life. Epilepsy ranges from pharmacoresponsive to intractable with recurrent refractory status epilepticus. Speech delay, motor delay, hypotonia, ataxia or impaired coordination, autistic features and behavioral problems are common, and short stature, sometimes with growth hormone deficiency, and minor dysmorphic or digital anomalies occur in a subset. The predominant allelic class is predicted loss of function (nonsense, frameshift, splice and start-loss variants, and whole-gene 6p21.33 deletions), and patient-derived and cell studies show reduced CK2beta protein and reduced CK2 holoenzyme, supporting haploinsufficiency; some missense variants in the zinc-finger domain destabilize CK2beta and impair its homodimerization. A Csnk2b heterozygous mouse shows seizures, cortical thinning and a deficit of cortical parvalbumin interneurons that are rescued by early postnatal gene replacement.",
+    "pathophysiology": [
+      "CSNK2B Heterozygous Loss-of-Function Variant",
+      "CSNK2B Zinc-Finger Missense Variant",
+      "Reduced CK2beta Protein Abundance",
+      "Reduced CK2 Holoenzyme Assembly and Activity",
+      "Dysregulated Neural Progenitor Proliferation and Differentiation",
+      "Reduced Cortical Parvalbumin Interneurons",
+      "Abnormal Cortical Development",
+      "Cortical Network Hyperexcitability and Desynchronization",
+      "CK2beta Asp32 Dominant-Negative Wnt Perturbation"
+    ],
+    "cell_types": [
+      "neural stem cell",
+      "oligodendrocyte precursor cell",
+      "parvalbumin-positive cortical interneuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000047",
+      "CL:0002453",
+      "CL:4023018"
+    ],
+    "biological_processes": [
+      "neural precursor cell proliferation",
+      "oligodendrocyte differentiation",
+      "canonical Wnt signaling pathway"
+    ],
+    "phenotypes": [
+      "Intellectual Disability",
+      "Global Developmental Delay",
+      "Delayed Speech and Language Development",
+      "Motor Delay",
+      "Seizure",
+      "Generalized Tonic-Clonic Seizures",
+      "Myoclonic Seizures",
+      "Status Epilepticus",
+      "Febrile Seizures",
+      "Eyelid Myoclonia",
+      "Hypotonia",
+      "Ataxia or Impaired Coordination",
+      "Autistic Features",
+      "Behavioral Disturbances",
+      "Short Stature",
+      "Growth Hormone Deficiency",
+      "Digital Anomalies",
+      "Minor Dysmorphic Features"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Growth",
+      "Endocrine",
+      "Skeletal",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0001270",
+      "HP:0001250",
+      "HP:0002069",
+      "HP:0032794",
+      "HP:0032867",
+      "HP:0002373",
+      "HP:0011149",
+      "HP:0001252",
+      "HP:0002066",
+      "HP:0000729",
+      "HP:0000708",
+      "HP:0004322",
+      "HP:0000824",
+      "HP:0011297",
+      "HP:0001999"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "CSNK2B"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Growth Hormone Therapy",
+      "Developmental Therapies",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Poirier-Bienvenu_Neurodevelopmental_Syndrome.yaml",
+    "page_url": "../pages/disorders/CSNK2B-Related_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Polycystic echinococcosis",
@@ -357930,6 +358400,169 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "SIN3A-Related Intellectual Disability Syndrome",
+    "disease_id": "MONDO:0044699",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Dominant Syndromic Intellectual Disability"
+    ],
+    "creation_date": "2026-11-04T23:54:07Z",
+    "updated_date": null,
+    "subtypes": [
+      "Point mutation",
+      "SIN3A-spanning deletion"
+    ],
+    "description": "SIN3A-related intellectual disability syndrome (Witteveen-Kolk syndrome) is an autosomal dominant neurodevelopmental disorder caused by heterozygous loss-of-function of SIN3A, the scaffold subunit of the SIN3-HDAC transcriptional corepressor complex. Most cases carry de novo truncating intragenic variants; missense variants in the PAH1 partner-binding domain and small 15q24 deletions that remove SIN3A also occur. Affected individuals usually have global developmental delay with mild intellectual disability or low-normal intelligence, speech and motor delay, a recognisable facial gestalt (broad tall forehead, downslanting palpebral fissures, small mouth, thin upper lip, pointed chin), microcephaly, short stature, feeding difficulties and hypotonia, with autism, attention deficit and psychiatric problems in a minority. Seizures, palatal defects, hearing loss, subtle brain anomalies (ventriculomegaly, corpus callosum hypoplasia) and syndromic hypogonadotropic hypogonadism are reported. A predominantly hypomethylated DNA methylation episignature in blood supports the diagnosis.",
+    "pathophysiology": [
+      "SIN3A Haploinsufficiency",
+      "SIN3A PAH1 Domain Partner-Binding Defect",
+      "Reduced SIN3A-HDAC Corepressor Activity",
+      "Impaired Cortical Neurogenesis and Neuronal Identity",
+      "Disrupted Cortical Integrity and Connectivity",
+      "Blood DNA Hypomethylation Episignature"
+    ],
+    "cell_types": [
+      "cortical neural progenitor cell",
+      "cerebral cortex neuron",
+      "peripheral blood leukocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:0010012",
+      "CL:0000738"
+    ],
+    "biological_processes": [
+      "negative regulation of transcription by RNA polymerase II",
+      "cortical neurogenesis",
+      "cerebral cortex neuron differentiation",
+      "cerebral cortex development",
+      "corticocortical axon guidance",
+      "epigenetic regulation of gene expression"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Mild intellectual disability",
+      "Delayed speech and language development",
+      "Motor delay",
+      "Autism spectrum disorder",
+      "Attention deficit hyperactivity disorder",
+      "Psychiatric and behavioural problems",
+      "Hypotonia",
+      "Seizures",
+      "Ventriculomegaly",
+      "Hypoplasia of the corpus callosum",
+      "Microcephaly",
+      "Short stature",
+      "Feeding difficulties",
+      "Broad forehead",
+      "High forehead",
+      "Downslanted palpebral fissures",
+      "Small mouth",
+      "Thin upper lip vermilion",
+      "Pointed chin",
+      "Cleft palate",
+      "Hearing impairment",
+      "Joint hypermobility",
+      "Hypogonadotropic hypogonadism",
+      "Cryptorchidism",
+      "Micropenis",
+      "Cardiac anomalies",
+      "Gastroesophageal reflux",
+      "Dystonia",
+      "Progressive cerebellar ataxia",
+      "Progeroid facial appearance"
+    ],
+    "phenotype_categories": [
+      "Neurodevelopmental",
+      "Behavioral",
+      "Neurological",
+      "Growth",
+      "Gastrointestinal",
+      "Craniofacial",
+      "Sensory",
+      "Musculoskeletal",
+      "Endocrine",
+      "Genitourinary",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001256",
+      "HP:0000750",
+      "HP:0001270",
+      "HP:0000729",
+      "HP:0007018",
+      "HP:0000708",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0002119",
+      "HP:0002079",
+      "HP:0000252",
+      "HP:0004322",
+      "HP:0011968",
+      "HP:0000337",
+      "HP:0000348",
+      "HP:0000494",
+      "HP:0000160",
+      "HP:0000219",
+      "HP:0000307",
+      "HP:0000175",
+      "HP:0000365",
+      "HP:0001382",
+      "HP:0000044",
+      "HP:0000028",
+      "HP:0000054",
+      "HP:0001627",
+      "HP:0002020",
+      "HP:0001332",
+      "HP:0002073",
+      "HP:0005328"
+    ],
+    "frequencies": [
+      "15/28",
+      "FREQUENT",
+      "16/21",
+      "13/21",
+      "3/23",
+      "4/23",
+      "12/28",
+      "OCCASIONAL",
+      "13/28",
+      "5/28",
+      "3/28"
+    ],
+    "genes": [
+      "SIN3A"
+    ],
+    "treatments": [
+      "Multidisciplinary developmental and supportive care",
+      "Neuropsychologically informed psychological treatment",
+      "Sex hormone replacement for hypogonadotropic hypogonadism"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SIN3A-Related_Intellectual_Disability_Syndrome.yaml",
+    "page_url": "../pages/disorders/SIN3A-Related_Intellectual_Disability_Syndrome.html",
+    "num_phenotypes": 31,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "SLC12A5-Related Developmental and Epileptic Encephalopathy",
     "disease_id": "MONDO:0014718",
     "category": "Mendelian",
@@ -361576,6 +362209,176 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "8",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "STAR Syndrome",
+    "disease_id": "MONDO:0010408",
+    "category": "Mendelian",
+    "parents": [
+      "X-linked Dominant Disorder"
+    ],
+    "creation_date": "2026-11-04T23:54:07Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "STAR syndrome is an ultra-rare X-linked dominant developmental disorder named for its cardinal features: toe syndactyly, telecanthus, and anogenital and renal malformations. It is caused by heterozygous loss-of-function variants or deletions of CCNQ (formerly FAM58A) on Xq28, which encodes cyclin M, the activating cyclin of the protein kinase CDK10. Only females have been reported, consistent with male lethality, and X-inactivation is completely or almost completely skewed in the carriers tested. Growth retardation, broad nasal tip, ear anomalies, renal agenesis or hypoplasia, anal atresia or stenosis, clitoromegaly, and variable cardiac, ocular, spinal and hearing involvement complete the picture. Patient cells and kidney tissue point to deficient CDK10/cyclin M kinase activity, with raised ETS2 protein and abnormally elongated primary cilia; whether the malformations arise through these routes is not established.",
+    "pathophysiology": [
+      "CCNQ Loss of Function",
+      "CDK10/Cyclin M Kinase Deficiency",
+      "ETS2 Protein Accumulation",
+      "PKN2 Hypophosphorylation",
+      "RhoA and Actin Network Destabilization",
+      "Increased Primary Cilium Assembly and Elongation",
+      "Selective Disadvantage of Cells Expressing the Mutant X Chromosome"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "actin network organization",
+      "primary cilium assembly and elongation",
+      "X-chromosome inactivation"
+    ],
+    "phenotypes": [
+      "Toe syndactyly",
+      "Foot polydactyly",
+      "Clinodactyly of the 5th finger",
+      "Hypoplasia of the radius",
+      "Telecanthus",
+      "Broad nasal tip",
+      "Wide nasal bridge",
+      "Thin upper lip vermilion",
+      "Lop ear",
+      "Anal atresia",
+      "Anal stenosis",
+      "Persistent cloaca",
+      "Clitoral hypertrophy",
+      "Labial hypoplasia",
+      "Bicornuate uterus",
+      "Urogenital sinus anomaly",
+      "Renal agenesis",
+      "Renal hypoplasia",
+      "Horseshoe kidney",
+      "Ectopic kidney",
+      "Vesicoureteral reflux",
+      "Hydronephrosis",
+      "Renal insufficiency",
+      "Dilated renal tubules with elongated cilia",
+      "Short stature",
+      "Abnormal cardiac septum morphology",
+      "Pulmonary artery stenosis",
+      "Retinal dystrophy",
+      "Hypoplasia of the fovea",
+      "Macular drusen",
+      "Optic nerve hypoplasia",
+      "Loss of eyelashes",
+      "Eyelid coloboma",
+      "Tethered cord",
+      "Syringomyelia",
+      "Seizure",
+      "Hearing impairment",
+      "Scoliosis",
+      "Vertebral fusion",
+      "Supernumerary nipple",
+      "Myopia",
+      "Macular dystrophy",
+      "Aortic regurgitation",
+      "Mitral atresia"
+    ],
+    "phenotype_categories": [
+      "Limb",
+      "Craniofacial",
+      "Gastrointestinal",
+      "Genitourinary",
+      "Renal",
+      "Growth",
+      "Cardiovascular",
+      "Ophthalmologic",
+      "Neurological",
+      "Otolaryngologic",
+      "Skeletal",
+      "Integument"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001770",
+      "HP:0001829",
+      "HP:0004209",
+      "HP:0002984",
+      "HP:0000506",
+      "HP:0000455",
+      "HP:0000431",
+      "HP:0000219",
+      "HP:0000394",
+      "HP:0002023",
+      "HP:0002025",
+      "HP:0012621",
+      "HP:0008665",
+      "HP:0000066",
+      "HP:0000813",
+      "HP:0100779",
+      "HP:0000104",
+      "HP:0000089",
+      "HP:0000085",
+      "HP:0000086",
+      "HP:0000076",
+      "HP:0000126",
+      "HP:0000083",
+      "HP:0000091",
+      "HP:0004322",
+      "HP:0001671",
+      "HP:0004415",
+      "HP:0000556",
+      "HP:0007750",
+      "HP:0030499",
+      "HP:0000609",
+      "HP:0011457",
+      "HP:0000625",
+      "HP:0002144",
+      "HP:0003396",
+      "HP:0001250",
+      "HP:0000365",
+      "HP:0002650",
+      "HP:0002948",
+      "HP:0002558",
+      "HP:0000545",
+      "HP:0007754",
+      "HP:0001659",
+      "HP:0011560"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CCNQ"
+    ],
+    "treatments": [
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "STAR_Syndrome.yaml",
+    "page_url": "../pages/disorders/STAR_Syndrome.html",
+    "num_phenotypes": 44,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "STAT2 Deficiency",
@@ -427061,17 +427864,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3966,
-  "total_subtypes": 5009,
-  "total_disorders_and_subtypes": 8975,
-  "total_unique_evidence_sources": 58793,
-  "total_unique_publications": 55017,
+  "total_disorder_pages": 3972,
+  "total_subtypes": 5014,
+  "total_disorders_and_subtypes": 8986,
+  "total_unique_evidence_sources": 58907,
+  "total_unique_publications": 55123,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3964,
-  "total_unique_pathological_events": 25943,
+  "total_pathographs": 3970,
+  "total_unique_pathological_events": 25981,
   "total_modules": 226,
-  "total_research_reports": 4075,
+  "total_research_reports": 4081,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 130
