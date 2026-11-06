@@ -110163,7 +110163,8 @@ window.searchData = [
     "environmental": [],
     "biochemical": [
       "Elevated 17-hydroxyprogesterone",
-      "Reduced Cortisol"
+      "Reduced Cortisol",
+      "Elevated serum progesterone"
     ],
     "source_file": "Congenital_Adrenal_Hyperplasia.yaml",
     "page_url": "../pages/disorders/Congenital_Adrenal_Hyperplasia.html",
@@ -144294,6 +144295,131 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "26",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "VPS16-Related Dystonia",
+    "disease_id": "MONDO:0025691",
+    "category": "Mendelian",
+    "parents": [
+      "inherited dystonia"
+    ],
+    "creation_date": "2026-11-06T19:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "VPS16 is a core subunit of the HOPS (homotypic fusion and protein sorting) tethering complex. Heterozygous loss-of-function variants reduce functional VPS16/HOPS, impairing the complex's role in membrane fusion.",
+    "pathophysiology": [
+      "VPS16 Haploinsufficiency",
+      "Impaired Autophagosome-Lysosome Fusion and Lysosomal Dysfunction"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "autophagosome-lysosome fusion"
+    ],
+    "phenotypes": [
+      "Generalized dystonia",
+      "Oromandibular dystonia",
+      "Cervical dystonia",
+      "Neurodevelopmental comorbidity",
+      "Spasticity"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0007325",
+      "HP:0012048",
+      "HP:0000473",
+      "HP:0012759",
+      "HP:0001257"
+    ],
+    "frequencies": [],
+    "genes": [
+      "VPS16"
+    ],
+    "treatments": [
+      "Bilateral pallidal deep brain stimulation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dystonia_30.yaml",
+    "page_url": "../pages/disorders/VPS16-Related_Dystonia.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "EIF2AK2-Related Dystonia",
+    "disease_id": "MONDO:0030513",
+    "category": "Mendelian",
+    "parents": [
+      "inherited dystonia"
+    ],
+    "creation_date": "2026-11-06T16:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "EIF2AK2 encodes the double-stranded-RNA-activated protein kinase PKR, an eIF2-alpha kinase of the integrated stress response. Dystonia-associated missense variants lie in functional domains of PKR and produce abnormally prolonged, enhanced activation of the kinase rather than loss of activity.",
+    "pathophysiology": [
+      "EIF2AK2 (PKR) Dysfunction",
+      "eIF2-alpha Phosphorylation and Integrated Stress Response Hyperactivation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "integrated stress response signaling (eIF2-alpha phosphorylation)"
+    ],
+    "phenotypes": [
+      "Generalized dystonia",
+      "Retrocollis",
+      "Intellectual disability",
+      "Spasticity",
+      "Dysarthria",
+      "Dysphagia"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0007325",
+      "HP:0002544",
+      "HP:0001249",
+      "HP:0001257",
+      "HP:0001260",
+      "HP:0002015"
+    ],
+    "frequencies": [],
+    "genes": [
+      "EIF2AK2"
+    ],
+    "treatments": [
+      "Oral symptomatic pharmacotherapy",
+      "Botulinum toxin chemodenervation",
+      "Deep brain stimulation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dystonia_33.yaml",
+    "page_url": "../pages/disorders/EIF2AK2-Related_Dystonia.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Dystroglycanopathy",
@@ -224906,6 +225032,102 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "MARK2-Related Intellectual Developmental Disorder",
+    "disease_id": "MONDO:0979575",
+    "category": "Mendelian",
+    "parents": [
+      "autosomal dominant intellectual disability"
+    ],
+    "creation_date": "2026-11-06T18:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "MARK2 (PAR1b) is a serine/threonine kinase of the PAR1/MARK family. Most pathogenic variants are loss-of-function (truncating, splice, or destabilizing missense), and missense alleles tested in vitro also reduce MARK2 function, so the disorder is predominantly a haploinsufficiency / loss-of-function state.",
+    "pathophysiology": [
+      "MARK2 Haploinsufficiency",
+      "WNT/beta-catenin Signaling Downregulation",
+      "Impaired Neuronal Development",
+      "Abnormal Cortical Development"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "canonical Wnt signaling pathway",
+      "neuron differentiation"
+    ],
+    "phenotypes": [
+      "Autism spectrum disorder",
+      "Intellectual disability",
+      "Global developmental delay",
+      "Delayed speech and language development",
+      "Seizure",
+      "Motor delay",
+      "Downslanted palpebral fissures",
+      "Broad forehead",
+      "Narrow face",
+      "Large or dysplastic ears",
+      "Behavioral abnormality",
+      "Abnormal EEG",
+      "Language regression",
+      "Visual impairment",
+      "Abnormal male external genitalia"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000729",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0001250",
+      "HP:0001270",
+      "HP:0000494",
+      "HP:0000337",
+      "HP:0000275",
+      "HP:0000377",
+      "HP:0000708",
+      "HP:0002353",
+      "HP:0002376",
+      "HP:0000505",
+      "HP:0000032"
+    ],
+    "frequencies": [
+      "30/31 (96.8%)",
+      "29/29 (100%)",
+      "31/31 (100%)",
+      "13/28 (46.4%)",
+      "18/29 (62.1%)",
+      "20/27 (74.1%)",
+      "8/15 (53.3%)",
+      "9/22 (40.9%)",
+      "11/28 (39.3%)",
+      "6/18 (33.3%)"
+    ],
+    "genes": [
+      "MARK2"
+    ],
+    "treatments": [
+      "Lithium (investigational)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Developmental_Disorder_Autosomal_Dominant_76.yaml",
+    "page_url": "../pages/disorders/MARK2-Related_Intellectual_Developmental_Disorder.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Intellectual Developmental Disorder, Autosomal Dominant 77",
     "disease_id": "MONDO:0980748",
     "category": "Mendelian",
@@ -294069,6 +294291,68 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Neurodevelopmental Disorder with Epilepsy and Brain Atrophy",
+    "disease_id": "MONDO:0859265",
+    "category": "Mendelian",
+    "parents": [
+      "inborn error of metabolism"
+    ],
+    "creation_date": "2026-11-06T15:55:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Biallelic ATP6V0A1 variants (a frameshift plus a missense) reduce the brain-enriched a1 subunit of the V0 membrane domain of the vacuolar H+-ATPase, the proton-translocating component that acidifies endosomes and lysosomes.",
+    "pathophysiology": [
+      "ATP6V0A1 Loss of Function",
+      "Impaired Endolysosomal Acidification",
+      "Lysosomal and Autophagic Dysfunction"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "lysosomal lumen acidification",
+      "autophagy"
+    ],
+    "phenotypes": [
+      "Seizures",
+      "Myoclonus",
+      "Ataxia",
+      "Cerebellar atrophy",
+      "Intellectual disability"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0001336",
+      "HP:0001251",
+      "HP:0001272",
+      "HP:0001249"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ATP6V0A1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Epilepsy_And_Brain_Atrophy.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_with_Epilepsy_and_Brain_Atrophy.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "neurodevelopmental disorder with facial dysmorphism, absent language, and pseudo-pelger-huet anomaly",
     "disease_id": "MONDO:0859298",
     "category": "Mendelian",
@@ -335856,7 +336140,9 @@ window.searchData = [
     "pathophysiology": [
       "Loss of ASBT Bile Acid Transport Function",
       "Failure of Ileal Bile Acid Reclamation",
-      "Colonic Bile Acid Spillover and Diarrhoea",
+      "Colonic Bile Acid Spillover",
+      "Bile Acid Receptor-Driven Colonic Secretion",
+      "Increased Colonic Motility",
       "Contracted Bile Acid Pool",
       "Loss of FXR-FGF19 Signalling from the Ileum",
       "CYP7A1 Disinhibition and Compensatory Hepatic Synthesis",
@@ -335866,14 +336152,18 @@ window.searchData = [
     ],
     "cell_types": [
       "terminal ileal enterocyte",
+      "colonocyte",
       "hepatocyte"
     ],
     "cell_type_ids": [
       "CL:1000334",
+      "CL:1000347",
       "CL:0000182"
     ],
     "biological_processes": [
       "bile acid and bile salt transport",
+      "TGR5 bile acid receptor signalling",
+      "intestinal motility",
       "fibroblast growth factor receptor signaling pathway",
       "bile acid biosynthetic process"
     ],
@@ -335924,10 +336214,10 @@ window.searchData = [
     "source_file": "Primary_Bile_Acid_Malabsorption.yaml",
     "page_url": "../pages/disorders/Primary_Bile_Acid_Malabsorption.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "23",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "7"
   },
   {
@@ -429715,6 +430005,92 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "IL6ST-Related Hyper-IgE Syndrome (Autosomal Dominant)",
+    "disease_id": "MONDO:0800131",
+    "category": "Mendelian",
+    "parents": [
+      "hyper-IgE syndrome"
+    ],
+    "creation_date": "2026-11-06T18:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Heterozygous truncating IL6ST variants encode a gp130 receptor that keeps its extracellular and transmembrane domains but loses the distal cytoplasmic tail (the recycling motif and the four STAT3-recruiting tyrosines). The mutant receptor accumulates at the cell surface and poisons signalling complexes formed with wild-type gp130 - a dominant-negative, not a haploinsufficiency, mechanism.",
+    "pathophysiology": [
+      "gp130 (IL6ST) Dominant-Negative Dysfunction",
+      "Impaired IL-6 Family (gp130) Cytokine Signaling",
+      "Th2-Skewed, Th17-Impaired CD4 T Helper Response"
+    ],
+    "cell_types": [
+      "T-helper 2 cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000546"
+    ],
+    "biological_processes": [
+      "interleukin-6-mediated signaling pathway",
+      "T-helper 2 cell differentiation"
+    ],
+    "phenotypes": [
+      "Elevated circulating IgE",
+      "Eosinophilia",
+      "Eczema",
+      "Recurrent pulmonary infections",
+      "Bronchiectasis",
+      "Pulmonary pneumatocele",
+      "Recurrent cutaneous abscess",
+      "Recurrent sinusitis",
+      "Scoliosis",
+      "Persistence of primary teeth",
+      "Asthma",
+      "Joint hypermobility"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003212",
+      "HP:0001880",
+      "HP:0000964",
+      "HP:0006532",
+      "HP:0002110",
+      "HP:0025419",
+      "HP:0100838",
+      "HP:0000246",
+      "HP:0002650",
+      "HP:0006335",
+      "HP:0002099",
+      "HP:0001382"
+    ],
+    "frequencies": [],
+    "genes": [
+      "IL6ST"
+    ],
+    "treatments": [
+      "Antibiotic prophylaxis (co-trimoxazole)",
+      "Immunoglobulin replacement therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "hyper-IgE_Recurrent_Infection_Syndrome_4A_Autosomal_Dominant.yaml",
+    "page_url": "../pages/disorders/IL6ST-Related_Hyper-IgE_Syndrome_Autosomal_Dominant.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "neuroferritinopathy",
     "disease_id": "MONDO:0011638",
     "category": "Mendelian",
@@ -430072,17 +430448,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3991,
+  "total_disorder_pages": 3996,
   "total_subtypes": 5029,
-  "total_disorders_and_subtypes": 9020,
-  "total_unique_evidence_sources": 59205,
-  "total_unique_publications": 55385,
+  "total_disorders_and_subtypes": 9025,
+  "total_unique_evidence_sources": 59210,
+  "total_unique_publications": 55390,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3989,
-  "total_unique_pathological_events": 26123,
+  "total_pathographs": 3994,
+  "total_unique_pathological_events": 26136,
   "total_modules": 227,
-  "total_research_reports": 4100,
+  "total_research_reports": 4105,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 130
