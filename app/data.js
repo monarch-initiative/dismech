@@ -144948,7 +144948,7 @@ window.searchData = [
   },
   {
     "name": "EEFSEC Deficiency",
-    "disease_id": null,
+    "disease_id": "MONDO:0976233",
     "category": "Metabolic Disorder",
     "parents": [
       "Selenoprotein Biosynthesis Disorder",
@@ -169641,11 +169641,22 @@ window.searchData = [
     "updated_date": null,
     "subtypes": [
       "Early-onset FECD",
-      "Late-onset FECD"
+      "Late-onset FECD",
+      "FECD1",
+      "FECD2",
+      "FECD3",
+      "FECD4",
+      "FECD5",
+      "FECD6",
+      "FECD7",
+      "FECD8"
     ],
     "description": "Fuchs endothelial corneal dystrophy is an adult-onset posterior corneal dystrophy in which progressive corneal endothelial dysfunction and cell loss produce Descemet membrane guttae, corneal edema, corneal opacity, and declining visual acuity. Familial and population-risk forms involve multiple genes and loci, with an intronic TCF4 CTG repeat expansion being the most common genetic association in late-onset disease and rarer disease-causing variants reported in COL8A2, SLC4A11, ZEB1, and AGBL1.",
     "pathophysiology": [
       "TCF4 CTG Repeat Expansion Susceptibility",
+      "COL8A2 Missense Collagen VIII Dysfunction",
+      "SLC4A11 Transporter Deficiency",
+      "AGBL1 Truncation and Reduced TCF4 Interaction",
       "Toxic CUG RNA Foci",
       "Widespread Endothelial mRNA Missplicing",
       "Corneal Endothelial Barrier Dysfunction",
@@ -169723,10 +169734,10 @@ window.searchData = [
     "source_file": "Fuchs_Endothelial_Corneal_Dystrophy.yaml",
     "page_url": "../pages/disorders/Fuchs_Endothelial_Corneal_Dystrophy.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 13,
     "num_genes": 5,
     "num_treatments": 2,
-    "causal_graph_edges": "17",
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "5"
   },
   {
@@ -172012,7 +172023,7 @@ window.searchData = [
   },
   {
     "name": "GOLGA2-Related Golgin A2 Deficiency",
-    "disease_id": null,
+    "disease_id": "MONDO:0859375",
     "category": "Mendelian",
     "parents": [
       "Neurodevelopmental Disorder",
@@ -233219,7 +233230,7 @@ window.searchData = [
   },
   {
     "name": "KATNB1-related Cortical Malformation",
-    "disease_id": null,
+    "disease_id": "MONDO:0014534",
     "category": "Mendelian",
     "parents": [
       "Microcephaly",
@@ -281044,6 +281055,7 @@ window.searchData = [
       "Skeletal"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Endocrine",
       "Growth",
       "Neoplasm",
@@ -281053,7 +281065,8 @@ window.searchData = [
       "HP:0002865",
       "HP:0002666",
       "HP:0000843",
-      "HP:0003005",
+      "HP:0031023",
+      "HP:0025151",
       "HP:0001519"
     ],
     "frequencies": [
@@ -313753,7 +313766,7 @@ window.searchData = [
   },
   {
     "name": "PGM2L1 Deficiency",
-    "disease_id": null,
+    "disease_id": "MONDO:0859347",
     "category": "Mendelian",
     "parents": [
       "Inborn Error of Metabolism",
@@ -411106,7 +411119,7 @@ window.searchData = [
   },
   {
     "name": "USP8-related pituitary adenoma 4",
-    "disease_id": null,
+    "disease_id": "MONDO:0009050",
     "category": "Neoplastic",
     "parents": [
       "pituitary gland adenoma"
@@ -428470,14 +428483,14 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 3978,
-  "total_subtypes": 5015,
-  "total_disorders_and_subtypes": 8993,
-  "total_unique_evidence_sources": 58959,
-  "total_unique_publications": 55168,
+  "total_subtypes": 5023,
+  "total_disorders_and_subtypes": 9001,
+  "total_unique_evidence_sources": 58970,
+  "total_unique_publications": 55179,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 3976,
-  "total_unique_pathological_events": 26008,
+  "total_unique_pathological_events": 26011,
   "total_modules": 226,
   "total_research_reports": 4087,
   "total_classifications": 21,
