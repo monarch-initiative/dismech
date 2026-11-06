@@ -5986,6 +5986,91 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "ADAM9-Related Retinopathy",
+    "disease_id": "MONDO:0800398",
+    "category": "Mendelian",
+    "parents": [
+      "Cone-Rod Dystrophy",
+      "Inherited Retinal Dystrophy"
+    ],
+    "creation_date": "2026-11-05T00:49:53Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive inherited retinal dystrophy caused by biallelic loss-of-function variants in ADAM9, a transmembrane metalloprotease. The reported human presentation is an early-onset cone-rod dystrophy (cone-rod dystrophy 9, CORD9) with poor visual acuity in the first decade, macular outer retinal atrophy, retinal pigment epithelium changes and reduced rod and cone electroretinogram responses. In Adam9 knockout mice and in dogs with a naturally occurring ADAM9 deletion, the first lesion is at the junction between the retinal pigment epithelium apical microvilli and the photoreceptor outer segments, and photoreceptor degeneration follows later.",
+    "pathophysiology": [
+      "ADAM9 Loss of Function",
+      "RPE Apical Microvillus Disorganization",
+      "Photoreceptor Outer Segment-RPE Separation",
+      "Compensatory RPE Pseudopod Outer Segment Ingestion",
+      "Progressive Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "retinal pigment epithelial cell",
+      "retinal cone cell",
+      "retinal rod cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002586",
+      "CL:0000573",
+      "CL:0000604"
+    ],
+    "biological_processes": [
+      "microvillus organization",
+      "phagocytosis, engulfment",
+      "photoreceptor cell maintenance"
+    ],
+    "phenotypes": [
+      "Cone-rod dystrophy",
+      "Reduced visual acuity",
+      "Decreased rod and cone electroretinogram responses",
+      "Macular outer retinal atrophy",
+      "Abnormal retinal pigmentation",
+      "Pigmentary retinopathy",
+      "Attenuation of retinal blood vessels",
+      "Optic disc pallor",
+      "Color vision defect",
+      "Peripheral retinal degeneration",
+      "Myopia",
+      "Posterior subcapsular cataract"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0000548",
+      "HP:0007663",
+      "HP:0000654",
+      "HP:0007401",
+      "HP:0007703",
+      "HP:0000580",
+      "HP:0007843",
+      "HP:0000543",
+      "HP:0000551",
+      "HP:0007769",
+      "HP:0000545",
+      "HP:0007787"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ADAM9"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ADAM9-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/ADAM9-Related_Retinopathy.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Autosomal Dominant Cerebellar Ataxia Deafness and Narcolepsy",
     "disease_id": "MONDO:0011397",
     "category": "Mendelian",
@@ -53694,7 +53779,9 @@ window.searchData = [
     ],
     "creation_date": "2025-12-04T16:57:31Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "BBS7"
+    ],
     "description": "Bardet-Biedl syndrome is a genetically heterogeneous autosomal recessive ciliopathy caused by biallelic pathogenic variants in established BBS genes encoding the BBSome, its chaperonin-like assembly machinery, and closely related ciliary trafficking proteins. The core disease logic is failure of primary-cilium cargo trafficking, producing retinal degeneration, early-onset obesity with hyperphagia, postaxial polydactyly, and structurally and functionally abnormal kidneys.",
     "pathophysiology": [
       "Pathogenic BBS gene defects",
@@ -88466,6 +88553,161 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Cerebellar, Ocular, Craniofacial, and Genital Syndrome",
+    "disease_id": "MONDO:0032774",
+    "category": "Mendelian",
+    "parents": [
+      "syndromic neurodevelopmental disorder",
+      "cerebellar hypoplasia"
+    ],
+    "creation_date": "2026-11-05T00:47:29Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An ultrarare autosomal recessive neurodevelopmental malformation syndrome caused by biallelic loss-of-function variants in MAB21L1, a member of the conserved male abnormal 21 (MAB21) family with a cGAS-like nucleotidyltransferase fold but no demonstrated catalytic activity. Affected children have cerebellar and vermian hypoplasia (often with pontine involvement or a Dandy-Walker malformation) with ataxia, moderate to severe developmental delay and intellectual disability, bilateral corneal dystrophy with nystagmus and strabismus, a recognisable facial gestalt (short forehead, medially sparse or flared and laterally extending eyebrows, low anterior hairline), absent or underdeveloped labioscrotal folds (scrotal agenesis in males, absent labia majora in females), and hypoplastic, widely spaced nipples with tufts of hair from the lactiferous ducts. Microcephaly is variable.",
+    "pathophysiology": [
+      "MAB21L1 Biallelic Loss of Function",
+      "Lens Placode Gene Expression Dysregulation",
+      "Lens Placode Endoplasmic Reticulum Stress",
+      "Rudimentary Lens Formation",
+      "Impaired Cerebellar Development",
+      "Impaired Craniofacial Morphogenesis",
+      "Genital Mesenchyme Hypoplasia"
+    ],
+    "cell_types": [
+      "external genital mesenchymal cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008019"
+    ],
+    "biological_processes": [
+      "lens placode formation",
+      "response to endoplasmic reticulum stress",
+      "lens development in camera-type eye",
+      "cerebellum development",
+      "calvarial intramembranous ossification",
+      "mesenchymal cell proliferation",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Cerebellar hypoplasia",
+      "Cerebellar vermis hypoplasia",
+      "Hypoplasia of the pons",
+      "Dandy-Walker malformation",
+      "Ataxia",
+      "Broad-based gait",
+      "Hypotonia",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Attention deficit hyperactivity disorder",
+      "Aggressive behavior",
+      "Corneal dystrophy",
+      "Corneal opacity",
+      "Horizontal nystagmus",
+      "Strabismus",
+      "Buphthalmos",
+      "Keratoconjunctivitis sicca",
+      "Optic atrophy",
+      "Retinal degeneration",
+      "Microcephaly",
+      "Small forehead",
+      "Medial flaring of the eyebrow",
+      "Laterally extended eyebrow",
+      "Synophrys",
+      "Low anterior hairline",
+      "Anteverted nares",
+      "Long philtrum",
+      "Depressed nasal bridge",
+      "Low-set ears",
+      "Absent scrotum",
+      "Absence of labia majora",
+      "Cryptorchidism",
+      "Hypospadias",
+      "Clitoral hypertrophy",
+      "Hypoplastic nipples",
+      "Wide intermamillary distance",
+      "Hirsutism"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Ophthalmological",
+      "Craniofacial",
+      "Genitourinary",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001321",
+      "HP:0001320",
+      "HP:0012110",
+      "HP:0001305",
+      "HP:0001251",
+      "HP:0002136",
+      "HP:0001252",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0007018",
+      "HP:0000718",
+      "HP:0001131",
+      "HP:0007957",
+      "HP:0000666",
+      "HP:0000486",
+      "HP:0000557",
+      "HP:0001097",
+      "HP:0000648",
+      "HP:0000546",
+      "HP:0000252",
+      "HP:0000350",
+      "HP:0010747",
+      "HP:0011230",
+      "HP:0000664",
+      "HP:0000294",
+      "HP:0000463",
+      "HP:0000343",
+      "HP:0005280",
+      "HP:0000369",
+      "HP:0008707",
+      "HP:0008729",
+      "HP:0000028",
+      "HP:0000047",
+      "HP:0008665",
+      "HP:0002557",
+      "HP:0006610",
+      "HP:0001007"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MAB21L1"
+    ],
+    "treatments": [
+      "Penetrating Keratoplasty",
+      "Neoscrotum Reconstruction and Orchiopexy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cerebellar_Ocular_Craniofacial_And_Genital_Syndrome.yaml",
+    "page_url": "../pages/disorders/Cerebellar,_Ocular,_Craniofacial,_and_Genital_Syndrome.html",
+    "num_phenotypes": 38,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Cerebral Amyloid Angiopathy",
     "disease_id": "MONDO:0005620",
     "category": "Complex",
@@ -111837,6 +112079,74 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "21",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Congenital Heart Defects, Multiple Types, 7",
+    "disease_id": "MONDO:0032913",
+    "category": "Mendelian",
+    "parents": [
+      "Tetralogy of Fallot",
+      "Congenital heart disease"
+    ],
+    "creation_date": "2026-11-05T00:49:26Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant, incompletely penetrant predisposition to structural congenital heart disease caused by heterozygous germline variants in FLT4, which encodes vascular endothelial growth factor receptor 3 (VEGFR3). The usual lesion is tetralogy of Fallot, often with pulmonary atresia, and the reported spectrum also includes left-sided lesions such as aortic coarctation. Most reported variants are loss of function (nonsense, frameshift, splice-site and an 8-kb deletion), and carriers usually have no extracardiac malformations. Many carrier parents and relatives have no heart defect. The disease is allelic with, and distinct from, Milroy disease (lymphatic malformation 1), in which different FLT4 variants act by a dominant negative mechanism on the receptor kinase and cause congenital lymphedema. In primary human endothelial cells, missense variants found in tetralogy of Fallot cause the receptor to aggregate in the perinuclear endoplasmic reticulum, which Milroy variants do not. Management is that of the cardiac lesion.",
+    "pathophysiology": [
+      "FLT4 Heterozygous Loss of Function",
+      "Perinuclear ER Aggregation of Missense FLT4 Protein",
+      "Dysregulated VEGF Receptor 3 Signaling in Cardiac Development",
+      "Abnormal Embryonic Heart Morphogenesis"
+    ],
+    "cell_types": [
+      "endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "response to endoplasmic reticulum stress",
+      "VEGFR3 signaling pathway",
+      "heart morphogenesis",
+      "heart looping"
+    ],
+    "phenotypes": [
+      "Tetralogy of Fallot",
+      "Tetralogy of Fallot with Pulmonary Atresia",
+      "Absent Pulmonary Valve",
+      "Right Aortic Arch",
+      "Coarctation of Aorta"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_ids": [
+      "HP:0001636",
+      "HP:0012516",
+      "HP:0005134",
+      "HP:0012020",
+      "HP:0001680"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FLT4"
+    ],
+    "treatments": [
+      "Surgical repair of tetralogy of Fallot"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Heart_Defects_Multiple_Types_7.yaml",
+    "page_url": "../pages/disorders/Congenital_Heart_Defects,_Multiple_Types,_7.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Congenital Heart Defects and Skeletal Malformations Syndrome",
@@ -144638,7 +144948,7 @@ window.searchData = [
   },
   {
     "name": "EEFSEC Deficiency",
-    "disease_id": null,
+    "disease_id": "MONDO:0976233",
     "category": "Metabolic Disorder",
     "parents": [
       "Selenoprotein Biosynthesis Disorder",
@@ -169331,11 +169641,22 @@ window.searchData = [
     "updated_date": null,
     "subtypes": [
       "Early-onset FECD",
-      "Late-onset FECD"
+      "Late-onset FECD",
+      "FECD1",
+      "FECD2",
+      "FECD3",
+      "FECD4",
+      "FECD5",
+      "FECD6",
+      "FECD7",
+      "FECD8"
     ],
     "description": "Fuchs endothelial corneal dystrophy is an adult-onset posterior corneal dystrophy in which progressive corneal endothelial dysfunction and cell loss produce Descemet membrane guttae, corneal edema, corneal opacity, and declining visual acuity. Familial and population-risk forms involve multiple genes and loci, with an intronic TCF4 CTG repeat expansion being the most common genetic association in late-onset disease and rarer disease-causing variants reported in COL8A2, SLC4A11, ZEB1, and AGBL1.",
     "pathophysiology": [
       "TCF4 CTG Repeat Expansion Susceptibility",
+      "COL8A2 Missense Collagen VIII Dysfunction",
+      "SLC4A11 Transporter Deficiency",
+      "AGBL1 Truncation and Reduced TCF4 Interaction",
       "Toxic CUG RNA Foci",
       "Widespread Endothelial mRNA Missplicing",
       "Corneal Endothelial Barrier Dysfunction",
@@ -169413,10 +169734,10 @@ window.searchData = [
     "source_file": "Fuchs_Endothelial_Corneal_Dystrophy.yaml",
     "page_url": "../pages/disorders/Fuchs_Endothelial_Corneal_Dystrophy.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 13,
     "num_genes": 5,
     "num_treatments": 2,
-    "causal_graph_edges": "17",
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "5"
   },
   {
@@ -171702,7 +172023,7 @@ window.searchData = [
   },
   {
     "name": "GOLGA2-Related Golgin A2 Deficiency",
-    "disease_id": null,
+    "disease_id": "MONDO:0859375",
     "category": "Mendelian",
     "parents": [
       "Neurodevelopmental Disorder",
@@ -232909,7 +233230,7 @@ window.searchData = [
   },
   {
     "name": "KATNB1-related Cortical Malformation",
-    "disease_id": null,
+    "disease_id": "MONDO:0014534",
     "category": "Mendelian",
     "parents": [
       "Microcephaly",
@@ -280734,6 +281055,7 @@ window.searchData = [
       "Skeletal"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Endocrine",
       "Growth",
       "Neoplasm",
@@ -280743,7 +281065,8 @@ window.searchData = [
       "HP:0002865",
       "HP:0002666",
       "HP:0000843",
-      "HP:0003005",
+      "HP:0031023",
+      "HP:0025151",
       "HP:0001519"
     ],
     "frequencies": [
@@ -313443,7 +313766,7 @@ window.searchData = [
   },
   {
     "name": "PGM2L1 Deficiency",
-    "disease_id": null,
+    "disease_id": "MONDO:0859347",
     "category": "Mendelian",
     "parents": [
       "Inborn Error of Metabolism",
@@ -400815,6 +401138,100 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Tessadori-Van Haaften Neurodevelopmental Syndrome 3",
+    "disease_id": "MONDO:0030993",
+    "category": "Mendelian",
+    "parents": [
+      "neurodevelopmental disorder",
+      "syndromic disease",
+      "hereditary disease"
+    ],
+    "creation_date": "2026-11-05T00:54:37Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Tessadori-Van Haaften neurodevelopmental syndrome 3 is an autosomal dominant neurodevelopmental disorder caused by heterozygous de novo missense variants in H4C5 (HIST1H4E), one of the fourteen canonical genes that together encode an invariant histone H4 protein. It belongs to a group of H4 syndromes, numbered by gene, that share intellectual disability and developmental delay with more variable microcephaly, short stature, hypotonia, facial differences, tooth anomalies, and visual and hearing impairment. The altered residues cluster at H4 surfaces that contact DNA, other histones or histone chaperones, and the variants are thought to act through a dominant effect on nucleosomes rather than by loss of one gene copy.",
+    "pathophysiology": [
+      "De Novo H4C5 Missense Variant Altering Histone H4",
+      "Perturbed Nucleosome Structure and Histone Interactions",
+      "Disrupted Early Embryonic Development"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Intellectual Disability",
+      "Global Developmental Delay",
+      "Hypotonia",
+      "Seizure",
+      "Autistic Behavior",
+      "Happy Demeanor",
+      "Ataxia",
+      "Postnatal Microcephaly",
+      "Short Stature",
+      "Failure to Thrive",
+      "Broad Nasal Tip",
+      "Hypertelorism",
+      "Diastema",
+      "Visual Impairment",
+      "Hearing Impairment",
+      "Craniosynostosis"
+    ],
+    "phenotype_categories": [
+      "Nervous System",
+      "Behavioral",
+      "Growth",
+      "Head and Neck",
+      "Eye",
+      "Ear",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0000729",
+      "HP:0040082",
+      "HP:0001251",
+      "HP:0005484",
+      "HP:0004322",
+      "HP:0001508",
+      "HP:0000455",
+      "HP:0000316",
+      "HP:0000699",
+      "HP:0000505",
+      "HP:0000365",
+      "HP:0001363"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "H4C5"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Tessadori-Van_Haaften_Neurodevelopmental_Syndrome_3.yaml",
+    "page_url": "../pages/disorders/Tessadori-Van_Haaften_Neurodevelopmental_Syndrome_3.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Testicular Dysgenesis Syndrome",
     "disease_id": "MONDO:0005437",
     "category": "Complex",
@@ -410702,7 +411119,7 @@ window.searchData = [
   },
   {
     "name": "USP8-related pituitary adenoma 4",
-    "disease_id": null,
+    "disease_id": "MONDO:0009050",
     "category": "Neoplastic",
     "parents": [
       "pituitary gland adenoma"
@@ -428065,17 +428482,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3974,
-  "total_subtypes": 5014,
-  "total_disorders_and_subtypes": 8988,
-  "total_unique_evidence_sources": 58927,
-  "total_unique_publications": 55141,
+  "total_disorder_pages": 3978,
+  "total_subtypes": 5023,
+  "total_disorders_and_subtypes": 9001,
+  "total_unique_evidence_sources": 58970,
+  "total_unique_publications": 55179,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3972,
-  "total_unique_pathological_events": 25991,
+  "total_pathographs": 3976,
+  "total_unique_pathological_events": 26011,
   "total_modules": 226,
-  "total_research_reports": 4083,
+  "total_research_reports": 4087,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 130
