@@ -90847,12 +90847,20 @@ window.searchData = [
     "creation_date": "2026-09-05T16:30:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Charcot-Marie-Tooth disease axonal type 2S (CMT2S; OMIM #616155) is an autosomal recessive, slowly progressive, length-dependent axonal sensorimotor neuropathy caused by biallelic variants in IGHMBP2, which encodes immunoglobulin mu-binding protein 2, a ubiquitously expressed UPF1-like ATP-dependent DNA/RNA helicase implicated in ribosome biogenesis and translation. It is the milder allelic counterpart of spinal muscular atrophy with respiratory distress type 1 (SMARD1): variants that retain residual IGHMBP2 abundance and biochemical activity spare the diaphragm and phrenic motor neurons and produce CMT2S, whereas those that abolish activity cause infantile diaphragmatic paralysis and death. Onset is usually in infancy or early childhood (mean about 3.8 years) with distal weakness, delayed milestones, foot deformity, gait disturbance and foot drop, progressing to distal amyotrophy with mild sensory and occasional autonomic involvement; electrophysiology shows reduced motor and sensory amplitudes with preserved conduction velocities. Respiratory function is normally preserved, but late diaphragmatic weakness and acute Guillain-Barre-like presentations are reported, so respiratory surveillance is advised. About two-thirds of reported variants are missense changes clustering in the helicase and ATPase domains and a third are truncating. Dedicated knock-in mouse models reproduce progressive motor and sensory axonal degeneration, and neuromuscular junction denervation correlates with residual IGHMBP2 activity. Care is supportive and rehabilitative; an intrathecal AAV9-IGHMBP2 gene therapy trial enrolling both SMARD1 and CMT2S (NCT05152823) and a personalised splice-correcting antisense oligonucleotide are in development.\n",
+    "description": "Charcot-Marie-Tooth disease axonal type 2S (CMT2S; OMIM #616155) is an autosomal recessive, progressive axonal sensorimotor neuropathy caused by biallelic IGHMBP2 variants. Distal weakness and wasting, gait impairment, foot deformity and sensory involvement usually begin in childhood, with variable disability. IGHMBP2 encodes an ATP-dependent DNA/RNA helicase implicated in translation and RNA metabolism. Residual abundance and biochemical activity differ between tested alleles, but do not define a universal threshold separating CMT2S from the allelic disorder SMARD1: the same genotype can produce different clinical courses. Respiratory function is often preserved, although later diaphragmatic weakness is documented. Care is supportive; AAV9-IGHMBP2 gene replacement is being evaluated in NCT05152823, and a variant-specific splice-correcting antisense oligonucleotide has preclinical evidence.",
     "pathophysiology": [
-      "Biallelic Hypomorphic IGHMBP2 Variants",
-      "Disturbed Ribosome Biogenesis and Translation",
+      "Biallelic Pathogenic IGHMBP2 Variants",
+      "Intron-8 Pseudoexon Inclusion",
+      "Decay of Pseudoexon-Containing IGHMBP2 Transcript",
+      "Reduced IGHMBP2 Protein Abundance",
+      "Impaired IGHMBP2 Helicase Activity",
+      "Proposed Pre-rRNA Processing Defect",
+      "Reduced Global Translation",
+      "Chronic Integrated Stress Response",
       "Motor and Sensory Axonal Degeneration",
-      "Neuromuscular Junction Denervation and Distal Muscle Atrophy"
+      "Distal Neuromuscular Junction Denervation",
+      "Neurogenic Distal Muscle Atrophy",
+      "Impaired Neuromuscular Junction Function"
     ],
     "cell_types": [
       "motor neuron",
@@ -90864,8 +90872,7 @@ window.searchData = [
     ],
     "biological_processes": [
       "rRNA processing",
-      "translation",
-      "neuromuscular junction development"
+      "translation"
     ],
     "phenotypes": [
       "Peripheral axonal neuropathy",
@@ -90874,10 +90881,12 @@ window.searchData = [
       "Motor delay",
       "Gait disturbance",
       "Foot dorsiflexor weakness",
-      "Pes cavus",
+      "Foot deformity",
       "Sensory neuropathy",
       "Abnormal autonomic nervous system physiology",
-      "Diaphragmatic weakness"
+      "Diaphragmatic weakness",
+      "Areflexia",
+      "Scoliosis"
     ],
     "phenotype_categories": [
       "Neurological",
@@ -90896,39 +90905,40 @@ window.searchData = [
       "HP:0001270",
       "HP:0001288",
       "HP:0009027",
-      "HP:0001761",
+      "HP:0001760",
       "HP:0000763",
       "HP:0012332",
-      "HP:0009113"
+      "HP:0009113",
+      "HP:0001284",
+      "HP:0002650"
     ],
-    "frequencies": [
-      "OBLIGATE",
-      "VERY_FREQUENT",
-      "OCCASIONAL",
-      "FREQUENT",
-      "VERY_RARE"
-    ],
+    "frequencies": [],
     "genes": [
       "IGHMBP2"
     ],
     "treatments": [
-      "Physiotherapy, orthoses and rehabilitation",
-      "Respiratory surveillance and non-invasive ventilation",
+      "Physical therapy and exercise",
+      "Ankle-foot orthoses and walking aids",
+      "Orthopedic correction of severe foot deformity",
+      "Non-invasive ventilation",
       "Intrathecal AAV9-IGHMBP2 gene therapy (investigational)",
       "Personalised splice-correcting antisense oligonucleotide (preclinical)",
       "ABT1 augmentation (preclinical)",
-      "Genetic counseling"
+      "Genetic counseling",
+      "Avoidance of neurotoxic medication exposure",
+      "Neuropathic Pain Management",
+      "Weight management"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Charcot-Marie-Tooth_Disease_Axonal_Type_2S.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Axonal_Type_2S.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 12,
+    "num_pathophysiology": 12,
     "num_genes": 1,
-    "num_treatments": 6,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 11,
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Charcot-Marie-Tooth disease, axonal, type 2T",
@@ -305891,7 +305901,7 @@ window.searchData = [
     "creation_date": "2026-10-30T16:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Olfactory neuroblastoma, also called esthesioneuroblastoma, is an uncommon malignant neuroectodermal tumour of the nasal cavity that arises from the olfactory epithelium at the cribriform plate. Despite its name it is not a form of neuroblastoma: it is a sinonasal tumour of adults with a different cell of origin, a different genomic landscape and a different clinical course, and this entry exists partly to keep the two apart.\nSingle-cell transcriptomic work links the tumour to olfactory epithelial globose basal cells, the stem and progenitor population of the olfactory epithelium, and that was the first time the tumour was linked to a specific cell type. The tumour retains a globose basal cell programme: it expresses the globose basal cell transcription factor NEUROD1, which separates it from sinonasal undifferentiated carcinoma, it contains a reproducible highly proliferative subpopulation expressing the stemness marker EZH2, and it preserves a regulatory circuit that governs divergent neuronal versus sustentacular differentiation. That retained differentiation capacity is what the Hyams grading system reads off the slide.\nIts genomic landscape is unusual for a malignancy. Panel sequencing of 560 tumour-associated genes found no highly recurrent mutations, with only TP53 and DNMT3A recurrently mutated, while copy number analysis showed highly recurrent combined loss of whole chromosomes. There is therefore no driver lesion to anchor the entry on, and the mechanism recorded below is a cell-identity one rather than a mutational one.\nDNA methylation profiling has also shown that the institutional diagnosis is not a single thing: in a 66-tumour cohort only 42 (64 per cent) formed a core group, while others clustered with IDH2-mutant sinonasal carcinoma or with sinonasal carcinomas of other types. Those non-core cases are widely read as misdiagnosis rather than as subtypes of this tumour.",
+    "description": "Olfactory neuroblastoma, also called esthesioneuroblastoma, is an uncommon malignant neuroectodermal tumour of the nasal cavity that arises from the olfactory epithelium at the cribriform plate. Despite its name it is not a form of neuroblastoma: it is a sinonasal tumour, mostly of adults, with a different cell of origin, a different genomic landscape and a different clinical course, and this entry exists partly to keep the two apart.\nSingle-cell transcriptomic work links the tumour to olfactory epithelial globose basal cells, the stem and progenitor population of the olfactory epithelium, and that was the first time the tumour was linked to a specific cell type. The tumour retains a globose basal cell programme: it expresses the globose basal cell transcription factor NEUROD1, which separates it from sinonasal undifferentiated carcinoma, it contains a reproducible highly proliferative subpopulation expressing the stemness marker EZH2, and it preserves a regulatory circuit that governs divergent neuronal versus sustentacular differentiation. That retained differentiation capacity is what the Hyams grading system reads off the slide.\nIts genomic landscape is unusual for a malignancy. Panel sequencing of 560 tumour-associated genes found no highly recurrent mutations, with only TP53 and DNMT3A recurrently mutated, while copy number analysis showed highly recurrent combined loss of whole chromosomes. There is therefore no driver lesion to anchor the entry on, and the mechanism recorded below is a cell-identity one rather than a mutational one.\nDNA methylation profiling has also shown that the institutional diagnosis is not a single thing: in a 66-tumour cohort only 42 (64 per cent) formed a core group, while others clustered with IDH2-mutant sinonasal carcinoma or with sinonasal carcinomas of other types. Those non-core cases are widely read as misdiagnosis rather than as subtypes of this tumour.",
     "pathophysiology": [
       "Recurrent Chromosomal Loss Without a Recurrent Driver Mutation",
       "Malignant Transformation of Olfactory Epithelial Globose Basal Cells",
@@ -305909,7 +305919,8 @@ window.searchData = [
     ],
     "biological_processes": [
       "positive regulation of cell population proliferation",
-      "neuron differentiation"
+      "neuron differentiation",
+      "tumour cell invasion of adjacent structures"
     ],
     "phenotypes": [
       "Sinonasal Neoplasm",
@@ -428861,12 +428872,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3981,
   "total_subtypes": 5023,
   "total_disorders_and_subtypes": 9004,
-  "total_unique_evidence_sources": 59045,
-  "total_unique_publications": 55240,
+  "total_unique_evidence_sources": 59051,
+  "total_unique_publications": 55246,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 3979,
-  "total_unique_pathological_events": 26033,
+  "total_unique_pathological_events": 26041,
   "total_modules": 227,
   "total_research_reports": 4090,
   "total_classifications": 21,
