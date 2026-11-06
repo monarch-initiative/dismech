@@ -35387,7 +35387,10 @@ window.searchData = [
       "Atomoxetine pharmacotherapy",
       "Extended-release guanfacine or clonidine pharmacotherapy"
     ],
-    "environmental": [],
+    "environmental": [
+      "Urinary organophosphate pesticide metabolite burden in children",
+      "Pyrethroid pesticide exposure in children"
+    ],
     "biochemical": [],
     "source_file": "Attention_Deficit-Hyperactivity_Disorder.yaml",
     "page_url": "../pages/disorders/Attention_Deficit-Hyperactivity_Disorder.html",
@@ -35395,7 +35398,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "3"
   },
   {
@@ -173903,7 +173906,9 @@ window.searchData = [
       "Neuroblast-to-Ganglion Cell Maturation",
       "Schwannian Stromal Development",
       "Schwannian Stroma-Poor Neuroblastomatous Nodule",
-      "Telomere Maintenance Mechanism Activation"
+      "Telomere Maintenance Mechanism Activation",
+      "Unlimited Replicative Potential",
+      "Tumoral Catecholamine Secretion"
     ],
     "cell_types": [
       "neoplastic neuroblast",
@@ -173919,7 +173924,9 @@ window.searchData = [
       "maturation of neuroblasts into ganglion cells",
       "Schwann cell proliferation",
       "telomere maintenance via telomerase",
-      "telomere maintenance via recombination"
+      "telomere maintenance via recombination",
+      "cell population proliferation",
+      "catecholamine secretion by the tumour"
     ],
     "phenotypes": [
       "Abdominal Mass",
@@ -173972,10 +173979,10 @@ window.searchData = [
     "source_file": "Ganglioneuroblastoma.yaml",
     "page_url": "../pages/disorders/Ganglioneuroblastoma.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "3"
   },
   {
@@ -174070,7 +174077,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "2"
   },
   {
@@ -176612,6 +176619,121 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Ghosal Hematodiaphyseal Dysplasia",
+    "disease_id": "MONDO:0009274",
+    "category": "Mendelian",
+    "parents": [
+      "skeletal dysplasia",
+      "inherited bone marrow failure syndrome"
+    ],
+    "creation_date": "2026-11-05T18:55:31Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Ghosal hematodiaphyseal dysplasia (GHDD, OMIM 231095, ORPHA:1802) is an ultra-rare autosomal recessive disorder caused by biallelic loss-of-function variants in TBXAS1, which encodes thromboxane A synthase (TXAS, CYP5A1), the enzyme that converts the cyclooxygenase product prostaglandin H2 into thromboxane A2. It usually presents in infancy or early childhood with a hematinic-refractory, often transfusion-dependent normocytic anemia (with thrombocytopenia or pancytopenia in some patients), splenomegaly, and a long bone dysplasia: cortical thickening and sclerosis of the diaphyses, metaphyseal widening, loss of normal diaphyseal constriction, narrowing of the medullary canal and bowing. The marrow is hypocellular and fibrotic, with increased reticulin and dyserythropoiesis. Platelets show a selective failure of arachidonic-acid-induced aggregation, but affected individuals are not reported to bleed. Both the anemia and the bone disease respond to low-dose corticosteroids, and cyclooxygenase-inhibiting NSAIDs (aspirin, ibuprofen) have produced rapid hematologic responses, consistent with the proposed mechanism that loss of TXAS diverts prostaglandin H2 into other prostanoids. Expressivity is variable, from transfusion-dependent infants to siblings with only radiographic cortical thickening, and first diagnosis in adulthood is documented.\n",
+    "pathophysiology": [
+      "Thromboxane A Synthase Deficiency",
+      "Prostaglandin H2 Shunting to Other Prostanoids",
+      "Altered Osteoblast RANKL and Osteoprotegerin Expression",
+      "Diaphyseal Endosteal Hyperostosis With Medullary Narrowing",
+      "Bone Marrow Fibrosis and Failure of Hematopoiesis",
+      "Systemic Inflammation",
+      "Impaired Arachidonic Acid-Induced Platelet Aggregation"
+    ],
+    "cell_types": [
+      "osteoblast",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000062",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "prostaglandin biosynthetic process",
+      "regulation of osteoclast differentiation",
+      "ossification",
+      "hemopoiesis",
+      "inflammatory response",
+      "platelet aggregation"
+    ],
+    "phenotypes": [
+      "Anemia",
+      "Cortical thickening of long bone diaphyses",
+      "Diaphyseal sclerosis",
+      "Diaphyseal undertubulation",
+      "Metaphyseal widening",
+      "Narrowing of medullary canal",
+      "Bowing of the long bones",
+      "Bone pain",
+      "Myelofibrosis",
+      "Erythroid dysplasia",
+      "Thrombocytopenia",
+      "Pancytopenia",
+      "Splenomegaly",
+      "Short stature",
+      "Elevated circulating C-reactive protein concentration",
+      "Elevated erythrocyte sedimentation rate",
+      "Abnormal arachidonic acid platelet aggregometry"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Skeletal",
+      "Growth",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001903",
+      "HP:0005791",
+      "HP:0003034",
+      "HP:0005019",
+      "HP:0003016",
+      "HP:0032458",
+      "HP:0006487",
+      "HP:0002653",
+      "HP:0011974",
+      "HP:0031688",
+      "HP:0001873",
+      "HP:0001876",
+      "HP:0001744",
+      "HP:0004322",
+      "HP:0011227",
+      "HP:0003565",
+      "HP:0011870"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TBXAS1"
+    ],
+    "treatments": [
+      "Low-Dose Corticosteroid Therapy",
+      "NSAID Therapy (Aspirin or Ibuprofen)",
+      "Red Blood Cell Transfusion"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Ghosal_Hematodiaphyseal_Dysplasia.yaml",
+    "page_url": "../pages/disorders/Ghosal_Hematodiaphyseal_Dysplasia.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Giant Axonal Neuropathy 1",
@@ -276160,6 +276282,112 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Mitochondrial DNA Depletion Syndrome 12B (Cardiomyopathic Type)",
+    "disease_id": "MONDO:0014175",
+    "category": "Mendelian",
+    "parents": [
+      "mitochondrial DNA depletion syndrome",
+      "mitochondrial disease"
+    ],
+    "creation_date": "2026-11-05T18:54:52Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mitochondrial DNA depletion syndrome 12B (MTDPS12B, OMIM 615418) is an ultra-rare autosomal recessive mitochondrial myopathy and cardiomyopathy caused by biallelic loss-of-function variants in SLC25A4, which encodes ANT1 (AAC1), the heart and skeletal muscle isoform of the inner mitochondrial membrane ADP/ATP carrier. Recessive alleles reported so far are missense, splice-site and frameshift changes that abolish transport or expression; one compound heterozygous patient with a milder course is thought to retain partial function. Onset is usually in childhood, with fatigue and exercise intolerance, lactic acidosis (often with hyperalaninemia), a mild mitochondrial myopathy and a progressive, typically concentric hypertrophic cardiomyopathy that dominates prognosis; most affected individuals survive into adulthood, and in a 13-generation Mennonite founder pedigree the rate of cardiac progression segregated with maternal mtDNA haplogroup. Muscle biopsy shows ragged-red fibres, subsarcolemmal mitochondrial aggregates and increased (not decreased) respiratory chain enzyme activities. Despite the name, the published recessive cases show multiple mtDNA deletions in muscle, or none, rather than mtDNA depletion; marked loss of mtDNA copy number is the feature of the de novo dominant SLC25A4 disorder (MTDPS12A). The recessive disease is also distinct from heterozygous SLC25A4 adPEO (PEOA2): external ophthalmoplegia is usually absent here, although one patient has had mild ptosis and upgaze limitation.\n",
+    "pathophysiology": [
+      "Biallelic SLC25A4 Loss of Function",
+      "Failure of Mitochondrial ADP/ATP Exchange in Striated Muscle",
+      "Bioenergetic Failure of Cardiac and Skeletal Muscle",
+      "Mitochondrial Cardiomyopathy with Cardiomyocyte Degeneration",
+      "Skeletal Muscle Mitochondrial Dysfunction",
+      "Compensatory Mitochondrial Proliferation",
+      "Increased Mitochondrial Oxidative Stress",
+      "Muscle mtDNA Deletion Accumulation",
+      "Maternal mtDNA Haplogroup Modification of Cardiac Severity"
+    ],
+    "cell_types": [
+      "cardiac muscle cell",
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "mitochondrial ATP transmembrane transport",
+      "mitochondrial ADP transmembrane transport",
+      "oxidative phosphorylation",
+      "mitochondrion organization",
+      "reactive oxygen species metabolic process",
+      "mitochondrial DNA metabolic process"
+    ],
+    "phenotypes": [
+      "Hypertrophic Cardiomyopathy",
+      "Myocardial Fibrosis",
+      "Left Ventricular Diastolic Dysfunction",
+      "Reduced Left Ventricular Ejection Fraction",
+      "Mitochondrial Myopathy",
+      "Exercise Intolerance",
+      "Lactic Acidosis",
+      "Hyperalaninemia",
+      "L-2-Hydroxyglutaric Aciduria",
+      "Ragged-Red Muscle Fibers",
+      "Abnormal Mitochondria in Muscle",
+      "Multiple mtDNA Deletions in Muscle",
+      "Congenital Cataract",
+      "Ophthalmoplegia"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Metabolic",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Constitutional",
+      "Eye",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0001685",
+      "HP:0025168",
+      "HP:0012664",
+      "HP:0003737",
+      "HP:0003546",
+      "HP:0003128",
+      "HP:0003348",
+      "HP:0040144",
+      "HP:0003200",
+      "HP:0008316",
+      "HP:0003689",
+      "HP:0000519",
+      "HP:0000602"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SLC25A4",
+      "mtDNA haplogroup U"
+    ],
+    "treatments": [
+      "Heart Failure Pharmacotherapy",
+      "Coenzyme Q10 and Carnitine Supplementation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mitochondrial_DNA_Depletion_Syndrome_12B.yaml",
+    "page_url": "../pages/disorders/Mitochondrial_DNA_Depletion_Syndrome_12B_Cardiomyopathic_Type.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 9,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Mitochondrial DNA Depletion Syndrome 14B (Cardioencephalomyopathic Type)",
     "disease_id": "MONDO:0014820",
     "category": "Mendelian",
@@ -291444,6 +291672,8 @@ window.searchData = [
     "environmental": [],
     "biochemical": [
       "Catecholamine Metabolites",
+      "Lactate Dehydrogenase",
+      "Ferritin",
       "Neuron-Specific Enolase"
     ],
     "source_file": "Neuroblastoma.yaml",
@@ -298887,6 +299117,149 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "36",
     "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "Neurooculocardiogenitourinary Syndrome",
+    "disease_id": "MONDO:0032850",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal dominant syndromic intellectual disability"
+    ],
+    "creation_date": "2026-11-05T18:53:03Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Neurooculocardiogenitourinary syndrome (NOCGUS, OMIM 618652) is an autosomal dominant multisystem developmental disorder caused by heterozygous, almost always de novo, variants in WDR37, which encodes a WD40-repeat protein of unknown function. It was delineated in 2019 by two independent groups. The original variants are missense changes clustered in a short conserved stretch upstream of the first WD40 repeat (p.Thr115 to p.Thr130); a second cluster in and between the second and third WD40 repeats and one intronic splice variant were reported later. Presentation is neonatal or infantile. The core is neurological (seizures, usually severe developmental delay and intellectual disability, often absent speech, cerebellar hypoplasia and other structural brain anomalies) together with structural eye anomalies (coloboma, microphthalmia, microcornea, Peters anomaly) and facial dysmorphism that has been compared with CHARGE syndrome. Congenital heart defects, genitourinary and renal anomalies, skeletal (mostly spinal) anomalies, sensorineural hearing loss, feeding difficulties and poor postnatal growth are variable; one individual in a founding series died in infancy, while a later series describes milder developmental delay. WDR37 binds the paralogous sorting proteins PACS1 and PACS2, whose own de novo missense disorders (Schuurs-Hoeijmakers syndrome and DEE66) overlap clinically with NOCGUS. How the variants act is not settled: a dominant-negative mechanism has been proposed from zebrafish and cell data and is ClinGen's reading, Orphanet annotates the association as loss of function, and the main functional study states that the mechanism has not been established.",
+    "pathophysiology": [
+      "De Novo Heterozygous WDR37 Variant",
+      "Abnormal WDR37 Protein Function",
+      "Altered WDR37-PACS1-PACS2 Complex Function",
+      "Impaired ER Calcium Release",
+      "Upregulated Cholesterol Biosynthesis Gene Expression",
+      "Impaired Ocular Morphogenesis",
+      "Impaired Embryonic Development of Multiple Organs",
+      "Neuronal Dysfunction"
+    ],
+    "cell_types": [
+      "lymphocyte",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000542",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "intracellular protein transport",
+      "endoplasmic reticulum calcium ion homeostasis",
+      "cholesterol biosynthetic process",
+      "camera-type eye development",
+      "embryo development"
+    ],
+    "phenotypes": [
+      "Seizures",
+      "Intellectual Disability",
+      "Global Developmental Delay",
+      "Absent Speech",
+      "Cerebellar Hypoplasia",
+      "Cerebellar Vermis Anomaly",
+      "Corpus Callosum Anomaly",
+      "Microcephaly",
+      "Coloboma",
+      "Microphthalmia",
+      "Microcornea",
+      "Peters Anomaly",
+      "Ocular Anterior Segment Dysgenesis",
+      "Glaucoma",
+      "Cataract",
+      "Optic Nerve Hypoplasia",
+      "Facial Dysmorphism",
+      "Congenital Heart Defect",
+      "Atrial Septal Defect",
+      "Ventricular Septal Defect",
+      "Renal Dysplasia",
+      "Polycystic Kidney Dysplasia",
+      "Genitourinary Anomalies",
+      "Anal Atresia",
+      "Scoliosis",
+      "Tapered Fingers",
+      "Single Transverse Palmar Crease",
+      "Sensorineural Hearing Impairment",
+      "Feeding Difficulties",
+      "Postnatal Growth Retardation",
+      "Short Stature"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Ophthalmologic",
+      "Craniofacial",
+      "Cardiovascular",
+      "Renal",
+      "Genitourinary",
+      "Gastrointestinal",
+      "Skeletal",
+      "Auditory",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001250",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0001344",
+      "HP:0001321",
+      "HP:0002334",
+      "HP:0001273",
+      "HP:0000252",
+      "HP:0000589",
+      "HP:0000568",
+      "HP:0000482",
+      "HP:0000659",
+      "HP:0007700",
+      "HP:0000501",
+      "HP:0000518",
+      "HP:0000609",
+      "HP:0001999",
+      "HP:0001627",
+      "HP:0001631",
+      "HP:0001629",
+      "HP:0000110",
+      "HP:0000113",
+      "HP:0000119",
+      "HP:0002023",
+      "HP:0002650",
+      "HP:0001182",
+      "HP:0000954",
+      "HP:0000407",
+      "HP:0011968",
+      "HP:0008897",
+      "HP:0004322"
+    ],
+    "frequencies": [],
+    "genes": [
+      "WDR37"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurooculocardiogenitourinary_Syndrome.yaml",
+    "page_url": "../pages/disorders/Neurooculocardiogenitourinary_Syndrome.html",
+    "num_phenotypes": 31,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "42",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Neurooculorenal Syndrome",
@@ -306564,7 +306937,7 @@ window.searchData = [
     "creation_date": "2026-10-30T18:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Opsoclonus-myoclonus syndrome, also called opsoclonus-myoclonus-ataxia syndrome, dancing eyes syndrome or Kinsbourne syndrome, is a rare immune-mediated disorder of childhood whose cardinal features are opsoclonus, myoclonus, ataxia and disturbance of behaviour and sleep. An expert panel allows the diagnosis when three of four features are present: opsoclonus, ataxia or myoclonus, behaviour change or sleep disturbance, and neuroblastoma.\nOpsoclonus is the defining sign and is specific in form rather than merely in appearance: spontaneous, arrhythmic, large-amplitude conjugate saccades in all directions of gaze with no intersaccadic interval, which is what separates it from nystagmus. As it settles it may become ocular flutter. It is attributed to instability in the balance between brainstem omnipause and burst neurons that normally generate saccades.\nAbout half of affected children have an underlying peripheral neuroblastic tumour, most often neuroblastoma, and in the other direction the syndrome occurs in 2 to 3 per cent of children with neuroblastoma. The tumours are never intracranial and are usually early stage. Resecting the tumour does not treat the neurological disease.\nThe immune basis is better established than its target. Routine cerebrospinal fluid studies are usually normal and commercial autoantibody panels usually negative, while cerebrospinal fluid oligoclonal bands and an expanded B-cell population are present in most untreated patients and correlate with neurological severity. No reproducible antigen has been identified, which remains the central unknown and is recorded as a knowledge gap. Treatment is immunotherapy, and the only randomised trial in the disease showed that adding intravenous immunoglobulin to prednisone and risk-adapted chemotherapy raised the response rate from 41 to 81 per cent.",
+    "description": "Opsoclonus-myoclonus syndrome, also called opsoclonus-myoclonus-ataxia syndrome, dancing eyes syndrome or Kinsbourne syndrome, is a rare immune-mediated disorder of childhood whose cardinal features are opsoclonus, myoclonus, ataxia and disturbance of behaviour and sleep. An expert panel allows the diagnosis when three of four features are present: opsoclonus, ataxia or myoclonus, behaviour change or sleep disturbance, and neuroblastoma.\nOpsoclonus is the defining sign and is specific in form rather than merely in appearance: spontaneous, arrhythmic, large-amplitude conjugate saccades in all directions of gaze with no intersaccadic interval, which is what separates it from nystagmus. As it settles it may become ocular flutter. It is attributed to instability in the balance between brainstem omnipause and burst neurons that normally generate saccades.\nAbout half of affected children have an underlying peripheral neuroblastic tumour, most often neuroblastoma, and in the other direction the syndrome occurs in 2 to 3 per cent of children with neuroblastoma. The tumours are never intracranial and are usually early stage. Resecting the tumour does not treat the neurological disease.\nThe immune basis is better established than its target. Routine cerebrospinal fluid studies are usually normal and commercial autoantibody panels usually negative, while an expanded cerebrospinal fluid B-cell population is present in most untreated patients and correlates with neurological severity. Oligoclonal bands are found in a proportion that varies widely between cohorts. No reproducible antigen has been identified, which remains the central unknown and is recorded as a knowledge gap. Treatment is immunotherapy, and the only randomised trial in the disease showed that adding intravenous immunoglobulin to prednisone and risk-adapted chemotherapy raised the response rate from 41 to 81 per cent.",
     "pathophysiology": [
       "Neuroblastic Tumour Trigger",
       "Parainfectious Immune Trigger",
@@ -306617,7 +306990,10 @@ window.searchData = [
       "HP:0002376",
       "HP:0001272"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
     "genes": [],
     "treatments": [
       "Intravenous Immunoglobulin",
@@ -428482,17 +428858,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3978,
+  "total_disorder_pages": 3981,
   "total_subtypes": 5023,
-  "total_disorders_and_subtypes": 9001,
-  "total_unique_evidence_sources": 58980,
-  "total_unique_publications": 55180,
+  "total_disorders_and_subtypes": 9004,
+  "total_unique_evidence_sources": 59045,
+  "total_unique_publications": 55240,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3976,
-  "total_unique_pathological_events": 26011,
-  "total_modules": 226,
-  "total_research_reports": 4087,
+  "total_pathographs": 3979,
+  "total_unique_pathological_events": 26033,
+  "total_modules": 227,
+  "total_research_reports": 4090,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 130
