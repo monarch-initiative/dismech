@@ -61,10 +61,10 @@ except ModuleNotFoundError:
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from model_inventory import repo_commit
+
 from dismech import kb_cache
 from dismech.model_registry import iter_model_dirs
-
-from model_inventory import repo_commit
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -273,8 +273,10 @@ def render_md(res: dict) -> str:
         f"- Run on: {res['generated']}",
         f"- Files parsed: {res['files_parsed']} from "
         + ", ".join("`" + g + "`" for g in res["globs"]),
-        f"- Models whose variables map to a LOINC test or HPO phenotype: "
-        f"{res['mapped_to_patient_measurements']} of {total}",
+        (
+            f"- Models whose variables map to a LOINC test or HPO phenotype: "
+            f"{res['mapped_to_patient_measurements']} of {total}"
+        ),
         "",
         (
             "Each step reads fields dismech already records. A model that fails "
