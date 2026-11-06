@@ -91303,15 +91303,16 @@ window.searchData = [
     "creation_date": "2026-08-28T12:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "CMTDIB is an autosomal dominant peripheral neuropathy caused by heterozygous DNM2 variants. Dynamin-2 is a large GTPase that pinches off membrane invaginations - the fission step of endocytosis and of vesicle traffic - and it is expressed everywhere, which is why the disease is not confined to nerve.\n\"Intermediate\" is the informative word and the reason this entry exists separately. Conduction velocities in these patients run from about 26 m/s to normal, straddling the boundary between demyelinating CMT1 (slow) and axonal CMT2 (normal velocity, reduced amplitude). The pathograph therefore has to carry a Schwann cell arm and an axonal arm rather than choosing one, and the entry is built that way. Both arms are directly evidenced: CMT-associated dynamin-2 mutants impair myelination in a peripheral nerve model where CNM mutants do not, and a single sural nerve biopsy shows axonal loss with regeneration alongside focal myelin thickenings.\nDNM2 is also the gene for autosomal dominant centronuclear myopathy, and the relationship between the two diseases is the mechanistically interesting part: the CNM variants make dynamin-2 hyperactive while the CMT variants reduce its activity. Same gene, opposite directions, different tissue. That is not a hypothesis - in vitro assays show the opposing effects directly, and crossing a CNM mouse with a CMT mouse rescues both phenotypes, which only works if the two alleles push activity opposite ways. The entry records the asymmetry with `functional_impact_category` and links the mouse cross as a `RESCUES` model.\nTwo extra features are worth knowing because they are not what a clinician expects from a CMT: asymptomatic neutropenia and early-onset cataracts, the former cosegregating with variants at Lys558 specifically.\nA note on the sources. The GeneReviews chapter for this disease, PMID:20614582, has been **retired** - its own first line says so - and is cited here only for the clinical description, with each such evidence item flagged. That is a real limitation of this entry: the authoritative clinical summary for CMTDIB is an archival document, and dismech has no structured way to record that a cited source has been withdrawn.",
+    "description": "CMTDIB is an autosomal dominant sensorimotor neuropathy caused by heterozygous DNM2 variants. It typically causes slowly progressive distal weakness and wasting, sensory loss, reduced reflexes, and foot deformities, with intermediate or axonal nerve conduction findings. Neutropenia and early cataracts occur in some families. Dynamin-2 dysfunction affects membrane trafficking and peripheral nerve myelination, but biochemical effects differ among variants: reduced lipid-coupled activity is established for K562E, whereas the CMT-associated \u0394DEE mutant shows increased assembly-dependent GTPase activity in vitro. DNM2-related centronuclear myopathy is an allelic disorder with distinct clinical and experimental features.",
     "pathophysiology": [
-      "DNM2 Variant Impairing Dynamin-2 Lipid Binding",
-      "Reduced Dynamin-2 Membrane Fission Activity",
-      "Motor Axon Branching and Maintenance Failure",
+      "DNM2 Neuropathy-Associated Variants",
+      "Reduced Lipid-Coupled Dynamin-2 Activity",
+      "Impaired Clathrin-Mediated Endocytosis",
+      "Motor Axon Branching Defect",
       "Schwann Cell Myelin Dysfunction",
       "Length-Dependent Distal Axonal Degeneration",
       "Intermediate Nerve Conduction Slowing",
-      "Extraneural Dynamin-2 Dependence"
+      "Skeletal Muscle Trafficking Defects"
     ],
     "cell_types": [
       "motor neuron",
@@ -91327,11 +91328,13 @@ window.searchData = [
     ],
     "phenotypes": [
       "Pes Cavus",
-      "Distal Muscle Weakness and Atrophy",
+      "Distal Muscle Weakness",
       "Depressed Tendon Reflexes",
       "Sensory Loss",
       "Neutropenia",
-      "Early-Onset Cataract"
+      "Early-Onset Cataract",
+      "Distal Muscle Atrophy",
+      "Frequent Falls"
     ],
     "phenotype_categories": [
       "Skeletal",
@@ -91353,13 +91356,11 @@ window.searchData = [
       "HP:0001265",
       "HP:0002936",
       "HP:0001875",
-      "HP:0000518"
+      "HP:0000518",
+      "HP:0003693",
+      "HP:0002359"
     ],
-    "frequencies": [
-      "FREQUENT",
-      "VERY_FREQUENT",
-      "OCCASIONAL"
-    ],
+    "frequencies": [],
     "genes": [
       "DNM2"
     ],
@@ -91368,20 +91369,22 @@ window.searchData = [
       "Physical Therapy for Contracture Prevention",
       "Analgesia for Musculoskeletal Pain",
       "Orthopedic Surgery",
-      "Multidisciplinary Surveillance",
+      "Multidisciplinary Care",
       "Pregnancy Management",
-      "Avoidance of Neurotoxic Agents"
+      "Vincristine Precaution",
+      "Neuropathic Pain Management",
+      "Cataract Surgery"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Charcot-Marie-Tooth_Disease_Dominant_Intermediate_B.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Dominant_Intermediate_B.html",
-    "num_phenotypes": 6,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 8,
+    "num_pathophysiology": 8,
     "num_genes": 1,
-    "num_treatments": 7,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "6"
+    "num_treatments": 9,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Charcot-Marie-Tooth Disease Dominant Intermediate E",
@@ -428899,8 +428902,8 @@ window.searchMetrics = {
   "total_disorder_pages": 3981,
   "total_subtypes": 5023,
   "total_disorders_and_subtypes": 9004,
-  "total_unique_evidence_sources": 59054,
-  "total_unique_publications": 55249,
+  "total_unique_evidence_sources": 59058,
+  "total_unique_publications": 55252,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 3979,
