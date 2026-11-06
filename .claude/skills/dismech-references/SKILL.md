@@ -83,9 +83,15 @@ disease:
 just preflight-dr research/My_Disease-deep-research-falcon.md MONDO:XXXXXXX
 ```
 
-It reads the local MONDO build and exits 2 when that is absent rather than
-downloading it (about 1.3 GB on disk); run `just fetch-ontology-dbs mondo` once
-first. `--no-hgnc` also keeps it off the HGNC build.
+It reads the local MONDO build when it is on disk and the same term from OLS
+otherwise, and says which in its `MONDO source` line; it never downloads the
+build (about 1.3 GB on disk). It exits 2 only when OLS is unreachable too, and
+that is not a verdict: retry, or run `just fetch-ontology-dbs mondo` once. Over
+OLS the rival-gene disease lookup cannot run, so a report that never names the
+canonical gene but cites the right OMIM number comes back `WARN`, not `FAIL`.
+Without the local HGNC build it skips the HGNC lexicon and alias lookups, as
+`--no-hgnc` does, rather than downloading it; `just fetch-ontology-dbs hgnc`
+gives the sharper gene lexicon.
 
 Interpret the result as follows:
 
@@ -96,11 +102,20 @@ Interpret the result as follows:
 - `SKIP`: the automated check cannot discriminate; manually check disease
   identity before proceeding.
 
-For a `WARN` or `SKIP`, inspect the intended MONDO record directly:
+For a `WARN` or `SKIP`, inspect the intended MONDO record directly. This reads
+it from OLS and downloads nothing:
 
 ```bash
-uv run runoak -i sqlite:obo:mondo info MONDO:XXXXXXX -O obo
+uv run python -c "from dismech.mondo_ols import fetch_mondo_term; print(fetch_mondo_term('MONDO:XXXXXXX'))"
 ```
+
+It prints the label, the `RO:0004003` gene(s) with their symbols, every xref
+(OMIM among them), exact synonyms, and obsolescence. For related and broad
+synonyms, open the term in the OLS browser
+(`https://www.ebi.ac.uk/ols4/ontologies/mondo`, search the MONDO ID). Only if
+you already have the local build, `uv run runoak -i sqlite:obo:mondo info
+MONDO:XXXXXXX -O obo` shows the same record; without the build that command
+downloads about 1.3 GB.
 
 Compare its causal-gene relationship (`RO:0004003`), OMIM xref, and synonyms
 with the report. Look specifically for synonym aliasing, eponymic collision,
@@ -191,9 +206,13 @@ look. The two cases read identically in the diff and are opposite in kind.
 | the fact is textbook and no abstract states it crisply | move it to `notes`, no evidence |
 | a DR report asserted it and the cited abstract does not contain it | **drop the claim** — it is unverified, not merely unquotable |
 
-`Total checks: 0` in reference-validator output means zero issues were counted;
-it does not mean no evidence was examined. Use the wrapper's affirmative
-`Snippets checked: N/N verified` summary to describe cache-backed coverage.
+The validator's summary counts what it compared: `Snippets checked`,
+`Snippets skipped`, `Snippets unavailable`, `Titles checked`, and
+`Issues found`. `Snippets checked: 0` (with "No snippet comparisons were
+performed.") means nothing was compared, which is not a pass. Older validators
+printed `Total checks: 0`, which counted issues, not checks. Use
+`just count-verified-snippets`' `Snippets checked: N/N verified` line to describe
+cache-backed coverage.
 
 `DOI:` and `PMID:` snippets are checked by the same authoritative validator.
 A missing source, missing body, or mismatched quote fails validation; a failed
@@ -214,17 +233,29 @@ weaken an evidence constraint require explicit approval from `cmungall`
 
 "Exact substring" means exact **after normalization, on both sides**.
 `SupportingTextValidator.normalize_text` (in `linkml-reference-validator`, and
-reused by `just count-verified-snippets`) spells out Greek letters, lowercases,
-replaces every non-word non-space character with a space, then collapses runs of
-whitespace with `re.sub(r"\s+", " ", ...)`. Python's `\s` on `str` patterns
-matches Unicode whitespace, so most publisher typography folds away on both
-sides:
+reused by `just count-verified-snippets`) folds Latin ligatures, spells out Greek
+letters, lowercases and collapses whitespace (Python's `\s` matches Unicode
+whitespace). Since linkml-reference-validator 0.5.0 it no longer turns *every*
+symbol into a space. Symbols that carry meaning become words: `<` `>` `≤` `≥`
+become `lt` `gt` `le` `ge`, `±` becomes `pm`, a minus sign before a number stays
+on it (`-2.5` is `neg2.5`), and a point or comma between digits stays part of
+the number (`10.5`). All other punctuation is still a space. A match must also
+start and end on **whole words**: `activates` does not match `inactivates`, and
+`5 mM` does not match `10.5 mM`.
+
+Most publisher typography still folds away on both sides:
 
 | In the source | Write in the snippet |
 |---|---|
 | U+2009 thin space (common around `=` in Nature journals) | an ordinary space |
 | U+00A0 no-break space | an ordinary space |
-| U+2013 en dash, U+2212 minus (ranges, negative exponents) | an ordinary hyphen |
+| U+2013 en dash in a range (`3.97–6.38`, `1–12`) | an ordinary hyphen |
+| U+2212 `−`, or an en dash or U+2010 `‐` printed as a minus (`z score, –1.98`) | an ordinary `-` |
+| `≥` `≤`, or MEDLINE's ASCII `>/=` `</=` | either spelling (`>=` and `<=` also work) |
+| `±`, `+/-`, `+/–` | any of them |
+| U+00B7 middle-dot decimal (Lancet: `57·4`) | `57.4` |
+| U+00B5 micro sign `µ` | `µ` or `μ` |
+| `ﬁ`-style ligatures | plain `fi` |
 | U+00D7 multiplication sign | see the traps below |
 
 So `"AUC = 0.933"` typed with ordinary spaces matches source text reading
@@ -238,28 +269,55 @@ every `=`. Neither checked, and it cost a curated entry — recovered only
 mid-review. A curator who believes a figure "cannot be quoted" paraphrases it
 into `explanation` prose or drops the claim, and nothing goes red.
 
-**Prefer ASCII in new snippets** — an invisible character in a quote is a trap
-for the next curator, and it buys nothing, since the source's typography folds
-anyway. Existing snippets that copied the source's thin spaces and en dashes
+**Greek letters verify in either spelling.** `greek_map` runs on both sides, so
+`α3β3` and `alpha3beta3` both normalize to `alpha3beta3`, `γ` to `gamma`, and
+`NF-κB` to `nf kappab`. Prefer copying the source's visible letter, so the quote
+reads as the source does (#9433). The ASCII spelling is an acceptable fallback,
+provided it keeps the source's spacing: `NF-kappa B` normalizes to
+`nf kappa b` and does not match.
+
+**Never truncate a quote to avoid a character.** A snippet that stops just
+before a Greek letter, `×`, or any other character it was cited for still
+verifies, and clears `check-snippet-length` once it has `MIN_SNIPPET_WORDS = 5`
+words, so the length gate is not a backstop. On #15493 two such fragments
+(`Leu335 lies close to the hydrophobic sleeve in the`, `Mutations in this region
+in the`) passed every gate and supported nothing (#15607). Quote through the
+character, or choose a different sentence.
+
+To test a candidate, call the real normalizer, not a re-implementation of it:
+
+```bash
+uv run python -c "from linkml_reference_validator.validation.supporting_text_validator import SupportingTextValidator as V; print(V.normalize_text('the α3β3 assembly'))"
+```
+
+**Prefer ASCII for invisible and lookalike characters** — an invisible character
+in a quote is a trap for the next curator, and it buys nothing, since the
+source's typography folds anyway. A visible Greek letter that is part of the
+nomenclature is not that case. Existing snippets that copied the source's thin spaces and en dashes
 verbatim are equally valid and need no repair; several hundred `kb/disorders`
 snippets do exactly that.
 
 **The traps — characters that do *not* vanish.** Each of these survives
-normalization on one side only, so the comparison fails:
+normalization on one side only, or means something different, so the comparison
+fails:
 
+- **A dropped or changed comparison or sign.** `ratios 3:1` does not match
+  `ratios ≥3:1`, and `-2.5 fold` does not match `2.5 fold`. This is the point of
+  the 0.5.0 rule: quote the symbol.
+- **Number separators.** A point or comma between digits is part of the number,
+  so quote numbers with the source's own separators: `0.8, 7.3` does not match
+  `0.8,7.3`, and `10 000` does not match `10,000`.
+- **A spaced ASCII hyphen as a minus.** `range - 4.72` reads as a range dash, so
+  it does not match a source's `range − 4.72`. Write `−` or `-4.72`. The reverse
+  also holds: a range spaced on one side only (`18 –65`) reads as `18` and `-65`.
+- **Starting a quote on a sign or mid-word.** A quote beginning `-3881 and…`
+  reads its first word as `neg3881`; start on a whole word instead.
 - **`x` for `×`.** `x` is a word character and survives, while U+00D7 becomes a
   space, so `"7.03 x 10-48"` does *not* match `7.03 × 10−48`. Include the
   literal `×`, or end the quote before the scientific-notation clause.
 - **Mid-word invisibles.** U+00AD soft hyphen and U+200B zero-width space
   normalize to a *space*, splitting the word: cached `diffi<U+00AD>culties`
   becomes `diffi culties` and never matches `difficulties`.
-- **Ligatures.** U+FB01 `ﬁ` is a word character and survives unchanged, so
-  cached `speciﬁc` does not match `specific`. Note the asymmetry: `just
-  count-verified-snippets` folds ligatures in its relaxed cache-defect pass
-  (#8048, `normalize_relaxed` in `src/dismech/reference_snippet_audit.py`) but
-  the gating `linkml-reference-validator` does not — so such a snippet can pass
-  the fast check and fail the pre-PR sweep.
-- **Micro sign.** U+00B5 `µ` survives, since only U+03BC `μ` is in `greek_map`.
 
 If a quote you copied verbatim still fails, run `just count-verified-snippets` —
 it names the span it could not find rather than leaving you guessing.
@@ -283,6 +341,40 @@ Snippet matching applies `literal_bracket_patterns` from
 If a verbatim quote fails near brackets, read the reason printed by
 `count-verified-snippets`. Do not change the global patterns to accommodate one
 snippet without replaying validation across the KB.
+
+### Bridging a stripped bracket with an ellipsis
+
+Any other bracketed span is stripped too, including source text such as a bare
+confidence interval (`[0.31-0.83]`), a cohort size (`[n = 30]`), or a citation
+marker (`[9]`). Stripping applies to the snippet only, not the cached text, so a
+stripped span at the end of a quote is harmless but one in the middle leaves a
+hole and the quote fails. That does **not** mean the sentence cannot be quoted.
+
+Both `count-verified-snippets` and the `validate-disorders` gate split a snippet
+on every run of two or more ASCII dots (`..` or more; the single `…` character
+does not count) and require each part to appear somewhere in the cached text.
+So replace the stripped span with ` ... `. From PMID:10023895 (#9848):
+
+```yaml
+# Source: "... urinary-tract infection (0.50 [0.31-0.83]), or haematuria (0.59 [0.35-0.98])."
+# Fails: [0.31-0.83] is stripped mid-quote
+snippet: "a history of urinary-tract infection (0.50 [0.31-0.83]), or haematuria (0.59"
+# Verifies: the ellipsis bridges the stripped span
+snippet: "a history of urinary-tract infection (0.50 ... or haematuria (0.59"
+```
+
+Do not truncate the quote before the stripped span instead. That is how a
+haematuria claim ended up citing a quote that stopped one clause short of the
+word "haematuria": it verified and supported nothing.
+
+**An ellipsis may bridge text you are omitting, never text the claim relies
+on.** The parts are matched independently, in any order, so nothing checks what
+the ellipsis skipped. Bridging intervening prose to join the subject to the
+finding is the practice #3757 established, with worked examples. Skipping over
+the clause that carries the finding, or a negation or qualifier, produces a quote
+that verifies and misstates the source, which is worse than a failing one; #441
+records that caution. When in doubt, quote a shorter contiguous span that
+supports the claim on its own.
 
 ### Read the title off the cache, never from memory
 
@@ -316,8 +408,10 @@ Copy it from there. `just check-reference-titles` gates new mismatches (offline,
 similarity-based, so punctuation, dashes, diacritics and source-XML markup do
 not trip it) and prints the cached title in the failure message, so the fix is a
 copy-paste. `just list-reference-title-mismatches` is the triage view;
-`scripts/find_missing_reference_titles.py` is the complementary check for
-*absent* titles.
+`just check-reference-titles-present` is the complementary gate for *absent*
+titles: every evidence item must carry one. Fill a gap with
+`uv run python scripts/backfill_reference_titles.py <file>`, which copies the
+cached title, rather than typing it.
 
 ## Frequency claims
 
@@ -482,6 +576,133 @@ and found nothing) versus no such marker (never retried under that route, so a
 `--force` refetch is the obvious first move), counts how many are cited anywhere
 in `kb/`, and names any that an evidence item with a `snippet:` cites. That last
 count should be zero. The recipe is a read-only triage view and always exits 0.
+
+## `abstract_only` is also one fetch, not the paper
+
+The rule above generalizes one tier up, and this is the tier that catches
+people, because nothing looks wrong. An `abstract_only` cache has a title,
+authors, journal and a real abstract, and snippets quoting it verify. It is
+still only a record of what one fetch retrieved, and a re-fetch can upgrade it.
+
+**Which command you need depends on one frontmatter field.** Read
+`full_text_attempted` before re-fetching, because the two cases take different
+commands and the plain one silently does nothing in the second:
+
+| Frontmatter | What a plain `just fetch-reference` does |
+|---|---|
+| no `full_text_attempted` | re-runs the full-text chain, and can upgrade the cache |
+| `full_text_attempted: true` | **nothing** — the retry is skipped; you need `--force` |
+
+```bash
+grep -E '^(content_type|full_text_attempted):' references_cache/PMID_22771891.md
+
+# never attempted: the plain fetch is enough
+just fetch-reference PMID:22771891
+#   Content type: full_text_xml
+#   Content length: 42746 characters
+
+# already attempted: force a real refresh
+scripts/run_reference_validator.sh cache reference PMID:12345678 --force
+```
+
+The skip is deliberate, not a bug: `_maybe_retry_full_text` in the validator's
+fetcher returns the record untouched when `full_text_attempted` is set, so a
+clean negative result is not re-queried on every later run. The census's own
+split matters here — of its 8,482 recoverable files, **2,610 carry
+`full_text_attempted: true`** and will not budge for a plain re-fetch, which is
+also why that subset is the closest thing to a list of papers stranded by the
+#10876 extractor bug.
+
+`--force` is not simply the stronger option. It replaces cached text with
+whatever the refresh returns, so on a source that now serves less than it did,
+it loses text rather than gaining it. Prefer the plain fetch where the
+frontmatter says it will work.
+
+**After a `--force`, read the diff before committing.** A shortened body is the
+documented failure mode, not a hypothetical: in #12879 a re-fetch returned 64
+caches **5,360 lines shorter** than the committed ones and broke snippets that
+had verified moments earlier, in a PR whose subject was something else
+entirely. That issue is also where a fetch came back as an anti-bot page and
+was cached and compared as though it were the article — the same "HTTP 200 is
+not retrieval" trap, from inside this repository.
+
+```bash
+git diff --stat references_cache/        # insertions should not be mostly deletions
+```
+
+A re-fetch that *shrinks* a file can still be legitimate: the current extractor
+writes a cleaner body than older ones did, so a file can lose a duplicated
+abstract and keep every quotable sentence. The test is whether the snippets
+still verify, not whether the file got smaller:
+
+```bash
+just count-verified-snippets kb/disorders/<Entry>.yaml
+```
+
+**This is measured, not anecdotal.** The census in
+[`docs/reports/abstract-only-recovery-census-2026-09-16.md`](../../../docs/reports/abstract-only-recovery-census-2026-09-16.md)
+(issue #10878) found 8,482 `abstract_only` caches — 26.7% of them — with a real
+body recoverable through the production extractor, and 5,809 that would gain at
+least one table. So the odds that a given `abstract_only` cache is hiding full
+text are roughly one in four.
+
+```bash
+just abstract-only-recovery-census                  # offline table census (seconds)
+just abstract-only-recovery-census --phase all      # network phases, resumable, hours
+```
+
+**Refetch the paper you need; never bulk-refetch the backlog.** #10878 declined
+a blanket refetch on purpose: rewriting thousands of `references_cache/` files
+in one PR is the merge-invisible failure shape that #8623 and #10061 document,
+and every open curation PR touching one of those files would go quietly wrong on
+merge. A single-file refetch because you need a number is the sanctioned move;
+batching the rest is a maintainer call, and the report names the two batching
+axes.
+
+**Re-fetch whenever the fact you need lives in a table or a figure.** An
+abstract can never carry a table row, so a number sourced to "Table 2" is not
+checkable against an `abstract_only` cache no matter how carefully you read it.
+`PMID:22771891` is the worked case: the cache was `abstract_only`, the abstract
+says only that HOG "was confirmed in the urine, sera and liver samples from PH3
+patients", and the concentrations a reviewer needed were in Table 2. One
+`fetch-reference` brought back `full_text_xml` carrying Table 2 verbatim as a
+markdown table, so those values became quotable snippets and the check went
+offline for everyone.
+
+**Reach for the repository's fetcher before any external full-text route.** On
+that paper, four outside routes were tried first — the NCBI BioC endpoint,
+Europe PMC `fullTextXML`, a PubMed MCP full-text call, and the PMC PDF URL —
+and a review note was written saying the values "could not be verified" while
+`just fetch-reference` returned them first time. The fetcher is
+not only the sanctioned way to *write* a cache file; it is usually the best way
+to *read* a paper.
+
+**An HTTP 200 does not establish retrieval.** `pmc.ncbi.nlm.nih.gov/articles/<PMCID>/pdf/<file>.pdf`
+answers 200 with a 21 KB reCAPTCHA challenge page whose title is "Checking your
+browser", and the article page does the same. Check the body, not the status
+code — the same trap CLAUDE.md records for the ICTRP portal's "not found" page.
+
+**Figure captions do not come through the XML route.** The same refreshed cache
+carries every table and no caption, so a kinetic constant printed in a figure
+legend stays uncheckable from the cache even at `full_text_xml`. When a number
+you need is in a caption, say in `notes` where it lives rather than implying the
+cache supports it.
+
+### Do not commit a publisher PDF
+
+Reading a paper on PMC is not permission to redistribute it. An NIH Public
+Access author manuscript carries the publisher's copyright — `nihms-393374.pdf`
+for `PMID:22771891` is stamped "© 2012 Elsevier B.V. All rights reserved" — and
+sits outside the PMC open-access subset, which is the redistributable tier.
+`references_cache/files/` is gitignored for exactly this class of file, so
+placing a PDF anywhere else in the tree routes around an existing decision.
+
+What the repository does deposit is fetcher-generated extracted text: tens of
+thousands of `references_cache/*.md` files, thousands of them `full_text_xml`,
+`full_text_pdf` or `full_text_html`. That is the deposit route. A PDF a user
+hands you is fine to read and quote in the session; the way to make its content
+durable is `just fetch-reference`, never a commit of the file or a hand-written
+cache entry.
 
 ## Reference-cache integrity
 

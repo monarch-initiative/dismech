@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/images/dismech_logo_color.png" alt="DisMech logo" width="140">
+</p>
+
 # Disorder Mechanisms Knowledge Base (dismech)
 
 A curated knowledge base of disease pathophysiology, with structured evidence from the literature.
@@ -29,9 +33,9 @@ Related browsers:
 
 ### Project Overview Slides
 
-- [Unlocking Disease Mechanisms: Agentic AI for Clinical Knowledge](https://zenodo.org/records/18720444) - TMC AI Keynote
-- [Assembling mechanistic evidence for rare disease surrogate endpoints: the role of AI and NAMs](https://zenodo.org/records/18720444)
-- [ICBO 2026](https://docs.google.com/presentation/d/1QxoM2ngynnsAMs35O-nOC8yZ1ezSEkNttkwuv8pRXxU/edit)
+- [Unlocking Disease Mechanisms: Agentic AI for Clinical Knowledge](https://doi.org/10.5281/zenodo.18720444) - TMC AI Summit keynote
+- [Assembling mechanistic evidence for rare disease surrogate endpoints: the role of AI and NAMs](https://doi.org/10.5281/zenodo.20682988) - FDA / Triangle CERSI workshop
+- [All talks and posters](https://dismech.monarchinitiative.org/elements/talks/)
 
 ### Source of Truth: YAML Files
 

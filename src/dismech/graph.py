@@ -10,9 +10,10 @@ generates Mermaid flowchart code and pathograph JSON for visualization.
 import json
 import sys
 from collections import defaultdict
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from dismech.yaml_io import safe_load
 
@@ -328,26 +329,39 @@ NODE_SECTIONS: tuple[tuple[str, str], ...] = (
 )
 
 
-def collect_graph_nodes(disorder: dict[str, Any]) -> dict[str, NodeInfo]:
-    """Every name that can be the target of a bare-name pathograph edge.
+class GraphNodeRow(NamedTuple):
+    """One YAML row that becomes a pathograph node, before name-keying.
 
-    Split out of :func:`build_causal_graph` so that the CI gate over bare
-    targets (``scripts/check_causal_targets.py``) resolves against exactly the
-    node set the graph builds, rather than a hand-copied subset of it. That
-    duplication had already drifted: the gate mirrored the eight
-    :data:`NODE_SECTIONS` but not the two sources below, leaving 1,813 real node
-    names KB-wide invisible to it, so a bare target legitimately naming an
-    animal model or a variant would have been reported as dangling.
+    ``source`` is the section the row came from (``animal_models`` and
+    ``variants`` included). ``subtype`` is the row's ``subtype:`` value, or
+    ``None``. Kept so :func:`find_name_collisions` can say *which* rows a
+    shared name merged, which :func:`collect_graph_nodes` cannot: its dict
+    keeps only the last one.
     """
-    nodes: dict[str, NodeInfo] = {}
 
+    name: str
+    node_type: str
+    source: str
+    subtype: str | None
+    description: str | None
+
+
+def iter_graph_node_rows(disorder: dict[str, Any]) -> Iterator[GraphNodeRow]:
+    """Every row that becomes a pathograph node, in insertion order.
+
+    The single definition of "which rows are nodes", shared by
+    :func:`collect_graph_nodes` and :func:`find_name_collisions` so the two
+    cannot drift apart (the drift :func:`collect_graph_nodes` documents
+    already happened once between the graph and ``check_causal_targets``).
+    """
     for section_key, node_type in NODE_SECTIONS:
         for item in disorder.get(section_key, []) or []:
             if isinstance(item, dict) and "name" in item:
-                name = item["name"]
-                nodes[name] = NodeInfo(
-                    name=name,
+                yield GraphNodeRow(
+                    name=item["name"],
                     node_type=node_type,
+                    source=section_key,
+                    subtype=item.get("subtype"),
                     description=item.get("description"),
                 )
 
@@ -363,9 +377,11 @@ def collect_graph_nodes(disorder: dict[str, Any]) -> dict[str, NodeInfo]:
         label = animal_model_label(item)
         if not label:
             continue
-        nodes[label] = NodeInfo(
+        yield GraphNodeRow(
             name=label,
             node_type="animal_model",
+            source="animal_models",
+            subtype=None,
             description=item.get("description"),
         )
 
@@ -373,13 +389,102 @@ def collect_graph_nodes(disorder: dict[str, Any]) -> dict[str, NodeInfo]:
         name = variant.get("name")
         if not name:
             continue
-        nodes[name] = NodeInfo(
+        yield GraphNodeRow(
             name=name,
             node_type="genetic",
+            source="variants",
+            subtype=variant.get("subtype"),
             description=variant.get("description"),
         )
 
+
+def collect_graph_nodes(disorder: dict[str, Any]) -> dict[str, NodeInfo]:
+    """Every name that can be the target of a bare-name pathograph edge.
+
+    Split out of :func:`build_causal_graph` so that the CI gate over bare
+    targets (``scripts/check_causal_targets.py``) resolves against exactly the
+    node set the graph builds, rather than a hand-copied subset of it. That
+    duplication had already drifted: the gate mirrored the eight
+    :data:`NODE_SECTIONS` but not the two sources below, leaving 1,813 real node
+    names KB-wide invisible to it, so a bare target legitimately naming an
+    animal model or a variant would have been reported as dangling.
+
+    Keyed on ``name``, so two rows sharing a name become one node and the last
+    row wins (issue #15443). :func:`find_name_collisions` reports where that
+    happens.
+    """
+    nodes: dict[str, NodeInfo] = {}
+    for row in iter_graph_node_rows(disorder):
+        nodes[row.name] = NodeInfo(
+            name=row.name,
+            node_type=row.node_type,
+            description=row.description,
+        )
     return nodes
+
+
+class NameCollision(NamedTuple):
+    """Several node rows sharing one ``name``, so they render as one node.
+
+    ``kind`` says why, because the three have different fixes:
+
+    ``UNSTRATIFIED``
+        Rows in one section that are not told apart by ``subtype:`` (no
+        subtype on at least one row, or two rows with the same subtype).
+        Usually an accident: the rows should be merged or renamed.
+    ``STRATIFIED``
+        Rows in one section, each with a different ``subtype:``, which is the
+        stratification CLAUDE.md asks for. The flat name namespace cannot show
+        them as separate nodes; that is a limit of the graph, not a curation
+        defect.
+    ``CROSS_SECTION``
+        Rows in different sections (most often a pathophysiology node and a
+        phenotype with the same name). Also one node, and an edge between the
+        two becomes a self-loop.
+    """
+
+    name: str
+    kind: str
+    rows: tuple[GraphNodeRow, ...]
+
+    @property
+    def lost_rows(self) -> int:
+        return len(self.rows) - 1
+
+
+def find_name_collisions(disorder: dict[str, Any]) -> list[NameCollision]:
+    """Every name more than one node row shares, classified (issue #15443).
+
+    Rows are first grouped by section, so a name can yield more than one
+    collision: two unstratified phenotype rows that also share their name with
+    a pathophysiology node are reported as ``UNSTRATIFIED`` (the phenotype
+    pair) *and* ``CROSS_SECTION`` (all three rows). Classifying the name as a
+    whole would let the cross-section match hide the gated within-section one.
+    """
+    by_name: dict[str, list[GraphNodeRow]] = {}
+    for row in iter_graph_node_rows(disorder):
+        by_name.setdefault(row.name, []).append(row)
+    collisions: list[NameCollision] = []
+    for name, rows in by_name.items():
+        if len(rows) < 2:
+            continue
+        by_source: dict[str, list[GraphNodeRow]] = {}
+        for row in rows:
+            by_source.setdefault(row.source, []).append(row)
+        for section_rows in by_source.values():
+            if len(section_rows) < 2:
+                continue
+            subtypes = [row.subtype for row in section_rows]
+            distinct = all(subtypes) and len(set(subtypes)) == len(subtypes)
+            kind = "STRATIFIED" if distinct else "UNSTRATIFIED"
+            collisions.append(
+                NameCollision(name=name, kind=kind, rows=tuple(section_rows))
+            )
+        if len(by_source) > 1:
+            collisions.append(
+                NameCollision(name=name, kind="CROSS_SECTION", rows=tuple(rows))
+            )
+    return collisions
 
 
 def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
@@ -1288,20 +1393,29 @@ def _collect_computational_model_links(
 def _collect_histopathology_links(
     disorder: dict[str, Any],
 ) -> dict[str, list[dict[str, Any]]]:
-    """Collect histopathology term mappings keyed by normalized lookup values."""
+    """Collect histopathology term mappings keyed by normalized lookup values.
+
+    A finding left deliberately unbound (no ``finding_term.term``) still
+    attaches to a node by its ``name``; it just carries no term id/label
+    (dismech#13083).
+    """
     links_by_key: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
     for finding in disorder.get("histopathology", []) or []:
         if not isinstance(finding, dict):
             continue
 
+        keys = set()
+        name_key = _normalize_lookup_key(finding.get("name"))
+        if name_key:
+            keys.add(name_key)
+
         finding_term = finding.get("finding_term")
         if not isinstance(finding_term, dict):
-            continue
-
+            finding_term = {}
         term = finding_term.get("term")
         if not isinstance(term, dict):
-            continue
+            term = {}
 
         link_data: dict[str, Any] = {}
         if finding.get("name"):
@@ -1316,11 +1430,8 @@ def _collect_histopathology_links(
         if not link_data:
             continue
 
-        keys = set()
-        name_key = _normalize_lookup_key(finding.get("name"))
-        if name_key:
-            keys.add(name_key)
-        keys.update(_descriptor_lookup_keys(finding_term))
+        if term:
+            keys.update(_descriptor_lookup_keys(finding_term))
 
         for key in keys:
             if link_data not in links_by_key[key]:

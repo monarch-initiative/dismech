@@ -121,6 +121,7 @@ if str(ROOT) not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(ROOT))
 
 from dismech import kb_cache
+from dismech.disk_full import reports_disk_full
 from dismech.frontmatter import split_frontmatter
 from dismech.kb_cache import load_document
 from dismech.reference_snippet_audit import (
@@ -407,6 +408,7 @@ def new_findings(findings, baseline: Counter):
     return new
 
 
+@reports_disk_full("check-title-snippets")
 def main(argv=None) -> int:
     # One walk over kb/ per run, so the shared-parse cache would cost a hash
     # per file and 500 MB of retention for no hits. Under pytest, which

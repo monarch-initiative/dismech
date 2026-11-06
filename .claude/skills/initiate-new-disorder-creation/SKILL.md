@@ -26,6 +26,10 @@ This skill can also be consulted for ongoing curation of existing disorders.
 ### Step 1: Select Disorder Name and Run Duplicate Preflight
 
 Choose the clinically preferred name for the disorder, use title case (e.g. `Foo Bar Syndrome`).
+Follow the `entry-naming` skill: the name must be no broader than the entry, and a
+single-gene Mendelian entry takes an established `<GENE>-Related <Phenotype>` name where
+one exists. A stub's `label` is the MONDO label; treat it as one candidate, not the
+answer, and keep it in `synonyms` if you choose a different name.
 For file names, spaces will. be replaced by underscores, and characters such as apostrophes removed.
 
 Before creating a new disorder file, check all three duplicate surfaces:
@@ -391,7 +395,9 @@ GeneReviews (https://www.ncbi.nlm.nih.gov/books/NBK1116/) is the authoritative
 expert-curated clinical reference for Mendelian disorders. Before curating
 phenotypes, you MUST check whether a GeneReviews article exists for the disease.
 If one exists, it is the mandatory phenotype baseline — not just a convenient
-source.
+source. The step has three outcomes, not two: a chapter that carries clinical
+characteristics (items 2–6), a chapter that exists but carries none (item 7),
+and no chapter (item 8).
 
 > **Scope:** This step applies primarily to **Mendelian (single-gene) disorders**.
 > For complex, multifactorial, infectious, or cancer entries where GeneReviews
@@ -409,8 +415,13 @@ just check-genereviews --online kb/disorders/<Entry>.yaml
 ```
 
 `UNTAGGED_CHAPTER` or `CITED_UNTAGGED` on the `GeneReviews` line names the
-chapter (PMID and title); `CANDIDATE_CHAPTER` lists partial title matches for
-you to read; `NO_CHAPTER` means none names the disease. If the report adds
+chapter (PMID and title); `TAGGED_RETIRED` means the only chapter you tagged is
+one GeneReviews has retired, so look for a current chapter that covers the
+disease before relying on it; `TAGGED_OVERVIEW` means every current chapter you
+tagged caches as a statement of purpose (`[purpose statement only]`), so item 7
+applies; `CANDIDATE_CHAPTER` lists partial title matches and
+chapters scoped to one of the entry's causal genes (`GENE_SCOPED`) for you to
+read; `NO_CHAPTER` means none names the disease. If the report adds
 `note: entry has no synonyms`, the check matched only the name and
 `disease_term`, so its `NO_CHAPTER` proves nothing yet: chapters are often
 titled by a synonym (#12075). Add the synonyms and re-run before writing that
@@ -420,14 +431,47 @@ same check, so its verdict is what the review will see. The `StatPearls` line
 is informational — a StatPearls chapter may be cited for orientation but is
 never the baseline (see `docs/genereviews-baseline-check.md`).
 
-Before the file exists, the same question can be put to PubMed directly with
-the `[book]` field, which selects GeneReviews chapters exactly:
+Ask from **both sides**: the disease name *and* the causal gene. GeneReviews
+often scopes a chapter to a gene's whole spectrum, so a name search misses it:
+SED Maroteaux type is covered by *Autosomal Dominant TRPV4-Related Disorders*,
+which no search for the disease name finds (#9694). The check does this
+offline once the entry's `genetic:` block names the gene: such a chapter is
+listed as a `GENE_SCOPED` candidate, and `--online` also searches each causal
+gene's symbol in chapter titles and abstracts, which is the only way to reach
+an overview that names the gene in its abstract alone (SURF1 → *Nuclear
+Gene-Encoded Leigh Syndrome Spectrum Overview*).
+
+Before the file exists, put both questions to PubMed directly. The `[book]`
+field selects GeneReviews chapters exactly; "GeneReviews" is the book's title,
+never a chapter's, so the old `GeneReviews[TI]` form returned zero for every
+disease:
 
 ```bash
-curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
+for q in '"<DISEASE_NAME>"[TI]' '<GENE_SYMBOL>[TIAB]'; do
+  curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi" \
+    --data-urlencode "db=pubmed" --data-urlencode "retmode=json" \
+    --data-urlencode "term=${q} AND genereviews[book] NOT retired[TI]"
+done
+# then read every hit's title before deciding anything:
+curl -sG "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi" \
   --data-urlencode "db=pubmed" --data-urlencode "retmode=json" \
-  --data-urlencode "term=<DISEASE_NAME>[TI] AND genereviews[book]"
+  --data-urlencode "id=<PMIDs>"
 ```
+
+- **A non-zero count is a candidate list, not a verdict.** Read the titles and
+  judge whether the chapter's scope covers this disease. Searching
+  `congenital disorders of glycosylation` returns chapters for *other* CDG
+  genes (*NGLY1-Related Congenital Disorder of Deglycosylation* among them),
+  none of which covers ALG3-CDG. Both false negatives and false positives
+  happen.
+- **`NOT retired[TI]` drops withdrawn chapters.** 68 of the ~960 are titled
+  `… – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY` and must not be used as
+  a baseline: the only `ALG3` hit is a retired CDG overview. Do not write
+  `NOT "RETIRED CHAPTER"[TI]` instead. PubMed's title index does not hold that
+  phrase, so it returns a `warninglist` and excludes nothing.
+- **`GeneReviews[All Fields]` is a cross-check only.** It over-retrieves:
+  `"Marfan syndrome" GeneReviews[All Fields]` returns 3, against 2 with
+  `genereviews[book]`, the extra being a journal paper that cites GeneReviews.
 
 #### 2. If a PMID is found, fetch and cache it
 
@@ -464,7 +508,9 @@ abstract and writes the top-level tag automatically.
 > *Clinical Characteristics* section in the chapter body often lists additional
 > phenotypes not in the abstract. Cross-reference the deep-research artifact
 > (from Step 3) for comprehensive coverage — treat the abstract as the minimum
-> baseline, not the ceiling.
+> baseline, not the ceiling. That is for a disease- or gene-specific chapter.
+> An *Overview*-format chapter's abstract carries no clinical characteristics
+> at all, so there is no minimum to work from: see item 7.
 
 #### 5. Capture drug-safety warnings
 
@@ -486,7 +532,39 @@ GeneReviews uses narrative frequency language. Map to the enum as follows:
 
 When frequency is ambiguous, **omit `frequency:`** rather than guessing.
 
-#### 7. No GeneReviews article? Document it
+#### 7. A chapter that is not a baseline: Overview-format and retired chapters
+
+**A GeneReviews chapter in the *Overview* format is not a phenotype
+baseline.** Its PubMed abstract, which is all `references_cache/` holds, is the
+chapter's statement of purpose ("The purpose of this overview is to: 1..
+Describe the clinical characteristics of …") and lists no clinical
+characteristics, so item 4 has nothing to cross-reference and nothing to
+quote. This is what PubMed publishes for the format, so re-fetching does not
+change it. The format is not always in the title: *Primary Ciliary Dyskinesia*
+and *Joubert Syndrome* are written as overviews too.
+
+You do not have to read the file to find out. `just fetch-reference` prints a
+`WARNING: PMID:… is a GeneReviews chapter in the Overview format` line, and
+`just check-genereviews` marks the row `[purpose statement only]` and reports
+`TAGGED_OVERVIEW` when every current chapter you tagged is one (#11848).
+
+When that happens:
+
+- Still tag the chapter `GeneReviews` if you cite it. The tag records the
+  source type, which is correct.
+- Look for a disease- or gene-specific chapter first: a `GENE_SCOPED` row, or
+  the `[TIAB]` gene search in item 1. If one exists, it is the baseline.
+- Otherwise take the baseline from the best available cohort or review, and
+  record in `notes:` that the Overview is not usable as a baseline and where
+  the phenotypes came from instead.
+
+The same applies to a chapter whose title ends `RETIRED CHAPTER, FOR
+HISTORICAL REFERENCE ONLY` (`TAGGED_RETIRED`; the fetch prints a retired-chapter
+warning too). A retired chapter may still carry a structured abstract and be
+the fullest description of its disease, so read it before setting it aside;
+but look for a current chapter first, and say in `notes:` why you kept it.
+
+#### 8. No GeneReviews article? Document it
 
 If no GeneReviews article exists for the disease, proceed to Step 4
 without this baseline. No action needed — the absence itself is not a
@@ -1085,6 +1163,7 @@ Before finalizing a new disorder file, verify:
   - [ ] If found: PMID fetched, cached, and tagged `GeneReviews` in top-level `references:`
   - [ ] If found: all Clinical Characteristics phenotypes either captured in YAML or explicitly noted as out of scope
   - [ ] If found: any drug-safety warnings (Agents to Avoid) reflected in relevant treatment entries
+  - [ ] If the only chapter is an Overview-format (`TAGGED_OVERVIEW`) or retired one: a specific chapter looked for, and `notes:` says where the phenotype baseline came from instead
   - [ ] If not found: no action needed
 - [ ] All PMIDs exist and are for relevant papers
 - [ ] All snippets are exact quotes from abstracts

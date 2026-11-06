@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Septic Peritonitis · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Septic Peritonitis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Septic Peritonitis</h1>
+                
+                <p class="report-subtitle">Septic Peritonitis (MONDO:0005195): A Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-09-30</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005195" target="_blank" rel="noopener noreferrer">MONDO:0005195</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">39 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Septic Peritonitis (<a href="http://purl.obolibrary.org/obo/MONDO_0005195" target="_blank" rel="noopener noreferrer">MONDO:0005195</a>): A Comprehensive Disease Characterization Report</h1>
+<h2>Summary</h2>
+<p><strong>Septic peritonitis is a life-threatening bacterial infection of the peritoneal cavity, most commonly arising as <em>secondary</em> peritonitis from disruption of the gastrointestinal tract (perforation, ischemia, dehiscence, or penetrating trauma).</strong> Contamination of the normally sterile peritoneum with polymicrobial gut flora triggers a dysregulated innate-immune response—pathogen-associated molecular patterns (PAMPs) such as lipopolysaccharide (LPS) activating resident peritoneal macrophages and mesothelium via Toll-like receptor/NF-κB signaling, releasing a cytokine cascade (TNF-α, IL-1β, IL-6, HMGB1) with massive neutrophil recruitment. When this response becomes systemic and dysregulated, it produces <strong>sepsis</strong>—defined by Sepsis-3 as "life-threatening organ dysfunction caused by a dysregulated host response to infection"—and can progress to septic shock and multiple organ dysfunction syndrome (MODS). The <strong>abdomen is the second most common source of sepsis</strong>, and intra-abdominal infections carry hospital mortality of 23–38%, rising above 80% in severe complicated intra-abdominal sepsis (SCIAS).</p>
+<p>This report is derived from <strong>aggregated disease-level resources</strong> (clinical guidelines, cohort studies, systematic reviews, and experimental model literature)—not individual patient EHR records. Importantly, septic peritonitis is an <strong>infectious/mechanical disease, not a Mendelian genetic disorder</strong>: it has no causal gene, no inheritance pattern, no pathogenic variant class, and no vaccine. Genetic contributions are limited to polygenic host-susceptibility modifiers of the sepsis response. Consequently, several sections of the standard disease template (causal genes, pathogenic variants, chromosomal abnormalities, repeat-expansion testing, genetic counseling) are <strong>not applicable</strong> and are marked as such.</p>
+<p>The two therapeutic pillars are <strong>source control</strong> (surgical debridement, drainage, removal of infected devices, decompression) and <strong>early broad-spectrum empiric antibiotics with resuscitation</strong>. Source control is the dominant determinant of survival: in postoperative intra-abdominal infection, eliminating the infection source reduced mortality from 100% to 19%. The landmark STOP-IT trial showed that ~4 days of antibiotics suffice after adequate source control. Septic peritonitis is also a <strong>common, high-mortality naturally occurring disease in dogs and cats</strong> (overall mortality ~64% in GI-perforation cases), where it is elegantly diagnosed by a <strong>blood-to-peritoneal-fluid glucose difference &gt;20 mg/dL</strong> (100% sensitive/specific in dogs). The gold-standard experimental model is <strong>cecal ligation and puncture (CLP)</strong> in mice.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Septic peritonitis is inflammation of the peritoneum (the serous membrane lining the abdominal cavity and viscera) caused by bacterial infection, most often following breach of a hollow viscus. It is a form of <strong>intra-abdominal infection (IAI)</strong> and, when the host response becomes dysregulated, of <strong>abdominal sepsis</strong>. Intra-abdominal infections "account for a major cause of morbidity and mortality, representing the second most common sepsis-related death with a hospital mortality of 23-38%" (<a href="https://pubmed.ncbi.nlm.nih.gov/39200076/">PMID: 39200076</a>).</p>
+<p><strong>Key identifiers.</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005195" target="_blank" rel="noopener noreferrer">MONDO:0005195</a>
+- <strong>MeSH:</strong> Peritonitis (D010538)
+- <strong>ICD-10:</strong> K65 (Peritonitis); K65.0 (Generalized/acute peritonitis); K65.1 (Peritoneal abscess); K65.9 (Peritonitis, unspecified)
+- <strong>ICD-11:</strong> DC50 (Peritonitis)
+- <strong>SNOMED CT:</strong> 48661000 (Peritonitis); 65119005 (Bacterial peritonitis)
+- <strong>OMIM / Orphanet:</strong> Not applicable — septic peritonitis is an acquired infectious/surgical condition, not a Mendelian or rare genetic disease, so it has no OMIM phenotype number and no Orphanet ORPHA code.</p>
+<p><strong>Synonyms / alternative names.</strong> Bacterial peritonitis; suppurative peritonitis; secondary peritonitis (most relevant subtype); acute bacterial peritonitis; purulent peritonitis; abdominal sepsis / intra-abdominal sepsis (when systemic); surgical peritonitis. Related but distinct: spontaneous bacterial peritonitis (SBP, the <em>primary</em> form), tertiary peritonitis.</p>
+<p><strong>Source of information.</strong> Aggregated disease-level resources — clinical guidelines (WSES, Surviving Sepsis), retrospective and prospective cohort studies, systematic reviews, and experimental animal-model literature.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary causal factors — infectious and mechanical.</strong> The proximate cause is <strong>microbial contamination of the sterile peritoneal cavity</strong>, overwhelmingly from a breach of the gastrointestinal tract. "Secondary peritonitis is a life-threatening intra-abdominal condition arising from gastrointestinal perforation, chemical injury, or catheter-related infections" (<a href="https://pubmed.ncbi.nlm.nih.gov/41227298/">PMID: 41227298</a>). Common precipitating lesions include perforated peptic ulcer, perforated appendicitis, perforated diverticulitis, bowel ischemia/necrosis, anastomotic dehiscence after GI surgery, penetrating/blunt abdominal trauma, and perforated malignancy. The infection is typically <strong>polymicrobial</strong>, reflecting gut flora (<em>Escherichia coli</em> and other Enterobacterales, <em>Bacteroides fragilis</em> and anaerobes, enterococci; <em>Candida</em> in upper-GI perforation).</p>
+<p><strong>Genetic risk factors.</strong> There are <strong>no causal Mendelian variants or established susceptibility loci</strong> specific to septic peritonitis. As an acquired infection, risk is governed by the anatomical lesion and by polygenic host modifiers of the innate-immune/sepsis response (e.g., variants in TLR4, TNF, IL-6 pathways have been studied in sepsis generally, but none are diagnostic or actionable for peritonitis). This section is largely <strong>not applicable</strong>.</p>
+<p><strong>Environmental / clinical risk factors.</strong>
+- <strong>Medications:</strong> Non-steroidal anti-inflammatory drugs (NSAIDs) and corticosteroids promote GI ulceration/perforation. In companion animals, "administration of anti-inflammatory drugs in dogs and cats is a significant risk factor for pyloric perforation" (<a href="https://pubmed.ncbi.nlm.nih.gov/24283417/">PMID: 24283417</a>).
+- <strong>Comorbidities:</strong> diabetes mellitus, immunosuppression, malignancy, diverticular disease, peptic ulcer disease, cirrhosis (predisposes to the primary/SBP form).
+- <strong>Procedural:</strong> recent abdominal surgery, peritoneal dialysis catheters, foreign-body migration (e.g., grass awns in animals; <a href="https://pubmed.ncbi.nlm.nih.gov/36874536/">PMID: 36874536</a>).
+- <strong>Demographic:</strong> advancing age (higher perforation and mortality risk).</p>
+<p><strong>Protective factors.</strong> No genetic protective variants are established. Protective/beneficial factors are effectively <strong>preventive and therapeutic</strong>: prompt surgical source control, early appropriate antibiotics, and management of predisposing GI disease. There is no dietary or vaccine-based primary prevention.</p>
+<p><strong>Gene–environment interactions.</strong> Not established as clinically meaningful. Host genetic modulation of the cytokine response may interact with pathogen burden to influence sepsis severity, but this is speculative for peritonitis specifically and not actionable.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Septic peritonitis presents acutely with a constellation of peritoneal signs and systemic sepsis features. In a comparative study of acute abdomen, "common signs were tenderness, rebound tenderness, guarding/rigidity, tachycardia, and abdominal distention" (<a href="https://pubmed.ncbi.nlm.nih.gov/42583660/">PMID: 42583660</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Frequency/severity</th>
+<th>Onset/progression</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Abdominal pain</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a> (Abdominal pain)</td>
+<td>Near-universal; severe</td>
+<td>Acute; progressive</td>
+</tr>
+<tr>
+<td>Rebound tenderness / peritoneal signs</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a></td>
+<td>Very common</td>
+<td>Acute</td>
+</tr>
+<tr>
+<td>Abdominal guarding/rigidity</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025380" target="_blank" rel="noopener noreferrer">HP:0025380</a> (Abdominal guarding)</td>
+<td>Common</td>
+<td>Acute</td>
+</tr>
+<tr>
+<td>Fever</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> (Fever)</td>
+<td>Common</td>
+<td>Acute; may be absent/hypothermia in severe sepsis</td>
+</tr>
+<tr>
+<td>Nausea and vomiting</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" rel="noopener noreferrer">HP:0002018</a> / <a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a></td>
+<td>Common</td>
+<td>Acute</td>
+</tr>
+<tr>
+<td>Anorexia</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002039" target="_blank" rel="noopener noreferrer">HP:0002039</a> (Anorexia)</td>
+<td>Common</td>
+<td>Acute</td>
+</tr>
+<tr>
+<td>Tachycardia</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001649" target="_blank" rel="noopener noreferrer">HP:0001649</a> (Tachycardia)</td>
+<td>Common</td>
+<td>Acute</td>
+</tr>
+<tr>
+<td>Abdominal distension</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003270" target="_blank" rel="noopener noreferrer">HP:0003270</a> (Abdominal distention)</td>
+<td>Common</td>
+<td>Acute/subacute</td>
+</tr>
+<tr>
+<td>Hypotension / septic shock</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002615" target="_blank" rel="noopener noreferrer">HP:0002615</a> (Hypotension)</td>
+<td>In severe disease</td>
+<td>Acute; life-threatening</td>
+</tr>
+<tr>
+<td>Leukocytosis (or leukopenia)</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" rel="noopener noreferrer">HP:0001974</a> / <a href="http://purl.obolibrary.org/obo/HP_0001882" target="_blank" rel="noopener noreferrer">HP:0001882</a></td>
+<td>Common</td>
+<td>Acute</td>
+</tr>
+<tr>
+<td>Elevated CRP / procalcitonin</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011227" target="_blank" rel="noopener noreferrer">HP:0011227</a> (Elevated CRP)</td>
+<td>Common</td>
+<td>Acute</td>
+</tr>
+<tr>
+<td>Lactic acidosis</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003128" target="_blank" rel="noopener noreferrer">HP:0003128</a> (Lactic acidosis)</td>
+<td>Severe disease; prognostic</td>
+<td>Acute</td>
+</tr>
+<tr>
+<td>Multi-organ dysfunction</td>
+<td>Complication</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011024" target="_blank" rel="noopener noreferrer">HP:0011024</a> (GI), <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" rel="noopener noreferrer">HP:0000083</a> (Renal insufficiency)</td>
+<td>Severe/tertiary</td>
+<td>Progressive</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Age of onset.</strong> Any age; predominantly adult and geriatric (matching perforation risk). Neonatal forms occur secondary to necrotizing enterocolitis-associated intestinal perforation.</p>
+<p><strong>Severity/progression.</strong> Acute onset, rapidly progressive; if untreated, escalates to septic shock and MODS within hours to days. <strong>Quality-of-life impact</strong> in the acute phase is severe (ICU-level illness); survivors of abdominal sepsis may experience prolonged recovery, post-intensive-care syndrome, and long hospital stays. Disease-specific QoL instruments are not standard; generic ICU/sepsis outcome measures apply.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>This section is largely NOT APPLICABLE.</strong> Septic peritonitis is an acquired infectious disease with:
+- <strong>No causal genes</strong> (no OMIM gene entries).
+- <strong>No pathogenic variants</strong> (no ClinVar classifications, no ACMG/AMP-relevant germline or somatic variants, no allele-frequency considerations).
+- <strong>No chromosomal abnormalities.</strong>
+- <strong>No disease-specific epigenetic signature</strong> established as diagnostic.</p>
+<p><strong>Modifier genes (host susceptibility, research-level only).</strong> Polygenic variation in innate-immune signaling (TLR4/CD14/LBP–LPS recognition, TNF, IL6, IL1B, NLR-family inflammasome genes) modulates the intensity of the sepsis response but is neither diagnostic nor actionable. Experimental work implicates inflammasome and receptor genes in host defense—e.g., <strong>NLRC4</strong> deficiency improved survival and bacterial clearance in CLP-induced polymicrobial sepsis (<a href="https://pubmed.ncbi.nlm.nih.gov/41071588/">PMID: 41071588</a>), and <strong>CD300ld</strong> modulates neutrophil bacterial phagocytosis (<a href="https://pubmed.ncbi.nlm.nih.gov/40376837/">PMID: 40376837</a>)—but these are mechanistic/model findings, not human germline disease genes.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Environmental / iatrogenic factors.</strong> NSAIDs and corticosteroids (GI ulceration), abdominal surgery, peritoneal dialysis catheters, and intra-abdominal foreign bodies. No environmental toxin, radiation, or pollutant is a recognized cause.</p>
+<p><strong>Lifestyle factors.</strong> Alcohol use (pancreatitis, cirrhosis/SBP risk), smoking (peptic ulcer disease). Diet-related diverticular disease contributes to perforated diverticulitis.</p>
+<p><strong>Infectious agents (the direct cause of secondary septic peritonitis).</strong> Typically <strong>polymicrobial enteric flora</strong>:
+- <strong>Gram-negative bacteria (NCBI Taxonomy):</strong> <em>Escherichia coli</em> (NCBI:txid562) — most common; <em>Klebsiella</em>, <em>Enterobacter</em>, <em>Proteus</em>, <em>Pseudomonas aeruginosa</em>.
+- <strong>Anaerobes:</strong> <em>Bacteroides fragilis</em>, <em>Clostridium</em> spp.
+- <strong>Gram-positive:</strong> <em>Enterococcus</em> spp., streptococci, <em>Staphylococcus aureus</em> (esp. PD-associated).
+- <strong>Fungi:</strong> <em>Candida</em> spp., particularly in upper-GI (gastric/duodenal) perforation and tertiary peritonitis.</p>
+<p>In companion-animal septic peritonitis, microbial growth occurred in the large majority of peritoneal cultures, with agents effectively covered by cefotaxime, ceftazidime, and imipenem (<a href="https://pubmed.ncbi.nlm.nih.gov/30040445/">PMID: 30040445</a>).</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li>A <strong>GI-tract lesion</strong> (perforated ulcer, ruptured appendix/diverticulum, ischemic/necrotic bowel, anastomotic dehiscence, penetrating trauma) <strong>leads to</strong> spillage of luminal contents and gut flora into the sterile peritoneal cavity. <em>(demonstrated)</em></li>
+<li><strong>Bacterial contamination + PAMPs (e.g., LPS)</strong> <em>results in</em> recognition by resident peritoneal macrophages and mesothelial cells via pattern-recognition receptors (TLR4/CD14) <strong>→</strong> NF-κB activation. <em>(inferred from sepsis biology; supported by biomarker data)</em></li>
+<li>NF-κB activation <em>leads to</em> release of <strong>pro-inflammatory cytokines (TNF-α, IL-1β, IL-6) and alarmins (HMGB1)</strong> and chemokines, <em>causing</em> massive <strong>neutrophil recruitment</strong> into the peritoneum. <em>(supported — biomarkers PCT, IL-6, HMGB1, CRP, LPS, NLR, NGAL elevated; <a href="https://pubmed.ncbi.nlm.nih.gov/41227298/">PMID: 41227298</a>)</em></li>
+<li><strong>Branch A (local):</strong> Inflammation shifts the peritoneal <strong>coagulation–fibrinolysis balance toward coagulation</strong>; "both surgery and peritonitis disturb the equilibrium between coagulation and fibrinolysis in the abdominal cavity in favour of the coagulation system," and "diminished fibrin degradation is a common pathway for the formation of adhesions and abscesses" (<a href="https://pubmed.ncbi.nlm.nih.gov/12734857/">PMID: 12734857</a>). <em>This results in</em> fibrin deposition, loculation, <strong>abscess and adhesion formation</strong> — walling off infection but also creating protected bacterial niches. <em>(demonstrated)</em></li>
+<li><strong>Branch B (systemic):</strong> Unchecked, cytokines spill into the circulation, <em>causing</em> a <strong>dysregulated systemic host response = sepsis</strong> ("life-threatening organ dysfunction caused by a dysregulated host response to infection"; <a href="https://pubmed.ncbi.nlm.nih.gov/30685836/">PMID: 30685836</a>). <em>(demonstrated)</em></li>
+<li>Systemic inflammation <em>leads to</em> <strong>vasodilation, capillary leak, microvascular thrombosis, and hypoperfusion</strong> → <strong>septic shock</strong> and <strong>tissue ischemia/oxidative injury</strong>. <em>(inferred/demonstrated in sepsis)</em></li>
+<li>Hypoperfusion + direct cytokine injury <em>result in</em> <strong>multiple organ dysfunction syndrome (MODS)</strong> — acute kidney injury, ARDS, septic cardiomyopathy, hepatic dysfunction, DIC. Septic cardiomyopathy is a documented complication of small-intestinal perforation with peritonitis (<a href="https://pubmed.ncbi.nlm.nih.gov/42260799/">PMID: 42260799</a>). <em>(demonstrated)</em></li>
+<li><strong>Immune trajectory:</strong> After the hyperinflammatory phase, "most patients survive the hyperinflammatory phase but progress to an immunosuppressive phase, which increases the emergence of secondary infections" (<a href="https://pubmed.ncbi.nlm.nih.gov/31259890/">PMID: 31259890</a>), <em>leading to</em> tertiary peritonitis and late mortality. <em>(demonstrated)</em></li>
+<li>Endpoint: <strong>death from refractory shock, MODS, or secondary infection</strong> unless the causal chain is interrupted by source control + antibiotics. "Mortality typically results from disruption of the gastrointestinal tract, progressive and self-perpetuating bio-mediator generation, systemic inflammation, and multiple organ failure" (<a href="https://pubmed.ncbi.nlm.nih.gov/37170123/">PMID: 37170123</a>). <em>(demonstrated)</em></li>
+</ol>
+<h3>Category detail</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> TLR4/CD14–LPS → MyD88 → NF-κB; downstream MAPK signaling; inflammasome (NLRC4, NLRP3) → caspase-1 → IL-1β/IL-18 maturation. TNF can switch homeostatic efferocytosis to lytic caspase-8–dependent pyroptosis with IL-1β maturation (<a href="https://pubmed.ncbi.nlm.nih.gov/40540586/">PMID: 40540586</a>).</li>
+<li><strong>Cellular processes:</strong> acute inflammation, phagocytosis, neutrophil extracellular trap formation, pyroptosis/apoptosis, efferocytosis, later immunosuppression.</li>
+<li><strong>Immune involvement:</strong> central — innate immunity (macrophages, neutrophils, mesothelium) drives both protection and pathology; adaptive dysfunction (T-cell exhaustion, B-1a cell depletion via neutrophil trogocytosis; <a href="https://pubmed.ncbi.nlm.nih.gov/40568588/">PMID: 40568588</a>) characterizes the immunosuppressive phase.</li>
+<li><strong>Tissue damage mechanisms:</strong> oxidative stress, ischemia/hypoperfusion, microvascular thrombosis, fibrin-driven abscess/adhesion, necrosis.</li>
+<li><strong>GO term suggestions:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0032496" target="_blank" rel="noopener noreferrer">GO:0032496</a> (response to lipopolysaccharide), <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" rel="noopener noreferrer">GO:0007249</a> (NF-κB signaling), <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" rel="noopener noreferrer">GO:0006909</a> (phagocytosis), <a href="http://purl.obolibrary.org/obo/GO_0070269" target="_blank" rel="noopener noreferrer">GO:0070269</a> (pyroptosis), <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" rel="noopener noreferrer">GO:0007596</a> (blood coagulation), <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" rel="noopener noreferrer">GO:0042060</a> (wound healing/adhesion).</li>
+<li><strong>CL term suggestions:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000864" target="_blank" rel="noopener noreferrer">CL:0000864</a> (tissue-resident macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil), <a href="http://purl.obolibrary.org/obo/CL_0000077" target="_blank" rel="noopener noreferrer">CL:0000077</a> (mesothelial cell), <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" rel="noopener noreferrer">CL:0000771</a> (B-1a cell), <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a> (T cell).</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level.</strong>
+- <strong>Primary:</strong> peritoneum (<a href="http://purl.obolibrary.org/obo/UBERON_0002358" target="_blank" rel="noopener noreferrer">UBERON:0002358</a>, parietal peritoneum; <a href="http://purl.obolibrary.org/obo/UBERON_0002357" target="_blank" rel="noopener noreferrer">UBERON:0002357</a>, serosa) and the perforated hollow viscus (stomach <a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" rel="noopener noreferrer">UBERON:0000945</a>, small intestine <a href="http://purl.obolibrary.org/obo/UBERON_0002108" target="_blank" rel="noopener noreferrer">UBERON:0002108</a>, large intestine/colon <a href="http://purl.obolibrary.org/obo/UBERON_0001155" target="_blank" rel="noopener noreferrer">UBERON:0001155</a>, appendix <a href="http://purl.obolibrary.org/obo/UBERON_0001154" target="_blank" rel="noopener noreferrer">UBERON:0001154</a>).
+- <strong>Secondary (complications):</strong> kidney (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>, AKI), lung (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>, ARDS), heart (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>, septic cardiomyopathy), liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>), spleen (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>), systemic vasculature.
+- <strong>Body systems:</strong> digestive (primary), immune/hematologic, cardiovascular, respiratory, renal/urinary — reflecting multi-system sepsis.</p>
+<p><strong>Tissue and cell level.</strong> Mesothelial lining (epithelial-like serosa), submesothelial connective tissue and vasculature; infiltrating <strong>neutrophils (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>)</strong> and <strong>peritoneal macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000864" target="_blank" rel="noopener noreferrer">CL:0000864</a>)</strong>; <strong>B-1a cells (<a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" rel="noopener noreferrer">CL:0000771</a>)</strong> in serosal cavities.</p>
+<p><strong>Subcellular level.</strong> Mitochondrial dysfunction (bioenergetic failure in sepsis; <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a>), nucleus (NF-κB translocation; <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>), inflammasome assembly in cytosol (<a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a>), plasma-membrane receptor complexes (TLR4; <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>).</p>
+<p><strong>Localization / lateralization.</strong> Peritonitis is typically <strong>diffuse/generalized (bilateral, non-lateralized)</strong> when spillage is widespread, or <strong>localized</strong> (e.g., abscess) when contained. Free intra-abdominal air and diffuse fluid indicate generalized perforation peritonitis.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> acute or subacute (hours to a few days). Insidious onset can occur in immunosuppressed or postoperative patients.</li>
+<li><strong>Stages:</strong> (1) contamination/local peritonitis → (2) systemic inflammatory/hyperinflammatory sepsis → (3) septic shock/MODS → (4) either resolution (with treatment) or immunosuppressive/tertiary phase with secondary infection.</li>
+<li><strong>Progression rate:</strong> rapid; can be fulminant, particularly with delayed source control.</li>
+<li><strong>Course pattern:</strong> acute, potentially self-limited <em>only</em> with definitive intervention; otherwise progressive and fatal.</li>
+<li><strong>Remission:</strong> treatment-induced (source control + antibiotics); no spontaneous remission for established secondary septic peritonitis.</li>
+<li><strong>Critical periods:</strong> the <strong>early window for source control and antibiotics is decisive</strong> — delay markedly worsens outcome; the transition from hyperinflammatory to immunosuppressive phase is a second window of vulnerability to secondary infection.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology.</strong> Septic peritonitis/abdominal sepsis is common and globally important. The <strong>abdomen is the second most common source of sepsis</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/30685836/">PMID: 30685836</a>), and sepsis overall is a leading cause of death: GBD 2017 estimated ~<strong>48.9 million incident sepsis cases and 11 million sepsis-related deaths</strong> worldwide, "a major cause of health loss" (<a href="https://pubmed.ncbi.nlm.nih.gov/31954465/">PMID: 31954465</a>). IAIs carry hospital mortality of 23–38% (<a href="https://pubmed.ncbi.nlm.nih.gov/39200076/">PMID: 39200076</a>), and SCIAS mortality can exceed 80% (<a href="https://pubmed.ncbi.nlm.nih.gov/37170123/">PMID: 37170123</a>).</p>
+<p><strong>Genetic etiology — NOT APPLICABLE.</strong> No inheritance pattern, penetrance, expressivity, anticipation, mosaicism, founder effect, consanguinity role, or carrier frequency. Septic peritonitis is acquired.</p>
+<p><strong>Population demographics.</strong> Risk rises with age and with predisposing GI disease. No strong ethnic predisposition to the infection itself (although access to timely surgery/critical care strongly affects outcomes and drives geographic mortality variation). Sex distribution roughly reflects the underlying etiology (e.g., perforated ulcer, diverticulitis, appendicitis). Geographic variation in outcome is driven by healthcare access rather than by genetic epidemiology.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical examination.</strong> Acute abdomen with tenderness, rebound tenderness, guarding/rigidity, distension, tachycardia, and often fever (<a href="https://pubmed.ncbi.nlm.nih.gov/42583660/">PMID: 42583660</a>).</p>
+<p><strong>Laboratory tests / biomarkers.</strong> Leukocytosis or leukopenia, elevated CRP and <strong>procalcitonin (PCT)</strong>, IL-6, HMGB1, LPS, elevated <strong>neutrophil-to-lymphocyte ratio (NLR)</strong>, NGAL, and lactate. "Biomarkers such as procalcitonin (PCT), interleukin-6 (IL-6), high mobility group box 1 (HMGB1), C-reactive protein (CRP), lipopolysaccharide (LPS), neutrophil-to-lymphocyte ratio (NLR), and neutrophil gelatinase-associated lipocalin (NGAL) have emerged as tools for early diagnosis, subtype stratification, and monitoring of therapeutic response" (<a href="https://pubmed.ncbi.nlm.nih.gov/41227298/">PMID: 41227298</a>). LOINC-codable: WBC, CRP, PCT, lactate.</p>
+<p><strong>Imaging.</strong> <strong>CT is the imaging modality of choice</strong> — more sensitive than plain radiography for pneumoperitoneum. "Free intra-abdominal air in combination with diffuse fluid is a reliable indication for surgery as it is strongly associated with perforated diverticulitis with generalized peritonitis" (<a href="https://pubmed.ncbi.nlm.nih.gov/22752330/">PMID: 22752330</a>). In gastroduodenal perforation, free intraperitoneal air is a direct sign (<a href="https://pubmed.ncbi.nlm.nih.gov/15093233/">PMID: 15093233</a>); CT is more sensitive than plain films for detecting free air even in peritoneal-dialysis patients (<a href="https://pubmed.ncbi.nlm.nih.gov/8188913/">PMID: 8188913</a>).</p>
+<p><strong>Peritoneal fluid analysis (diagnostic cornerstone).</strong> Neutrophilic exudate; <strong>cytologic identification of intracellular bacteria is confirmatory</strong>. In veterinary medicine, a <strong>blood-to-fluid glucose difference &gt;20 mg/dL was 100% sensitive and 100% specific</strong> for septic peritoneal effusion in dogs, and a <strong>blood-to-fluid lactate difference &lt; −2.0 mmol/L was also 100% sensitive/specific</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/12692761/">PMID: 12692761</a>). Point-of-care peritoneal culture has ~80% sensitivity/100% specificity (<a href="https://pubmed.ncbi.nlm.nih.gov/34331824/">PMID: 34331824</a>). For the <em>primary</em> (SBP) form, diagnosis is an ascitic-fluid neutrophil count <strong>&gt;250 cells/mm³</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42488876/">PMID: 42488876</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42565189/">PMID: 42565189</a>).</p>
+<p><strong>Genetic / omics diagnostics — NOT APPLICABLE</strong> for diagnosis of the infection (no WGS/WES/panel/karyotype/FISH/mtDNA/repeat-expansion role). Microbiologic culture and, increasingly, metagenomic next-generation sequencing (mNGS) of fluid can identify pathogens (mNGS sensitivity 65.8% vs culture 36.8% in PD-related peritonitis; <a href="https://pubmed.ncbi.nlm.nih.gov/39611142/">PMID: 39611142</a>).</p>
+<p><strong>Clinical criteria / scoring.</strong> Diagnosis is clinical + imaging + fluid analysis. Severity/prognosis are graded by <strong>APACHE II</strong> and <strong>Mannheim Peritonitis Index (MPI)</strong>, plus Sepsis-3/SOFA. <strong>Differential diagnosis:</strong> non-septic causes of acute abdomen (pancreatitis, ischemia without perforation, epiploic appendagitis, primary SBP, chemical peritonitis).</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Mortality.</strong> High and driven by source-control success and physiologic derangement. In severe secondary peritonitis, mortality was ~38%; <strong>APACHE II (19.6 vs 14.3; p=0.0015) and MPI (35.5 vs 27.8; p=0.001) were significantly higher in non-survivors</strong>, and MPI was the only independent multivariate risk factor (<a href="https://pubmed.ncbi.nlm.nih.gov/21988045/">PMID: 21988045</a>). Multivariate analysis of 604 IAI patients confirmed the prognostic dominance of host-related factors and the value of APACHE II and MPI (<a href="https://pubmed.ncbi.nlm.nih.gov/8645072/">PMID: 8645072</a>).</p>
+<p><strong>Source control is the dominant prognostic factor.</strong> In postoperative IAI, "in 37 of the patients the source of infection was eliminated resulting in 7 deaths (19%); all 11 of those in whom it was not eliminated died" (<a href="https://pubmed.ncbi.nlm.nih.gov/8891619/">PMID: 8891619</a>).</p>
+<p><strong>Prognostic factors:</strong> age, physiologic severity (APACHE II, SOFA), MPI, adequacy/timeliness of source control, organ dysfunction, fungal involvement (worse outcomes; <a href="https://pubmed.ncbi.nlm.nih.gov/38691220/">PMID: 38691220</a>), and serial peritoneal-fluid variables (in dogs, lower abdominal-fluid WBC and higher blood-to-fluid WBC/neutrophil ratios predicted recurrent septic peritonitis; <a href="https://pubmed.ncbi.nlm.nih.gov/27556266/">PMID: 27556266</a>).</p>
+<p><strong>Complications:</strong> septic shock, MODS (AKI, ARDS, septic cardiomyopathy, DIC, hepatic dysfunction), intra-abdominal abscess/adhesions, tertiary peritonitis, secondary/nosocomial infection, and long-term post-sepsis morbidity.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Two pillars: source control + early antibiotics/resuscitation.</strong></p>
+<p><strong>Surgical / interventional source control (the therapeutic gold standard).</strong> "The 'old' surgical source control consisting of debridement, removal of infected devices, drainage of purulent cavities, and decompression of the abdominal cavity is the gold standard of surgical care" (<a href="https://pubmed.ncbi.nlm.nih.gov/30685836/">PMID: 30685836</a>). Modalities include exploratory laparotomy with repair/resection of the perforated viscus, peritoneal lavage, percutaneous abscess drainage, and open-abdomen management. <strong>Vacuum-assisted closure (VAC)</strong> is a feasible open-abdomen technique in veterinary septic peritonitis (<a href="https://pubmed.ncbi.nlm.nih.gov/22474052/">PMID: 22474052</a>). NCIT suggestions: NCIT:C15329 (Surgery), NCIT:C51674 (Drainage Procedure), NCIT:C157715 (Debridement). Note: rapid source-control laparotomy is not universally beneficial and should be applied selectively (<a href="https://pubmed.ncbi.nlm.nih.gov/28846501/">PMID: 28846501</a>).</p>
+<p><strong>Pharmacotherapy — empiric broad-spectrum antibiotics.</strong> Cover Gram-negative enterics and anaerobes (± enterococci/fungi by risk). Agents shown effective against peritoneal isolates include <strong>cefotaxime, ceftazidime, and imipenem</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/30040445/">PMID: 30040445</a>); typical human regimens include beta-lactam/beta-lactamase inhibitors, carbapenems, or cephalosporin+metronidazole, with antifungals for upper-GI/tertiary disease. <strong>Duration:</strong> the landmark <strong>STOP-IT</strong> RCT found "four days of antibiotics for source-controlled complicated intra-abdominal infection resulted in similar outcomes when compared with a longer duration," including in high-risk patients (<a href="https://pubmed.ncbi.nlm.nih.gov/27670577/">PMID: 27670577</a>). NCIT: NCIT:C258 (Antibiotic), NCIT:C1878 (Imipenem), NCIT:C1737 (Cefotaxime).</p>
+<p><strong>Supportive/critical care.</strong> Fluid resuscitation, vasopressors, source-directed antibiotics, organ support (renal replacement therapy, mechanical ventilation, inotropes/mechanical support for septic cardiomyopathy — as in the multimodal rescue described in <a href="https://pubmed.ncbi.nlm.nih.gov/42260799/">PMID: 42260799</a>), and nutritional support, per Surviving Sepsis principles.</p>
+<p><strong>Experimental / adjunctive therapeutics (model-stage).</strong> Immunomodulation strategies tested in CLP and other models include soluble CD6 receptor (<a href="https://pubmed.ncbi.nlm.nih.gov/27895015/">PMID: 27895015</a>), the hCG-related peptide LQGV (<a href="https://pubmed.ncbi.nlm.nih.gov/20890188/">PMID: 20890188</a>), trophoblast stem cells (<a href="https://pubmed.ncbi.nlm.nih.gov/40691621/">PMID: 40691621</a>), CD300ld-based neutrophil enhancement (<a href="https://pubmed.ncbi.nlm.nih.gov/40376837/">PMID: 40376837</a>), and trained-immunity neutrophil reprogramming (<a href="https://pubmed.ncbi.nlm.nih.gov/41980372/">PMID: 41980372</a>). None are yet standard human therapy. For PD-associated recurrent peritonitis, taurolidine-urokinase lock therapy shows promise (<a href="https://pubmed.ncbi.nlm.nih.gov/40988813/">PMID: 40988813</a>).</p>
+<p><strong>Pharmacogenomics / gene / cell / RNA / targeted / immunotherapy:</strong> NOT APPLICABLE as approved disease-specific therapies.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> treat/prevent predisposing GI disease (peptic ulcer prophylaxis, judicious NSAID/steroid use, timely management of appendicitis/diverticulitis), aseptic technique for PD catheters, and prompt surgery for at-risk lesions. There is <strong>no vaccine</strong>.</li>
+<li><strong>Secondary prevention:</strong> early recognition and treatment of GI perforation/ischemia before diffuse peritonitis develops; sepsis screening protocols.</li>
+<li><strong>Tertiary prevention:</strong> meticulous source control, appropriate antibiotic stewardship (STOP-IT short-course), prevention of secondary/nosocomial infection during the immunosuppressive phase, and monitoring for abscess/adhesion complications.</li>
+<li><strong>Public health:</strong> access to timely surgical and critical care is the key determinant of survival and the main lever for reducing geographic mortality disparities.</li>
+<li><strong>Genetic screening / counseling / immunization:</strong> NOT APPLICABLE.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>Septic peritonitis is a <strong>common, high-mortality naturally occurring disease in companion animals</strong>, making veterinary data unusually informative.</p>
+<ul>
+<li><strong>Taxonomy:</strong> dog (<em>Canis lupus familiaris</em>, NCBI:txid9615), cat (<em>Felis catus</em>, NCBI:txid9685); mouse (<em>Mus musculus</em>, NCBI:txid10090) and rat as experimental hosts; zebrafish (<em>Danio rerio</em>, NCBI:txid7955) as a peritonitis model host.</li>
+<li><strong>Natural disease:</strong> "Septic peritonitis is a common, life-threatening condition encountered in dogs and cats" (<a href="https://pubmed.ncbi.nlm.nih.gov/30040445/">PMID: 30040445</a>). In GI-perforation cases, "the overall mortality was 63.6%" across 44 dogs and 11 cats (<a href="https://pubmed.ncbi.nlm.nih.gov/24283417/">PMID: 24283417</a>). Etiologies mirror humans: GI perforation (foreign bodies, NSAID-induced pyloric ulcer, dehiscence), with uncommon causes such as <strong>grass-awn foreign-body migration</strong> (good-to-excellent prognosis after surgery; <a href="https://pubmed.ncbi.nlm.nih.gov/36874536/">PMID: 36874536</a>).</li>
+<li><strong>Comparative biology:</strong> the pathophysiology (GI disruption → polymicrobial contamination → sepsis), diagnostics (blood-to-fluid glucose/lactate gradients, intracellular bacteria on cytology), and treatment (source control + antibiotics, open-abdomen/VAC) are strongly conserved between humans and companion animals — a key rationale for cross-species translational study.</li>
+<li><strong>Zoonotic potential:</strong> the enteric pathogens involved can be zoonotic, but septic peritonitis itself is <strong>not a transmissible disease</strong>.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Gold-standard model — Cecal Ligation and Puncture (CLP).</strong> "Cecal ligation and puncture (CLP)... is often considered the 'gold standard' to induce polymicrobial sepsis in laboratory animals. CLP is a well-described model involving a simple surgical procedure that closely mimics the clinical course of intra-abdominal sepsis" (<a href="https://pubmed.ncbi.nlm.nih.gov/34048005/">PMID: 34048005</a>). Severity is <strong>tunable</strong>: e.g., 40% cecal ligation with double puncture yields ~80% mortality within 5 days, and 80% ligation ~100% mortality (<a href="https://pubmed.ncbi.nlm.nih.gov/20890188/">PMID: 20890188</a>).</p>
+<p><strong>Other models.</strong>
+- <strong>Cecal slurry (CS) intraperitoneal injection</strong> — the gold standard for <em>neonatal</em> mice (<a href="https://pubmed.ncbi.nlm.nih.gov/34048005/">PMID: 34048005</a>).
+- <strong>Zebrafish bacterial peritonitis</strong> — used to study neutrophil trained immunity (<a href="https://pubmed.ncbi.nlm.nih.gov/41980372/">PMID: 41980372</a>).
+- <strong>Genetic knockout/transgenic mice</strong> on the CLP background dissect mechanism (e.g., <em>Nlrc4−/−</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/41071588/">PMID: 41071588</a>; CD300ld, <a href="https://pubmed.ncbi.nlm.nih.gov/40376837/">PMID: 40376837</a>).</p>
+<p><strong>Phenotype recapitulation &amp; applications.</strong> CLP reproduces the polymicrobial source, the biphasic hyper- then immuno-suppressive host response (<a href="https://pubmed.ncbi.nlm.nih.gov/31259890/">PMID: 31259890</a>), cytokine kinetics, bacterial dissemination, and organ injury, enabling study of immunopathology and candidate therapeutics.</p>
+<p><strong>Limitations.</strong> Model outcomes are highly sensitive to technical variables — notably <strong>housing temperature</strong>: thermoneutral (30°C) housing improved CLP survival from 40% to 78% versus standard 22°C, altering IL-6 and phagocytosis (<a href="https://pubmed.ncbi.nlm.nih.gov/32433210/">PMID: 32433210</a>). Mouse models incompletely capture human comorbidity, age, and the effect of source control/antibiotics — a recognized reason for translational failure of sepsis immunotherapies.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>   GI-tract lesion (perforation / ischemia / dehiscence / trauma)
+ │  spillage of luminal gut flora
+ ▼
+   Contamination of sterile peritoneum (polymicrobial: E. coli, anaerobes, Candida)
+ │  PAMPs (LPS) → TLR4/CD14 → NF-κB (resident macrophages, mesothelium)
+ ▼
+   Cytokine storm: TNF-α, IL-1β, IL-6, HMGB1  +  neutrophil recruitment
+     ┌────────────┴─────────────┐
+   BRANCH A (local)               BRANCH B (systemic)
+   coagulation &gt; fibrinolysis     dysregulated host response = SEPSIS
+   → fibrin, adhesions,           → vasodilation, capillary leak,
+     abscess (walled-off             microthrombosis, hypoperfusion
+     protected niche)             → septic shock
+     │                          │
+     └──────────► MULTIPLE ORGAN DYSFUNCTION (AKI, ARDS,
+          septic cardiomyopathy, DIC, hepatic) ◄──────┐
+                        │                              │
+          hyperinflammatory → IMMUNOSUPPRESSIVE phase  │
+                        │  secondary/tertiary infection┘
+                        ▼
+          DEATH  ◄── interrupted by ──►  SOURCE CONTROL + ANTIBIOTICS → recovery
+</code></pre>
+<p>The unifying theme is that <strong>septic peritonitis is a source-control disease</strong>: every downstream mechanistic step is fueled by ongoing contamination from the GI lesion, so physically eliminating the source (with antibiotic and physiologic support) is both the most upstream and the most effective intervention — explaining why source-control success dominates every prognostic model.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Role</th>
+<th>Key contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39200076/">39200076</a></td>
+<td>Supports</td>
+<td>IAI mortality 23–38%; 2nd most common sepsis death</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37170123/">37170123</a></td>
+<td>Supports</td>
+<td>SCIAS mortality &gt;80%; GI-disruption→MODS causal chain</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30685836/">30685836</a></td>
+<td>Supports</td>
+<td>Sepsis-3 definition; abdomen 2nd source; source-control gold standard</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31954465/">31954465</a></td>
+<td>Supports</td>
+<td>Global sepsis burden (48.9M cases, 11M deaths, GBD 2017)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41227298/">41227298</a></td>
+<td>Supports</td>
+<td>Secondary peritonitis subtypes; biomarker panel</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8891619/">8891619</a></td>
+<td>Supports</td>
+<td>Source control determines survival (19% vs 100% mortality)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21988045/">21988045</a></td>
+<td>Supports</td>
+<td>APACHE II &amp; MPI discriminate survivors; MPI independent</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8645072/">8645072</a></td>
+<td>Supports</td>
+<td>604-patient multivariate validation of scoring systems</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27670577/">27670577</a></td>
+<td>Supports</td>
+<td>STOP-IT: 4-day antibiotics suffice after source control</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22752330/">22752330</a></td>
+<td>Supports</td>
+<td>CT free air+fluid → surgery for generalized peritonitis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15093233/">15093233</a></td>
+<td>Supports</td>
+<td>Free intraperitoneal air = direct perforation sign</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42583660/">42583660</a></td>
+<td>Supports</td>
+<td>Classic peritoneal signs of acute abdomen</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12692761/">12692761</a></td>
+<td>Supports</td>
+<td>Blood-to-fluid glucose/lactate gradients 100% Se/Sp (dogs)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12734857/">12734857</a></td>
+<td>Supports</td>
+<td>Coagulation shift → abscess/adhesion mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34048005/">34048005</a></td>
+<td>Supports</td>
+<td>CLP as gold-standard polymicrobial sepsis model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31259890/">31259890</a></td>
+<td>Supports</td>
+<td>Biphasic immune course; immunosuppressive phase</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24283417/">24283417</a></td>
+<td>Supports</td>
+<td>Companion-animal mortality 63.6%; NSAID risk factor</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30040445/">30040445</a></td>
+<td>Supports</td>
+<td>Veterinary microbiology; effective antibiotics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32433210/">32433210</a></td>
+<td>Qualifies</td>
+<td>Housing temperature drastically alters CLP outcomes (model limitation)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28846501/">28846501</a></td>
+<td>Qualifies</td>
+<td>Rapid source-control laparotomy not universally beneficial</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Template mismatch.</strong> Roughly half the standard disease template (causal genes, pathogenic variants, inheritance, penetrance, chromosomal/epigenetic diagnostics, genetic counseling, vaccination) is <strong>not applicable</strong> to an acquired infectious/surgical condition. These are documented as N/A rather than forced.</li>
+<li><strong>Human vs veterinary diagnostic evidence.</strong> The most striking quantitative diagnostic data (blood-to-fluid glucose/lactate 100% Se/Sp) come from <strong>canine/feline</strong> cohorts; the exact human cutoffs differ and human peritoneal-fluid gradient thresholds are less standardized.</li>
+<li><strong>Heterogeneity.</strong> "Septic peritonitis" spans primary (SBP), secondary (the main entity here), and tertiary forms, and multiple GI source lesions with different microbiology and prognosis — pooling can obscure subtype-specific detail.</li>
+<li><strong>Immunotherapy translation.</strong> Numerous adjunctive immunomodulators succeed in CLP but none is approved for human peritonitis; model artifacts (e.g., housing temperature) contribute to this translational gap.</li>
+<li><strong>Host-genetic modifiers</strong> of the sepsis response are biologically plausible but not yet clinically actionable for peritonitis.</li>
+</ol>
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Standardize human peritoneal-fluid biochemical gradients</strong> (glucose, lactate, pH) prospectively to replicate the high-performing veterinary diagnostics in people.</li>
+<li><strong>Subtype-stratified prognostic modeling</strong> integrating MPI/APACHE II with the biomarker panel (PCT, IL-6, HMGB1, NLR, NGAL) to individualize source-control urgency and antibiotic duration.</li>
+<li><strong>Validate short-course/biomarker-guided antibiotic stopping</strong> (building on STOP-IT) across the fungal-peritonitis and immunosuppressed subgroups.</li>
+<li><strong>Cross-species translational studies</strong> leveraging naturally occurring canine/feline septic peritonitis as a bridge between CLP and human trials for candidate immunotherapies (e.g., neutrophil-directed CD300ld, trained immunity).</li>
+<li><strong>Standardize CLP reporting</strong> (housing temperature, ligation length, resuscitation/antibiotic co-treatment) to improve reproducibility and translational fidelity.</li>
+<li><strong>Investigate host-genetic and mNGS-guided personalization</strong> — combine rapid pathogen metagenomics with host inflammatory profiling to tailor antimicrobial and immunomodulatory therapy.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 13 confirmed findings and 58 reviewed papers across a 5-iteration autonomous investigation. Evidence sources: human clinical cohorts and guidelines, veterinary clinical cohorts (naturally occurring disease), and experimental animal models (CLP, cecal slurry, zebrafish).</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Septic_Peritonitis-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Septic_Peritonitis-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>39</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>39</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>39</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>49</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>49</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>5</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0025380</code> (1 mention) - the report calls it "Abdominal guarding"; HP calls it <strong>Increased circulating androstenedione concentration</strong></li>
+<li><code>CL:0000771</code> (2 mentions) - the report calls it "B-1a cell"; CL calls it <strong>eosinophil</strong></li>
+<li><code>NCIT:C51674</code> (1 mention) - the report calls it "Drainage Procedure"; NCIT calls it <strong>Endomyocardial Biopsy</strong></li>
+<li><code>NCIT:C157715</code> (1 mention) - the report calls it "Debridement"; NCIT calls it <strong>Total Gut Decontamination</strong></li>
+<li><code>NCIT:C1878</code> (1 mention) - the report calls it "Imipenem"; NCIT calls it <strong>Darbepoetin Alfa</strong></li>
+<li><code>NCIT:C1737</code> (1 mention) - the report calls it "Cefotaxime"; NCIT calls it <strong>Organic Solvents</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0002027</code> (2 mentions) - the report calls it "Abdominal pain", "Clinical sign"; HP calls it <strong>Abdominal pain</strong></li>
+<li><code>HP:0011227</code> (1 mention) - the report calls it "Elevated CRP"; HP calls it <strong>Elevated circulating C-reactive protein concentration</strong>, and lists "Elevated CRP" among its other names</li>
+<li><code>GO:0007249</code> (1 mention) - the report calls it "NF-κB signaling"; GO calls it <strong>canonical NF-kappaB signal transduction</strong>, and lists "p50-dependent NF-kappaB signaling" among its other names</li>
+<li><code>GO:0070269</code> (1 mention) - the report calls it "pyroptosis"; GO calls it <strong>pyroptotic inflammatory response</strong>, and lists "pyroptosis" among its other names</li>
+<li><code>GO:0042060</code> (1 mention) - the report calls it "wound healing/adhesion"; GO calls it <strong>wound healing</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>HP:0002027</code> - called "Abdominal pain", "Clinical sign"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Sepsis-falcon.html">← Sepsis (Falcon)</a>
+                
+                
+                <a href="Septicemic_Plague-openscientist.html">Septicemic Plague (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Septic_Peritonitis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Septic_Peritonitis-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -145,9 +145,9 @@ Deep research body.
     render_disorder(disorder_path, output_path=output_path)
     html = output_path.read_text()
 
-    assert html.index('stat-label">Reports') < html.index('stat-label">References')
-    assert html.index('stat-label">References') < html.index(
-        'stat-label">Deep Research'
+    assert html.index("<span>Reports</span>") < html.index("<span>References</span>")
+    assert html.index("<span>References</span>") < html.index(
+        "<span>Deep research</span>"
     )
     assert html.index('id="reports"') < html.index('id="yamlContent"')
     assert html.index('id="yamlContent"') < html.index('id="references-deep-research"')

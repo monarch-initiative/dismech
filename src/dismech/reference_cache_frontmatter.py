@@ -36,6 +36,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from ruamel.yaml import YAML
 
 from dismech.frontmatter import naive_frontmatter_text, split_frontmatter
+from dismech.reference_cache_names import cache_filenames
 
 _YAML = YAML(typ="safe")
 _YAML.allow_duplicate_keys = False
@@ -208,19 +209,16 @@ def _validate_contract(
         ]
 
     reasons: list[str] = []
-    expected_name = (
-        frontmatter.reference_id.replace(":", "_")
-        .replace("/", "_")
-        .replace("?", "_")
-        .replace("=", "_")
-        + ".md"
-    )
-    matches_filename = path.name == expected_name
+    accepted_names = cache_filenames(frontmatter.reference_id)
+    expected_name = accepted_names[0]
+    matches_filename = path.name in accepted_names
     # DOI identifiers are case-insensitive in practice, and the tracked cache
     # corpus contains mixed-case DOI filenames. Match those names
     # case-insensitively so Linux CI agrees with the repo's existing files.
     if frontmatter.reference_id.startswith("DOI:"):
-        matches_filename = path.name.casefold() == expected_name.casefold()
+        matches_filename = path.name.casefold() in {
+            name.casefold() for name in accepted_names
+        }
     if not matches_filename:
         reasons.append(f"filename must match reference_id ({expected_name})")
 
@@ -441,15 +439,6 @@ def read_empty_cache(path: Path) -> EmptyCache | None:
     )
 
 
-def _cache_stem(reference_id: str) -> str:
-    return (
-        reference_id.replace(":", "_")
-        .replace("/", "_")
-        .replace("?", "_")
-        .replace("=", "_")
-    )
-
-
 def resolve_cache_file(cache_dir: Path, reference_id: str) -> Path | None:
     """Locate the cache file the fetcher wrote for ``reference_id``.
 
@@ -461,16 +450,18 @@ def resolve_cache_file(cache_dir: Path, reference_id: str) -> Path | None:
     reference_id = reference_id.strip()
     if not reference_id:
         return None
-    direct = cache_dir / f"{_cache_stem(reference_id)}.md"
-    if direct.is_file():
-        return direct
-    wanted = f"{_cache_stem(reference_id)}.md".casefold()
+    candidates = cache_filenames(reference_id)
+    for candidate in candidates:
+        direct = cache_dir / candidate
+        if direct.is_file():
+            return direct
+    wanted = {candidate.casefold() for candidate in candidates}
     try:
         names = os.listdir(cache_dir)
     except OSError:
         return None
     for name in names:
-        if name.casefold() == wanted:
+        if name.casefold() in wanted:
             return cache_dir / name
     return None
 
@@ -505,6 +496,81 @@ def empty_cache_warning(reference_id: str, cache_dir: Path) -> str | None:
         "  (Advisory only: the cache file is kept and the exit code is unchanged. "
         "See issue #9825.)"
     )
+
+
+# ---------------------------------------------------------------------------
+# GeneReviews chapters that cannot be a phenotype baseline (issue #11848)
+# ---------------------------------------------------------------------------
+#
+# Unlike an empty cache, these are not accidents of one fetch. An Overview-format
+# chapter's PubMed abstract is a statement of purpose on every fetch, and a
+# retired chapter stays retired, so the message says what the record is rather
+# than suggesting a retry.
+
+_PMID_ID_RE = re.compile(r"^(?:PMID:)?(\d+)$", re.IGNORECASE)
+
+
+def genereviews_baseline_warnings(
+    reference_id: str, cache_dir: Path, index: Any = None
+) -> list[str]:
+    """Fetch-time warnings for a GeneReviews chapter unusable as a phenotype baseline.
+
+    Two cases, which can coincide (the retired CDG overview, PMID:20301507):
+
+    * the cached abstract is a statement of purpose with no ``CLINICAL
+      CHARACTERISTICS`` section (:func:`dismech.bookshelf.is_purpose_statement_only`);
+    * the Bookshelf index marks the chapter retired.
+
+    A PMID counts as a GeneReviews chapter when the committed Bookshelf index
+    lists it, or, for a chapter newer than the snapshot, when its cached body
+    carries the GeneReviews citation form. Anything else returns ``[]``.
+    """
+    from dismech import bookshelf
+
+    match = _PMID_ID_RE.match(reference_id.strip())
+    if match is None:
+        return []
+    pmid = match.group(1)
+    if index is None:
+        index = bookshelf.BookshelfIndex.load(sources=["genereviews"])
+    chapter = index.by_pmid.get(pmid)
+    text = bookshelf.cached_chapter_text(cache_dir, pmid)
+    if chapter is None:
+        if text is None or bookshelf.source_from_cache_text(text) != "genereviews":
+            return []
+    elif chapter.source != "genereviews":
+        return []
+    title = f"  Title: {chapter.title.strip()}\n" if chapter is not None else ""
+    warnings: list[str] = []
+    if text is not None and bookshelf.is_purpose_statement_only(text):
+        warnings.append(
+            f"WARNING: PMID:{pmid} is a GeneReviews chapter in the Overview format.\n"
+            f"{title}"
+            "  Its PubMed abstract, which is all the cache holds, is the "
+            "chapter's statement of\n"
+            "  purpose and lists no clinical characteristics, so it cannot serve as "
+            "the phenotype\n"
+            "  baseline and has nothing to quote as a phenotype snippet. This is what "
+            "PubMed publishes\n"
+            "  for the format; re-fetching will not change it. Tag it `GeneReviews` "
+            "if you cite it,\n"
+            "  say in `notes:` that it is not usable as a baseline, and take the "
+            "baseline from the best\n"
+            "  available cohort or review instead.\n"
+            "  (Advisory only. See issue #11848.)"
+        )
+    if chapter is not None and chapter.retired:
+        warnings.append(
+            f"WARNING: PMID:{pmid} is a retired GeneReviews chapter.\n"
+            f"{title}"
+            "  GeneReviews keeps it for historical reference only; its content may be "
+            "out of date. Look for a\n"
+            "  current chapter that covers the disease (`just check-genereviews "
+            "FILE` lists candidates)\n"
+            "  before relying on it as the baseline.\n"
+            "  (Advisory only. See issues #11848 and #16018.)"
+        )
+    return warnings
 
 
 def scan_empty_caches(paths: list[Path]) -> list[EmptyCache]:
@@ -742,7 +808,10 @@ def main_fetch_warning(argv: list[str]) -> int:
     """CLI used by ``scripts/run_reference_validator.sh`` after ``cache reference``.
 
     Prints the empty-cache warning to stderr for each id whose cache file is
-    ``content_type: unavailable``. Always exits 0: the warning is advisory.
+    ``content_type: unavailable``, and the GeneReviews baseline warnings
+    (:func:`genereviews_baseline_warnings`) for a chapter whose abstract is a
+    purpose statement or which is retired. Always exits 0: the warnings are
+    advisory.
     """
     import argparse
 
@@ -757,6 +826,12 @@ def main_fetch_warning(argv: list[str]) -> int:
             warning = None
         if warning:
             print(warning, file=sys.stderr)
+        try:
+            notes = genereviews_baseline_warnings(reference_id, args.cache_dir)
+        except Exception:  # pragma: no cover - advisory path must never fail
+            notes = []
+        for note in notes:
+            print(note, file=sys.stderr)
     return 0
 
 

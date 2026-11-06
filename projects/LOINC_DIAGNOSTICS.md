@@ -222,6 +222,90 @@ that. `Hexosaminidase`, `QTc` and `HLA-B*57:01` also returned nothing and
 look like search-index misses rather than gaps; resolve them by direct entity
 lookup before any tranche depends on them.
 
+### Tranche B closing ledger
+
+Tranche B (pathogen-specific assays on infectious-disease entries) is complete.
+Of the 211 entries in `kb/disorders/` carrying an `infectious_agent` or
+`transmission` block, 119 held no LOINC code and 81 of those carried a
+`diagnosis`, `biochemical` or `definitions` section. The remaining free pool is
+45 populated entries, and every one has now been assessed: 19 are neoplasms and
+belong to tranche F, one is a mycotoxicosis the infectious-disease granularity
+ladder puts out of scope, seven are polymicrobial or clinical-diagnosis entries
+where no single pathogen assay is the standard, and the rest are declines with
+recorded reasons. There is no sixth candidate left to batch, which is why the
+tranche closes here rather than at a round number.
+
+**Three sources, answering three different questions.** This was learned the
+hard way, by adopting a two-way split and finding it insufficient twice in one
+day:
+
+| Question | Source |
+|---|---|
+| does a code **not** exist | the pinned complete export (`data/loinc/MANIFEST.yaml`, Tuva LOINC 2.83, sha256-verified, 112,405 rows) — no ranking, no cap, version stamped |
+| does a code exist **and is it usable** | the live Monarch KG, because the term validator resolves against it |
+| is there a **Part** (`LP`/`LG`) code | the KG only — the export contains zero Part rows |
+
+Presence in the export is **necessary but not sufficient**. `LOINC:106041-7`
+(*Fungus identified in Ear fluid by Culture*) and `LOINC:107527-4` (*Clue cells
+in Vaginal fluid*) are both ACTIVE and non-deprecated in 2.83 and both resolve
+in the KG with no name, so neither can be labelled or cached and neither is
+bindable today. That is release lag, not a fabricated code: record it and bind
+the usable alternative rather than treating the code as absent.
+
+**Enumerate a criteria set by specimen, not by item name.** A four-item bedside
+criteria set needs four separate lucky guesses if searched per item, and the
+specimen is the one thing the items share. Searching the Amsel criteria by name
+returned nothing for vaginal pH or the whiff test, and a draft recorded both as
+absent; enumerating all 182 ACTIVE vaginal-system codes found both at once,
+each method-less, and the Amsel row went from one measurement to three. The
+same move settled Otomycosis (80 ear-specimen codes, exactly one fungal, no KOH
+code) and Endophthalmitis (121 vitreous-system codes, none for culture or Gram
+stain).
+
+**A row naming several methods wants the method-less code.** Nocardiosis was
+declined in an early batch because its molecular row names 16S sequencing,
+MLSA, MALDI-TOF, whole-genome and metagenomic sequencing while the only
+Nocardia molecular code is a nucleic acid amplification assay — so no code
+matched the *method*. That reasoning missed `LOINC:55096-2` *Nocardia sp
+identified in Isolate*, which is method-less and is correct **because** the row
+names five techniques: binding any one would narrow the row to a single
+technique. The decline was reversed in a later batch. Prefer the method-less
+code first, as the identity convention above already says, rather than hunting
+for whichever method happens to be coded.
+
+The converse holds where the method *is* the instrument's identity. Bacterial
+Vaginosis binds the Nugent-qualified score code rather than the generic
+bacterial-vaginosis score code, because a score of 7 means nothing without
+saying it is Nugent's, while the same entry's Amsel row binds method-less codes
+for pH and the whiff test because neither criterion turns on technique. Both
+notes say so explicitly, so the opposite choices do not read as inconsistency.
+
+**A site-qualified code can smuggle in a claim the entry does not make.**
+Staphylococcal Scalded Skin Syndrome turns on periorificial swabs outperforming
+blister fluid, so the site *is* the claim — and LOINC's only plain *S. aureus*
+culture code carries no site, while **every** site-qualified *S. aureus* culture
+code in 2.83 is methicillin-resistant *S. aureus*, asserting a resistance
+phenotype the entry never claims. No code can express that row, so its culture
+arm is deliberately unbound. Check what a specimen qualifier brings with it
+before preferring it for being more specific.
+
+**`definitions:` has no `measurements` slot.** Six entries in this pool carry
+their diagnostic content only there. Where the test is genuinely described and
+citable, the remedy is a minimal `diagnosis:` row that reuses an evidence
+snippet already verified in the same file, adding no new citation and leaving
+the criteria in `definitions:` — Bacterial Vaginosis (two rows) and Otomycosis
+(one) are the worked examples. Run `check-title-snippets` and
+`check-snippet-grading` when doing this: `evidence_source` cannot change because
+a quote moved. Where the entry itself says no laboratory test applies
+(Seborrheic Dermatitis, STARI), there is nothing to add.
+
+**Two pool-construction defects worth inheriting.** A section header can be
+present and empty — `Polycystic_Echinococcosis` carries `biochemical: []`, which
+a header-matching scan counts as populated. And an in-flight set built with
+`gh pr list --limit N` truncates silently in a repository with more open PRs
+than `N`; enumerate with `gh api --paginate` instead, which is what kept these
+batches off three live collisions.
+
 ### External loinc→condition artifacts
 
 Several bodies maintain the mapping for their slice. These are candidate
@@ -237,6 +321,110 @@ re-curate, licensing permitting:
   licence; check before caching anything.
 - **LOINC Groups**: LOINC's own Part-level bundles, the identity level for
   `Diagnosis.measurements`.
+
+### Tranche G closing ledger (batches 25–28)
+
+**Census.** 23 entries, 43 bindings, 34 new `cache/loinc/terms.csv` rows: batch 25
+(6 entries / 24 bindings / 18 rows), 26 (6 / 10 / 9), 27 (6 / 6 / 4), 28
+(5 / 3 / 3). The yield per entry falls by a factor of eight across the four
+batches, which is what exhaustion looks like here — not a shortage of entries
+naming a functional test, but a shortage of tests LOINC codes at all. Batch 28
+assessed 52 candidates and found five worth touching, three of them bindings.
+Earlier batches (1–24) worked the audiometry, spirometry, sweat-chloride, QTc,
+DXA and IOP series; 25–28 worked the provocative and dynamic tests, which is
+where the coded coverage runs out.
+
+**Two traps that pass every gate.** Both are a right-sounding analyte attached to
+the wrong quantity, and neither is visible to schema validation, term validation
+or any offline check:
+
+- **A clearance ratio is not a concentration ratio.**
+  `Familial_Hypocalciuric_Hypercalcemia_1`'s discriminating test is the
+  calcium/creatinine *clearance* ratio, dimensionless and computed from four
+  results. Every `Calcium/Creatinine` code in LOINC is a *concentration* ratio
+  within a urine specimen, in mg/g or mmol/mol creatinine. No clearance-ratio
+  code exists for any analyte pair, in either source.
+- **A complement is not the quantity.** Tubular reabsorption of phosphate is the
+  *reabsorbed* fraction; LOINC codes the *excreted* fraction. The arithmetic
+  relation (TRP = 100 − FEP) is exactly what makes the substitution tempting:
+  `Hyperphosphatemic_Familial_Tumoral_Calcinosis` records a patient at 96%, which
+  on the available scale reads 4. `X-Linked_Hypophosphatemia` is the same gap with
+  the direction reversed. TmP/GFR has no code at all.
+
+The same shape recurs at specimen level — urine trehalase against a mucosal
+biopsy assay, exhaled nitric oxide against nasal nitric oxide — and the general
+rule it suggests is that when a candidate code's *property* or *system* differs
+from the test's, an arithmetic or anatomical near-relation is a reason to decline,
+not a reason to approximate.
+
+**The band convention is two-sided, and the two halves fail differently.**
+The convention itself is recorded on the schema's `ReferenceRangeBand` — its
+`comments` state the half-open `[lower_bound, upper_bound)` partition, and the
+`slot_usage` descriptions mark `lower_bound` inclusive and `upper_bound`
+exclusive — and restated in CLAUDE.md under *Reference Ranges and
+Interpretation Bands*. What follows from it is that no exclusive lower bound is
+available, so a source's `> x` cannot be stated, and no inclusive upper bound
+is available either, so a source's `≤ x` cannot be stated. Worked cases across the tranche: `Renal_Hypomagnesemia_4` FEMg
+"above 2%", `Cushing_Disease` nadir cortisol "at or below 3 mcg/dL". A `< x`
+criterion *is* expressed exactly, so the response to an unrepresentable threshold
+is to decline the band and record the inequality, never to move the boundary.
+The gap itself is recorded as an open decision (*`ReferenceRangeBand` bounds
+cannot state a strict `>` or a non-strict `≤` threshold* in
+`docs/explanation/design-decisions.md`), which carries these same cases; keep
+the two in step rather than restating one from the other.
+Distinguish that from having no code to attach a representable threshold to:
+`Primary_Ciliary_Dyskinesia` already carries correct 77 nL/min bands with no
+`loinc_term`, because LOINC has no nasal nitric oxide measurement — the clearest
+case in this project for a LOINC term request.
+
+**Which slot takes a Part and which takes an observation code.** Design
+decisions §17 records only the first half, as its *Identity convention*:
+`diagnosis[].measurements` is test identity and prefers a Part or panel, with
+method- and specimen-specific codes reserved for a `definitions[]` phenotype
+algorithm. The complement is **not settled, and this paragraph does not settle
+it**: whether a bare Part may fill `biochemical[].loinc_term` is an open
+decision in the register (*Whether a bare LOINC Part may fill
+`biochemical[].loinc_term`* in `docs/explanation/design-decisions.md`), where
+64 merged bindings across 38 entries already use a Part there, several of them
+deliberately. These batches read the slot as the measurement that quantifies a
+marker, and so preferred an observation code, a Part being a component with no
+scale, specimen or method; `Trehalase_Deficiency` is the worked pair under that
+reading — the Part binds in `measurements`, nothing binds in the marker's
+`loinc_term`. That is the reading this tranche followed, not a convention to
+apply elsewhere: the register's row owns the question, and nothing here is a
+reason to decline a Part binding or to migrate an existing one. One limit found
+in batch 28, independent of that question: a Part is only worth binding when it
+carries most of the available specificity. `LOINC:LP15910-0` *Trehalase* sat above
+two records and was bound; `LOINC:LP173640-6` *Nitric oxide* sits above twelve
+spanning nasal screening, an asthma marker and ventilator therapy, and was
+declined.
+
+**Paginate every KG query to its stated `total` before claiming a Part absence.**
+The default page of 100 silently truncates exactly where Part claims are decided:
+`Testosterone` returns 104 and `Somatotropin` 371. Two claims in batch 26 were
+written off truncated pages and corrected before commit. And the two sources
+answer different questions — the LOINC release table carries no `LP`/`LG` rows at
+all, so "is there a Part" and "which observation codes exist" are separate
+searches that a finding should name separately.
+
+**Two defects in this tranche's own pool construction**, recorded because they are
+reproducible mistakes rather than bad luck. First, the keyword set shrank between
+batches: batch 27 dropped the lung and nitric-oxide terms that batch 26 carried,
+which hid a seven-entry nasal-nitric-oxide cluster until batch 28 restored them —
+a pool built by narrowing an earlier pool inherits whatever that narrowing
+dropped. Second, deriving the in-flight set with `gh pr list --limit 100`
+undercounts in a repository with more open PRs than that: the paginated API gave
+226 in-flight entries where the capped call gave 134, so entries already being
+curated elsewhere looked free.
+
+**Deliberately not padded.** Batch 28 stopped at five entries. What remains in the
+pool is repeats of findings already recorded once — five further PCD entries whose
+nasal-NO absence is the same fact, `Familial_Hypocalciuric_Hypercalcemia_2` for the
+clearance ratio, a fourth forearm-exercise myopathy — plus entries whose test LOINC
+does not code (urinary acidification after an acid load: no challenge-qualified
+urine pH code; esophageal pH monitoring: a study code but no quantitative pH) and
+entries whose rows belong to another tranche's lane (erythrocyte enzyme activity to
+D, urea breath tests on neoplasm entries to B and F).
 
 ## Out of scope
 

@@ -2,7 +2,7 @@
 
 Written 2026-10-13 against dismech `main` at commit `3eb0796817`, from the GitHub history of monarch-initiative/dismech (first compiled 2026-10-08). Scope: issues and PRs authored, assigned or commented on by gingin77 whose focus is a method, assay, model system, NAM, or a framework for recording how a mechanism is measured. Disease curation work is left out. An issue and the PRs that answered it share one header. Status is as of the compile date. 
 - The Adverse Outcome Pathway framework work (AOP and EMOD alignment, and seeding AOPs from dismech) is inventoried separately in [the AOP framework inventory](data/aop-framework-inventory-2026-10-13.md). 
-- The schema elements a NAM touches are diagrammed in [NAM schema elements](data/nam-schema-elements-2026-10-13.md), and a machine-readable version of this inventory is at [data/nam-methods-inventory-2026-10-13.json](data/nam-methods-inventory-2026-10-13.json).
+- The schema elements a NAM touches are diagrammed in [NAM schema elements](data/nam-schema-elements.md), and a machine-readable version of this inventory is at [data/nam-methods-inventory-2026-10-13.json](data/nam-methods-inventory-2026-10-13.json).
 - The companion documents under `data/` are deliberately not listed in the site navigation; this report is their entry point.
 
 This report is aware of issue [#13602, NAMs inventory - what fits and what's fringe](https://github.com/monarch-initiative/dismech/issues/13602), which sorts non-animal models by what ties the model to the disease. This report was not created to align with that analysis approach: it is organised by topic and by issue-PR pair, and it does not classify models by tie.

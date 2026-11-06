@@ -1,0 +1,1188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Noonan Syndrome-alternative-models · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Noonan Syndrome-alternative-models</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Noonan Syndrome-alternative-models</h1>
+                
+                <p class="report-subtitle">Key Findings</p>
+                
+                
+                <div class="report-date">2026-11-03</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) fd383b2d1a33daa300c57674e5947cf02e77e337 &#10;Resolve with: git log --find-object=fd383b2d1a33daa300c57674e5947cf02e77e337 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_alternative_models_research.md" target="_blank" rel="noopener noreferrer">disease_alternative_models_research.md</a>
+                        <code>fd383b2d1a33</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>Key Findings</h2>
+<h3>Finding 1 — Raf1(L613V) knock-in mouse fills RAF1 Kinase Hyperactivation, and is a documented negative for valve morphogenesis</h3>
+<p>The heterozygous <strong>Raf1 L613V/+ knock-in mouse</strong> recapitulates core NS features: short stature, craniofacial dysmorphia, hematologic abnormalities, and <strong>eccentric cardiac hypertrophy</strong> with aberrant reactivation of the fetal gene programme. Agonist-evoked MEK–ERK activation is enhanced across multiple cell types, and <strong>postnatal</strong> MEK inhibition (PD0325901) normalised the growth, facial and cardiac defects — establishing that MEK/ERK hyperactivation is causal for the hypertrophy and that benefit is obtainable with treatment started after birth.</p>
+<p>As a whole organism, this model carries haemodynamic load, multicellular compartments (fibroblast, endothelial, myocyte) and an intact — though murine — genome. It is therefore classified <strong>(a) recapitulates</strong> for <strong>RAF1 Kinase Hyperactivation</strong>, <strong>ERK Cascade Hyperactivation</strong> and <strong>Cardiomyocyte Hypertrophy</strong>. It would be curated as an <strong>AnimalModel</strong>.</p>
+<p>Crucially, the same paper reports that <strong>valvuloseptal development was normal</strong>. Against <strong>Cardiac Valve Morphogenesis Defects</strong> this model is therefore a <strong>class (d) documented negative</strong> — a valuable result, because it shows that a RAF1 kinase-activating allele sufficient to drive postnatal hypertrophy does <em>not</em>, on its own, reproduce the valve lesion. On the MEK two-direction question, the readouts here were growth, facial morphology, cardiac mass and gene expression; <strong>contractile and mitochondrial (STAT3-S727) toxicity were not assessed</strong>, so this model does not bear on the toxicity claim.</p>
+<blockquote>
+<p><em>"Valvuloseptal development was normal, but L613V/+ mice exhibited eccentric cardiac hypertrophy and aberrant cardiac fetal gene expression, and decompensated following pressure overload."</em>
+— <em>MEK-ERK pathway modulation ameliorates disease phenotypes in a mouse model of Noonan syndrome associated with the Raf1(L613V) mutation</em> <a href="https://pubmed.ncbi.nlm.nih.gov/21339642/">PMID 21339642</a></p>
+<p><em>"postnatal MEK inhibition normalized the growth, facial, and cardiac defects in L613V/+ mice"</em>
+— same source</p>
+</blockquote>
+<p><strong>What it does not show:</strong> it is murine (non-human genome); it does not reproduce the valve defect; and the MEK-inhibitor experiments did not test contractile or mitochondrial endpoints, so they inform only the therapeutic axis.</p>
+<h3>Finding 2 — Tie2-Cre Q79R-Shp2 endocardial-cushion mouse fills the unmodelled Cardiac Valve Morphogenesis Defects node</h3>
+<p>Endocardial-specific overexpression of the NS-associated <strong>Q79R-Shp2</strong> allele (driven by Tie2-Cre) caused embryonic lethality by E14.5 with <strong>significantly enlarged endocardial cushions</strong> in the atrioventricular canal and outflow tract; wild-type Shp2 expressed at comparable levels did not. The phenotype was accompanied by increased ERK1/2 activation in cushion mesenchyme, and <strong>genetic deletion of ERK1 completely rescued the cushion phenotype</strong> (ERK2 reduction did not), pinning causality to ERK1.</p>
+<p>This is an <strong>embryonic developmental system</strong> — the correct scale for a valve-morphogenesis node — and observes a lesion that neither the curated RAF1 S257L iPSC-cardiomyocyte nor the postnatal Raf1 L613V mouse (valve development normal) can show. It is classified <strong>(a) recapitulates</strong> for <strong>Cardiac Valve Morphogenesis Defects</strong> and <strong>(b) perturbs</strong> for <strong>ERK Cascade Hyperactivation</strong> at the cushion-mesenchyme level. It would be curated as an <strong>AnimalModel</strong>.</p>
+<blockquote>
+<p><em>"mutant embryos showed significantly enlarged endocardial cushions in the atrioventricular canal and in the outflow tract"</em>
+— <em>Role of ERK1/2 signaling in congenital valve malformations in Noonan syndrome</em> <a href="https://pubmed.ncbi.nlm.nih.gov/19017799/">PMID 19017799</a></p>
+<p><em>"Deletion of ERK1 completely rescued the endocardial cushion phenotype, whereas ERK2 protein reduction did not affect endocardial cushion size."</em>
+— same source</p>
+</blockquote>
+<p><strong>What it does not show:</strong> embryonic lethality precludes any postnatal or adult readout; it does not address hypertrophy progression, haemodynamic-load-dependent remodeling, or MEK-inhibitor treatment.</p>
+<h3>Finding 3 — MEK-inhibitor case reports are clinical treatment evidence, and the two MEK directions remain unreconciled</h3>
+<p>Multiple off-label / compassionate-use case reports document that <strong>trametinib reverses NS-associated hypertrophic cardiomyopathy (HCM)</strong>. In a RIT1-related NS infant, treatment produced <em>complete remission of the cardiac hypertrophy and significant improvement of the pulmonary valve stenosis</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36184070/">PMID 36184070</a>). Further reports cover a RAF1 p.Ser257Leu child (<a href="https://pubmed.ncbi.nlm.nih.gov/42256976/">PMID 42256976</a>) and lymphatic presentations (<a href="https://pubmed.ncbi.nlm.nih.gov/36140671/">PMID 36140671</a>). A 17-case review (<a href="https://pubmed.ncbi.nlm.nih.gov/40041314/">PMID 40041314</a>) reported short-term symptomatic improvement in all cases, with three deaths presumably unrelated to trametinib and no long-term follow-up available.</p>
+<p>These reports are <strong>clinical evidence for the mechanism</strong> — RAF1/RIT1/SOS-driven ERK hypertrophy, reversible by MEK inhibition — and belong in the <strong>treatment-evidence block</strong>, not in <code>animal_models</code> or <code>experimental_models</code>. A case report is a treated patient, not a model system.</p>
+<p>Decisively for the substitution problem: every readout was <strong>echocardiographic wall thickness or outflow gradient over weeks-to-months</strong>; <strong>none assessed mitochondrial function or ERK-dependent mitochondrial STAT3 Ser-727 contractile toxicity</strong>. These reports therefore bear on the <strong>therapeutic claim only</strong> and do <strong>not</strong> reconcile with the <code>mek_inhibition_cardiac_mitochondrial_injury</code> toxicity claim. The two directions of MEK pharmacology are, in the literature searched, supported by disjoint datasets and remain unreconciled. On timing, benefit is reported with early-infancy initiation in a RAS-MAPK-variant-positive context.</p>
+<blockquote>
+<p><em>"She received off-label treatment with the MEK-inhibitor trametinib which resulted in complete remission of the cardiac hypertrophy and a significant improvement of the pulmonary valve stenosis."</em>
+— <em>Succesful MEK-inhibition of severe hypertrophic cardiomyopathy in RIT1-related Noonan Syndrome</em> <a href="https://pubmed.ncbi.nlm.nih.gov/36184070/">PMID 36184070</a></p>
+<p><em>"A short-term improvement of symptoms was reported in all cases, with three deaths presumably unrelated to trametinib."</em>
+— <em>Trametinib as a targeted treatment in cardiac and lymphatic presentations of Noonan syndrome</em> <a href="https://pubmed.ncbi.nlm.nih.gov/40041314/">PMID 40041314</a></p>
+</blockquote>
+<h3>Finding 4 — FRET ERK-reporter zebrafish for ERK Cascade Hyperactivation and Additional RAS-MAPK Signal-Amplifying Variants</h3>
+<p>A transgenic <strong>zebrafish (<em>Danio rerio</em>)</strong> ERK biosensor (the "Teen" FRET reporter) expressing NS-causing <strong>Shp2 (PTPN11) gain-of-function variants</strong> permits live, in-vivo quantification of ERK hyperactivation during gastrulation — <em>before</em> morphological defects appear — and detects normalisation by low-dose MEK inhibitor (<a href="https://pubmed.ncbi.nlm.nih.gov/38594640/">PMID 38594640</a>). A companion protocol uses transient zebrafish RASopathy models for rapid functional validation of candidate pathogenic RAS-MAPK variants (<a href="https://pubmed.ncbi.nlm.nih.gov/40388378/">PMID 40388378</a>).</p>
+<p>Compartments and load: a whole embryonic vertebrate organism, transparent, with a non-mammalian genome, but <strong>no mature four-chamber heart, no haemodynamic afterload and no postnatal cardiomyocyte biology</strong>. It is classified <strong>(a) recapitulates / (b) perturbs</strong> for <strong>ERK Cascade Hyperactivation</strong> (ERK directly measured in vivo, pharmacologically reversible) and <strong>(b) perturbs</strong> for <strong>Additional RAS-MAPK Signal-Amplifying Variants</strong> (the platform is purpose-built to validate new variants' ERK impact). For <strong>Cardiomyocyte Hypertrophy</strong> it is <strong>class (c) informative by analogy only</strong> — the defining mammalian postnatal hypertrophy phenotype is absent. It would be curated as an <strong>AnimalModel</strong>. What it adds over the curated iPSC-cardiomyocyte: <strong>live, real-time, whole-organism ERK dynamics and drug-response timing</strong> a fixed monolayer cannot show. The MEK-inhibitor readout here is ERK phosphorylation/morphology; contractile and mitochondrial toxicity were not assessed, so it bears on the therapeutic/target-engagement axis only.</p>
+<blockquote>
+<p><em>"we can quantitatively trace back the modulation of ERK phosphorylation obtained by low-dose MEK inhibitor treatment to early development, before the onset of morphological defects"</em>
+— <em>Assessment of the FRET-based Teen sensor to monitor ERK activation changes preceding morphological defects in a RASopathy zebrafish model and phenotypic rescue by MEK inhibitor</em> <a href="https://pubmed.ncbi.nlm.nih.gov/38594640/">PMID 38594640</a></p>
+<p><em>"Functional validation of the pathogenicity of these variants, essential for accurate diagnosis, requires fast and reliable protocols, preferably in vivo."</em>
+— <em>An Efficient Protocol to Assess ERK Activity Modulation in Early Zebrafish Noonan Syndrome Models via Live FRET Microscopy and Immunofluorescence</em> <a href="https://pubmed.ncbi.nlm.nih.gov/40388378/">PMID 40388378</a></p>
+</blockquote>
+<h3>Finding 5 — The Growth Plate Chondrocyte Differentiation Defect node is poorly served: available chondrocyte models are loss-of-function, the opposite direction to Noonan</h3>
+<p>Chondrocyte-specific genetic models of the SHP2/ERK growth-plate axis in the literature are <strong>loss-of-function</strong>. Mosaic postnatal <em>Ptpn11</em> inactivation delays the terminal differentiation of chondrocytes and produces enchondroma-like lesions (<a href="https://pubmed.ncbi.nlm.nih.gov/24875294/">PMID 24875294</a>); inducible <em>Shp2</em> chondrocyte knockout deforms orofacial cartilage with reduced ERK (<a href="https://pubmed.ncbi.nlm.nih.gov/25919282/">PMID 25919282</a>); ERK1/2 deletion in hypertrophic chondrocytes expands the hypertrophic zone and shortens long bones (<a href="https://pubmed.ncbi.nlm.nih.gov/25401279/">PMID 25401279</a>). All of these <em>reduce</em> SHP2/ERK signalling, whereas NS is caused by <strong>gain-of-function</strong> RAS-MAPK activation.</p>
+<p>For the <strong>Growth Plate Chondrocyte Differentiation Defect</strong> node these are therefore <strong>class (b/c)</strong> — they perturb and illuminate the same chondrocyte ERK-maturation axis the node names, but they do <strong>not</strong> recapitulate the Noonan gain-of-function lesion (the defining GoF driver is absent or reversed). The nearest GoF evidence is organismal short stature in the Raf1 L613V mouse, which is whole-organism and not chondrocyte-resolved. A chondrocyte-specific <em>Noonan-GoF</em> growth-plate model was searched for ("Shp2/PTPN11/Ptpn11 chondrocyte growth plate Noonan short stature") and <strong>not retrieved</strong> — a genuine gap.</p>
+<blockquote>
+<p><em>"We found that SHP2 depletion, or inhibition of the ERK1/2 pathway, delays the terminal differentiation of chondrocytes from the early-hypertrophic to the late-hypertrophic stage."</em>
+— <em>SHP2 regulates chondrocyte terminal differentiation, growth plate architecture and skeletal cell fates</em> <a href="https://pubmed.ncbi.nlm.nih.gov/24875294/">PMID 24875294</a></p>
+</blockquote>
+<h3>Finding 6 — Confirmed-empty systems: human Noonan myocardial slices/explants and loaded RASopathy 3D cardiac models</h3>
+<p>Two targeted search campaigns returned no Noonan/RASopathy-specific study:</p>
+<ol>
+<li><strong>Human Noonan myocardial tissue</strong> — slices, explants or resected surgical tissue with contractility or calcium-handling readouts. Searches included "Noonan syndrome human cardiomyocyte myocardial biopsy explant calcium handling contractility", "Noonan syndrome myectomy myocardial tissue histology surgical specimen", and "Noonan syndrome myocardium histopathology disarray resected cardiac tissue".</li>
+<li><strong>Loaded 3D cardiac systems</strong> — "engineered heart tissue hiPSC cardiomyocyte hypertrophy MAPK RAS force contractility 3D" and "cardiac organoid RASopathy Noonan hypertrophy heart-on-chip".</li>
+</ol>
+<p>This is a <strong>reported-empty result, not a claim of non-existence</strong>: no loaded, force-generating or native-tissue Noonan cardiac model was retrievable. The consequence is that the <strong>Cardiomyocyte Hypertrophy node currently has no model that carries haemodynamic load <em>plus</em> a human genome <em>plus</em> multicellular (fibroblast/endothelial) compartments</strong>. The curated RAF1 S257L iPSC-cardiomyocyte monolayer (human but unloaded) and the Raf1 L613V mouse (loaded but murine) bracket this gap. <strong>An engineered heart tissue built from RASopathy iPSC-cardiomyocytes would be the missing ExperimentalModel</strong> that adds auxotonic load and a force/contractility readout to a human-genome system — and would be the ideal platform to test the therapeutic-versus-toxicity question directly.</p>
+<h3>Finding 7 — LEOPARD/PTPN11 iPSC-cardiomyocyte corroborates Cardiomyocyte Hypertrophy via a different gene; NS-Shp2 zebrafish covers Hematologic Dysregulation</h3>
+<p>Patient-derived <strong>LEOPARD-syndrome iPSC-cardiomyocytes</strong> (PTPN11 T468M) are larger, show greater sarcomeric organisation and preferential nuclear localisation of NFATC4 — a hypertrophic signature (<a href="https://pubmed.ncbi.nlm.nih.gov/20535210/">PMID 20535210</a>). For <strong>Cardiomyocyte Hypertrophy</strong> this is <strong>(a) recapitulates</strong> at the cellular level, acting as a <strong>corroborator</strong> of the curated RAF1 S257L iPSC-cardiomyocyte but via a <em>different gene</em>, demonstrating genotype convergence onto the same cellular endpoint. It is an <strong>ExperimentalModel</strong>. Important caveat: LEOPARD PTPN11 alleles are <strong>catalytically impaired</strong> (not the classic Noonan gain-of-function), so it must <strong>not</strong> be curated under <em>SHP2 Gain-of-Function Activation</em>. Limitation: as a monolayer it has no haemodynamic load, no fibroblast/endothelial compartment and an immature state — it adds genotypic breadth, not a new compartment.</p>
+<p>A CRISPR knock-in <strong>Shp2 Noonan zebrafish</strong> shows inflammatory transcriptional changes in hematopoietic stem and progenitor cells (HSPCs) and blood defects shared with JMML patients (<a href="https://pubmed.ncbi.nlm.nih.gov/35535491/">PMID 35535491</a>). For <strong>Hematologic Dysregulation</strong> this is <strong>(a) recapitulates</strong>, as an <strong>AnimalModel</strong> (whole vertebrate with a transparent embryo enabling live haematopoiesis imaging). It does not model cardiac hypertrophy or valve morphogenesis.</p>
+<blockquote>
+<p><em>"in vitro-derived cardiomyocytes from LEOPARD syndrome iPSCs are larger, have a higher degree of sarcomeric organization and preferential localization of NFATC4 in the nucleus"</em>
+— <em>Patient-specific induced pluripotent stem-cell-derived models of LEOPARD syndrome</em> <a href="https://pubmed.ncbi.nlm.nih.gov/20535210/">PMID 20535210</a></p>
+<p><em>"we explored transcriptomes of HSPCs with SHP2 mutations derived from JMML patients and a novel NS zebrafish model"</em>
+— <em>Inflammatory response in hematopoietic stem and progenitor cells triggered by activating SHP2 mutations evokes blood defects</em> <a href="https://pubmed.ncbi.nlm.nih.gov/35535491/">PMID 35535491</a></p>
+</blockquote>
+<h3>Finding 8 — Congenital Cardiac Structural Defects and RASopathy Neoplastic Predisposition: Ptpn11 D61G mouse (overlap-flagged) and distinct human JMML HSCs</h3>
+<p>The foundational <strong>Ptpn11 D61G knock-in mouse</strong> reproduces short stature, craniofacial abnormalities, <strong>myeloproliferative disease</strong>, and — in severely affected embryos — <strong>multiple cardiac defects</strong> with increased endocardial-cushion Erk activation (<a href="https://pubmed.ncbi.nlm.nih.gov/15273746/">PMID 15273746</a>). This maps to <strong>Congenital Cardiac Structural Defects</strong> (class a), <strong>RASopathy Neoplastic Predisposition</strong> (class a, myeloproliferative/JMML-like), <strong>Hematologic Dysregulation</strong> and <strong>ERK Cascade Hyperactivation</strong>. It is a whole-organism <strong>AnimalModel</strong>.</p>
+<p><strong>Overlap caveat:</strong> this canonical "Noonan SHP2 mutant mouse" very likely corresponds to the already-curated generic <em>"Noonan syndrome-causing SHP2 mutant mouse model"</em> (which carries no publication and no node-links). If so it is <strong>not a new candidate</strong>, but its PMID and node-links (13, 14) are currently unrecorded and could be <em>attached to the existing entry</em> rather than re-curated.</p>
+<p>A genuinely <strong>distinct</strong> model for the neoplastic/hematologic nodes is the <strong>JMML patient-derived hematopoietic stem/progenitor cell culture</strong> (<strong>ExperimentalModel</strong>), used to show activating-Shp2-driven proliferation and its pharmacologic reversal (<a href="https://pubmed.ncbi.nlm.nih.gov/40640547/">PMID 40640547</a>) — <strong>(a) recapitulates</strong> the neoplastic/hematologic driver in human primary cells. Limitation: HSC cultures carry no cardiac compartment and no load.</p>
+<blockquote>
+<p><em>"Severely affected Ptpn11(D61G/+) embryos ( approximately 50%) have multiple cardiac defects similar to those in mice lacking the Ras-GAP protein neurofibromin."</em>
+— <em>Mouse model of Noonan syndrome reveals cell type- and gene dosage-dependent effects of Ptpn11 mutation</em> <a href="https://pubmed.ncbi.nlm.nih.gov/15273746/">PMID 15273746</a></p>
+<p><em>"SFX-01 also attenuated JMML human patient-derived hematopoietic stem cell proliferation that was linked to STAT1 signaling and decreased cyclin D1 expression, resulting in cell-cycle arrest"</em>
+— <em>SFX-01 is therapeutic against myeloproliferative disorders caused by activating mutations in Shp2</em> <a href="https://pubmed.ncbi.nlm.nih.gov/40640547/">PMID 40640547</a></p>
+</blockquote>
+<h3>Finding 9 — Rit1 A57G mouse fills the unmodelled Lymphatic Structural Abnormalities node (overlap-flagged against the curated RIT1 mouse)</h3>
+<p>An embryonic phenotyping study of a Noonan-syndrome <strong>Rit1 A57G knock-in mouse</strong> found <strong>cardiovascular and lymphatic abnormalities arising in the fetal period</strong>, with MEK/ERK activation implicated as the cause of cardiac hypertrophy (<a href="https://pubmed.ncbi.nlm.nih.gov/41388936/">PMID 41388936</a>). Node mapping: <strong>Lymphatic Structural Abnormalities</strong> (currently unmodelled) — <strong>(a) recapitulates</strong>, in a whole-organism <strong>AnimalModel</strong> with an intact lymphatic compartment; <strong>Congenital Cardiac Structural Defects</strong> and <strong>Cardiomyocyte Hypertrophy</strong> via MEK/ERK (class a/b); <strong>ERK Cascade Hyperactivation</strong>; <strong>RIT1-Mediated RAF Recruitment</strong>.</p>
+<p><strong>Overlap caveat:</strong> the already-curated <em>"RIT1 mutant Noonan syndrome mouse model"</em> (no publication recorded) may be the same Rit1 line; if so this is not a wholly new organism, but the <strong>lymphatic node-link and the fetal-timing data are new and recordable</strong>, and <a href="https://pubmed.ncbi.nlm.nih.gov/41388936/" target="_blank" rel="noopener noreferrer">PMID 41388936</a> can be attached. What it does <strong>not</strong> show: it is an embryonic/fetal analysis, so it does not address postnatal hypertrophy progression, adult haemodynamic-load-dependent remodeling, or MEK-inhibitor treatment (no contractile/mitochondrial readout; does not bear on the toxicity claim). The MEK/ERK attribution to hypertrophy here is <strong>observational/correlative</strong>, not a pharmacologic manipulation.</p>
+<blockquote>
+<p><em>"Rit1 mutation causes cardiovascular and lymphatic abnormalities in the fetal period, and that the activation of MEK/ERK is the potential pathogenesis of cardiac hypertrophy"</em>
+— <em>Phenotypic Analysis of Embryos in a Noonan Syndrome Model Mouse With the Rit1 A57G Mutation</em> <a href="https://pubmed.ncbi.nlm.nih.gov/41388936/">PMID 41388936</a></p>
+</blockquote>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The candidate models tile the RAS-MAPK cardiac axis by <strong>scale</strong> and by <strong>genome/compartment completeness</strong>. The organising insight is that no single alternative model carries the whole mechanism: each covers a defined stretch of it.</p>
+<pre><code>   MOLECULAR  ──────────►  CELLULAR  ──────────►  TISSUE / ORGAN  ──────────►  WHOLE ORGANISM
+   (variant → ERK)         (cardiomyocyte)        (loaded 3D, valve cushion)    (mouse, fish)
+
+ Zebrafish FRET          LEOPARD PTPN11            [EMPTY: human EHT /          Raf1 L613V mouse
+ ERK reporter            iPSC-CM (ExpModel)         engineered heart tissue,     (RAF1, ERK, hypertrophy;
+ (Shp2, in vivo ERK;     corroborates             organ-chip, organoid)         valve NEGATIVE)
+ variant validation)     hypertrophy                                            
+                                  Q79R-Shp2 Tie2-Cre            Rit1 A57G mouse
+ Curated RAF1 S257L      Curated RAF1 S257L        endocardial cushion          (lymphatic + cardiac,
+ iPSC-CM (ERK,           iPSC-CM (hypertrophy)     (VALVE, embryonic,           fetal)
+ hypertrophy)                                      ERK1-dependent)              
+        JMML patient HSCs          Ptpn11 D61G mouse           Shp2 zebrafish
+        (neoplastic, human)        embryo cardiac defects       (hematologic)
+                                   (overlap w/ curated SHP2)
+</code></pre>
+<p>Two features of this map matter most:</p>
+<ol>
+<li>
+<p><strong>The valve node and the RAF1 node need different systems.</strong> The RAF1 L613V mouse proves that a kinase-activating RAF1 allele drives postnatal hypertrophy <em>without</em> a valve defect (valvuloseptal development normal). The valve lesion instead requires an <strong>embryonic, endocardial-compartment</strong> perturbation (Q79R-Shp2), and is <strong>ERK1-dependent</strong>. So the pathograph's separation of <em>RAF1 Kinase Hyperactivation</em> from <em>Cardiac Valve Morphogenesis Defects</em> is mechanistically real, not an artefact — they are reached by different alleles in different compartments at different developmental windows.</p>
+</li>
+<li>
+<p><strong>The missing model is the loaded human one.</strong> Along the completeness axis, the Cardiomyocyte Hypertrophy node has a human-unloaded model (iPSC-CM) and a loaded-murine model (L613V mouse) but nothing with human genome + load + stromal compartments. This is exactly where the two MEK directions could be discriminated — a RASopathy engineered heart tissue is the one platform that could measure force/contractility under load <em>and</em> mitochondrial endpoints in a human-genome context.</p>
+</li>
+</ol>
+<h3>MEK inhibition — the two directions are not reconciled</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Direction</th>
+<th>What the evidence is</th>
+<th>What was measured</th>
+<th>Duration</th>
+<th>Contractile/mitochondrial function assessed?</th>
+<th>Bears on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Therapeutic</strong> (reverses hypertrophy)</td>
+<td>Patient case reports (36184070, 42256976, 40041314, 36140671); Raf1 L613V mouse (21339642)</td>
+<td>Echo wall thickness, outflow gradient; mouse cardiac mass + gene expression</td>
+<td>Weeks–months (patients); postnatal course (mouse)</td>
+<td><strong>No</strong></td>
+<td>Therapeutic claim only</td>
+</tr>
+<tr>
+<td><strong>Toxic</strong> (<code>mek_inhibition_cardiac_mitochondrial_injury</code>)</td>
+<td>Curated module: loss of ERK-dependent mitochondrial STAT3 Ser-727, respiratory-chain failure, reversible hypocontractility</td>
+<td>Mitochondrial respiration, contractility</td>
+<td>—</td>
+<td>Yes (by construction)</td>
+<td>Toxicity claim only</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The therapeutic evidence and the toxicity evidence come from <strong>non-overlapping measurements</strong>. No therapeutic study in a RAS-MAPK-variant context measured mitochondrial or contractile function, and the toxicity module is not reported in a Noonan-variant-positive model. <strong>The directions are therefore not reconciled in the literature searched</strong>, and should not be presented as though they are. The therapeutic window's dependence on <em>timing</em> is suggested (benefit with postnatal/early-infancy initiation) but dose- and variant-dependence of the <em>toxic</em> direction in a Noonan background is untested.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbreviated)</th>
+<th>Model / evidence type</th>
+<th>Node(s) served</th>
+<th>Class</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21339642/">21339642</a></td>
+<td><em>MEK-ERK modulation ... Raf1(L613V) mouse</em></td>
+<td>AnimalModel (genetic)</td>
+<td>RAF1 Kinase Hyperactivation; ERK Cascade; Cardiomyocyte Hypertrophy / <strong>valve = negative</strong></td>
+<td>(a); <strong>(d)</strong> for valve</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19017799/">19017799</a></td>
+<td><em>Role of ERK1/2 signaling in congenital valve malformations in NS</em></td>
+<td>AnimalModel (genetic, embryonic)</td>
+<td>Cardiac Valve Morphogenesis Defects; ERK Cascade</td>
+<td>(a); (b)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38594640/">38594640</a></td>
+<td><em>FRET-based Teen sensor ... RASopathy zebrafish</em></td>
+<td>AnimalModel (genetic/reporter)</td>
+<td>ERK Cascade; Additional RAS-MAPK Variants; Cardiomyocyte Hypertrophy</td>
+<td>(a)/(b); <strong>(c)</strong> for hypertrophy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40388378/">40388378</a></td>
+<td><em>Protocol to assess ERK ... zebrafish NS models</em></td>
+<td>AnimalModel platform</td>
+<td>Additional RAS-MAPK Variants</td>
+<td>(b)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20535210/">20535210</a></td>
+<td><em>iPSC-derived models of LEOPARD syndrome</em></td>
+<td>ExperimentalModel (iPSC-CM)</td>
+<td>Cardiomyocyte Hypertrophy (corroborator, different gene)</td>
+<td>(a)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35535491/">35535491</a></td>
+<td><em>Inflammatory response in HSPCs ... SHP2 mutations</em></td>
+<td>AnimalModel (zebrafish)</td>
+<td>Hematologic Dysregulation</td>
+<td>(a)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15273746/">15273746</a></td>
+<td><em>Mouse model of NS ... Ptpn11 mutation</em></td>
+<td>AnimalModel — <strong>overlap w/ curated SHP2 mouse</strong></td>
+<td>Congenital Cardiac Structural Defects; Neoplastic Predisposition; Hematologic</td>
+<td>(a)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40640547/">40640547</a></td>
+<td><em>SFX-01 ... myeloproliferative disorders / Shp2</em></td>
+<td>ExperimentalModel (human JMML HSCs)</td>
+<td>RASopathy Neoplastic Predisposition; Hematologic</td>
+<td>(a)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41388936/">41388936</a></td>
+<td><em>Phenotypic Analysis ... Rit1 A57G mutation</em></td>
+<td>AnimalModel — <strong>overlap w/ curated RIT1 mouse</strong></td>
+<td>Lymphatic Structural Abnormalities; Congenital Cardiac; Cardiomyocyte Hypertrophy; RIT1-Mediated RAF Recruitment</td>
+<td>(a)/(b)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24875294/">24875294</a></td>
+<td><em>SHP2 regulates chondrocyte terminal differentiation</em></td>
+<td>Genetic (chondrocyte, <strong>LOF</strong>)</td>
+<td>Growth Plate Chondrocyte Differentiation Defect</td>
+<td>(b)/(c)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25919282/">25919282</a></td>
+<td><em>SHP2-Deficiency in Chondrocytes ...</em></td>
+<td>Genetic (chondrocyte, LOF)</td>
+<td>Growth Plate Chondrocyte Differentiation Defect</td>
+<td>(b)/(c)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25401279/">25401279</a></td>
+<td><em>ERK1/2 regulate chondrocyte terminal differentiation</em></td>
+<td>Genetic (chondrocyte, LOF)</td>
+<td>Growth Plate Chondrocyte Differentiation Defect</td>
+<td>(b)/(c)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36184070/">36184070</a></td>
+<td><em>MEK-inhibition ... RIT1-related NS</em></td>
+<td><strong>Treatment evidence</strong> (case report)</td>
+<td>Therapeutic claim (RIT1)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42256976/">42256976</a></td>
+<td><em>Trametinib ... RAF1-Related NS (p.Ser257Leu)</em></td>
+<td><strong>Treatment evidence</strong> (case report)</td>
+<td>Therapeutic claim (RAF1)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40041314/">40041314</a></td>
+<td><em>Trametinib ... cardiac and lymphatic presentations of NS</em></td>
+<td><strong>Treatment evidence</strong> (17-case review)</td>
+<td>Therapeutic claim</td>
+<td>—</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36140671/">36140671</a></td>
+<td><em>Severe Lymphatic Disorder ... Trametinib ... SOS1</em></td>
+<td><strong>Treatment evidence</strong> (case report)</td>
+<td>Therapeutic claim (SOS1, lymphatic)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Schema-block assignment summary:</strong> AnimalModels — 21339642, 19017799, 38594640/40388378, 35535491, 15273746 (overlap), 41388936 (overlap). ExperimentalModels — 20535210, 40640547. Treatment evidence (not models) — 36184070, 42256976, 40041314, 36140671.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No loaded human cardiac model exists in the literature searched.</strong> Human Noonan myocardial slices/explants/resected tissue with contractility or calcium readouts, and RASopathy engineered heart tissue / organ-chips / cardiac organoids, all returned empty. This is the single largest gap: the Cardiomyocyte Hypertrophy node has no model with human genome + haemodynamic load + stromal compartments.</li>
+<li><strong>The two MEK directions are unreconciled.</strong> No therapeutic study measured mitochondrial or contractile function; the toxicity module is not tested in a Noonan-variant background. Dose-, timing- and variant-dependence of the toxic direction is unknown.</li>
+<li><strong>Two mouse candidates likely overlap curated entries.</strong> Ptpn11 D61G (15273746) probably <em>is</em> the curated generic SHP2 mouse; Rit1 A57G (41388936) may <em>be</em> the curated RIT1 mouse. These should be treated as <em>attach PMID + new node-links</em> actions, not new curations.</li>
+<li><strong>The Growth Plate node has no gain-of-function chondrocyte model.</strong> All retrievable chondrocyte models are SHP2/ERK loss-of-function — mechanistically the opposite of Noonan — so they perturb but do not recapitulate the node.</li>
+<li><strong>Model-specific scope limits:</strong> the valve mouse is embryonic-lethal (no postnatal readout); the zebrafish has no mature heart (hypertrophy is class c only); iPSC-CM corroborators are unloaded monolayers (genotypic breadth, not a new compartment); case reports are clinical evidence, not models.</li>
+<li><strong>Negative searches are reported as searches, not proofs of non-existence.</strong> The empty-system claims reflect the queries listed in Finding 6, not an exhaustive census of all literature.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Build or find a RASopathy engineered heart tissue (EHT).</strong> Construct an EHT from RAF1- or PTPN11-variant iPSC-cardiomyocytes with fibroblast/endothelial co-culture under auxotonic load. This is the missing <strong>ExperimentalModel</strong> for Cardiomyocyte Hypertrophy with a human genome and a force readout — and the ideal platform to measure contractility <em>and</em> mitochondrial endpoints under MEK inhibition, directly testing the therapeutic-versus-toxicity question.</li>
+<li><strong>Measure mitochondrial/contractile endpoints in a therapeutic MEK-inhibition experiment.</strong> In the Raf1 L613V mouse or a RASopathy EHT, assess ERK-dependent mitochondrial STAT3 Ser-727 phosphorylation, respiratory-chain function and contractility across doses and initiation timings, to reconcile the two MEK directions.</li>
+<li><strong>Attach, don't re-curate, the overlap-flagged mice.</strong> Record <a href="https://pubmed.ncbi.nlm.nih.gov/15273746/" target="_blank" rel="noopener noreferrer">PMID 15273746</a> + node-links (Congenital Cardiac Structural Defects, Neoplastic Predisposition, Hematologic) against the curated SHP2 mouse; record <a href="https://pubmed.ncbi.nlm.nih.gov/41388936/" target="_blank" rel="noopener noreferrer">PMID 41388936</a> + the new <strong>Lymphatic Structural Abnormalities</strong> link against the curated RIT1 mouse.</li>
+<li><strong>Seek or generate a gain-of-function chondrocyte Noonan model.</strong> A chondrocyte-specific NS-GoF allele (e.g., Ptpn11 D61G or Raf1 L613V under a chondrocyte Cre) would convert the Growth Plate node from "perturbed by LOF analogues" to "recapitulated".</li>
+<li><strong>Curate the valve node to the Q79R-Shp2 embryonic mouse (<a href="https://pubmed.ncbi.nlm.nih.gov/19017799/" target="_blank" rel="noopener noreferrer">PMID 19017799</a>)</strong> and record the Raf1 L613V mouse as the <strong>documented negative (class d)</strong> for the same node — a valuable explicit negative.</li>
+<li><strong>Search the surgical-pathology literature</strong> specifically (myectomy/explant biobanks) for Noonan HCM specimens with any functional readout, to confirm or close the human-tissue gap.</li>
+</ol>
+<hr />
+<p><em>Report generated from 5 completed investigation iterations; 10 confirmed findings; 33 papers reviewed. All PMIDs and verbatim quotes above were validated against source abstracts during the investigation.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Noonan_Syndrome-alternative-models-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Noonan_Syndrome-alternative-models-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>16</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:24875294</code> (5 mentions) - SHP2 regulates chondrocyte terminal differentiation, growth plate architecture and skeletal cell fates.</li>
+<li>shared terms: postnatal, shp2</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>model</code>, <code>noonan</code>, <code>cardiac</code>, <code>hypertrophy</code>, <code>mouse</code>, <code>raf1</code>, <code>defect</code>, <code>erk</code>, <code>curated</code>, <code>syndrome</code>, <code>node</code>, <code>cardiomyocyte</code>, <code>valve</code>, <code>mek</code>, <code>therapeutic</code>, <code>l613v</code>, <code>mitochondrial</code>, <code>postnatal</code>, <code>compartment</code>, <code>shp2</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Every term resolved, and every label the report gave matched.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Noonan_Syndrome_with_Multiple_Lentigines-claude_code.html">← Noonan Syndrome with Multiple Lentigines (Claude Code)</a>
+                
+                
+                <a href="Normal_Pressure_Hydrocephalus-claude_code.html">Normal Pressure Hydrocephalus (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Noonan_Syndrome-alternative-models-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -275,3 +275,112 @@ def test_out_writes_to_a_file(tmp_path: Path, monkeypatch) -> None:
 
     assert audit.main(["--format", "tsv", "--out", str(out)]) == 0
     assert "ECTO:0100003" in out.read_text(encoding="utf-8")
+
+
+# --------------------------------------------------------------------------- #
+# enum-membership check on reuse candidates (issue #10738)
+# --------------------------------------------------------------------------- #
+
+
+def _write_enum_cache(repo_root: Path, *curies: str) -> None:
+    enums = repo_root / "cache" / "enums"
+    enums.mkdir(parents=True, exist_ok=True)
+    (enums / "exposureterm_000000000000.csv").write_text(
+        "curie\n" + "".join(f"{c}\n" for c in curies), encoding="utf-8"
+    )
+
+
+def test_load_enum_members_reads_the_exposureterm_cache(tmp_path: Path) -> None:
+    _write_enum_cache(tmp_path, "ECTO:0100003", "XCO:0000000")
+
+    assert audit.load_enum_members(tmp_path) == {"ECTO:0100003", "XCO:0000000"}
+
+
+def test_load_enum_members_is_none_without_a_cache(tmp_path: Path) -> None:
+    assert audit.load_enum_members(tmp_path) is None
+
+
+def test_non_member_candidate_is_not_recommended_for_reuse(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    # The bound CURIE is in the KB but absent from the enum cache: an
+    # unvalidated binding the audit must not hand back as "reuse".
+    _write(tmp_path / "kb" / "disorders", "A", BOUND_BLOCK)
+    _write(tmp_path / "kb" / "disorders", "D", UNBOUND_LINKED_BLOCK)
+    _write_enum_cache(tmp_path, "ECTO:9999999")
+    monkeypatch.setattr(audit, "_REPO_ROOT", tmp_path)
+
+    assert audit.main(["--format", "list"]) == 0
+    out = capsys.readouterr().out
+    unbound_line = next(line for line in out.splitlines() if "[UNBOUND" in line)
+
+    assert "-> reuse" not in unbound_line
+    assert "not in enum cache: ECTO:0100003" in unbound_line
+
+
+def test_member_candidate_is_still_recommended_for_reuse(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    _write(tmp_path / "kb" / "disorders", "A", BOUND_BLOCK)
+    _write(tmp_path / "kb" / "disorders", "D", UNBOUND_LINKED_BLOCK)
+    _write_enum_cache(tmp_path, "ECTO:0100003")
+    monkeypatch.setattr(audit, "_REPO_ROOT", tmp_path)
+
+    assert audit.main(["--format", "list"]) == 0
+    out = capsys.readouterr().out
+    unbound_line = next(line for line in out.splitlines() if "[UNBOUND" in line)
+
+    assert "-> reuse ECTO:0100003" in unbound_line
+
+
+def test_tsv_and_summary_report_enum_membership(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    _write(tmp_path / "kb" / "disorders", "A", BOUND_BLOCK)
+    _write(tmp_path / "kb" / "disorders", "D", UNBOUND_LINKED_BLOCK)
+    _write_enum_cache(tmp_path, "ECTO:9999999")
+    monkeypatch.setattr(audit, "_REPO_ROOT", tmp_path)
+
+    assert audit.main(["--format", "tsv"]) == 0
+    rows = [line.split("\t") for line in capsys.readouterr().out.strip().splitlines()]
+    header, body = rows[0], rows[1:]
+    unbound = next(r for r in body if r[header.index("state")] == "UNBOUND")
+    assert unbound[header.index("reuse_in_enum_cache")] == "no"
+
+    assert audit.main(["--format", "summary"]) == 0
+    summary = capsys.readouterr().out
+    assert "normalized name: 0 " in summary
+    assert "not in the ExposureTerm enum cache (check with validate-terms" in summary
+    assert "?ECTO:0100003" in summary
+
+
+def test_member_curie_is_preferred_over_a_non_member_majority(
+    tmp_path: Path,
+) -> None:
+    non_member = BOUND_BLOCK.replace("ECTO:0100003", "ECTO:6000029")
+    _write(tmp_path / "kb" / "disorders", "A", non_member)
+    _write(tmp_path / "kb" / "disorders", "B", non_member)
+    _write(tmp_path / "kb" / "disorders", "C", BOUND_BLOCK)
+
+    reuse = audit.build_reuse_index(
+        audit.collect(tmp_path), frozenset({"ECTO:0100003"})
+    )
+
+    curie, _label, _count, in_enum = reuse[audit._normalize("Cigarette Smoking")]
+    assert (curie, in_enum) == ("ECTO:0100003", True)
+
+
+def test_bound_rows_carry_no_reuse_suffix_in_list_format(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    _write(tmp_path / "kb" / "disorders", "A", BOUND_BLOCK)
+    _write(tmp_path / "kb" / "disorders", "B", BOUND_BLOCK)
+    _write_enum_cache(tmp_path, "ECTO:0100003")
+    monkeypatch.setattr(audit, "_REPO_ROOT", tmp_path)
+
+    assert audit.main(["--format", "list"]) == 0
+    lines = capsys.readouterr().out.strip().splitlines()
+
+    assert len(lines) == 2
+    # A bound row does not suggest a reuse of itself, matching --format tsv.
+    assert all("[BOUND" in line and "->" not in line for line in lines)

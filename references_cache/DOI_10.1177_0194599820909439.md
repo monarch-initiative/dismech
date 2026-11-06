@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1177/0194599820909439
+extractor_version: 1
 title: "Clinical Practice Guideline: Ménière’s Disease Executive Summary"
 authors:
 - Gregory J. Basura
@@ -29,7 +30,8 @@ journal: Otolaryngology–Head and Neck Surgery
 year: '2020'
 doi: 10.1177/0194599820909439
 content_type: abstract_only
-full_text_attempted: true
+is_preprint: false
+full_text_declined: "access_type:publisher_free"
 ---
 
 # Clinical Practice Guideline: Ménière’s Disease Executive Summary
@@ -39,4 +41,10 @@ full_text_attempted: true
 
 ## Content
 
-ObjectiveMénière’s disease (MD) is a clinical condition defined by spontaneous vertigo attacks (each lasting 20 minutes to 12 hours) with documented low‐ to midfrequency sensorineural hearing loss in the affected ear before, during, or after one of the episodes of vertigo. It also presents with fluctuating aural symptoms (hearing loss, tinnitus, or ear fullness) in the affected ear. The underlying etiology of MD is not completely clear, yet it has been associated with inner ear fluid volume increases, culminating in episodic ear symptoms (vertigo, fluctuating hearing loss, tinnitus, and aural fullness). Physical examination findings are often unremarkable, and audiometric testing may or may not show low‐ to midfrequency sensorineural hearing loss. Imaging, if performed, is also typically normal. The goals of MD treatment are to prevent or reduce vertigo severity and frequency; relieve or prevent hearing loss, tinnitus, and aural fullness; and improve quality of life. Treatment approaches to MD are many, and approaches typically include modifications of lifestyle factors (eg, diet) and medical, surgical, or a combination of therapies.PurposeThe primary purpose of this clinical practice guideline is to improve the quality of the diagnostic workup and treatment outcomes of MD. To achieve this purpose, the goals of this guideline are to use the best available published scientific and/or clinical evidence to enhance diagnostic accuracy and appropriate therapeutic interventions (medical and surgical) while reducing unindicated diagnostic testing and/or imaging.
+Objective
+
+Ménière’s disease (MD) is a clinical condition defined by spontaneous vertigo attacks (each lasting 20 minutes to 12 hours) with documented low‐ to midfrequency sensorineural hearing loss in the affected ear before, during, or after one of the episodes of vertigo. It also presents with fluctuating aural symptoms (hearing loss, tinnitus, or ear fullness) in the affected ear. The underlying etiology of MD is not completely clear, yet it has been associated with inner ear fluid volume increases, culminating in episodic ear symptoms (vertigo, fluctuating hearing loss, tinnitus, and aural fullness). Physical examination findings are often unremarkable, and audiometric testing may or may not show low‐ to midfrequency sensorineural hearing loss. Imaging, if performed, is also typically normal. The goals of MD treatment are to prevent or reduce vertigo severity and frequency; relieve or prevent hearing loss, tinnitus, and aural fullness; and improve quality of life. Treatment approaches to MD are many, and approaches typically include modifications of lifestyle factors (eg, diet) and medical, surgical, or a combination of therapies.
+
+Purpose
+
+The primary purpose of this clinical practice guideline is to improve the quality of the diagnostic workup and treatment outcomes of MD. To achieve this purpose, the goals of this guideline are to use the best available published scientific and/or clinical evidence to enhance diagnostic accuracy and appropriate therapeutic interventions (medical and surgical) while reducing unindicated diagnostic testing and/or imaging.

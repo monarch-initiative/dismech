@@ -136,6 +136,28 @@ $ just ictrp-fetch ChiCTR-2100045397
   no hyphen after the registry name)."
 ```
 
+A EudraCT number with no country suffix gets its own message instead. ICTRP
+indexes an EUCTR trial once per recruiting country, so the identifier it holds
+is the EudraCT number plus a country code (`EUCTR2013-003828-36-SK`), while
+papers print the bare number. Either form of the bare number, with or without
+the `EUCTR` prefix, is reported as missing its suffix rather than as malformed:
+
+```
+$ just ictrp-fetch EUCTR2013-003828-36
+  skipped EUCTR2013-003828-36: "ICTRP has no record for trial identifier
+  'EUCTR2013-003828-36'. ICTRP indexes EUCTR trials once per recruiting
+  country, so the identifier needs a country suffix: EUCTR2013-003828-36-XX,
+  where XX is a recruiting country's two-letter code (or 3RD for a protocol
+  outside the EU/EEA). ICTRP may hold the trial under only some of its
+  countries, so try each. The recruiting countries are listed at
+  https://www.clinicaltrialsregister.eu/ctr-search/search?query=2013-003828-36"
+```
+
+ICTRP may index only some of a trial's recruiting countries: this one recruited
+in France, Serbia, Slovakia and Spain, and resolves only under `-SK`. A wrong
+suffix still gets the generic message above, because the portal's response
+cannot tell a wrong country from an absent trial (#11226).
+
 ## Implementation
 
 - `src/dismech/structured_sources/ictrp.py` — `ICTRPSource`, portal parsing, serialization

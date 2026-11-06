@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s42003-023-05753-7
+extractor_version: 1
 title: Multi-ancestry genome-wide meta-analysis identifies novel basal cell carcinoma loci and shared genetic effects with squamous cell carcinoma
 authors:
 - Hélène Choquet
@@ -62,12 +63,14 @@ journal: Communications Biology
 year: '2024'
 doi: 10.1038/s42003-023-05753-7
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s42003-023-05753-7.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s42003-023-05753-7.pdf
+full_text_access_type: open
 ---
 
 # Multi-ancestry genome-wide meta-analysis identifies novel basal cell carcinoma loci and shared genetic effects with squamous cell carcinoma
@@ -77,7 +80,9 @@ local_pdf_path: files/DOI_10.1038_s42003-023-05753-7.pdf
 
 ## Content
 
-AbstractBasal cell carcinoma (BCC) is one of the most common malignancies worldwide, yet its genetic determinants are incompletely defined. We perform a European ancestry genome-wide association (GWA) meta-analysis and a Hispanic/Latino ancestry GWA meta-analysis and meta-analyze both in a multi-ancestry GWAS meta-analysis of BCC, totaling 50,531 BCC cases and 762,234 controls from four cohorts (GERA, Mass-General Brigham Biobank, UK Biobank, and 23andMe research cohort). Here we identify 122 BCC-associated loci, of which 36 were novel, and subsequently fine-mapped these associations. We also identify an association of the well-known pigment geneSLC45A2as well as associations atRCC2andCLPTM1Lwith BCC in Hispanic/Latinos. We examine these BCC loci for association with cutaneous squamous cell carcinoma (cSCC) in 16,407 SCC cases and 762,486 controls of European ancestry, and 33 SNPs show evidence of association. Our study findings provide important insights into the genetic basis of BCC and cSCC susceptibility.
+Abstract
+
+Basal cell carcinoma (BCC) is one of the most common malignancies worldwide, yet its genetic determinants are incompletely defined. We perform a European ancestry genome-wide association (GWA) meta-analysis and a Hispanic/Latino ancestry GWA meta-analysis and meta-analyze both in a multi-ancestry GWAS meta-analysis of BCC, totaling 50,531 BCC cases and 762,234 controls from four cohorts (GERA, Mass-General Brigham Biobank, UK Biobank, and 23andMe research cohort). Here we identify 122 BCC-associated loci, of which 36 were novel, and subsequently fine-mapped these associations. We also identify an association of the well-known pigment gene SLC45A2 as well as associations at RCC2 and CLPTM1L with BCC in Hispanic/Latinos. We examine these BCC loci for association with cutaneous squamous cell carcinoma (cSCC) in 16,407 SCC cases and 762,486 controls of European ancestry, and 33 SNPs show evidence of association. Our study findings provide important insights into the genetic basis of BCC and cSCC susceptibility.
 
 ARTICLE
 Multi-ancestry genome-wide meta-analysis

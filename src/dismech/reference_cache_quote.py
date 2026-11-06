@@ -45,6 +45,7 @@ from typing import Any
 
 import yaml
 
+from dismech.reference_cache_names import cache_stems
 from dismech.yaml_io import safe_load_path
 
 __all__ = [
@@ -87,15 +88,6 @@ def iter_reference_ids(value: Any) -> Iterator[str]:
             yield from iter_reference_ids(child)
 
 
-def _safe_cache_stem(reference_id: str) -> str:
-    return (
-        reference_id.replace(":", "_")
-        .replace("/", "_")
-        .replace("?", "_")
-        .replace("=", "_")
-    )
-
-
 def _cache_index(cache_dir: Path) -> tuple[dict[str, Path], dict[str, Path | None]]:
     by_stem: dict[str, Path] = {}
     by_bare_id: dict[str, Path | None] = {}
@@ -118,12 +110,12 @@ def resolve_cache_paths(cache_dir: Path, data_files: Iterable[Path]) -> list[Pat
         except (OSError, yaml.YAMLError):
             continue
         for reference_id in iter_reference_ids(data):
-            key = _safe_cache_stem(reference_id).casefold()
-            path = by_stem.get(key)
+            stems = [stem.casefold() for stem in cache_stems(reference_id)]
+            path = next((by_stem[k] for k in stems if k in by_stem), None)
             if path is None:
                 # Bare identifiers such as NCT06087757 are cached under the
                 # source's canonical prefix (clinicaltrials_NCT06087757.md).
-                path = by_bare_id.get(key)
+                path = by_bare_id.get(stems[0])
             if path is not None:
                 resolved.add(path)
     return sorted(resolved)

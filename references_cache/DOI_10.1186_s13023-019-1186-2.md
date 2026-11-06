@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1186/s13023-019-1186-2
+extractor_version: 1
 title: European reference network for rare vascular diseases (VASCERN) consensus statement for the screening and management of patients with pathogenic ACTA2 variants
 authors:
 - Ingrid M. B. H. van de Laar
@@ -27,12 +28,14 @@ journal: Orphanet Journal of Rare Diseases
 year: '2019'
 doi: 10.1186/s13023-019-1186-2
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://ojrd.biomedcentral.com/track/pdf/10.1186/s13023-019-1186-2"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1186_s13023-019-1186-2.pdf
+full_text_access_type: open
 ---
 
 # European reference network for rare vascular diseases (VASCERN) consensus statement for the screening and management of patients with pathogenic ACTA2 variants
@@ -42,7 +45,13 @@ local_pdf_path: files/DOI_10.1186_s13023-019-1186-2.pdf
 
 ## Content
 
-AbstractTheACTA2gene encodes for smooth muscle specific α-actin, a critical component of the contractile apparatus of the vascular smooth muscle cell. Pathogenic variants in theACTA2gene are the most frequently encountered genetic cause of non-syndromic hereditary thoracic aortic disease (HTAD). Although thoracic aortic aneurysm and/or dissection is the main clinical manifestation, a variety of occlusive vascular disease and extravascular manifestations occur inACTA2-related vasculopathy. Current data suggest possible mutation-specific manifestations of vascular and extra-aortic traits.Despite its relatively high prevalence, comprehensive recommendations on the care of patients and families with pathogenic variants inACTA2have not yet been established. We aimed to develop a consensus document to provide medical guidance for health care professionals involved in the diagnosis and treatment of patients and relatives with pathogenic variants inACTA2.The HTAD Working Group of the European Reference Network for Rare Vascular Diseases (VASCERN) convened to review current literature and discuss expert opinions on clinical management ofACTA2related vasculopathy. This consensus statement summarizes our recommendations on diagnosis, monitoring, treatment, pregnancy, genetic counselling and testing in patients withACTA2-related vasculopathy. However, there is a clear need for additional prospective multicenter studies to further define proper guidelines.
+Abstract
+
+TheACTA2gene encodes for smooth muscle specific α-actin, a critical component of the contractile apparatus of the vascular smooth muscle cell. Pathogenic variants in theACTA2gene are the most frequently encountered genetic cause of non-syndromic hereditary thoracic aortic disease (HTAD). Although thoracic aortic aneurysm and/or dissection is the main clinical manifestation, a variety of occlusive vascular disease and extravascular manifestations occur inACTA2-related vasculopathy. Current data suggest possible mutation-specific manifestations of vascular and extra-aortic traits.
+
+Despite its relatively high prevalence, comprehensive recommendations on the care of patients and families with pathogenic variants inACTA2have not yet been established. We aimed to develop a consensus document to provide medical guidance for health care professionals involved in the diagnosis and treatment of patients and relatives with pathogenic variants inACTA2.
+
+The HTAD Working Group of the European Reference Network for Rare Vascular Diseases (VASCERN) convened to review current literature and discuss expert opinions on clinical management ofACTA2related vasculopathy. This consensus statement summarizes our recommendations on diagnosis, monitoring, treatment, pregnancy, genetic counselling and testing in patients withACTA2-related vasculopathy. However, there is a clear need for additional prospective multicenter studies to further define proper guidelines.
 
 P O S I T I O N S T A T E M E N T Open Access
 European reference network for rare

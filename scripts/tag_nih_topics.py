@@ -22,10 +22,12 @@ from __future__ import annotations
 
 import argparse
 import io
-import re
 from pathlib import Path
 
 from ruamel.yaml import YAML
+
+from dismech.conformance import iter_conforms_to, module_stem
+from dismech.yaml_io import safe_load
 
 ROOT = Path(__file__).resolve().parent.parent
 DISORDERS = ROOT / "kb" / "disorders"
@@ -56,11 +58,26 @@ RULES = [
     },
 ]
 
-_CONFORMS_RE = re.compile(r'conforms_to:\s*"?([a-zA-Z_]+)#')
+def _conforming_stems(node) -> set[str]:
+    """Module stems named by every ``conforms_to`` in a parsed entry.
+
+    Walks the parsed YAML rather than regexing the text, because a node may
+    list several module nodes (dismech#13923) and a regex on
+    ``conforms_to: "<stem>#`` misses every item of the list form.
+    """
+    stems: set[str] = set()
+    if isinstance(node, dict):
+        stems |= {module_stem(ref) for ref in iter_conforms_to(node)}
+        for value in node.values():
+            stems |= _conforming_stems(value)
+    elif isinstance(node, list):
+        for item in node:
+            stems |= _conforming_stems(item)
+    return stems
 
 
 def _matched_modules(text: str, module_labels: dict[str, str]) -> list[str]:
-    found = {m for m in _CONFORMS_RE.findall(text) if m in module_labels}
+    found = {m for m in _conforming_stems(safe_load(text)) if m in module_labels}
     # Preserve the rule's declared order for a stable, readable note.
     return [module_labels[m] for m in module_labels if m in found]
 

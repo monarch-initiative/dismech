@@ -73,6 +73,7 @@ import yaml
 from linkml_reference_validator.matching import split_supporting_text
 
 from dismech.frontmatter import split_frontmatter
+from dismech.reference_cache_names import cache_stems
 from dismech.yaml_io import safe_load
 
 DEFAULT_SCHEMA = Path("src/dismech/schema/dismech.yaml")
@@ -546,15 +547,6 @@ class CachedReferenceIndex:
         prefix = reference_id.split(":", 1)[0].upper() if ":" in reference_id else ""
         return bool(prefix) and prefix in self.skip_prefixes
 
-    @staticmethod
-    def _safe_id(reference_id: str) -> str:
-        return (
-            reference_id.replace(":", "_")
-            .replace("/", "_")
-            .replace("?", "_")
-            .replace("=", "_")
-        )
-
     def _build_filename_index(self) -> None:
         by_stem: dict[str, Path] = {}
         # A bare identifier (one the fetcher could not prefix, e.g. ``NCT06087757``)
@@ -578,21 +570,23 @@ class CachedReferenceIndex:
 
     def resolve_cache_path(self, reference_id: str) -> Path | None:
         """Locate the cache file for a reference id, or ``None`` if uncached."""
-        direct = self.cache_dir / f"{self._safe_id(reference_id)}.md"
-        if direct.is_file():
-            return direct
+        stems = cache_stems(reference_id)
+        for stem in stems:
+            direct = self.cache_dir / f"{stem}.md"
+            if direct.is_file():
+                return direct
 
         if self._by_stem is None or self._by_bare_id is None:
             self._build_filename_index()
         assert self._by_stem is not None and self._by_bare_id is not None
 
-        key = self._safe_id(reference_id).casefold()
         # DOI identifiers are case-insensitive in practice and the tracked cache
         # corpus carries mixed-case DOI filenames.
-        match = self._by_stem.get(key)
-        if match is not None:
-            return match
-        return self._by_bare_id.get(key)
+        for stem in stems:
+            match = self._by_stem.get(stem.casefold())
+            if match is not None:
+                return match
+        return self._by_bare_id.get(stems[0].casefold())
 
     @staticmethod
     def extract_body(text: str) -> str:
@@ -788,7 +782,9 @@ def check_pair(
     # neither a misquote nor an incomplete cache, and saying "not found as
     # substring" and stopping sends the curator looking for a paraphrase that
     # does not exist. The fix is a `literal_bracket_patterns` entry in
-    # conf/reference_validator_config.yaml, not a re-quote.
+    # conf/reference_validator_config.yaml, not a re-quote. For a single
+    # snippet an ellipsis over the stripped span also works, and the reason
+    # says so: curators who did not know truncated the quote instead (#9848).
     culprits = index.brackets_explaining_mismatch(pair.snippet, content)
     if culprits:
         spans = (
@@ -804,7 +800,12 @@ def check_pair(
                 f"(note: the snippet matches the cached text exactly once {spans} "
                 f"{verb} kept; bracketed spans are stripped before matching "
                 "unless conf/reference_validator_config.yaml lists a matching "
-                "literal_bracket_patterns entry)"
+                "literal_bracket_patterns entry. To quote across a stripped "
+                "span, replace it with ' ... ': text on either side of a run "
+                "of two or more dots is matched independently, so "
+                "'infection (0.50 [0.31-0.83]), or haematuria' can be written "
+                "'infection (0.50 ... or haematuria'. Bridge only text the "
+                "claim does not depend on)"
             ),
         )
 

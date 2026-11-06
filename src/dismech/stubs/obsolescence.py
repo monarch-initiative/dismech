@@ -68,6 +68,19 @@ _MONDO_CURIE_RE = re.compile(r"^MONDO:[0-9]{7}$")
 _PROPOSED_REPLACEMENT_RE = re.compile(r"replaced with (MONDO:[0-9]{7})")
 
 
+def proposed_replacement_in(note: str | None) -> str | None:
+    """The survivor a MONDO scheduled-merge note names, or `None`.
+
+    Shared by the live reader (`TermStatus.proposed_replacement`) and the
+    offline check, which reads the same note back out of a stub's
+    `mondo_obsoletion_candidate`, so the two cannot disagree about it. Only
+    MONDO's fixed "replaced with MONDO:NNNNNNN" phrasing counts: a "term to
+    consider" is a suggestion, not a successor.
+    """
+    match = _PROPOSED_REPLACEMENT_RE.search(note or "")
+    return match.group(1) if match else None
+
+
 def default_mondo_db() -> Path:
     """Where OAK keeps `mondo.db`.
 
@@ -127,8 +140,7 @@ class TermStatus:
         """
         if self.replaced_by:
             return self.replaced_by
-        match = _PROPOSED_REPLACEMENT_RE.search(self.obsoletion_note or "")
-        return match.group(1) if match else None
+        return proposed_replacement_in(self.obsoletion_note)
 
     def describe(self) -> str:
         if self.obsolete and self.replaced_by:

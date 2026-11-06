@@ -1,0 +1,13 @@
+---
+reference_id: GEO:GSE97254
+extractor_version: 1
+title: Patients Experiencing Statin-Induced Myalgia Exhibit a Unique Program of Skeletal Muscle Gene Expression Following Statin Re-challenge
+content_type: summary
+full_text_attempted: true
+---
+
+# Patients Experiencing Statin-Induced Myalgia Exhibit a Unique Program of Skeletal Muscle Gene Expression Following Statin Re-challenge
+
+## Content
+
+Statins, the 3-hydroxy-3-methyl-glutaryl (HMG)-CoA reductase inhibitors, are widely prescribed for treatment of hypercholesterolemia. Although statins are generally well tolerated, up to ten percent of patients taking statins experience muscle related adverse events. Myalgia, defined as muscle pain without elevated creatinine phosphokinase (CPK) levels, is the most frequent reason for discontinuation of statin therapy. The mechanisms underlying statin-associated myalgia are not clearly understood. To elucidate changes in gene expression associated with statin-induced myalgia, we compared profiles of gene expression in the biopsied skeletal muscle from statin-intolerant patients undergoing statin re-challenge versus those of statin-tolerant controls. A robust separation of statin-intolerant and statin-tolerant cohorts was revealed by Principal Component Analysis of differentially expressed genes (DEGs). To identify putative gene expression and metabolic pathways that may be perturbed in skeletal muscles of statin intolerant patients, we subjected DEGs to Ingenuity Pathways (IPA) and DAVID (Database for Annotation, Visualization and Integrated Discovery) analyses. The most prominent pathways altered by statins included cellular stress, apoptosis, senescence and DNA repair (TP53, BARD1, Mre11 and RAD51); activation of pro-inflammatory immune response (CXCL12, CST5, POU2F1); protein catabolism, cholesterol biosynthesis, protein prenylation and RAS-GTPase activation (FDFT1, LSS, TP53, UBD, ATF2, H-ras). Based on these data we tentatively conclude that persistent myalgia in response to statins may emanate from cellular stress underpinned by mechanisms of post-inflammatory repair and regeneration. We also posit that this subset of individuals are genetically predisposed to eliciting altered statin metabolism and/or increased end-organ susceptibility that lead to a range of statin-induced myopathies. This mechanistic scenario further bolstered by the discovery that a number of single nucleotide polymorphisms (e.g., SLCO1B1, SLCO2B1 and RYR2) associated with statin myopathy were observed with increased frequency among statin-intolerant study subjects.

@@ -51,15 +51,15 @@ def test_iter_nodes_extracts_text_and_labels(tmp_path):
 
     activation = nodes[0]
     assert activation.disease == "Test_Disease"
-    assert activation.conforms_to == "fibrotic_response#Mesenchymal Cell Activation"
+    assert activation.conforms_to == ("fibrotic_response#Mesenchymal Cell Activation",)
     # text = node label + ontology term labels (not preferred_terms)
     assert activation.text == "Macrophage Activation. macrophage. inflammatory response"
-    assert nodes[1].conforms_to is None
+    assert nodes[1].conforms_to == ()
     assert nodes[1].text == "Bare Node"
 
 
 def test_text_dedup_is_case_insensitive():
-    node = PathoNode("D", "Inflammation", None, ("inflammation", "Fibrosis"))
+    node = PathoNode("D", "Inflammation", (), ("inflammation", "Fibrosis"))
     assert node.text == "Inflammation. Fibrosis"
 
 
@@ -121,9 +121,9 @@ def test_register_and_use_custom_backend():
     register_backend("fake", _HashEmbedder)
     embedder = get_embedder("fake")
     nodes = [
-        PathoNode("D1", "alpha", "M#X", ()),
-        PathoNode("D2", "alpha", "M#X", ()),  # identical text -> identical embedding
-        PathoNode("D3", "totally different beta gamma", "M#Y", ()),
+        PathoNode("D1", "alpha", ("M#X",), ()),
+        PathoNode("D2", "alpha", ("M#X",), ()),  # identical text -> identical embedding
+        PathoNode("D3", "totally different beta gamma", ("M#Y",), ()),
     ]
     sim = cosine_matrix(embedder.embed([n.text for n in nodes]))
     # identical-text same-label pair must be the most similar off-diagonal entry

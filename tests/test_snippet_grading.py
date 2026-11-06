@@ -16,19 +16,26 @@ from pathlib import Path
 from scripts import check_snippet_grading as csg
 from scripts.check_snippet_grading import (
     BASELINE_REF_ENV,
+    CROSS_FILE_BASELINE_PATH,
     GATED_FIELDS,
     GRADING_DEFAULTS,
     MIN_OVERLAP_WORDS,
     _baseline_key,
+    _cross_file_key,
     _resolve_fields,
     baseline_from_ref,
+    collect_items,
+    count_cross_file,
+    find_cross_file_violations,
     find_violations,
     format_finding,
     load_baseline,
+    new_cross_file_findings,
     new_findings,
     resolve_baseline,
-    scan_repo,
+    within_file_findings,
     write_baseline,
+    write_cross_file_baseline,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -59,14 +66,33 @@ def test_no_new_snippet_grading_divergences():
     # resolve_baseline() grandfathers against origin/main when CI sets
     # SNIPPET_GRADING_BASELINE_REF (so the base branch is green by construction
     # and parallel merges cannot clobber the grandfather set), and falls back to
-    # the committed baseline for local runs / shallow checkouts.
-    baseline = resolve_baseline()
-    new = [format_finding(finding) for finding in new_findings(scan_repo(), baseline)]
+    # the committed baseline for local runs / shallow checkouts. kb/ is parsed
+    # once and checked both per file and across files (#11221).
+    documents = collect_items()
+    excerpt_fields, reference_fields = csg._field_names(None)
+    findings = within_file_findings(
+        documents, excerpt_fields, reference_fields, GATED_FIELDS
+    )
+    cross = sorted(
+        find_cross_file_violations(documents, excerpt_fields, reference_fields)
+    )
+    new = [
+        format_finding(finding)
+        for finding in new_findings(findings, resolve_baseline())
+    ]
+    new += [
+        csg.format_cross_file_finding(finding)
+        for finding in new_cross_file_findings(
+            cross, resolve_baseline(cross_file=True)
+        )
+    ]
     assert not new, (
         "New snippet-grading divergence(s) detected. `evidence_source` describes "
         "the cited publication, not the block the quote sits in, so one sentence "
-        "cannot carry two values in one file. Grade the quote once, or quote the "
-        "sentence that actually makes each claim:\n  " + "\n  ".join(new)
+        "cannot carry two values in one file, nor HUMAN_CLINICAL in one file and "
+        "IN_VITRO/MODEL_ORGANISM/COMPUTATIONAL in another. Grade the quote once, "
+        "or quote the sentence that actually makes each claim:\n  "
+        + "\n  ".join(new)
     )
 
 
@@ -415,3 +441,160 @@ def test_resolve_baseline_falls_back_when_the_ref_is_unreadable(monkeypatch):
     monkeypatch.setattr(csg, "baseline_from_ref", lambda ref, **kw: None)
     monkeypatch.delenv(BASELINE_REF_ENV, raising=False)
     assert resolve_baseline("bad-ref") == load_baseline()
+
+
+# --- across files (#11221) ----------------------------------------------------
+
+
+def _cross(*documents):
+    """Cross-file findings for ``(relpath, data)`` *documents*."""
+    return sorted(
+        find_cross_file_violations(documents, EXCERPT_FIELDS, REFERENCE_FIELDS)
+    )
+
+
+def test_cross_file_human_clinical_against_in_vitro_is_gated():
+    found = _cross(
+        ("kb/disorders/A.yaml", _doc(_item(SENTENCE))),
+        ("kb/disorders/B.yaml", _doc(_item(SENTENCE, evidence_source="IN_VITRO"))),
+    )
+    assert len(found) == 1
+    finding = found[0]
+    assert finding.gated
+    assert (finding.path_a, finding.value_a) == ("kb/disorders/A.yaml", "HUMAN_CLINICAL")
+    assert (finding.path_b, finding.value_b) == ("kb/disorders/B.yaml", "IN_VITRO")
+    assert new_cross_file_findings(found, Counter()) == found
+
+
+def test_cross_file_pair_involving_other_is_reported_but_not_gated():
+    # HUMAN_CLINICAL vs OTHER is the open convention question in #10273, so it
+    # is listed and never fails the gate.
+    found = _cross(
+        ("kb/disorders/A.yaml", _doc(_item(SENTENCE, evidence_source="OTHER"))),
+        ("kb/disorders/B.yaml", _doc(_item(SENTENCE))),
+    )
+    assert len(found) == 1
+    assert not found[0].gated
+    assert new_cross_file_findings(found, Counter()) == []
+    assert count_cross_file(found) == Counter()
+    assert "[report-only]" in csg.format_cross_file_finding(found[0])
+
+
+def test_cross_file_pair_of_two_experimental_sources_is_report_only():
+    found = _cross(
+        ("kb/disorders/A.yaml", _doc(_item(SENTENCE, evidence_source="IN_VITRO"))),
+        (
+            "kb/disorders/B.yaml",
+            _doc(_item(SENTENCE, evidence_source="MODEL_ORGANISM")),
+        ),
+    )
+    assert len(found) == 1 and not found[0].gated
+
+
+def test_cross_file_ignores_pairs_inside_one_file():
+    # Those are find_violations' job; reporting them here would double count.
+    document = _doc(_item(SENTENCE), _item(SENTENCE, evidence_source="IN_VITRO"))
+    assert _cross(("kb/disorders/A.yaml", document)) == []
+    assert len(_violations(document)) == 1
+
+
+def test_cross_file_agreeing_gradings_and_other_references_are_fine():
+    assert (
+        _cross(
+            ("kb/disorders/A.yaml", _doc(_item(SENTENCE))),
+            ("kb/disorders/B.yaml", _doc(_item(SENTENCE))),
+            (
+                "kb/disorders/C.yaml",
+                _doc(_item(SENTENCE, reference="PMID:2", evidence_source="IN_VITRO")),
+            ),
+        )
+        == []
+    )
+
+
+def test_cross_file_compares_a_contained_extent():
+    longer = SENTENCE + " Loss of activity raises methylglyoxal levels."
+    found = _cross(
+        ("kb/disorders/A.yaml", _doc(_item(longer))),
+        ("kb/disorders/B.yaml", _doc(_item(SENTENCE, evidence_source="IN_VITRO"))),
+    )
+    assert [f.quote for f in found] == [SENTENCE]
+
+
+def test_cross_file_key_does_not_depend_on_scan_order():
+    a = ("kb/disorders/A.yaml", _doc(_item(SENTENCE)))
+    b = ("kb/disorders/B.yaml", _doc(_item(SENTENCE, evidence_source="IN_VITRO")))
+    assert [_cross_file_key(f) for f in _cross(a, b)] == [
+        _cross_file_key(f) for f in _cross(b, a)
+    ]
+
+
+def test_cross_file_baseline_grandfathers_only_recorded_pairs(tmp_path):
+    old = _cross(
+        ("kb/disorders/A.yaml", _doc(_item(SENTENCE))),
+        ("kb/disorders/B.yaml", _doc(_item(SENTENCE, evidence_source="IN_VITRO"))),
+    )
+    path = tmp_path / "cross.txt"
+    write_cross_file_baseline(old, path)
+    baseline = load_baseline(path)
+    assert new_cross_file_findings(old, baseline) == []
+
+    # A third file disagreeing with A is a new pair, even though A-B is known.
+    grown = _cross(
+        ("kb/disorders/A.yaml", _doc(_item(SENTENCE))),
+        ("kb/disorders/B.yaml", _doc(_item(SENTENCE, evidence_source="IN_VITRO"))),
+        (
+            "kb/disorders/C.yaml",
+            _doc(_item(SENTENCE, evidence_source="MODEL_ORGANISM")),
+        ),
+    )
+    new = new_cross_file_findings(grown, baseline)
+    assert [(f.path_a, f.path_b) for f in new] == [
+        ("kb/disorders/A.yaml", "kb/disorders/C.yaml")
+    ]
+
+
+def test_committed_cross_file_baseline_holds_only_gated_pairs():
+    gated = {"|".join(sorted(pair)) for pair in csg.GATED_CROSS_FILE_PAIRS}
+    for line in CROSS_FILE_BASELINE_PATH.read_text(encoding="utf-8").splitlines():
+        if line.startswith("#") or not line:
+            continue
+        values = line.split("\t")[4]
+        assert "|".join(sorted(values.split("|"))) in gated, line
+
+
+def test_baseline_from_ref_reads_cross_file_pairs_at_the_ref(tmp_path):
+    disorders = tmp_path / "kb" / "disorders"
+    disorders.mkdir(parents=True)
+    for name, source in (("A", "HUMAN_CLINICAL"), ("B", "MODEL_ORGANISM")):
+        (disorders / f"{name}.yaml").write_text(
+            "name: T\n"
+            "pathophysiology:\n"
+            "- name: N\n"
+            "  evidence:\n"
+            "  - reference: PMID:1\n"
+            f"    evidence_source: {source}\n"
+            f"    snippet: {SENTENCE}\n",
+            encoding="utf-8",
+        )
+    _init_git_repo(tmp_path)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "seed"], cwd=tmp_path, check=True)
+
+    counts = baseline_from_ref("HEAD", root=tmp_path, cross_file=True)
+    assert counts == Counter(
+        {
+            "kb/disorders/A.yaml\tkb/disorders/B.yaml\tPMID:1\t"
+            f"HUMAN_CLINICAL|MODEL_ORGANISM\t{SENTENCE}": 1
+        }
+    )
+    # The per-file baseline at the same ref is empty: the pair spans two files.
+    assert baseline_from_ref("HEAD", root=tmp_path) == Counter()
+
+
+def test_resolve_cross_file_baseline_falls_back_to_its_own_file(monkeypatch):
+    monkeypatch.setattr(csg, "baseline_from_ref", lambda ref, **kw: None)
+    monkeypatch.delenv(BASELINE_REF_ENV, raising=False)
+    assert resolve_baseline("bad-ref", cross_file=True) == load_baseline(
+        CROSS_FILE_BASELINE_PATH
+    )

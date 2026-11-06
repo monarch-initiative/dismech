@@ -270,7 +270,7 @@ the *causal evidence* actually changes.
 
 The pathograph loads two libraries via CDN:
 
-- **D3.js v7** (`https://d3js.org/d3.v7.min.js`) — SVG rendering, zoom, event handling
+- **D3.js 7.9.0** (`https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js`) — SVG rendering, zoom, event handling
 - **dagre 0.8.5** (`https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js`) — Hierarchical graph layout algorithm
 
 No build step or bundling is required. The libraries load directly in the browser.
@@ -290,7 +290,7 @@ The screenshot script uses Playwright with Chromium:
 
 ```bash
 # Ensure D3/dagre are cached locally for headless browser
-curl -sL https://d3js.org/d3.v7.min.js -o /tmp/d3.v7.min.js
+curl -sL https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js -o /tmp/d3.min.js
 curl -sL https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js -o /tmp/dagre.min.js
 
 # Render disorder pages first
