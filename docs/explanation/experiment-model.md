@@ -17,30 +17,35 @@ the execution standards and the Ewing sarcoma demonstrator but specifies no sche
 
 ## 1. The evidence that the flat class is failing
 
-Across `kb/` there are **2,378 proposed experiments in 800 files**. Their slot
-fill rates:
+Across `kb/` there are **3,191 proposed experiments in 1,186 files** (measured
+2026-10-31; the corpus grew 34% in the two weeks this note was being written, so
+treat any absolute count here as dated). Their slot fill rates:
 
 | Slot | Fill |
 |---|---|
 | `experiment_id`, `name` | 100% |
-| `description` | 99.7% |
-| `decision_criterion` | 30.5% |
-| `would_support` | 15.6% |
-| `experiment_type` | 15.5% |
-| `readouts` | 12.2% |
-| `supporting_outcome` | 9.5% |
-| `controls` | 6.4% |
-| `model_systems` | 5.7% |
+| `description` | 99.8% |
+| `experiment_design` | 36.7% (backfilled; see §9) |
+| `would_support` | 27.3% |
+| `decision_criterion` | 26.4% |
+| `experiment_type` | 13.4% |
+| `readouts` | 13.1% |
 | `perturbations` | 5.0% |
-| `evidence` | 2.3% |
+| `model_systems` | 4.6% |
 | `assays` | 0.5% |
+| `executability` | 0% |
 
 Two readings are possible. Either curators are not filling in slots they could
 fill, or the slots do not fit what they are trying to say. The `experiment_type`
-values settle it: of 368 populated values there are **330 distinct strings and
+values settle it: of 428 populated values there are **384 distinct strings and
 exactly one ontology CURIE** (`OBI:0003552`, in a single entry). Curators are
 hand-rolling a taxonomy the schema declined to give them, and writing the rest
-into `description` — the one slot that fits everything, at 99.7%.
+into `description` — the one slot that fits everything, at 99.8%.
+
+The ratio is also getting *worse*, which is the strongest evidence that this is
+a schema problem rather than a curation-effort problem: the free-text slot went
+from 330 distinct strings in 368 values to 384 in 428, so almost every new
+experiment that fills it invents a new string.
 
 Note that `experiment_type` is documented as "prefer OBI terms when available."
 That instruction is currently unfollowable: OBI is absent from
@@ -182,7 +187,7 @@ far a proposal has been specified. A small closed enum on the base class:
 |---|---|
 | `CONCEPTUAL` | A design sketch in prose. The result would be interpretable, but the experiment is not specified enough to hand to anyone. |
 | `SPECIFIED` | Model system, perturbation, readout and comparator are named as structured objects. A domain expert could write the protocol. |
-| `PARAMETERIZED` | Bound to a named external protocol, with dismech supplying the scientific parameters. |
+| `PARAMETERIZED` | Bound to a named external protocol, with dismech supplying the scientific parameters. In practice the signal for this rung is an `executable_protocols` entry (§5). |
 | `EXECUTABLE` | The bound protocol is machine-runnable and its parameters are complete. |
 
 Today **all 2,378 would be `CONCEPTUAL`**, and stating that plainly is the point.
@@ -190,37 +195,63 @@ The ladder is worth adding on its own merit even if no protocol is ever bound: i
 converts "we have 2,378 proposed experiments" — which invites the reading that
 they are ready to run — into a defensible claim.
 
-## 5. Protocol binding
+## 5. Protocol binding — largely built upstream already
 
-The handle to layer 2, on the base class:
+**This section originally proposed a `protocol_binding` slot. While this note was
+being written, `Experiment.executable_protocols` landed on `main`, and it covers
+most of what that proposal was for.** The proposal is superseded rather than
+pending, and what remains open is narrower than it was.
 
-```yaml
-executability: PARAMETERIZED
-protocol_binding:
-  protocol: labop:ht-faire-384/v2.1   # or a protocols.io DOI, or repo + tag
-  protocol_format: LABOP              # LABOP | AUTOPROTOCOL | PROTOCOLS_IO | OTHER
-  parameters:                          # dismech supplies SCIENTIFIC parameters only
-    cell_panel: [A673, SK-N-MC]
-    sentinel_loci: GGAA microsatellite enhancers
-    perturbation: ETV6 degrader
-```
+The shipped `ExecutableProtocol` class records "a concrete, orderable protocol at
+a named provider that would execute some or all of a proposed experiment": a
+required `name` as the provider publishes it, plus `provider`, `venue_type`,
+`protocol_id`, `protocol_url`, `inputs_required`, `retrieved_date`, and
+`measures` — the pathograph nodes it would return a measurement on. Currently
+used in one entry (`Prolidase_Deficiency`).
 
-`protocol_reference` already exists as a free string ("PMID, DOI, protocols.io
-DOI, URL, or other stable identifier"). `protocol_binding` is the structured
-successor for the executable case; the free-text slot stays for citing a methods
-paper.
+It is a better fit for this note's argument than the `protocol_binding` sketch
+was, in three ways worth recording:
 
-**The honest assessment of the cloud-lab distance.** The gap between what dismech
-holds and what Emerald or Strateos accepts is not a schema gap. The Ewing
-demonstrator — the richest proposed experiment in the KB — currently says:
+- **It is explicitly a feasibility note, not a plan.** Its own comment says
+  recording a protocol "does not propose, authorise, fund, or commit to running
+  anything, and it is not evidence about the disease". That is the layer-1 /
+  layer-2 boundary from §3, enforced in the class's documentation.
+- **`measures` points into the pathograph**, so a recorded service is tied to the
+  node whose gap it would close — the same discipline `would_support` applies to
+  the decision rule, and more than the opaque parameter map in the old sketch.
+- **It deliberately carries no price, turnaround, or throughput**, on the grounds
+  that those "go out of date without any signal that they have, and reproducing a
+  vendor's price list is not this knowledge base's job". `test_executable_protocol_schema.py`
+  gates both that exclusion and the rule that a catalogue identifier is never
+  recorded without `retrieved_date`.
+
+Two things the old sketch had that the shipped class does not, and only one of
+them is a real gap:
+
+- **A machine-readable protocol *format*** (`LABOP` / `AUTOPROTOCOL` /
+  `PROTOCOLS_IO`). A `protocol_url` at a provider is orderable by a human; it is
+  not a document an automation core can execute. This is the remaining gap, and
+  it is only worth closing if someone actually has automation access — see §9 on
+  how thin the executable slice turns out to be.
+- **A parameter map** for the scientific parameters dismech supplies.
+  `inputs_required` already covers the useful half of this, and a free-form map
+  would have been the weakest part of the sketch. Not a gap.
+
+`protocol_reference` remains the right slot for citing a *methods paper*; the two
+are properly distinguished in the shipped slot's own description.
+
+**The honest assessment of the cloud-lab distance is unchanged.** The gap between
+what dismech holds and what Emerald or Strateos accepts is not a schema gap. The
+Ewing demonstrator — still the richest proposed experiment in the KB — says:
 
 > "Screen annotated epigenetic compounds, targeted degraders, kinase/chemical-probe
 > libraries, and EWS-FLI1 or ETV6 perturbation controls"
 
 An Autoprotocol run needs specific catalog numbers, concentrations, plate layouts,
 timings and instrument models. No set of LinkML slots closes that distance from
-the curation side, and a schema-wide push on execution detail would produce 2,378
-empty slots — the failure mode `experiment_type` is already demonstrating.
+the curation side, and a schema-wide push on execution detail would produce
+thousands of empty slots — the failure mode `experiment_type` is already
+demonstrating.
 
 ## 6. What dismech actually owns
 
@@ -266,10 +297,10 @@ one concept, which is the shape of the `PARTIAL` / `directness` conflation that
 | Stage | Work | Value absent any automation |
 |---|---|---|
 | 1a | **ENACTED.** `ExperimentDesignEnum` (8 values) + `ExperimentExecutabilityEnum` (4) as optional `experiment_design` / `executability` slots on `Experiment`; `animal_models` and `computational_models` added to the `Experiment` class | High. Makes 2,378 experiments classifiable and closes the `OTHER` leak. The 330 free-text strings cluster into the 8 families and can be backfilled semi-mechanically. |
-| 1b | Backfill `experiment_design` from the 330 free-text `experiment_type` strings; migrate the `OTHER` model systems into the two new slots | High. Turns the enum from available into populated. |
-| 1c | Per-family detail blocks (`screen_details`, `cohort_details`, …), either as `is_a` subclasses or as the discriminator-plus-detail-block idiom `therapeutic_modality` / `aso_details` already uses | Medium. Deferred until 1b shows which families actually carry weight. |
+| 1b | **ENACTED for the backfill (§9).** 1,172 of 3,191 experiments classified, 2,019 worklisted. The model-system migration is **not** done: only 17 of 59 are migrations, each needs an `organism`→`species` transformation, and 21 are human cohorts with no home in the schema at all | High. The enum went from available to the third-best-filled slot on `Experiment`. |
+| 1c | Per-family detail blocks (`screen_details`, `cohort_details`, …), either as `is_a` subclasses or as the discriminator-plus-detail-block idiom `therapeutic_modality` / `aso_details` already uses. **1b has now sized these:** targeted perturbation (676) and human observational (319) are where the weight is, and the latter needs a study-population slot to absorb the 21 homeless cohorts | Medium-high. 1b showed which families carry weight, and that one of them is leaking into `model_systems: OTHER`. |
 | 2 | Structure `decision_criterion` as a `DecisionRule`, unified with the §12 experiment-grounded evidence design; add the return path from `EvidenceItem` | High. This is the pre-registration and the round-trip — the part that is dismech's own. |
-| 3 | `protocol_binding` + `protocol_format`, applied to the Ewing demonstrator only | Low breadth, high signal. One worked exemplar, not a KB-wide push. |
+| 3 | **Largely superseded** by `Experiment.executable_protocols`, which landed upstream (§5). What remains is a machine-readable `protocol_format`, worth doing only with real automation access | Low breadth. One worked exemplar at most, not a KB-wide push. |
 
 Stages 1 and 2 pay for themselves whether or not a robot ever runs anything.
 Stage 3 should stay a single exemplar until someone has actual automation-core
@@ -277,7 +308,7 @@ access.
 
 **Why 1a landed the discriminator rather than the subclasses the staging table
 originally called for.** Both are wanted, but the enum is the part that can be
-populated on all 2,378 experiments today, and it is what makes the backfill in 1b
+populated on every experiment today, and it is what makes the backfill in 1b
 possible at all: a subclass cannot be chosen for an instance until the
 family-specific slots exist to justify the choice, so subclassing first would have
 produced four empty classes and no classified experiments. The enum also supplies
@@ -285,7 +316,80 @@ the diagnosable error that bare subclassing lacks (see §2), and it is gated for
 free — `check_enum_values.py` is an ungated, whole-KB CI step, so a bad
 `experiment_design` fails on any PR, including a `kb/`-only one.
 
-## 9. Explicitly rejected
+## 9. What the backfill actually achieved (stage 1b)
+
+`scripts/backfill_experiment_design.py` assigned **1,172 of 3,191 experiments
+(36.7%)**, across 729 files, in a diff that is 1,172 insertions and zero
+deletions. That single slot is now better filled than `decision_criterion`
+(26.4%) and nearly three times better filled than the `experiment_type` it
+supersedes (13.4%).
+
+| Family | n |
+|---|---|
+| TARGETED_PERTURBATION | 676 |
+| HUMAN_OBSERVATIONAL | 319 |
+| DESCRIPTIVE_PROFILING | 113 |
+| INTERVENTIONAL_TRIAL | 61 |
+| PERTURBATION_SCREEN | 2 |
+| IN_SILICO | 1 |
+
+The remaining 2,019 are in
+`docs/reports/data/experiment-design-backfill-worklist-2026-10-31.tsv` with the
+reason each was skipped. They are deliberately left absent: 1,877 raise no
+unambiguous anchor at all, 108 use a perturbation word only for a comparator,
+and 34 raise anchors from two families, where `MIXED` is a curator's judgement
+that a script cannot make. This follows `scripts/migrate_supports_enum.py`,
+which refused on the same grounds to guess a `directness` nobody had assessed.
+
+**Precision was measured, not assumed.** Two blind stratified samples were read
+by hand against the enum definitions: 80% on the first rules, 94% after scoping
+matches to the experiment's *method statement*, and the two residual failures in
+that sample are exactly what the screen-name and human-study-unit guards in the
+script now catch. It is not 100%, so the annotation is advisory and the diff is
+meant to be read.
+
+**The distribution is itself a finding.** `PERTURBATION_SCREEN` matches twice in
+3,191 experiments. The flagship cloud-lab demonstrator in
+`projects/AUTONOMOUS_LABS.md` is a high-throughput chromatin screen, and the
+automation standards that project names — LabOP, Autoprotocol, SiLA — are built
+for exactly that shape of experiment. But the KB's proposed experiments are
+overwhelmingly *targeted* perturbations and *human* studies, neither of which a
+cloud lab can run. This does not sink the project; it does mean the executable
+slice is far thinner than the headline count of 3,191 proposals suggests, and
+stage 3 should be sized against the screens, not the corpus.
+
+### The model-system migration is curation, not migration
+
+Of the 59 model systems still carrying `OTHER` or no type
+(`docs/reports/data/experiment-model-systems-worklist-2026-10-31.tsv`):
+
+| Classification | n | Disposition |
+|---|---|---|
+| Human cohort | 21 | **No schema home** — see below |
+| Animal model | 15 | Move to `animal_models` |
+| NAM missing its type | 10 | Stays; needs a real `experimental_model_type` |
+| Unclear | 11 | Curator judgement |
+| Computational | 2 | Move to `computational_models` |
+
+So only 17 are migrations, and they are **not moves**: `ExperimentalModel`
+carries `organism`, `AnimalModel` carries `species` plus `genotype`, so each one
+is a data transformation. Several name no species at all ("Gyrencephalic
+mammalian model", "Genotype-specific arrhythmogenic cardiomyopathy models"), and
+scripting a `species` value for those would fabricate one. They are left as
+curator work with the worklist committed, rather than mechanically mis-tagged —
+the failure CLAUDE.md records for the nutritional-support treatment backfill.
+
+**The 21 human cohorts are the real finding, and they change stage 1c.** A
+patient cohort is not a model system under any of the three classes, because it
+is not a model of anything — it is the study population. The three-way split
+inherited from the disease level (`experimental_models` / `animal_models` /
+`computational_models`) has no fourth branch for human subjects, and curators
+with nowhere else to put a cohort put it in `model_systems: OTHER`. That is an
+argument for the `HUMAN_OBSERVATIONAL` detail block in stage 1c carrying the
+study population as a first-class slot — and, incidentally, the single largest
+use of the `OTHER` bucket this note set out to close.
+
+## 10. Explicitly rejected
 
 - **Subclassing by every parameter.** A class per assay type would multiply
   indefinitely and re-create the 330-string problem in class names.
@@ -301,8 +405,12 @@ free — `check_enum_values.py` is an ungated, whole-KB CI step, so a bad
 
 ## Sources
 
-- Slot fill rates and `OTHER`-bucket contents: computed over `kb/**/*.yaml`,
-  2026-09-02.
+- Slot fill rates, design distribution and `OTHER`-bucket contents: computed
+  over `kb/**/*.yaml`, 2026-10-31. The corpus is growing fast (2,378 experiments
+  on 2026-09-02, 3,191 on 2026-10-31), so recompute rather than quoting these.
+- Backfill tooling and worklists: `scripts/backfill_experiment_design.py`,
+  `docs/reports/data/experiment-design-backfill-worklist-2026-10-31.tsv`,
+  `docs/reports/data/experiment-model-systems-worklist-2026-10-31.tsv`.
 - Strategy, execution standards (LabOP, Autoprotocol, SiLA 2), and the Ewing
   demonstrator: [`projects/AUTONOMOUS_LABS.md`](../../projects/AUTONOMOUS_LABS.md).
 - Ewing curation target: `kb/disorders/Ewing_Sarcoma.yaml`,
