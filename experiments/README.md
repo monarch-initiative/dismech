@@ -24,4 +24,5 @@ numbers can be regenerated rather than trusted.
 | Experiment | Question | Runs |
 |---|---|---|
 | [`interannotator/`](interannotator/) | How much of a dismech entry is determined by the evidence, and how much by the curator? Each run curates one disease twice, independently, and measures where the versions agree. | 1 |
+| [`entry_growth/`](entry_growth/) | How does one entry grow as it is curated? Each run measures a single entry at every commit that touched it, up to a pinned commit, and separates commits about that entry from sweeps across the knowledge base. | 1 |
 | [`human_gi_bpm/`](human_gi_bpm/) | Does Between-Pathway-Model mining (GIDEON-style compensatory-pathway search) transfer from yeast to the Billmann 2026 human HAP1 genetic interaction map, and do the module pairs land on dismech-curated disease genes? | 1 |

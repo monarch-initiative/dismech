@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDH12-Related Dominant Retinopathy · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>RDH12-Related Dominant Retinopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>RDH12-Related Dominant Retinopathy</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-11-04</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0800100" target="_blank" rel="noopener noreferrer">MONDO:0800100</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> RDH12-related dominant retinopathy is a rare inherited retinal dystrophy (IRD) transmitted in an autosomal dominant fashion and caused by specific heterozygous C-terminal frameshift variants in <em>RDH12</em>. Clinically it is a <strong>comparatively mild, late(r)-onset rod–cone dystrophy / retinitis pigmentosa</strong> with variable expressivity and incomplete penetrance — in sharp contrast to the severe, blinding, childhood-onset recessive disease caused by biallelic <em>RDH12</em> loss-of-function. The first dominant family (Fingert et al. 2008, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/18779497/" target="_blank" rel="noopener noreferrer">PMID 18779497</a></strong> [human clinical]) had "a mild form of RP" with "late onset and relatively mild severity … dramatically different from the other disease associated with mutation in this gene, autosomal recessive Leber congenital amaurosis." The most completely characterized dominant pedigree (Muthiah et al. 2022, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/34031043/" target="_blank" rel="noopener noreferrer">PMID 34031043</a></strong> [human clinical]) reclassified the phenotype as a rod–cone dystrophy with variable expression.</p>
+<p><strong>Key identifiers.</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0800100" target="_blank" rel="noopener noreferrer">MONDO:0800100</a> (RDH12-related dominant retinopathy).
+- <strong>Gene OMIM:</strong> <em>RDH12</em> 608830. <strong>Phenotype OMIM:</strong> no distinct dominant phenotype MIM number is currently assigned; the recessive allelic disorder is "Leber congenital amaurosis 13" OMIM #612712. The dominant RP is described in the literature but not given its own MIM phenotype number (consistent with the template note "OMIM: not recorded").
+- <strong>Orphanet:</strong> No dominant-specific ORPHA code; related umbrella entities are retinitis pigmentosa (<a href="https://bioregistry.io/ORPHA:791" target="_blank" rel="noopener noreferrer">ORPHA:791</a>) and Leber congenital amaurosis (<a href="https://bioregistry.io/ORPHA:65" target="_blank" rel="noopener noreferrer">ORPHA:65</a>).
+- <strong>ICD-11:</strong> 9B70 Retinitis pigmentosa / hereditary retinal dystrophy (9B70.0). <strong>ICD-10:</strong> H35.52 (pigmentary retinal dystrophy).
+- <strong>MeSH:</strong> Retinitis Pigmentosa (D012174); Retinal Dystrophies (D058499).
+- <strong>HGNC:</strong> 19977. <strong>UniProt:</strong> Q96NR8.</p>
+<p><strong>Synonyms / alternative names.</strong> Autosomal dominant RDH12-related retinal dystrophy; autosomal dominant RDH12 retinopathy; RDH12-associated autosomal dominant retinitis pigmentosa; RDH12 rod–cone dystrophy (dominant).</p>
+<p><strong>Information source.</strong> Disease-level aggregated resources (OMIM, ClinVar, gnomAD, Ensembl) plus <strong>individual-patient</strong> case series/pedigree studies (Fingert 2008; Muthiah 2022). No EHR-scale datasets exist for this ultra-rare entity.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause — genetic.</strong> The disease is monogenic/Mendelian, caused by <strong>heterozygous pathogenic variants in <em>RDH12</em></strong>. Reported dominant alleles are C-terminal single-nucleotide frameshifts clustering around codons 253–260:
+- <strong>c.776delG (776delG)</strong> — original dominant family (Fingert et al. 2008, <a href="https://pubmed.ncbi.nlm.nih.gov/18779497/" target="_blank" rel="noopener noreferrer">PMID 18779497</a>) [human clinical].
+- <strong>c.763delG</strong> — four-generation British pedigree (Muthiah et al. 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/34031043/" target="_blank" rel="noopener noreferrer">PMID 34031043</a>) [human clinical].
+- <strong>c.759del, p.(Phe254Leufs*24)</strong> — dominant RP patient used to derive iPSC line UCLi014-A (Sarkar et al. 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/34216980/" target="_blank" rel="noopener noreferrer">PMID 34216980</a>) [human clinical / in vitro].</p>
+<p><strong>Risk factors.</strong>
+- <em>Genetic:</em> The causal heterozygous <em>RDH12</em> frameshift is the sole established determinant. A positive <strong>family history</strong> is the dominant risk indicator. No susceptibility loci or validated modifier genes are reported for the dominant form.
+- <em>Environmental/other:</em> No proven environmental, occupational, infectious, lifestyle, age, or sex risk factors. <strong>Light exposure</strong> is a biologically plausible modulator (RDH12 detoxifies light-generated retinaldehyde; Rdh12⁻/⁻ mice show light-induced photoreceptor apoptosis — Maeda et al. 2006, <a href="https://pubmed.ncbi.nlm.nih.gov/17032653/" target="_blank" rel="noopener noreferrer">PMID 17032653</a> [model organism]), but no clinical evidence links ambient light to dominant-disease severity.</p>
+<p><strong>Protective factors.</strong> None established. Genotype itself is protective relative to the recessive disease: within the recessive spectrum, homozygosity for the hypomorphic p.Leu99Ile allele is associated with milder, later disease (Daich Varela et al. 2024, <a href="https://pubmed.ncbi.nlm.nih.gov/37714431/" target="_blank" rel="noopener noreferrer">PMID 37714431</a> [human clinical]).</p>
+<p><strong>Gene–environment interactions.</strong> Not formally characterized. The inferred interaction is <strong>light/oxidative load × RDH12 dysfunction → aldehyde-driven photoreceptor stress</strong> (inferred, not demonstrated in dominant patients).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The dominant phenotype is a <strong>mild rod–cone dystrophy / retinitis pigmentosa</strong> (Muthiah 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/34031043/" target="_blank" rel="noopener noreferrer">PMID 34031043</a>; Fingert 2008, <a href="https://pubmed.ncbi.nlm.nih.gov/18779497/" target="_blank" rel="noopener noreferrer">PMID 18779497</a>) [human clinical]. Key features, with suggested HPO terms:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Characteristics (onset / severity / course / frequency)</th>
+<th>HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rod–cone dystrophy / retinitis pigmentosa</td>
+<td>clinical sign</td>
+<td>Adult/late onset; mild–moderate; slowly progressive; defining feature</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" rel="noopener noreferrer">HP:0000510</a> (Retinitis pigmentosa), <a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank" rel="noopener noreferrer">HP:0000548</a> (Cone/cone-rod dystrophy)</td>
+</tr>
+<tr>
+<td>Reduced/constricted visual field</td>
+<td>sign</td>
+<td>Progressive peripheral constriction; present in affected adults</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank" rel="noopener noreferrer">HP:0001133</a> (Constriction of peripheral visual field), <a href="http://purl.obolibrary.org/obo/HP_0001123" target="_blank" rel="noopener noreferrer">HP:0001123</a> (Visual field defect)</td>
+</tr>
+<tr>
+<td>Relatively preserved central visual acuity</td>
+<td>sign</td>
+<td>VA −0.1 to 0.2 logMAR in affected (much better than recessive)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" rel="noopener noreferrer">HP:0000505</a> (Visual impairment, mild)</td>
+</tr>
+<tr>
+<td>Macular/parafoveal atrophy; perifoveal hypo-autofluorescence with hyper-AF ring</td>
+<td>sign (imaging)</td>
+<td>Progressive; parafoveal/peripapillary hyper-AF ring → enlarging perifoveal hypo-AF</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007754" target="_blank" rel="noopener noreferrer">HP:0007754</a> (Macular dystrophy), <a href="http://purl.obolibrary.org/obo/HP_0030506" target="_blank" rel="noopener noreferrer">HP:0030506</a> (Yellow/altered autofluorescence)</td>
+</tr>
+<tr>
+<td>Outer retinal / outer nuclear layer thinning (OCT)</td>
+<td>sign (imaging)</td>
+<td>Mild foveal total-retinal and ONL thinning</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030466" target="_blank" rel="noopener noreferrer">HP:0030466</a> (Abnormal full-field ERG), <a href="http://purl.obolibrary.org/obo/HP_0011512" target="_blank" rel="noopener noreferrer">HP:0011512</a> (abnormal photoreceptor)</td>
+</tr>
+<tr>
+<td>Reduced cone density (adaptive optics)</td>
+<td>sign (imaging)</td>
+<td>Reduced along temporal meridian vs normative</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank" rel="noopener noreferrer">HP:0000548</a></td>
+</tr>
+<tr>
+<td>Rod–cone ERG dysfunction</td>
+<td>lab/electrophysiology</td>
+<td>Rod-cone pattern; peripheral macular dysfunction on pattern ERG</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" rel="noopener noreferrer">HP:0000512</a> (Abnormal electroretinogram), <a href="http://purl.obolibrary.org/obo/HP_0007984" target="_blank" rel="noopener noreferrer">HP:0007984</a> (abnormal retinal physiology)</td>
+</tr>
+<tr>
+<td>Nyctalopia (night blindness)</td>
+<td>symptom</td>
+<td>Typical of rod-predominant dystrophy</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" rel="noopener noreferrer">HP:0000662</a> (Nyctalopia)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Note: The dominant disease generally <strong>lacks</strong> the devastating early features of recessive RDH12-LCA (congenital/early childhood blindness, universal macular atrophy from age 2, non-recordable ERG in infancy, dense bone-spicule pigmentation) documented in Fahim et al. 2019 (<a href="https://pubmed.ncbi.nlm.nih.gov/30979730/" target="_blank" rel="noopener noreferrer">PMID 30979730</a>) and Daich Varela &amp; Michaelides 2022 (<a href="https://pubmed.ncbi.nlm.nih.gov/35491887/" target="_blank" rel="noopener noreferrer">PMID 35491887</a>) [human clinical].</p>
+<p><strong>Quality-of-life impact.</strong> Progressive peripheral field loss and night blindness impair mobility and night driving; relatively preserved central acuity means reading/face recognition are often retained longer than in the recessive disease. No disease-specific EQ-5D/SF-36/PROMIS data exist for the dominant form; IRDs broadly reduce vision-related QoL (NEI-VFQ).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <em>RDH12</em> (<a href="https://bioregistry.io/HGNC:19977" target="_blank" rel="noopener noreferrer">HGNC:19977</a>; OMIM 608830; Ensembl ENSG00000139988; chr14:67,701,886–67,734,451, GRCh38 [computational, gnomAD]). Encodes a 316-aa NADPH-dependent retinal reductase of the short-chain dehydrogenase/reductase (SDR) superfamily (UniProt Q96NR8; Pfam PF00106/adh_short; InterPro IPR002347).</p>
+<p><strong>Pathogenic variants (dominant).</strong> Heterozygous <strong>frameshift</strong> C-terminal variants: c.776delG, c.763delG, c.759del p.(Phe254Leufs<em>24). These lie in the final coding region and are predicted to </em><em>escape nonsense-mediated decay (NMD)</em><em>, producing a stable, altered truncated protein [computational inference].
+- </em>ACMG classification:<em> dominant alleles are rare/private and functionally supported; recessive frameshifts here are classified Pathogenic/Likely pathogenic in ClinVar.
+- </em>Allele frequency:<em> dominant alleles are essentially </em><em>absent from population databases</em><em> (Fingert: not in 158 controls; gnomAD does not list these as recurrent) — consistent with private, family-specific mutations.
+- </em>Origin:<em> </em><em>germline</em><em>, segregating through pedigrees (AD). No somatic involvement.
+- </em>Functional consequence:<em> </em><em>predicted gain of function / dominant-negative</em><em> (Muthiah 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/34031043/" target="_blank" rel="noopener noreferrer">PMID 34031043</a>): "predicted to result in a gain of function, that causes disease in a gene typically associated with biallelic (recessive) variants." Supported by </em><em>gnomAD constraint</em><em> [computational]: pLI = 7.8×10⁻⁵, LOEUF (oe_lof upper) = 0.889, obs/exp LoF = 0.617 — RDH12 </em><em>tolerates heterozygous LoF</em>*, so haploinsufficiency is not the mechanism.</p>
+<p><strong>Variant landscape (gene-wide, mostly recessive).</strong> ClinVar lists 674 variants for RDH12 [computational], dominated by frameshift and missense alleles distributed across the coding sequence (e.g., c.43del p.Leu15Cysfs<em>4; c.146T&gt;C p.Leu49Ser; c.295C&gt;A p.Leu99Ile; c.701G&gt;A p.Arg234His; c.759del p.Phe254Leufs</em>24). The recessive common allele <strong>p.Leu99Ile (c.295C&gt;A)</strong> was the most frequent variant (52/… alleles) in a South American cohort (Daich Varela et al. 2024, <a href="https://pubmed.ncbi.nlm.nih.gov/37714431/" target="_blank" rel="noopener noreferrer">PMID 37714431</a>) [human clinical].</p>
+<p><strong>Modifier genes / epigenetics / chromosomal abnormalities.</strong> None established for the dominant disease. No DNA-methylation/histone or large structural (CNV/translocation) mechanisms are implicated; a heterozygous <em>RDH12</em> deletion has been reported in the recessive/compound setting (Sarkar et al. 2020, <a href="https://pubmed.ncbi.nlm.nih.gov/32322264/" target="_blank" rel="noopener noreferrer">PMID 32322264</a>).</p>
+<p><strong>Suggested ontology terms.</strong> Gene product GO: <a href="http://purl.obolibrary.org/obo/GO_0004745" target="_blank" rel="noopener noreferrer">GO:0004745</a> (NAD(P)+-retinol dehydrogenase / all-trans-retinol dehydrogenase activity), <a href="http://purl.obolibrary.org/obo/GO_0052650" target="_blank" rel="noopener noreferrer">GO:0052650</a> (all-trans-retinol dehydrogenase (NADP+) activity), <a href="http://purl.obolibrary.org/obo/GO_0042574" target="_blank" rel="noopener noreferrer">GO:0042574</a> (retinal metabolic process), <a href="http://purl.obolibrary.org/obo/GO_0007601" target="_blank" rel="noopener noreferrer">GO:0007601</a> (visual perception).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No established environmental, toxic, radiation, occupational, dietary, lifestyle, or infectious causes/triggers. The only biologically relevant exogenous factor is <strong>light</strong>, which generates the all-trans-retinal substrate that RDH12 detoxifies (inferred modulator; <a href="http://purl.obolibrary.org/obo/CHEBI_17898" target="_blank" rel="noopener noreferrer">CHEBI:17898</a> all-trans-retinal). No infectious agents are involved. [No data available for this disease specifically.]</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li>A <strong>heterozygous C-terminal frameshift</strong> in <em>RDH12</em> (e.g., c.763delG, c.776delG, c.759del) <strong>results in</strong> an mRNA that <strong>escapes nonsense-mediated decay</strong> (last-exon rule) <em>(inferred)</em>.</li>
+<li>This <strong>leads to</strong> expression of a <strong>stable mutant RDH12 protein with an altered/extended C-terminus</strong> (the C-terminus contains the amphipathic membrane-association region) <em>(inferred; protein-level data limited)</em>.</li>
+<li>The mutant protein <strong>acts via a predicted gain-of-function / dominant-negative mechanism</strong> — it is <strong>not</strong> simple haploinsufficiency, because gnomAD shows RDH12 tolerates heterozygous LoF (pLI≈0) and recessive-allele carriers are unaffected <strong>[computational support]</strong>. The mutant is inferred to <strong>mislocalize and/or poison</strong> normal retinoid handling in the photoreceptor inner segment <em>(inferred)</em>.</li>
+<li>Reduced effective RDH12 reductase activity <strong>results in</strong> impaired reduction of <strong>all-trans-retinal (atRAL) → all-trans-retinol (atROL)</strong> in the inner segment <strong>[in vitro: Belyaeva 2005 <a href="https://pubmed.ncbi.nlm.nih.gov/15865448/" target="_blank" rel="noopener noreferrer">PMID 15865448</a>; Sarkar 2021 <a href="https://pubmed.ncbi.nlm.nih.gov/34445569/" target="_blank" rel="noopener noreferrer">PMID 34445569</a>]</strong>.</li>
+<li>atRAL and reactive lipid-peroxidation aldehydes (e.g., 4-HNE) <strong>accumulate</strong>, which <strong>leads to</strong> cytotoxicity and disrupted retinoid homeostasis <strong>[in vitro: Lee 2008 <a href="https://pubmed.ncbi.nlm.nih.gov/18396173/" target="_blank" rel="noopener noreferrer">PMID 18396173</a>]</strong>.</li>
+<li>Aldehyde accumulation <strong>induces oxidative stress and the ER unfolded-protein response</strong> (upregulation of sXBP1, CHOP/DDIT3, ATF4) <strong>[in vitro: Sarkar 2021 <a href="https://pubmed.ncbi.nlm.nih.gov/34445569/" target="_blank" rel="noopener noreferrer">PMID 34445569</a>]</strong>.</li>
+<li>Oxidative + ER stress <strong>results in photoreceptor apoptosis</strong>, branching to <strong>rod-predominant degeneration</strong> first (night blindness, peripheral field loss) and <strong>cone/macular involvement</strong> (central atrophy, reduced cone density) <strong>[model organism: zebrafish rdh12; human clinical: Muthiah 2022]</strong>.</li>
+<li>Progressive photoreceptor loss <strong>manifests clinically as</strong> a slowly progressive rod–cone dystrophy/RP with macular atrophy — milder than the recessive disease because residual wild-type RDH12 and partial function persist <em>(inferred)</em>.</li>
+</ol>
+<p><strong>Branch (recessive comparison):</strong> biallelic LoF → near-complete loss of RDH12 → severe early atRAL/aldehyde toxicity → fulminant childhood macular atrophy and LCA (Fahim 2019, <a href="https://pubmed.ncbi.nlm.nih.gov/30979730/" target="_blank" rel="noopener noreferrer">PMID 30979730</a>).</p>
+<h3>Mechanistic detail by category</h3>
+<ul>
+<li><strong>Molecular pathways / biochemistry:</strong> Visual (retinoid) cycle; RDH12 reduces atRAL using NADPH (~2000-fold NADP(H) preference; highest catalytic efficiency for all-trans-retinal kcat/Km ≈ 900 min⁻¹ µM⁻¹) (Belyaeva 2005, <a href="https://pubmed.ncbi.nlm.nih.gov/15865448/" target="_blank" rel="noopener noreferrer">PMID 15865448</a>) [in vitro]. KEGG "Retinol metabolism" (hsa00830); Reactome "The canonical retinoid cycle in rods."</li>
+<li><strong>Cellular processes:</strong> apoptosis (<a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a>), response to oxidative stress (<a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a>/<a href="http://purl.obolibrary.org/obo/GO_0034599" target="_blank" rel="noopener noreferrer">GO:0034599</a>), ER unfolded-protein response (<a href="http://purl.obolibrary.org/obo/GO_0030968" target="_blank" rel="noopener noreferrer">GO:0030968</a>), autophagy alteration (reduced atg12), photoreceptor outer-segment phagocytosis disruption.</li>
+<li><strong>Protein dysfunction:</strong> loss of enzymatic reductase activity in mutants; for dominant alleles, a <strong>gain-of-function/dominant-negative</strong> stable product (vs misfolding/degradation seen with some missense recessive alleles).</li>
+<li><strong>Metabolic changes:</strong> accumulation of all-trans-retinal (<a href="http://purl.obolibrary.org/obo/CHEBI_17898" target="_blank" rel="noopener noreferrer">CHEBI:17898</a>) and toxic aldehydes (4-hydroxynonenal, <a href="http://purl.obolibrary.org/obo/CHEBI_58266" target="_blank" rel="noopener noreferrer">CHEBI:58266</a>); disturbed retinyl ester/retinoic acid balance (Lee 2008, <a href="https://pubmed.ncbi.nlm.nih.gov/18396173/" target="_blank" rel="noopener noreferrer">PMID 18396173</a>).</li>
+<li><strong>Immune involvement:</strong> none primary.</li>
+<li><strong>Tissue-damage mechanism:</strong> oxidative stress + aldehyde toxicity + ER stress → photoreceptor cell death.</li>
+<li><strong>Molecular profiling:</strong> iPSC lines (<a href="https://pubmed.ncbi.nlm.nih.gov/34216980/" target="_blank" rel="noopener noreferrer">PMID 34216980</a>) and HEK/ARPE-19 models (<a href="https://pubmed.ncbi.nlm.nih.gov/34445569/" target="_blank" rel="noopener noreferrer">PMID 34445569</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41683787/" target="_blank" rel="noopener noreferrer">PMID 41683787</a>) provide expression/functional data; no patient tissue transcriptomics/proteomics/metabolomics for the dominant form.</li>
+</ul>
+<p><strong>Cell types (CL):</strong> photoreceptor cell (<a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" rel="noopener noreferrer">CL:0000210</a>), rod (<a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a>), cone (<a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a>); adjacent retinal pigment epithelial cell (<a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" rel="noopener noreferrer">CL:0002586</a>). <strong>Subcellular (GO CC):</strong> photoreceptor inner segment (<a href="http://purl.obolibrary.org/obo/GO_0001917" target="_blank" rel="noopener noreferrer">GO:0001917</a>), endoplasmic reticulum membrane (<a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a>), smooth ER / membrane-anchored.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level:</strong> Eye (<a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a>); specifically the <strong>retina</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a>) and <strong>macula lutea</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0005396" target="_blank" rel="noopener noreferrer">UBERON:0005396</a>). Primary disease is confined to the eye; no systemic/secondary organ involvement (non-syndromic).</li>
+<li><strong>Tissue/cell level:</strong> Neural retina — <strong>photoreceptor layer</strong>; rod and cone photoreceptors (<a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a>, <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a>); secondary RPE changes and inner retinal remodeling. <strong>Peripapillary sparing</strong> and <strong>macular/parafoveal atrophy</strong> are characteristic patterns.</li>
+<li><strong>Subcellular:</strong> Photoreceptor <strong>inner segment</strong> (RDH12 localization; <a href="http://purl.obolibrary.org/obo/GO_0001917" target="_blank" rel="noopener noreferrer">GO:0001917</a>), ER (stress response).</li>
+<li><strong>Localization &amp; laterality:</strong> <strong>Bilateral and symmetric</strong> (<a href="http://purl.obolibrary.org/obo/HP_0012832" target="_blank" rel="noopener noreferrer">HP:0012832</a> Bilateral). Regional: parafoveal/perifoveal and peripapillary (macula <a href="http://purl.obolibrary.org/obo/UBERON_0005396" target="_blank" rel="noopener noreferrer">UBERON:0005396</a>; optic disc region).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Adult/late onset for the dominant disease — "late onset and relatively mild severity" (Fingert 2008, <a href="https://pubmed.ncbi.nlm.nih.gov/18779497/" target="_blank" rel="noopener noreferrer">PMID 18779497</a>). Variable; some mutation carriers are detectable only subclinically (e.g., on adaptive optics) reflecting <strong>incomplete penetrance</strong> (Muthiah 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/34031043/" target="_blank" rel="noopener noreferrer">PMID 34031043</a>). Pattern is <strong>insidious/chronic</strong>. (Contrast recessive: congenital/early-childhood onset, mean 4.1 yr — Fahim 2019, <a href="https://pubmed.ncbi.nlm.nih.gov/30979730/" target="_blank" rel="noopener noreferrer">PMID 30979730</a>.)</li>
+<li><strong>Progression:</strong> Slowly <strong>progressive</strong> over decades; stages = early (ring of hyper-AF, mild field constriction) → intermediate (enlarging perifoveal atrophy, ONL thinning) → advanced (extensive outer-retinal atrophy, significant field loss) with relative central-acuity preservation until late. Lifelong chronic disease; no remission.</li>
+<li><strong>Critical periods / intervention window:</strong> Because photoreceptors persist for decades, there is a <strong>wide therapeutic window</strong> for the dominant disease (in contrast to the narrow infantile window in recessive disease, where early macular atrophy limits gene-replacement benefit).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> <strong>Autosomal dominant</strong> (AD) for <a href="http://purl.obolibrary.org/obo/MONDO_0800100" target="_blank" rel="noopener noreferrer">MONDO:0800100</a> (Fingert 2008; Muthiah 2022). The gene far more commonly causes <strong>autosomal recessive</strong> LCA13.</li>
+<li><strong>Penetrance:</strong> <strong>Incomplete / age-dependent</strong>; penetrance determination is modality-dependent (subclinical carriers detected only by adaptive optics) (Muthiah 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/34031043/" target="_blank" rel="noopener noreferrer">PMID 34031043</a>).</li>
+<li><strong>Expressivity:</strong> <strong>Variable</strong> (Muthiah 2022).</li>
+<li><strong>Anticipation:</strong> None reported (not a repeat-expansion disorder).</li>
+<li><strong>Germline mosaicism / founder effects / consanguinity:</strong> No founder effect or consanguinity role for the dominant alleles (private mutations; AD does not require consanguinity). Consanguinity is relevant only to the recessive disease.</li>
+<li><strong>Carrier frequency:</strong> Not applicable in the AD sense (dominant alleles are private). For recessive disease, heterozygous LoF carriers exist in gnomAD but are unaffected.</li>
+<li><strong>Epidemiology / prevalence:</strong> <strong>No reliable prevalence/incidence estimate</strong> exists for the dominant form — it is described in only a handful of pedigrees worldwide (ultra-rare). As gene-level context, <strong>RDH12 accounts for 3.4%–10.5% of LCA/EOSRD</strong> (Fahim 2019, <a href="https://pubmed.ncbi.nlm.nih.gov/30979730/" target="_blank" rel="noopener noreferrer">PMID 30979730</a>) — but these are predominantly recessive cases.</li>
+<li><strong>Demographics:</strong> Reported dominant families are of European (British/US) ancestry; too few to infer ethnic predilection, geographic clustering, sex ratio (expected ~1:1 for AD), or age distribution.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Clinical/imaging tests (core):</strong></li>
+<li><strong>Fundus autofluorescence (FAF):</strong> parafoveal/peripapillary hyper-AF ring, perifoveal hypo-AF (Muthiah 2022).</li>
+<li><strong>Spectral-domain OCT:</strong> foveal total-retinal and ONL thinning; outer-retinal disruption.</li>
+<li><strong>Adaptive optics scanning light ophthalmoscopy:</strong> reduced cone density (sensitive for subclinical carriers).</li>
+<li><strong>Full-field &amp; pattern ERG:</strong> rod–cone pattern of dysfunction; peripheral macular dysfunction.</li>
+<li><strong>Visual fields (perimetry):</strong> peripheral constriction.</li>
+<li>Fundus photography: variable pigmentary changes/macular atrophy.</li>
+<li><strong>Laboratory/biomarkers:</strong> No blood/urine biomarker or enzyme assay; diagnosis is clinical + genetic. (Research biomarker: all-trans-retinal/aldehyde handling, not clinical.)</li>
+<li><strong>Genetic testing (definitive):</strong> <strong>Single-gene / IRD gene-panel next-generation sequencing</strong>, <strong>whole-exome (WES)</strong> and <strong>whole-genome sequencing (WGS)</strong> identify the heterozygous <em>RDH12</em> frameshift; segregation analysis across the pedigree confirms dominant transmission (Muthiah 2022 used NGS incl. WGS). Chromosomal microarray/karyotype/FISH/mtDNA/repeat-expansion testing are <strong>not indicated</strong> (point-level frameshift mechanism). RNA studies can confirm NMD escape (research).</li>
+<li><strong>Clinical criteria / differential diagnosis:</strong> No disease-specific criteria. Differentials: other dominant RP genes (RHO, PRPH2, RP1, PRPF31, NR2E3), cone–rod dystrophy genes (GUCA1A, CRX), and — critically — <strong>recessive RDH12-LCA/EOSRD</strong> (distinguished by congenital/severe early onset, universal early macular atrophy, non-recordable infantile ERG, biallelic variants). Genotyping + segregation resolves these.</li>
+<li><strong>Screening:</strong> Cascade genetic testing of at-risk relatives in known pedigrees (with adaptive-optics/FAF to detect subclinical carriers). No population newborn/carrier screening (ultra-rare, AD, private alleles).</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> <strong>Not life-limiting</strong>; normal life expectancy. No disease-specific mortality (eye-restricted disorder).</li>
+<li><strong>Morbidity/function:</strong> Chronic visual disability — progressive peripheral field loss and nyctalopia with <strong>relatively preserved central acuity</strong>; prognosis is markedly <strong>better than the recessive disease</strong>, which causes childhood legal blindness. Within recessive RDH12, p.Leu99Ile homozygotes reach legal blindness at an older age (Daich Varela 2024, <a href="https://pubmed.ncbi.nlm.nih.gov/37714431/" target="_blank" rel="noopener noreferrer">PMID 37714431</a>) [human clinical].</li>
+<li><strong>Disease course/complications:</strong> Slowly progressive outer-retinal atrophy; possible late cystoid macular changes/cataract (general RP complications). No spontaneous recovery.</li>
+<li><strong>Prognostic factors:</strong> Specific variant, age, extent of macular atrophy on OCT/FAF, cone density on AO, residual field/ERG amplitude. No validated molecular prognostic biomarker.</li>
+<li><strong>QoL measures:</strong> No dominant-form-specific instruments reported; NEI-VFQ-25 applicable clinically.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>No approved disease-specific therapy exists</strong> for RDH12 retinopathy (Daich Varela &amp; Michaelides 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/35491887/" target="_blank" rel="noopener noreferrer">PMID 35491887</a>: "There is currently no treatment available for RDH12-retinopathy") [human clinical review].</p>
+<ul>
+<li><strong>Supportive/rehabilitative (standard of care):</strong> low-vision aids, orientation &amp; mobility training, occupational therapy, refraction/glare control (tinted lenses), management of cataract/cystoid macular edema, genetic counseling. NCIT: C15277 (Rehabilitation Therapy), C15296 (Supportive Care).</li>
+<li><strong>Pharmacotherapy / mechanism-based (experimental, in vitro):</strong> <strong>Aldehyde/retinaldehyde scavengers</strong> — <strong>pregabalin</strong> attenuated atRAL-induced ER stress in mutant RDH12 cells (Sarkar 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/34445569/" target="_blank" rel="noopener noreferrer">PMID 34445569</a>) [in vitro]; conceptually related scavengers (e.g., primary-amine trap drugs). Antioxidants/ER-stress modulators are candidate strategies. No clinical trials for the dominant form. NCIT: C47484 (Pregabalin); C275 (Antioxidant).</li>
+<li><strong>Gene therapy:</strong> <strong>AAV-mediated <em>RDH12</em> gene augmentation</strong> is in preclinical development (patents held by Ali and Thompson groups per Fahim 2019, <a href="https://pubmed.ncbi.nlm.nih.gov/30979730/" target="_blank" rel="noopener noreferrer">PMID 30979730</a>; in-vitro rAAV-RDH12 functional studies, Pavlova et al. 2026, <a href="https://pubmed.ncbi.nlm.nih.gov/41683787/" target="_blank" rel="noopener noreferrer">PMID 41683787</a>) [in vitro / preclinical]. <strong>Caveat:</strong> gene <em>augmentation</em> (adding wild-type) treats loss-of-function recessive disease but may be <strong>insufficient for a dominant gain-of-function allele</strong>, which may instead require <strong>allele-specific knockdown/editing</strong> (ASO, siRNA, CRISPR). NCIT: C15431 (Gene Therapy); C117202 (AAV Vector).</li>
+<li><strong>Cell therapy / other advanced modalities:</strong> iPSC-derived retinal models exist for drug screening (<a href="https://pubmed.ncbi.nlm.nih.gov/34216980/" target="_blank" rel="noopener noreferrer">PMID 34216980</a>) but no clinical cell therapy. Not applicable: immunotherapy, targeted small molecules, surgery (beyond cataract).</li>
+<li><strong>Pharmacogenomics:</strong> Not applicable.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not possible for a germline Mendelian disorder. <strong>Genetic counseling</strong> for affected AD families (50% transmission risk) with options for <strong>prenatal diagnosis</strong> and <strong>preimplantation genetic testing (PGT-M)</strong>. NCIT: C15265 (Genetic Counseling).</li>
+<li><strong>Secondary prevention:</strong> <strong>Cascade genetic testing</strong> and ophthalmic surveillance (FAF/OCT/AO) of at-risk relatives for early detection; monitor for treatable complications (cataract, CME).</li>
+<li><strong>Tertiary prevention:</strong> Low-vision rehabilitation; avoidance of excessive light exposure is biologically rational (RDH12 clears light-generated aldehydes) though unproven clinically.</li>
+<li><strong>Immunization / public-health / behavioral / prophylaxis:</strong> Not applicable.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / orthologs:</strong> <em>RDH12</em> is conserved in vertebrates — human (NCBI Gene 145226; <em>Homo sapiens</em> NCBI:txid9606), mouse <em>Rdh12</em> (NCBI Gene 77974; <em>Mus musculus</em> NCBI:txid10090), zebrafish <em>rdh12</em> (<em>Danio rerio</em> NCBI:txid7955). Orthology: Alliance of Genome Resources / HomoloGene.</li>
+<li><strong>Natural disease in other species:</strong> No well-established naturally occurring <em>RDH12</em> retinopathy is cataloged in companion animals (no prominent OMIA entry); disease knowledge is from engineered models rather than spontaneous animal disease.</li>
+<li><strong>Comparative biology:</strong> The retinoid (visual) cycle and RDH12's atRAL-reductase role are evolutionarily conserved; however, <strong>mice do not recapitulate human severity</strong> (redundancy with other RDHs, lower retinoid flux), a key cross-species difference.</li>
+<li><strong>Transmission:</strong> Not applicable (non-infectious, non-zoonotic).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse (mammalian):</strong> <em>Rdh12</em>-knockout mice (MGI) — <strong>mild phenotype that fails to recapitulate human disease</strong>: slowed atRAL reduction and delayed dark adaptation, accelerated 11-cis-retinal production, and <strong>increased susceptibility to light-induced photoreceptor apoptosis</strong> (Maeda et al. 2006, <a href="https://pubmed.ncbi.nlm.nih.gov/17032653/" target="_blank" rel="noopener noreferrer">PMID 17032653</a>); grossly normal retinal histology at 10 months with normal ERG and retinoid levels (Kurth et al. 2007, <a href="https://pubmed.ncbi.nlm.nih.gov/17130236/" target="_blank" rel="noopener noreferrer">PMID 17130236</a>) [model organism]. <em>Limitation:</em> no spontaneous severe degeneration → poor efficacy model; useful for light-damage and retinoid-flux studies.</li>
+<li><strong>Zebrafish:</strong> CRISPR-Cas9 <em>rdh12</em> mutant (<em>rdh12^u533</em>, c.17_23del; p.(Val6AlafsTer5)) shows disrupted outer-segment phagocytosis, rhodopsin mislocalization, reduced atg12/sod2 — <strong>early rod-predominant degeneration</strong> (Sarkar et al. 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/34445569/" target="_blank" rel="noopener noreferrer">PMID 34445569</a>) [model organism]. Better captures degeneration/oxidative-ER-stress phenotype.</li>
+<li><strong>Cellular / in vitro:</strong> HEK-293 and ARPE-19 lines expressing WT vs mutant RDH12 for atRAL-toxicity, oxidative/ER-stress, and rAAV-RDH12 functional assays (<a href="https://pubmed.ncbi.nlm.nih.gov/34445569/" target="_blank" rel="noopener noreferrer">PMID 34445569</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41683787/" target="_blank" rel="noopener noreferrer">PMID 41683787</a>); purified-enzyme kinetics (<a href="https://pubmed.ncbi.nlm.nih.gov/15865448/" target="_blank" rel="noopener noreferrer">PMID 15865448</a>).</li>
+<li><strong>iPSC / organoids:</strong> Patient-derived iPSC line <strong>UCLi014-A</strong> from a dominant-RP patient (heterozygous c.759del p.(Phe254Leufs<em>24)) and </em><em>UCLi015-A</em><em> from a recessive-LCA patient (Sarkar et al. 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/34216980/" target="_blank" rel="noopener noreferrer">PMID 34216980</a>) — enabling retinal-organoid disease modeling, mechanism comparison, and drug screening [in vitro]. </em><em>This dominant-patient iPSC line is the most directly relevant model for <a href="http://purl.obolibrary.org/obo/MONDO_0800100" target="_blank" rel="noopener noreferrer">MONDO:0800100</a>.</em>*</li>
+<li><strong>Model databases:</strong> MGI (mouse), ZFIN (zebrafish), Cellosaurus (iPSC lines), Alliance of Genome Resources.</li>
+</ul>
+<hr />
+<h2>Summary of Evidence Types &amp; Key Citations</h2>
+<ul>
+<li><strong>Human clinical:</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/18779497/" target="_blank" rel="noopener noreferrer">PMID 18779497</a> (Fingert 2008, first dominant family, 776delG); <a href="https://pubmed.ncbi.nlm.nih.gov/34031043/" target="_blank" rel="noopener noreferrer">PMID 34031043</a> (Muthiah 2022, c.763delG, deep phenotyping, GoF prediction); <a href="https://pubmed.ncbi.nlm.nih.gov/34216980/" target="_blank" rel="noopener noreferrer">PMID 34216980</a> (dominant-patient iPSC, c.759del); <a href="https://pubmed.ncbi.nlm.nih.gov/30979730/" target="_blank" rel="noopener noreferrer">PMID 30979730</a> (recessive natural history; RDH12 = 3.4–10.5% of LCA/EOSRD); <a href="https://pubmed.ncbi.nlm.nih.gov/37714431/" target="_blank" rel="noopener noreferrer">PMID 37714431</a> (South American cohort, p.Leu99Ile); <a href="https://pubmed.ncbi.nlm.nih.gov/35491887/" target="_blank" rel="noopener noreferrer">PMID 35491887</a> (review, no treatment).</li>
+<li><strong>In vitro:</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/15865448/" target="_blank" rel="noopener noreferrer">PMID 15865448</a> (enzyme kinetics); <a href="https://pubmed.ncbi.nlm.nih.gov/18396173/" target="_blank" rel="noopener noreferrer">PMID 18396173</a> (4-HNE/aldehyde toxicity); <a href="https://pubmed.ncbi.nlm.nih.gov/34445569/" target="_blank" rel="noopener noreferrer">PMID 34445569</a> (oxidative/ER stress, pregabalin rescue + zebrafish); <a href="https://pubmed.ncbi.nlm.nih.gov/41683787/" target="_blank" rel="noopener noreferrer">PMID 41683787</a> (rAAV-RDH12).</li>
+<li><strong>Model organism:</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/17032653/" target="_blank" rel="noopener noreferrer">PMID 17032653</a> (light-induced apoptosis KO mouse); <a href="https://pubmed.ncbi.nlm.nih.gov/17130236/" target="_blank" rel="noopener noreferrer">PMID 17130236</a> (KO mouse normal histology).</li>
+<li><strong>Computational / population genetics:</strong> gnomAD constraint (pLI≈0, LOEUF 0.89) — RDH12 tolerant of heterozygous LoF, arguing against haploinsufficiency.</li>
+</ul>
+<h2>Limitations</h2>
+<ul>
+<li>The dominant entity is <strong>ultra-rare</strong> (a few pedigrees); phenotype, penetrance, natural history, and epidemiology are based on small samples.</li>
+<li>The <strong>gain-of-function/dominant-negative mechanism is predicted/inferred</strong>, not experimentally proven at the protein level for the dominant alleles.</li>
+<li>Most mechanistic/therapeutic data derive from <strong>recessive, cell, or animal</strong> contexts and are extrapolated to the dominant disease.</li>
+<li>No prevalence/incidence, QoL, or clinical-trial outcome data specific to the dominant form.</li>
+</ul>
+<h2>Future Directions</h2>
+<ul>
+<li>Protein-level studies (localization, stability, dominant-negative testing) of c.763delG/c.776delG/c.759del, ideally in patient iPSC-derived retinal organoids (UCLi014-A).</li>
+<li>Allele-specific silencing/editing strategies appropriate to a dominant GoF allele, and testing aldehyde scavengers/antioxidants.</li>
+<li>Natural-history registries and standardized imaging/functional outcome measures for the dominant phenotype.</li>
+</ul>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/RDH12-Related_Dominant_Retinopathy-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/RDH12-Related_Dominant_Retinopathy-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>13</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0800100</code> (5 mentions) - the report calls it "RDH12-related dominant retinopathy", "Fingert 2008; Muthiah 2022"; MONDO calls it <strong>RDH12-related dominant retinopathy</strong></li>
+<li><code>HP:0000548</code> (2 mentions) - the report calls it "Reduced along temporal meridian vs normative"; HP calls it <strong>Cone/cone-rod dystrophy</strong></li>
+<li><code>UBERON:0000970</code> (1 mention) - the report calls it "Organ level:<strong> Eye"; UBERON calls it </strong>eye**</li>
+<li><code>UBERON:0005396</code> (2 mentions) - the report calls it "macula lutea"; UBERON calls it <strong>carotid artery segment</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0000505</code> (1 mention) - the report calls it "Visual impairment, mild"; HP calls it <strong>Visual impairment</strong></li>
+<li><code>CHEBI:17898</code> (2 mentions) - the report calls it "Metabolic changes:<strong> accumulation of all-trans-retinal"; CHEBI calls it </strong>all-trans-retinal**</li>
+<li><code>GO:0006915</code> (1 mention) - the report calls it "Cellular processes:<strong> apoptosis"; GO calls it </strong>apoptotic process**, and lists "activation of apoptosis" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>MONDO:0800100</code> - called "RDH12-related dominant retinopathy", "Fingert 2008; Muthiah 2022"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="RD3-Related_Retinopathy-openscientist.html">← RD3-Related Retinopathy (OpenScientist)</a>
+                
+                
+                <a href="RECON_Progeroid_Syndrome-claude_code.html">RECON Progeroid Syndrome (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/RDH12-Related_Dominant_Retinopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/RDH12-Related_Dominant_Retinopathy-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

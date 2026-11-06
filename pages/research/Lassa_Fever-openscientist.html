@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lassa Fever · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Lassa Fever</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Lassa Fever</h1>
+                
+                <p class="report-subtitle">Lassa Fever (MONDO:0005820): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-11-02</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005820" target="_blank" rel="noopener noreferrer">MONDO:0005820</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">40 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Lassa Fever (<a href="http://purl.obolibrary.org/obo/MONDO_0005820" target="_blank" rel="noopener noreferrer">MONDO:0005820</a>): A Comprehensive Disease Characteristics Report</h1>
+<p><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005820" target="_blank" rel="noopener noreferrer">MONDO:0005820</a> · <strong>Category:</strong> Infectious (viral hemorrhagic fever) · <strong>Causal agent:</strong> <em>Lassa mammarenavirus</em> (LASV)</p>
+<blockquote>
+<p><strong>Note on "causal gene."</strong> Lassa fever is an <strong>infectious disease</strong>, not a Mendelian/genetic disorder, so there is <strong>no human causal gene</strong>. The causal factor is the <strong>Lassa virus (Lassa mammarenavirus, LASV)</strong>, a bisegmented ambisense RNA arenavirus. Where "genes" are relevant, they are (a) <strong>viral genes</strong> — <em>GPC</em> (glycoprotein precursor), <em>NP</em> (nucleoprotein), <em>L</em> (RNA-dependent RNA polymerase), <em>Z</em> (matrix protein); and (b) <strong>host susceptibility/resistance loci</strong> under natural selection in West Africans — <strong>LARGE1</strong> (<a href="https://bioregistry.io/HGNC:6511" target="_blank" rel="noopener noreferrer">HGNC:6511</a>) and <strong>IL21</strong> (<a href="https://bioregistry.io/HGNC:6005" target="_blank" rel="noopener noreferrer">HGNC:6005</a>), plus the viral entry receptor genes <strong>DAG1</strong> (α-dystroglycan) and <strong>LAMP1</strong>. These are modifiers, not Mendelian causes.</p>
+</blockquote>
+<h2>Summary</h2>
+<p><strong>Lassa fever (LF) is an acute zoonotic viral hemorrhagic fever caused by Lassa mammarenavirus (LASV; family <em>Arenaviridae</em>, genus <em>Mammarenavirus</em>).</strong> The reservoir host is the synanthropic rodent <em>Mastomys natalensis</em> (Natal multimammate mouse), and humans are infected mainly through rodent-to-human transmission. The disease is endemic to West Africa (Nigeria, Sierra Leone, Liberia, Guinea, Benin, and neighboring countries). Where host genetics matter, they act as <em>modifiers of susceptibility/resistance</em>: the genes <strong>LARGE</strong> (a glycosyltransferase that builds the α-dystroglycan matriglycan used as the viral entry receptor) and <strong>IL21</strong> show genome-wide signatures of positive selection in West African populations, implying partial host-genetic resistance to Lassa fever.</p>
+<p>Clinically, LASV causes a spectrum from asymptomatic/mild infection (~80%) to severe multisystem hemorrhagic disease with hepatic and renal involvement, facial/laryngeal edema, shock, encephalopathy, and death. Hospitalized case fatality ranges from ~15% (mild) to 60% (severe), with recent Nigerian outbreaks reporting up to 25.4%. Modeling now projects ~2.7 million infections and ~3,900 deaths annually across West Africa. The hallmark chronic sequela is <strong>sensorineural hearing loss (SNHL)</strong>, affecting roughly 18–33% of survivors, now understood to be an immune-mediated systemic vasculitis of the inner ear rather than direct viral cytopathology. Pregnancy — especially the third trimester — carries extremely high maternal (up to 30%) and fetal (~87% loss) mortality.</p>
+<p>Mechanistically, LASV enters cells via a two-receptor switch (primary receptor <strong>α-dystroglycan → endosomal LAMP1</strong>) followed by pH-dependent, GPC-mediated membrane fusion; the matrix Z protein and stable signal peptide require host <strong>N-myristoyltransferases (NMT1/2)</strong> for budding and fusion. Unlike New World arenaviruses, Old World LASV produces <strong>generalized immune suppression</strong> (nucleoprotein-mediated interferon antagonism, myeloid-suppressor-cell expansion, T-cell anergy), systemic viral dissemination, and endothelial/vascular dysfunction. There is <strong>no licensed vaccine</strong> more than five decades after discovery (Nigeria, 1969), though multiple GPC-targeted candidates are in clinical/preclinical development. Standard of care is <strong>ribavirin</strong> (limited efficacy, notable toxicity), with <strong>favipiravir</strong> emerging as a promising alternative.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — Lassa fever is a high-burden zoonotic arenaviral hemorrhagic fever endemic to West Africa</h3>
+<p>Lassa fever is caused by Lassa mammarenavirus, an enveloped, bisegmented, ambisense RNA virus. Contemporary modeling projects approximately <strong>2.7 million LASV infections each year</strong> across West Africa, with an estimated <strong>3,900 deaths and 2.0 million disability-adjusted life years (DALYs) over a decade</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42365235/">PMID: 42365235</a>). Earlier widely cited estimates placed the burden at up to 300,000 infections and 5,000 deaths per year (<a href="https://pubmed.ncbi.nlm.nih.gov/32155851/">PMID: 32155851</a>). Case fatality ranges from <strong>15% in mild cases to 60% in severe cases</strong>, with recent Nigerian outbreaks reaching <strong>25.4%</strong> in hospitalized patients (<a href="https://pubmed.ncbi.nlm.nih.gov/40597771/">PMID: 40597771</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32155851/">PMID: 32155851</a>).</p>
+<p>The reservoir is the synanthropic rodent <em>Mastomys natalensis</em>: <em>"Human infections arise from rodent-to-human transmission, primarily from the synanthropic reservoir Mastomys natalensis"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42049016/">PMID: 42049016</a>). Community seroprevalence reaches ~5.7% in endemic parts of Sierra Leone.</p>
+<ul>
+<li><strong>Ontology/identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005820" target="_blank" rel="noopener noreferrer">MONDO:0005820</a>; MeSH D007835 (Lassa Fever); ICD-10 A96.2; ICD-11 1D61; pathogen NCBI Taxon <strong>3052310</strong> (Lassa mammarenavirus).</li>
+</ul>
+<h3>Finding 2 — Sensorineural hearing loss is the most common chronic sequela</h3>
+<p>A systematic review/meta-analysis found that <em>"The most frequently reported post-acute sequela was hearing loss, with a pooled prevalence of 18% (95% CI 9–32) across 6 studies"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41912095/">PMID: 41912095</a>). A scoping review reported hearing loss in <strong>16–35% of survivors</strong>, often bilateral and sensorineural with balance disorders in up to 55% (<a href="https://pubmed.ncbi.nlm.nih.gov/40597771/">PMID: 40597771</a>). The commonly cited frequency is ~33%: <em>"A notable sequela of LF is sensorineural hearing loss (SNHL) that can develop in about 33% of the patients"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/35758052/">PMID: 35758052</a>). SNHL can occur even at low viral load (high PCR Ct value) and may progress from unilateral to bilateral involvement (<a href="https://pubmed.ncbi.nlm.nih.gov/41458264/">PMID: 41458264</a>).</p>
+<ul>
+<li><strong>Suggested HPO terms:</strong> <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a> (Sensorineural hearing impairment); <a href="http://purl.obolibrary.org/obo/HP_0000408" target="_blank" rel="noopener noreferrer">HP:0000408</a> (Progressive sensorineural hearing impairment); <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a> (Ataxia/balance); <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a> (Seizure); <a href="http://purl.obolibrary.org/obo/HP_0001268" target="_blank" rel="noopener noreferrer">HP:0001268</a> (Mental deterioration).</li>
+</ul>
+<h3>Finding 3 — Ribavirin is standard of care but limited; favipiravir is an emerging alternative</h3>
+<p><em>"At present, ribavirin is the only antiviral drug indicated for use in treatment of these diseases, but because of its limited efficacy in advanced cases of disease and its toxicity, safer and more effective antivirals are needed"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/22022624/">PMID: 22022624</a>). Favipiravir (T-705), a broad-spectrum RNA-polymerase inhibitor, cured Lassa-viremic macaques at 300 mg/kg/day for two weeks: <em>"We tested favipiravir in Lassa virus-viremic macaques and found that 300 mg/kg daily for 2 weeks successfully treated infection"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29882740/">PMID: 29882740</a>). A Phase 2 open-label RCT in Nigeria (n=41; ribavirin 21 vs favipiravir 20) met its pharmacokinetic/safety primary endpoints, supporting high-dose favipiravir as a treatment alternative (<a href="https://pubmed.ncbi.nlm.nih.gov/42141199/">PMID: 42141199</a>).</p>
+<ul>
+<li><strong>Suggested NCIT terms:</strong> C29460 (Ribavirin); C81668 (Favipiravir); C15245 (Supportive Care).</li>
+</ul>
+<h3>Finding 4 — LARGE and IL21 show positive selection in West Africans (host genetic resistance)</h3>
+<p>Genome-wide scans (HapMap, 1000 Genomes) revealed <em>"evidence for positive selection in LARGE and interleukin 21 (IL21), two genes implicated in LASV infectivity and immunity"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/22312054/">PMID: 22312054</a>). LARGE encodes a glycosyltransferase that builds the matriglycan on α-dystroglycan — the primary LASV entry receptor — so variation affecting its expression plausibly alters viral entry. This has been framed as host resistance: <em>"natural selection acting on LARGE—detected in the Yoruba population of Nigeria—conferred resistance to Lassa Fever in some West African populations"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34452470/">PMID: 34452470</a>).</p>
+<ul>
+<li><strong>Gene annotations:</strong> LARGE1 (<a href="https://bioregistry.io/HGNC:6511" target="_blank" rel="noopener noreferrer">HGNC:6511</a>; NCBI Gene 9215); IL21 (<a href="https://bioregistry.io/HGNC:6005" target="_blank" rel="noopener noreferrer">HGNC:6005</a>; NCBI Gene 59067); DAG1/α-dystroglycan (<a href="https://bioregistry.io/HGNC:2666" target="_blank" rel="noopener noreferrer">HGNC:2666</a>).</li>
+</ul>
+<h3>Finding 5 — LASV entry uses a two-receptor switch and GPC-mediated fusion; immunosuppression drives severity</h3>
+<p>LASV's glycoprotein precursor GPC is processed into a stable signal peptide (SSP), GP1, and GP2, forming trimeric spikes (<a href="https://pubmed.ncbi.nlm.nih.gov/39339839/">PMID: 39339839</a>). Entry requires a receptor switch: <em>"Successful entry of LASV requires the viral glycoprotein 1 (GP1) to undergo a receptor switch from its primary receptor alpha-dystroglycan (α-DG) to its endosomal receptor lysosome-associated membrane protein 1 (LAMP1)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38851430/">PMID: 38851430</a>). A conserved histidine triad plus residues L84/K88/L107/H170 govern the pH-dependent switch. The Z matrix protein and SSP require host N-myristoyltransferases (NMT1/2) for budding and fusion — a druggable target (<a href="https://pubmed.ncbi.nlm.nih.gov/39339839/">PMID: 39339839</a>).</p>
+<p>Unlike New World Junín virus (which drives a cytokine storm), Old World LASV causes <em>"an overall generalized immune suppression"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/24068704/">PMID: 24068704</a>). Fatal disease features systemic dissemination, macrophage/neutrophil infiltration, and excessive inflammation, whereas severity is <em>"associated with the expansion of suppressive myeloid cells, alterations of the stromal network of secondary lymphoid organs, and the anergy of specific T cells"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40245043/">PMID: 40245043</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39652618/">PMID: 39652618</a>).</p>
+<ul>
+<li><strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0019062" target="_blank" rel="noopener noreferrer">GO:0019062</a> (virion attachment to host cell); <a href="http://purl.obolibrary.org/obo/GO_0075509" target="_blank" rel="noopener noreferrer">GO:0075509</a> (receptor-mediated endocytosis of virus by host cell); <a href="http://purl.obolibrary.org/obo/GO_0019064" target="_blank" rel="noopener noreferrer">GO:0019064</a> (fusion of virus membrane with host plasma membrane); <a href="http://purl.obolibrary.org/obo/GO_0039503" target="_blank" rel="noopener noreferrer">GO:0039503</a> (suppression of host innate immune response by virus). <strong>CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage); <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil); <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a> (T cell); <a href="http://purl.obolibrary.org/obo/CL_0000889" target="_blank" rel="noopener noreferrer">CL:0000889</a> (myeloid suppressor cell).</li>
+</ul>
+<h3>Finding 6 — No licensed vaccine exists; multiple GPC-targeted candidates are in development</h3>
+<p><em>"There is no licensed vaccine available more than five decades after its discovery, and current therapeutic practices rely heavily on ribavirin, a drug supported by limited and methodologically weak evidence"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42254098/">PMID: 42254098</a>). Candidates target the glycoprotein complex (GPC, Josiah strain). The inactivated rabies-virus-vectored <strong>LASSARAB</strong> completed a Phase 1 dose-escalation trial (n=54) with acceptable safety and no SNHL: <em>"We evaluated LASSARAB, an inactivated rabies virus-vectored Lassa virus (Josiah strain) glycoprotein complex vaccine"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42265408/">PMID: 42265408</a>). mRNA-LNP GPC vaccines protected guinea pigs even without neutralizing antibodies (<a href="https://pubmed.ncbi.nlm.nih.gov/37699929/">PMID: 37699929</a>); a DNA vaccine delivered by dermal electroporation fully protected cynomolgus macaques (<a href="https://pubmed.ncbi.nlm.nih.gov/29045192/">PMID: 29045192</a>). CEPI is standardizing neutralization assays (International Units) to accelerate development (<a href="https://pubmed.ncbi.nlm.nih.gov/42382775/">PMID: 42382775</a>), and rational prefusion-stabilized GPC design aims to add neutralizing activity (<a href="https://pubmed.ncbi.nlm.nih.gov/40555565/">PMID: 40555565</a>).</p>
+<h3>Finding 7 — Lassa fever in pregnancy: very high maternal/fetal mortality; uterine evacuation improves maternal survival</h3>
+<p>In a prospective Sierra Leone study (68 pregnant, 79 non-pregnant), Lassa fever accounted for 25% of maternal deaths. Third-trimester mortality was elevated: <em>"The odds ratio for death in the third trimester compared with the first two trimesters was 5.57 (95% confidence intervals 1.02 to 30.26)"</em> and <em>"Fetal and neonatal loss was 87%"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/3139220/">PMID: 3139220</a>). Uterine evacuation reduced maternal death (OR for death with pregnancy intact = 5.47; p=0.0016). A Southern Nigeria case-control study (43 cases, 170 controls) found Lassa fever in pregnancy sharply increased stillbirth (RR 18.7), premature delivery (RR 5.25), and low birth weight (RR 8.41) (<a href="https://pubmed.ncbi.nlm.nih.gov/42410380/">PMID: 42410380</a>). Mechanistically, VHF viruses including LASV <em>"utilize ubiquitous cellular surface entry receptors critical for normal placental function"</em>, enabling maternal-fetal transmission and stillbirth (<a href="https://pubmed.ncbi.nlm.nih.gov/36939178/">PMID: 36939178</a>).</p>
+<h3>Finding 8 — RT-PCR is the diagnostic gold standard; antigen and serology are adjuncts</h3>
+<p><em>"The diagnostic sensitivity and specificity of the IgM assay were 57% and 77% respectively"</em> versus RT-PCR in 37 confirmed cases, confirming the limited early sensitivity of serology (<a href="https://pubmed.ncbi.nlm.nih.gov/23661877/">PMID: 23661877</a>). RT-PCR is the gold standard but is unavailable in most endemic centers. Rapid antigen tests address this gap: <em>"newly developed recombinant LASV Antigen Rapid Test cassettes and dipstick lateral flow immunoassays (LFI) that enabled the diagnosis of LF within twenty minutes of sample collection"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/21843352/">PMID: 21843352</a>). A qualified anti-LASV-nucleoprotein IgG ELISA now detects prior exposure across LASV lineages I–IV (<a href="https://pubmed.ncbi.nlm.nih.gov/42391156/">PMID: 42391156</a>). Diagnostics target the nucleoprotein (NP) and glycoprotein (GP) antigens.</p>
+<ul>
+<li><strong>Laboratory abnormalities:</strong> <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" rel="noopener noreferrer">HP:0002910</a> (elevated AST/hepatic transaminases), <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" rel="noopener noreferrer">HP:0000083</a> (renal insufficiency), <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a> (thrombocytopenia).</li>
+</ul>
+<h3>Finding 9 — Spillover is driven by <em>Mastomys natalensis</em> ecology and climate</h3>
+<p>Human infection arises mainly from rodent-to-human transmission; LASV antigen prevalence reached <strong>20% in peri-domestic rodents</strong> in Sierra Leone: <em>"Of the 373 specimens tested, 74 (20%) were positive for LASV antigen"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42002983/">PMID: 42002983</a>). Climate drives this: <em>"temperature, rainfall, humidity, vegetation change and large-scale climatic oscillations all contribute to fluctuations in Mastomys natalensis populations which serve as the primary reservoir of Lassa virus"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42891776/">PMID: 42891776</a>). Socioeconomic ("housing") factors modulate urban spillover risk (<a href="https://pubmed.ncbi.nlm.nih.gov/42339572/">PMID: 42339572</a>). Novel control concepts include CMV-vectored transmissible vaccines to immunize the rodent reservoir (<a href="https://pubmed.ncbi.nlm.nih.gov/42361202/">PMID: 42361202</a>).</p>
+<h3>Finding 10 — Lassa fever SNHL is immune-mediated systemic vasculitis of the inner ear</h3>
+<p>In cynomolgus macaques surviving acute LASV infection, profound SNHL developed during convalescence. <em>"Histologic examination of inner ear structures and other tissues revealed the presence of severe vascular lesions consistent with systemic vasculitides. These systemic immune-mediated vascular disorders have been associated with sudden hearing loss"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30377282/">PMID: 30377282</a>). The same study confirmed <em>"approximately 30% of patients develop sudden-onset sensorineural hearing loss after recovering from acute disease."</em> Consistent with an immune (not direct viral) mechanism, SNHL in ML29-infected STAT1−/− mice was independent of CD4/CD8 T cells (<a href="https://pubmed.ncbi.nlm.nih.gov/36289695/">PMID: 36289695</a>), SNHL can occur at low viral load (<a href="https://pubmed.ncbi.nlm.nih.gov/41458264/">PMID: 41458264</a>), and corticosteroid/osmotic therapy shows benefit in case reports.</p>
+<ul>
+<li><strong>Suggested UBERON/anatomy:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0001690" target="_blank" rel="noopener noreferrer">UBERON:0001690</a> (ear); <a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" rel="noopener noreferrer">UBERON:0001844</a> (cochlea); <a href="http://purl.obolibrary.org/obo/UBERON_0002227" target="_blank" rel="noopener noreferrer">UBERON:0002227</a> (organ of Corti). HPO: <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a>.</li>
+</ul>
+<h3>Finding 11 — Multiple animal models exist; cynomolgus macaques best recapitulate human disease</h3>
+<p><em>"Cynomolgus macaques of non-Mauritius Asian origin best reproduce clinical features of human Lassa fever"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40763738/">PMID: 40763738</a>). Aerosol LASV in cynomolgus macaques produces multisystemic hemorrhagic disease; <em>"Immunoreactivity to LASV antigen was first observed in the lungs of one macaque on day 3 and appeared localized to macrophages"</em> before spreading to all organ systems (<a href="https://pubmed.ncbi.nlm.nih.gov/38404292/">PMID: 38404292</a>). African green monkeys more consistently reproduce hemorrhagic manifestations (<a href="https://pubmed.ncbi.nlm.nih.gov/40763738/">PMID: 40763738</a>). BSL-2-compatible surrogate models include Pichinde virus in Hartley guinea pigs (reproduces hemorrhagic fever and SNHL; <a href="https://pubmed.ncbi.nlm.nih.gov/35758052/">PMID: 35758052</a>) and the ML29 reassortant in STAT1−/− mice (<a href="https://pubmed.ncbi.nlm.nih.gov/36289695/">PMID: 36289695</a>). Guinea-pig-adapted LASV strains (LF2384) give lethal disease, and reverse genetics identified the L protein as a key virulence determinant (<a href="https://pubmed.ncbi.nlm.nih.gov/40579376/">PMID: 40579376</a>).</p>
+<h3>Finding 12 — Severe disease is multi-system with coagulation and metabolic dysregulation; metabolomic biomarkers predict outcome</h3>
+<p>Early features are non-specific (fever, malaise, sore throat, retrosternal/chest pain, weakness), progressing in severe cases to bleeding, facial/laryngeal edema, shock, encephalopathy, and multi-organ (hepatic, renal) failure (<a href="https://pubmed.ncbi.nlm.nih.gov/42365235/">PMID: 42365235</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/21843352/">PMID: 21843352</a>). Untargeted UHPLC-MS metabolomics of Sierra Leonean patients showed that <em>"Effects of LASV infection on pathways mediating blood coagulation, and lipid, amino acid, nucleic acid metabolism are manifest in changes in the levels of numerous metabolites"</em>, and that <em>"platelet activating factor (PAF), PAF-like molecules and products of heme breakdown emerged as candidates that may prove useful in diagnostic assays"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28922385/">PMID: 28922385</a>). High viremia and elevated AST are established markers of poor prognosis.</p>
+<hr />
+<h2>Section-by-Section Narrative</h2>
+<h3>1. Disease Information</h3>
+<p>Lassa fever is an acute viral hemorrhagic fever caused by Lassa mammarenavirus. It is a <strong>disease-level, aggregated-resource</strong> concept (not derived from a single EHR patient). Key identifiers: <strong><a href="http://purl.obolibrary.org/obo/MONDO_0005820" target="_blank" rel="noopener noreferrer">MONDO:0005820</a></strong>; <strong>MeSH D007835</strong>; <strong>ICD-10 A96.2</strong>; <strong>ICD-11 1D61</strong>; Orphanet <a href="https://bioregistry.io/ORPHA:99824" target="_blank" rel="noopener noreferrer">ORPHA:99824</a>. There is no OMIM entry because it is infectious, not Mendelian. Synonyms: LF; Lassa hemorrhagic fever; Lassa mammarenavirus infection.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factor: infectious</strong> — Lassa mammarenavirus (Arenaviridae). <strong>Risk factors (environmental/behavioral):</strong> residence in or travel to endemic West Africa; contact with <em>Mastomys natalensis</em> or its excreta; poor housing/food storage; rodent consumption; healthcare work (nosocomial exposure); pregnancy (especially third trimester). <strong>Genetic susceptibility/resistance (host modifiers):</strong> positive selection on <strong>LARGE</strong> and <strong>IL21</strong> in West Africans suggests resistance alleles (F004). <strong>Gene–environment interaction:</strong> LARGE builds the α-dystroglycan matriglycan that LASV exploits for entry, so host glycosylation genotype intersects directly with the environmental exposure (virus). No validated protective diet/lifestyle factor beyond exposure avoidance.</p>
+<h3>3. Phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency</th>
+<th>HPO</th>
+<th>Onset/Course</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever</td>
+<td>Symptom</td>
+<td>Very common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a></td>
+<td>Acute (1–3 wk incubation)</td>
+</tr>
+<tr>
+<td>Sore throat / pharyngitis</td>
+<td>Sign</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025439" target="_blank" rel="noopener noreferrer">HP:0025439</a></td>
+<td>Acute</td>
+</tr>
+<tr>
+<td>Retrosternal/chest pain</td>
+<td>Symptom</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" rel="noopener noreferrer">HP:0100749</a></td>
+<td>Acute</td>
+</tr>
+<tr>
+<td>Hemorrhage/bleeding</td>
+<td>Sign</td>
+<td>Severe cases</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" rel="noopener noreferrer">HP:0001892</a></td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Facial/laryngeal edema</td>
+<td>Sign</td>
+<td>Severe, poor prognosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" rel="noopener noreferrer">HP:0000316</a></td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Elevated AST</td>
+<td>Lab</td>
+<td>Prognostic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" rel="noopener noreferrer">HP:0002910</a></td>
+<td>Acute</td>
+</tr>
+<tr>
+<td>Proteinuria/renal failure</td>
+<td>Lab/sign</td>
+<td>Severe</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" rel="noopener noreferrer">HP:0000083</a></td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Encephalopathy/seizures</td>
+<td>Sign</td>
+<td>Severe</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Sensorineural hearing loss</td>
+<td>Sign (sequela)</td>
+<td>18–33% survivors</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a></td>
+<td>Post-acute, often permanent</td>
+</tr>
+<tr>
+<td>Spontaneous abortion/stillbirth</td>
+<td>Outcome</td>
+<td>Very high in pregnancy</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200067" target="_blank" rel="noopener noreferrer">HP:0200067</a>/<a href="http://purl.obolibrary.org/obo/HP_0003561" target="_blank" rel="noopener noreferrer">HP:0003561</a></td>
+<td>Acute</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>No human causal gene.</strong> The <em>viral</em> genome is bisegmented ambisense RNA: the S segment encodes <strong>nucleoprotein (NP)</strong> and <strong>glycoprotein precursor (GPC)</strong>; the L segment encodes the <strong>L polymerase</strong> and <strong>Z matrix protein</strong>. Human host-genetic modifiers are <strong>LARGE1</strong> (<a href="https://bioregistry.io/HGNC:6511" target="_blank" rel="noopener noreferrer">HGNC:6511</a>) and <strong>IL21</strong> (<a href="https://bioregistry.io/HGNC:6005" target="_blank" rel="noopener noreferrer">HGNC:6005</a>), under positive selection (F004). Pathogenic viral "variants" are strain/lineage differences (lineages I–IV), with the L protein as a key virulence determinant (F011). No chromosomal abnormalities, somatic/germline variant classification, or epigenetic human-disease signatures apply in the Mendelian sense.</p>
+<h3>5. Environmental Information</h3>
+<p>The dominant environmental driver is <strong>rodent reservoir ecology</strong> governed by climate (temperature, rainfall, humidity, vegetation) that drives <em>Mastomys natalensis</em> population dynamics and seasonal spillover (F009). Transmission routes: contact with rodent excreta on food/surfaces; aerosolization during cleaning; consumption of rodents; nosocomial/person-to-person in outbreaks. <strong>Infectious agent:</strong> Lassa mammarenavirus, NCBI Taxon 3052310.</p>
+<h3>6. Mechanism / Pathophysiology — Ordered Causal Chain</h3>
+<pre><code>1. Exposure to Mastomys natalensis excreta / aerosol
+       → LASV virions contact host mucosa / dendritic cells &amp; macrophages (first targets)
+2. GP1 binds primary receptor alpha-dystroglycan (matriglycan built by LARGE)
+       → receptor-mediated endocytosis
+3. Endosomal acidification triggers GP1 RECEPTOR SWITCH to LAMP1
+       (histidine triad + L84/K88/L107/H170)
+       → GP2-mediated, pH-dependent membrane fusion  [demonstrated, PMID 38851430]
+4. Genome release, replication; Z protein + SSP myristoylated by host NMT1/2
+       → virion assembly and budding  [demonstrated, PMID 39339839]
+5. NP exonuclease antagonizes RIG-I / type-I interferon
+       → GENERALIZED IMMUNE SUPPRESSION  [PMID 24068704]
+   |-- Branch A (survival): LASV-specific T-cell response controls virus,
+   |        dissemination limited to lymphoid organs  [PMID 39652618]
+   |-- Branch B (fatal): expansion of suppressive myeloid cells + T-cell anergy
+    → systemic dissemination to all organs
+    → macrophage / neutrophil infiltration + excessive inflammation
+    → endothelial dysfunction, vascular leak, coagulopathy (up PAF, heme breakdown)
+    → shock, multi-organ (hepatic/renal) failure, death  [PMID 40245043, 28922385]
+6. POST-ACUTE BRANCH (survivors): immune-mediated systemic vasculitis
+       → inner-ear vascular lesions
+       → sudden sensorineural hearing loss (~30%)  [inferred from histology, PMID 30377282]
+</code></pre>
+<ul>
+<li><strong>Molecular pathways:</strong> receptor-mediated endocytosis; type-I IFN/RIG-I antagonism; NMT-dependent myristoylation (druggable). <strong>Cellular processes:</strong> macrophage/dendritic-cell infection, myeloid-suppressor expansion, T-cell anergy, endothelial dysfunction, inflammation. <strong>Metabolic changes:</strong> dysregulated coagulation, lipid/amino-acid/nucleic-acid metabolism, PAF and heme-breakdown accumulation (F012). <strong>Tissue damage:</strong> vascular leak, hepatic necrosis, inner-ear vasculitis. Upstream = viral entry + IFN suppression; downstream = systemic inflammation, organ failure, and post-infectious vasculitic SNHL.</li>
+</ul>
+<h3>7. Anatomical Structures Affected</h3>
+<p><strong>Primary organs:</strong> liver (hepatitis, ↑AST; <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>), spleen/lymphoid organs (early replication reservoir), vascular endothelium (<a href="http://purl.obolibrary.org/obo/UBERON_0001986" target="_blank" rel="noopener noreferrer">UBERON:0001986</a>). <strong>Secondary:</strong> kidney (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>), lungs (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>; early macrophage tropism), inner ear/cochlea (<a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" rel="noopener noreferrer">UBERON:0001844</a> — SNHL), placenta (<a href="http://purl.obolibrary.org/obo/UBERON_0001987" target="_blank" rel="noopener noreferrer">UBERON:0001987</a> — fetal loss), CNS (encephalopathy). <strong>Body systems:</strong> cardiovascular, hepatic/digestive, renal, immune/lymphoid, auditory, reproductive. <strong>Cell types (CL):</strong> macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), dendritic cells (<a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a>), neutrophils (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>), T cells (<a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a>), endothelial cells (<a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>), trophoblasts (<a href="http://purl.obolibrary.org/obo/CL_0000351" target="_blank" rel="noopener noreferrer">CL:0000351</a>). <strong>Lateralization:</strong> SNHL may be unilateral or bilateral.</p>
+<h3>8. Temporal Development</h3>
+<p><strong>Onset:</strong> acute, after a 1–3 week (6–21 day) incubation; affects all ages. <strong>Progression:</strong> non-specific febrile prodrome → multisystem severe disease over 1–2 weeks in fatal cases; death typically within 2 weeks of onset. <strong>Duration:</strong> self-limited in most; severe disease rapidly progressive. <strong>Patterns:</strong> survivors recover acutely but may develop SNHL in convalescence (a distinct post-infectious window; F010). <strong>Critical period:</strong> early antiviral initiation (within the first ~6 days) and, in pregnancy, prompt uterine evacuation improve survival (F003, F007).</p>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Not inherited</strong> (infectious). <strong>Epidemiology:</strong> ~2.7 million infections and ~3,900 deaths/year across West Africa; endemic in Nigeria, Sierra Leone, Liberia, Guinea, Benin (F001). Community seroprevalence ~5.7% (Sierra Leone). <strong>Geographic distribution of viral variants:</strong> lineages I–III in Nigeria, lineage IV in Sierra Leone/Guinea/Liberia. <strong>Host genetics:</strong> signatures of selection in West African populations (LARGE, IL21). <strong>Sex/age:</strong> both sexes; pregnancy markedly worsens outcome. No founder effects, penetrance, or carrier-frequency concepts apply (non-Mendelian).</p>
+<h3>10. Diagnostics</h3>
+<p><strong>Gold standard:</strong> LASV RT-PCR (F008). <strong>Antigen detection:</strong> rapid NP lateral-flow tests (~20 min). <strong>Serology:</strong> IgM/IgG ELISA (IgM sensitivity only 57% early) — better for exposure surveillance; qualified anti-NP IgG ELISA covers lineages I–IV. <strong>Supportive labs:</strong> elevated AST (prognostic), thrombocytopenia, proteinuria, renal impairment. <strong>Differential diagnosis:</strong> malaria, typhoid, other VHFs (Ebola, Marburg, CCHF, yellow fever), leptospirosis, severe bacterial sepsis. <strong>Prognostic markers:</strong> high viremia, high AST, bleeding, and metabolomic signatures (PAF, heme breakdown).</p>
+<h3>11. Outcome / Prognosis</h3>
+<p><strong>Mortality:</strong> 15–60% case fatality depending on severity; up to ~25% in recent hospitalized outbreaks (F001). <strong>Prognostic factors:</strong> viremia level, AST, bleeding, facial/laryngeal edema, third-trimester pregnancy. <strong>Morbidity:</strong> chronic SNHL (18–33%), balance disorders (~55% of those with hearing loss), neurological sequelae (paraparesis, seizures, cognitive impairment), ophthalmic manifestations (~42% in one study), depression/delirium (F002, F010, <a href="https://pubmed.ncbi.nlm.nih.gov/40597771/">PMID: 40597771</a>). <strong>Recovery:</strong> acute survival is common with supportive care; SNHL is frequently permanent.</p>
+<h3>12. Treatment</h3>
+<p><strong>Pharmacotherapy:</strong> ribavirin (standard, limited efficacy/toxicity; NCIT C29460); high-dose favipiravir (emerging; NCIT C81668). <strong>Supportive/interventional:</strong> fluid/electrolyte management, treatment of shock and bleeding, renal support; <strong>uterine evacuation</strong> improves maternal survival in pregnancy (F007). <strong>Experimental/advanced:</strong> monoclonal-antibody cocktails and passive neutralization under study; entry inhibitors (e.g., hexestrol) and NMT inhibitors (DDD85646) show preclinical promise. <strong>Pharmacogenomics:</strong> none established. For SNHL, corticosteroid/osmotic therapy shows benefit in case reports.</p>
+<h3>13. Prevention</h3>
+<p><strong>Primary:</strong> rodent control, safe food storage, improved housing, community education; infection-prevention and barrier nursing to prevent nosocomial spread. <strong>Secondary:</strong> early diagnosis (RT-PCR/antigen) and prompt antiviral therapy; hearing assessment in survivors. <strong>Immunization:</strong> no licensed vaccine; GPC-targeted candidates (LASSARAB, mRNA-LNP, DNA, viral-vectored) in trials (F006). <strong>Novel:</strong> CMV-vectored transmissible vaccines to immunize the rodent reservoir (F009). <strong>Prophylaxis:</strong> post-exposure ribavirin considered for high-risk contacts.</p>
+<h3>14. Other Species / Natural Disease</h3>
+<p><strong>Reservoir:</strong> <em>Mastomys natalensis</em> (NCBI Taxon 10112) — asymptomatic persistent carrier. Other rodent species may contribute. <strong>Zoonotic potential:</strong> high (rodent-to-human). <strong>Experimental cross-species susceptibility:</strong> non-human primates (cynomolgus macaque <em>Macaca fascicularis</em> NCBI Taxon 9541; African green monkey <em>Chlorocebus</em> spp.), guinea pigs (<em>Cavia porcellus</em> NCBI Taxon 10141), and mice. <strong>Orthologs:</strong> LARGE1 and IL21 orthologs exist across mammals. No major companion-animal natural disease is documented.</p>
+<h3>15. Model Organisms</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>System</th>
+<th>Recapitulation</th>
+<th>Key use</th>
+<th>PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cynomolgus macaque</td>
+<td>NHP (BSL-4)</td>
+<td>Best — full human-like LF</td>
+<td>Pathogenesis, vaccines, antivirals</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40763738/">40763738</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38404292/">38404292</a></td>
+</tr>
+<tr>
+<td>African green monkey</td>
+<td>NHP (BSL-4)</td>
+<td>Hemorrhagic manifestations</td>
+<td>Alternative NHP</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40763738/">40763738</a></td>
+</tr>
+<tr>
+<td>Hartley guinea pig + Pichinde virus</td>
+<td>Rodent (BSL-2)</td>
+<td>Hemorrhagic fever + SNHL</td>
+<td>Surrogate; SNHL studies</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35758052/">35758052</a></td>
+</tr>
+<tr>
+<td>STAT1−/− mouse + ML29</td>
+<td>Rodent (BSL-2)</td>
+<td>Acute disease + hearing loss</td>
+<td>SNHL mechanism (T-cell independent)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36289695/">36289695</a></td>
+</tr>
+<tr>
+<td>Guinea pig + LASV LF2384</td>
+<td>Rodent (BSL-4)</td>
+<td>Lethal LF</td>
+<td>Virulence determinants (L protein)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40579376/">40579376</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Models have been used to demonstrate favipiravir efficacy (<a href="https://pubmed.ncbi.nlm.nih.gov/29882740/">PMID: 29882740</a>) and full DNA-vaccine protection in macaques (<a href="https://pubmed.ncbi.nlm.nih.gov/29045192/">PMID: 29045192</a>). Limitation: no single small-animal model fully reproduces both lethal hemorrhagic disease and SNHL at BSL-2.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The coherent narrative is a <strong>two-stage immunopathology</strong>. In the <strong>acute stage</strong>, LASV exploits a widely expressed glycan (α-dystroglycan matriglycan) for entry, converts to LAMP1 in the endosome, fuses via GP2, and — crucially — its nucleoprotein suppresses type-I interferon. This produces a <em>generalized immunosuppression</em> that distinguishes Old World LASV from the cytokine-storm New World arenaviruses. Outcome is decided at a branch point: an early LASV-specific T-cell response limits virus to lymphoid tissue (survival), whereas failure leads to myeloid-suppressor-cell expansion, T-cell anergy, systemic dissemination, endothelial/coagulation dysfunction (reflected in PAF and heme-breakdown metabolites), multi-organ failure, and death.</p>
+<p>In the <strong>post-acute stage</strong>, survivors face a separate immunopathological process: a systemic immune-mediated vasculitis that damages inner-ear vasculature, producing sudden SNHL in ~30%. The strongest support for an <em>immune</em>, rather than directly viral, mechanism is that (a) macaque histology shows vasculitic lesions, (b) murine SNHL is independent of CD4/CD8 T cells, (c) SNHL occurs at low viral loads, and (d) steroids help. This two-stage model explains why vaccines that protect without neutralizing antibody (via T cells/Fc effector function) are rational, and why early diagnosis plus antiviral therapy (ribavirin/favipiravir) targets the acute branch while anti-inflammatory therapy targets the sequela branch.</p>
+<hr />
+<h2>Evidence Base (selected)</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Supports</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42365235/">42365235</a></td>
+<td>F001, F012</td>
+<td>Current burden (~2.7M/yr); clinical spectrum</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41912095/">41912095</a></td>
+<td>F002</td>
+<td>Meta-analytic SNHL prevalence 18%</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30377282/">30377282</a></td>
+<td>F010</td>
+<td>Vasculitis mechanism of SNHL (macaque histology)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38851430/">38851430</a></td>
+<td>F005</td>
+<td>α-DG → LAMP1 receptor switch</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24068704/">24068704</a></td>
+<td>F005</td>
+<td>Generalized immunosuppression (Old World)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40245043/">40245043</a></td>
+<td>F005</td>
+<td>Myeloid-suppressor expansion, T-cell anergy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22312054/">22312054</a></td>
+<td>F004</td>
+<td>Positive selection in LARGE, IL21</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29882740/">29882740</a></td>
+<td>F003</td>
+<td>Favipiravir cures viremic macaques</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42141199/">42141199</a></td>
+<td>F003</td>
+<td>Phase 2 favipiravir RCT (Nigeria)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42254098/">42254098</a></td>
+<td>F006</td>
+<td>No licensed vaccine; weak ribavirin evidence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/3139220/">3139220</a></td>
+<td>F007</td>
+<td>Third-trimester mortality, uterine evacuation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23661877/">23661877</a></td>
+<td>F008</td>
+<td>IgM sensitivity 57% vs RT-PCR</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42891776/">42891776</a></td>
+<td>F009</td>
+<td>Climate–rodent–spillover interaction</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40763738/">40763738</a></td>
+<td>F011</td>
+<td>Cynomolgus macaque gold-standard model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28922385/">28922385</a></td>
+<td>F012</td>
+<td>Metabolomic biomarkers (PAF, heme)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Burden uncertainty.</strong> Infection is often asymptomatic and surveillance is weak; incidence/prevalence estimates span an order of magnitude (300,000 vs 2.7M/year). The Enable programme (<a href="https://pubmed.ncbi.nlm.nih.gov/36996258/">PMID: 36996258</a>) aims to refine these.</li>
+<li><strong>SNHL mechanism is inferred, not proven in humans.</strong> The vasculitis model derives from macaque histology and mouse genetics; human temporal-bone pathology is scarce. Optimal timing/dose of steroids is unknown.</li>
+<li><strong>Host genetics.</strong> LARGE/IL21 selection signals suggest resistance but causal protective alleles and effect sizes in humans are not established.</li>
+<li><strong>Therapeutics.</strong> Ribavirin's evidence base is methodologically weak; favipiravir data are early-phase (PK/safety), not yet efficacy-powered. No approved monoclonal cocktail.</li>
+<li><strong>No licensed vaccine</strong>, and correlates of protection (neutralizing vs T-cell/Fc) remain debated.</li>
+<li><strong>Pregnancy management</strong> relies on small observational studies; mechanisms of placental tropism are partly extrapolated from other VHFs.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Powered efficacy RCT of favipiravir</strong> (vs ribavirin or combination), stratified by viremia/AST, with mortality and SNHL endpoints.</li>
+<li><strong>Prospective SNHL cohort</strong> with serial audiometry, viral load, and inflammatory/autoantibody profiling to confirm the vasculitis hypothesis and test early corticosteroid/immunomodulatory intervention.</li>
+<li><strong>Define correlates of protection</strong> across vaccine platforms (LASSARAB, mRNA-LNP, DNA) using the CEPI-standardized neutralization International Units (<a href="https://pubmed.ncbi.nlm.nih.gov/42382775/">PMID: 42382775</a>) and T-cell/Fc assays.</li>
+<li><strong>Human genetic association study</strong> in endemic populations to validate LARGE/IL21 resistance alleles and identify severity modifiers.</li>
+<li><strong>Field evaluation of reservoir-targeted control</strong> (CMV-vectored transmissible vaccine; <a href="https://pubmed.ncbi.nlm.nih.gov/42361202/">PMID: 42361202</a>) integrated with climate-informed spillover forecasting.</li>
+<li><strong>Decentralized molecular diagnostics</strong> (point-of-care RT-PCR / antigen rapid tests) to shorten time-to-treatment in endemic centers.</li>
+<li><strong>Pregnancy-specific trials</strong> evaluating antiviral timing and uterine-evacuation protocols to reduce maternal/fetal mortality.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 12 confirmed findings and 49 reviewed papers over 5 investigation iterations. Evidence types span human clinical studies, non-human-primate and rodent models, in vitro virology, and computational/epidemiological modeling.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Lassa_Fever-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Lassa_Fever-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>40</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>39</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>26</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>5</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0005820</code> (5 mentions) - the report calls it "if available"; MONDO calls it <strong>Lassa fever</strong></li>
+<li><code>HP:0000407</code> (3 mentions) - the report calls it "Sensorineural hearing impairment", "18–33% survivors"; HP calls it <strong>Sensorineural hearing impairment</strong></li>
+<li><code>HP:0002910</code> (2 mentions) - the report calls it "elevated AST/hepatic transaminases", "Prognostic"; HP calls it <strong>Elevated circulating hepatic transaminase concentration</strong></li>
+<li><code>HP:0000083</code> (2 mentions) - the report calls it "renal insufficiency", "Severe"; HP calls it <strong>Renal insufficiency</strong></li>
+<li><code>UBERON:0001844</code> (2 mentions) - the report calls it "cochlea", "SNHL"; UBERON calls it <strong>cochlea</strong></li>
+<li><code>HP:0001945</code> (1 mention) - the report calls it "Very common"; HP calls it <strong>Fever</strong></li>
+<li><code>HP:0025439</code> (1 mention) - the report calls it "Common"; HP calls it <strong>Pharyngitis</strong></li>
+<li><code>HP:0100749</code> (1 mention) - the report calls it "Common"; HP calls it <strong>Chest pain</strong></li>
+<li><code>HP:0001892</code> (1 mention) - the report calls it "Severe cases"; HP calls it <strong>Abnormal bleeding</strong></li>
+<li><code>HP:0000316</code> (1 mention) - the report calls it "Severe, poor prognosis"; HP calls it <strong>Hypertelorism</strong></li>
+<li><code>UBERON:0001987</code> (1 mention) - the report calls it "fetal loss"; UBERON calls it <strong>placenta</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0039503</code> (obsolete suppression by virus of host innate immune response) (1 mention) - replaced by <code>GO:0052170</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0001251</code> (1 mention) - the report calls it "Ataxia/balance"; HP calls it <strong>Ataxia</strong></li>
+<li><code>HP:0001250</code> (2 mentions) - the report calls it "Seizure", "Severe"; HP calls it <strong>Seizure</strong></li>
+<li><code>GO:0075509</code> (1 mention) - the report calls it "receptor-mediated endocytosis of virus by host cell"; GO calls it <strong>endocytosis involved in viral entry into host cell</strong></li>
+<li><code>GO:0039503</code> (1 mention) - the report calls it "suppression of host innate immune response by virus"; GO calls it <strong>obsolete suppression by virus of host innate immune response</strong></li>
+<li><code>UBERON:0002227</code> (1 mention) - the report calls it "organ of Corti"; UBERON calls it <strong>spiral organ of cochlea</strong>, and lists "organ of Corti" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>HP:0000407</code> - called "Sensorineural hearing impairment", "18–33% survivors"</li>
+<li><code>HP:0001250</code> - called "Seizure", "Severe"</li>
+<li><code>HP:0002910</code> - called "elevated AST/hepatic transaminases", "Prognostic"</li>
+<li><code>HP:0000083</code> - called "renal insufficiency", "Severe"</li>
+<li><code>UBERON:0001844</code> - called "cochlea", "SNHL"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Laryngotracheoesophageal_Cleft-falcon.html">← Laryngotracheoesophageal Cleft (Falcon)</a>
+                
+                
+                <a href="LAT_Deficiency-openscientist.html">LAT Deficiency (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Lassa_Fever.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Lassa_Fever-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

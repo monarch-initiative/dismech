@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41467-023-36769-6
+extractor_version: 1
 title: Genomic and immune landscape Of metastatic pheochromocytoma and paraganglioma
 authors:
 - Bruna Calsina
@@ -59,12 +60,14 @@ journal: Nature Communications
 year: '2023'
 doi: 10.1038/s41467-023-36769-6
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41467-023-36769-6.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41467-023-36769-6.pdf
+full_text_access_type: open
 ---
 
 # Genomic and immune landscape Of metastatic pheochromocytoma and paraganglioma
@@ -74,7 +77,9 @@ local_pdf_path: files/DOI_10.1038_s41467-023-36769-6.pdf
 
 ## Content
 
-AbstractThe mechanisms triggering metastasis in pheochromocytoma/paraganglioma are unknown, hindering therapeutic options for patients with metastatic tumors (mPPGL). Herein we show by genomic profiling of a large cohort of mPPGLs that high mutational load, microsatellite instability and somatic copy-number alteration burden are associated with ATRX/TERT alterations and are suitable prognostic markers. Transcriptomic analysis defines the signaling networks involved in the acquisition of metastatic competence and establishes a gene signature related to mPPGLs, highlighting CDK1 as an additional mPPGL marker. Immunogenomics accompanied by immunohistochemistry identifies a heterogeneous ecosystem at the tumor microenvironment level, linked to the genomic subtype and tumor behavior. Specifically, we define a general immunosuppressive microenvironment in mPPGLs, the exception being PD-L1 expressing MAML3-related tumors. Our study reveals canonical markers for risk of metastasis, and suggests the usefulness of including immune parameters in clinical management for PPGL prognostication and identification of patients who might benefit from immunotherapy.
+Abstract
+
+The mechanisms triggering metastasis in pheochromocytoma/paraganglioma are unknown, hindering therapeutic options for patients with metastatic tumors (mPPGL). Herein we show by genomic profiling of a large cohort of mPPGLs that high mutational load, microsatellite instability and somatic copy-number alteration burden are associated with ATRX / TERT alterations and are suitable prognostic markers. Transcriptomic analysis defines the signaling networks involved in the acquisition of metastatic competence and establishes a gene signature related to mPPGLs, highlighting CDK1 as an additional mPPGL marker. Immunogenomics accompanied by immunohistochemistry identifies a heterogeneous ecosystem at the tumor microenvironment level, linked to the genomic subtype and tumor behavior. Specifically, we define a general immunosuppressive microenvironment in mPPGLs, the exception being PD-L1 expressing MAML3 -related tumors. Our study reveals canonical markers for risk of metastasis, and suggests the usefulness of including immune parameters in clinical management for PPGL prognostication and identification of patients who might benefit from immunotherapy.
 
 Article https://doi.org/10.1038/s41467-023-36769-6
 Genomic and immune landscape Of meta-

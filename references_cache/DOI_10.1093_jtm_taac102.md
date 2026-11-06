@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1093/jtm/taac102
+extractor_version: 1
 title: "Clinical characteristics and management of neurocysticercosis patients: a retrospective assessment of case reports from Europe"
 authors:
 - Dominik Stelzle
@@ -35,12 +36,14 @@ journal: Journal of Travel Medicine
 year: '2023'
 doi: 10.1093/jtm/taac102
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://pasteur.hal.science/pasteur-04664793/document"
 oa_status: green
 license: cc-by-nc
 local_pdf_path: files/DOI_10.1093_jtm_taac102.pdf
+full_text_access_type: open
 ---
 
 # Clinical characteristics and management of neurocysticercosis patients: a retrospective assessment of case reports from Europe
@@ -50,7 +53,23 @@ local_pdf_path: files/DOI_10.1093_jtm_taac102.pdf
 
 ## Content
 
-AbstractObjectivesNeurocysticercosis (NCC) is a parasitic disease caused by the larval stage of the tapeworm Taenia solium. NCC mainly occurs in Africa, Latin America and South-East Asia and can cause a variety of clinical signs/symptoms. Although it is a rare disease in Europe, it should nonetheless be considered as a differential diagnosis. The aim of this study was to describe clinical characteristics and management of patients with NCC diagnosed and treated in Europe.MethodsWe conducted a systematic search of published and unpublished data on patients diagnosed with NCC in Europe (2000–2019) and extracted demographic, clinical and radiological information on each case, if available.ResultsOut of 293 identified NCC cases, 59% of patients presented initially with epileptic seizures (21% focal onset); 52% presented with headache and 54% had other neurological signs/symptoms. The majority of patients had a travel or migration history (76%), mostly from/to Latin America (38%), Africa (32%) or Asia (30%). Treatment varied largely depending on cyst location and number. The outcome was favorable in 90% of the cases.ConclusionsManagement of NCC in Europe varied considerably but often had a good outcome. Travel and migration to and from areas endemic for T. solium will likely result in continued low prevalence of NCC in Europe. Therefore, training and guidance of clinicians is recommended for optimal patient management.
+Abstract
+
+Objectives
+
+Neurocysticercosis (NCC) is a parasitic disease caused by the larval stage of the tapeworm Taenia solium. NCC mainly occurs in Africa, Latin America and South-East Asia and can cause a variety of clinical signs/symptoms. Although it is a rare disease in Europe, it should nonetheless be considered as a differential diagnosis. The aim of this study was to describe clinical characteristics and management of patients with NCC diagnosed and treated in Europe.
+
+Methods
+
+We conducted a systematic search of published and unpublished data on patients diagnosed with NCC in Europe (2000–2019) and extracted demographic, clinical and radiological information on each case, if available.
+
+Results
+
+Out of 293 identified NCC cases, 59% of patients presented initially with epileptic seizures (21% focal onset); 52% presented with headache and 54% had other neurological signs/symptoms. The majority of patients had a travel or migration history (76%), mostly from/to Latin America (38%), Africa (32%) or Asia (30%). Treatment varied largely depending on cyst location and number. The outcome was favorable in 90% of the cases.
+
+Conclusions
+
+Management of NCC in Europe varied considerably but often had a good outcome. Travel and migration to and from areas endemic for T. solium will likely result in continued low prevalence of NCC in Europe. Therefore, training and guidance of clinicians is recommended for optimal patient management.
 
 HAL Id: pasteur-04664793
 https://pasteur.hal.science/pasteur-04664793v1

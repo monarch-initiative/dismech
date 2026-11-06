@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1002/ajmg.a.62234
+extractor_version: 1
 title: "From cataract to syndrome diagnosis: Revaluation of <scp>Warburg‐Micro</scp> syndrome <scp>Type</scp> 1 patients"
 authors:
 - Hatice Mutlu Albayrak
@@ -10,7 +11,8 @@ journal: American Journal of Medical Genetics Part A
 year: '2021'
 doi: 10.1002/ajmg.a.62234
 content_type: abstract_only
-full_text_attempted: true
+is_preprint: false
+full_text_declined: landing_page_only
 ---
 
 # From cataract to syndrome diagnosis: Revaluation of <scp>Warburg‐Micro</scp> syndrome <scp>Type</scp> 1 patients
@@ -20,4 +22,6 @@ full_text_attempted: true
 
 ## Content
 
-AbstractWarburg‐Micro syndrome (WARBM) is a rare autosomal recessively inherited neuro‐ophthalmologic syndrome. Although WARBM shows genetic heterogeneity, the pathogenic variants in RAB3GAP1 were the most common cause of WARBM. In this study, we aimed to evaluate the detailed clinical and dysmorphic features of seven WARBM1 patients and overview the variant spectrum of RAB3GAP1 in comparison with the literature who were referred due to congenital cataracts. A previously reported homozygous variant (c.2187_2188delGAinsCT) was identified in three of these patients, while the other four had three novel variants (c.251_258delAGAA, c.2606+1G>A, and c.2861_2862dupGC). Congenital cataract and corpus callosum hypo/agenesia are pathognomonic for WARBM, which could be distinguished from other similar syndromes with additional typical dysmorphic facial features. Although there is no known phenotype and genotype correlation in any type of WARBM, RAB3GAP1 gene analysis should be previously requested as the first step of genetic diagnosis in clinically suspicious patients when it is not possible to request a multi‐gene panel.
+Abstract
+
+Warburg‐Micro syndrome (WARBM) is a rare autosomal recessively inherited neuro‐ophthalmologic syndrome. Although WARBM shows genetic heterogeneity, the pathogenic variants in RAB3GAP1 were the most common cause of WARBM. In this study, we aimed to evaluate the detailed clinical and dysmorphic features of seven WARBM1 patients and overview the variant spectrum of RAB3GAP1 in comparison with the literature who were referred due to congenital cataracts. A previously reported homozygous variant (c.2187_2188delGAinsCT) was identified in three of these patients, while the other four had three novel variants (c.251_258delAGAA, c.2606+1G>A, and c.2861_2862dupGC). Congenital cataract and corpus callosum hypo/agenesia are pathognomonic for WARBM, which could be distinguished from other similar syndromes with additional typical dysmorphic facial features. Although there is no known phenotype and genotype correlation in any type of WARBM, RAB3GAP1 gene analysis should be previously requested as the first step of genetic diagnosis in clinically suspicious patients when it is not possible to request a multi‐gene panel.

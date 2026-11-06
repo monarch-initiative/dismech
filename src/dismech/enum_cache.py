@@ -36,10 +36,13 @@ from linkml_term_validator.plugins import BindingValidationPlugin
 class EnumCacheFinding:
     """A single enum cache integrity problem.
 
-    ``is_warning`` is True for findings that are advisory during the current
-    migration: stale filenames and non-canonical row order.  Warnings do **not**
-    fail CI.  All other findings (malformed headers, duplicate rows, invalid
-    CURIEs) are errors and do fail CI.
+    ``is_warning`` is True for findings that are advisory in this scan: stale
+    filenames, and non-canonical row order unless ``strict_order`` is set.
+    Ordering is gated separately by ``--check-order --strict-order`` (``just
+    check-cache-order``), which CI runs whole-tree (#7753), so this scan --
+    which runs at the start of every ``validate*`` recipe, before
+    ``normalize-cache`` -- keeps reporting it as a warning.  All other
+    findings (malformed headers, duplicate rows, invalid CURIEs) are errors.
     """
 
     path: Path
@@ -417,8 +420,8 @@ def main(argv: list[str] | None = None) -> int:
         "--strict-order",
         action="store_true",
         help=(
-            "Promote out-of-order rows from warnings to errors. Reserved for "
-            "the coordinated cache-order cutover."
+            "Promote out-of-order rows from warnings to errors (exit 1). "
+            "This is how CI and 'just check-cache-order' gate ordering (#7753)."
         ),
     )
     parser.add_argument(
@@ -456,8 +459,8 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
         print(
-            "  Advisory only; run 'just normalize-cache' during the coordinated "
-            "cache-order cutover.",
+            "  Fix: run 'just normalize-cache' and commit the re-sorted cache "
+            "files. Never append rows at end-of-file or hand-place them.",
             file=sys.stderr,
         )
         has_order_error = any(
@@ -511,7 +514,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  ... {len(warnings) - args.max_findings} more", file=sys.stderr)
         print(
             "  Remediation: use 'just check-enum-cache --fix' for stale files; "
-            "use 'just normalize-cache' for ordering during the coordinated cutover.",
+            "use 'just normalize-cache' for ordering.",
             file=sys.stderr,
         )
 
