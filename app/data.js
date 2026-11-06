@@ -91090,26 +91090,34 @@ window.searchData = [
     "creation_date": "2026-09-16T20:30:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Charcot-Marie-Tooth disease axonal type 2Z (CMT2Z) is an autosomal dominant axonal sensorimotor neuropathy caused by heterozygous variants in MORC2. It sits unusually far upstream for a peripheral neuropathy: MORC2 is a chromatin-remodelling ATPase, the effector subunit of the Human Silencing Hub (HUSH) complex, which deposits and spreads H3K9me3 to keep repeat-rich heterochromatin silent. The primary lesion is therefore epigenetic rather than a defect of axonal transport, myelin or mitochondrial dynamics, and the disease alleles are not simple loss of function \u2014 the common p.Arg252Trp variant hyperactivates HUSH-mediated repression in neuronal cells rather than abolishing it.\nClinically the core presentation is childhood- or adolescent-onset distal weakness and sensory loss progressing proximally, with an unequivocally axonal neurophysiology, frequent spontaneous motor-unit activity and a high rate of sporadic de novo occurrence. Two features distinguish it from generic CMT2: a scapuloperoneal, asymmetric, proximally-involving pattern that predominates in some cohorts, and cognitive impairment in roughly a third of patients, which is not part of the classical CMT phenotype.\nMORC2 is genotype-stratified rather than uniform. The most severe end, p.Ser87Leu, gives a spinal muscular atrophy-like presentation; variants in the ATPase module give a developmental syndrome with growth retardation, microcephaly and craniofacial dysmorphism in which neuropathy is present but not predominant. This entry covers the CMT2Z pole of that spectrum and records the rest as differential and as an open lump/split question, because no genotype-to-phenotype rule has been established.",
+    "description": "Charcot-Marie-Tooth disease axonal type 2Z (CMT2Z) is an autosomal dominant motor and sensory axonal neuropathy caused by heterozygous pathogenic MORC2 variants. Onset ranges from childhood to adulthood, with distal weakness and sensory impairment, often progressing proximally. Some families show asymmetric scapuloperoneal weakness, pyramidal signs or cognitive impairment. Familial and confirmed de novo cases occur; a sporadic presentation alone does not establish de novo inheritance. MORC2 is a chromatin-regulating ATPase. Variant-specific studies implicate altered ATPase regulation and HUSH silencing, promoter methylation and transcriptional repression, impaired DNA repair, and oxidative injury. The cellular effects differ by variant and experimental system. This entry covers the predominantly peripheral CMT2Z presentation within the broader MORC2 spectrum, which also includes severe SMA-like and neurodevelopmental phenotypes.",
     "pathophysiology": [
-      "MORC2 Variant Dysregulation of HUSH Silencing",
-      "Neuronal Transcriptional Dysregulation",
+      "Reduced ATP Hydrolysis in p.Arg252Trp MORC2",
+      "Enhanced HUSH-Mediated Silencing",
+      "Promoter Hypermethylation",
+      "Transcriptional Dysregulation",
       "Impaired PARP1-Dependent DNA Repair",
+      "Hydroxyl Radical Accumulation",
+      "Neuronal Apoptosis",
       "Axonal Degeneration",
       "Central Nervous System Involvement"
     ],
     "cell_types": [
       "sensory neuron",
+      "fibroblast",
       "motor neuron"
     ],
     "cell_type_ids": [
       "CL:0000101",
+      "CL:0000057",
       "CL:0000100"
     ],
     "biological_processes": [
       "chromatin remodeling",
       "heterochromatin formation",
-      "double-strand break repair"
+      "negative regulation of gene expression via chromosomal CpG island methylation",
+      "double-strand break repair",
+      "apoptotic process"
     ],
     "phenotypes": [
       "Distal muscle weakness",
@@ -91120,19 +91128,31 @@ window.searchData = [
       "Intellectual disability",
       "Elevated circulating creatine kinase concentration",
       "Global developmental delay",
-      "Pyramidal signs"
+      "Pyramidal signs",
+      "Peripheral axonal neuropathy",
+      "Distal sensory impairment",
+      "Myokymia",
+      "Hearing impairment",
+      "Abnormal retinal pigmentation",
+      "Nocturnal hypoventilation"
     ],
     "phenotype_categories": [
       "Neuromuscular",
       "Neurologic",
       "Musculoskeletal",
-      "Laboratory"
+      "Laboratory",
+      "Audiologic",
+      "Ophthalmologic",
+      "Respiratory"
     ],
     "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
       "Limbs",
       "Metabolism",
       "Musculoskeletal",
-      "Nervous System"
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0002460",
@@ -91143,10 +91163,15 @@ window.searchData = [
       "HP:0001249",
       "HP:0003236",
       "HP:0001263",
-      "HP:0002493"
+      "HP:0002493",
+      "HP:0003477",
+      "HP:0002936",
+      "HP:0002411",
+      "HP:0000365",
+      "HP:0007703",
+      "HP:0002877"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
     ],
@@ -91154,20 +91179,22 @@ window.searchData = [
       "MORC2"
     ],
     "treatments": [
-      "Avoidance of vinca alkaloid chemotherapy",
-      "Rehabilitation and orthotic management",
-      "Genetic counselling"
+      "Precautions with neurotoxic chemotherapy",
+      "Rehabilitation and exercise",
+      "Genetic counselling",
+      "Ankle-foot orthoses and walking aids",
+      "Orthopedic correction of severe foot deformity"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Charcot-Marie-Tooth_Disease_Axonal_Type_2Z.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Axonal_Type_2Z.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 15,
+    "num_pathophysiology": 9,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "21",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 5,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Charcot-Marie-Tooth Disease, Demyelinating, Type 1G",
@@ -428872,12 +428899,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3981,
   "total_subtypes": 5023,
   "total_disorders_and_subtypes": 9004,
-  "total_unique_evidence_sources": 59051,
-  "total_unique_publications": 55246,
+  "total_unique_evidence_sources": 59054,
+  "total_unique_publications": 55249,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 3979,
-  "total_unique_pathological_events": 26041,
+  "total_unique_pathological_events": 26044,
   "total_modules": 227,
   "total_research_reports": 4090,
   "total_classifications": 21,
