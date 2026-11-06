@@ -92,10 +92,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from dismech.yaml_io import safe_load  # noqa: E402
+from dismech.yaml_io import safe_load
 
 WORKLIST = ROOT / "docs" / "reports" / "data" / (
     f"experiment-design-backfill-worklist-{datetime.now(UTC).date().isoformat()}.tsv"
+)
+
+#: Words that mark a hypomorphic allele as engineered rather than ascertained.
+#: "mouse data" cites prior evidence rather than naming a system to build.
+_ENGINEERED = r"(?:mouse(?!\s+data)|mice|zebrafish|model\w*|knock[- ]?in|conditional|engineer\w*|generat\w*)"
+HYPOMORPH_ENGINEERED = (
+    rf"\bhypomorphic\b(?=.*\b{_ENGINEERED}\b)|\b{_ENGINEERED}\b(?=.*\bhypomorphic\b)"
 )
 
 #: Anchor patterns per design family, matched against the method statement.
@@ -128,7 +135,10 @@ FAMILIES: list[tuple[str, list[str]]] = [
         r"\boverexpress\w*\b",
         r"\bacute (depletion|degradation|inhibition)\b",
         r"\bcell[- ]type[- ]specific manipulation\b",
-        r"\bhypomorphic\b",
+        # "hypomorphic" alone often describes patients' own alleles in a human
+        # genotype-stratified study, which engineers nothing. Count it only when
+        # the same method statement names an engineered system.
+        HYPOMORPH_ENGINEERED,
         r"\bgenetic (ablation|correction|augmentation)\b",
         # Weak anchors: these two also name comparators, so CONTROL_ONLY guards them.
         r"\brescue\b",
@@ -162,14 +172,14 @@ FAMILIES: list[tuple[str, list[str]]] = [
         r"\b(proteomic|glycoproteomic|degradomic|metabolomic|n[- ]terminomics)\w*\b",
     ]),
 ]
-COMPILED = [(n, [re.compile(p, re.I | re.S) for p in ps]) for n, ps in FAMILIES]
+COMPILED = [(n, [re.compile(p, re.IGNORECASE | re.DOTALL) for p in ps]) for n, ps in FAMILIES]
 
 #: The two TARGETED_PERTURBATION anchors that also name a comparator.
-WEAK_PERTURBATION = (re.compile(r"\brescue\b", re.I), re.compile(r"\bisogenic\b", re.I))
+WEAK_PERTURBATION = (re.compile(r"\brescue\b", re.IGNORECASE), re.compile(r"\bisogenic\b", re.IGNORECASE))
 CONTROL_ONLY = re.compile(
-    r"\b(isogenic|unaffected[- ]relative|wild[- ]?type)\b[^.]{0,40}\bcontrol", re.I
+    r"\b(isogenic|unaffected[- ]relative|wild[- ]?type)\b[^.]{0,40}\bcontrol", re.IGNORECASE
 )
-NAME_SCREEN = re.compile(r"\bscreen\w*\b", re.I)
+NAME_SCREEN = re.compile(r"\bscreen\w*\b", re.IGNORECASE)
 
 #: One family strictly contains the other, so the order is safe to apply.
 PRIORITY = [

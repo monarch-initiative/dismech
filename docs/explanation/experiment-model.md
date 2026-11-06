@@ -25,7 +25,7 @@ treat any absolute count here as dated). Their slot fill rates:
 |---|---|
 | `experiment_id`, `name` | 100% |
 | `description` | 99.8% |
-| `experiment_design` | 36.7% (backfilled; see §9) |
+| `experiment_design` | 36.4% (backfilled; see §9) |
 | `would_support` | 27.3% |
 | `decision_criterion` | 26.4% |
 | `experiment_type` | 13.4% |
@@ -297,8 +297,8 @@ one concept, which is the shape of the `PARTIAL` / `directness` conflation that
 | Stage | Work | Value absent any automation |
 |---|---|---|
 | 1a | **ENACTED.** `ExperimentDesignEnum` (8 values) + `ExperimentExecutabilityEnum` (4) as optional `experiment_design` / `executability` slots on `Experiment`; `animal_models` and `computational_models` added to the `Experiment` class | High. Makes 2,378 experiments classifiable and closes the `OTHER` leak. The 330 free-text strings cluster into the 8 families and can be backfilled semi-mechanically. |
-| 1b | **ENACTED for the backfill (§9).** 1,172 of 3,191 experiments classified, 2,019 worklisted. The model-system migration is **not** done: only 17 of 59 are migrations, each needs an `organism`→`species` transformation, and 21 are human cohorts with no home in the schema at all | High. The enum went from available to the third-best-filled slot on `Experiment`. |
-| 1c | Per-family detail blocks (`screen_details`, `cohort_details`, …), either as `is_a` subclasses or as the discriminator-plus-detail-block idiom `therapeutic_modality` / `aso_details` already uses. **1b has now sized these:** targeted perturbation (676) and human observational (319) are where the weight is, and the latter needs a study-population slot to absorb the 21 homeless cohorts | Medium-high. 1b showed which families carry weight, and that one of them is leaking into `model_systems: OTHER`. |
+| 1b | **ENACTED for the backfill (§9).** 1,165 of 3,200 experiments classified, 2,035 worklisted. The model-system migration is **not** done: only 17 of 59 are migrations, each needs an `organism`→`species` transformation, and 21 are human cohorts with no home in the schema at all | High. The enum went from available to the third-best-filled slot on `Experiment`. |
+| 1c | Per-family detail blocks (`screen_details`, `cohort_details`, …), either as `is_a` subclasses or as the discriminator-plus-detail-block idiom `therapeutic_modality` / `aso_details` already uses. **1b has now sized these:** targeted perturbation (668) and human observational (320) are where the weight is, and the latter needs a study-population slot to absorb the 21 homeless cohorts | Medium-high. 1b showed which families carry weight, and that one of them is leaking into `model_systems: OTHER`. |
 | 2 | Structure `decision_criterion` as a `DecisionRule`, unified with the §12 experiment-grounded evidence design; add the return path from `EvidenceItem` | High. This is the pre-registration and the round-trip — the part that is dismech's own. |
 | 3 | **Largely superseded** by `Experiment.executable_protocols`, which landed upstream (§5). What remains is a machine-readable `protocol_format`, worth doing only with real automation access | Low breadth. One worked exemplar at most, not a KB-wide push. |
 
@@ -318,25 +318,25 @@ free — `check_enum_values.py` is an ungated, whole-KB CI step, so a bad
 
 ## 9. What the backfill actually achieved (stage 1b)
 
-`scripts/backfill_experiment_design.py` assigned **1,172 of 3,191 experiments
-(36.7%)**, across 729 files, in a diff that is 1,172 insertions and zero
+`scripts/backfill_experiment_design.py` assigned **1,165 of 3,200 experiments
+(36.4%)**, across 729 files, in a diff that is 1,165 insertions and zero
 deletions. That single slot is now better filled than `decision_criterion`
 (26.4%) and nearly three times better filled than the `experiment_type` it
 supersedes (13.4%).
 
 | Family | n |
 |---|---|
-| TARGETED_PERTURBATION | 676 |
-| HUMAN_OBSERVATIONAL | 319 |
+| TARGETED_PERTURBATION | 668 |
+| HUMAN_OBSERVATIONAL | 320 |
 | DESCRIPTIVE_PROFILING | 113 |
 | INTERVENTIONAL_TRIAL | 61 |
 | PERTURBATION_SCREEN | 2 |
 | IN_SILICO | 1 |
 
-The remaining 2,019 are in
-`docs/reports/data/experiment-design-backfill-worklist-2026-10-31.tsv` with the
-reason each was skipped. They are deliberately left absent: 1,877 raise no
-unambiguous anchor at all, 108 use a perturbation word only for a comparator,
+The remaining 2,035 are in
+`docs/reports/data/experiment-design-backfill-worklist-2026-11-06.tsv` with the
+reason each was skipped. They are deliberately left absent: 1,892 raise no
+unambiguous anchor at all, 109 use a perturbation word only for a comparator,
 and 34 raise anchors from two families, where `MIXED` is a curator's judgement
 that a script cannot make. This follows `scripts/migrate_supports_enum.py`,
 which refused on the same grounds to guess a `directness` nobody had assessed.
@@ -345,7 +345,12 @@ which refused on the same grounds to guess a `directness` nobody had assessed.
 by hand against the enum definitions: 80% on the first rules, 94% after scoping
 matches to the experiment's *method statement*, and the two residual failures in
 that sample are exactly what the screen-name and human-study-unit guards in the
-script now catch. It is not 100%, so the annotation is advisory and the diff is
+script now catch. A later review found one systematic error outside the sample:
+`hypomorphic` alone often describes the patients' own alleles in a
+genotype-stratified human study, which engineers nothing. It now counts as a
+targeted-perturbation anchor only when the same method statement names an
+engineered system (a mouse, zebrafish, model, knock-in or conditional allele),
+which moved 11 experiments from `TARGETED_PERTURBATION` to the worklist. It is not 100%, so the annotation is advisory and the diff is
 meant to be read.
 
 **The distribution is itself a finding.** `PERTURBATION_SCREEN` matches twice in
@@ -361,7 +366,7 @@ stage 3 should be sized against the screens, not the corpus.
 ### The model-system migration is curation, not migration
 
 Of the 59 model systems still carrying `OTHER` or no type
-(`docs/reports/data/experiment-model-systems-worklist-2026-10-31.tsv`):
+(`docs/reports/data/experiment-model-systems-worklist-2026-11-06.tsv`):
 
 | Classification | n | Disposition |
 |---|---|---|
@@ -409,8 +414,8 @@ use of the `OTHER` bucket this note set out to close.
   over `kb/**/*.yaml`, 2026-10-31. The corpus is growing fast (2,378 experiments
   on 2026-09-02, 3,191 on 2026-10-31), so recompute rather than quoting these.
 - Backfill tooling and worklists: `scripts/backfill_experiment_design.py`,
-  `docs/reports/data/experiment-design-backfill-worklist-2026-10-31.tsv`,
-  `docs/reports/data/experiment-model-systems-worklist-2026-10-31.tsv`.
+  `docs/reports/data/experiment-design-backfill-worklist-2026-11-06.tsv`,
+  `docs/reports/data/experiment-model-systems-worklist-2026-11-06.tsv`.
 - Strategy, execution standards (LabOP, Autoprotocol, SiLA 2), and the Ewing
   demonstrator: [`projects/AUTONOMOUS_LABS.md`](../../projects/AUTONOMOUS_LABS.md).
 - Ewing curation target: `kb/disorders/Ewing_Sarcoma.yaml`,
