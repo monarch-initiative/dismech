@@ -91626,30 +91626,29 @@ window.searchData = [
     "creation_date": "2026-08-29T17:10:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Charcot-Marie-Tooth disease recessive intermediate D (CMTRID) is an autosomal recessive peripheral neuropathy caused by biallelic variants in COX6A1, which encodes the ubiquitously expressed 6A isoform of mitochondrial respiratory complex IV (cytochrome c oxidase). It is one of the few CMT entities whose primary lesion is in oxidative phosphorylation rather than in myelin, axonal transport or the cytoskeleton, and MONDO places it under both the intermediate CMT and the mitochondrial oxidative phosphorylation disorder branches for that reason.\nThe disease was mapped in two consanguineous Japanese families to a five-base deletion in the polypyrimidine tract of COX6A1 intron 2, which disrupts splicing of exon 3. Patients showed reduced COX6A1 expression in peripheral leukocytes and reduced cytochrome c oxidase activity in lymphoblastoid lines, and a Cox6a1-null mouse reproduced both the enzymatic defect and a neurogenic muscular atrophy with impaired walking. A second allelic mechanism has since been reported: a homozygous stop-loss variant extending the protein by 41 residues and reducing steady-state protein levels.\nWhy a complex IV subunit defect should present as a peripheral neuropathy rather than as the encephalopathy or cardiomyopathy typical of COX deficiency is the mechanistically interesting question here, and the isoform biology offers a partial answer: mature cardiac and skeletal muscle switch from the ubiquitous COX6A1 to the muscle-specific COX6A2 isoform, so those tissues have a substitute that peripheral nerve does not. That is an inference from isoform expression data rather than something demonstrated in this disease, and it is recorded as such.\nThe phenotype is not settled. The founding report described an axonal or mixed neuropathy, and the entity is nevertheless catalogued as \"intermediate\"; the most recent case adds global developmental delay, elevated lactate and death after a febrile decompensation at 3.5 years - a presentation that reads more like a mitochondrial disease with neuropathy than like CMT. Whether CMTRID names one disease or the neuropathic end of a broader COX6A1-related spectrum is an open nosological question, curated here as a knowledge gap rather than resolved.",
+    "description": "Charcot-Marie-Tooth disease recessive intermediate D (CMTRID) is a COX6A1-related autosomal recessive peripheral neuropathy. COX6A1 encodes the ubiquitous 6A subunit of mitochondrial respiratory complex IV. The recurrent intron 2 deletion reduces normally spliced RNA, and patient-derived lymphoblastoid cells have reduced cytochrome c oxidase activity and ATP content. Human electrophysiology spans axonal and mixed patterns, including progressive slowing in the founding Japanese siblings. A Czech confirmation case documents childhood-onset neuropathy with distal weakness and atrophy, sensory loss, pes cavus, and later pain and hearing loss. A separate homozygous stop-loss allele was reported in a young child with developmental delay, elevated lactate and fatal decompensation after a febrile illness. The extent of this broader mitochondrial phenotype and the basis of peripheral nerve vulnerability remain unresolved.",
     "pathophysiology": [
-      "Biallelic COX6A1 Loss of Function",
+      "COX6A1 Intronic Splice-Region Deletion",
+      "Reduced Normally Spliced COX6A1 RNA",
+      "COX6A1 Stop-Loss Variant",
+      "Reduced COX6A1 Protein Abundance",
       "Complex IV Biogenesis Failure",
-      "Impaired Terminal Electron Transfer and ATP Synthesis",
-      "Isoform-Restricted Tissue Vulnerability",
-      "Peripheral Nerve Degeneration with Mixed Conduction Slowing",
-      "Neurogenic Muscular Atrophy",
-      "Lactate Accumulation"
+      "Reduced Cytochrome c Oxidase Activity",
+      "Reduced Cellular ATP Content",
+      "Peripheral Sensorimotor Nerve Dysfunction",
+      "Motor Conduction Slowing",
+      "Distal Neurogenic Muscle Atrophy",
+      "Possible COX6A2-Mediated Tissue Compensation"
     ],
     "cell_types": [
-      "motor neuron",
-      "sensory neuron"
+      "skeletal muscle fiber"
     ],
     "cell_type_ids": [
-      "CL:0000100",
-      "CL:0000101"
+      "CL:0008002"
     ],
     "biological_processes": [
       "mitochondrial respiratory chain complex IV assembly",
-      "mitochondrial electron transport, cytochrome c to oxygen",
-      "oxidative phosphorylation",
-      "aerobic respiration",
-      "neuron projection development"
+      "mitochondrial electron transport, cytochrome c to oxygen"
     ],
     "phenotypes": [
       "Distal Muscle Weakness",
@@ -91657,18 +91656,25 @@ window.searchData = [
       "Distal Sensory Impairment",
       "Pes Cavus",
       "Diminished or Absent Tendon Reflexes",
+      "Knee Hyperreflexia",
       "Foot Dorsiflexor Weakness",
-      "Steppage Gait",
       "Gait Difficulty",
+      "Hearing Impairment",
+      "Neuropathic Pain",
+      "Finger Contractures",
+      "Onion Bulb Formation",
       "Elevated Circulating Lactate",
-      "Global Developmental Delay"
+      "Global Developmental Delay",
+      "Nocturnal Muscle Cramps"
     ],
     "phenotype_categories": [
       "Neurologic",
-      "Metabolic",
-      "Developmental"
+      "Musculoskeletal",
+      "Biochemical"
     ],
     "phenotype_hpo_categories": [
+      "Constitutional",
+      "Ear",
       "Limbs",
       "Metabolism",
       "Musculoskeletal",
@@ -91679,35 +91685,40 @@ window.searchData = [
       "HP:0003693",
       "HP:0002936",
       "HP:0001761",
-      "HP:0001265",
+      "HP:0001284",
+      "HP:0001347",
       "HP:0009027",
-      "HP:0003376",
       "HP:0001288",
+      "HP:0000365",
+      "HP:0012531",
+      "HP:0034681",
+      "HP:0003383",
       "HP:0002151",
-      "HP:0001263"
+      "HP:0001263",
+      "HP:0003394"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
-    ],
+    "frequencies": [],
     "genes": [
       "COX6A1"
     ],
     "treatments": [
       "Supportive and Rehabilitative Management",
-      "Genetic Counseling"
+      "Orthopedic Foot Surgery",
+      "Walking Aids",
+      "Gabapentin and Clonazepam for Pain and Cramps",
+      "Genetic Counseling",
+      "Avoidance of Vincristine Neurotoxicity"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Charcot-Marie-Tooth_Disease_Recessive_Intermediate_D.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Recessive_Intermediate_D.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 15,
+    "num_pathophysiology": 11,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "6"
+    "num_treatments": 6,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Charcot-Marie-Tooth Disease Type 1",
@@ -428932,12 +428943,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3981,
   "total_subtypes": 5023,
   "total_disorders_and_subtypes": 9004,
-  "total_unique_evidence_sources": 59064,
-  "total_unique_publications": 55258,
+  "total_unique_evidence_sources": 59068,
+  "total_unique_publications": 55260,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 3979,
-  "total_unique_pathological_events": 26052,
+  "total_unique_pathological_events": 26058,
   "total_modules": 227,
   "total_research_reports": 4090,
   "total_classifications": 21,
