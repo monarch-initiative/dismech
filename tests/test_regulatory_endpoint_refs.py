@@ -97,7 +97,7 @@ def test_rendered_biomarker_readouts_show_resolved_fda_endpoint_context(
     html = output_path.read_text()
     assert "FDA-SE-adult-noncancer-022" in html
     assert "Skeletal muscle dystrophin" in html
-    assert "Reasonably Likely Surrogate Endpoint" in html
+    assert "Reasonably likely surrogate endpoint" in html
 
 
 KB_ENTRY_DIRS = (Path("kb/disorders"), Path("kb/modules"), Path("kb/comorbidities"))

@@ -792,6 +792,11 @@
             gap: 6px;
             margin-top: 8px;
         }
+        .term-role-label {
+            align-self: center;
+            font-size: 0.8rem;
+            color: #4b5563;
+        }
 
         .anchor-target {
             scroll-margin-top: 96px;
@@ -1838,8 +1843,10 @@
             margin: 1.2rem 0 0.5rem 0;
             padding-bottom: 0.3rem;
             border-bottom: 2px solid #c7d2fe;
-            text-transform: capitalize;
         }
+        /* Free text, so capitalize only the first letter: capitalizing every word
+           turns "T-lineage developmental subtype" into "T-Lineage Developmental Subtype". */
+        .classification-header::first-letter { text-transform: uppercase; }
         .subtype-meta {
             display: flex;
             flex-wrap: wrap;
@@ -3694,6 +3701,8 @@
 
     {% macro render_descriptor_tag(descriptor, tag_class="tag-bio", show_term_id=false, role="") %}{% include "_descriptor_tag.html.j2" %}{% endmacro %}
 
+    {% macro render_enum_tag(value, enum_name, prefix="", suffix="", tag_class="", tag_style="") %}{% include "_enum_tag.html.j2" %}{% endmacro %}
+
     {% macro render_descriptor_tags(descriptors, tag_class="tag-bio", show_term_id=false, role="") %}
     {% if descriptors %}
     <div class="item-meta">
@@ -3901,7 +3910,7 @@
     ] %}
     {% macro render_prevalence_class(value, measure_type=none) %}
     {%- if value -%}
-    {%- set label = PREVALENCE_CLASS_LABELS.get(value) or (value | replace('_', ' ') | title) -%}
+    {%- set label = PREVALENCE_CLASS_LABELS.get(value) or (value | enum_label('PrevalenceClassEnum')) -%}
     {%- set qualifier = PREVALENCE_CLASS_QUALIFIERS.get(measure_type) if measure_type and value in NUMERIC_PREVALENCE_CLASSES else none -%}
     <span class="tag">{{ label }}{% if qualifier %} {{ qualifier }}{% endif %}</span>
     {%- endif -%}
@@ -4365,7 +4374,7 @@
     <div class="item-name">
         {{ variant.name }}
         {% if variant.clinical_significance %}
-        <span class="variant-significance variant-significance-{{ variant.clinical_significance | lower | replace('_', '-') }}">{{ variant.clinical_significance | replace('_', ' ') | title }}</span>
+        <span class="variant-significance variant-significance-{{ variant.clinical_significance | lower | replace('_', '-') }}">{{ variant.clinical_significance | enum_label('ClinicalSignificanceEnum') }}</span>
         {% endif %}
     </div>
     {% set variant_class = variant.variant_type or variant.type %}
@@ -4396,7 +4405,7 @@
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">{{ variant_class | replace('_', ' ') }}</span>
         {% endif %}
         {% if variant.regulatory_category %}
-        <span class="tag" style="background: #fef3c7; color: #92400e;">{{ variant.regulatory_category | replace('_', ' ') }}</span>
+        {{ render_enum_tag(variant.regulatory_category, 'RegulatoryVariantCategoryEnum', tag_style="background: #fef3c7; color: #92400e;") }}
         {% endif %}
         {% if variant.sequence_length %}
         <span class="tag" style="background: #f1f5f9; color: #475569;">{{ variant.sequence_length }} bp</span>
@@ -4448,7 +4457,7 @@
                 <span class="tag" style="background: #e0e7ff; color: #3730a3;">{{ effect.type | replace('_', ' ') }}</span>
                 {% endif %}
                 {% if effect.regulatory_category %}
-                <span class="tag" style="background: #fef3c7; color: #92400e;">{{ effect.regulatory_category | replace('_', ' ') }}</span>
+                {{ render_enum_tag(effect.regulatory_category, 'RegulatoryVariantCategoryEnum', tag_style="background: #fef3c7; color: #92400e;") }}
                 {% endif %}
                 {% if effect.regulatory_element_type %}
                 <span class="tag" style="background: #fce7f3; color: #9d174d;">{{ effect.regulatory_element_type | replace('_', ' ') }}</span>
@@ -4491,7 +4500,7 @@
                 <span class="tag" style="background: #fef3c7; color: #92400e;">{% if diff == 'NO_DIFFERENCE' %}No difference found{% else %}Differs in: {{ diff | replace('_', ' ') | lower }}{% endif %}</span>
                 {% endfor %}
                 {% if pe.clinical_significance %}
-                <span class="variant-significance variant-significance-{{ pe.clinical_significance | lower | replace('_', '-') }}">{{ pe.clinical_significance | replace('_', ' ') | title }}</span>
+                <span class="variant-significance variant-significance-{{ pe.clinical_significance | lower | replace('_', '-') }}">{{ pe.clinical_significance | enum_label('ClinicalSignificanceEnum') }}</span>
                 {% endif %}
                 {% if pe.penetrance %}
                 <span class="tag" style="background: #e0e7ff; color: #3730a3;">Penetrance: {{ pe.penetrance | lower }}{% if pe.penetrance_percentage %} ({{ pe.penetrance_percentage }}%){% endif %}</span>
@@ -5386,9 +5395,9 @@
                 {% if patho.regulatory_category or patho.mechanism_confidence %}
                 <div class="item-meta">
                     {% if patho.regulatory_category %}
-                    <span class="tag tag-classification">Regulatory category: {{ patho.regulatory_category }}{% if patho.mechanism_confidence %} ({{ patho.mechanism_confidence | replace('_', ' ') | title }}){% endif %}</span>
+                    {{ render_enum_tag(patho.regulatory_category, 'RegulatoryVariantCategoryEnum', prefix="Regulatory category: ", suffix=(" (" ~ (patho.mechanism_confidence | enum_label('MechanismConfidenceEnum')) ~ ")") if patho.mechanism_confidence else "", tag_class="tag-classification") }}
                     {% else %}
-                    <span class="tag tag-classification">Mechanism confidence: {{ patho.mechanism_confidence | replace('_', ' ') | title }}</span>
+                    <span class="tag tag-classification">Mechanism confidence: {{ patho.mechanism_confidence | enum_label('MechanismConfidenceEnum') }}</span>
                     {% endif %}
                 </div>
                 {% endif %}
@@ -5934,7 +5943,7 @@
                 <div class="item-meta">
                     {% if tx.action_category -%}
                     {% set category_value = tx.action_category | string -%}
-                    {% set category_display = "Counseling / Informational" if category_value == "COUNSELING_INFORMATIONAL" else (category_value | replace('_', ' ') | title) -%}
+                    {% set category_display = category_value | enum_label('MedicalActionCategoryEnum') -%}
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
                     <span class="tag tag-treatment">{{ category_display }}</span>
                     {% endif -%}
@@ -6297,17 +6306,17 @@
                     {% for readout in bio.readouts %}
                     <div class="biomarker-readout">
                         <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.78rem;">
-                            {{ readout.relationship | replace('_', ' ') | title }}
+                            {{ readout.relationship | enum_label('BiomarkerReadoutRelationshipEnum') }}
                         </span>
                         <span class="readout-target">{{ readout.target }}</span>
                         {% if readout.direction %}
                         <span class="tag" style="background: #fef3c7; color: #92400e; font-size: 0.78rem;">
-                            {{ readout.direction | replace('_', ' ') | title }}
+                            {{ readout.direction | enum_label('BiomarkerReadoutDirectionEnum') }}
                         </span>
                         {% endif %}
                         {% if readout.endpoint_context %}
                         <span class="tag" style="background: #f1f5f9; color: #475569; font-size: 0.78rem;">
-                            {{ readout.endpoint_context | replace('_', ' ') | title }}
+                            {{ readout.endpoint_context | enum_label('BiomarkerEndpointContextEnum') }}
                         </span>
                         {% endif %}
                         {% if readout.interpretation %}
@@ -6331,12 +6340,12 @@
                                 <div class="regulatory-endpoint-meta">
                                     {% if endpoint.approval_type %}
                                     <span class="tag" style="background: #e0e7ff; color: #3730a3; font-size: 0.72rem;">
-                                        {{ endpoint.approval_type | replace('_', ' ') | title }}
+                                        {{ endpoint.approval_type | enum_label('SurrogateEndpointApprovalTypeEnum') }}
                                     </span>
                                     {% endif %}
                                     {% if endpoint.endpoint_validation_level %}
                                     <span class="tag" style="background: #dcfce7; color: #166534; font-size: 0.72rem;">
-                                        {{ endpoint.endpoint_validation_level | replace('_', ' ') | title }}
+                                        {{ endpoint.endpoint_validation_level | enum_label('SurrogateEndpointValidationLevelEnum') }}
                                     </span>
                                     {% endif %}
                                 </div>
@@ -6426,27 +6435,47 @@
                 {% endif %}
                 <div class="item-meta">
                     {% if finding.modality %}
-                    <span class="tag tag-classification">{{ finding.modality | replace('_', ' ') | title }}</span>
+                    {{ render_enum_tag(finding.modality, 'ImagingModalityEnum', prefix="Modality: ", tag_class="tag-classification") }}
                     {% endif %}
                     {% if finding.diagnostic %}
-                    <span class="tag" style="background: #dcfce7; color: #166534;">Diagnostic</span>
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                    <span class="tag" style="background: #dcfce7; color: #166534;" tabindex="0" aria-describedby="{{ tip_id }}">Diagnostic<span class="pill-tip" role="tooltip" id="{{ tip_id }}">This finding is pathognomonic or defines a diagnostic criterion</span></span>
                     {% endif %}
                     {% if finding.laterality %}
-                    <span class="tag">{{ finding.laterality | replace('_', ' ') | title }}</span>
+                    {{ render_enum_tag(finding.laterality, 'LateralityEnum', prefix="Laterality: ") }}
                     {% endif %}
                     {% if finding.spatial_extent %}
-                    <span class="tag">{{ finding.spatial_extent | replace('_', ' ') | title }}</span>
+                    {{ render_enum_tag(finding.spatial_extent, 'SpatialExtentEnum', prefix="Extent: ") }}
                     {% endif %}
                     {% if finding.subtype %}
-                    <span class="tag tag-subtype">{{ finding.subtype }}</span>
-                    {% endif %}
-                    {% if finding.context %}
-                    <span class="tag">{{ finding.context }}</span>
+                    <span class="tag tag-subtype">Subtype: {{ finding.subtype }}</span>
                     {% endif %}
                 </div>
-                {{ render_descriptor_tag(finding.imaging_finding_term, "tag-bio") }}
-                {{ render_descriptor_tag(finding.located_in, "tag-anatomy") }}
-                {{ render_descriptor_tag(finding.phenotype_term, "tag-phenotype") }}
+                {% if finding.context %}
+                <div class="item-desc">Context: {{ finding.context }}</div>
+                {% endif %}
+                {# phenotype_term is the clinical phenotype the appearance maps to.
+                   Most findings bind it to the same CURIE as imaging_finding_term,
+                   where a second pill would only repeat the first (#16531). #}
+                {% set imaging_term_id = finding.imaging_finding_term.term.id if finding.imaging_finding_term and finding.imaging_finding_term.term else none %}
+                {% set phenotype_term_id = finding.phenotype_term.term.id if finding.phenotype_term and finding.phenotype_term.term else none %}
+                {% set show_phenotype_term = finding.phenotype_term and not (phenotype_term_id and phenotype_term_id == imaging_term_id) %}
+                {% if finding.imaging_finding_term or finding.located_in or show_phenotype_term %}
+                <div class="item-meta">
+                    {% if finding.imaging_finding_term %}
+                    <strong class="term-role-label">Finding:</strong>
+                    {{ render_descriptor_tag(finding.imaging_finding_term, "tag-bio") }}
+                    {% endif %}
+                    {% if finding.located_in %}
+                    <strong class="term-role-label">Location:</strong>
+                    {{ render_descriptor_tag(finding.located_in, "tag-anatomy") }}
+                    {% endif %}
+                    {% if show_phenotype_term %}
+                    <strong class="term-role-label">Phenotype:</strong>
+                    {{ render_descriptor_tag(finding.phenotype_term, "tag-phenotype") }}
+                    {% endif %}
+                </div>
+                {% endif %}
                 {% if finding.notes %}
                 <div class="item-notes">{{ finding.notes }}</div>
                 {% endif %}
@@ -6556,7 +6585,7 @@
                 <div class="item-name">{{ rec.population or 'Unspecified population' }}</div>
                 <div class="item-meta">
                     {% if rec.measure_type %}
-                    <span class="tag tag-classification">{{ rec.measure_type | replace('_', ' ') | title }}</span>
+                    <span class="tag tag-classification">{{ rec.measure_type | enum_label('PrevalenceMeasureEnum') }}</span>
                     {% endif %}
                     {# `.get()` rather than `rec.rate_per_100000 is not none`: a
                        missing key is Jinja's Undefined, which *passes* an
@@ -6712,7 +6741,7 @@
             </div>
             <div class="item-box anchor-target">
                 {% if disorder.clinical_burden.burden_level %}
-                <div class="item-name">{{ disorder.clinical_burden.burden_level | replace('_', ' ') | title }}</div>
+                <div class="item-name">{{ disorder.clinical_burden.burden_level | enum_label('ClinicalBurdenLevelEnum') }}</div>
                 {% endif %}
                 {% if disorder.clinical_burden.rationale %}
                 <div class="item-desc">{{ disorder.clinical_burden.rationale }}</div>
