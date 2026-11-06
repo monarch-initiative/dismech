@@ -25,3 +25,4 @@ numbers can be regenerated rather than trusted.
 |---|---|---|
 | [`interannotator/`](interannotator/) | How much of a dismech entry is determined by the evidence, and how much by the curator? Each run curates one disease twice, independently, and measures where the versions agree. | 1 |
 | [`human_gi_bpm/`](human_gi_bpm/) | Does Between-Pathway-Model mining (GIDEON-style compensatory-pathway search) transfer from yeast to the Billmann 2026 human HAP1 genetic interaction map, and do the module pairs land on dismech-curated disease genes? | 1 |
+| [`blinded_hypothesis_recovery/`](blinded_hypothesis_recovery/) | Can a deep-research provider independently reach a mechanistic hypothesis proposed elsewhere, without being told it? Each run hides a reference hypothesis from the prompt and scores what comes back against a rubric fixed in advance. | 1 |
