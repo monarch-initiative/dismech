@@ -91397,17 +91397,29 @@ window.searchData = [
     "creation_date": "2026-09-03T19:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Charcot-Marie-Tooth disease dominant intermediate E (CMTDIE) is a dominantly inherited peripheral neuropathy caused by heterozygous variants in INF2, the gene encoding inverted formin 2. It is the neurological arm of a two-organ disorder: the same gene, and often the same variant, also causes autosomal dominant focal segmental glomerulosclerosis (FSGS), and the combined neuropathy-plus-nephropathy presentation is what led to INF2 being tested in CMT at all.\nThe organising fact of this entry is that the disease mutations are not scattered across the gene. Every pathogenic INF2 allele reported to date lies in the amino-terminal region, and in the CMT-plus-FSGS series all of them fell in exons 2 and 3, which encode the diaphanous inhibitory domain (DID). That domain is regulatory rather than catalytic, so the natural reading is that these variants change how INF2 is controlled rather than what it can do.\nBiochemistry has since made that reading concrete, and in a way that inverts the intuitive model. Purified INF2 is not autoinhibited - it polymerises actin constitutively in vitro - so the DID cannot be holding the molecule shut on its own. The missing inhibitor was purified from brain as a complex of cyclase-associated protein with lysine-acetylated actin, which requires the DID to act, and disease-associated INF2 mutants are poorly inhibited by it. So the DID variants are best understood as escaping an externally supplied brake, not as destroying a function. That is why this entry tags the actin-assembly node GAIN_OF_FUNCTION rather than INCREASED: the claim is that the process has left normal regulatory control, not that it is merely running faster.\nThat reading is not only biochemical any more. In mice, a disease-associated INF2 point mutation confers susceptibility to glomerular disease while the knockout does not - which is the experiment that separates gain of function from haploinsufficiency in vivo rather than in a tube.\nHow the same lesion reaches two tissues is partly answered, and the answer is positional. Variants between residues 184 and 245 give monogenic FSGS; variants between residues 57 and 184 give the dual CMT-plus-FSGS disease, and the dual-phenotype variants cause more mitochondrial fragmentation and more cytoskeletal disruption in cells. So this entity is the more globally disruptive end of one gradient rather than a separate mechanism. INF2 is strongly expressed in both Schwann-cell cytoplasm and podocytes; in Schwann cells it colocalises and interacts with MAL, and mutant INF2 perturbs the INF2-MAL-CDC42 pathway, disorganises the cytoskeleton, binds CDC42 more avidly and mislocalises all three proteins. Nerve biopsy in six patients reads the result as a global disorder of the Schwann cell actin cytoskeleton with abnormal cytoplasmic actin accumulation - the first peripheral nerve disorder described as a Schwann cell actinopathy.\nWhat the positional rule does not explain is the intrafamilial variability, and the entry keeps that open. One CMT-range allele segregated as isolated FSGS in some members of a family and as the dual phenotype in others, so position sets what an allele can do and something unidentified decides what it does. Separately, a three-generation family with a cryptic splicing allele had unambiguous intermediate CMT with normal albumin and creatinine and at most mildly raised urine protein, so kidney involvement is common but not obligate - and the practical consequence, stated by those authors, is that INF2 testing should not be reserved for patients who have both. A second family shows the converse trap: INF2 renal disease is not always FSGS on biopsy.\nWhere the genotype changes management is transplantation. Genetic FSGS generally does not recur in the graft, and four transplants in one INF2 family were recurrence-free.\nElectrophysiologically the neuropathy is intermediate: nerve conduction studies show demyelinating and axonal features together, which is what places this entity in the dominant intermediate CMT group rather than with CMT1 or CMT2. Nerve pathology matches, with heavy loss of myelinated fibres, onion bulbs and regeneration clusters, plus a distinctive ultrastructural finding in the non-myelinating compartment: supernumerary elongated Schwann cell extensions around unmyelinated fibres.",
+    "description": "INF2-related Charcot-Marie-Tooth disease, historically designated dominant intermediate type E, is an autosomal dominant sensorimotor neuropathy associated with heterozygous variants in the regulatory diaphanous inhibitory domain of inverted formin 2. Childhood-onset distal weakness, muscle wasting, sensory impairment and foot deformity may accompany hearing loss. Electrophysiology spans intermediate and demyelinating patterns, with secondary axonal loss; conduction block can mimic an acquired inflammatory neuropathy. Kidney involvement ranges from minimal proteinuria to nephrotic syndrome, focal segmental glomerulosclerosis and early kidney failure. Neuropathy can occur without clinically important renal disease. Variant-dependent disturbances of INF2 regulation, Schwann-cell actin organization and organelle dynamics are implicated, but tissue selectivity and individual renal prognosis remain incompletely explained.",
     "pathophysiology": [
       "INF2 Diaphanous-Inhibitory-Domain Variant",
       "Loss of Facilitated Autoinhibition of INF2",
+      "Enhanced Calmodulin Binding to INF2",
       "Disruption of the INF2-MAL-CDC42 Pathway in Schwann Cells",
-      "Schwann Cell Myelin Maintenance Failure",
-      "Demyelination with Onion Bulbs and Secondary Axonal Loss",
       "Schwann Cell Actinopathy",
+      "Schwann Cell Myelin Maintenance Failure",
+      "Peripheral Nerve Demyelination",
+      "Secondary Axonal Degeneration",
+      "Cytoskeletal Disorganization in INF2 Variant Cells",
+      "Endoplasmic Reticulum Discontinuity",
+      "Disruption of ER-Mitochondria Contacts",
+      "Mitochondrial Misdistribution",
+      "Mitochondrial Fragmentation",
+      "Impaired Mitochondrial Respiration",
       "Podocyte Actin Cytoskeleton Disorganization",
-      "Dynein-Mediated Nephrin Mistrafficking and Proteasomal Degradation",
-      "Podocyte Loss and Glomerular Scarring"
+      "Dynein-Mediated Nephrin Mistrafficking",
+      "Proteasomal Nephrin Depletion",
+      "Podocyte Injury",
+      "Glomerular Scarring",
+      "Sustained MRTF-SRF Transcriptional Activation",
+      "Mitotic Failure in INF2 Variant Renal Cells"
     ],
     "cell_types": [
       "Schwann cell",
@@ -91421,8 +91433,8 @@ window.searchData = [
       "actin filament polymerization",
       "Rho protein signal transduction",
       "regulation of actin cytoskeleton organization",
-      "myelination in peripheral nervous system",
       "actin filament organization",
+      "myelination in peripheral nervous system",
       "proteasome-mediated ubiquitin-dependent protein catabolic process"
     ],
     "phenotypes": [
@@ -91435,7 +91447,14 @@ window.searchData = [
       "Kyphoscoliosis",
       "Proteinuria",
       "Focal Segmental Glomerulosclerosis",
-      "Stage 5 Chronic Kidney Disease"
+      "Stage 5 Chronic Kidney Disease",
+      "Hearing Impairment",
+      "Areflexia",
+      "Hyporeflexia",
+      "Motor Conduction Block",
+      "Nephrotic Syndrome",
+      "Peripheral Nerve Enlargement",
+      "Tremor"
     ],
     "phenotype_categories": [
       "Neuromuscular",
@@ -91443,9 +91462,11 @@ window.searchData = [
       "Neurophysiological",
       "Histopathological",
       "Skeletal",
-      "Renal"
+      "Renal",
+      "Auditory"
     ],
     "phenotype_hpo_categories": [
+      "Ear",
       "Genitourinary",
       "Limbs",
       "Metabolism",
@@ -91462,31 +91483,40 @@ window.searchData = [
       "HP:0002751",
       "HP:0000093",
       "HP:0000097",
-      "HP:0003774"
+      "HP:0003774",
+      "HP:0000365",
+      "HP:0001284",
+      "HP:0001265",
+      "HP:0012078",
+      "HP:0000100",
+      "HP:0012645",
+      "HP:0001337"
     ],
-    "frequencies": [
-      "OBLIGATE",
-      "FREQUENT",
-      "OCCASIONAL"
-    ],
+    "frequencies": [],
     "genes": [
       "INF2"
     ],
     "treatments": [
       "Kidney transplantation",
       "Proteasome inhibition",
-      "Rehabilitation and orthotic management"
+      "Orthoses and Assistive Devices",
+      "Physical Therapy for Contracture Prevention",
+      "Orthopedic Surgery",
+      "Multidisciplinary Care",
+      "Vincristine Precaution",
+      "Genetic counseling",
+      "Experimental actin-MRTF modulation"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Charcot-Marie-Tooth_Disease_Dominant_Intermediate_E.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Dominant_Intermediate_E.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 9,
+    "num_phenotypes": 17,
+    "num_pathophysiology": 21,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "24",
-    "causal_graph_longest_path": "6"
+    "num_treatments": 9,
+    "causal_graph_edges": "54",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Charcot-Marie-Tooth Disease Dominant Intermediate G",
@@ -428902,12 +428932,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3981,
   "total_subtypes": 5023,
   "total_disorders_and_subtypes": 9004,
-  "total_unique_evidence_sources": 59058,
-  "total_unique_publications": 55252,
+  "total_unique_evidence_sources": 59064,
+  "total_unique_publications": 55258,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 3979,
-  "total_unique_pathological_events": 26044,
+  "total_unique_pathological_events": 26052,
   "total_modules": 227,
   "total_research_reports": 4090,
   "total_classifications": 21,
