@@ -42,6 +42,8 @@ Verdict per collection, strongest first::
     UNTAGGED_CHAPTER   an exact-title chapter exists and is not tagged
     TAGGED             at least one tagged reference is a verified, current chapter
     TAGGED_RETIRED     every tagged chapter is one GeneReviews has retired
+    TAGGED_OVERVIEW    a current chapter is tagged, but every current one caches
+                       as a statement of purpose with no clinical characteristics
     CANDIDATE_CHAPTER  only partial matches, or only a retired chapter
     NO_CHAPTER         nothing in the snapshot names this entry
 
@@ -102,6 +104,7 @@ from dismech.bookshelf import (
     entry_genes,
     entry_names,
     gene_symbols,
+    is_purpose_only_chapter,
     kind_rank,
     source_from_cache_text,
 )
@@ -115,6 +118,7 @@ VERDICTS = (
     "UNTAGGED_CHAPTER",
     "TAGGED",
     "TAGGED_RETIRED",
+    "TAGGED_OVERVIEW",
     "CANDIDATE_CHAPTER",
     "NO_CHAPTER",
 )
@@ -141,6 +145,10 @@ class ChapterRow:
     tagged: bool
     cited: bool
     cited_as: str = ""  #: "PMID" or "NBK" -- how the file cites it, when it does
+    #: The cached PubMed abstract is the chapter's statement of purpose, with no
+    #: ``CLINICAL CHARACTERISTICS`` section: an Overview-format chapter (#11848).
+    #: Read only for GeneReviews chapters that are cached.
+    purpose_only: bool = False
 
 
 @dataclass
@@ -387,6 +395,10 @@ def assess_source(
             cited_as,
         )
 
+    if source == "genereviews":
+        for row in rows.values():
+            row.purpose_only = is_purpose_only_chapter(cache_dir, row.pmid)
+
     report.chapters = sorted(
         rows.values(), key=lambda r: (not r.tagged, kind_rank(r.kind), int(r.pmid))
     )
@@ -406,7 +418,19 @@ def assess_source(
         # Informational, never gating, since many retired chapters have no
         # successor and remain the fullest description of their disease.
         current = [p for p in verified_tagged if not rows[p].retired]
-        report.verdict = "TAGGED" if current else "TAGGED_RETIRED"
+        # An Overview-format chapter is current and correctly tagged, but its
+        # cached abstract is a statement of purpose with nothing to cross-check
+        # phenotypes against (#11848). When every current tagged chapter is one,
+        # the baseline the skill asks for cannot be read from the cache.
+        # Informational for the same reason as TAGGED_RETIRED: often nothing
+        # better exists, and the entry's own `notes:` is where that is said.
+        usable = [p for p in current if not rows[p].purpose_only]
+        if usable:
+            report.verdict = "TAGGED"
+        elif current:
+            report.verdict = "TAGGED_OVERVIEW"
+        else:
+            report.verdict = "TAGGED_RETIRED"
     elif report.chapters:
         report.verdict = "CANDIDATE_CHAPTER"
     return report
@@ -661,8 +685,10 @@ def format_text(report: EntryReport, *, show_all: bool) -> list[str]:
                 state = "not cited"
             how = f"{row.kind} via {row.name!r}" if row.kind else "by identity"
             retired = " [retired chapter]" if row.retired else ""
+            purpose = " [purpose statement only]" if row.purpose_only else ""
             lines.append(
-                f"      PMID:{row.pmid} {row.nbk} {row.title!r}{retired} -- {how}; {state}"
+                f"      PMID:{row.pmid} {row.nbk} {row.title!r}{retired}{purpose}"
+                f" -- {how}; {state}"
             )
         if report.unproven(source):
             lines.append(
@@ -888,6 +914,19 @@ def main(argv: list[str] | None = None) -> int:
                 "withdrawn and kept for historical reference. If a current chapter covers the\n"
                 "disease, cite and mine it; if none does, the retired chapter may stay. Not a\n"
                 "failure under --strict."
+            )
+        if any(
+            report.sources.get("genereviews")
+            and report.sources["genereviews"].verdict == "TAGGED_OVERVIEW"
+            for report in reports
+        ):
+            print(
+                "\nTAGGED_OVERVIEW: every current GeneReviews chapter tagged is in the Overview\n"
+                "format, whose PubMed abstract is a statement of purpose with no clinical\n"
+                "characteristics, so the cache holds no phenotype baseline to cross-check. If a\n"
+                "disease- or gene-specific chapter covers the disease, cite and mine it; if none\n"
+                "does, say in `notes:` that the Overview is not usable as a baseline and where\n"
+                "the phenotypes came from instead. Not a failure under --strict (#11848)."
             )
         if any(r.has_unproven for r in reports):
             print(

@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADAM9-Related Retinopathy · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>ADAM9-Related Retinopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>ADAM9-Related Retinopathy</h1>
+                
+                <p class="report-subtitle">ADAM9-Related Retinopathy (Cone-Rod Dystrophy 9, CORD9) — Comprehensive Disease Report</p>
+                
+                
+                <div class="report-date">2026-11-05</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0800398" target="_blank" rel="noopener noreferrer">MONDO:0800398</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>ADAM9-Related Retinopathy (Cone-Rod Dystrophy 9, CORD9) — Comprehensive Disease Report</h1>
+<blockquote>
+<p><strong>Causal gene (stated up front): <code>ADAM9</code></strong> (A Disintegrin And Metalloprotease domain, family member 9; <a href="https://bioregistry.io/HGNC:216" target="_blank" rel="noopener noreferrer">HGNC:216</a>; NCBI Gene 8754; UniProt Q13443; chromosome 8p11.22). The disease referenced by <strong><a href="http://purl.obolibrary.org/obo/MONDO_0800398" target="_blank" rel="noopener noreferrer">MONDO:0800398</a></strong> is the autosomal-recessive, early-onset <strong>cone-rod dystrophy 9 (CORD9)</strong> caused by biallelic loss-of-function variants in <strong>ADAM9</strong>. Despite the serial name, it is unambiguously an <em>ADAM9</em> disorder; this report follows the MONDO ID and causal gene given.</p>
+</blockquote>
+<p>Evidence-source legend: <strong>[H]</strong> human clinical, <strong>[M]</strong> mouse model, <strong>[D]</strong> dog/natural animal model, <strong>[V]</strong> in vitro, <strong>[R]</strong> review/computational.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> ADAM9-related retinopathy is an inherited, bilateral, progressive retinal dystrophy in which <strong>cone photoreceptors are affected first and most severely, followed by rods</strong> (a "cone-rod" pattern). It is designated <strong>cone-rod dystrophy 9 (CORD9)</strong>. Onset is typically in early childhood with reduced central/color vision, photophobia (day blindness) and later night blindness and peripheral field loss. The initiating lesion is at the <strong>photoreceptor outer-segment–retinal pigment epithelium (POS–RPE) junction</strong> rather than within the photoreceptor itself [H/M, <a href="https://pubmed.ncbi.nlm.nih.gov/19409519/" target="_blank" rel="noopener noreferrer">PMID 19409519</a>].</p>
+<p><strong>Key identifiers.</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0800398" target="_blank" rel="noopener noreferrer">MONDO:0800398</a>
+- <strong>OMIM (phenotype):</strong> 612775 — "Cone-rod dystrophy 9" (CORD9)
+- <strong>OMIM (gene):</strong> 602713 — ADAM9
+- <strong>HGNC:</strong> <a href="https://bioregistry.io/HGNC:216" target="_blank" rel="noopener noreferrer">HGNC:216</a> (ADAM9); <strong>NCBI Gene:</strong> 8754; <strong>Ensembl:</strong> ENSG00000168615; <strong>UniProt:</strong> Q13443
+- <strong>Orphanet:</strong> within "Cone-rod dystrophy" (<a href="https://bioregistry.io/ORPHA:1872" target="_blank" rel="noopener noreferrer">ORPHA:1872</a>); ADAM9 is a recognized causative gene
+- <strong>ICD-10:</strong> H35.5 (Hereditary retinal dystrophy); <strong>ICD-11:</strong> 9B70.0 (Hereditary retinal dystrophy, cone-rod)
+- <strong>MeSH:</strong> Cone-Rod Dystrophies (D000076080); Retinal Dystrophies (D058499)</p>
+<p><strong>Synonyms / alternative names.</strong> Cone-rod dystrophy 9; CORD9; CRD9; ADAM9-related cone-rod dystrophy; autosomal recessive cone-rod dystrophy due to ADAM9; (animal homologs: canine cone-rod dystrophy 3 / crd3; canine generalized progressive retinal atrophy, gPRA, in Glen of Imaal Terrier).</p>
+<p><strong>Clinical-spectrum note.</strong> Although classified as a "cone-rod dystrophy," ADAM9 disease in humans is frequently <strong>early-onset and severe</strong>, with some patients presenting in the first years of life with marked visual impairment/nystagmus, so that the phenotype overlaps the <strong>early-onset severe retinal dystrophy (EOSRD) / Leber congenital amaurosis (LCA) spectrum</strong> and ADAM9 is included on EOSRD/LCA and generic inherited-retinal-disease gene panels [H, PMIDs 25091951, 25546566, 38892339]. This is a more severe, earlier-onset presentation than the classic adult-onset cone-rod dystrophies.</p>
+<p><strong>Information source.</strong> Disease-level, aggregated from small consanguineous-family case series and from mouse/dog models — <strong>not</strong> from large EHR cohorts. The condition is rare and most publications describe individual families or single patients [H, PMIDs 19409519, 25091951, 25546566, 38028590]. Panel-sequencing cohorts of childhood retinal dystrophy (e.g., a Chilean EOSRD/LCA cohort of 67 patients/60 families) illustrate that ADAM9 is among the recurrently tested genes in this diagnostic category [H, <a href="https://pubmed.ncbi.nlm.nih.gov/38892339/" target="_blank" rel="noopener noreferrer">PMID 38892339</a>].</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause — genetic.</strong> Biallelic (homozygous or compound-heterozygous) <strong>null/loss-of-function mutations in ADAM9</strong>. Discovery: "By autozygosity mapping, we identified null mutations in the ADAM metallopeptidase domain 9 (ADAM9) gene in four consanguineous families with recessively inherited early-onset CRD" [H, <a href="https://pubmed.ncbi.nlm.nih.gov/19409519/" target="_blank" rel="noopener noreferrer">PMID 19409519</a>].</p>
+<p><strong>Genetic risk factors.</strong>
+- <em>Causal variants:</em> nonsense, frameshift, splice-site and whole-exon/large deletions in ADAM9 (see §4).
+- <em>Consanguinity / founder homozygosity</em> is the dominant risk context; most reported families are consanguineous (Middle East, North Africa, South Asia) [H, PMIDs 19409519, 25091951].
+- <em>Carrier status:</em> heterozygotes are unaffected (recessive).
+- No established common-variant susceptibility loci or modifier genes are reported.</p>
+<p><strong>Environmental / lifestyle risk factors.</strong> None established as causal. The disease is monogenic. (Light exposure is a generic theoretical accelerant of photoreceptor stress in retinal dystrophies but is <strong>not</strong> demonstrated specifically for ADAM9.)</p>
+<p><strong>Protective factors.</strong> None genetically defined. General retinal-health measures (UV/blue-light protection, avoidance of smoking) are prudent but unproven for this disease.</p>
+<p><strong>Gene–environment interactions.</strong> Not characterized for CORD9. Of note, in RPE cells <em>hyperglycemia upregulates ADAM9</em>, increasing MerTK shedding and impairing outer-segment phagocytosis [V, <a href="https://pubmed.ncbi.nlm.nih.gov/35163068/" target="_blank" rel="noopener noreferrer">PMID 35163068</a>] — a metabolic modulator of ADAM9 biology, though not shown to modify CORD9 severity.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Phenotypes are <strong>clinical signs, symptoms, and electrophysiological/laboratory (ERG, OCT) abnormalities</strong>. Onset is usually <strong>childhood/early-onset</strong>; course is <strong>progressive</strong>. Frequencies are qualitative (small cohorts).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Typical onset / course</th>
+<th>Frequency</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cone-rod dystrophy (cone &gt; rod loss)</td>
+<td>Clinical sign / core</td>
+<td>Childhood; progressive</td>
+<td>Defining (~100%)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000548" target="_blank" rel="noopener noreferrer">HP:0000548</a> (Cone/cone-rod dystrophy)</td>
+</tr>
+<tr>
+<td>Reduced visual acuity / visual impairment</td>
+<td>Symptom</td>
+<td>Childhood; progressive</td>
+<td>Very frequent</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" rel="noopener noreferrer">HP:0000505</a> / <a href="http://purl.obolibrary.org/obo/HP_0032037" target="_blank" rel="noopener noreferrer">HP:0032037</a></td>
+</tr>
+<tr>
+<td>Photophobia ("day blindness")</td>
+<td>Symptom</td>
+<td>Early</td>
+<td>Frequent</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" rel="noopener noreferrer">HP:0000613</a></td>
+</tr>
+<tr>
+<td>Color vision defect (dyschromatopsia)</td>
+<td>Symptom</td>
+<td>Early</td>
+<td>Frequent</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000551" target="_blank" rel="noopener noreferrer">HP:0000551</a></td>
+</tr>
+<tr>
+<td>Nyctalopia (night blindness)</td>
+<td>Symptom</td>
+<td>Later (rod involvement)</td>
+<td>Common as disease advances</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" rel="noopener noreferrer">HP:0000662</a></td>
+</tr>
+<tr>
+<td>Constricted / peripheral visual field loss</td>
+<td>Sign</td>
+<td>Progressive</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank" rel="noopener noreferrer">HP:0001133</a></td>
+</tr>
+<tr>
+<td>Nystagmus</td>
+<td>Sign</td>
+<td>Early if infantile onset</td>
+<td>Variable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a></td>
+</tr>
+<tr>
+<td>Abnormal / reduced ERG (photopic &gt; scotopic)</td>
+<td>Lab/electrophysiology</td>
+<td>At diagnosis</td>
+<td>Defining</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" rel="noopener noreferrer">HP:0000512</a></td>
+</tr>
+<tr>
+<td>RPE changes / pigmentary retinopathy, mid-peripheral greyish-white discoloration</td>
+<td>Sign (fundus)</td>
+<td>Progressive</td>
+<td>Frequent</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000580" target="_blank" rel="noopener noreferrer">HP:0000580</a> / <a href="http://purl.obolibrary.org/obo/HP_0007894" target="_blank" rel="noopener noreferrer">HP:0007894</a></td>
+</tr>
+<tr>
+<td>Attenuated retinal vasculature</td>
+<td>Sign</td>
+<td>Advanced</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007843" target="_blank" rel="noopener noreferrer">HP:0007843</a></td>
+</tr>
+<tr>
+<td>Optic disc pallor</td>
+<td>Sign</td>
+<td>Advanced</td>
+<td>Reported</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000543" target="_blank" rel="noopener noreferrer">HP:0000543</a></td>
+</tr>
+<tr>
+<td>Macular atrophy / "coloboma-like" macular lesion</td>
+<td>Sign</td>
+<td>Variable</td>
+<td>Reported in some</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007754" target="_blank" rel="noopener noreferrer">HP:0007754</a></td>
+</tr>
+<tr>
+<td>Cataract (anterior polar / posterior subcapsular)</td>
+<td>Sign</td>
+<td>Variable</td>
+<td>Reported in some families</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" rel="noopener noreferrer">HP:0000518</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Representative description: childhood-onset visual impairment, "reorganisation of the retinal pigment epithelium with mid-periphery greyish-white discolouration, attenuated retinal vasculatur and optic disc pallor," with a coloboma-like macular lesion in one case, plus anterior polar/posterior subcapsular cataract [H, <a href="https://pubmed.ncbi.nlm.nih.gov/25091951/" target="_blank" rel="noopener noreferrer">PMID 25091951</a>].</p>
+<p><strong>Severity:</strong> generally moderate-to-severe with legal blindness common by adulthood; <strong>variable expressivity</strong> even within families. <strong>Quality-of-life impact:</strong> substantial — early loss of central acuity, color vision and glare disability impair reading, schooling, driving (precluded), and independent navigation; night blindness and field constriction add mobility impairment. No disease-specific EQ-5D/SF-36 datasets are published.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <strong>ADAM9</strong> (OMIM 602713; <a href="https://bioregistry.io/HGNC:216" target="_blank" rel="noopener noreferrer">HGNC:216</a>; 8p11.22). A single-gene, autosomal-recessive disorder.</p>
+<p><strong>Pathogenic variants.</strong>
+- <strong>Variant types:</strong> nonsense, frameshift (small indels), canonical splice-site, and multi-exon genomic <strong>deletions</strong> — all converging on <strong>loss of function/null alleles</strong>. Examples:
+  - Homozygous splice-acceptor <strong>c.1396-2A&gt;G</strong> (exon 14 region) — consanguineous Egyptian family [H, <a href="https://pubmed.ncbi.nlm.nih.gov/25091951/" target="_blank" rel="noopener noreferrer">PMID 25091951</a>].
+  - Compound-heterozygous ADAM9 variants detected by exome sequencing in a child with CRD [H, <a href="https://pubmed.ncbi.nlm.nih.gov/25546566/" target="_blank" rel="noopener noreferrer">PMID 25546566</a>].
+  - (Animal homolog, mechanistically informative) canine <strong>deletion of exons 15–16</strong> → frameshift + premature stop, removing catalytic/downstream domains [D, PMIDs 20806078, 20691256].
+- <strong>ACMG classification:</strong> reported disease alleles are predominantly <strong>pathogenic / likely pathogenic</strong> (null variants meeting PVS1 + recessive segregation + rarity).
+- <strong>ClinVar spectrum (NCBI E-utilities, 2026):</strong> 718 ADAM9 records — <strong>101 Pathogenic, 17 Likely pathogenic, 623 VUS</strong>. Among sequence-level P/LP variants the molecular consequences are overwhelmingly <strong>truncating/LoF: nonsense (16), frameshift (7), splice-acceptor (6), splice-donor (6), with only 1 missense</strong>; types include SNVs (28) and small deletions (11). Many "pathogenic" entries are large regional copy-number gains/losses spanning ADAM9 among multiple genes and are <strong>not</strong> CORD9-specific. The large VUS fraction and low pathogenic-missense count mean splice/functional assessment and intragenic deletion/CNV detection materially aid molecular diagnosis. <em>(Retrieved programmatically via ClinVar E-utilities.)</em>
+- <strong>Allele frequency:</strong> individual pathogenic alleles are rare/absent in gnomAD (consistent with a rare recessive disorder); specific population allele frequencies are not systematically catalogued.
+- <strong>Population genetic constraint (gnomAD, GRCh38; ENSG00000168615, chr8:38,996,754–39,105,445):</strong> ADAM9 is <strong>not haploinsufficient</strong> — <strong>pLI = 2.4×10⁻⁶ (≈0)</strong>, <strong>oe_lof = 0.499 (90% CI 0.40–0.63; LOEUF ≈ 0.63)</strong>, 54 observed vs 108.1 expected LoF variants (LoF z = 4.42; missense z = 2.26, oe_mis = 0.83). Heterozygous LoF is tolerated (healthy carriers), concordant with autosomal-recessive, biallelic-null disease biology and excluding a dominant/haploinsufficiency mechanism. <em>(Retrieved programmatically via gnomAD GraphQL API.)</em>
+- <strong>Origin:</strong> <strong>germline</strong>, biallelic. (Somatic ADAM9 changes occur in cancer but are unrelated to the retinopathy.)
+- <strong>Functional consequence:</strong> <strong>loss of function</strong> of the ADAM9 metalloprotease/adhesion protein (not gain-of-function or dominant-negative), confirmed by concordant human null mutations and knockout mouse/dog phenotypes [H/M/D, <a href="https://pubmed.ncbi.nlm.nih.gov/19409519/" target="_blank" rel="noopener noreferrer">PMID 19409519</a>].</p>
+<p><strong>Modifier genes.</strong> None established; intra-familial variable expressivity suggests unidentified genetic/environmental modifiers.</p>
+<p><strong>Epigenetic information.</strong> No disease-specific methylation/chromatin findings reported.</p>
+<p><strong>Chromosomal abnormalities.</strong> Large intragenic deletions (exon-level) occur; no recurrent whole-chromosome aneuploidy or translocation is associated.</p>
+<p>Suggested ontology: gene <strong><a href="https://bioregistry.io/HGNC:216" target="_blank" rel="noopener noreferrer">HGNC:216</a></strong>; GO molecular function <strong><a href="http://purl.obolibrary.org/obo/GO_0004222" target="_blank" rel="noopener noreferrer">GO:0004222</a></strong> (metalloendopeptidase activity), <strong><a href="http://purl.obolibrary.org/obo/GO_0008237" target="_blank" rel="noopener noreferrer">GO:0008237</a></strong> (metallopeptidase activity).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> none established as causal or necessary; the disease is fully penetrant genetically.</li>
+<li><strong>Lifestyle factors:</strong> no proven role; general counseling on UV/blue-light protection and smoking avoidance is extrapolated, not evidence-based for ADAM9.</li>
+<li><strong>Infectious agents:</strong> not applicable — non-infectious Mendelian disease.</li>
+</ul>
+<p>(Mechanistic aside: ADAM9 expression is metabolically regulated — e.g., upregulated under high glucose in RPE [V, <a href="https://pubmed.ncbi.nlm.nih.gov/35163068/" target="_blank" rel="noopener noreferrer">PMID 35163068</a>] — but no environmental trigger is implicated in CORD9 onset.)</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li><strong>Biallelic null ADAM9 variants</strong> → <strong>loss of functional ADAM9 metalloprotease/adhesion protein</strong> at the apical surface of the RPE (and photoreceptor interface). <em>[demonstrated — human null mutations + KO models]</em></li>
+<li>Loss of ADAM9 → <strong>disorganization of RPE apical processes/microvilli</strong> and loss of normal integrin/ectodomain-shedding–mediated adhesion between RPE and photoreceptor outer segments. <em>[demonstrated in mouse and dog]</em> "the apical processes of the retinal pigment epithelium (RPE) cells are disorganized and contact between photoreceptor outer segments (POSs) and the RPE apical surface is compromised" [M, <a href="https://pubmed.ncbi.nlm.nih.gov/19409519/" target="_blank" rel="noopener noreferrer">PMID 19409519</a>]; "the primary lesion … appears to be a failure of the apical microvilli of the retinal pigm[ent epithelium]" [D, <a href="https://pubmed.ncbi.nlm.nih.gov/20806078/" target="_blank" rel="noopener noreferrer">PMID 20806078</a>].</li>
+<li>Disrupted POS–RPE apposition → <strong>expansion of the subretinal space</strong>. A compensatory response occurs: RPE forms <strong>elongated pseudopods</strong> that bridge the gap to continue ingesting outer-segment tips, temporarily preserving outer-segment renewal and photoreceptor function. <em>[demonstrated in mouse]</em> [M, <a href="https://pubmed.ncbi.nlm.nih.gov/41642651/" target="_blank" rel="noopener noreferrer">PMID 41642651</a>].</li>
+<li>When compensation fails over time → <strong>progressive photoreceptor outer-segment shortening/disorganization and outer nuclear layer thinning</strong>, with RPE basal deposits and macrophage infiltration. <em>[demonstrated in aged KO mice]</em> [M, <a href="https://pubmed.ncbi.nlm.nih.gov/19409519/" target="_blank" rel="noopener noreferrer">PMID 19409519</a>].</li>
+<li>Photoreceptor loss (cones preferentially, then rods) → <strong>reduced photopic then scotopic ERG, loss of central/color vision, photophobia, then night blindness and field constriction</strong> — the clinical cone-rod dystrophy. <em>[inferred from model + human concordance]</em></li>
+</ol>
+<p><strong>Branch (modulatory, inferred):</strong> Because ADAM9 sheds the phagocytic receptor <strong>MerTK</strong> and regulates <strong>ADAM10 α-secretase</strong>, ADAM9 loss may also perturb outer-segment phagocytosis and local growth-factor/receptor signaling at the RPE, contributing to the renewal defect [V, PMIDs 35163068, 21956108]. This branch is mechanistically plausible but not yet demonstrated to drive CORD9.</p>
+<p><strong>Molecular pathways / processes.</strong> Ectodomain shedding (sheddase activity), integrin-β1–mediated cell adhesion/migration, and signaling modulation (ADAM9 influences EGFR/AKT, mTOR, NF-κB, STAT3 pathways) [R, <a href="https://pubmed.ncbi.nlm.nih.gov/42171934/" target="_blank" rel="noopener noreferrer">PMID 42171934</a>]; physiologically relevant RPE process is <strong>photoreceptor outer-segment phagocytosis/renewal</strong> and POS–RPE adhesion. Suggested GO terms: <strong><a href="http://purl.obolibrary.org/obo/GO_0006911" target="_blank" rel="noopener noreferrer">GO:0006911</a>/<a href="http://purl.obolibrary.org/obo/GO_0043277" target="_blank" rel="noopener noreferrer">GO:0043277</a></strong> (phagocytosis / apoptotic cell clearance), <strong><a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" rel="noopener noreferrer">GO:0007155</a></strong> (cell adhesion), <strong><a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" rel="noopener noreferrer">GO:0006508</a></strong> (proteolysis), <strong><a href="http://purl.obolibrary.org/obo/GO_0001895" target="_blank" rel="noopener noreferrer">GO:0001895</a></strong> (retina homeostasis).</p>
+<p><strong>Protein dysfunction.</strong> ADAM9 is a type-I transmembrane multidomain metalloprotease (prodomain, catalytic Zn-metalloprotease, disintegrin, cysteine-rich, EGF-like, transmembrane, cytoplasmic). Disease alleles truncate/abolish the protein → <strong>complete loss of catalytic and adhesion function</strong> [R, <a href="https://pubmed.ncbi.nlm.nih.gov/42171934/" target="_blank" rel="noopener noreferrer">PMID 42171934</a>; H, <a href="https://pubmed.ncbi.nlm.nih.gov/19409519/" target="_blank" rel="noopener noreferrer">PMID 19409519</a>].</p>
+<p><strong>Cell types / compartments.</strong> Primary: <strong>retinal pigment epithelial cell (<a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" rel="noopener noreferrer">CL:0002586</a>)</strong> apical microvilli; secondary: <strong>retinal cone (<a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a>)</strong> then <strong>rod (<a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a>)</strong> photoreceptors. Subcellular: plasma membrane / apical microvilli, extracellular/subretinal space; (ADAM9 also at endosomes/Golgi during trafficking).</p>
+<p><strong>Immune/inflammation, tissue-damage.</strong> Secondary <strong>macrophage</strong> recruitment and <strong>RPE basal (drusen-like) deposits</strong> in late disease [M, <a href="https://pubmed.ncbi.nlm.nih.gov/19409519/" target="_blank" rel="noopener noreferrer">PMID 19409519</a>]; chronic photoreceptor loss is degenerative, not autoimmune. Oxidative stress is a generic downstream contributor (inferred).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level — primary:</strong> <strong>eye / retina</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a> eye; <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a> retina). <strong>Body system:</strong> visual/nervous system.</li>
+<li><strong>Secondary:</strong> <strong>lens</strong> (cataract in some families; <a href="http://purl.obolibrary.org/obo/UBERON_0000965" target="_blank" rel="noopener noreferrer">UBERON:0000965</a>), optic nerve head (pallor; <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" rel="noopener noreferrer">UBERON:0000941</a>), retinal vasculature (attenuation; <a href="http://purl.obolibrary.org/obo/UBERON_0003516" target="_blank" rel="noopener noreferrer">UBERON:0003516</a>).</li>
+<li><strong>Tissue/cell level:</strong> <strong>retinal pigment epithelium</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001782" target="_blank" rel="noopener noreferrer">UBERON:0001782</a>; cell <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" rel="noopener noreferrer">CL:0002586</a>) — the initiating site; <strong>neural retina photoreceptor layer</strong> — cones (<a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a>) then rods (<a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a>); outer nuclear layer thinning.</li>
+<li><strong>Subcellular:</strong> RPE <strong>apical microvilli / processes</strong> and <strong>plasma membrane</strong>; <strong>subretinal space</strong> (POS–RPE interface). Suggested GO cellular component: <strong><a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a></strong> (plasma membrane), <strong><a href="http://purl.obolibrary.org/obo/GO_0005902" target="_blank" rel="noopener noreferrer">GO:0005902</a></strong> (microvillus).</li>
+<li><strong>Localization / laterality:</strong> <strong>bilateral</strong>, generally symmetric; disease is <strong>posterior-segment</strong> centered with early macular/central and later mid-peripheral involvement.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> <strong>early childhood</strong> ("early-onset CRD") in humans [H, <a href="https://pubmed.ncbi.nlm.nih.gov/19409519/" target="_blank" rel="noopener noreferrer">PMID 19409519</a>]; childhood-onset visual impairment typical [H, <a href="https://pubmed.ncbi.nlm.nih.gov/25091951/" target="_blank" rel="noopener noreferrer">PMID 25091951</a>]. Pattern is <strong>insidious/chronic</strong>, not acute.</li>
+<li><strong>Progression:</strong> slowly <strong>progressive</strong> over years to decades; <strong>cone-first</strong> functional loss (acuity, color, photophobia) preceding <strong>rod</strong> involvement (night blindness, field loss). Variable rate and expressivity.</li>
+<li><strong>Stages:</strong> early (photophobia, reduced acuity, abnormal photopic ERG, subtle RPE changes) → intermediate (color/field loss, pigmentary RPE changes, vascular attenuation) → advanced (macular/widespread atrophy, severe visual loss / legal blindness, optic disc pallor).</li>
+<li><strong>Course / duration:</strong> <strong>chronic, lifelong</strong>; no spontaneous remission. (Animal models are informative on tempo: mouse is comparatively mild/late — photoreceptors near-normal at 12 months, degeneration by 20 months [M, <a href="https://pubmed.ncbi.nlm.nih.gov/19409519/" target="_blank" rel="noopener noreferrer">PMID 19409519</a>]; dog disease is adult/late-onset with variable, at times very late onset [D, <a href="https://pubmed.ncbi.nlm.nih.gov/20691256/" target="_blank" rel="noopener noreferrer">PMID 20691256</a>].)</li>
+<li><strong>Critical window for intervention:</strong> the period of preserved photoreceptors with compensatory RPE pseudopods [M, <a href="https://pubmed.ncbi.nlm.nih.gov/41642651/" target="_blank" rel="noopener noreferrer">PMID 41642651</a>] defines a <strong>therapeutic window</strong> before irreversible photoreceptor loss (inferred).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> <strong>autosomal recessive</strong> (AR) [H, <a href="https://pubmed.ncbi.nlm.nih.gov/19409519/" target="_blank" rel="noopener noreferrer">PMID 19409519</a>].</li>
+<li><strong>Penetrance:</strong> essentially <strong>complete</strong> in biallelic carriers (age-dependent emergence of signs).</li>
+<li><strong>Expressivity:</strong> <strong>variable</strong>, including intra-familial variability (e.g., associated cataract in some members) [H, <a href="https://pubmed.ncbi.nlm.nih.gov/25091951/" target="_blank" rel="noopener noreferrer">PMID 25091951</a>].</li>
+<li><strong>Carrier frequency:</strong> heterozygous carriers unaffected; pathogenic alleles individually rare in gnomAD. Specific carrier-frequency estimates are not established, but gnomAD constraint confirms heterozygous LoF is tolerated (<strong>pLI ≈ 0, LOEUF ≈ 0.63</strong>; 54 obs vs 108 exp LoF variants), consistent with a healthy-carrier recessive model.</li>
+<li><strong>Consanguinity / founder effects:</strong> strongly associated with <strong>consanguineous pedigrees</strong> (autozygosity); reported families from Egypt, Middle East, South Asia and the UK [H, PMIDs 19409519, 25091951, 25546566]. No single global founder allele; private family mutations predominate.</li>
+<li><strong>Anticipation / mosaicism:</strong> not applicable (no repeat expansion); germline mosaicism not reported.</li>
+<li><strong>Epidemiology:</strong> <strong>rare.</strong> No disease-specific prevalence/incidence is published. For context, all cone-rod dystrophies together have an estimated prevalence of ~1 in 30,000–40,000, and ADAM9 is a <strong>minor</strong> contributor overall but enriched in consanguineous populations. Both sexes affected equally (<strong>M:F ≈ 1:1</strong>), consistent with autosomal inheritance.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical / functional tests.</strong>
+- <strong>Full-field electroretinography (ERG):</strong> reduced responses with <strong>photopic (cone) dysfunction ≥ scotopic (rod)</strong> — hallmark of cone-rod pattern (HPO <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" rel="noopener noreferrer">HP:0000512</a>) [H/M, <a href="https://pubmed.ncbi.nlm.nih.gov/19409519/" target="_blank" rel="noopener noreferrer">PMID 19409519</a>].
+- <strong>Optical coherence tomography (OCT):</strong> outer-retinal/ellipsoid-zone disruption, ONL thinning, RPE changes, subretinal-space abnormalities.
+- <strong>Fundus examination / autofluorescence:</strong> RPE reorganization, mid-peripheral greyish-white discoloration, vascular attenuation, optic disc pallor, macular atrophy [H, <a href="https://pubmed.ncbi.nlm.nih.gov/25091951/" target="_blank" rel="noopener noreferrer">PMID 25091951</a>].
+- <strong>Color vision and visual-field testing:</strong> early dyschromatopsia; progressive field constriction.
+- Biopsy/histopathology is not used clinically (findings known from models: disorganized RPE apical microvilli, POS–RPE separation, basal deposits, macrophages).</p>
+<p><strong>Genetic testing (definitive).</strong>
+- Approach: <strong>molecular genetic testing of ADAM9</strong> via <strong>inherited-retinal-disease gene panels</strong> or <strong>whole-exome/whole-genome sequencing</strong>; single-gene/Sanger confirmation of candidate variants; <strong>CMA/deletion analysis</strong> to detect multi-exon deletions (important given large-deletion alleles). Exome sequencing has directly diagnosed ADAM9 CRD in children [H, <a href="https://pubmed.ncbi.nlm.nih.gov/25546566/" target="_blank" rel="noopener noreferrer">PMID 25546566</a>]. Targeted enrichment panels (e.g., IROme) plus Sanger confirmation were used historically [H, <a href="https://pubmed.ncbi.nlm.nih.gov/25091951/" target="_blank" rel="noopener noreferrer">PMID 25091951</a>]. Because the ClinVar P/LP spectrum is truncating/splice-dominated with a large VUS fraction (623 VUS) and few pathogenic missense, <strong>including copy-number/intragenic-deletion analysis and RNA/splice assays improves diagnostic yield</strong>.
+- Karyotype/FISH/mtDNA/repeat-expansion testing: not indicated.</p>
+<p><strong>Clinical criteria / differential diagnosis.</strong> Diagnosis = compatible cone-rod ERG/OCT phenotype + biallelic pathogenic ADAM9 variants. <strong>Differentials:</strong> other cone-rod dystrophies (ABCA4, CRX, GUCY2D, RPGR, RIMS1, PROM1, etc.), achromatopsia (CNGB3/CNGA3), Leber congenital amaurosis, and Stargardt disease — distinguished by gene testing and phenotype nuances.</p>
+<p><strong>Screening.</strong> Cascade/carrier testing within affected families; preconception/prenatal testing possible given known familial variants. No population newborn screening.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> <strong>normal life expectancy</strong>; ADAM9 retinopathy is <strong>not life-limiting</strong> — it is an isolated (non-syndromic) ocular disorder.</li>
+<li><strong>Morbidity / disability:</strong> <strong>progressive visual disability</strong> is the principal burden — early loss of central acuity, color vision and glare tolerance, later night blindness and peripheral field loss, frequently culminating in <strong>legal blindness</strong> in adulthood. Major impact on education, employment, mobility and independence (ICF visual-function domains).</li>
+<li><strong>Disease course / complications:</strong> chronic progressive vision loss; cataract in some patients (surgically treatable); no systemic complications.</li>
+<li><strong>Recovery potential:</strong> none spontaneously; vision loss is irreversible once photoreceptors degenerate.</li>
+<li><strong>Prognostic factors:</strong> earlier onset and more complete null genotypes tend to associate with more severe course (inferred); residual photoreceptor/ellipsoid-zone integrity on OCT is a practical prognostic/therapeutic-window biomarker.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>No approved disease-specific or curative therapy currently exists.</strong> Management is <strong>supportive and rehabilitative</strong>:
+- <strong>Low-vision rehabilitation</strong> (NCIT: low-vision aids), magnification, high-contrast tools, orientation/mobility training.
+- <strong>Photophobia management:</strong> tinted/edge-filter lenses, sunglasses, environmental lighting adaptation.
+- <strong>Cataract surgery</strong> when visually significant cataract is present [H, <a href="https://pubmed.ncbi.nlm.nih.gov/25091951/" target="_blank" rel="noopener noreferrer">PMID 25091951</a>].
+- <strong>Genetic counseling</strong> (see §13).
+- <strong>General retinal support:</strong> correction of refractive error; UV protection (prudential).</p>
+<p><strong>Experimental / future directions.</strong>
+- <strong>Gene-replacement (AAV-mediated ADAM9 augmentation)</strong> is a biologically rational strategy — ADAM9 is a small, recessive loss-of-function gene expressed in RPE/photoreceptors, matching the paradigm of RPE-directed retinal gene therapy; the preserved-photoreceptor/pseudopod window [M, <a href="https://pubmed.ncbi.nlm.nih.gov/41642651/" target="_blank" rel="noopener noreferrer">PMID 41642651</a>] supports a treatable interval. (Status: <strong>preclinical/investigational</strong>; no approved product. No specific completed human trial identified in this review.)
+- Other modalities under general IRD research (optogenetics, cell replacement) are not ADAM9-specific.</p>
+<p><strong>Pharmacogenomics:</strong> not applicable. <strong>Treatment outcomes / adverse events:</strong> none established for disease-specific therapy.</p>
+<p>Suggested NCIT concepts: Gene Therapy, Adeno-Associated Viral Vector, Supportive Care, Cataract Surgery, Low Vision Aid.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> not possible for a monogenic recessive disease except via <strong>reproductive genetic counseling</strong>. In consanguineous communities, awareness and <strong>carrier screening</strong> can reduce incidence.</li>
+<li><strong>Secondary prevention:</strong> early diagnosis (gene testing in children with photophobia/reduced acuity/abnormal cone ERG) to enable timely low-vision support and candidacy for future therapies.</li>
+<li><strong>Tertiary prevention:</strong> manage complications (cataract surgery), maximize residual vision via rehabilitation.</li>
+<li><strong>Genetic counseling:</strong> recurrence risk 25% for offspring of two carriers; <strong>cascade carrier testing</strong>, <strong>preimplantation genetic testing (PGT)</strong> and <strong>prenatal diagnosis</strong> available where familial variants are known. Counseling on consanguinity-related risk is central.</li>
+<li><strong>Public-health / behavioral / immunization measures:</strong> not applicable.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / natural disease:</strong> Naturally occurring ADAM9 retinopathy is well documented in the <strong>dog (<em>Canis lupus familiaris</em>, NCBI Taxon 9615)</strong> — <strong>canine cone-rod dystrophy 3 (crd3)</strong> and <strong>generalized progressive retinal atrophy (gPRA)</strong> in the <strong>Glen of Imaal Terrier</strong> breed (VBO/breed-specific), caused by an <strong>ADAM9 exon 15–16 deletion</strong> [D, PMIDs 20806078, 20691256] (OMIA entry for ADAM9/cone-rod dystrophy in dog).</li>
+<li><strong>Orthologous genes:</strong> mouse <em>Adam9</em> (NCBI Gene 11491), dog <em>ADAM9</em> — functionally conserved.</li>
+<li><strong>Comparative biology:</strong> across human, mouse and dog the <strong>primary lesion is the RPE apical microvilli / POS–RPE junction</strong>, confirming deep evolutionary conservation of ADAM9's role in retinal homeostasis; canine disease is a validated large-animal model "with superior potential to elucidate functional consequences of the … human ADAM9 null mutations" [D, <a href="https://pubmed.ncbi.nlm.nih.gov/20691256/" target="_blank" rel="noopener noreferrer">PMID 20691256</a>].</li>
+<li><strong>Zoonotic potential:</strong> none (genetic disease).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse (<em>Mus musculus</em>):</strong> <strong>Adam9-knockout</strong> mouse — reduced photoreceptor ERG responses; at 12 months RPE apical-process disorganization with normal photoreceptors; by 20 months progressive degeneration (ONL thinning, POS disorganization, RPE basal deposits, macrophages) [M, <a href="https://pubmed.ncbi.nlm.nih.gov/19409519/" target="_blank" rel="noopener noreferrer">PMID 19409519</a>]. Recent work shows <strong>compensatory RPE pseudopods</strong> maintaining outer-segment renewal before degeneration [M, <a href="https://pubmed.ncbi.nlm.nih.gov/41642651/" target="_blank" rel="noopener noreferrer">PMID 41642651</a>]. <strong>Strengths:</strong> genetically defined null matching human LOF; dissects RPE-interface mechanism. <strong>Limitation:</strong> milder/later phenotype than human (species difference in tempo). Resource: MGI (Adam9).</li>
+<li><strong>Dog (Glen of Imaal Terrier):</strong> naturally occurring ADAM9-null crd3/gPRA — adult/late-onset, variable; valuable <strong>large-eye preclinical/therapeutic model</strong> [D, PMIDs 20806078, 20691256]. Resource: OMIA.</li>
+<li><strong>Model types available:</strong> germline knockout (mouse); spontaneous null (dog). In-vitro <strong>RPE cell models (e.g., ARPE-19)</strong> are used to study ADAM9 sheddase biology (MerTK shedding) [V, <a href="https://pubmed.ncbi.nlm.nih.gov/35163068/" target="_blank" rel="noopener noreferrer">PMID 35163068</a>].</li>
+<li><strong>Phenotype recapitulation:</strong> both mouse and dog reproduce the <strong>core RPE apical-microvilli / POS–RPE junction lesion</strong> and progressive photoreceptor loss; they under-represent the <strong>early, severe cone-dominated childhood onset</strong> seen in humans.</li>
+</ul>
+<hr />
+<h2>Evidence Summary (key PMIDs)</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Type</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>19409519</td>
+<td>H/M</td>
+<td>Landmark: ADAM9 null mutations cause human early-onset CRD; KO mouse; POS–RPE junction lesion</td>
+</tr>
+<tr>
+<td>25091951</td>
+<td>H</td>
+<td>Novel homozygous splice variant c.1396-2A&gt;G; fundus phenotype; cataract association</td>
+</tr>
+<tr>
+<td>25546566</td>
+<td>H</td>
+<td>Exome sequencing diagnoses ADAM9 CRD in a child</td>
+</tr>
+<tr>
+<td>38028590</td>
+<td>H</td>
+<td>ADAM9 among genes in a multi-family cone-rod dystrophy cohort</td>
+</tr>
+<tr>
+<td>20806078</td>
+<td>D</td>
+<td>Canine crd3 (Glen of Imaal Terrier); establishes homology with human CORD9; RPE microvilli failure</td>
+</tr>
+<tr>
+<td>20691256</td>
+<td>D</td>
+<td>Canine gPRA ADAM9 exon 15–16 deletion; model for human disease</td>
+</tr>
+<tr>
+<td>41642651</td>
+<td>M</td>
+<td>RPE pseudopods maintain outer-segment renewal despite subretinal space expansion</td>
+</tr>
+<tr>
+<td>42171934</td>
+<td>R</td>
+<td>ADAM9 biology: domains, isoforms, substrates, signaling pathways</td>
+</tr>
+<tr>
+<td>35163068</td>
+<td>V</td>
+<td>ADAM9 sheds MerTK in RPE; metabolic regulation (high glucose)</td>
+</tr>
+<tr>
+<td>21956108</td>
+<td>V</td>
+<td>ADAM9 regulates ADAM10 α-secretase activity</td>
+</tr>
+<tr>
+<td>17704059</td>
+<td>V</td>
+<td>ADAM9 disintegrin-cysteine-rich domain binds β1 integrin (adhesion/motility)</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Database-derived quantitative evidence (this investigation)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Source</th>
+<th>Metric</th>
+<th>Value</th>
+<th>Implication</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>gnomAD (GRCh38)</td>
+<td>pLI</td>
+<td>2.4×10⁻⁶ (≈0)</td>
+<td>Not haploinsufficient → recessive</td>
+</tr>
+<tr>
+<td>gnomAD</td>
+<td>oe_lof / LOEUF</td>
+<td>0.50 / ≈0.63 (obs 54 vs exp 108 LoF)</td>
+<td>Under purifying selection but LoF tolerated in heterozygotes</td>
+</tr>
+<tr>
+<td>gnomAD</td>
+<td>missense z / oe_mis</td>
+<td>2.26 / 0.83</td>
+<td>Mild missense constraint</td>
+</tr>
+<tr>
+<td>ClinVar</td>
+<td>Total records</td>
+<td>718</td>
+<td>—</td>
+</tr>
+<tr>
+<td>ClinVar</td>
+<td>Pathogenic / Likely-path / VUS</td>
+<td>101 / 17 / 623</td>
+<td>Large VUS burden; interpretation challenge</td>
+</tr>
+<tr>
+<td>ClinVar</td>
+<td>P/LP sequence consequences</td>
+<td>nonsense 16, frameshift 7, splice 12, missense 1</td>
+<td>Truncating/LoF-dominated disease spectrum</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Convergent conclusion:</strong> gnomAD constraint (healthy heterozygous carriers) and the ClinVar truncating-allele spectrum independently confirm that CORD9 is an <strong>autosomal-recessive, biallelic loss-of-function</strong> disorder — not dominant/haploinsufficient and not gain-of-function.</p>
+<hr />
+<h2>Key Findings &amp; Hypothesis Status</h2>
+<p><strong>Supported (evidence-backed):</strong>
+1. ADAM9 biallelic null mutations cause autosomal-recessive early-onset cone-rod dystrophy 9 (CORD9) [H, <a href="https://pubmed.ncbi.nlm.nih.gov/19409519/" target="_blank" rel="noopener noreferrer">PMID 19409519</a>].
+2. The initiating lesion is at the RPE apical microvilli / POS–RPE junction, upstream of photoreceptor death [M/D, PMIDs 19409519, 20806078; compensatory RPE pseudopods, <a href="https://pubmed.ncbi.nlm.nih.gov/41642651/" target="_blank" rel="noopener noreferrer">PMID 41642651</a>].
+3. ADAM9 is a sheddase/adhesion metalloprotease (MerTK, ADAM10, β1-integrin) whose loss disrupts the RPE–photoreceptor interface [R/V, PMIDs 42171934, 35163068, 21956108, 17704059].
+4. Disease is typically early-onset/severe, overlapping the EOSRD/LCA spectrum [H, PMIDs 25091951, 25546566, 38892339].
+5. gnomAD constraint shows ADAM9 is NOT haploinsufficient (pLI≈0, LOEUF≈0.63) → recessive, healthy-carrier model.
+6. ClinVar P/LP spectrum is truncating/LoF-dominated (nonsense/frameshift/splice ≫ missense), with a large VUS burden.
+7. Cross-species mouse and dog (Glen of Imaal Terrier) models recapitulate the RPE-interface lesion [M/D, PMIDs 19409519, 20691256].</p>
+<p><strong>Refuted / excluded:</strong> dominant or gain-of-function mechanism (excluded by pLI≈0 + recessive segregation + null-allele spectrum); syndromic/systemic involvement (disease is isolated/non-syndromic, normal lifespan); infectious/environmental causation (none).</p>
+<h2>Limitations and Future Directions</h2>
+<ul>
+<li>The literature base is <strong>small</strong> (few consanguineous families, individual patients), so <strong>phenotype frequencies, prevalence, penetrance and genotype–phenotype correlations are approximate</strong>. No large natural-history or QoL dataset exists.</li>
+<li>Mechanistic depth comes largely from <strong>mouse/dog models</strong>, which are milder/later-onset than human disease; direct human RPE/photoreceptor molecular data are limited.</li>
+<li><strong>Gene therapy</strong> is biologically well-justified but remains <strong>preclinical/investigational</strong>; no specific completed human trial was identified here — a priority for future work.</li>
+<li>Several ontology term suggestions (HPO/GO/CL/UBERON) should be verified against current ontology releases before database ingestion.</li>
+</ul>
+<hr />
+<h3>One-paragraph answer</h3>
+<p>ADAM9-Related Retinopathy (<a href="http://purl.obolibrary.org/obo/MONDO_0800398" target="_blank" rel="noopener noreferrer">MONDO:0800398</a>) is <strong>cone-rod dystrophy 9 (CORD9)</strong>, an autosomal-recessive, early-childhood-onset, progressive retinal dystrophy caused by <strong>biallelic null (loss-of-function) mutations in the metalloprotease gene ADAM9</strong>. Loss of ADAM9 disrupts the apical microvilli of the retinal pigment epithelium and the photoreceptor-outer-segment–RPE junction — the initiating lesion — leading to subretinal-space expansion and, over time, cone-predominant then rod photoreceptor degeneration with reduced ERG, photophobia, color-vision and acuity loss, and later night blindness and field constriction, culminating in severe low vision/legal blindness but normal lifespan.</p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/ADAM9-Related_Retinopathy-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/ADAM9-Related_Retinopathy-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>2</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>9</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:20806078</code> <em>(abstract only)</em>: "the primary lesion … appears to be a failure of the apical microvilli of the retinal pigm[ent epithelium]"</li>
+<li>closest text in source: "Light and electron microscopy established that, as in ADAM9 knockout mice, the primary lesion in crd3 appears to be a failure of the apical microvilli of the retinal pigment epithelium to appropriately invest photoreceptor outer segments"</li>
+<li><code>PMID:20691256</code> <em>(abstract only)</em>: "with superior potential to elucidate functional consequences of the … human ADAM9 null mutations"</li>
+<li>closest text in source: "Hence, the identification of the genetic defect underlying gPRA in the GIT represents a suitable model for cone-rod dystrophy of humans, with superior potential to elucidate functional consequences of the recently described null mutations in the human ADAM9 gene."</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>7</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0000613</code> (1 mention) - the report calls it "Frequent"; HP calls it <strong>Photophobia</strong></li>
+<li><code>HP:0000551</code> (1 mention) - the report calls it "Frequent"; HP calls it <strong>Color vision defect</strong></li>
+<li><code>HP:0000662</code> (1 mention) - the report calls it "Common as disease advances"; HP calls it <strong>Nyctalopia</strong></li>
+<li><code>HP:0001133</code> (1 mention) - the report calls it "Common"; HP calls it <strong>Constriction of peripheral visual field</strong></li>
+<li><code>HP:0000639</code> (1 mention) - the report calls it "Variable"; HP calls it <strong>Nystagmus</strong></li>
+<li><code>HP:0000512</code> (2 mentions) - the report calls it "Defining"; HP calls it <strong>Abnormal electroretinogram</strong></li>
+<li><code>HP:0007843</code> (1 mention) - the report calls it "Common"; HP calls it <strong>Attenuation of retinal blood vessels</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>ORPHA:1872</code> - called "Cone-rod dystrophy", "Orphanet:** within "Cone-rod dystrophy"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Acute_Tricyclic_Antidepressant_Poisoning-claude_code.html">← Acute Tricyclic Antidepressant Poisoning (Claude Code)</a>
+                
+                
+                <a href="Adamantinoma-falcon.html">Adamantinoma (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/ADAM9-Related_Retinopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/ADAM9-Related_Retinopathy-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

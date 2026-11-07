@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global South Disease Burden: Pathograph Depth - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html" class="active" aria-current="true">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Global South Disease Burden: Pathograph Depth</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                <span class="tag">INFECTIOUS_DISEASE</span><span class="tag">IMMUNOLOGY</span><span class="tag">TOXICOLOGY</span><span class="tag">VACCINES</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Global South Disease Burden: Pathograph Depth</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (64)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Acquired_Immunodeficiency_Syndrome.html">Acquired Immunodeficiency Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Aflatoxicosis.html">Aflatoxicosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Aflatoxin-Related_Hepatocellular_Carcinoma.html">Aflatoxin Related HCC</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Alpha_Thalassemia.html">Alpha Thalassemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Anthrax.html">Anthrax</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Arsenic_Poisoning.html">Arsenic Poisoning</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Arsenic-Related_Cancers.html">Arsenic Related Cancers</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Beta_Thalassemia.html">Beta Thalassemia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Bubonic_Plague.html">Bubonic Plague</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Buruli_ulcer.html">Buruli Ulcer</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chagas_disease.html">Chagas Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Chikungunya.html">Chikungunya</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Cholera.html">Cholera</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Congenital_Zika_Syndrome.html">Congenital Zika Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Cryptococcal_Meningitis.html">Cryptococcal Meningitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Cystic_echinococcosis.html">Cystic Echinococcosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Dengue.html">Dengue</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Diphtheria.html">Diphtheria</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Dracunculiasis.html">Dracunculiasis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Ebola_Virus_Disease_EVD.html">Ebola Virus Disease EVD</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Glucose-6-Phosphate_Dehydrogenase_G6PD_Deficiency.html">Glucose-6-Phosphate Dehydrogenase G6PD Deficiency</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hepatitis_B.html">Hepatitis B</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Human_African_trypanosomiasis.html">Human African Trypanosomiasis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Invasive_Non-Typhoidal_Salmonellosis.html">Invasive Non-Typhoidal Salmonellosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Konzo.html">Konzo</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Lassa_Fever.html">Lassa Fever</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Lead_Poisoning.html">Lead Poisoning</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Leishmaniasis.html">Leishmaniasis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Leprosy.html">Leprosy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Leptospirosis.html">Leptospirosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Lymphatic_filariasis.html">Lymphatic Filariasis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Malaria.html">Malaria</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Measles.html">Measles</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Melioidosis.html">Melioidosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Meningeal_tuberculosis.html">Meningeal Tuberculosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Mycetoma.html">Mycetoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Noma.html">Noma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Nontuberculous_Mycobacterial_Lung_Disease.html">Nontuberculous Mycobacterial Lung Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Onchocerciasis.html">Onchocerciasis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Organophosphate_Poisoning.html">Organophosphate Poisoning</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Paralytic_Poliomyelitis.html">Paralytic Poliomyelitis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Paratyphoid_Fever.html">Paratyphoid Fever</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pertussis.html">Pertussis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Plague.html">Plague</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Podoconiosis.html">Podoconiosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Polycystic_echinococcosis.html">Polycystic Echinococcosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Rabies.html">Rabies</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Rheumatic_Heart_Disease.html">Rheumatic Heart Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Rotaviral_Enteritis.html">Rotaviral Enteritis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Scabies.html">Scabies</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Schistosomiasis.html">Schistosomiasis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Scrub_typhus.html">Scrub Typhus</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Sickle_Cell_Disease.html">Sickle Cell Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Silicosis.html">Silicosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Snakebite_envenoming.html">Snakebite Envenoming</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Soil-transmitted_helminthiases.html">Soil Transmitted Helminthiases</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Taeniasis_cysticercosis.html">Taeniasis Cysticercosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Tetanus.html">Tetanus</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Tetanus_neonatorum.html">Tetanus Neonatorum</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Trachoma.html">Trachoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Tuberculosis.html">Tuberculosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Typhoid_Fever.html">Typhoid Fever</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Yaws.html">Yaws</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Yellow_Fever.html">Yellow Fever</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/GLOBAL_SOUTH.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="global-south-disease-burden-pathograph-depth">Global South Disease Burden: Pathograph Depth</h1>
+<blockquote>
+<p><strong>GitHub Epic</strong>: https://github.com/monarch-initiative/dismech/issues/16706</p>
+</blockquote>
+<h2 id="why-this-project-exists">Why this project exists</h2>
+<p>Every one of the 64 diseases below already has an entry, so coverage is not the problem. Depth is. Together these entries hold 487 mechanism nodes and 726 causal edges, but five have mechanism nodes and <strong>no causal edges at all</strong>, 18 have no phenotype connected to any mechanism, and 28 render as more than one disconnected component. Across the set, 320 of 580 phenotypes (55%) are explained by an edge.</p>
+<p>Nothing in the validation stack measures this. An entry whose nodes were never joined up passes <code>just validate</code>, <code>just validate-terms</code> and <code>just validate-disorders</code>, and scores high on <code>just compliance</code>, which counts filled slots rather than connected mechanism. That blind spot is tracked separately in #7855, #9789 and #16699; this project is the content work.</p>
+<h2 id="relationship-to-the-other-projects">Relationship to the other projects</h2>
+<p><a href="NTD.md">NTD</a> owns the WHO list and tracks whether each disease <strong>has an entry</strong> — on that measure it is complete, 20 of 20. This project asks a different question of 22 of those same diseases, plus 42 more, and the answers differ: <a href="../disorders/Trachoma.html">Trachoma</a>, Lymphatic filariasis and Polycystic echinococcosis are all ticked off in NTD and all have zero causal edges. <a href="VACCINES.md">VACCINES</a> overlaps on the vaccine-preventable entries and owns the <code>target_mechanisms</code> wiring there.</p>
+<h2 id="scope">Scope</h2>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th style="text-align: right;">Entries</th>
+<th>What it covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Other high-burden infection</td>
+<td style="text-align: right;">25</td>
+<td>high-burden infections outside the NTD list, including the vaccine-preventable childhood diseases</td>
+</tr>
+<tr>
+<td>WHO NTD</td>
+<td style="text-align: right;">22</td>
+<td>the WHO neglected tropical disease list</td>
+</tr>
+<tr>
+<td>Poverty / environmental</td>
+<td style="text-align: right;">9</td>
+<td>non-infectious diseases of poverty, where the exposure is the intervention point</td>
+</tr>
+<tr>
+<td>Big three</td>
+<td style="text-align: right;">4</td>
+<td>malaria, tuberculosis, HIV/AIDS</td>
+</tr>
+<tr>
+<td>Host genetic / malaria-linked</td>
+<td style="text-align: right;">4</td>
+<td>host-genetic conditions shaped by malaria selection</td>
+</tr>
+</tbody>
+</table>
+<h2 id="status-by-tier">Status by tier</h2>
+<p>Tiers come from a structural audit: mechanism nodes, causal edges, nodes with no edge in or out, connected components, phenotype inlinks, ontology bindings, treatment wiring, and <code>just check-granularity</code>.</p>
+<p><strong>The tables are a snapshot taken on 2026-11-06 and will go stale as the issues below close.</strong> Nothing regenerates them, so treat a figure here as the state when the audit ran, not as current. Each column can be recomputed per entry:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Where it comes from</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nodes, Edges</td>
+<td><code>pathophysiology[]</code> and its <code>downstream[].target</code> entries</td>
+</tr>
+<tr>
+<td>Floating</td>
+<td>nodes with no edge in or out; no recipe reports these yet, which is #7855</td>
+</tr>
+<tr>
+<td>Phenotypes wired</td>
+<td><code>just list-disconnected-phenotypes kb/disorders/&lt;Entry&gt;.yaml</code></td>
+</tr>
+<tr>
+<td>Main gaps</td>
+<td><code>just check-granularity kb/disorders/&lt;Entry&gt;.yaml</code>, plus the graph columns above</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-1-no-usable-pathograph-5">Tier 1 — no usable pathograph (5)</h3>
+<table>
+<thead>
+<tr>
+<th>Disease</th>
+<th style="text-align: right;">Nodes</th>
+<th style="text-align: right;">Edges</th>
+<th style="text-align: right;">Floating</th>
+<th style="text-align: right;">Phenotypes wired</th>
+<th>Issue</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lymphatic Filariasis</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">0/4</td>
+<td>#16712</td>
+</tr>
+<tr>
+<td>Polycystic Echinococcosis</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">0/3</td>
+<td>#16713</td>
+</tr>
+<tr>
+<td><a href="../disorders/Trachoma.html">Trachoma</a></td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0/1</td>
+<td>#16714</td>
+</tr>
+<tr>
+<td>Ebola Virus Disease EVD</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">0/18</td>
+<td>#16715</td>
+</tr>
+<tr>
+<td><a href="../disorders/Tetanus.html">Tetanus</a></td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">0/6</td>
+<td>#16716</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-2-broken-or-badly-incomplete-12">Tier 2 — broken or badly incomplete (12)</h3>
+<table>
+<thead>
+<tr>
+<th>Disease</th>
+<th style="text-align: right;">Nodes</th>
+<th style="text-align: right;">Edges</th>
+<th style="text-align: right;">Floating</th>
+<th style="text-align: right;">Phenotypes wired</th>
+<th>Issue</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../disorders/Mycetoma.html">Mycetoma</a></td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0/8</td>
+<td>#16718</td>
+</tr>
+<tr>
+<td><a href="../disorders/Plague.html">Plague</a></td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0/10</td>
+<td>#16719</td>
+</tr>
+<tr>
+<td><a href="../disorders/Dracunculiasis.html">Dracunculiasis</a></td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">7/7</td>
+<td>#16720</td>
+</tr>
+<tr>
+<td><a href="../disorders/Tuberculosis.html">Tuberculosis</a></td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0/10</td>
+<td>#16721</td>
+</tr>
+<tr>
+<td><a href="../disorders/Schistosomiasis.html">Schistosomiasis</a></td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">1/6</td>
+<td>#16722</td>
+</tr>
+<tr>
+<td><a href="../disorders/Noma.html">Noma</a></td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0/10</td>
+<td>#16723</td>
+</tr>
+<tr>
+<td>Buruli Ulcer</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1/1</td>
+<td>#16724</td>
+</tr>
+<tr>
+<td>Paratyphoid Fever</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">0/6</td>
+<td>#16725</td>
+</tr>
+<tr>
+<td><a href="../disorders/Konzo.html">Konzo</a></td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0/6</td>
+<td>#16726</td>
+</tr>
+<tr>
+<td><a href="../disorders/Measles.html">Measles</a></td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">1/9</td>
+<td>#16727</td>
+</tr>
+<tr>
+<td><a href="../disorders/Malaria.html">Malaria</a></td>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">3/10</td>
+<td>#16728</td>
+</tr>
+<tr>
+<td>Paralytic Poliomyelitis</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0/8</td>
+<td>#16729</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-3-works-gaps-around-it-24">Tier 3 — works, gaps around it (24)</h3>
+<table>
+<thead>
+<tr>
+<th>Disease</th>
+<th style="text-align: right;">Nodes</th>
+<th style="text-align: right;">Edges</th>
+<th style="text-align: right;">Floating</th>
+<th style="text-align: right;">Phenotypes wired</th>
+<th>Issue</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Congenital Zika Syndrome</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0/15</td>
+<td>#16730</td>
+</tr>
+<tr>
+<td><a href="../disorders/Leptospirosis.html">Leptospirosis</a></td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">25</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">6/16</td>
+<td>#16731</td>
+</tr>
+<tr>
+<td>Soil Transmitted Helminthiases</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">3/4</td>
+<td>#16732</td>
+</tr>
+<tr>
+<td><a href="../disorders/Cholera.html">Cholera</a></td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">1/12</td>
+<td>#16733</td>
+</tr>
+<tr>
+<td>Invasive Non-Typhoidal Salmonellosis</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">11</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">7/8</td>
+<td>#16734</td>
+</tr>
+<tr>
+<td><a href="../disorders/Onchocerciasis.html">Onchocerciasis</a></td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">8/8</td>
+<td>#16735</td>
+</tr>
+<tr>
+<td>Hepatitis B</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">18</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">10/10</td>
+<td>#16736</td>
+</tr>
+<tr>
+<td>Human African Trypanosomiasis</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1/1</td>
+<td>#16737</td>
+</tr>
+<tr>
+<td><a href="../disorders/Rabies.html">Rabies</a></td>
+<td style="text-align: right;">11</td>
+<td style="text-align: right;">11</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0/12</td>
+<td>#16738</td>
+</tr>
+<tr>
+<td><a href="../disorders/Pertussis.html">Pertussis</a></td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0/7</td>
+<td>#16739</td>
+</tr>
+<tr>
+<td>Scrub Typhus</td>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0/25</td>
+<td>#16740</td>
+</tr>
+<tr>
+<td><a href="../disorders/Yaws.html">Yaws</a></td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">16/16</td>
+<td>#16741</td>
+</tr>
+<tr>
+<td><a href="../disorders/Podoconiosis.html">Podoconiosis</a></td>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">14</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0/5</td>
+<td>#16742</td>
+</tr>
+<tr>
+<td><a href="../disorders/Silicosis.html">Silicosis</a></td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">11</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0/9</td>
+<td>#16743</td>
+</tr>
+<tr>
+<td>Cystic Echinococcosis</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">5/5</td>
+<td>#16744</td>
+</tr>
+<tr>
+<td>Taeniasis Cysticercosis</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">4/4</td>
+<td>#16745</td>
+</tr>
+<tr>
+<td><a href="../disorders/Dengue.html">Dengue</a></td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">3/5</td>
+<td>#16746</td>
+</tr>
+<tr>
+<td>Cryptococcal Meningitis</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">3/5</td>
+<td>#16747</td>
+</tr>
+<tr>
+<td><a href="../disorders/Leprosy.html">Leprosy</a></td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">4/5</td>
+<td>#16748</td>
+</tr>
+<tr>
+<td><a href="../disorders/Melioidosis.html">Melioidosis</a></td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">18</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">12/12</td>
+<td>#16749</td>
+</tr>
+<tr>
+<td>Typhoid Fever</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">17</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">9/9</td>
+<td>#16750</td>
+</tr>
+<tr>
+<td>Beta Thalassemia</td>
+<td style="text-align: right;">6</td>
+<td style="text-align: right;">23</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">18/18</td>
+<td>#16751</td>
+</tr>
+<tr>
+<td><a href="../disorders/Diphtheria.html">Diphtheria</a></td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">15</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1/22</td>
+<td>#16752</td>
+</tr>
+<tr>
+<td>Lassa Fever</td>
+<td style="text-align: right;">7</td>
+<td style="text-align: right;">22</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">15/15</td>
+<td>#16753</td>
+</tr>
+</tbody>
+</table>
+<h3 id="tier-4-minor-tracked-in-the-epic-13">Tier 4 — minor, tracked in the epic (13)</h3>
+<p>Alpha Thalassemia, <a href="../disorders/Anthrax.html">Anthrax</a>, Bubonic <a href="../disorders/Plague.html">Plague</a>, <a href="../disorders/Chikungunya.html">Chikungunya</a>, Glucose-6-Phosphate Dehydrogenase G6PD Deficiency, Lead Poisoning, <a href="../disorders/Leishmaniasis.html">Leishmaniasis</a>, Nontuberculous Mycobacterial Lung Disease, Organophosphate Poisoning, <a href="../disorders/Scabies.html">Scabies</a>, Sickle Cell Disease, Snakebite Envenoming, Yellow Fever.</p>
+<h3 id="tier-5-no-findings-10">Tier 5 — no findings (10)</h3>
+<p>Acquired Immunodeficiency Syndrome, <a href="../disorders/Aflatoxicosis.html">Aflatoxicosis</a>, Aflatoxin Related HCC, Arsenic Poisoning, Arsenic Related Cancers, Chagas Disease, Meningeal <a href="../disorders/Tuberculosis.html">Tuberculosis</a>, Rheumatic Heart Disease, Rotaviral Enteritis, <a href="../disorders/Tetanus.html">Tetanus</a> Neonatorum.</p>
+<p><code>Chagas_Disease</code> is the model for an infectious entry: 6 mechanism nodes, 13 edges, nothing floating, 8 of 9 phenotypes explained, and one intracellular node branching to both the cardiac and the enteric syndrome.</p>
+<h2 id="order-of-work">Order of work</h2>
+<ol>
+<li>Tier 1, because an entry with no edges renders as a row of disconnected boxes.</li>
+<li>The 18 entries where no phenotype is wired, which is what makes a page read as two unrelated lists.</li>
+<li>Tier 2 floating nodes and missing stages.</li>
+<li>Tier 3, mostly ontology bindings and treatment links.</li>
+</ol>
+<h2 id="curation-standard-for-this-project">Curation standard for this project</h2>
+<ul>
+<li>Every new causal edge carries its own evidence with an exact-quote snippet. An edge added to clear a report is worse than no edge.</li>
+<li>A phenotype may legitimately stay unconnected when its mechanism is genuinely unknown or it is a laboratory readout. Say so in <code>notes:</code> rather than inventing an edge.</li>
+<li>A bare <code>downstream</code> target must match a <code>pathophysiology</code> or <code>phenotypes</code> name exactly. A subtype name does not resolve and renders as a phantom node.</li>
+<li>Each entry gets a <code>history/</code> record with its PR.</li>
+</ul>
+<pre><code class="language-bash">just list-disconnected-phenotypes kb/disorders/&lt;Entry&gt;.yaml
+just check-causal-targets kb/disorders/&lt;Entry&gt;.yaml
+just check-granularity kb/disorders/&lt;Entry&gt;.yaml
+just validate-disorders kb/disorders/&lt;Entry&gt;.yaml
+</code></pre>
+<h1 id="notes">NOTES</h1>
+<h2 id="2026-11-06">2026-11-06</h2>
+<ul>
+<li>Project created from a structural audit of all 64 entries. Epic #16706 opened with per-disease issues #16712-#16753 for tiers 1-3.</li>
+<li>The audit found the same blind spot twice: the NTD project marks a disease complete when an entry exists, and <code>just compliance</code> scores an entry on filled slots. <a href="../disorders/Trachoma.html">Trachoma</a> satisfies both and has one node and no edges.</li>
+</ul>
+        </article>
+    </div>
+</body>
+</html>

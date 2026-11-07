@@ -12,9 +12,16 @@ Each test below pins a failure that happened while the parser was written.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
-from scripts.extract_oecd_tg import classify_division, is_in_scope_section, parse_pages
+from scripts.extract_oecd_tg import (
+    classify_division,
+    close_hyphen_gaps,
+    is_in_scope_section,
+    join_lines,
+    parse_pages,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -208,6 +215,70 @@ def test_committed_index_numbering_is_contiguous_in_every_division() -> None:
         assert numbers == list(range(1, len(numbers) + 1)), (
             f"{division} numbering is not 1..N: {numbers}"
         )
+
+
+def test_a_word_hyphenated_across_a_line_break_is_rejoined() -> None:
+    """Joining the lines with a space made "non-sensitisers" unquotable.
+
+    The word is split at the hyphen, so a curator typing "non-sensitisers" matches
+    nothing: the checker folds typography but deliberately does not close a gap
+    inside a word.
+    """
+    pages = [
+        [
+            DIVISION,
+            "",
+            "2.                     It supports the discrimination between sensitisers and non-",
+            "sensitisers for hazard identification.",
+        ]
+    ]
+    paragraphs, _ = parse_pages(pages)
+    assert "non-sensitisers for hazard" in paragraphs[0].text
+    assert "non- sensitisers" not in paragraphs[0].text
+
+
+def test_a_suspended_hyphen_keeps_its_space() -> None:
+    """"5- and 10-fold" is correct as written, and must not be joined."""
+    assert join_lines("induction was 5-", "and 10-fold") == "induction was 5- and 10-fold"
+    assert close_hyphen_gaps("pre- and post-exposure") == "pre- and post-exposure"
+
+
+def test_a_hyphen_gap_inside_one_line_is_closed() -> None:
+    """Justified text in `layout` mode renders a wide gap after a hyphen as a space.
+
+    Same broken word as the line-break case, a different cause: it arrives inside
+    a single extracted line, so rejoining lines never sees it.
+    """
+    assert close_hyphen_gaps("Reverse Transcription- quantitative PCR") == (
+        "Reverse Transcription-quantitative PCR"
+    )
+    assert close_hyphen_gaps("a three- dimensional model") == "a three-dimensional model"
+
+
+def test_a_spaced_dash_used_as_punctuation_is_left_alone() -> None:
+    """Requiring a word character before the hyphen is what excludes this."""
+    assert close_hyphen_gaps("the method - which is validated") == (
+        "the method - which is validated"
+    )
+
+
+def test_committed_index_has_no_word_split_at_a_hyphen() -> None:
+    """A split word cannot be quoted, and nothing downstream would report it.
+
+    The checker compares a curator's quote against this text, so a paragraph
+    carrying "IL- 8" silently makes the marker-gene list unquotable. Seventeen such
+    spots were committed before `join_lines` and `close_hyphen_gaps` existed.
+    """
+    index = json.loads(
+        (REPO_ROOT / "data" / "oecd_tg" / "tg442d-paragraphs.json").read_text()
+    )
+    split = [
+        (p["citation_key"], m.group(0))
+        for p in index["paragraphs"]
+        for m in re.finditer(r"\w- (?=\w)", p["text"])
+        if not re.match(r"^(and|or|to|vs|nor|&)\b", p["text"][m.end() :], re.IGNORECASE)
+    ]
+    assert split == []
 
 
 def test_committed_index_paragraphs_are_whole_sentences() -> None:
