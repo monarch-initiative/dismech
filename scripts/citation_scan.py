@@ -384,6 +384,31 @@ def parse_ledger(issues: list[dict[str, Any]]) -> list[LedgerDecision]:
     return decisions
 
 
+def one_row_per_paper(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep each paper's best entry; list the rest on that row.
+
+    A review of non-nutritional rickets overlaps four sibling rickets entries;
+    four rows would become four issues for one paper. ``rows`` is ranked.
+    """
+    best: dict[str, dict[str, Any]] = {}
+    kept: list[dict[str, Any]] = []
+    for row in rows:
+        first = best.get(row["pmid"])
+        if first is None:
+            row["also_overlaps"] = []
+            best[row["pmid"]] = row
+            kept.append(row)
+        else:
+            first["also_overlaps"].append(
+                {
+                    "entry": row["entry"],
+                    "overlap": row["overlap"],
+                    "score": row["score"],
+                }
+            )
+    return kept
+
+
 def cap_per_entry(
     rows: list[dict[str, Any]], max_per_entry: int
 ) -> list[dict[str, Any]]:
@@ -542,7 +567,7 @@ def run_scan(
         else:
             suppressed[verdict] = suppressed.get(verdict, 0) + 1
 
-    shown = cap_per_entry(kept, max_per_entry)[:max_candidates]
+    shown = cap_per_entry(one_row_per_paper(kept), max_per_entry)[:max_candidates]
     abstracts = lookup_records(api, {row["pmid"] for row in shown}, "core")
     for row in shown:
         candidate = candidates[row["pmid"]]
@@ -646,11 +671,18 @@ def render_markdown(packet: dict[str, Any]) -> str:
                 "",
             ]
         )
+        also = row.get("also_overlaps") or []
         for ref in row["overlap_refs"]:
             cited = "unknown" if ref["cited_by"] is None else ref["cited_by"]
             lines.append(
                 f"- PMID:{ref['pmid']} (cited {cited} times, weight {ref['weight']})"
                 + (f" — {ref['title']}" if ref.get("title") else "")
+            )
+        if also:
+            lines.extend(["", "Also shares references with:", ""])
+            lines.extend(
+                f"- `{other['entry']}` ({other['overlap']} shared, score {other['score']})"
+                for other in also
             )
         lines.extend(
             [

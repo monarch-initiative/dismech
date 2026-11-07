@@ -276,3 +276,19 @@ def test_reference_lists_are_reused_not_refetched(tmp_path: Path) -> None:
     )
 
     assert packet["records"][0]["is_review"] is True
+
+
+def test_one_row_per_paper_keeps_the_best_entry_and_lists_the_rest() -> None:
+    rows = [
+        {"pmid": "900", "entry": "VDDR1", "overlap": 6, "score": 1.3},
+        {"pmid": "901", "entry": "Other", "overlap": 2, "score": 0.9},
+        {"pmid": "900", "entry": "VDDR2", "overlap": 4, "score": 0.7},
+    ]
+
+    kept = citation_scan.one_row_per_paper(rows)
+
+    assert [(row["pmid"], row["entry"]) for row in kept] == [
+        ("900", "VDDR1"),
+        ("901", "Other"),
+    ]
+    assert kept[0]["also_overlaps"] == [{"entry": "VDDR2", "overlap": 4, "score": 0.7}]
