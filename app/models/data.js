@@ -4881,6 +4881,45 @@ window.searchData = [
     "source_file": "kb/modules/mitochondrial_dysfunction.yaml"
   },
   {
+    "model_key": "Inflammaging_Module--computational-model-retime-fundus-photograph-mortality-predictor--2",
+    "name": "RetiME Fundus-Photograph Mortality Predictor",
+    "description": "Deep-learning predictor that maps a single colour fundus photograph to thirteen yearly mortality probabilities. A retinal foundation model was first fine-tuned to predict the Charlson Comorbidity Index and then to predict death, on UK Biobank; the mean of the thirteen probabilities is the RetiME score. Fitting a Weibull curve to the yearly probabilities gives an individual mortality trajectory whose peak is the predicted age of death. Externally validated in the SEED (Singapore), UEMS (Russia) and AREDS (USA) cohorts.",
+    "model_type": "Machine Learning",
+    "model_type_raw": "MACHINE_LEARNING",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "DOI:10.1038/s41551-026-01822-4",
+    "runnable": "Reference only",
+    "source_type": "Module",
+    "source_name": "Inflammaging Module",
+    "disease_id": null,
+    "category": "",
+    "parents": [],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Age-Related Morbidity and Mortality"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "Linked only to the mortality outcome node, not to Chronic Low-Grade Sterile Inflammation. C-reactive protein and neutrophil count contribute to the score in the authors' feature-attribution analysis, and the score correlates with inflammatory plasma proteins, but both are associations with a predictor trained on death and do not show that the image reads inflammation. This module is a provisional home: RetiME is a general mortality estimator, the first imaging-derived one in the KB, and belongs with the computed-index question in design decisions section 12 rather than with any single hallmark.\nNo evidence block is attached because the DOI fetch returned no abstract or full text (references_cache file content_type unavailable) and the paper is not yet in PubMed, so there is no quotable text. Add exact-quote evidence once a PMID or an abstract is available. For the same reason, the method, cohort and feature-attribution details in this entry cannot be checked against the cached reference.",
+    "creation_date": "2026-07-01T00:00:00Z",
+    "page_url": "../../pages/modules/inflammaging.html#computational-model-retime-fundus-photograph-mortality-predictor",
+    "model_page_url": "",
+    "source_file": "kb/modules/inflammaging.yaml"
+  },
+  {
     "model_key": "Advanced_Sleep_Phase_Syndrome--computational-model-revised-per2-circadian-phosphoswitch-model--1",
     "name": "Revised PER2 Circadian Phosphoswitch Model",
     "description": "Mechanistic mammalian circadian-clock ODE model embedding competing PER2 phosphorylation fates in the transcription-translation feedback loop. Its FASP-like condition reduces both modeled priming-phosphorylation rates to 10% of their wild-type values, while the 2018 revision explicitly represents CK1epsilon and CK1delta isoform binding, phosphorylation, and carboxyl-terminal-tail regulation.",
@@ -7001,7 +7040,7 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 143,
+  "total_models": 144,
   "total_source_entries": 64,
   "total_model_types": 11,
   "total_runnable": 4,
