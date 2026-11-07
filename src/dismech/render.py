@@ -37,6 +37,7 @@ from dismech.graph import (
     graph_to_json,
     iter_variant_items,
 )
+from dismech.model_links import EXPERIMENT_MODEL_SLOTS
 from dismech.model_pages import render_all_model_pages
 from dismech.model_registry import BROWSER_RUNNER_NAME, SPEC_NAME, model_dir
 from dismech.module_collections import (
@@ -1213,15 +1214,18 @@ def _annotate_proposed_experiment_model_links(
         for experiment in discussion.get("proposed_experiments") or []:
             if not isinstance(experiment, dict):
                 continue
-            # Controls carry their own model systems with the same shape.
-            model_holders = [experiment]
-            model_holders.extend(
-                control
+            # The experiment carries three model lists; each control carries
+            # model systems with the same shape.
+            model_lists = [experiment.get(slot) for slot in EXPERIMENT_MODEL_SLOTS]
+            model_lists.extend(
+                control.get("model_systems")
                 for control in experiment.get("controls") or []
                 if isinstance(control, dict)
             )
-            for holder in model_holders:
-                for model in holder.get("model_systems") or []:
+            for models in model_lists:
+                if not isinstance(models, list):
+                    continue
+                for model in models:
                     if not isinstance(model, dict):
                         continue
                     resolved_links: list[dict] = []

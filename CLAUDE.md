@@ -1765,7 +1765,8 @@ present a hypothetical as curated evidence.
 
 **A link has four homes, and `dismech.model_links.iter_model_links` is the single
 walk over them** — the three top-level model sections plus a proposed experiment's
-`model_systems` (and its `controls[].model_systems`). Route a new consumer through it
+model lists, which mirror them: `model_systems`, `animal_models` and
+`computational_models` (and `controls[].model_systems`). Route a new consumer through it
 rather than looping over the sections yourself. Both `tests/test_data.py` and
 `scripts/model_scale_audit.py` used to walk only the top-level three, so every check
 on this object — divergence typing, scale agreement, readout targets, the caveat

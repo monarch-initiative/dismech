@@ -4952,6 +4952,66 @@ class ExperimentalModelTypeEnum(str, Enum):
     """
 
 
+class ExperimentDesignEnum(str, Enum):
+    """
+    Broad design family of an experiment, proposed or carried out. This is the coarse, always-fillable classification of *how* a question is addressed, and is deliberately small and closed so it can be populated on every experiment; finer detail belongs in `experiment_type`, which takes an ontology-backed Descriptor.
+    """
+    Perturbation_screen = "PERTURBATION_SCREEN"
+    """
+    A systematic screen applying a compound, genetic, or degrader library across one or more model systems with a common readout, typically triaged against a counter-screen.
+    """
+    Targeted_perturbation = "TARGETED_PERTURBATION"
+    """
+    A hypothesis-directed perturbation of one or a few named targets, including isogenic knock-in or knockout comparisons and rescue arms, rather than an unbiased library screen.
+    """
+    Human_observational_study = "HUMAN_OBSERVATIONAL"
+    """
+    A cohort, registry, case-control, or natural-history study in humans with no intervention assigned by the investigator.
+    """
+    Interventional_trial = "INTERVENTIONAL_TRIAL"
+    """
+    A trial assigning an intervention to human participants, randomized or otherwise.
+    """
+    Descriptive_profiling = "DESCRIPTIVE_PROFILING"
+    """
+    Measurement or mapping without a deliberate perturbation, such as single-cell atlasing, spatial profiling, or postmortem tissue characterization.
+    """
+    In_silico_study = "IN_SILICO"
+    """
+    A computational study whose primary object is a model or dataset rather than a bench or clinical measurement, including simulation, structural modeling, and machine-learning prediction.
+    """
+    Method_or_assay_development = "METHOD_DEVELOPMENT"
+    """
+    Work whose primary aim is to establish or validate an assay, model system, or measurement, rather than to test a disease-mechanism claim directly.
+    """
+    Mixed_design = "MIXED"
+    """
+    An experiment with arms spanning more than one design family, where no single value is the primary design. Prefer a specific value where one dominates.
+    """
+
+
+class ExperimentExecutabilityEnum(str, Enum):
+    """
+    How far an experiment has been specified, independent of whether anyone intends to run it. This records the honest state of a proposal rather than implying readiness: a `CONCEPTUAL` proposal may still be an excellent experiment, and most curated proposals are `CONCEPTUAL`.
+    """
+    Conceptual = "CONCEPTUAL"
+    """
+    A design sketch in prose. The result would be interpretable, but the experiment is not specified in enough detail to hand to anyone.
+    """
+    Specified = "SPECIFIED"
+    """
+    Model system, perturbation, readout, and comparator are named as structured objects, so a domain expert could write the protocol.
+    """
+    Parameterized = "PARAMETERIZED"
+    """
+    Bound to a named external protocol, with the scientific parameters supplied. Mechanical parameters still come from the protocol itself.
+    """
+    Executable = "EXECUTABLE"
+    """
+    The bound protocol is machine-runnable and its parameters are complete, so it could be submitted to an automation core or cloud lab subject to the usual review and biosafety gates.
+    """
+
+
 class ModelMechanismRelationshipEnum(str, Enum):
     """
     Controlled relationship between an experimental, animal, or computational model and the pathophysiology node it is linked to. Distinguishes a model that reproduces a mechanism from one that merely manipulates or measures it, and gives negative results (a model that does NOT reproduce the human mechanism) a first-class home rather than leaving them in prose.
@@ -11238,7 +11298,21 @@ class Experiment(ConfiguredBaseModel):
                       'Use `model_systems` for NAMO-aligned models, `perturbations` '
                       'for pathograph/gene/chemical/exposure manipulations, and '
                       '`readouts` for ontology-backed outcome or mechanism '
-                      'measurements.'],
+                      'measurements.',
+                      'Model systems are split three ways, mirroring the disease-level '
+                      '`experimental_models` / `animal_models` / '
+                      '`computational_models` sections and reusing the same classes: '
+                      '`model_systems` takes non-animal ExperimentalModel entries, '
+                      '`animal_models` whole-organism AnimalModel entries, and '
+                      '`computational_models` in-silico ComputationalModel entries. '
+                      'Before this split, an animal or in-silico proposal could only '
+                      'reach the pathograph through `experimental_model_type: OTHER`, '
+                      "which ExperimentalModel's own comment forbids.",
+                      '`experiment_design` is the coarse, always-fillable design '
+                      'family and `executability` records how far the proposal has '
+                      'been specified. Both are optional so that existing prose-level '
+                      'proposals validate unchanged, but a new experiment should carry '
+                      'at least `experiment_design`.'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech',
          'slot_usage': {'assays': {'description': 'Ontology-backed assays used by the '
                                                   'experiment; prefer OBI terms when '
@@ -11380,8 +11454,12 @@ class Experiment(ConfiguredBaseModel):
                        'DifferentiatingMechanism',
                        'ModuleCollection',
                        'ModuleCollectionMember']} })
+    experiment_design: Optional[ExperimentDesignEnum] = Field(default=None, description="""Broad design family of the experiment. Small, closed, and intended to be fillable on every experiment, in contrast to `experiment_type`, which takes an ontology-backed Descriptor for finer detail.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment']} })
     experiment_type: Optional[Descriptor] = Field(default=None, description="""Ontology-backed descriptor for the overall experiment or study design. Prefer OBI terms when available; assay-level details should go in the `assays` slot.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment']} })
-    model_systems: Optional[list[ExperimentalModel]] = Field(default=None, description="""Experimental model systems used or proposed for an experiment, using the ExperimentalModel pattern and optional NAMO alignment.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'ExperimentalControl']} })
+    executability: Optional[ExperimentExecutabilityEnum] = Field(default=None, description="""How far this experiment has been specified, from a prose sketch through to a machine-runnable protocol. Records the state of the proposal; it is not a quality or priority judgement.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment']} })
+    model_systems: Optional[list[ExperimentalModel]] = Field(default=None, description="""Non-animal experimental model systems used or proposed for an experiment, using the ExperimentalModel pattern and optional NAMO alignment. A whole-organism animal model belongs in the sibling `animal_models` slot and an in-silico model in `computational_models`; do not route either here via `experimental_model_type: OTHER`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'ExperimentalControl']} })
+    animal_models: Optional[list[AnimalModel]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'Disease']} })
+    computational_models: Optional[list[ComputationalModel]] = Field(default=None, description="""Computational models (metabolic, mechanistic, ML, digital twins) for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'Disease']} })
     perturbations: Optional[list[ExperimentalPerturbation]] = Field(default=None, description="""Interventions or manipulations applied in the experiment. These may target disease pathograph nodes, genes, chemical entities, treatments, exposures, triggers, or biological processes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'ExperimentalControl', 'ComputationalModel']} })
     assays: Optional[list[AssayDescriptor]] = Field(default=None, description="""Ontology-backed assays used by the experiment; prefer OBI terms when available.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment',
                        'ExperimentalReadout',
@@ -12264,7 +12342,7 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'DifferentiatingMechanism',
                        'ModuleCollection',
                        'ModuleCollectionMember']} })
-    model_systems: Optional[list[ExperimentalModel]] = Field(default=None, description="""Experimental model systems used or proposed for an experiment, using the ExperimentalModel pattern and optional NAMO alignment.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'ExperimentalControl']} })
+    model_systems: Optional[list[ExperimentalModel]] = Field(default=None, description="""Non-animal experimental model systems used or proposed for an experiment, using the ExperimentalModel pattern and optional NAMO alignment. A whole-organism animal model belongs in the sibling `animal_models` slot and an in-silico model in `computational_models`; do not route either here via `experimental_model_type: OTHER`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'ExperimentalControl']} })
     perturbations: Optional[list[ExperimentalPerturbation]] = Field(default=None, description="""Gene knockouts, reaction deletions, or parameter changes modeling the disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'ExperimentalControl', 'ComputationalModel']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
@@ -20868,12 +20946,12 @@ class Disease(ConfiguredBaseModel):
          'examples': [{'value': "['CYFRA 21-1']"}]} })
     inheritance: Optional[list[Inheritance]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Genetic', 'Disease'],
          'examples': [{'value': 'Autosomal Dominant'}]} })
-    animal_models: Optional[list[AnimalModel]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
+    animal_models: Optional[list[AnimalModel]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'Disease']} })
     experimental_models: Optional[list[ExperimentalModel]] = Field(default=None, description="""Disease-relevant organoids, cell lines, chip systems, cocultures, and related experimental models curated as mechanism or translational resources.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease'], 'recommended': False} })
     datasets: Optional[list[Dataset]] = Field(default=None, description="""Publicly available datasets relevant to disease research""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'Disease'], 'recommended': True} })
     clinical_trials: Optional[list[ClinicalTrial]] = Field(default=None, description="""Clinical trials relevant to disease treatment and research""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease'], 'recommended': False} })
     surrogate_endpoints: Optional[list[SurrogateEndpoint]] = Field(default=None, description="""Curated surrogate endpoint assertions""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection', 'Disease']} })
-    computational_models: Optional[list[ComputationalModel]] = Field(default=None, description="""Computational models (metabolic, mechanistic, ML, digital twins) for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
+    computational_models: Optional[list[ComputationalModel]] = Field(default=None, description="""Computational models (metabolic, mechanistic, ML, digital twins) for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'Disease']} })
     classifications: Optional[DiseaseClassifications] = Field(default=None, description="""Classification assignments for this disease from various nosologies""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     definitions: Optional[list[Definition]] = Field(default=None, description="""Definitions or diagnostic criteria for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     gene_sets: Optional[list[GeneSetAssociation]] = Field(default=None, description="""Curated links from this disease to external gene sets, each referenced by its structured-source id (MYGENESET:<id>, resolving to references_cache/MYGENESET_<id>.md). Membership and the curated GO interpretation live upstream / in the cache file; this slot records only the precise disease<->set link and its semantics, and is the anchor for BP alignment (`just genesets-align`).""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
