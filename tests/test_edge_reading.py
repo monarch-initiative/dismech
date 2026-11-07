@@ -7,13 +7,14 @@ import pytest
 from jsonschema import Draft7Validator
 
 from dismech.classifier.aspects import _semantics, aspect_output_schema, aspect_prompt
-from dismech.classifier.claims import extract_claim
+from dismech.classifier.claims import extract_claim, resolve
 from dismech.classifier.edge_reading import (
     EDGE_FIELDS,
-    edge_aspect_schema,
+    canonical_edge_claim,
+    edge_claim_aspect_schema,
     edge_prompt,
     edge_reading,
-    edge_reading_task,
+    edge_claim_task,
 )
 from dismech.classifier.rubric import CRITERIA, INSTRUCTIONS as RUBRIC_INSTRUCTIONS
 from dismech.classifier.structured import structured_claim_task
@@ -314,12 +315,12 @@ def test_treatment_projection_and_default_present_field_questions():
     assert state["reading"].startswith(
         'Claimed treatment effect from "Synthetic intervention"'
     )
-    assert set(edge_aspect_schema(c)["properties"]) == {
+    assert set(edge_claim_aspect_schema(canonical_edge_claim(c))["properties"]) == {
         "/",
-        "/about/disease",
-        "/assertion/target",
-        "/assertion/treatment_effect",
-        "/assertion/description",
+        "/scope/disease",
+        "/object/name",
+        "/relationship/treatment_effect",
+        "/relationship/description",
     }
 
 
@@ -340,12 +341,12 @@ def test_nested_evaluation_metadata_fails_instead_of_leaking(metadata):
         edge_reading(c)
 
 
-@pytest.mark.parametrize("empty", [[], {}])
-def test_empty_present_fields_follow_existing_aspect_contract(empty):
+def test_empty_present_fields_follow_existing_aspect_contract():
     c = claim()
-    c["assertion"]["intermediate_mechanisms"] = empty
+    c["assertion"]["intermediate_mechanisms"] = []
     assert (
-        "/assertion/intermediate_mechanisms" not in edge_aspect_schema(c)["properties"]
+        "/relationship/intermediate_mechanisms"
+        not in edge_claim_aspect_schema(canonical_edge_claim(c))["properties"]
     )
     assert (
         "/assertion/intermediate_mechanisms"
@@ -386,38 +387,50 @@ def test_collection_context_preserves_ontology_labels_and_excludes_outgoing_edge
     assert "MUST NOT LEAK" not in json.dumps(state)
 
 
-def test_schema_keeps_canonical_keys_but_names_real_state_fields():
-    c = claim()
-    result = edge_aspect_schema(c)
-    old = aspect_output_schema(c, fields=EDGE_FIELDS)
-    assert set(result["properties"]) == set(old["properties"])
+def test_schema_paths_resolve_directly_against_canonical_input():
+    c = canonical_edge_claim(claim())
+    result = edge_claim_aspect_schema(c)
+    assert set(result["properties"]) == {
+        "/",
+        "/scope/disease",
+        "/object/name",
+        "/relationship/description",
+        "/relationship/causal_link_type",
+        "/relationship/intermediate_mechanisms",
+        "/relationship/hypothesis_groups",
+    }
     assert result["required"] == list(result["properties"])
     assert result["additionalProperties"] is False
     Draft7Validator.check_schema(result)
     Draft7Validator(result).validate(dict.fromkeys(result["required"], "PARTIAL"))
+    for path in result["properties"]:
+        if path != "/":
+            assert resolve(c, path) is not None
     descriptions = {k: v["description"] for k, v in result["properties"].items()}
-    assert "scope.disease" in descriptions["/about/disease"]
-    assert "object.name" in descriptions["/assertion/target"]
-    assert "Missing disease attribution alone" in descriptions["/assertion/target"]
-    assert "Endpoint definitions supply context" in descriptions["/"]
+    assert "scope.disease" in descriptions["/scope/disease"]
+    assert "object.name" in descriptions["/object/name"]
+    assert "Missing disease attribution alone" in descriptions["/object/name"]
+    assert "Endpoint definitions supply background context" in descriptions["/"]
     for field in EDGE_FIELDS:
-        key = f"/assertion/{field}"
+        key = "/object/name" if field == "target" else f"/relationship/{field}"
         if key in descriptions:
             assert _semantics(field) in descriptions[key]
             if field != "target":
                 assert f"relationship.{field}" in descriptions[key]
-    assert "bridging role" in descriptions["/assertion/intermediate_mechanisms"]
-    assert "scope.hypotheses" in descriptions["/assertion/hypothesis_groups"]
+    assert "bridging role" in descriptions["/relationship/intermediate_mechanisms"]
+    assert "scope.hypotheses" in descriptions["/relationship/hypothesis_groups"]
 
 
 def test_field_selection_unknown_absent_and_null():
     c = claim()
     c["assertion"]["description"] = None
     assert set(
-        edge_aspect_schema(c, fields=["description", "treatment_effect"])["properties"]
-    ) == {"/", "/about/disease"}
+        edge_claim_aspect_schema(
+            canonical_edge_claim(c), fields=["description", "treatment_effect"]
+        )["properties"]
+    ) == {"/", "/scope/disease"}
     with pytest.raises(ValueError, match="Unknown edge aspect"):
-        edge_aspect_schema(c, fields=["misspelled"])
+        edge_claim_aspect_schema(canonical_edge_claim(c), fields=["misspelled"])
     c["assertion"]["made_up"] = "MUST NOT LEAK"
     with pytest.raises(ValueError, match="Unknown CausalEdge"):
         edge_reading(c)
@@ -428,9 +441,11 @@ def test_task_prompt_contract_and_old_outputs_are_unchanged():
     before = structured_claim_task(c)
     before_schema = aspect_output_schema(c)
     before_prompt = aspect_prompt()
-    task = edge_reading_task(c, "Source text used only to contextualize.")
+    task = edge_claim_task(
+        canonical_edge_claim(c), "Source text used only to contextualize."
+    )
     assert task.name == edge_prompt()["name"] == "edge_claim_aspects"
-    assert task.version == edge_prompt()["version"] == "1"
+    assert task.version == edge_prompt()["version"] == "2"
     assert task.instructions == edge_prompt()["instructions"]
     assert task.criteria == CRITERIA
     assert task.state["source_text"] == "Source text used only to contextualize."
@@ -447,7 +462,7 @@ def test_task_prompt_contract_and_old_outputs_are_unchanged():
     assert aspect_output_schema(c) == before_schema
     assert aspect_prompt() == before_prompt
     with pytest.raises(ValueError, match="source_text"):
-        edge_reading_task(c, "")
+        edge_claim_task(canonical_edge_claim(c), "")
 
 
 def test_unsupported_assertion_type_is_not_reinterpreted_as_an_edge():
@@ -455,3 +470,148 @@ def test_unsupported_assertion_type_is_not_reinterpreted_as_an_edge():
     c["assertion_type"] = "Pathophysiology"
     with pytest.raises(ValueError, match="requires CausalEdge"):
         edge_reading(c)
+
+
+def test_migration_removes_only_redundant_reading_and_endpoint_fields():
+    legacy = claim()
+    before = deepcopy(legacy)
+    expected = edge_reading(legacy)
+    del expected["reading"]
+    for endpoint in ("subject", "object"):
+        for key in {"name", *expected[endpoint]["qualifiers"]}:
+            expected["definitions"][endpoint].pop(key, None)
+    migrated = canonical_edge_claim(legacy)
+    assert migrated == expected
+    assert legacy == before
+    assert migrated["relationship"]["description"] == legacy["assertion"]["description"]
+    assert migrated["subject"]["document_path"] == "/pathophysiology/0"
+    assert migrated["definitions"]["subject"]["notes"] == "Preserved authored context."
+
+
+def test_inference_copies_authored_canonical_state_without_extraction(monkeypatch):
+    import importlib
+
+    module = importlib.import_module("dismech.classifier.edge_reading")
+    c = canonical_edge_claim(claim())
+    before = deepcopy(c)
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Inference must never call an extraction helper")
+
+    monkeypatch.setattr(module, "edge_reading", forbidden)
+    monkeypatch.setattr(module, "canonical_edge_claim", forbidden)
+    task = edge_claim_task(c)
+    edge_claim_aspect_schema(c)
+    assert task.state == c == before
+    assert task.state is not c
+    task.state["relationship"]["intermediate_mechanisms"].append("Changed")
+    task.state["scope"]["hypotheses"][0]["description"] = "Changed"
+    task.state["definitions"]["object"]["biological_processes"][0]["term"]["label"] = (
+        "Changed"
+    )
+    assert c == before
+    assert not hasattr(module, "edge_reading_task")
+    assert not hasattr(module, "edge_aspect_schema")
+    assert "/assertion/" not in edge_prompt()["instructions"]
+    assert "/about/" not in edge_prompt()["instructions"]
+    assert "reading" not in edge_prompt()["instructions"]
+
+
+@pytest.mark.parametrize(
+    "path,value",
+    [
+        ((), {"reading": "Redundant sentence"}),
+        (("relationship",), {"kind": "association"}),
+        (("relationship",), {"target": "Duplicated endpoint"}),
+        (("relationship",), {"treatment_effect": "MODULATES"}),
+        (("relationship",), {"causal_link_type": "CERTAIN"}),
+        (("relationship",), {"intermediate_mechanisms": {}}),
+        (("selected_evidence",), {"supports": "MATCH"}),
+        (("selected_evidence",), {"supports": []}),
+        (("selected_evidence",), {"directness": "CERTAIN"}),
+        (("selected_evidence",), {"directness": []}),
+        (("selected_evidence",), {"explanation": "Do not classify this"}),
+        (("definitions", "subject"), {"name": "Duplicated source"}),
+        (("definitions", "subject"), {"mechanism_confidence": "PROVISIONAL"}),
+        (("definitions", "subject"), {"downstream": []}),
+        (("definitions", "object"), {"nested": {"sequelae": []}}),
+        (("definitions", "object"), {"label": "MATCH"}),
+        (("subject", "qualifiers"), {"mechanism_confidence": "CERTAIN"}),
+        (("subject", "qualifiers"), {"subtypes": ["Missing subtype"]}),
+        (("relationship",), {"hypothesis_groups": ["Missing hypothesis"]}),
+        (("subject",), {"document_path": "/missing/0"}),
+        (("object",), {"document_path": "/treatments/0"}),
+        (("definitions", "subject"), {"notes": float("nan")}),
+        (("definitions", "subject"), {"notes": ("not", "JSON")}),
+        (("definitions", "subject"), {1: "Non-string key"}),
+    ],
+)
+def test_invalid_canonical_values_fail_closed_without_mutation(path, value):
+    c = canonical_edge_claim(claim())
+    target = c
+    for part in path:
+        target = target[part]
+    target.update(value)
+    before = deepcopy(c)
+    for operation in (edge_claim_task, edge_claim_aspect_schema):
+        with pytest.raises(ValueError):
+            operation(c)
+    # NaN is not reflexively equal; compare a stable serialized form instead.
+    assert repr(c) == repr(before)
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        ("definitions", "object", "biological_processes", 0, "term"),
+        ("scope", "hypotheses", 0),
+        ("scope", "additional_context", 0),
+        ("scope", "disease"),
+    ],
+)
+@pytest.mark.parametrize(
+    "key", ["review", "benchmark_annotations", "evidence", "explanation"]
+)
+def test_canonical_nested_annotations_fail_everywhere(location, key):
+    c = canonical_edge_claim(claim())
+    target = c
+    for part in location:
+        target = target[part]
+    target[key] = {"notes": "External annotation"}
+    with pytest.raises(ValueError, match="Annotations"):
+        edge_claim_task(c)
+
+
+def test_required_canonical_structure_and_scope_resolution():
+    c = canonical_edge_claim(claim())
+    for field in c:
+        invalid = deepcopy(c)
+        del invalid[field]
+        with pytest.raises(ValueError, match="missing fields"):
+            edge_claim_task(invalid)
+    for section in ("subtypes", "hypotheses"):
+        invalid = deepcopy(c)
+        invalid["scope"][section] = []
+        with pytest.raises(ValueError, match="resolve uniquely"):
+            edge_claim_task(invalid)
+        invalid["scope"][section] = c["scope"][section] * 2
+        with pytest.raises(ValueError, match="Ambiguous"):
+            edge_claim_task(invalid)
+    invalid = canonical_edge_claim(claim(treatment=True))
+    invalid["subject"]["document_path"] = "/pathophysiology/0"
+    with pytest.raises(ValueError, match="Treatment subject"):
+        edge_claim_task(invalid)
+
+
+def test_ontology_labels_survive_canonical_inference_exactly():
+    c = canonical_edge_claim(claim())
+    task = edge_claim_task(c)
+    assert task.state == c
+    assert (
+        task.state["scope"]["disease"]["disease_term"]["term"]["label"]
+        == "Synthetic condition label"
+    )
+    assert (
+        task.state["definitions"]["object"]["biological_processes"][0]["term"]["label"]
+        == "Synthetic ontology label"
+    )
