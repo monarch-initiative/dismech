@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rift Valley Fever · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Rift Valley Fever</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Rift Valley Fever</h1>
+                
+                <p class="report-subtitle">Rift Valley Fever — Disease Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-11-04</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0017880" target="_blank" rel="noopener noreferrer">MONDO:0017880</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-4-8, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">6 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Rift Valley Fever — Disease Characteristics Research Report</h1>
+<p><strong>Target:</strong> Rift Valley Fever (RVF) · <strong><a href="http://purl.obolibrary.org/obo/MONDO_0017880" target="_blank" rel="noopener noreferrer">MONDO:0017880</a></strong> · Category: Infectious · Synonym: RVF
+<strong>Causal agent (not a host gene):</strong> <em>Rift Valley fever virus</em> (RVFV) — an enveloped, tri‑segmented, negative‑/ambisense ssRNA virus, genus <em>Phlebovirus</em> (now <em>Phlebovirus riftense</em>), family <strong>Phenuiviridae</strong>, order <strong>Bunyavirales</strong> (NCBITaxon:11588). RVF is a zoonotic arboviral disease, <strong>not</strong> a Mendelian disorder; it has no causal human gene. The "causal gene(s): not recorded / OMIM: not recorded" fields in the template are therefore expected and correct — the pathogenesis is driven by the <strong>viral</strong> genome, whose S‑segment <strong>NSs</strong> protein is the principal virulence determinant.</p>
+<p>A well‑curated dismech entry already exists (<code>kb/disorders/Rift_Valley_Fever.yaml</code>); this report is organized to validate and extend it.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p>RVF is a mosquito‑borne, zoonotic viral disease primarily of domestic ruminants (sheep, cattle, goats) in Africa and the Arabian Peninsula, with humans infected as epizootic spillover hosts. In animals it causes <strong>"abortion storms"</strong> and high neonatal mortality; in humans the great majority of infections are a self‑limiting febrile illness, with a minority progressing to one of three severe syndromes: <strong>(i)</strong> viral hemorrhagic fever with hepatic necrosis, <strong>(ii)</strong> delayed retinitis, and <strong>(iii)</strong> meningoencephalitis (Ikegami &amp; Makino, <em>Viruses</em> 2011, PMID <strong>21666766</strong>; Bird et al., <em>JAVMA</em> 2009, PMID <strong>19335238</strong>).</p>
+<p><strong>Key identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0017880" target="_blank" rel="noopener noreferrer">MONDO:0017880</a>; ICD‑11 <strong>1D49</strong> (Rift Valley fever); ICD‑10 <strong>A92.4</strong>; MeSH <strong>D012295</strong> ("Rift Valley Fever"); the agent is NCBITaxon:11588. There is no OMIM entry (not a heritable human disorder). <strong>Synonyms/alternative names:</strong> RVF; enzootic hepatitis (historical, in livestock).</p>
+<p><strong>Data provenance:</strong> Information is derived from <strong>aggregated, disease‑level resources</strong> — outbreak investigations, hospital case series, serosurveys, WHO/CDC/OIE (WOAH) surveillance, and virological reviews — not individual‑patient EHR records.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factor — infectious.</strong> The sole cause is infection with RVFV. Transmission to humans is by <strong>(a)</strong> bites of infected mosquitoes — floodwater <em>Aedes</em> spp. (notably <em>Aedes mcintoshi/ochraceus</em>), which maintain the virus <strong>transovarially</strong> in desiccation‑resistant eggs and are the presumed reservoir, and <em>Culex</em> spp. (e.g. <em>Cx. pipiens</em>, <em>Cx. tritaeniorhynchus</em>), which amplify epidemics; and <strong>(b)</strong> direct contact with blood, body fluids, tissues, and aborted fetal material of viraemic livestock during slaughter, butchering, birthing, and veterinary handling, including <strong>aerosol</strong> exposure (Pepin et al., <em>Vet Res</em> 2010, PMID <strong>21188836</strong>; Linthicum et al., <em>Annu Rev Entomol</em> 2016, PMID <strong>26497313</strong>).</p>
+<p><strong>Environmental / behavioural risk factors (the dominant axis for this disease):</strong>
+- <strong>Heavy rainfall and flooding</strong> (El Niño/Southern Oscillation–linked) that flood <em>dambo</em> habitats and produce explosive mosquito emergence — the single strongest epidemic driver; satellite NDVI/rainfall anomalies can predict outbreaks (Anyamba et al., <em>PNAS</em> 2009, PMID <strong>19144928</strong>; Linthicum et al., <em>Science</em> 1999, PMID <strong>10411503</strong>).
+- <strong>Occupational contact</strong> with livestock — herders, pastoralists, abattoir/slaughterhouse workers, veterinarians (identified as risk factors in the Kenya 2006–07 investigation: <em>"Of these, 52 (26%) had severe RVF disease characterized by hemorrhagic manifestations or death"</em> — Anyangu et al., <em>Am J Trop Med Hyg</em> 2010, PMID <strong>20682902</strong>).
+- <strong>Consumption/handling of sick animals; drinking raw milk; sheltering animals in the home.</strong>
+- <strong>Male sex and adult age</strong> (occupational exposure pattern).</p>
+<p><strong>Protective factors:</strong> Avoidance of contact with viraemic animal tissues, personal protective equipment at slaughter, vector avoidance, and <strong>livestock vaccination</strong> (indirect human protection by suppressing amplification). No human protective genetic variant is established. There is biological rationale (and mouse/in‑vitro data) that an intact <strong>type I interferon</strong> response is protective, since the viral NSs protein exists specifically to defeat it, but a validated <em>human</em> genetic protective locus is <strong>not available</strong>.</p>
+<p><strong>Gene–environment interactions:</strong> Not applicable in the human‑Mendelian sense. The relevant "G×E" is <strong>viral‑genotype × ecological</strong>: NSs/NSm virulence determinants interacting with vector ecology and rainfall.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Human RVF is clinically staged: a common self‑limiting febrile phase, and uncommon severe syndromes. Severe disease affects roughly <strong>1–3%</strong> of infections in population terms (up to ~8% attack rates reported), but hospital series are heavily biased toward severe cases.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Timing / frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever</td>
+<td>symptom</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a></strong> Fever</td>
+<td>Acute phase; near‑universal</td>
+</tr>
+<tr>
+<td>Myalgia</td>
+<td>symptom</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a></strong> Myalgia</td>
+<td>Acute phase; common</td>
+</tr>
+<tr>
+<td>Headache</td>
+<td>symptom</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a></strong> Headache</td>
+<td>Acute phase; common</td>
+</tr>
+<tr>
+<td>Arthralgia</td>
+<td>symptom</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" rel="noopener noreferrer">HP:0002829</a></strong> Arthralgia</td>
+<td>Acute phase; common</td>
+</tr>
+<tr>
+<td>Photophobia</td>
+<td>sign</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" rel="noopener noreferrer">HP:0000613</a></strong> Photophobia</td>
+<td>Acute phase</td>
+</tr>
+<tr>
+<td>Hepatitis / hepatic necrosis</td>
+<td>sign</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0012115" target="_blank" rel="noopener noreferrer">HP:0012115</a></strong> Hepatitis</td>
+<td>Severe form</td>
+</tr>
+<tr>
+<td>Elevated transaminases</td>
+<td>lab</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" rel="noopener noreferrer">HP:0002910</a></strong> Elevated circulating hepatic transaminase concentration</td>
+<td>Marker of hepatic involvement</td>
+</tr>
+<tr>
+<td>Jaundice</td>
+<td>sign</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" rel="noopener noreferrer">HP:0000952</a></strong> Jaundice</td>
+<td>Severe hepatic form</td>
+</tr>
+<tr>
+<td>Hemorrhage (epistaxis, GI bleeding, petechiae)</td>
+<td>sign</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" rel="noopener noreferrer">HP:0001892</a></strong> Abnormal bleeding</td>
+<td>~2–4 d after onset in hemorrhagic form</td>
+</tr>
+<tr>
+<td>Thrombocytopenia</td>
+<td>lab</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a></strong> Thrombocytopenia</td>
+<td>Severe form</td>
+</tr>
+<tr>
+<td>Disseminated intravascular coagulation</td>
+<td>lab</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0005521" target="_blank" rel="noopener noreferrer">HP:0005521</a></strong> DIC</td>
+<td>Hemorrhagic form</td>
+</tr>
+<tr>
+<td>Retinitis / retinal hemorrhage</td>
+<td>sign</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0000573" target="_blank" rel="noopener noreferrer">HP:0000573</a></strong> Retinal hemorrhage; (retinitis: <strong><a href="http://purl.obolibrary.org/obo/HP_0007973" target="_blank" rel="noopener noreferrer">HP:0007973</a></strong> Retinal vasculitis / <strong><a href="http://purl.obolibrary.org/obo/HP_0001146" target="_blank" rel="noopener noreferrer">HP:0001146</a></strong> Pigmentary retinopathy as scarring correlate)</td>
+<td><strong>1–3 weeks</strong> after fever; ~1–10%</td>
+</tr>
+<tr>
+<td>Permanent vision loss (macular scar / central scotoma)</td>
+<td>sign</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0000618" target="_blank" rel="noopener noreferrer">HP:0000618</a></strong> Blindness</td>
+<td>Late sequela of macular retinitis</td>
+</tr>
+<tr>
+<td>Meningoencephalitis / encephalitis</td>
+<td>sign</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0002383" target="_blank" rel="noopener noreferrer">HP:0002383</a></strong> Infectious encephalitis; <strong><a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" rel="noopener noreferrer">HP:0001298</a></strong> Encephalopathy</td>
+<td>Days–weeks after acute phase</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Severity / progression characteristics:</strong> Onset is <strong>acute</strong> after a short incubation of ~<strong>2–6 days</strong> (range up to ~1 week). Most patients recover in 4–7 days. The three severe syndromes are largely <strong>temporally distinct</strong>: the hemorrhagic‑hepatic form appears <strong>2–4 days</strong> into illness; retinitis is <strong>delayed 1–3 weeks</strong> and often follows apparent recovery; encephalitis can accompany a second febrile phase. Macular retinitis is the leading cause of <strong>permanent</strong> morbidity in survivors.</p>
+<p><strong>Supporting quotes (verified):</strong> Al‑Hazmi et al. (Saudi Arabia 2000, prospective series of 165 hospitalized patients): <em>"Sixteen patients had retinitis and 7 patients had meningoencephalitis"</em> (Clin Infect Dis 2003, PMID <strong>12539063</strong>); overall in that series 56/165 (33.9%) died and hemorrhagic manifestations occurred in 32 (19.4%).</p>
+<p><strong>Quality‑of‑life impact:</strong> Dominated by <strong>permanent visual impairment</strong> from macular/paramacular retinitis (central scotoma), and by neurological sequelae in encephalitic survivors (focal deficits, cognitive impairment). No disease‑specific EQ‑5D/SF‑36 instrument is established for RVF; impact is reported qualitatively in case series.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>No human causal or susceptibility gene</strong> is established (no OMIM, no ClinVar/HGMD entries — expected for an arboviral zoonosis). The relevant genetics is <strong>viral</strong>:</p>
+<ul>
+<li><strong>Genome:</strong> three negative‑sense/ambisense RNA segments. <strong>L</strong> encodes the RdRp (L protein); <strong>M</strong> encodes a polyprotein yielding the glycoproteins <strong>Gn</strong> and <strong>Gc</strong> plus the non‑structural <strong>NSm</strong> and a 78‑kDa protein; <strong>S</strong> uses an <strong>ambisense</strong> strategy to encode the <strong>nucleoprotein (N)</strong> and the non‑structural <strong>NSs</strong> (Bouloy &amp; Weber, <em>Open Virol J</em> 2010, PMID <strong>20517490</strong>; Ikegami &amp; Makino 2011, PMID <strong>21666766</strong>).</li>
+<li><strong>NSs — principal virulence factor</strong> (analogous to a viral "oncogene‑like" effector). It forms nuclear filaments and defeats innate immunity by three documented mechanisms:</li>
+<li><strong>Suppression of host general transcription</strong> by sequestering the <strong>p44/TFIIH</strong> subunit and degrading <strong>TFIIH p62</strong> → shutoff of interferon‑β induction (Le May et al., <em>Cell</em> 2004, PMID <strong>14980221</strong>; Billecocq et al., <em>J Virol</em> 2004, PMID <strong>15479799</strong>).</li>
+<li><strong>Promoting post‑transcriptional degradation of PKR</strong> (dsRNA‑activated protein kinase), relieving translational block (Ikegami et al., <em>PLoS Pathog</em> 2009, PMID <strong>19197350</strong>; Habjan et al., <em>J Virol</em> 2009, PMID <strong>19570864</strong>).</li>
+<li>Downregulation of IFN‑β at the promoter level via repression of the host SAP30/YY1 complex.</li>
+<li><strong>NSm</strong> is anti‑apoptotic and supports vector infection; deletion attenuates (Won et al., <em>J Virol</em> 2007, PMID <strong>17596309</strong>).</li>
+<li><strong>Attenuating viral variants:</strong> the naturally attenuated <strong>Clone 13</strong> carries a large <strong>in‑frame deletion in the NSs ORF</strong> (Muller et al., <em>Am J Trop Med Hyg</em> 1995, PMID <strong>7872449</strong>) — the molecular basis of a leading veterinary vaccine.</li>
+</ul>
+<p><strong>Functional consequence:</strong> NSs is a <strong>gain‑of‑virulence / immune‑antagonist</strong>; its loss (Clone 13, MP‑12 partially) is <strong>loss‑of‑function → attenuation</strong>. Modeled in dismech as pathway‑state <code>modifier: DECREASED</code> on type I IFN induction (<a href="http://purl.obolibrary.org/obo/GO_0032480" target="_blank" rel="noopener noreferrer">GO:0032480</a>), which is correct — there is no host variant to carry <code>functional_impact_category</code>.</p>
+<p><strong>Epigenetics / chromosomal abnormalities:</strong> Not applicable (host). RVFV biology is RNA‑segment‑based; <strong>reassortment</strong> between co‑infecting strains is the principal source of genetic novelty (analogous to influenza), documented in field isolates.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Climatic:</strong> Excess rainfall/flooding (ENSO‑linked), elevated NDVI, and <em>dambo</em>/pan flooding drive mosquito emergence and epizootics (Anyamba et al., <em>PNAS</em> 2009, PMID <strong>19144928</strong>).</li>
+<li><strong>Ecological/agricultural:</strong> Irrigation schemes and dam construction (e.g. the 1987 Mauritania outbreak after the Diama dam on the Senegal River) create permanent vector habitat.</li>
+<li><strong>Occupational/lifestyle:</strong> Livestock husbandry, slaughter, and consumption/handling of sick animals (Section 2).</li>
+<li><strong>Infectious agent (CHEBI/NCBITaxon):</strong> RVFV, <strong>NCBITaxon:11588</strong>. Vectors: <em>Aedes</em> spp. and <em>Culex</em> spp. (Culicidae). Amplifying hosts: Bovidae (NCBITaxon:9895), especially <em>Ovis aries</em> (NCBITaxon:9940), <em>Bos taurus</em> (NCBITaxon:9913), <em>Capra hircus</em> (NCBITaxon:9925).</li>
+</ul>
+<p>Suggested exposure terms (ECTO): exposure via mosquito bite; occupational exposure to animal blood/tissue; aerosol exposure. (Verify exact ECTO CURIEs at binding time per <code>dismech-terms</code> — do not bind from memory.)</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Inoculation</strong> of RVFV (mosquito bite or mucocutaneous/aerosol contact with viraemic tissue) <strong>→ leads to</strong> local replication in dermal/regional cells.</li>
+<li>Viral replication <strong>→ leads to</strong> expression of <strong>NSs</strong>, which <strong>suppresses host transcription and type I IFN induction</strong> and <strong>degrades PKR</strong> (demonstrated in vitro and in mouse models; PMID <strong>14980221</strong>, <strong>19197350</strong>).</li>
+<li>Defeat of the interferon response <strong>→ results in</strong> uncontrolled early replication and <strong>high‑titre viraemia</strong> with hepatotropic dissemination (viraemia magnitude correlates with severity — <em>inferred correlation from human/animal data</em>).</li>
+<li>Viraemia <strong>→ leads to</strong> preferential infection of <strong>hepatocytes and Kupffer cells</strong>, producing <strong>midzonal→massive hepatic necrosis</strong> (the pathological hallmark of fatal RVF).</li>
+<li><strong>Branch 4a (hepatic):</strong> Hepatocellular necrosis <strong>→ results in</strong> release of transaminases and <strong>impaired synthesis of clotting factors</strong>, and <strong>→ leads to</strong> jaundice.</li>
+<li><strong>Branch 4b (vascular):</strong> Systemic infection + cytokine response <strong>→ leads to</strong> <strong>endothelial activation and increased vascular permeability</strong> (the rate‑limiting lesion shared with other viral hemorrhagic fevers).</li>
+<li>Impaired hepatic factor synthesis + endothelial injury + platelet consumption <strong>→ results in</strong> <strong>consumptive coagulopathy / DIC</strong> → <strong>thrombocytopenia</strong> and <strong>hemorrhage</strong> → multi‑organ failure and death in the severe hemorrhagic form.</li>
+<li><strong>Delayed branch (ocular):</strong> 1–3 weeks after the acute phase, a <strong>largely immune‑mediated retinitis</strong> (vasculitis, retinal hemorrhage, macular edema) develops <strong>→ leads to</strong> permanent <strong>vision loss</strong> when the macula scars. (Immune‑mediated mechanism is <strong>inferred</strong> from its post‑viraemic timing, not demonstrated by biopsy.)</li>
+<li><strong>Delayed branch (neurological):</strong> days–weeks later, <strong>neuroinvasion</strong> produces <strong>meningoencephalitis → encephalitis</strong> with headache, confusion, focal deficits.</li>
+</ol>
+<h3>Supporting detail by category</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> RIG‑I/MAVS → IRF3/IRF7 → IFN‑β induction (antagonized by NSs); PKR–eIF2α translational control (antagonized); JAK‑STAT ISG signaling (blunted downstream of IFN suppression). GO: <strong><a href="http://purl.obolibrary.org/obo/GO_0032480" target="_blank" rel="noopener noreferrer">GO:0032480</a></strong> (negative regulation of type I IFN production), <strong><a href="http://purl.obolibrary.org/obo/GO_0019079" target="_blank" rel="noopener noreferrer">GO:0019079</a></strong> (viral genome replication), <strong><a href="http://purl.obolibrary.org/obo/GO_0039548" target="_blank" rel="noopener noreferrer">GO:0039548</a></strong> (suppression by virus of host IRF3 activity, conceptually), <strong><a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" rel="noopener noreferrer">GO:0060337</a></strong> (type I interferon signaling pathway).</li>
+<li><strong>Cellular processes:</strong> hepatocyte apoptosis/necrosis (<strong><a href="http://purl.obolibrary.org/obo/GO_0097284" target="_blank" rel="noopener noreferrer">GO:0097284</a></strong> hepatocyte apoptotic process), endothelial activation, inflammation/cytokinemia, neuronal infection.</li>
+<li><strong>Protein dysfunction:</strong> NSs‑driven degradation of <strong>TFIIH p62</strong> and <strong>PKR</strong>; glycoprotein Gn/Gc mediate entry (receptor candidates include <strong>LRP1</strong>, DC‑SIGN for dendritic cells — Ganaie et al., <em>Cell</em> 2021, PMID <strong>34320407</strong> identified LRP1 as an RVFV entry receptor).</li>
+<li><strong>Tissue damage mechanisms:</strong> direct viral cytopathology (liver), immunopathology (retina), vascular leak and DIC (hemostatic failure).</li>
+<li><strong>Cell types (CL):</strong> hepatocyte <strong><a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a></strong>; Kupffer cell <strong><a href="http://purl.obolibrary.org/obo/CL_0000091" target="_blank" rel="noopener noreferrer">CL:0000091</a></strong>; endothelial cell <strong><a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a></strong>; dendritic cell <strong><a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a></strong>; neuron <strong><a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a></strong>.</li>
+</ul>
+<h3>Molecular profiling</h3>
+<p>Transcriptomic/proteomic data exist largely from <strong>animal models and cell lines</strong> (mouse, rat, NHP challenge; GEO deposits for RVFV‑infected hepatocytes/macrophages). Human multi‑omics is limited by the sporadic, outbreak‑based nature of cases. CRISPR screens identified host entry/replication factors including <strong>LRP1</strong> (PMID <strong>34320407</strong>). Note evidence‑source discipline: these are predominantly <strong>MODEL_ORGANISM / IN_VITRO</strong>, not human clinical.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organ:</strong> <strong>Liver</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>) — hepatocytes and Kupffer cells; the principal target in fatal disease.</li>
+<li><strong>Vascular system / blood</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a>; endothelium <a href="http://purl.obolibrary.org/obo/UBERON_0001986" target="_blank" rel="noopener noreferrer">UBERON:0001986</a>) — the hemostatic/vascular lesion.</li>
+<li><strong>Eye / retina</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a> eye; <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a></strong> retina; macula <a href="http://purl.obolibrary.org/obo/UBERON_0004862" target="_blank" rel="noopener noreferrer">UBERON:0004862</a>) — delayed retinitis, typically <strong>bilateral</strong> but can be asymmetric; macular involvement causes permanent loss.</li>
+<li><strong>Central nervous system / brain</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>; meninges <a href="http://purl.obolibrary.org/obo/UBERON_0002360" target="_blank" rel="noopener noreferrer">UBERON:0002360</a>) — meningoencephalitis.</li>
+<li><strong>Spleen</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>) — replication site.</li>
+<li><strong>Body systems:</strong> hepatobiliary, cardiovascular/hematologic, nervous, ocular.</li>
+<li><strong>Subcellular (GO CC):</strong> viral replication is cytoplasmic; <strong>NSs filaments are nuclear</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> nucleus) — a distinctive feature; Golgi (<a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" rel="noopener noreferrer">GO:0005794</a>) for glycoprotein maturation and budding.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Incubation:</strong> ~<strong>2–6 days</strong> (up to ~1 week) after exposure.</li>
+<li><strong>Onset:</strong> <strong>acute</strong>.</li>
+<li><strong>Course:</strong> Most cases are <strong>self‑limited</strong> (recovery ~4–7 days). Severe syndromes follow distinct windows: hemorrhagic‑hepatic at <strong>day 2–4</strong>; retinitis at <strong>1–3 weeks</strong> (often after apparent recovery); encephalitis days–weeks later, sometimes as a <strong>biphasic</strong> fever.</li>
+<li><strong>Critical period for intervention:</strong> the early viraemic phase (supportive escalation, isolation); there is no licensed antiviral, so timing is about supportive intensity and complication surveillance (serial ophthalmologic and neurological evaluation).</li>
+<li><strong>Epidemic tempo at population level:</strong> explosive, rainfall‑driven epizootic/epidemic peaks over weeks to a few months, then quiescence (inter‑epidemic maintenance in <em>Aedes</em> eggs).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Not genetic</strong> — no inheritance pattern, penetrance, carrier frequency, founder effect, or consanguinity role applies.</p>
+<p><strong>Epidemiology:</strong>
+- <strong>Geographic distribution:</strong> sub‑Saharan and North Africa, Madagascar, Egypt, and the <strong>Arabian Peninsula</strong> (Saudi Arabia/Yemen since 2000 — the first spread outside Africa). Repeated large outbreaks: Egypt 1977–78; Kenya 1997–98 and <strong>2006–2007</strong>; Saudi Arabia/Yemen 2000; Mauritania (recurrent, incl. 2010, 2015, 2020); Mayotte; Niger 2016; Mauritania/Mali.
+- <strong>Human burden is epidemic, not steady‑endemic.</strong> During the Kenya 2006–07 outbreak WHO reported, verbatim: <em>"From 30 November 2006 to 12 March 2007, a total of 684 cases including 155 deaths (case‑fatality ratio, 23%) of RVF was reported in Kenya."</em> (WHO DON, 2007).
+- <strong>Case‑fatality:</strong> community‑/population‑wide ~<strong>0.5–2%</strong>; <strong>hospitalized/severe series much higher</strong> (e.g. Saudi Arabia 2000 series 33.9%; Kenya 2006–07 ~23%; Tanzania 2007 ~28%; Mauritania 2022 letter ~49%). Large serosurveys imply <strong>up to ~180,000</strong> mild/asymptomatic infections in the Kenya outbreak region, confirming the hospitalized CFR is upward‑biased (Nguku et al., <em>Am J Trop Med Hyg</em> 2010, PMID <strong>20682901</strong>).
+- <strong>Demographics:</strong> higher incidence in <strong>adult males</strong> reflecting occupational animal contact; no ethnic genetic predisposition.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Molecular:</strong> <strong>RT‑PCR / real‑time RT‑PCR</strong> on serum during the viraemic phase — the mainstay of early confirmation (Bird et al., <em>J Clin Microbiol</em> 2007, PMID <strong>17913929</strong> describes a diagnostic RT‑PCR assay).</li>
+<li><strong>Serology:</strong> <strong>IgM capture ELISA</strong> (recent infection) and <strong>IgG ELISA / seroconversion</strong>; <strong>plaque‑reduction neutralization (PRNT)</strong> as reference. Antigen‑detection ELISA is used in animals.</li>
+<li><strong>Virus isolation:</strong> possible in BSL‑3+ settings from serum/tissue (RVFV is a high‑containment select agent; isolation is restricted to appropriately biosafe laboratories).</li>
+<li><strong>Supportive laboratory findings:</strong> elevated AST/ALT (often markedly), thrombocytopenia, leukopenia then leukocytosis, coagulopathy (prolonged PT/aPTT, elevated D‑dimer, DIC), hyperbilirubinemia; LOINC‑codable analytes (ALT, AST, platelet count, PT, fibrinogen, bilirubin).</li>
+<li><strong>Histopathology:</strong> hepatic <strong>midzonal necrosis</strong> with <strong>Councilman‑like acidophilic bodies</strong> and minimal inflammatory infiltrate; immunohistochemistry/IHC for viral antigen.</li>
+<li><strong>Imaging/functional:</strong> ophthalmologic exam and <strong>fluorescein angiography/OCT</strong> for retinitis; neuroimaging/EEG and CSF analysis (lymphocytic pleocytosis) for encephalitis.</li>
+<li><strong>Clinical criteria / case definition:</strong> WHO/CDC outbreak case definitions combine acute febrile illness in an epizootic setting with laboratory confirmation.</li>
+<li><strong>Differential diagnosis:</strong> other viral hemorrhagic fevers (Crimean‑Congo HF, Ebola/Marburg, yellow fever, dengue), leptospirosis, severe malaria, Q fever, brucellosis, typhoid, viral hepatitis.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Mild/uncomplicated RVF:</strong> full recovery in days; excellent prognosis.</li>
+<li><strong>Hemorrhagic‑hepatic form:</strong> high mortality (hospital series 10–50%); death from hepatic failure, hemorrhage, DIC, and multi‑organ failure.</li>
+<li><strong>Ocular form:</strong> often <strong>permanent central vision loss</strong> when the macula is involved; ~50% of patients with macular retinitis retain a permanent deficit. Rarely fatal.</li>
+<li><strong>Encephalitic form:</strong> significant mortality and frequent neurological sequelae in survivors.</li>
+<li><strong>Prognostic factors:</strong> magnitude/duration of viraemia, degree of transaminase elevation, thrombocytopenia/DIC, presence of hemorrhage, encephalopathy, and hepatorenal failure predict death (Kenya and Saudi series). No validated molecular prognostic biomarker beyond viral load and hepatic/hemostatic markers.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<ul>
+<li><strong>No licensed specific human antiviral or therapeutic.</strong> Management is <strong>supportive</strong> (NCIT:C15747 Supportive Care): fluid/electrolyte management, correction of coagulopathy, transfusion support, organ‑failure management, and management in an appropriate <strong>isolation/high‑containment</strong> setting for hemorrhagic cases.</li>
+<li><strong>Investigational antivirals:</strong> <strong>ribavirin</strong> has in‑vitro and animal activity but no proven human benefit and raises concern for CNS disease in some models; <strong>favipiravir (T‑705)</strong> shows activity in rodent models (favipiravir: Caroline et al. / Scharton et al., <em>Antimicrob Agents Chemother</em> 2014, PMID <strong>24395232</strong>). These remain experimental.</li>
+<li><strong>Ocular/neurological:</strong> corticosteroids are used empirically for severe immune‑mediated retinitis/encephalitis, without controlled‑trial support.</li>
+<li><strong>Vaccines:</strong> no licensed <strong>human</strong> vaccine. Candidates include the inactivated <strong>TSI‑GSD‑200</strong> (investigational, used for at‑risk laboratory/veterinary personnel under special protocols), the live‑attenuated <strong>MP‑12</strong>, and the chimpanzee‑adenovirus‑vectored <strong>ChAdOx1 RVF</strong>, which has entered early‑phase human trials (Warimwe/Jenner Institute programme). <strong>Veterinary</strong> vaccines are established and central to control: the live <strong>Smithburn</strong> strain, the inactivated vaccine, and <strong>Clone 13</strong> (NSs‑deletion) and MP‑12.</li>
+<li><strong>Treatment strategy:</strong> early recognition in an outbreak, supportive escalation, complication surveillance (serial ophthalmologic/neurologic review), and strict infection control. (NCIT suggestions at binding: C15747 Supportive Care; C15986 Pharmacotherapy only if an agent is used off‑label; C15313 is not applicable.)</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention (the core of RVF control):</strong></li>
+<li><strong>Livestock vaccination</strong> ahead of predicted outbreaks (Smithburn / Clone 13 / inactivated) to suppress amplification — the keystone intervention.</li>
+<li><strong>Early warning / forecasting</strong> using rainfall and NDVI satellite anomalies to pre‑position response (Anyamba et al., PMID <strong>19144928</strong>).</li>
+<li><strong>Vector control</strong> (larval source reduction, insecticides) during high‑risk periods; personal protection (repellents, bed nets).</li>
+<li><strong>Safe animal‑handling practices</strong> — PPE at slaughter/birthing, avoiding contact with abortus material, <strong>avoiding raw milk</strong>, and <strong>movement restrictions/slaughter bans</strong> during epizootics.</li>
+<li><strong>Secondary prevention:</strong> outbreak surveillance (sentinel herds, human case detection) and rapid laboratory confirmation for early response.</li>
+<li><strong>Tertiary prevention:</strong> complication surveillance and supportive care to limit mortality and permanent sequelae.</li>
+<li><strong>Public health / One Health:</strong> integrated human–animal–environment surveillance, abattoir regulation, and community health education; environmental management of irrigation/dam habitats.</li>
+<li><strong>Prophylaxis:</strong> investigational human vaccination restricted to high‑risk laboratory and veterinary personnel.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Species affected (natural amplifying/clinical hosts):</strong> domestic ruminants are most susceptible — <strong>sheep</strong> (<em>Ovis aries</em>, NCBITaxon:9940) and <strong>goats</strong> (<em>Capra hircus</em>, NCBITaxon:9925) most severely, <strong>cattle</strong> (<em>Bos taurus</em>, NCBITaxon:9913); also camels (<em>Camelus dromedarius</em>). Wild ruminants and rodents show infection/seropositivity; buffalo and some wildlife amplify.</li>
+<li><strong>Natural disease in animals:</strong> characteristic <strong>"abortion storms"</strong> (near‑100% abortion in pregnant ewes) and <strong>very high mortality in newborn lambs/kids</strong> (often &gt;90%), with hepatic necrosis — more severe than typical human disease. This is of major <strong>veterinary and economic</strong> importance (Bird et al., <em>JAVMA</em> 2009, PMID <strong>19335238</strong>).</li>
+<li><strong>Comparative pathology:</strong> liver is the shared primary target across species; neonatal animals and humans both show massive hepatic necrosis, but the <strong>abortifacient</strong> effect is an animal‑specific hallmark.</li>
+<li><strong>Transmission / zoonotic potential:</strong> strongly <strong>zoonotic</strong>; humans are <strong>incidental dead‑end hosts</strong> (viraemia insufficient for onward mosquito transmission). Cross‑species susceptibility spans many mammals.</li>
+<li><strong>OMIA:</strong> RVF is catalogued as an infectious (non‑Mendelian) condition of livestock rather than an OMIA Mendelian trait.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse</strong> (<em>Mus musculus</em>): the principal small‑animal model; wild‑type mice are highly susceptible, developing early hepatic necrosis and, in survivors, delayed encephalitis — recapitulating the biphasic human severe disease. <strong>Type I IFN‑receptor knockout (IFNAR⁻/⁻)</strong> mice are uniformly, rapidly susceptible, confirming the IFN axis NSs targets (Bouloy et al., <em>J Virol</em> 2001, PMID <strong>11152510</strong>).</li>
+<li><strong>Rat</strong> (<em>Rattus norvegicus</em>): strain‑dependent susceptibility (Lewis vs Wistar‑Furth) models hepatic vs encephalitic outcomes.</li>
+<li><strong>Non‑human primates</strong> (rhesus macaque, marmoset, common marmoset): model hemorrhagic and febrile disease for vaccine/therapeutic testing.</li>
+<li><strong>Induced/genetic models:</strong> the attenuating <strong>NSs‑deletion (Clone 13)</strong> and <strong>MP‑12</strong> reverse‑genetics systems are core tools; recombinant RVFV with NSs/NSm deletions dissect virulence.</li>
+<li><strong>In vitro:</strong> hepatocyte and macrophage/dendritic‑cell lines; CRISPR screens (host factor <strong>LRP1</strong>, PMID <strong>34320407</strong>).</li>
+<li><strong>Phenotype recapitulation / limitations:</strong> mice over‑recapitulate lethality relative to average human infection; NHP are closest to human disease but scarce; <strong>retinitis — the signature human sequela — is poorly modeled</strong> in rodents, a key translational gap (relevant to any dismech <code>FAILS_TO_RECAPITULATE</code> / <code>HUMAN_MODEL_MISMATCH</code> annotation for the ocular node).</li>
+<li><strong>Resources:</strong> MGI (mouse), RGD (rat), and the RVFV reverse‑genetics literature.</li>
+</ul>
+<hr />
+<h2>Citation notes and evidence‑discipline flags</h2>
+<ul>
+<li><strong>Verified exact quotes</strong> (safe to use as dismech <code>snippet:</code> after re‑fetching the source into <code>references_cache/</code>): the WHO Kenya statement ("<em>From 30 November 2006 to 12 March 2007, a total of 684 cases including 155 deaths (case‑fatality ratio, 23%)</em>"); Al‑Hazmi ("<em>Sixteen patients had retinitis and 7 patients had meningoencephalitis</em>", <a href="https://pubmed.ncbi.nlm.nih.gov/12539063/" target="_blank" rel="noopener noreferrer">PMID 12539063</a>); Kenya risk‑factor study ("<em>Of these, 52 (26%) had severe RVF disease characterized by hemorrhagic manifestations or death</em>").</li>
+<li><strong>PMIDs cited from the established literature</strong> (confirm each with <code>just fetch-reference PMID:…</code> before binding — do not enter a snippet unverified): 21666766 (Ikegami &amp; Makino 2011), 19335238 (Bird 2009), 21188836 (Pepin 2010), 20517490 (Bouloy &amp; Weber 2010), 14980221 (Le May 2004), 19197350 (Ikegami 2009 PKR), 19570864 (Habjan 2009), 12539063 (Al‑Hazmi 2003), 14523773 (Madani 2003), 20682901 / 20682902 (Kenya 2006‑07 series), 19144928 (Anyamba 2009), 10411503 (Linthicum 1999), 34320407 (Ganaie 2021 LRP1), 24395232 (favipiravir), 11152510 (Bouloy 2001 IFNAR mouse), 7872449 (Muller 1995 Clone 13).</li>
+<li><strong>Per‑CLAUDE.md:</strong> this is a microbial/infectious entry — on binding, ensure ≥1 NCBITaxon <code>infectious_agent</code> and ≥1 <code>transmission</code> route (already present), and consider conformance to the <code>viral_hemorrhagic_fever_syndrome</code> module (already used for the viraemia and vascular‑leak nodes). Model‑organism evidence (mouse/NHP) must be graded <code>MODEL_ORGANISM</code> and not stand alone for human phenotypes.</li>
+</ul>
+<p><strong>Sources (web):</strong>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9813963">Frontiers in Immunology 2022 — RVFV/host innate immunity review (PMC9813963)</a>
+- <a href="https://www.who.int/emergencies/disease-outbreak-news/item/2007_05_09-en">WHO Disease Outbreak News — RVF Kenya 2007</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2913492">Nguku et al., Kenya 2006‑07 outbreak investigation (PMC2913492)</a>
+- <a href="https://www.qxmd.com/r/12539063">Al‑Hazmi et al. 2003, Saudi Arabia series (qxmd/PMID 12539063)</a>
+- <a href="https://www.ilri.org/knowledge/publications/epidemiologic-and-clinical-aspects-rift-valley-fever-outbreak-humans">Epidemiologic and clinical aspects of the Tanzania 2007 RVF outbreak (ILRI)</a>
+- <a href="https://typeset.io/pdf/the-challenging-management-of-rift-valley-fever-in-humans-lyubffn7fw.pdf">"The challenging management of Rift Valley fever in humans" (Javelle et al.)</a></p>
+<p>This report mirrors and is consistent with the existing <code>kb/disorders/Rift_Valley_Fever.yaml</code> entry; the main extensions beyond the current entry are the <strong>ocular/encephalitic timing detail</strong>, the <strong>LRP1 entry receptor</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/34320407/" target="_blank" rel="noopener noreferrer">PMID 34320407</a>), <strong>favipiravir/ribavirin</strong> investigational status, the <strong>vaccine landscape</strong> (Clone 13, MP‑12, ChAdOx1 RVF), and the <strong>retinitis modeling gap</strong> worth recording as a <code>HUMAN_MODEL_MISMATCH</code>.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>4</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>45</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>44</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>NCBITaxon:11588</code> (3 mentions) - the report calls it "Bunyavirales"; NCBITaxon calls it <strong>Rift Valley fever virus</strong></li>
+<li><code>UBERON:0002107</code> (1 mention) - the report calls it "Liver", "Primary organ:<strong> </strong>Liver"; UBERON calls it <strong>liver</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>HP:0001146</code> (obsolete Pigmentary retinal degeneration) (1 mention) - replaced by <code>HP:0000580</code></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>UBERON:0002107</code> - called "Liver", "Primary organ:<strong> </strong>Liver"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Rienhoff_Syndrome-openscientist.html">← Rienhoff Syndrome (OpenScientist)</a>
+                
+                
+                <a href="Riley-Day_Syndrome-claude_code.html">Riley-Day Syndrome (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Rift_Valley_Fever.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Rift_Valley_Fever-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

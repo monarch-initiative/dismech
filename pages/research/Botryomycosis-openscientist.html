@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Botryomycosis · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Botryomycosis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Botryomycosis</h1>
+                
+                <p class="report-subtitle">Botryomycosis — Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-29</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0400006" target="_blank" rel="noopener noreferrer">MONDO:0400006</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">23 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Botryomycosis — Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Botryomycosis
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0400006" target="_blank" rel="noopener noreferrer">MONDO:0400006</a> · <strong>MeSH:</strong> D001857 · <strong>OMIM:</strong> Not applicable (non-genetic) · <strong>Category:</strong> Infectious Disease (bacterial pseudomycosis)
+<strong>Evidence base:</strong> Individual case reports and small case series/reviews only (no registries, cohorts, or clinical trials). All quantitative claims are qualitative/indirect.</p>
+<hr />
+<h2>Summary</h2>
+<p><strong>Botryomycosis is a rare, chronic, suppurative and granulomatous BACTERIAL infection — despite the misleading "-mycosis" suffix, it is not a fungal disease.</strong> It is caused by common, non-filamentous bacteria — most frequently <em>Staphylococcus aureus</em> (NCBITaxon:1280), followed by <em>Pseudomonas aeruginosa</em> (NCBITaxon:287), with other organisms (<em>Escherichia coli</em>, <em>Proteus</em>, <em>Actinobacillus actinomycetemcomitans</em>) occasionally implicated. The defining feature is that these ordinary bacteria aggregate within tissue into compact colonies ("grains" or "granules") coated by an eosinophilic, amorphous, radiating matrix known as the <strong>Splendore-Hoeppli phenomenon</strong>. Clinically it takes two forms: a common <strong>cutaneous</strong> form (nodules, abscesses, sinuses, fistulae, ulcers, often with deep tissue and bone invasion) and a rare <strong>visceral</strong> form that predominantly affects the lungs and characteristically mimics carcinoma.</p>
+<p>Botryomycosis is an <strong>acquired, sporadic, non-genetic</strong> condition — there is no Mendelian inheritance, no causal human gene, and no defined incidence or prevalence. It is best understood as an <em>aberrant host response</em> to a common bacterial infection rather than as disease caused by a distinct or exotic pathogen. Its central predisposing factor is <strong>impaired cell-mediated immunity</strong> — HIV/AIDS is the most frequently cited association — with additional risk from immunosuppressive drugs, diabetes mellitus, alcoholism, malnutrition, cystic fibrosis, and local trauma or foreign bodies. The same disease occurs naturally in animals (horses, cattle, swine), and indeed the veterinary and experimental (guinea pig) literature shaped the historical understanding of the entity.</p>
+<p>The principal clinical importance of botryomycosis is twofold: (1) it is a <strong>great diagnostic mimic</strong> — of malignancy (lung cancer, sarcoma, liposarcoma, sinonasal tumor), of mycetoma, and of actinomycosis — which has led to unnecessary resections; and (2) it is <strong>curable</strong>. Diagnosis requires tissue biopsy (showing non-filamentous bacterial grains with Splendore-Hoeppli phenomenon) <strong>plus</strong> culture to identify the organism. Treatment combines <strong>prolonged, culture-directed antibiotics</strong> (weeks to many months) with <strong>surgical debridement/excision</strong>, plus restoration of immune function (e.g., antiretroviral therapy) when HIV is the driver. Localized cutaneous disease generally carries a good prognosis, but recurrence is common and disseminated/visceral disease in uncontrolled immunodeficiency can be fatal.</p>
+<hr />
+<h2>Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p>Botryomycosis is a chronic granulomatous bacterial infection of skin or (less often) viscera, characterized histologically by aggregated bacterial grains. Key identifiers: <strong><a href="http://purl.obolibrary.org/obo/MONDO_0400006" target="_blank" rel="noopener noreferrer">MONDO:0400006</a></strong>, <strong>MeSH D001857</strong>; there is <strong>no OMIM entry</strong> (it is not a genetic disorder), and it is not a classical Orphanet rare <em>genetic</em> disease though it is a rare condition. Common synonyms and historical/related terms include <strong>bacterial pseudomycosis</strong>, <strong>granular bacteriosis</strong>, <strong>cutaneous granular bacteriosis</strong>, "<strong>bacterial ball</strong>" (used for the sinonasal form), and — for animal disease — "botryomycoma" and (for the equine spermatic cord lesion) "scirrhous cord." The name derives from Greek <em>botryo-</em> (bunch of grapes) reflecting the grape-cluster appearance of grains. The disease was first described by Bollinger (1870) in horse lung and named by Rivolta.</p>
+<p>Information about botryomycosis is derived almost entirely from <strong>aggregated disease-level resources</strong> — chiefly case reports, small case series, and narrative reviews — rather than from large EHR cohorts or registries. Only ~200–300 cutaneous cases and fewer than ~20 primary pulmonary cases have been reported historically (<a href="https://pubmed.ncbi.nlm.nih.gov/37787361/">PMID: 37787361</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/11844127/">PMID: 11844127</a>).</p>
+<blockquote>
+<p>"The most frequent isolated etiological agents are <em>Staphylococcus aureus</em> followed by <em>Pseudomonas aeruginosa</em>. The differential diagnosis includes mycetoma, actinomycosis, and carcinomas/sarcomas." — <a href="https://pubmed.ncbi.nlm.nih.gov/41128794/">PMID: 41128794</a></p>
+</blockquote>
+<h3>2. Etiology</h3>
+<p><strong>Causal factors are infectious and mechanistic, not genetic.</strong> The primary cause is inoculation of common, non-filamentous bacteria into tissue, most often <em>Staphylococcus aureus</em> (including MRSA — <a href="https://pubmed.ncbi.nlm.nih.gov/33061472/">PMID: 33061472</a>), then <em>Pseudomonas aeruginosa</em>, with <em>E. coli</em>, <em>Proteus</em> spp., and <em>Actinobacillus actinomycetemcomitans</em> also reported (<a href="https://pubmed.ncbi.nlm.nih.gov/17500377/">PMID: 17500377</a>).</p>
+<p><strong>Risk factors</strong> are acquired/environmental and immunologic:
+- <em>Genetic risk factors</em>: <strong>None identified.</strong> There are no causal variants, susceptibility loci, or modifier genes for botryomycosis. This is a definitive negative finding.
+- <em>Environmental/host risk factors</em>: local <strong>trauma</strong> or surgery (inoculation route), <strong>HIV/AIDS</strong> and other defects of cell-mediated immunity, <strong>immunosuppressive therapy</strong> (e.g., methotrexate — <a href="https://pubmed.ncbi.nlm.nih.gov/28034470/">PMID: 28034470</a>), <strong>diabetes mellitus</strong>, <strong>alcoholism</strong>, <strong>malnutrition</strong>, <strong>cystic fibrosis</strong>, and foreign bodies. Apparent <strong>male predominance</strong> and occurrence at <strong>all ages</strong> (including children — <a href="https://pubmed.ncbi.nlm.nih.gov/32173890/">PMID: 32173890</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/11001122/">PMID: 11001122</a>).</p>
+<p><strong>Protective factors:</strong> No genetic protective variants are described. The most relevant "protective"/curative environmental factor is <strong>restoration of immune competence</strong> — antiretroviral therapy produced remission in HIV-associated disease when antibiotics alone failed (<a href="https://pubmed.ncbi.nlm.nih.gov/28562771/">PMID: 28562771</a>).</p>
+<p><strong>Gene–environment interactions:</strong> Not applicable in a classical GxE sense. The operative interaction is <strong>host immune status × bacterial infectivity</strong>: "both the host's immune status and microbial infectivity have been implicated in the pathogenesis" (<a href="https://pubmed.ncbi.nlm.nih.gov/18177488/">PMID: 18177488</a>).</p>
+<blockquote>
+<p>"It has long been associated with defects of cellular immunity." — <a href="https://pubmed.ncbi.nlm.nih.gov/28562771/">PMID: 28562771</a></p>
+</blockquote>
+<h3>3. Phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Suggested HPO</th>
+<th>Onset / Course</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chronic skin nodules</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031804" target="_blank" rel="noopener noreferrer">HP:0031804</a> (nodular skin lesion)</td>
+<td>Subacute–chronic (weeks–months), progressive</td>
+<td>Very common (cutaneous form)</td>
+</tr>
+<tr>
+<td>Abscess</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100829" target="_blank" rel="noopener noreferrer">HP:0100829</a> (abscess)</td>
+<td>Chronic, relapsing</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Draining sinus tracts / fistulae</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030757" target="_blank" rel="noopener noreferrer">HP:0030757</a> (fistula)</td>
+<td>Chronic</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Skin ulcer</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" rel="noopener noreferrer">HP:0200042</a> (skin ulcer)</td>
+<td>Chronic</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Grain/granule discharge ("sulfur granules"; rarely red)</td>
+<td>Laboratory/pathologic sign</td>
+<td>—</td>
+<td>Ongoing</td>
+<td>Characteristic</td>
+</tr>
+<tr>
+<td>Osteomyelitis / bone invasion</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank" rel="noopener noreferrer">HP:0002754</a> (osteomyelitis)</td>
+<td>Late, in neglected disease</td>
+<td>Occasional (deep cutaneous)</td>
+</tr>
+<tr>
+<td>Pulmonary mass / cough</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" rel="noopener noreferrer">HP:0002090</a> (pneumonia) / mass mimic</td>
+<td>Chronic</td>
+<td>Visceral form (rare)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Phenotype characteristics: <strong>onset</strong> is typically insidious over weeks to months; <strong>severity</strong> ranges from mild localized lesions to severe destructive/disfiguring disease; <strong>progression</strong> is chronic and relapsing. Deep cutaneous disease can invade bone: a progressive 8-year foot swelling showed radiographic/MRI bone invasion (<a href="https://pubmed.ncbi.nlm.nih.gov/30429406/">PMID: 30429406</a>). Grains are usually white-yellow; a unique red-grain <em>S. aureus</em> case is reported (<a href="https://pubmed.ncbi.nlm.nih.gov/19736413/">PMID: 19736413</a>).</p>
+<p><strong>Quality of life impact:</strong> No formal EQ-5D/SF-36/PROMIS data exist. Impact is inferred from disfigurement, chronic drainage, pain, and functional impairment of affected limbs; scalp/facial mutilating tumors and chronic relapsing lesions are documented (<a href="https://pubmed.ncbi.nlm.nih.gov/19094129/">PMID: 19094129</a>).</p>
+<blockquote>
+<p>"Patients with botryomycosis typically present multiple nodules, sinuses, abscesses, fistulae, and ulcers, which develop during weeks or months." — <a href="https://pubmed.ncbi.nlm.nih.gov/41128794/">PMID: 41128794</a></p>
+</blockquote>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Not applicable — botryomycosis has no genetic etiology.</strong> There are:
+- <strong>No causal genes</strong> (no gene symbols, no OMIM IDs).
+- <strong>No pathogenic germline or somatic variants</strong>, no ACMG classifications, no allele frequencies (gnomAD/ClinVar not relevant).
+- <strong>No modifier genes, epigenetic signatures, or chromosomal abnormalities</strong> described for the disease itself.</p>
+<p>The only "molecular" actors are <strong>bacterial</strong>: <em>S. aureus</em> virulence/biofilm factors and a possible protective <strong>glycocalyx/biofilm</strong> around grains. This section is definitively negative for host genetics and should be recorded as such in the knowledge base.</p>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental factors:</strong> local trauma, surgical wounds, and foreign bodies provide the portal of entry. No chemical toxin, radiation, or pollution etiology.</li>
+<li><strong>Lifestyle factors:</strong> alcoholism and malnutrition (as immunocompromising states) are contributory; there is no specific smoking/diet association beyond general immune impairment.</li>
+<li><strong>Infectious agents (central to etiology):</strong> <em>Staphylococcus aureus</em> (<strong>NCBITaxon:1280</strong>; principal agent), <em>Pseudomonas aeruginosa</em> (<strong>NCBITaxon:287</strong>; second most common, and the likely agent in a fatal disseminated case — <a href="https://pubmed.ncbi.nlm.nih.gov/13845294/">PMID: 13845294</a> — and in sinonasal "bacterial ball" — <a href="https://pubmed.ncbi.nlm.nih.gov/15456177/">PMID: 15456177</a>), plus <em>E. coli</em>, <em>Proteus</em>, and <em>Actinobacillus actinomycetemcomitans</em>. Co-infection is possible: <em>S. aureus</em> with <em>Pneumocystis carinii</em> in AIDS (<a href="https://pubmed.ncbi.nlm.nih.gov/18177488/">PMID: 18177488</a>).</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li><strong>Bacterial inoculation</strong> — common non-filamentous bacteria (usually <em>S. aureus</em>), typically at a site of trauma/surgery, are introduced into tissue → <em>leads to</em></li>
+<li><strong>Aberrant host clearance</strong> — in a host with impaired cell-mediated immunity (and/or a low-virulence/low-inoculum balance), the immune response neither eradicates the organism nor forms an ordinary resolving abscess → <em>results in</em></li>
+<li><strong>Bacterial aggregation into grains</strong> — organisms clump into compact colonies (grains/granules) → <em>leads to</em></li>
+<li><strong>Splendore-Hoeppli coating</strong> (<em>inferred</em>) — grains become surrounded by an eosinophilic amorphous matrix of host immunoglobulin, complement, and degranulated eosinophil/neutrophil products, often with radiating "clubs" → <em>which</em></li>
+<li><strong>Immune/antibiotic shielding</strong> (<em>inferred</em>) — this matrix (± bacterial glycocalyx/biofilm) shields organisms from phagocytosis and antibiotic penetration → <em>leads to</em></li>
+<li><strong>Chronic pyogranulomatous inflammation</strong> — persistent influx of neutrophils, macrophages, multinucleated giant cells, and plasma cells with fibrosis → <em>results in</em></li>
+<li><strong>Clinical manifestation</strong> — chronic nodules, draining sinus tracts/fistulae, ulcers, and local tissue/bone destruction (or a visceral pulmonary mass).</li>
+</ol>
+<p>Where the chain <strong>branches</strong>: with adequate host immunity + eradication → ordinary abscess/healing (no botryomycosis); with continued immune failure → dissemination and potentially fatal visceral disease.</p>
+<p><strong>Categories mapped onto the chain:</strong>
+- <em>Cellular processes:</em> inflammation (<strong><a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a></strong>, inflammatory response), phagocytosis (<strong><a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" rel="noopener noreferrer">GO:0006909</a></strong>), humoral immunity (<strong><a href="http://purl.obolibrary.org/obo/GO_0002455" target="_blank" rel="noopener noreferrer">GO:0002455</a></strong>).
+- <em>Immune involvement:</em> impaired cell-mediated immunity is upstream/permissive; chronic granulomatous and humoral responses are downstream.
+- <em>Protein/biochemical:</em> Splendore-Hoeppli matrix = host immunoglobulin + complement + eosinophil major basic protein; possible bacterial biofilm glycocalyx.
+- <em>Tissue damage:</em> suppuration, fibrosis, and osteolysis (bone invasion) via chronic pyogranulomatous destruction.
+- <em>Cell types (CL):</em> neutrophil (<strong><a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a></strong>), macrophage (<strong><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a></strong>), eosinophil (<strong><a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" rel="noopener noreferrer">CL:0000771</a></strong>), plus multinucleated giant cells and plasma cells.</p>
+<p>Mechanistic caveats are explicit in the literature: botryomycosis is "an atypical reaction of the host to a common bacterial infection" (<a href="https://pubmed.ncbi.nlm.nih.gov/9435048/">PMID: 9435048</a>) and "an unusual response to infection with common bacteria" (<a href="https://pubmed.ncbi.nlm.nih.gov/11243368/">PMID: 11243368</a>), but "the pathobiology remains unknown" (<a href="https://pubmed.ncbi.nlm.nih.gov/23743320/">PMID: 23743320</a>) — steps 4–5 are <strong>inferred</strong>, not fully demonstrated.</p>
+<blockquote>
+<p>"both the host's immune status and microbial infectivity have been implicated in the pathogenesis of this unusual clinical condition" — <a href="https://pubmed.ncbi.nlm.nih.gov/18177488/">PMID: 18177488</a></p>
+</blockquote>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ level (primary):</strong> skin (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a></strong>) in the cutaneous form; lung (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a></strong>) in the visceral form. <strong>Secondary:</strong> bone (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" rel="noopener noreferrer">UBERON:0001474</a></strong>; osteomyelitis/invasion), subcutaneous soft tissue, and mucosal sites (sinonasal tract, tongue — <a href="https://pubmed.ncbi.nlm.nih.gov/5235476/">PMID: 5235476</a>, lacrimal sac — <a href="https://pubmed.ncbi.nlm.nih.gov/29039982/">PMID: 29039982</a>).</li>
+<li><strong>Body systems:</strong> integumentary (primary), respiratory (visceral), musculoskeletal (bone invasion), and reticuloendothelial/immune.</li>
+<li><strong>Tissue/cell level:</strong> dermis and subcutis; pyogranulomatous infiltrate of neutrophils (<strong><a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a></strong>), macrophages (<strong><a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a></strong>), eosinophils (<strong><a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" rel="noopener noreferrer">CL:0000771</a></strong>), giant cells, plasma cells.</li>
+<li><strong>Subcellular:</strong> no specific human organelle involvement; relevant compartments are the bacterial cell wall and the extracellular Splendore-Hoeppli matrix (GO extracellular region).</li>
+<li><strong>Localization/lateralization:</strong> cutaneous lesions favor <strong>extremities</strong> (foot/hand), <strong>head/neck</strong>, and unusual sites; typically <strong>unilateral/localized</strong> at the inoculation site, though disseminated bilateral disease occurs in immunodeficiency.</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> any age; <strong>insidious/chronic</strong> onset over weeks to months, usually after trauma.</li>
+<li><strong>Progression:</strong> slowly progressive and <strong>relapsing</strong>; neglected cutaneous disease progresses over years (e.g., 8-year foot course — <a href="https://pubmed.ncbi.nlm.nih.gov/30429406/">PMID: 30429406</a>) to deep/bone destruction; visceral disease can disseminate.</li>
+<li><strong>Course pattern:</strong> chronic, relapsing-remitting with therapy; <strong>recurrence is common</strong> after treatment.</li>
+<li><strong>Duration:</strong> chronic if untreated; potentially curable with prolonged combined therapy.</li>
+<li><strong>Critical period:</strong> early diagnosis (before bone/visceral involvement and before unnecessary oncologic surgery) is the key window for cure.</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology:</strong> rare; <strong>no defined incidence or prevalence</strong>. ~200–300 cutaneous and &lt;20 primary pulmonary cases historically reported; one review compiled 18 primary pulmonary cases (<a href="https://pubmed.ncbi.nlm.nih.gov/37787361/">PMID: 37787361</a>); another was the 16th pulmonary case (<a href="https://pubmed.ncbi.nlm.nih.gov/11844127/">PMID: 11844127</a>).</li>
+<li><strong>Inheritance:</strong> <strong>None</strong> — not genetic; no inheritance pattern, penetrance, expressivity, anticipation, mosaicism, founder effect, consanguinity role, or carrier frequency applies.</li>
+<li><strong>Demographics:</strong> worldwide, no defined endemic regions; <strong>apparent male predominance</strong>; <strong>all ages</strong> including children; risk clusters in the immunocompromised. A recent Mexican case series adds regional data (<a href="https://pubmed.ncbi.nlm.nih.gov/42220824/">PMID: 42220824</a>).</li>
+</ul>
+<blockquote>
+<p>"Botryomycosis occurs more commonly among immunocompromised patients, although some cases have also been reported in immunocompetent patients." — <a href="https://pubmed.ncbi.nlm.nih.gov/32173890/">PMID: 32173890</a></p>
+</blockquote>
+<h3>10. Diagnostics</h3>
+<p><strong>Diagnosis rests on histopathology + culture.</strong>
+- <strong>Biopsy/histopathology:</strong> suppurative/pyogranulomatous inflammation with <strong>bacterial grains</strong> surrounded by an <strong>eosinophilic Splendore-Hoeppli</strong> matrix and radiating "clubs"; grains contain Gram-positive cocci or Gram-negative bacilli and are <strong>PAS/Grocott positive but lack filaments</strong> (distinguishing from actinomycosis/mycetoma) (<a href="https://pubmed.ncbi.nlm.nih.gov/32173890/">PMID: 32173890</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28034470/">PMID: 28034470</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/15456177/">PMID: 15456177</a>).
+- <strong>Microbiology/culture:</strong> essential to identify the organism and guide therapy.
+- <strong>Imaging:</strong> X-ray/MRI for bone invasion; CT for pulmonary/sinonasal masses (often reveals a mass mimicking neoplasm with osseous erosion).
+- <strong>Genetic/omics testing:</strong> <strong>not applicable.</strong>
+- <strong>Clinical criteria:</strong> no formal DSM/ICD diagnostic criteria; diagnosis is pathologic.
+- <strong>Differential diagnosis:</strong> <strong>mycetoma</strong> (grains contain filaments; fungal or actinomycetoma), <strong>actinomycosis</strong> (filamentous Gram-positive), and <strong>malignancy</strong> (lung cancer, sarcoma, liposarcoma, sinonasal tumor). Note histologic overlap with fungal infections showing Splendore-Hoeppli (e.g., basidiobolomycosis — <a href="https://pubmed.ncbi.nlm.nih.gov/42266393/">PMID: 42266393</a>), reinforcing the need for special stains and culture.</p>
+<blockquote>
+<p>"The diagnosis of botryomycosis is based on culture of the granules revealing gram-positive cocci or gram-negative bacilli." — <a href="https://pubmed.ncbi.nlm.nih.gov/23743320/">PMID: 23743320</a></p>
+<p>"In immunocompromised patients, botryomycosis can resemble fungal infection both clinically and histologically; therefore, definitive diagnosis requires tissue sampling along with histological and microbiological analysis." — <a href="https://pubmed.ncbi.nlm.nih.gov/38036751/">PMID: 38036751</a></p>
+</blockquote>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Survival/mortality:</strong> generally <strong>good</strong> for localized cutaneous disease with combined therapy; <strong>fatal outcomes</strong> occur with disseminated visceral disease and uncontrolled immunodeficiency (fatal AIDS-associated case — <a href="https://pubmed.ncbi.nlm.nih.gov/38036751/">PMID: 38036751</a>; fatal disseminated visceral case probably due to <em>P. aeruginosa</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/13845294/">PMID: 13845294</a>). No formal survival statistics exist.</li>
+<li><strong>Morbidity/function:</strong> disfigurement, chronic drainage, limb dysfunction, bone destruction.</li>
+<li><strong>Complications:</strong> osteomyelitis, sepsis/bacteremia with pulmonary abscesses (<a href="https://pubmed.ncbi.nlm.nih.gov/28034470/">PMID: 28034470</a>), dissemination.</li>
+<li><strong>Recovery:</strong> cure achievable; <strong>recurrence is common</strong> and long therapy is required.</li>
+<li><strong>Prognostic factors:</strong> host immune status (dominant), lesion extent/depth (bone/visceral), organism, and timeliness of diagnosis. No molecular prognostic biomarkers.</li>
+</ul>
+<h3>12. Treatment</h3>
+<p><strong>Principle: prolonged, culture-directed antibiotics + surgical debridement/excision, plus immune restoration when relevant.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Regimen / intervention</th>
+<th>Setting</th>
+<th>Outcome</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Excision + oral TMP-SMX (240 mg b.i.d.) × 2 wk</td>
+<td>Immunocompetent child, cutaneous</td>
+<td>No recurrence</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32173890/">PMID: 32173890</a></td>
+</tr>
+<tr>
+<td>Excision + penicillin G → clindamycin + cotrimoxazole × 18 mo</td>
+<td>Scalp granular bacteriosis</td>
+<td>Disease-free at 4 y</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19094129/">PMID: 19094129</a></td>
+</tr>
+<tr>
+<td>Cefazolin</td>
+<td>Red-grain <em>S. aureus</em> foot</td>
+<td>Responded well</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19736413/">PMID: 19736413</a></td>
+</tr>
+<tr>
+<td>Fluoroquinolone (vs <em>A. actinomycetemcomitans</em>)</td>
+<td>Hand, dual infection</td>
+<td>Resolved only after fluoroquinolone</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17500377/">PMID: 17500377</a></td>
+</tr>
+<tr>
+<td>Cloxacillin-gentamicin → rifampicin-ofloxacin × 2 mo</td>
+<td><em>S. aureus</em> sepsis + pulmonary abscesses</td>
+<td>Managed bacteremia</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28034470/">PMID: 28034470</a></td>
+</tr>
+<tr>
+<td>Antiretroviral therapy (darunavir + raltegravir)</td>
+<td>HIV facial pyoderma</td>
+<td>Remission at 5 y after ART</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28562771/">PMID: 28562771</a></td>
+</tr>
+<tr>
+<td>Complete surgical evacuation</td>
+<td>Sinonasal "bacterial ball"</td>
+<td>Curative</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15456177/">PMID: 15456177</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Pharmacotherapy classes / NCIT anchors:</strong> TMP-SMX (<strong>NCIT:C1055</strong>), penicillins, clindamycin, cephalosporins (cefazolin), fluoroquinolones (ofloxacin), rifampicin, aminoglycosides (gentamicin) — chosen by culture/sensitivity.</li>
+<li><strong>Surgical:</strong> debridement/excision (<strong>NCIT:C51696</strong>, debridement); complete evacuation can be curative for localized visceral/mucosal disease.</li>
+<li><strong>Advanced therapeutics (gene/cell/RNA/targeted/immuno-oncology):</strong> <strong>Not applicable.</strong></li>
+<li><strong>Pharmacogenomics:</strong> not applicable.</li>
+<li><strong>Strategy:</strong> combine surgery + long antibiotics; <strong>always assess/treat immune status</strong> (ART in HIV). Recurrence-prone → extended courses.</li>
+</ul>
+<blockquote>
+<p>"Surgical debridement is the treatment of choice in such cases with an assessment of the immune status. Long term antibiotic treatment is required in all conditions as recurrence is common." — <a href="https://pubmed.ncbi.nlm.nih.gov/29039982/">PMID: 29039982</a></p>
+<p>"The patient was successfully treated by excision and oral trimethoprim/sulfamethoxazole (240 mg b.i.d.) for 2 weeks as adjuvant therapy. No recurrence was noted following treatment." — <a href="https://pubmed.ncbi.nlm.nih.gov/32173890/">PMID: 32173890</a></p>
+</blockquote>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> good <strong>wound care</strong> and prompt treatment of skin infections; management of predisposing conditions (control HIV with ART, control diabetes, address malnutrition/alcoholism).</li>
+<li><strong>Secondary prevention:</strong> early biopsy of chronic non-healing nodules/sinuses to diagnose before deep/visceral spread and to avoid unnecessary oncologic surgery.</li>
+<li><strong>Tertiary prevention:</strong> prolonged antibiotics + surgery to prevent recurrence, bone destruction, and dissemination; immune restoration.</li>
+<li><strong>Immunization / genetic screening / counseling:</strong> <strong>Not applicable</strong> (no vaccine; not heritable).</li>
+<li><strong>Public health:</strong> general infection-control and immunosuppression management; no vector control needed.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<p>Botryomycosis is a genuine <strong>cross-species (shared-agent) disease</strong> — the same bacteria and the same host-response pathology occur in animals and humans, though it is not classically transmitted person-to-person or animal-to-person.
+- <strong>Taxonomy of hosts:</strong> horse (<em>Equus caballus</em>), cattle (<em>Bos taurus</em>), swine (<em>Sus scrofa</em>), guinea pig (experimental), and human (<em>Homo sapiens</em>).
+- <strong>Natural disease:</strong> most common as equine <strong>wound infection</strong> (castration site / "scirrhous cord," spermatic-cord granuloma) and as <strong>mastitis</strong> in cows and sows; rare pulmonary disease (documented in a Scottish Highland steer, <em>S. aureus</em> cultured — <a href="https://pubmed.ncbi.nlm.nih.gov/11243368/">PMID: 11243368</a>).
+- <strong>Comparative pathology:</strong> histology in animals <strong>matches</strong> human disease — pyogranulomatous inflammation with eosinophilic grains and radiating clubs around Gram-positive cocci — indicating a <strong>conserved host-response mechanism</strong> across mammals.
+- <strong>Orthologous genes:</strong> not applicable (no host causal gene).</p>
+<blockquote>
+<p>"Among domestic species, staphylococcal botryomycosis is most common as a wound infection in horses or as mastitis in cows and sows." — <a href="https://pubmed.ncbi.nlm.nih.gov/11243368/">PMID: 11243368</a></p>
+</blockquote>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Genetic models:</strong> <strong>None</strong> — because the disease has no genetic basis, there are no knockout/knock-in/transgenic models.</li>
+<li><strong>Induced/experimental models:</strong> historically, <strong>guinea pigs</strong> were used to study experimental botryomycosis (pulmonary botryomycosis noted "rare in horses, humans, and guinea pigs" — <a href="https://pubmed.ncbi.nlm.nih.gov/11243368/">PMID: 11243368</a>); naturally occurring disease in <strong>horses, cattle, swine</strong> serves as the comparative/large-animal model.</li>
+<li><strong>Applications:</strong> these models illuminate grain formation, the Splendore-Hoeppli response, and the host-immunity/bacterial-infectivity balance.</li>
+<li><strong>Limitations:</strong> no standardized modern model organism system; mechanistic detail (steps 4–5 of the causal chain) remains under-characterized.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>[Trauma / surgery / foreign body]
+    │  inoculation of common bacteria (usually S. aureus)
+    ▼
+   Bacteria in tissue ──────────────► (adequate immunity) ─► abscess resolves / cured  [NO disease]
+    │
+    │  impaired cell-mediated immunity  ×  bacterial infectivity balance
+    ▼
+   Failure to eradicate, failure to form ordinary abscess
+    │
+    ▼
+   Bacterial AGGREGATION into compact colonies (GRAINS)
+    │
+    ▼
+   Splendore-Hoeppli COAT  (host Ig + complement + eosinophil products; ± bacterial glycocalyx)   [INFERRED shielding]
+    │  shields from phagocytosis + antibiotic penetration
+    ▼
+   CHRONIC PYOGRANULOMATOUS INFLAMMATION (neutrophils, macrophages, giant cells, plasma cells, fibrosis)
+    │
+    ├──► Cutaneous: nodules, sinuses, fistulae, ulcers ─► deep tissue/BONE invasion
+    └──► Visceral: pulmonary mass (mimics carcinoma) ─► dissemination ─► FATAL (if immunodeficiency uncontrolled)
+</code></pre>
+<p>The unifying interpretation is that <strong>botryomycosis is not a distinct pathogen's disease but an aberrant, grain-forming host response to ordinary bacteria</strong>, gated by host immunity. This explains its three defining clinical truths: it <em>mimics</em> malignancy/mycetoma/actinomycosis (because grains + granulomatous mass resemble tumors and other grain diseases); it is <em>curable</em> (because the organisms are common and antibiotic-susceptible); and it is <em>recurrence-prone and dangerous in immunodeficiency</em> (because the permissive lesion is the host's failed clearance, best fixed by restoring immunity alongside antibiotics and surgery).</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role in report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41128794/">41128794</a></td>
+<td><em>Cutaneous botryomycosis: a comprehensive review</em></td>
+<td>Etiology (S. aureus &gt; P. aeruginosa), lesion morphology, treatment, differential dx</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37787361/">37787361</a></td>
+<td><em>Primary pulmonary botryomycosis</em></td>
+<td>Two forms; visceral rarity; pulmonary predominance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32173890/">32173890</a></td>
+<td><em>Cutaneous botryomycosis in an 8-yo immunocompetent boy</em></td>
+<td>Splendore-Hoeppli histology; occurrence in immunocompetent; TMP-SMX cure</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38036751/">38036751</a></td>
+<td><em>Botryomycosis mimicking sarcoma / AIDS presentation</em></td>
+<td>Immunocompromised predominance; need for tissue + microbiology; fatal outcome</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28562771/">28562771</a></td>
+<td><em>Facial botryomycosis-like pyoderma in HIV</em></td>
+<td>Cellular immunity link; ART-induced remission</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18177488/">18177488</a></td>
+<td><em>S. aureus + P. carinii in AIDS</em></td>
+<td>Dual host-immune × microbial pathogenesis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9435048/">9435048</a></td>
+<td><em>Botryomycosis mimicking a liposarcoma</em></td>
+<td>"Atypical host reaction" framing; cancer mimicry</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23743320/">23743320</a></td>
+<td><em>Pulmonary botryomycosis mimicking lung cancer</em></td>
+<td>Culture-based diagnosis; "pathobiology remains unknown"</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11844127/">11844127</a></td>
+<td><em>Primary pulmonary botryomycosis vs lung cancer</em></td>
+<td>Curable differential of lung cancer; rarity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11243368/">11243368</a></td>
+<td><em>Pulmonary botryomycosis in a Scottish Highland steer</em></td>
+<td>Animal disease; conserved pyogranulomatous grain histology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30429406/">30429406</a></td>
+<td><em>Cutaneous botryomycosis of the foot</em></td>
+<td>Deep tissue/bone invasion; destruction/disfigurement</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15456177/">15456177</a></td>
+<td><em>Sinonasal "bacterial ball" (P. aeruginosa)</em></td>
+<td>Mucosal disease; neoplasm mimic; surgical cure</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17500377/">17500377</a></td>
+<td><em>A. actinomycetemcomitans botryomycosis</em></td>
+<td>Non-staph etiology; fluoroquinolone cure</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28034470/">28034470</a></td>
+<td><em>Cutaneous granular bacteriosis in S. aureus septicaemia</em></td>
+<td>Splendore-Hoeppli, immunosuppression (MTX), dual antibiotics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19094129/">19094129</a></td>
+<td><em>Granular bacteriosis of head/neck</em></td>
+<td>18-month triple antibiotics + surgery; 4-year cure</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29039982/">29039982</a></td>
+<td><em>Botryomycosis of the lacrimal sac</em></td>
+<td>Surgery + long antibiotics; immune assessment; recurrence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19736413/">19736413</a></td>
+<td><em>Red-grain botryomycosis (S. aureus)</em></td>
+<td>Grain color variant; cefazolin response</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/13845294/">13845294</a></td>
+<td><em>Disseminated visceral botryomycosis (fatal)</em></td>
+<td>Fatal P. aeruginosa dissemination</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12602981/">12602981</a></td>
+<td><em>Botryomycosis in HIV</em></td>
+<td>AIDS ulcers; excision + antimicrobials</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11001122/">11001122</a></td>
+<td><em>Botryomycosis in a child with AIDS</em></td>
+<td>Pediatric immunocompromised case</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42220824/">42220824</a></td>
+<td><em>Case series, Mexico</em></td>
+<td>Regional case series; non-filamentous organisms</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33061472/">33061472</a></td>
+<td><em>MRSA botryomycosis</em></td>
+<td>MRSA as agent</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/5235476/">5235476</a></td>
+<td><em>Botryomycosis of the tongue</em></td>
+<td>Mucosal (oral) site</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Papers on gastrointestinal basidiobolomycosis (<a href="https://pubmed.ncbi.nlm.nih.gov/42266393/">PMID: 42266393</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42471849/">42471849</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41634777/">41634777</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42776653/">42776653</a>) are <strong>not botryomycosis</strong> but were reviewed because they share the Splendore-Hoeppli phenomenon and the "mimics malignancy/IBD" behavior — they usefully delimit botryomycosis from its fungal histologic look-alikes and underscore that Splendore-Hoeppli is non-specific.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Evidence quality is low-tier:</strong> the entire knowledge base is case reports/series and narrative reviews — no cohorts, no trials, no registries. All frequencies are qualitative.</li>
+<li><strong>No epidemiologic denominators:</strong> true incidence/prevalence, sex ratio, and geographic distribution are unknown.</li>
+<li><strong>Mechanism partly inferred:</strong> steps 4–5 (Splendore-Hoeppli shielding, biofilm/glycocalyx role) are hypotheses; "the pathobiology remains unknown" (<a href="https://pubmed.ncbi.nlm.nih.gov/23743320/">PMID: 23743320</a>). The molecular determinants of why the <em>same</em> bacteria cause a grain-forming granuloma in one host and a simple abscess in another are undefined.</li>
+<li><strong>No standardized treatment protocol:</strong> antibiotic choice, duration, and the surgery-vs-medical-therapy balance are empirical and heterogeneous.</li>
+<li><strong>No molecular/omics data</strong> and no modern model organism system exist for this disease.</li>
+</ol>
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Systematic pooled analysis</strong> of published cases (extract organism, host immune status, site, therapy, duration, recurrence, outcome) to derive quantitative treatment-response and recurrence rates.</li>
+<li><strong>Mechanistic studies of grain formation:</strong> compare biofilm/glycocalyx and Splendore-Hoeppli matrix composition (host Ig/complement/eosinophil MBP) between botryomycosis grains and ordinary abscesses; test whether cell-mediated immune deficiency is <em>necessary</em> using immunodeficient vs immunocompetent animal inoculation models.</li>
+<li><strong>Prospective diagnostic pathway</strong> in chronic non-healing cutaneous nodules/pulmonary masses: mandate biopsy + culture + special stains (Gram/PAS/Grocott) before oncologic resection, to quantify avoided surgeries.</li>
+<li><strong>Molecular characterization</strong> of <em>S. aureus</em>/<em>P. aeruginosa</em> isolates (virulence/biofilm genotypes) from grains vs matched abscesses to test the "microbial infectivity" arm of the causal model.</li>
+<li><strong>Immune-restoration studies:</strong> formally evaluate adjunctive ART/immune optimization outcomes in HIV-associated botryomycosis versus antibiotics/surgery alone.</li>
+</ol>
+<hr />
+<p><em>Ontology anchors used in this report:</em> <a href="http://purl.obolibrary.org/obo/MONDO_0400006" target="_blank" rel="noopener noreferrer">MONDO:0400006</a>; MeSH D001857; NCBITaxon:1280 (<em>S. aureus</em>), NCBITaxon:287 (<em>P. aeruginosa</em>); <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> (skin), <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a> (lung), <a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" rel="noopener noreferrer">UBERON:0001474</a> (bone); <a href="http://purl.obolibrary.org/obo/HP_0100829" target="_blank" rel="noopener noreferrer">HP:0100829</a> (abscess), <a href="http://purl.obolibrary.org/obo/HP_0030757" target="_blank" rel="noopener noreferrer">HP:0030757</a> (fistula), <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" rel="noopener noreferrer">HP:0200042</a> (skin ulcer), <a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank" rel="noopener noreferrer">HP:0002754</a> (osteomyelitis); <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" rel="noopener noreferrer">GO:0006909</a> (phagocytosis), <a href="http://purl.obolibrary.org/obo/GO_0002455" target="_blank" rel="noopener noreferrer">GO:0002455</a> (humoral immune response); <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil), <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" rel="noopener noreferrer">CL:0000771</a> (eosinophil); NCIT:C1055 (TMP-SMX), NCIT:C51696 (debridement).</p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Botryomycosis-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Botryomycosis-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>27</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>5</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0031804</code> (1 mention) - the report calls it "nodular skin lesion"; HP calls it <strong>obsolete Premacular hemorrhage</strong></li>
+<li><code>HP:0100829</code> (2 mentions) - the report calls it "abscess"; HP calls it <strong>Galactorrhea</strong></li>
+<li><code>HP:0030757</code> (2 mentions) - the report calls it "fistula"; HP calls it <strong>Tooth abscess</strong></li>
+<li><code>NCIT:C1055</code> (2 mentions) - the report calls it "TMP-SMX"; NCIT calls it <strong>Custirsen Sodium</strong></li>
+<li><code>NCIT:C51696</code> (2 mentions) - the report calls it "debridement"; NCIT calls it <strong>Orthotopic Liver Transplantation</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>HP:0031804</code> (obsolete Premacular hemorrhage) (1 mention) - replaced by <code>HP:0025240</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>NCBITaxon:1280</code> (3 mentions) - the report calls it "Staphylococcus aureus", "S. aureus"; NCBITaxon calls it <strong>Staphylococcus aureus</strong>, and lists "Micrococcus aureus" among its other names</li>
+<li><code>NCBITaxon:287</code> (3 mentions) - the report calls it "Pseudomonas aeruginosa", "P. aeruginosa"; NCBITaxon calls it <strong>Pseudomonas aeruginosa</strong></li>
+<li><code>GO:0002455</code> (2 mentions) - the report calls it "humoral immune response"; GO calls it <strong>humoral immune response mediated by circulating immunoglobulin</strong>, and lists "humoral immune response mediated by circulating antibody" among its other names</li>
+<li><code>UBERON:0002097</code> (2 mentions) - the report calls it "skin"; UBERON calls it <strong>skin of body</strong>, and lists "skin" among its other names</li>
+<li><code>UBERON:0001474</code> (2 mentions) - the report calls it "bone"; UBERON calls it <strong>bone element</strong>, and lists "bone" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>NCBITaxon:1280</code> - called "Staphylococcus aureus", "S. aureus"</li>
+<li><code>NCBITaxon:287</code> - called "Pseudomonas aeruginosa", "P. aeruginosa"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Bosma_Arhinia_Microphthalmia_Syndrome-fallback.html">← Bosma Arhinia Microphthalmia Syndrome (Fallback)</a>
+                
+                
+                <a href="Botulism-cyberian-codex.html">Botulism (Cyberian Codex) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Botryomycosis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Botryomycosis-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

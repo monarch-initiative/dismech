@@ -5,7 +5,8 @@ Two OpenScientist runs researched the wrong one: MONDO:0030934 (ZNF292) came
 back about WDFY3, and spermatogenic failure 26 (TSGA10) about TDRD9. These
 tests pin that the recipe hands the provider MONDO's causal gene, OMIM xref and
 synonyms, and that a run with none of them gets the old prompt. None of them
-opens a MONDO build or the network.
+opens a MONDO build or the network: OLS, which the anchors ask when the
+local build is absent (#15436), is made unreachable for every test below.
 """
 
 import re
@@ -26,6 +27,22 @@ TEMPLATE = ROOT / "templates" / "disease_pathophysiology_research.md"
 RECIPES = ("research-disorder", "research-disorder-cyberian-codex")
 
 MRD64 = "MONDO:0030934"
+
+
+@pytest.fixture(autouse=True)
+def _ols_offline(monkeypatch):
+    """Without the local build the anchors ask OLS (#15436); keep that offline.
+
+    OLS is unreachable here unless a test says otherwise, which is also the
+    case these tests were written for: no MONDO at all. The OLS path itself is
+    tested against recorded responses in ``tests/test_mondo_ols.py``.
+    """
+    from dismech import mondo_ols
+
+    def _ols_down(url, timeout):
+        raise mondo_ols.OlsLookupError(f"could not reach OLS ({url}): offline")
+
+    monkeypatch.setattr(mondo_ols, "_get_json", _ols_down)
 
 
 class StubMondoAdapter:

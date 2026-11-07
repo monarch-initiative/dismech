@@ -15,19 +15,26 @@ hands it to the prompt as three template variables:
 ``causal_genes``
     MONDO's ``RO:0004003`` causal gene(s), read with the same lookup
     ``preflight_dr`` uses, so the prompt and the check agree on the gene.
-    Without the local MONDO build, the stub's MONDO-derived ``genes:`` block
-    is used instead, and failing that the entry's own ``CAUSATIVE`` genes.
+    When MONDO records none or cannot be read, the stub's MONDO-derived
+    ``genes:`` block is used instead, and failing that the entry's own
+    ``CAUSATIVE`` genes.
 ``omim_id``
-    MONDO's OMIM cross-reference(s). Local MONDO build only.
+    MONDO's OMIM cross-reference(s).
 ``synonyms``
     MONDO's exact synonyms, which for these diseases often name the gene
-    ("ZNF292-related neurodevelopmental disorder"). Without the build, the
-    entry's own ``synonyms:``.
+    ("ZNF292-related neurodevelopmental disorder"). When MONDO records none or
+    cannot be read, the entry's own ``synonyms:``.
+
+MONDO is read from the local build when it is on disk and from OLS otherwise
+(#15436). Before the OLS fallback, a run without the build sent the provider no
+OMIM number and only the entry's own synonyms, which a skeleton entry has not
+yet verified. The local build is never downloaded here
+(:func:`dismech.oak_db.local_build_present` is asked first), and HGNC is never
+opened. If OLS is unreachable too, the failure is logged on stderr and the
+committed sources are used.
 
 A value with nothing behind it is :data:`NOT_RECORDED`, so a non-Mendelian
-disease, or a run without the MONDO build, gets the prompt it got before. The
-MONDO build is never downloaded here: :func:`dismech.oak_db.local_build_present`
-is asked first, and HGNC is never opened, so the lookup is offline.
+disease, or a run that could not read MONDO, gets the prompt it got before.
 
 Usage (what the research recipes run)::
 
@@ -44,6 +51,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from dismech.mondo_ols import OlsMondoAdapter
 from dismech.yaml_io import safe_load_path
 
 NOT_RECORDED = "not recorded"
@@ -66,6 +74,7 @@ class IdentityAnchors:
     synonyms: tuple[str, ...] = ()
     gene_source: str = ""
     synonym_source: str = ""
+    omim_source: str = ""
 
     def template_vars(self) -> dict[str, str]:
         return {
@@ -79,6 +88,8 @@ class IdentityAnchors:
         if self.causal_genes and self.gene_source:
             genes += f" ({self.gene_source})"
         omim = ", ".join(self.omim_ids) or "none"
+        if self.omim_ids and self.omim_source:
+            omim += f" ({self.omim_source})"
         synonyms = f"{len(self.synonyms)}"
         if self.synonyms and self.synonym_source:
             synonyms += f" ({self.synonym_source})"
@@ -208,6 +219,28 @@ def _open_local_mondo():
     return get_adapter(MONDO_ADAPTER)
 
 
+def _open_ols_mondo(mondo_id: str):
+    """An OLS-backed MONDO adapter holding ``mondo_id``, or ``None`` if OLS fails.
+
+    The term is fetched here so an unreachable OLS is reported once, as such,
+    rather than surfacing as a run of empty answers.
+    """
+    from dismech.mondo_ols import OlsLookupError
+
+    adapter = OlsMondoAdapter()
+    try:
+        adapter.term(mondo_id)
+    except OlsLookupError as exc:
+        print(
+            f"MONDO identity lookup for {mondo_id} via OLS failed ({exc}); "
+            "no local MONDO build either, so OMIM and MONDO synonyms are not "
+            "recorded",
+            file=sys.stderr,
+        )
+        return None
+    return adapter
+
+
 def collect_anchors(
     entry: dict,
     mondo_id: str,
@@ -219,28 +252,33 @@ def collect_anchors(
     """Gather the identity anchors for one disorder entry.
 
     ``adapter`` is a MONDO adapter to use; without one, the local build is
-    opened only when it is already on disk (``use_local_mondo=False`` skips it).
-    Any MONDO failure falls back to the committed sources rather than failing
-    the research run that asked.
+    opened when it is already on disk, and OLS is asked otherwise
+    (``use_local_mondo=False`` skips both). Any MONDO failure falls back to the
+    committed sources rather than failing the research run that asked.
     """
     name = _one_line(entry.get("name") or "")
     genes: tuple[str, ...] = ()
     omim: tuple[str, ...] = ()
     mondo_synonyms: tuple[str, ...] = ()
     gene_source = synonym_source = ""
+    mondo_source = "MONDO"
 
     if mondo_id:
         try:
             if adapter is None and use_local_mondo:
                 adapter = _open_local_mondo()
+                if adapter is None:
+                    adapter = _open_ols_mondo(mondo_id)
             if adapter is not None:
+                if isinstance(adapter, OlsMondoAdapter):
+                    mondo_source = "MONDO via OLS"
                 genes, omim, mondo_synonyms = anchors_from_mondo(mondo_id, adapter)
         except Exception as exc:  # pragma: no cover - adapter variance
             print(
                 f"MONDO identity lookup for {mondo_id} failed: {exc}", file=sys.stderr
             )
     if genes:
-        gene_source = "MONDO"
+        gene_source = mondo_source
     else:
         genes = genes_from_stub(mondo_id, stubs_dir)
         gene_source = "stub" if genes else ""
@@ -257,7 +295,7 @@ def collect_anchors(
     exclude = (name, name.replace("_", " "), label)
     synonyms = _dedupe(mondo_synonyms, exclude=exclude)
     if synonyms:
-        synonym_source = "MONDO"
+        synonym_source = mondo_source
     else:
         entry_synonyms = [s for s in entry.get("synonyms") or [] if isinstance(s, str)]
         synonyms = _dedupe(entry_synonyms, exclude=exclude)
@@ -269,6 +307,7 @@ def collect_anchors(
         synonyms=synonyms[:MAX_SYNONYMS],
         gene_source=gene_source,
         synonym_source=synonym_source,
+        omim_source=mondo_source if omim else "",
     )
 
 
@@ -284,7 +323,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--no-mondo",
         action="store_true",
-        help="Do not open the local MONDO build even if present",
+        help="Do not look MONDO up at all: neither the local build nor OLS",
     )
     args = parser.parse_args(argv)
 

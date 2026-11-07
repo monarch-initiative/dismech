@@ -73,6 +73,7 @@ import yaml
 from linkml_reference_validator.matching import split_supporting_text
 
 from dismech.frontmatter import split_frontmatter
+from dismech.reference_cache_names import cache_stems
 from dismech.yaml_io import safe_load
 
 DEFAULT_SCHEMA = Path("src/dismech/schema/dismech.yaml")
@@ -546,15 +547,6 @@ class CachedReferenceIndex:
         prefix = reference_id.split(":", 1)[0].upper() if ":" in reference_id else ""
         return bool(prefix) and prefix in self.skip_prefixes
 
-    @staticmethod
-    def _safe_id(reference_id: str) -> str:
-        return (
-            reference_id.replace(":", "_")
-            .replace("/", "_")
-            .replace("?", "_")
-            .replace("=", "_")
-        )
-
     def _build_filename_index(self) -> None:
         by_stem: dict[str, Path] = {}
         # A bare identifier (one the fetcher could not prefix, e.g. ``NCT06087757``)
@@ -578,21 +570,23 @@ class CachedReferenceIndex:
 
     def resolve_cache_path(self, reference_id: str) -> Path | None:
         """Locate the cache file for a reference id, or ``None`` if uncached."""
-        direct = self.cache_dir / f"{self._safe_id(reference_id)}.md"
-        if direct.is_file():
-            return direct
+        stems = cache_stems(reference_id)
+        for stem in stems:
+            direct = self.cache_dir / f"{stem}.md"
+            if direct.is_file():
+                return direct
 
         if self._by_stem is None or self._by_bare_id is None:
             self._build_filename_index()
         assert self._by_stem is not None and self._by_bare_id is not None
 
-        key = self._safe_id(reference_id).casefold()
         # DOI identifiers are case-insensitive in practice and the tracked cache
         # corpus carries mixed-case DOI filenames.
-        match = self._by_stem.get(key)
-        if match is not None:
-            return match
-        return self._by_bare_id.get(key)
+        for stem in stems:
+            match = self._by_stem.get(stem.casefold())
+            if match is not None:
+                return match
+        return self._by_bare_id.get(stems[0].casefold())
 
     @staticmethod
     def extract_body(text: str) -> str:

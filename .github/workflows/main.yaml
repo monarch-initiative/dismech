@@ -132,6 +132,11 @@ jobs:
               # tests/test_classify_offline_term_results.py (#12658).
               - 'scripts/classify_offline_term_results.py'
               - '.claude/hooks/validate_disorder_hook.py'
+              # Tier A's section parsing is the deterministic half of the
+              # background-citation worklist, and a label it fails to see
+              # silently reattributes every later sentence. Guarded by
+              # tests/test_quote_role.py (#16234).
+              - 'scripts/check_background_citations.py'
               # The reference gate's negative controls must run when its policy
               # changes, not only when Python changes (issue #7514).
               - 'scripts/run_reference_validator.sh'
@@ -512,6 +517,13 @@ jobs:
           # already in the reference's cache frontmatter (issue #9138).
           Check for new mismatched reference titles :: uv run python scripts/check_reference_titles.py --against-ref "origin/$BASE_REF"
 
+          # Ungated for the same reason as the title ratchet above, but a hard gate
+          # with no baseline: every evidence item must carry a reference_title.
+          # The backlog was backfilled from references_cache/ to zero, and this
+          # holds it there so `reference_title` can become `required` in the
+          # schema without the change turning every open PR red. ~30s, offline.
+          Check every evidence item has a reference title :: uv run python scripts/find_missing_reference_titles.py
+
           # Ungated for the same reason as the two ratchets above: an evidence-free
           # `environmental:` exposure is added by curation PRs touching only kb/,
           # which no src/tests path filter would catch. Unlike those two this is a
@@ -525,6 +537,16 @@ jobs:
           # otherwise never run this check (the pytest guard only fires on
           # src/tests changes). Deterministic, offline, and sub-second.
           Check term cache structural integrity :: uv run python -m dismech.term_cache_integrity cache
+
+          # Ungated and whole-tree for the same reason, and the cache's other
+          # merge-shaped failure. Rows appended at end-of-file instead of in
+          # canonical CURIE order put every concurrent curation PR's cache change
+          # in the same terminal hunk, and any later PR that runs `just
+          # normalize-cache` inherits the re-sort as unrelated churn (#7753). The
+          # merge_group run catches two individually sorted PRs whose union is
+          # not. This is the same order `just normalize-cache` writes, so a
+          # failure means "run it and commit the result". Offline, sub-second.
+          Check cache rows are in canonical order :: uv run python -m dismech.enum_cache --cache-dir cache --check-order --strict-order
 
           # Ungated and whole-KB on purpose, for the same reason as the cache check
           # above: this fires on kb/-only curation PRs, which no src/tests path
@@ -632,6 +654,25 @@ jobs:
           # lane, not a replacement.
           Check entity references resolve :: uv run python scripts/check_entity_refs.py
 
+          # The coherence of a pathophysiology node's OWN annotations, which no
+          # other gate asks about: every one of them validates a single binding.
+          # So `CL:0000057 fibroblast` beside `GO:0001837 epithelial to
+          # mesenchymal transition` passes LinkML, term and reference validation
+          # while claiming a fibroblast -- which is not epithelium -- undergoes
+          # the epithelial transition. Curators already catch these by hand; the
+          # `notes` block on Hypoplastic_Left_Heart_Syndrome's endocardial node
+          # is ten lines of exactly this reasoning.
+          #
+          # Ungated and whole-KB for the same merge-shaped reason as its
+          # neighbours, and REPORT-ONLY: it exits 0 on findings, because CL's
+          # is_a graph cannot express every exception, so a finding is a
+          # question for a curator rather than a proven defect. A node judged
+          # correct answers it in `review_notes` on the node rather than in a
+          # baseline file. It does fail when a rule's closure is missing from
+          # cache/rule_closure/, which is a broken check rather than a clean
+          # one. ~25s over kb/, offline (issue #9905).
+          Report logically incoherent pathophysiology annotations :: uv run python scripts/check_logical_rules.py
+
           # The bare-name counterpart of the step above, and a genuinely separate
           # invariant. `downstream[].target`, `sequelae[].target`,
           # `reports_on[].target` and `target_mechanisms[].target` do NOT use the
@@ -649,6 +690,12 @@ jobs:
           # backlog is grandfathered in tests/causal_target_baseline.txt, so this
           # gates new breakage only.
           Check pathograph targets resolve :: uv run python scripts/check_causal_targets.py
+
+          # Ungated and whole-KB for the same reason as the target check above.
+          # Two rows sharing a `name` become one pathograph node and every row
+          # but the last silently drops out of the graph (#15443). Only the
+          # UNSTRATIFIED class gates; the backlog is grandfathered, shrink-only.
+          Check pathograph node names do not collide :: uv run python scripts/check_name_collisions.py
 
           # Two disorder entries on one `disease_term` must each record it in
           # `mappings.mondo_mappings` as skos:exactMatch (at most one) or

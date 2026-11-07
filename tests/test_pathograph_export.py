@@ -114,17 +114,46 @@ def test_nodes_carry_evidence_references():
         assert 0 < len(node["meta"]["evidence"]) <= node["meta"]["evidence_count"]
 
 
+def _synthetic_disorder(name: str, mondo: str) -> str:
+    """A minimal disorder with one causal edge, so the exporter emits a pathograph."""
+    return (
+        f"name: {name}\n"
+        "disease_term:\n"
+        "  term:\n"
+        f"    id: {mondo}\n"
+        "pathophysiology:\n"
+        "- name: Upstream Lesion\n"
+        "  downstream:\n"
+        "  - target: Downstream Consequence\n"
+        "- name: Downstream Consequence\n"
+    )
+
+
 def test_colliding_mondo_ids_get_distinct_files():
-    """Two distinct disorders sharing a Mondo id each get their own file."""
+    """Two distinct disorders sharing a Mondo id each get their own file.
+
+    The fixture is synthetic on purpose. This used to export two live kb entries
+    that both bound ``MONDO:0001056``, which made a *defect* the premise of the
+    test: a shared ``disease_term`` that does not say how it is shared is what
+    ``just check-shared-disease-terms`` gates. Re-anchoring either entry — which
+    is the fix for that defect — left one entry under the id and broke this test
+    for a change that had nothing to do with the exporter (#13465, #13029).
+    """
     with tempfile.TemporaryDirectory() as tmp:
-        out = Path(tmp)
-        _run_on(
-            ["EBV_Associated_Gastric_Cancer.yaml", "HER2_Positive_Gastric_Cancer.yaml"],
-            out,
-        )
+        tmp_path = Path(tmp)
+        inp = tmp_path / "in"
+        inp.mkdir()
+        out = tmp_path / "out"
+        shared = "MONDO:0001056"
+        for stem, label in (("first", "First Disorder"), ("second", "Second Disorder")):
+            (inp / f"{stem}.yaml").write_text(
+                _synthetic_disorder(label, shared), encoding="utf-8"
+            )
+
+        PathographExporter().export(sorted(inp.glob("*.yaml")), out)
         index = json.loads((out / "index.json").read_text())
 
-        entries = index["MONDO:0001056"]
+        entries = index[shared]
         assert len(entries) == 2
         files = {e["file"] for e in entries}
         assert len(files) == 2  # distinct, not clobbered

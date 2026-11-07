@@ -26,10 +26,16 @@ from pathlib import Path
 
 from dismech import kb_cache
 from dismech.graph import build_causal_graph
+from dismech.repo_root import LazyRepoPaths
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-PATHOGRAPH_STATS_PATH = _REPO_ROOT / "cache" / "pathograph_stats.json"
-DEFAULT_DISORDERS_DIR = _REPO_ROOT / "kb" / "disorders"
+# Resolved from the working directory when read, so a worktree reads and writes
+# its own cache/pathograph_stats.json (#15109).
+_PATHS = LazyRepoPaths(
+    __name__,
+    PATHOGRAPH_STATS_PATH=lambda root: root / "cache" / "pathograph_stats.json",
+    DEFAULT_DISORDERS_DIR=lambda root: root / "kb" / "disorders",
+)
+__getattr__ = _PATHS.module_getattr
 
 _DESCRIPTION = (
     "Derived from kb/disorders by `just gen-pathograph-stats`; do not hand-edit. "
@@ -66,8 +72,10 @@ def compute_stats(disorders_dir: Path) -> dict:
     }
 
 
-def read_stats(path: Path = PATHOGRAPH_STATS_PATH) -> dict | None:
+def read_stats(path: Path | None = None) -> dict | None:
     """Return the committed statistics, or ``None`` if the file is absent or unreadable."""
+    if path is None:
+        path = _PATHS.get("PATHOGRAPH_STATS_PATH")
     try:
         data = json.loads(path.read_text())
     except (OSError, ValueError):
@@ -81,8 +89,12 @@ def _serialize(stats: dict) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("-i", "--input", type=Path, default=DEFAULT_DISORDERS_DIR)
-    parser.add_argument("-o", "--output", type=Path, default=PATHOGRAPH_STATS_PATH)
+    parser.add_argument(
+        "-i", "--input", type=Path, default=_PATHS.get("DEFAULT_DISORDERS_DIR")
+    )
+    parser.add_argument(
+        "-o", "--output", type=Path, default=_PATHS.get("PATHOGRAPH_STATS_PATH")
+    )
     parser.add_argument(
         "--check",
         action="store_true",

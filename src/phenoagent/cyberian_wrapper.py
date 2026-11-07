@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from dismech.repo_root import repo_root
 from dismech.yaml_io import safe_load
 from phenoagent.matching_cli import create_initial_matching_file
 
@@ -28,8 +29,8 @@ class MatchingAgentRunResult:
 
 
 def _repo_root() -> Path:
-    """Return repository root path."""
-    return Path(__file__).resolve().parents[2]
+    """Return the checkout the command is running in (see dismech.repo_root)."""
+    return repo_root()
 
 
 def _safe_token(value: str) -> str:

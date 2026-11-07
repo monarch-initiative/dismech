@@ -625,6 +625,66 @@ def test_graph_to_json_includes_matching_histopathology_terms() -> None:
     ]
 
 
+def test_graph_to_json_attaches_unbound_histopathology_finding_by_name() -> None:
+    """An unbound finding still attaches to the node it is named after (#13083)."""
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {
+                "name": "Keratin Filament Network Collapse and Aggregation",
+                "downstream": [{"target": "Suprabasal Keratinocyte Cytolysis"}],
+            },
+            {"name": "Suprabasal Keratinocyte Cytolysis"},
+        ],
+        "histopathology": [
+            {
+                "name": "Keratin Filament Network Collapse and Aggregation",
+                "finding_term": {"preferred_term": "perinuclear tonofilament clumping"},
+            },
+            {"name": "Unrelated unbound finding"},
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    data = json.loads(graph_to_json(graph, disorder))
+    nodes = {node["id"]: node for node in data["nodes"]}
+
+    assert nodes["Keratin Filament Network Collapse and Aggregation"]["meta"][
+        "histopathology_terms"
+    ] == [
+        {
+            "name": "Keratin Filament Network Collapse and Aggregation",
+            "preferred_term": "perinuclear tonofilament clumping",
+        }
+    ]
+    assert "histopathology_terms" not in nodes["Suprabasal Keratinocyte Cytolysis"].get(
+        "meta", {}
+    )
+
+
+def test_unbound_histopathology_finding_does_not_match_by_preferred_term() -> None:
+    """With no bound term, only the finding's name is a lookup key."""
+    disorder = {
+        "name": "Example Disease",
+        "pathophysiology": [
+            {"name": "Tonofilament Clumping", "downstream": [{"target": "Blistering"}]},
+            {"name": "Blistering"},
+        ],
+        "histopathology": [
+            {
+                "name": "Some other finding",
+                "finding_term": {"preferred_term": "Tonofilament Clumping"},
+            }
+        ],
+    }
+
+    graph = build_causal_graph(disorder)
+    data = json.loads(graph_to_json(graph, disorder))
+    node = next(node for node in data["nodes"] if node["id"] == "Tonofilament Clumping")
+
+    assert "histopathology_terms" not in node.get("meta", {})
+
+
 def test_build_causal_graph_includes_environmental_mechanism_links() -> None:
     """Environmental factors linked via influences_mechanisms should enter the pathograph."""
     disorder = {

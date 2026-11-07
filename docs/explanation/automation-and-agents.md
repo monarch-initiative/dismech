@@ -426,8 +426,7 @@ head-branch prefix, draft status, and exact ancestry with current `main` are not
 eligibility criteria. A known bot/agent assignee is routing metadata rather than
 a human hold.
 
-That last criterion is the **ejection hold**, and it is the one criterion with no
-trace on the PR page. A queue ejection is otherwise invisible to eligibility: the
+That last criterion is the **ejection hold**. A queue ejection is otherwise invisible to eligibility: the
 PR stays open and approved, so the next sweep re-enqueues it, it fails again, and
 the loop repeats — #9852 went round three times in fifteen hours, failing every
 speculative stack behind it each time (#10988). A *single* ejection is
@@ -435,8 +434,12 @@ deliberately not a hold, because ejection does not imply fault: a PR ahead in th
 stack can poison it, and a third-party outage can fail it. What triggers the hold
 is repetition against unchanged content. The count is keyed on the head commit's
 `committedDate`, so any push resets it to zero, and a lookup failure fails open.
+The first sweep that holds a given head posts one comment on the PR naming the
+strike count and how to clear it, deduplicated by a hidden marker keyed on the
+head SHA. It is a comment rather than a `CHANGES_REQUESTED` review because a
+review would outlive the push that clears the hold.
 
-A second hold with no trace on the PR page is the **cache-row hold**. When a
+A hold with no trace on the PR page is the **cache-row hold**. When a
 merge queue is active, a candidate that adds a row to a `cache/<prefix>/*.csv`
 term cache already added by a PR enqueued *earlier in the same sweep* is skipped
 for that sweep, because the two would conflict in the queue and the second
@@ -724,12 +727,13 @@ that opportunity rather than as an arbitrary cooling-off period.
 
 There are two more holds, which nobody chooses: the **ejection hold** and the
 **cache-row hold** above. Unlike assignment and `CHANGES_REQUESTED`, they leave
-no label, review, or assignee. Their only trace is a `SKIP` line, inside the run
-summary's collapsed `Skipped N near-miss PR(s)` block, naming the strike count
-or the PR holding the contended cache row. So an approved, green, days-old PR
-that is not merging and has neither a human assignee nor a requested-changes
-review has one of these two explanations, and the run summary is where to look
-for it. A push clears the ejection hold; the cache-row hold clears itself on the
+no label, review, or assignee. The ejection hold announces itself with one
+`🐑 PR Shepherd` comment on the PR per held head; the cache-row hold's only trace
+is a `SKIP` line, inside the run summary's collapsed `Skipped N near-miss PR(s)`
+block, naming the PR holding the contended cache row. So an approved, green,
+days-old PR that is not merging and has neither a human assignee nor a
+requested-changes review has one of these two explanations: look for the hold
+comment first, then the run summary. A push clears the ejection hold; the cache-row hold clears itself on the
 next sweep.
 
 Preview what the next sweep would do, read-only: `just auto-merge-preview`.
@@ -810,6 +814,32 @@ gives that issue an assignee, so it simultaneously **removes the issue from
 `curation-scanner`'s queue**. That is usually the outcome you want — two agents
 should not work the same issue — but nothing announces it, and it is the reason
 the distinction on this page matters in practice rather than only in theory.
+
+### An open PR that closes an issue also takes it out of the queue
+
+An issue can have no assignee and still be in progress, because a scanner run
+already opened a PR for it. Nothing on the issue records that, so later runs
+used to pick it again: #4990 and #5105 record clusters of two to four PRs
+against one issue, and #12842 got two that both merged.
+
+Before the agent starts, `curation-scanner` now runs
+`.github/scripts/open_pr_issue_index.py`, which reads the open-PR list and
+returns every issue an open PR says it `Closes`, `Fixes`, `Resolves` or
+`Addresses`. The agent is told never to select those issues. It also runs the
+script's `--check <issue>` mode immediately before `gh pr create`, which catches
+a PR opened while it was working.
+
+Two consequences for anyone writing a PR body:
+
+- **`Refs #N` does not take the issue out of the queue; `Closes #N` does.** A PR
+  that does one part of an umbrella issue (one subtype of a 15-subtype split)
+  should say `Refs`, so the issue stays available for its other parts.
+- **Closing such a PR unmerged puts the issue back** on the next run. Nothing
+  has to be removed by hand, which is why this is computed from live PR state
+  and not recorded as a label or an assignee on the issue.
+
+Run it yourself with
+`python3 .github/scripts/open_pr_issue_index.py --repo monarch-initiative/dismech --check <issue>`.
 
 Finally, two automations need no prompting at all: `claude-issue-triage` and
 `claude-issue-summarize` both fire on `issues: [opened]`. If a bot commented on

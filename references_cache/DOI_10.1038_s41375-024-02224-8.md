@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41375-024-02224-8
+extractor_version: 1
 title: NFKBIE mutations are selected by the tumor microenvironment and contribute to immune escape in chronic lymphocytic leukemia
 authors:
 - Alice Bonato
@@ -27,12 +28,14 @@ journal: Leukemia
 year: '2024'
 doi: 10.1038/s41375-024-02224-8
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41375-024-02224-8.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41375-024-02224-8.pdf
+full_text_access_type: open
 ---
 
 # NFKBIE mutations are selected by the tumor microenvironment and contribute to immune escape in chronic lymphocytic leukemia
@@ -42,7 +45,9 @@ local_pdf_path: files/DOI_10.1038_s41375-024-02224-8.pdf
 
 ## Content
 
-AbstractLoss-of-function mutations in NFKBIE, which encodes for the NF-κB inhibitor IκBε, are frequent in chronic lymphocytic leukemia (CLL) and certain other B-cell malignancies and have been associated with accelerated disease progression and inferior responses to chemotherapy. Using in vitro and in vivo murine models and primary patient samples, we now show that NFKBIE-mutated CLL cells are selected by microenvironmental signals that activate the NF-κB pathway and induce alterations within the tumor microenvironment that can allow for immune escape, including expansion of CD8+ T-cells with an exhausted phenotype and increased PD-L1 expression on the malignant B-cells. Consistent with the latter observations, we find increased expression of exhaustion markers on T-cells from patients with NFKBIE-mutated CLL. In addition, we show that NFKBIE-mutated murine CLL cells display selective resistance to ibrutinib and report inferior outcomes to ibrutinib treatment in NFKBIE-mutated CLL patients. These findings suggest that NFKBIE mutations can contribute to CLL progression through multiple mechanisms, including a bidirectional crosstalk with the microenvironment and reduced sensitivity to BTK inhibitor treatment.
+Abstract
+
+Loss-of-function mutations in NFKBIE, which encodes for the NF-κB inhibitor IκBε, are frequent in chronic lymphocytic leukemia (CLL) and certain other B-cell malignancies and have been associated with accelerated disease progression and inferior responses to chemotherapy. Using in vitro and in vivo murine models and primary patient samples, we now show that NFKBIE-mutated CLL cells are selected by microenvironmental signals that activate the NF-κB pathway and induce alterations within the tumor microenvironment that can allow for immune escape, including expansion of CD8+ T-cells with an exhausted phenotype and increased PD-L1 expression on the malignant B-cells. Consistent with the latter observations, we find increased expression of exhaustion markers on T-cells from patients with NFKBIE-mutated CLL. In addition, we show that NFKBIE-mutated murine CLL cells display selective resistance to ibrutinib and report inferior outcomes to ibrutinib treatment in NFKBIE-mutated CLL patients. These findings suggest that NFKBIE mutations can contribute to CLL progression through multiple mechanisms, including a bidirectional crosstalk with the microenvironment and reduced sensitivity to BTK inhibitor treatment.
 
 ARTICLE OPEN
 CHRONIC LYMPHOCYTIC LEUKEMIA

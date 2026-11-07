@@ -74,6 +74,7 @@ def test_outside_any_checkout_falls_back_to_the_module_tree_with_a_warning(
 ):
     monkeypatch.delenv(rr.ENV_VAR, raising=False)
     monkeypatch.chdir(tmp_path)
+    rr._warn_fallback.cache_clear()
     with caplog.at_level("WARNING", logger="dismech.repo_root"):
         assert rr.repo_root() == MODULE_TREE
     assert any(rr.ENV_VAR in r.getMessage() for r in caplog.records)

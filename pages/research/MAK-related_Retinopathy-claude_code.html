@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAK-related Retinopathy · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>MAK-related Retinopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>MAK-related Retinopathy</h1>
+                
+                <p class="report-subtitle">MAK-related Retinopathy (MONDO:0700229): research report</p>
+                
+                
+                <div class="report-date">2026-10-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0700229" target="_blank" rel="noopener noreferrer">MONDO:0700229</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">11 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>Let me write a small script instead.</p>
+<p>Progress: core clinical and genetic papers are pulled with verified quotes. Now I'm getting the mechanism, animal-model and gene-therapy papers.</p>
+<p>Status: research is done (verified abstracts for about 20 PMIDs, plus the MONDO and GenCC records). Writing the report now.</p>
+<h1>MAK-related Retinopathy (<a href="http://purl.obolibrary.org/obo/MONDO_0700229" target="_blank" rel="noopener noreferrer">MONDO:0700229</a>): research report</h1>
+<p><strong>Causal gene: <em>MAK</em></strong> (male germ cell-associated kinase; <a href="https://bioregistry.io/HGNC:6816" target="_blank" rel="noopener noreferrer">HGNC:6816</a>; chromosome 6p24). MAK-related retinopathy is a non-syndromic, autosomal recessive rod-cone degeneration, which is to say retinitis pigmentosa (RP). It is caused by biallelic loss-of-function variants in <em>MAK</em>. The most common variant by far is a founder 353-bp Alu insertion in exon 9, which is enriched in people of Ashkenazi Jewish ancestry.</p>
+<p><strong>How the evidence was gathered.</strong>
+- I retrieved the abstract text for every quoted PMID from NCBI E-utilities during this session. Each quote is short and verbatim, but quotes still need confirming against <code>references_cache/</code> with <code>just fetch-reference</code>.
+- I checked the MONDO and GenCC/ClinGen records directly.
+- The ontology CURIEs in the term tables come from memory. They are leads only, and each must be looked up before it is bound.</p>
+<hr />
+<h2>1. Disease information</h2>
+<p><strong>Overview.</strong> MONDO defines <a href="http://purl.obolibrary.org/obo/MONDO_0700229" target="_blank" rel="noopener noreferrer">MONDO:0700229</a> as "Any retinopathy caused by variants in the MAK gene." It is a spectrum term, created in January 2024 on the ClinGen Ocular Clinical Domain Working Group's request (mondo issue #6562), and it currently has one child:</p>
+<ul>
+<li><strong><a href="http://purl.obolibrary.org/obo/MONDO_0013611" target="_blank" rel="noopener noreferrer">MONDO:0013611</a> "retinitis pigmentosa 62"</strong> is defined as "Any retinitis pigmentosa in which the cause of the disease is a mutation in the MAK gene." Its synonyms are RP62, retinitis pigmentosa type 62, and MAK retinitis pigmentosa. Its cross-references are <a href="https://bioregistry.io/OMIM:614181" target="_blank" rel="noopener noreferrer">OMIM:614181</a>, UMLS:C3280042, MedGen:481672, <a href="http://purl.obolibrary.org/obo/DOID_0110380" target="_blank" rel="noopener noreferrer">DOID:0110380</a> and <a href="https://bioregistry.io/GARD:0015767" target="_blank" rel="noopener noreferrer">GARD:0015767</a>.</li>
+<li>The MONDO record notes that the parent may later be merged with its single child if no other clinical subtype appears.</li>
+</ul>
+<p><strong>Identifiers</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>ID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO (spectrum)</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0700229" target="_blank" rel="noopener noreferrer">MONDO:0700229</a> (<a href="https://bioregistry.io/GARD:0026379" target="_blank" rel="noopener noreferrer">GARD:0026379</a>)</td>
+</tr>
+<tr>
+<td>MONDO (RP62)</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0013611" target="_blank" rel="noopener noreferrer">MONDO:0013611</a></td>
+</tr>
+<tr>
+<td>OMIM (phenotype)</td>
+<td>614181 (RP62)</td>
+</tr>
+<tr>
+<td>OMIM (gene)</td>
+<td>154235. <em>This is from memory; verify it.</em></td>
+</tr>
+<tr>
+<td>HGNC</td>
+<td><a href="https://bioregistry.io/HGNC:6816" target="_blank" rel="noopener noreferrer">HGNC:6816</a> (<code>hgnc:6816</code> in dismech)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>No MAK-specific entry. The covering class is <a href="https://bioregistry.io/ORPHA:791" target="_blank" rel="noopener noreferrer">ORPHA:791</a>, retinitis pigmentosa.</td>
+</tr>
+<tr>
+<td>ICD-10 / ICD-11</td>
+<td>H35.52 (hereditary retinal dystrophy) / 9B70 (RP), both generic</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>D012174 Retinitis Pigmentosa (generic)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Gene-disease validity.</strong> ClinGen's Retina GCEP rated the pair <strong>Definitive, autosomal recessive</strong>. It evaluated the pair on 2023-03-02 and submitted it to GenCC on 2026-02-19.
+- Its summary says: "In summary, MAK is definitively associated with autosomal recessive MAK-related retinopathy."
+- It also says: "MAK-related retinopathy appears to cause non-syndromic retinal disease."
+- The mechanism ClinGen records is loss of function.</p>
+<p><strong>Data provenance.</strong> All of the information comes from aggregated published case series and cohorts (about 11 to 24 patients each). None comes from EHR data. There is no GeneReviews chapter specific to MAK. The general "Nonsyndromic Retinitis Pigmentosa Overview" (Fahim et al., <a href="https://pubmed.ncbi.nlm.nih.gov/20301590/" target="_blank" rel="noopener noreferrer">PMID:20301590</a>, NBK1417) covers it.</p>
+<h2>2. Etiology</h2>
+<ul>
+<li><strong>Cause.</strong> Biallelic germline loss-of-function variants in <em>MAK</em>.</li>
+<li><strong>Major allele.</strong> The exon 9 Alu insertion. All 21 homozygous probands in the discovery series were Jewish (<a href="https://pubmed.ncbi.nlm.nih.gov/21825139/" target="_blank" rel="noopener noreferrer">PMID:21825139</a>).</li>
+<li>It is reported as c.1297_1298ins353 and as p.K429insAlu (<a href="https://pubmed.ncbi.nlm.nih.gov/26894652/" target="_blank" rel="noopener noreferrer">PMID:26894652</a>). Confirm the HGVS name in ClinVar.</li>
+<li><strong>Other alleles.</strong></li>
+<li>A nonsense variant in a consanguineous Turkish family, plus missense variants in five more probands (<a href="https://pubmed.ncbi.nlm.nih.gov/21835304/" target="_blank" rel="noopener noreferrer">PMID:21835304</a>).</li>
+<li>Two novel null variants in a non-Jewish patient: c.1195_1196delAC p.(Thr399fs), and a splice-acceptor variant upstream of exon 4 (<a href="https://pubmed.ncbi.nlm.nih.gov/29781741/" target="_blank" rel="noopener noreferrer">PMID:29781741</a>).</li>
+<li>The missense c.46G&gt;A p.(Gly16Arg), found compound heterozygous with the Alu allele (<a href="https://pubmed.ncbi.nlm.nih.gov/26558903/" target="_blank" rel="noopener noreferrer">PMID:26558903</a>).</li>
+<li><strong>Risk factors.</strong> The main risk factor is Ashkenazi Jewish ancestry, through a founder effect (see §9). Consanguinity matters for the non-founder alleles. No environmental risk factors are known.</li>
+<li><strong>Protective factors and gene-environment interactions.</strong> None reported.</li>
+<li><strong>Modifier genes.</strong> None established. Light exposure has not been studied for this disease.</li>
+</ul>
+<h2>3. Phenotypes</h2>
+<p>These are the features with the strongest evidence. Every HPO ID in the table is from memory and needs verification.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Suggested HPO (verify)</th>
+<th>Onset / course / frequency</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Night blindness (first symptom)</td>
+<td>Nyctalopia <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" rel="noopener noreferrer">HP:0000662</a></td>
+<td>Present in all patients. Onset ranges from childhood to age 43 (mean 23).</td>
+<td>"All patients experienced typical RP symptoms of night blindness followed by visual field constriction." and "Symptoms initiated between childhood and the age of 43 (mean: 23 years)." (<a href="https://pubmed.ncbi.nlm.nih.gov/25385675/" target="_blank" rel="noopener noreferrer">PMID:25385675</a>)</td>
+</tr>
+<tr>
+<td>Visual field constriction, with early superior-temporal loss</td>
+<td>Constriction of peripheral visual field <a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank" rel="noopener noreferrer">HP:0001133</a></td>
+<td>Progressive</td>
+<td>"Kinetic fields showed early loss in the superior-temporal quadrant." (<a href="https://pubmed.ncbi.nlm.nih.gov/22110072/" target="_blank" rel="noopener noreferrer">PMID:22110072</a>)</td>
+</tr>
+<tr>
+<td>Rod-cone dysfunction on ERG</td>
+<td>Rod-cone dystrophy <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" rel="noopener noreferrer">HP:0000510</a></td>
+<td>All patients</td>
+<td>"all patients had rod&gt;cone dysfunction" (<a href="https://pubmed.ncbi.nlm.nih.gov/22110072/" target="_blank" rel="noopener noreferrer">PMID:22110072</a>)</td>
+</tr>
+<tr>
+<td>Central acuity largely preserved; disease relatively mild</td>
+<td>— (a course modifier, not a separate phenotype)</td>
+<td>Slow course</td>
+<td>"Visual acuities could be normal into the eighth decade of life." (<a href="https://pubmed.ncbi.nlm.nih.gov/22110072/" target="_blank" rel="noopener noreferrer">PMID:22110072</a>); "MAK-associated RP appears to be relatively mild" (<a href="https://pubmed.ncbi.nlm.nih.gov/25385675/" target="_blank" rel="noopener noreferrer">PMID:25385675</a>); median BCVA 20/25 (<a href="https://pubmed.ncbi.nlm.nih.gov/40578471/" target="_blank" rel="noopener noreferrer">PMID:40578471</a>)</td>
+</tr>
+<tr>
+<td>Cystoid macular edema / intraretinal cystoid spaces</td>
+<td>Cystoid macular edema <a href="http://purl.obolibrary.org/obo/HP_0040049" target="_blank" rel="noopener noreferrer">HP:0040049</a></td>
+<td>About 33%</td>
+<td>"33% of patients developed cystoid macular edema." (<a href="https://pubmed.ncbi.nlm.nih.gov/40578471/" target="_blank" rel="noopener noreferrer">PMID:40578471</a>); "Optical coherence tomography showed cystoid changes in each fovea." (<a href="https://pubmed.ncbi.nlm.nih.gov/26894652/" target="_blank" rel="noopener noreferrer">PMID:26894652</a>)</td>
+</tr>
+<tr>
+<td>Thinning of the outer retina on SD-OCT, with progressive ellipsoid zone (EZ) loss</td>
+<td>Abnormal retinal morphology on OCT (find a specific HP term)</td>
+<td>The EZ narrows by about 210 µm per year</td>
+<td>"SD-OCT demonstrated thinning of the overall retina, outer nuclear layer" (<a href="https://pubmed.ncbi.nlm.nih.gov/25385675/" target="_blank" rel="noopener noreferrer">PMID:25385675</a>)</td>
+</tr>
+<tr>
+<td>Midperipheral pigmentary retinopathy</td>
+<td>Bone spicule pigmentation <a href="http://purl.obolibrary.org/obo/HP_0007737" target="_blank" rel="noopener noreferrer">HP:0007737</a>; Attenuation of retinal blood vessels <a href="http://purl.obolibrary.org/obo/HP_0007843" target="_blank" rel="noopener noreferrer">HP:0007843</a></td>
+<td>Typical of RP</td>
+<td>Classic RP signs (<a href="https://pubmed.ncbi.nlm.nih.gov/22110072/" target="_blank" rel="noopener noreferrer">PMID:22110072</a>)</td>
+</tr>
+<tr>
+<td>Parafoveal capillary rarefaction and increased cone spacing in advanced disease</td>
+<td>—</td>
+<td>Late</td>
+<td>"central foveal structure is maintained until late stages of disease" (<a href="https://pubmed.ncbi.nlm.nih.gov/29103961/" target="_blank" rel="noopener noreferrer">PMID:29103961</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Not present.</strong> "MAK-associated RP is not associated with syndromic features" (<a href="https://pubmed.ncbi.nlm.nih.gov/25385675/" target="_blank" rel="noopener noreferrer">PMID:25385675</a>). There is no hearing, renal, or other ciliopathy involvement.</p>
+<p><strong>Quality of life.</strong> No instrument-based data (e.g., NEI-VFQ-25) were found for this disease. The main impacts come from night blindness and loss of peripheral field, which affect mobility and driving. Reading vision is usually preserved until late.</p>
+<h2>4. Genetic and molecular information</h2>
+<ul>
+<li><strong>Gene.</strong> <em>MAK</em> encodes a CMGC-family Ser/Thr kinase related to ICK and MOK (the RCK kinases).</li>
+<li>The retina expresses its own isoform, which includes exons 9 and 12.</li>
+<li>The developmental switch to that isoform fails in patient iPSCs: "the developmental switch to the MAK transcript bearing exons 9 and 12 did not occur" (<a href="https://pubmed.ncbi.nlm.nih.gov/21825139/" target="_blank" rel="noopener noreferrer">PMID:21825139</a>).</li>
+<li><strong>Variant classes.</strong> Mobile-element (Alu) insertion, nonsense, frameshift, splice-site, and kinase-domain missense variants.</li>
+<li>In the kinase-domain missense variants, "an in vitro kinase assay indicates that these mutations result in a loss of kinase activity." (<a href="https://pubmed.ncbi.nlm.nih.gov/21835304/" target="_blank" rel="noopener noreferrer">PMID:21835304</a>)</li>
+<li><strong>Functional consequence.</strong> Loss of function. The Alu allele "results in a loss of normal MAK transcript" (<a href="https://pubmed.ncbi.nlm.nih.gov/34518651/" target="_blank" rel="noopener noreferrer">PMID:34518651</a>).</li>
+<li><strong>Origin.</strong> Germline. There is no somatic or mosaic involvement.</li>
+<li><strong>Population frequency.</strong> The Ashkenazi carrier frequency is about 1 in 55 (1,207 controls; <a href="https://pubmed.ncbi.nlm.nih.gov/22110072/" target="_blank" rel="noopener noreferrer">PMID:22110072</a>).</li>
+<li><strong>Detection caveat.</strong> The Alu insertion "is missed by standard NGS-based variant callers". A targeted in-silico read search detected it with "100% sensitivity and specificity" and solved two previously unsolved pedigrees (<a href="https://pubmed.ncbi.nlm.nih.gov/26558903/" target="_blank" rel="noopener noreferrer">PMID:26558903</a>).</li>
+<li><strong>Not reported.</strong> Modifier genes, epigenetic changes, and chromosomal abnormalities.</li>
+<li><strong>ClinVar.</strong> The classification of individual variants should be pulled from ClinVar. It was not retrieved here.</li>
+</ul>
+<h2>5. Environmental information</h2>
+<p>None known. There are no infectious agents and no established lifestyle factors.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Causal chain</h3>
+<ol>
+<li><strong>Biallelic <em>MAK</em> loss-of-function variants</strong> (the Alu insertion, null variants, or kinase-dead missense variants) <strong>lead to</strong> loss of the retinal MAK transcript or of kinase activity.</li>
+<li>Demonstrated in patient iPSCs (<a href="https://pubmed.ncbi.nlm.nih.gov/21825139/" target="_blank" rel="noopener noreferrer">PMID:21825139</a>) and in in-vitro kinase assays (<a href="https://pubmed.ncbi.nlm.nih.gov/21835304/" target="_blank" rel="noopener noreferrer">PMID:21835304</a>).</li>
+<li><strong>Loss of MAK kinase activity at the photoreceptor ciliary tip and axoneme leads to</strong> failure to phosphorylate its substrates and to regulate intraflagellar transport (IFT).</li>
+<li>In mouse, "Mak was localized both in the connecting cilia and outer-segment axonemes of photoreceptor cells."</li>
+<li>MAK phosphorylates the N-terminal region of RP1 (<a href="https://pubmed.ncbi.nlm.nih.gov/21148103/" target="_blank" rel="noopener noreferrer">PMID:21148103</a>).</li>
+<li>"the ciliopathy kinase Mak is a ciliary tip-localized IFT regulator" (<a href="https://pubmed.ncbi.nlm.nih.gov/39293864/" target="_blank" rel="noopener noreferrer">PMID:39293864</a>).</li>
+<li>The upstream activator is CCRK: "Ccrk kinase is an upstream activator of Mak and Ick in retinal photoreceptor cells." (<a href="https://pubmed.ncbi.nlm.nih.gov/39293864/" target="_blank" rel="noopener noreferrer">PMID:39293864</a>)</li>
+<li>In <em>C. elegans</em>, the ortholog DYF-5 phosphorylates the tubulin-binding module of IFT-74, promoting tubulin unloading (<a href="https://pubmed.ncbi.nlm.nih.gov/35969738/" target="_blank" rel="noopener noreferrer">PMID:35969738</a>). This is invertebrate evidence, inferred to apply in humans.</li>
+<li><strong>Disrupted IFT and microtubule regulation lead to</strong> abnormal axoneme length and structure. Here the species differ:</li>
+<li><strong>Mouse:</strong> "photoreceptors exhibit elongated cilia and progressive degeneration", with "accumulation of intraflagellar transport 88 (IFT88) and IFT57" (<a href="https://pubmed.ncbi.nlm.nih.gov/21148103/" target="_blank" rel="noopener noreferrer">PMID:21148103</a>).</li>
+<li><strong>Zebrafish:</strong> "mak mutants failed to generate axonemes", unlike the mouse (<a href="https://pubmed.ncbi.nlm.nih.gov/38813692/" target="_blank" rel="noopener noreferrer">PMID:38813692</a>).</li>
+<li><strong>Human:</strong> "At the stages studied, there was no evidence of photoreceptor ciliary elongation." (<a href="https://pubmed.ncbi.nlm.nih.gov/22110072/" target="_blank" rel="noopener noreferrer">PMID:22110072</a>) Whether human cilia lengthen is therefore unresolved. This is a candidate <code>HUMAN_MODEL_MISMATCH</code> discussion.</li>
+<li><strong>Ciliary transport failure leads to</strong> mislocalization of outer-segment cargo.</li>
+<li>"abnormal rhodopsin accumulation in the Mak-null photoreceptor cell bodies at postnatal day 14" (<a href="https://pubmed.ncbi.nlm.nih.gov/21148103/" target="_blank" rel="noopener noreferrer">PMID:21148103</a>).</li>
+<li>In zebrafish, both rods and cones "completely lacked outer segments" (<a href="https://pubmed.ncbi.nlm.nih.gov/38813692/" target="_blank" rel="noopener noreferrer">PMID:38813692</a>).</li>
+<li><strong>Outer-segment dysfunction and protein mislocalization lead to</strong> photoreceptor apoptosis, starting with rods ("underwent apoptosis", <a href="https://pubmed.ncbi.nlm.nih.gov/38813692/" target="_blank" rel="noopener noreferrer">PMID:38813692</a>), followed by secondary cone loss.</li>
+<li><strong>Rod loss leads to</strong> nyctalopia and peripheral field constriction. Later cone loss leads to EZ narrowing and outer nuclear layer (ONL) thinning. CME is a parallel downstream feature whose mechanism is not established.</li>
+</ol>
+<p><strong>Branch: partial redundancy with ICK.</strong> "Simultaneous disruption of Mak and Ick resulted in loss of photoreceptor ciliary axonemes" (<a href="https://pubmed.ncbi.nlm.nih.gov/39293864/" target="_blank" rel="noopener noreferrer">PMID:39293864</a>). In mouse, ICK partly compensates for loss of MAK. This compensation is a plausible reason the human disease is mild, but that is my inference.</p>
+<h3>Suggested terms (all from memory; verify every one)</h3>
+<ul>
+<li><strong>GO biological process:</strong></li>
+<li>photoreceptor cell maintenance (<a href="http://purl.obolibrary.org/obo/GO_0045494" target="_blank" rel="noopener noreferrer">GO:0045494</a>)</li>
+<li>intraciliary transport (<a href="http://purl.obolibrary.org/obo/GO_0042073" target="_blank" rel="noopener noreferrer">GO:0042073</a>)</li>
+<li>regulation of cilium assembly (<a href="http://purl.obolibrary.org/obo/GO_1902017" target="_blank" rel="noopener noreferrer">GO:1902017</a>)</li>
+<li>protein phosphorylation (<a href="http://purl.obolibrary.org/obo/GO_0006468" target="_blank" rel="noopener noreferrer">GO:0006468</a>)</li>
+<li>apoptotic process (<a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a>)</li>
+<li><strong>GO molecular function:</strong> protein serine/threonine kinase activity (<a href="http://purl.obolibrary.org/obo/GO_0004674" target="_blank" rel="noopener noreferrer">GO:0004674</a>)</li>
+<li><strong>GO cellular component:</strong></li>
+<li>photoreceptor connecting cilium (<a href="http://purl.obolibrary.org/obo/GO_0032391" target="_blank" rel="noopener noreferrer">GO:0032391</a>)</li>
+<li>ciliary tip (<a href="http://purl.obolibrary.org/obo/GO_0097542" target="_blank" rel="noopener noreferrer">GO:0097542</a>)</li>
+<li>axoneme (<a href="http://purl.obolibrary.org/obo/GO_0005930" target="_blank" rel="noopener noreferrer">GO:0005930</a>)</li>
+<li>photoreceptor outer segment (<a href="http://purl.obolibrary.org/obo/GO_0001750" target="_blank" rel="noopener noreferrer">GO:0001750</a>)</li>
+<li><strong>CL:</strong> retinal rod cell (<a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a>) and retinal cone cell (<a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a>)</li>
+</ul>
+<p><strong>Molecular profiling.</strong> No disease-specific omics datasets were found. A regional human retina RNA-seq study exists (Whitmore, <a href="https://pubmed.ncbi.nlm.nih.gov/25446321/" target="_blank" rel="noopener noreferrer">PMID:25446321</a>), but it is not disease-specific.</p>
+<h2>7. Anatomical structures affected</h2>
+<ul>
+<li><strong>Organ and tissue.</strong> The retina only (<a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a>, verify), and specifically the photoreceptor layer and outer nuclear layer. Involvement is bilateral and symmetric.</li>
+<li><strong>Regions.</strong> Damage starts in the midperiphery and the superior-temporal field, and the fovea is spared until late (<a href="https://pubmed.ncbi.nlm.nih.gov/22110072/" target="_blank" rel="noopener noreferrer">PMID:22110072</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/29103961/" target="_blank" rel="noopener noreferrer">PMID:29103961</a>).</li>
+<li><strong>Subcellular.</strong> The connecting cilium, the outer-segment axoneme and the ciliary tip.</li>
+<li><strong>Other organs.</strong> None. MAK is also expressed in testis, but no male infertility phenotype has been reported in patients.</li>
+</ul>
+<h2>8. Temporal development</h2>
+<ul>
+<li><strong>Onset.</strong> Insidious, from childhood to the fifth decade (mean about 23 years; <a href="https://pubmed.ncbi.nlm.nih.gov/25385675/" target="_blank" rel="noopener noreferrer">PMID:25385675</a>). In one non-founder patient, onset was in the fourth decade (<a href="https://pubmed.ncbi.nlm.nih.gov/29781741/" target="_blank" rel="noopener noreferrer">PMID:29781741</a>).</li>
+<li><strong>Progression.</strong> Slow and lifelong.</li>
+<li>The EZ horizontal width declines by "209.78 µm/year (95% CI: 181.37-238.18, P &lt; .001)".</li>
+<li>Foveal ONL thickness declines by 1.24 µm/year.</li>
+<li>In the same cohort, 83% retained attenuated photopic ERGs and 55% retained rod responses (<a href="https://pubmed.ncbi.nlm.nih.gov/40578471/" target="_blank" rel="noopener noreferrer">PMID:40578471</a>, 18 patients aged 20 to 83).</li>
+<li><strong>Outcome measure.</strong> Because central vision stays stable, the authors propose EZ width as the trial outcome measure.</li>
+<li><strong>Comparison with DHDDS-RP.</strong> MAK patients had better acuity and fields at older ages than DHDDS patients, whose "cone responses became nondetectable at a much younger age than MAK patients." (<a href="https://pubmed.ncbi.nlm.nih.gov/29276052/" target="_blank" rel="noopener noreferrer">PMID:29276052</a>)</li>
+<li><strong>Remission.</strong> None.</li>
+</ul>
+<h2>9. Inheritance and population</h2>
+<ul>
+<li><strong>Inheritance.</strong> Autosomal recessive (<a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a>), with full penetrance in biallelic individuals. Expressivity is variable, mainly in age at onset.</li>
+<li><strong>Founder effect.</strong> "Haplotype analyses revealed that inheritance of the MAK mutation was attributable to a founder effect." (<a href="https://pubmed.ncbi.nlm.nih.gov/25255364/" target="_blank" rel="noopener noreferrer">PMID:25255364</a>)</li>
+</ul>
+<p><strong>Frequency among RP patients</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Population</th>
+<th>Finding</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Unrelated RP patients overall</td>
+<td>1.2% (21 of 1,799 probands)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21825139/" target="_blank" rel="noopener noreferrer">PMID:21825139</a></td>
+</tr>
+<tr>
+<td>North American recessive or isolated RP</td>
+<td>2.1% overall; 25.7% of cases with Jewish ancestry</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25255364/" target="_blank" rel="noopener noreferrer">PMID:25255364</a></td>
+</tr>
+<tr>
+<td>Ashkenazi Jewish families in Israel</td>
+<td>The leading cause: 39% of genetically solved families (230 families studied)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29276052/" target="_blank" rel="noopener noreferrer">PMID:29276052</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li>Stone et al. called MAK-RP the most common heritable retinal disease among Ashkenazi Jews (<a href="https://pubmed.ncbi.nlm.nih.gov/22110072/" target="_blank" rel="noopener noreferrer">PMID:22110072</a>).</li>
+<li><strong>Population prevalence.</strong> No published figure. A rough estimate from the carrier frequency is about (1/55)² / 4 ≈ 1 in 12,000 Ashkenazi births. That is my calculation, not a sourced figure, so do not record it as one.</li>
+<li><strong>Sex ratio.</strong> About equal, as expected for autosomal recessive inheritance (7 of 18 were female in <a href="https://pubmed.ncbi.nlm.nih.gov/40578471/" target="_blank" rel="noopener noreferrer">PMID:40578471</a>).</li>
+</ul>
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Clinical tests.</strong></li>
+<li>Full-field ERG, showing rod&gt;cone dysfunction.</li>
+<li>Kinetic or static perimetry.</li>
+<li>SD-OCT, for EZ width, ONL thickness and CME.</li>
+<li>Fundus autofluorescence (FAF), including ultra-widefield. In 11 MAK patients, macular FAF patterns differed from those in DHDDS patients (<a href="https://pubmed.ncbi.nlm.nih.gov/35501492/" target="_blank" rel="noopener noreferrer">PMID:35501492</a>).</li>
+<li>Adaptive optics, which in early disease shows normal cone spacing (<a href="https://pubmed.ncbi.nlm.nih.gov/29103961/" target="_blank" rel="noopener noreferrer">PMID:29103961</a>).</li>
+<li><strong>Genetic testing.</strong></li>
+<li>Use a retinal dystrophy gene panel, exome or genome sequencing, <strong>but ask specifically for Alu/mobile-element insertion detection</strong>. Standard callers miss the founder allele (<a href="https://pubmed.ncbi.nlm.nih.gov/26558903/" target="_blank" rel="noopener noreferrer">PMID:26558903</a>).</li>
+<li>Alternatively, run a targeted Alu PCR assay first in Ashkenazi patients.</li>
+<li>CMA, karyotype, FISH, mitochondrial and repeat-expansion testing do not apply.</li>
+<li><strong>No biochemical biomarkers</strong> exist.</li>
+<li><strong>Differential diagnosis.</strong></li>
+<li>DHDDS-RP (also Ashkenazi): cones fail earlier.</li>
+<li>FAM161A-RP.</li>
+<li>Other forms of recessive RP.</li>
+<li>Syndromic ciliopathies (Usher, Bardet-Biedl), which can be excluded by the absence of extraocular features.</li>
+<li><strong>Screening.</strong> Ashkenazi carrier-screening panels can include the MAK Alu allele. There is no newborn screening.</li>
+</ul>
+<h2>11. Outcome and prognosis</h2>
+<ul>
+<li>Lifespan is normal, and the disease causes no deaths.</li>
+<li>The disease is relatively favorable for RP: "patients with MAK-RP maintain functional central vision and have a favorable prognosis" (<a href="https://pubmed.ncbi.nlm.nih.gov/40578471/" target="_blank" rel="noopener noreferrer">PMID:40578471</a>).</li>
+<li>The main complication is CME, in about a third of patients.</li>
+<li>Prognostic factors: genotype (MAK versus DHDDS), and probably null versus missense variants, although that has not been established.</li>
+<li>No quality-of-life instrument data exist.</li>
+</ul>
+<h2>12. Treatment</h2>
+<ul>
+<li><strong>No approved disease-specific therapy.</strong> No MAK trials appear on ClinicalTrials.gov (search run 2026-10-28).</li>
+<li><strong>Supportive care.</strong></li>
+<li>Low-vision rehabilitation (NCIT:C15315 Rehabilitation; verify).</li>
+<li>CME management, e.g., carbonic anhydrase inhibitors. These are used empirically in RP, with no MAK-specific data.</li>
+<li>Genetic counseling (NCIT:C15240).</li>
+<li><strong>Preclinical gene augmentation (Iowa).</strong></li>
+<li>A clinical-grade vector restored "the cells ability to regulate primary cilia length" in patient iPSC-derived cells.</li>
+<li>In zebrafish, "the visual defect in mak knockdown zebrafish was mitigated".</li>
+<li>Subretinal delivery showed "no evidence of local or systemic toxicity at 1-month or 3-months" (<a href="https://pubmed.ncbi.nlm.nih.gov/34518651/" target="_blank" rel="noopener noreferrer">PMID:34518651</a>).</li>
+<li>Suggested NCIT term: Gene Therapy, NCIT:C15238. Suggested modality: <code>GENE_THERAPY</code>.</li>
+<li><strong>CRISPR correction.</strong> Homology-directed repair excising the Alu insertion "demonstrated restoration of the retinal transcript and protein in patient cells" (<a href="https://pubmed.ncbi.nlm.nih.gov/28619647/" target="_blank" rel="noopener noreferrer">PMID:28619647</a>). This supports autologous cell or gene-editing approaches.</li>
+<li><strong>Kinase-pathway approach (mouse).</strong> "Gene delivery of Ick and pharmacological inhibition of FGF receptors" suppressed ciliopathy phenotypes, which suggests "activation of Ick as a potential therapeutic approach for retinitis pigmentosa caused by MAK mutations" (<a href="https://pubmed.ncbi.nlm.nih.gov/39293864/" target="_blank" rel="noopener noreferrer">PMID:39293864</a>; see also the review <a href="https://pubmed.ncbi.nlm.nih.gov/40636449/" target="_blank" rel="noopener noreferrer">PMID:40636449</a>).</li>
+</ul>
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention.</strong> Ashkenazi carrier screening, cascade testing of relatives, and preimplantation or prenatal testing for couples who both carry the allele.</li>
+<li><strong>Secondary prevention.</strong> Early genotyping that includes Alu detection.</li>
+<li><strong>Tertiary prevention.</strong> Monitoring for CME with OCT, and low-vision support.</li>
+<li><strong>Not applicable.</strong> Vaccination and public-health measures.</li>
+</ul>
+<h2>14. Other species and natural disease</h2>
+<ul>
+<li>No naturally occurring animal disease is recorded. I did not formally search OMIA.</li>
+<li><strong>Conserved orthologs:</strong></li>
+<li>mouse <em>Mak</em></li>
+<li>zebrafish <em>mak</em></li>
+<li><em>C. elegans</em> DYF-5 (with the CCRK ortholog DYF-18, which acts in the same pathway on kinesin-2 handover; <a href="https://pubmed.ncbi.nlm.nih.gov/29655266/" target="_blank" rel="noopener noreferrer">PMID:29655266</a>)</li>
+<li><em>Chlamydomonas</em> CrMAK, whose "Loss of CrMAK or its kinase activity leads to aciliated cells" (<a href="https://pubmed.ncbi.nlm.nih.gov/41231942/" target="_blank" rel="noopener noreferrer">PMID:41231942</a>)</li>
+<li>The ortholog NCBI Gene and MGI/ZFIN IDs were not retrieved and must be looked up.</li>
+</ul>
+<h2>15. Model organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Phenotype</th>
+<th>How well it matches human disease</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>Mak</em>⁻/⁻ mouse</td>
+<td>Elongated photoreceptor cilia, IFT88/IFT57 accumulation, rhodopsin mislocalization, progressive degeneration</td>
+<td>Partial. The degeneration matches, but the cilia elongation has not been seen in humans.</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21148103/" target="_blank" rel="noopener noreferrer">PMID:21148103</a></td>
+</tr>
+<tr>
+<td><em>Mak</em>/<em>Ick</em> double KO and <em>Ccrk</em> mice</td>
+<td>Loss of axonemes; the Ccrk-Mak/Ick axis is essential for photoreceptor survival</td>
+<td>Mechanistic model, not a recapitulation of the disease</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39293864/" target="_blank" rel="noopener noreferrer">PMID:39293864</a></td>
+</tr>
+<tr>
+<td>Zebrafish <em>mak</em> mutant</td>
+<td>Rapid embryonic degeneration; rods and cones lack outer segments; no axoneme</td>
+<td>More severe and earlier than human disease; the axoneme defect is opposite to the mouse</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38813692/" target="_blank" rel="noopener noreferrer">PMID:38813692</a></td>
+</tr>
+<tr>
+<td>Zebrafish <em>mak</em> knockdown</td>
+<td>Visual defect rescued by the MAK vector</td>
+<td>Used to test gene therapy</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34518651/" target="_blank" rel="noopener noreferrer">PMID:34518651</a></td>
+</tr>
+<tr>
+<td>Patient iPSC-derived photoreceptor precursors (Alu homozygous)</td>
+<td>Failure of the retinal-isoform splicing switch; cilia-length defect rescued by gene transfer or CRISPR</td>
+<td>High for molecular steps; lacks outer segments</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21825139/" target="_blank" rel="noopener noreferrer">PMID:21825139</a>, 28619647, 34518651</td>
+</tr>
+<tr>
+<td><em>C. elegans</em> <em>dyf-5</em>, <em>Chlamydomonas</em> <em>Crmak</em></td>
+<td>Long or branched cilia, or no cilia; tubulin-unloading and IFT mechanisms</td>
+<td>Basic mechanism only</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35969738/" target="_blank" rel="noopener noreferrer">PMID:35969738</a>, 30955935, 41231942</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>For the knowledge-base entry.</strong> The differing cilia phenotypes in mouse, zebrafish and humans should go into a <code>HUMAN_MODEL_MISMATCH</code> discussion. A model link is <code>FAILS_TO_RECAPITULATE</code> against the ciliary-elongation claim for humans (<a href="https://pubmed.ncbi.nlm.nih.gov/22110072/" target="_blank" rel="noopener noreferrer">PMID:22110072</a>).</p>
+<hr />
+<h3>Citation corrections and cautions</h3>
+<ul>
+<li><strong><a href="https://pubmed.ncbi.nlm.nih.gov/29781741/" target="_blank" rel="noopener noreferrer">PMID:29781741</a> is Gray et al. 2018</strong> (<em>Ophthalmic Genetics</em>). A search snippet attributed it to Kimchi et al.; the Kimchi <em>Ophthalmology</em> paper is <strong><a href="https://pubmed.ncbi.nlm.nih.gov/29276052/" target="_blank" rel="noopener noreferrer">PMID:29276052</a></strong>.</li>
+<li><strong>The 2013 eLife iPSC paper</strong> (Tucker, <a href="https://pubmed.ncbi.nlm.nih.gov/23991284/" target="_blank" rel="noopener noreferrer">PMID:23991284</a>) is about <em>USH2A</em>, not MAK. Do not cite it for this disease.</li>
+<li><strong>Two PMIDs on ClinGen's list have no MAK content in their abstracts:</strong> 33542393 and 33921607. Any MAK data in them would be in the full text only.</li>
+</ul>
+<h3>Sources</h3>
+<ul>
+<li>PubMed/E-utilities: <a href="https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&amp;term=MAK">esearch</a> and the abstracts of PMIDs 21825139, 21835304, 21148103, 22110072, 25385675, 25255364, 29276052, 40578471, 29781741, 29103961, 26894652, 26558903, 35501492, 39293864, 38813692, 40636449, 35253837, 34518651, 28619647, 29655266, 35969738 and 41231942</li>
+<li><a href="https://www.ebi.ac.uk/ols4/api/ontologies/mondo/terms?obo_id=MONDO:0700229">MONDO:0700229 (OLS)</a> and <a href="https://www.ebi.ac.uk/ols4/api/ontologies/mondo/terms?obo_id=MONDO:0013611">MONDO:0013611 (OLS)</a></li>
+<li><a href="https://thegencc.org/submissions/GENCC_000102-HGNC_6816-MONDO_0700229-HP_0000007-GENCC_100001">GenCC/ClinGen submission</a></li>
+<li><a href="https://clinicaltrials.gov/api/v2/studies?query.term=MAK+retinitis+pigmentosa">ClinicalTrials.gov API query</a></li>
+<li><a href="https://ivr.uiowa.edu/node/43">Iowa Institute for Vision Research note on MAK</a>, <a href="https://cris.huji.ac.il/en/publications/nonsyndromic-retinitis-pigmentosa-in-the-ashkenazi-jewish-populat/">Kimchi 2018 (HUJI CRIS)</a>, <a href="https://scholars.mssm.edu/en/publications/ellipsoid-zone-loss-as-an-outcome-measure-in-mak-associated-retin/">Kong 2025 (Mount Sinai)</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3341124">PMC3341124</a>, <a href="https://elifesciences.org/articles/00824">eLife 00824</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23991284/">PubMed 23991284</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.4.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>25</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:40636449</code> <em>(abstract only)</em>: "activation of Ick as a potential therapeutic approach for retinitis pigmentosa caused by MAK mutations"</li>
+<li>closest text in source: "Here, we review the current understanding of the roles of these kinases during the IFT process, as well as their regulatory mechanisms, physiological and pathophysiological significance, and potential to treat ciliopathies and age-related obesity."</li>
+</ul>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:20301590</code> (1 mention) - Nonsyndromic Retinitis Pigmentosa Overview.</li>
+<li>shared terms: genetic</li>
+<li><code>PMID:29655266</code> (1 mention) - The kinases male germ cell-associated kinase and cell cycle-related kinase regulate kinesin-2 motility in Caenorhabditis elegans neuronal cilia.</li>
+<li>shared terms: kinase, genetic</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>mak</code>, <code>patient</code>, <code>disease</code>, <code>gene</code>, <code>alu</code>, <code>retinal</code>, <code>loss</code>, <code>variant</code>, <code>cone</code>, <code>ashkenazi</code>, <code>insertion</code>, <code>kinase</code>, <code>outer</code>, <code>phenotype</code>, <code>mechanism</code>, <code>retina</code>, <code>photoreceptor</code>, <code>mondo</code>, <code>cme</code>, <code>genetic</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Major_Depressive_Disorder-alternative-models-openscientist.html">← Major Depressive Disorder-alternative-models (OpenScientist)</a>
+                
+                
+                <a href="Mal_De_Debarquement-openscientist.html">Mal De Debarquement (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/MAK-related_Retinopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/MAK-related_Retinopathy-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

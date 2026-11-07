@@ -65,10 +65,10 @@ challenge summary.
 | # | Winner (team captain) | Published model | Target entry (models now) | Type / `namo_type` | Tie | Verdict |
 |---|---|---|---|---|---|---|
 | 1 | 4D Tissue Fabrication (Gartner, UCSF) | PMID:41807773, bioprinted organoids in a stress-relaxing granular matrix, several tissue types | none | `ORGANOID` / `namo:Organoid` | No disease | Does not fit |
-| 2 | Sensor-Enhanced Isogenic Model of Alzheimer's (Barrile, Cincinnati) | None found for Alzheimer disease. PMID:31173718 is a co-authored iPSC blood-brain-barrier chip with patient lines from other neurological diseases | `Alzheimer_Disease` (1) | `ORGAN_ON_CHIP` / `namo:OrganOnChip` | Carries the lesion (patient iPSCs, per the proposal) | No paper yet |
+| 2 | Sensor-Enhanced Isogenic Model of Alzheimer's (Barrile, Cincinnati) | None found for Alzheimer disease. PMID:31173718 is a co-authored iPSC blood-brain-barrier chip with patient lines from other neurological diseases | `Alzheimer_Disease` (1) | `ORGAN_ON_CHIP` / `namo:OrganOnChip` | Carries the lesion (patient iPSCs, per the proposal) | No paper yet. Recorded as a proposed experiment on `gap_ad_vascular_to_tau_causal_link`, not as an experimental model ([#14256](https://github.com/monarch-initiative/dismech/issues/14256)) |
 | 3 | Agent-based Models for Adoptive Cell Therapy (K. Chen, MD Anderson) | PMID:41673469, ABMACT agent-based model of CAR-NK therapy | `computational_models` of a lymphoma entry; the abstract names no cancer type, the proposal names B-cell lymphoma | `AGENT_BASED` / none | Computational model | Fits, target needs full text |
 | 4 | Cancer Immunotherapy Clinical Trials on a Chip (W. Chen, NYU) | PMID:40595437, immunocompetent leukaemia bone-marrow chip for CAR T screening. No pancreatic version found | A leukaemia entry; the abstract does not name the subtype | `ORGAN_ON_CHIP` / `namo:OrganOnChip` | Carries the lesion, plus the treatment | Fits, target needs full text |
-| 5 | Click Chemistry Magic for Drug Screening (Lu, Delaware) | PMID:42011976, osteoarthritic human knee cartilage from knee replacements exposed to triamcinolone. Method: PMID:42120803 | `Osteoarthritis` (0) | `OTHER` (ex vivo explant) / none | Carries the lesion | Fits |
+| 5 | Click Chemistry Magic for Drug Screening (Lu, Delaware) | PMID:42011976, osteoarthritic human knee cartilage from knee replacements exposed to triamcinolone. Method: PMID:42120803 | `Osteoarthritis` (2, curated in [#14225](https://github.com/monarch-initiative/dismech/issues/14225)) | `OTHER` (ex vivo explant) / none | Carries the lesion | Fits; curated |
 | 6 | DevTox (Tropsha, Predictive LLC) | PMID:40388119, DeTox QSAR models of developmental toxicity | none (no single disease) | `MACHINE_LEARNING` / `namo:QSARModel` | Chemical, no disease context | Does not fit |
 | 7 | E-validation (Hartung, JHU CAAT) | PMID:39444208, a proposal for AI-planned validation studies | none | not a model | Not a model | Does not fit |
 | 8 | Omics for Liver Toxicity Assessment (Singh, Broad) | PMID:39896617 (bioRxiv preprint), Cell Painting in primary human hepatocytes, 1,085 compounds. Consortium paper: PMID:40971841 | `drug_induced_liver_injury` module (4) | `PRIMARY_CELL_CULTURE` / `namo:TwoDCellCulture` | Exposure that causes the disease, for the hepatotoxic compounds only | Fringe |
@@ -78,11 +78,11 @@ challenge summary.
 | 12 | Machine Learning Assisted HTP Tissue Array (Tan, CU Boulder) | None found | `Coronary_Artery_Disease` (0); no Atherosclerosis entry | `CO_CULTURE` (expected) | Not known | No paper yet |
 | 13 | NAMKG registry (Luechtefeld, Insilica) | None found | none | not a model | Not a model | Does not fit |
 | 14 | Neuro-Immuno-Cutaneous Skin Equivalent (D. Kaplan, Tufts) | PMID:32627348, skin equivalent with epidermis, dermis, hypodermis, immune cells and induced neural stem cells. No disease or irritant tested in the abstract | `Contact_Dermatitis` (0), only once an irritant study exists | `PRIMARY_CELL_CULTURE` / `namo:ThreeDCellCulture` | No disease | Does not fit yet |
-| 15 | Organ-on-a-Chip for Osteoarthritis Pain (H. Lin, Pittsburgh) | PMID:35436042 and PMID:36830751, the miniJoint: MSC-derived osteochondral, synovial-like and adipose tissues in a microfluidic bioreactor, inflamed with IL-1β. The neuron and immune-cell versions in the proposal were not found | `Osteoarthritis` (0) | `ORGAN_ON_CHIP` / `namo:OrganOnChip` | Unaffected cells given an exposure (IL-1β) that stands in for the cause | Fits, with `CAUSE_UNREPRESENTED` |
+| 15 | Organ-on-a-Chip for Osteoarthritis Pain (H. Lin, Pittsburgh) | PMID:35436042 and PMID:36830751, the miniJoint: MSC-derived osteochondral, synovial-like and adipose tissues in a microfluidic bioreactor, inflamed with IL-1β. The neuron and immune-cell versions in the proposal were not found | `Osteoarthritis` (2, curated in [#14225](https://github.com/monarch-initiative/dismech/issues/14225)) | `ORGAN_ON_CHIP` / `namo:OrganOnChip` | Unaffected cells given an exposure (IL-1β) that stands in for the cause | Fits, with `CAUSE_UNREPRESENTED`; curated |
 | 16 | Organoid Intelligence (Smirnova, JHU) | PMID:40819006, learning and memory building blocks in neural organoids | none | `IPSC_DERIVED_MODEL` / `namo:Organoid` | No disease | Does not fit |
-| 17 | Organoid Modeling of RA Joints (Rao, Brigham and Women's) | None found | `Rheumatoid_Arthritis` (0) | `ORGANOID` / `namo:Organoid` | Carries the lesion (patient cells, per the proposal) | No paper yet |
+| 17 | Organoid Modeling of RA Joints (Rao, Brigham and Women's) | None found | `Rheumatoid_Arthritis` (0) | `ORGANOID` / `namo:Organoid` | Carries the lesion (patient cells, per the proposal) | No paper yet. Recorded as a proposed experiment on the `Rheumatoid_Arthritis` treatment-response knowledge gap, `gap_ra_treatment_response_prediction` ([#14257](https://github.com/monarch-initiative/dismech/issues/14257)) |
 | 18 | Population Diversity in Vaccine Responses (Pompano, UVA) | PMID:39661075, a multi-compartment chip with murine lymph node slices; no brain or adipose compartment, no infection | none | `OTHER` (ex vivo slice) / none | No disease | Does not fit yet |
-| 19 | Pregnancy on Chip (Menon, UTMB) | PMID:33112317, four-chamber feto-maternal interface organ-on-chip (decidua, chorion, amnion) with LPS as ascending infection. Also PMID:41106448, environmental chemicals linked to preterm birth | `Chorioamnionitis` (0) or `Preterm_Premature_Rupture_of_the_Membranes` (0) | `ORGAN_ON_CHIP` / `namo:OrganOnChip` | Exposure that causes the disease (LPS for infection); risk-factor exposure for the chemicals paper | Fits |
+| 19 | Pregnancy on Chip (Menon, UTMB) | PMID:33112317, four-chamber feto-maternal interface organ-on-chip (decidua, chorion, amnion) with LPS as ascending infection; PMID:37249377, same chip with cigarette smoke extract as oxidative stress. Also PMID:41106448, environmental chemicals linked to preterm birth. Curated in #14227 | `Chorioamnionitis` (1, LPS paper) and `Preterm_Premature_Rupture_of_the_Membranes` (1, oxidative-stress paper) | `ORGAN_ON_CHIP` / `namo:OrganOnChip` | Exposure that causes the disease (LPS for infection); risk-factor exposure for the chemicals paper | Fits |
 | 20 | Pulse of the Future: AI-human MEHC (Yang, North Texas) | Only the image-analysis software (PMID:37672553, Organalysis) and a cardiomyocyte micropattern study (PMID:38699629). No disease model found | none | `IPSC_DERIVED_MODEL` / none | No disease | Does not fit yet |
 
 ## Notes on individual rows
@@ -102,11 +102,12 @@ plate in [the NAMO vocabulary gaps note](data/namo-vocabulary-gaps-2026-10-13.md
 `namo:CoCulture` is the closest binding. The abstract does not say whether the
 cells are human, which the curator will need from the full text.
 
-**The pregnancy chip has two candidate entries.** LPS on the decidua side
-models ascending infection, which is the cause of chorioamnionitis and a cause
-of membrane rupture. There is no Preterm Birth entry. Whichever entry is chosen,
-the chip's readouts are inflammatory cytokines by layer, so the target nodes
-should be inflammation nodes rather than the rupture itself.
+**The pregnancy chip is split across two entries.** LPS on the decidua side
+models ascending infection and is attached to `Chorioamnionitis`; cigarette smoke
+extract models oxidative stress and is attached to
+`Preterm_Premature_Rupture_of_the_Membranes`. There is no Preterm Birth entry.
+Neither paper measures rupture, so the links target inflammation, senescence and
+oxidative-stress nodes rather than the rupture itself (#14227).
 
 **Two published models are not the proposed model.** In row 4 the team
 published a leukaemia chip, not the pancreatic cancer organoid chip they
@@ -148,11 +149,14 @@ Two things here are not in the inventory:
 Each "Fits" row is one curation issue, attaching the named paper's model to the
 named entry with `modeled_mechanisms` links and quoted evidence:
 
-1. `Osteoarthritis`: the miniJoint (PMID:35436042, PMID:36830751) and the
-   cartilage explants (PMID:42011976).
+1. [x] `Osteoarthritis`: the miniJoint (PMID:35436042, PMID:36830751) and the
+   cartilage explants (PMID:42011976), curated in
+   [#14225](https://github.com/monarch-initiative/dismech/issues/14225). Both
+   link only `Cartilage Matrix Catabolism`: the papers report no macrophage or
+   fibroblast crosstalk readouts and no bone readouts.
 2. `Cleft_Lip_Palate`: the orofacial microplate (PMID:33634122).
-3. `Chorioamnionitis` or `Preterm_Premature_Rupture_of_the_Membranes`: the
-   feto-maternal interface chip (PMID:33112317).
+3. [x] `Chorioamnionitis` and `Preterm_Premature_Rupture_of_the_Membranes`: the
+   feto-maternal interface chip (PMID:33112317, PMID:37249377), #14227.
 4. After a full-text check of the cancer type: ABMACT (PMID:41673469) and the
    leukaemia trial-on-chip (PMID:40595437).
 

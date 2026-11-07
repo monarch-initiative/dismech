@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1002/ajh.26822
+extractor_version: 1
 title: "Acute myeloid leukemia: 2023 update on diagnosis, risk‐stratification, and management"
 authors:
 - Shai Shimony
@@ -9,6 +10,7 @@ journal: American Journal of Hematology
 year: '2023'
 doi: 10.1002/ajh.26822
 content_type: abstract_only
+is_preprint: false
 full_text_attempted: true
 ---
 
@@ -19,4 +21,20 @@ full_text_attempted: true
 
 ## Content
 
-AbstractDisease overviewAcute myeloid leukemia (AML) is a frequently fatal bone marrow stem cell cancer characterized by unbridled proliferation of malignant marrow stem cells with associated infection, anemia, and bleeding. An improved understanding of pathophysiology, improvements in measurement technology and at least 10 recently approved therapies have led to revamping the diagnostic, prognostic, and therapeutic landscape of AML.DiagnosisOne updated and one new classification system were published in 2022, both emphasizing the integration of molecular analysis into daily practice. Differences between the International Consensus Classification and major revisions from the previous 2016 WHO system provide both challenges and opportunities for care and clinical research.Risk assessment and monitoringThe European Leukemia Net 2022 risk classification integrates knowledge from novel molecular findings and recent trial results, as well as emphasizing dynamic risk based on serial measurable residual disease assessment. However, how to leverage our burgeoning ability to measure a small number of potentially malignant myeloid cells into therapeutic decision making is controversial.Risk adapted therapyThe diagnostic and therapeutic complexity plus the availability of newly approved agents requires a nuanced therapeutic algorithm which should integrate patient goals of care, comorbidities, and disease characteristics including the specific mutational profile of the patient's AML. The framework we suggest only represents the beginning of the discussion.
+Abstract
+
+Disease overview
+
+Acute myeloid leukemia (AML) is a frequently fatal bone marrow stem cell cancer characterized by unbridled proliferation of malignant marrow stem cells with associated infection, anemia, and bleeding. An improved understanding of pathophysiology, improvements in measurement technology and at least 10 recently approved therapies have led to revamping the diagnostic, prognostic, and therapeutic landscape of AML.
+
+Diagnosis
+
+One updated and one new classification system were published in 2022, both emphasizing the integration of molecular analysis into daily practice. Differences between the International Consensus Classification and major revisions from the previous 2016 WHO system provide both challenges and opportunities for care and clinical research.
+
+Risk assessment and monitoring
+
+The European Leukemia Net 2022 risk classification integrates knowledge from novel molecular findings and recent trial results, as well as emphasizing dynamic risk based on serial measurable residual disease assessment. However, how to leverage our burgeoning ability to measure a small number of potentially malignant myeloid cells into therapeutic decision making is controversial.
+
+Risk adapted therapy
+
+The diagnostic and therapeutic complexity plus the availability of newly approved agents requires a nuanced therapeutic algorithm which should integrate patient goals of care, comorbidities, and disease characteristics including the specific mutational profile of the patient's AML. The framework we suggest only represents the beginning of the discussion.

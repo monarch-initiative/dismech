@@ -83,9 +83,15 @@ disease:
 just preflight-dr research/My_Disease-deep-research-falcon.md MONDO:XXXXXXX
 ```
 
-It reads the local MONDO build and exits 2 when that is absent rather than
-downloading it (about 1.3 GB on disk); run `just fetch-ontology-dbs mondo` once
-first. `--no-hgnc` also keeps it off the HGNC build.
+It reads the local MONDO build when it is on disk and the same term from OLS
+otherwise, and says which in its `MONDO source` line; it never downloads the
+build (about 1.3 GB on disk). It exits 2 only when OLS is unreachable too, and
+that is not a verdict: retry, or run `just fetch-ontology-dbs mondo` once. Over
+OLS the rival-gene disease lookup cannot run, so a report that never names the
+canonical gene but cites the right OMIM number comes back `WARN`, not `FAIL`.
+Without the local HGNC build it skips the HGNC lexicon and alias lookups, as
+`--no-hgnc` does, rather than downloading it; `just fetch-ontology-dbs hgnc`
+gives the sharper gene lexicon.
 
 Interpret the result as follows:
 
@@ -96,11 +102,20 @@ Interpret the result as follows:
 - `SKIP`: the automated check cannot discriminate; manually check disease
   identity before proceeding.
 
-For a `WARN` or `SKIP`, inspect the intended MONDO record directly:
+For a `WARN` or `SKIP`, inspect the intended MONDO record directly. This reads
+it from OLS and downloads nothing:
 
 ```bash
-uv run runoak -i sqlite:obo:mondo info MONDO:XXXXXXX -O obo
+uv run python -c "from dismech.mondo_ols import fetch_mondo_term; print(fetch_mondo_term('MONDO:XXXXXXX'))"
 ```
+
+It prints the label, the `RO:0004003` gene(s) with their symbols, every xref
+(OMIM among them), exact synonyms, and obsolescence. For related and broad
+synonyms, open the term in the OLS browser
+(`https://www.ebi.ac.uk/ols4/ontologies/mondo`, search the MONDO ID). Only if
+you already have the local build, `uv run runoak -i sqlite:obo:mondo info
+MONDO:XXXXXXX -O obo` shows the same record; without the build that command
+downloads about 1.3 GB.
 
 Compare its causal-gene relationship (`RO:0004003`), OMIM xref, and synonyms
 with the report. Look specifically for synonym aliasing, eponymic collision,
@@ -191,9 +206,13 @@ look. The two cases read identically in the diff and are opposite in kind.
 | the fact is textbook and no abstract states it crisply | move it to `notes`, no evidence |
 | a DR report asserted it and the cited abstract does not contain it | **drop the claim** — it is unverified, not merely unquotable |
 
-`Total checks: 0` in reference-validator output means zero issues were counted;
-it does not mean no evidence was examined. Use the wrapper's affirmative
-`Snippets checked: N/N verified` summary to describe cache-backed coverage.
+The validator's summary counts what it compared: `Snippets checked`,
+`Snippets skipped`, `Snippets unavailable`, `Titles checked`, and
+`Issues found`. `Snippets checked: 0` (with "No snippet comparisons were
+performed.") means nothing was compared, which is not a pass. Older validators
+printed `Total checks: 0`, which counted issues, not checks. Use
+`just count-verified-snippets`' `Snippets checked: N/N verified` line to describe
+cache-backed coverage.
 
 `DOI:` and `PMID:` snippets are checked by the same authoritative validator.
 A missing source, missing body, or mismatched quote fails validation; a failed
@@ -214,17 +233,29 @@ weaken an evidence constraint require explicit approval from `cmungall`
 
 "Exact substring" means exact **after normalization, on both sides**.
 `SupportingTextValidator.normalize_text` (in `linkml-reference-validator`, and
-reused by `just count-verified-snippets`) spells out Greek letters, lowercases,
-replaces every non-word non-space character with a space, then collapses runs of
-whitespace with `re.sub(r"\s+", " ", ...)`. Python's `\s` on `str` patterns
-matches Unicode whitespace, so most publisher typography folds away on both
-sides:
+reused by `just count-verified-snippets`) folds Latin ligatures, spells out Greek
+letters, lowercases and collapses whitespace (Python's `\s` matches Unicode
+whitespace). Since linkml-reference-validator 0.5.0 it no longer turns *every*
+symbol into a space. Symbols that carry meaning become words: `<` `>` `≤` `≥`
+become `lt` `gt` `le` `ge`, `±` becomes `pm`, a minus sign before a number stays
+on it (`-2.5` is `neg2.5`), and a point or comma between digits stays part of
+the number (`10.5`). All other punctuation is still a space. A match must also
+start and end on **whole words**: `activates` does not match `inactivates`, and
+`5 mM` does not match `10.5 mM`.
+
+Most publisher typography still folds away on both sides:
 
 | In the source | Write in the snippet |
 |---|---|
 | U+2009 thin space (common around `=` in Nature journals) | an ordinary space |
 | U+00A0 no-break space | an ordinary space |
-| U+2013 en dash, U+2212 minus (ranges, negative exponents) | an ordinary hyphen |
+| U+2013 en dash in a range (`3.97–6.38`, `1–12`) | an ordinary hyphen |
+| U+2212 `−`, or an en dash or U+2010 `‐` printed as a minus (`z score, –1.98`) | an ordinary `-` |
+| `≥` `≤`, or MEDLINE's ASCII `>/=` `</=` | either spelling (`>=` and `<=` also work) |
+| `±`, `+/-`, `+/–` | any of them |
+| U+00B7 middle-dot decimal (Lancet: `57·4`) | `57.4` |
+| U+00B5 micro sign `µ` | `µ` or `μ` |
+| `ﬁ`-style ligatures | plain `fi` |
 | U+00D7 multiplication sign | see the traps below |
 
 So `"AUC = 0.933"` typed with ordinary spaces matches source text reading
@@ -238,28 +269,55 @@ every `=`. Neither checked, and it cost a curated entry — recovered only
 mid-review. A curator who believes a figure "cannot be quoted" paraphrases it
 into `explanation` prose or drops the claim, and nothing goes red.
 
-**Prefer ASCII in new snippets** — an invisible character in a quote is a trap
-for the next curator, and it buys nothing, since the source's typography folds
-anyway. Existing snippets that copied the source's thin spaces and en dashes
+**Greek letters verify in either spelling.** `greek_map` runs on both sides, so
+`α3β3` and `alpha3beta3` both normalize to `alpha3beta3`, `γ` to `gamma`, and
+`NF-κB` to `nf kappab`. Prefer copying the source's visible letter, so the quote
+reads as the source does (#9433). The ASCII spelling is an acceptable fallback,
+provided it keeps the source's spacing: `NF-kappa B` normalizes to
+`nf kappa b` and does not match.
+
+**Never truncate a quote to avoid a character.** A snippet that stops just
+before a Greek letter, `×`, or any other character it was cited for still
+verifies, and clears `check-snippet-length` once it has `MIN_SNIPPET_WORDS = 5`
+words, so the length gate is not a backstop. On #15493 two such fragments
+(`Leu335 lies close to the hydrophobic sleeve in the`, `Mutations in this region
+in the`) passed every gate and supported nothing (#15607). Quote through the
+character, or choose a different sentence.
+
+To test a candidate, call the real normalizer, not a re-implementation of it:
+
+```bash
+uv run python -c "from linkml_reference_validator.validation.supporting_text_validator import SupportingTextValidator as V; print(V.normalize_text('the α3β3 assembly'))"
+```
+
+**Prefer ASCII for invisible and lookalike characters** — an invisible character
+in a quote is a trap for the next curator, and it buys nothing, since the
+source's typography folds anyway. A visible Greek letter that is part of the
+nomenclature is not that case. Existing snippets that copied the source's thin spaces and en dashes
 verbatim are equally valid and need no repair; several hundred `kb/disorders`
 snippets do exactly that.
 
 **The traps — characters that do *not* vanish.** Each of these survives
-normalization on one side only, so the comparison fails:
+normalization on one side only, or means something different, so the comparison
+fails:
 
+- **A dropped or changed comparison or sign.** `ratios 3:1` does not match
+  `ratios ≥3:1`, and `-2.5 fold` does not match `2.5 fold`. This is the point of
+  the 0.5.0 rule: quote the symbol.
+- **Number separators.** A point or comma between digits is part of the number,
+  so quote numbers with the source's own separators: `0.8, 7.3` does not match
+  `0.8,7.3`, and `10 000` does not match `10,000`.
+- **A spaced ASCII hyphen as a minus.** `range - 4.72` reads as a range dash, so
+  it does not match a source's `range − 4.72`. Write `−` or `-4.72`. The reverse
+  also holds: a range spaced on one side only (`18 –65`) reads as `18` and `-65`.
+- **Starting a quote on a sign or mid-word.** A quote beginning `-3881 and…`
+  reads its first word as `neg3881`; start on a whole word instead.
 - **`x` for `×`.** `x` is a word character and survives, while U+00D7 becomes a
   space, so `"7.03 x 10-48"` does *not* match `7.03 × 10−48`. Include the
   literal `×`, or end the quote before the scientific-notation clause.
 - **Mid-word invisibles.** U+00AD soft hyphen and U+200B zero-width space
   normalize to a *space*, splitting the word: cached `diffi<U+00AD>culties`
   becomes `diffi culties` and never matches `difficulties`.
-- **Ligatures.** U+FB01 `ﬁ` is a word character and survives unchanged, so
-  cached `speciﬁc` does not match `specific`. Note the asymmetry: `just
-  count-verified-snippets` folds ligatures in its relaxed cache-defect pass
-  (#8048, `normalize_relaxed` in `src/dismech/reference_snippet_audit.py`) but
-  the gating `linkml-reference-validator` does not — so such a snippet can pass
-  the fast check and fail the pre-PR sweep.
-- **Micro sign.** U+00B5 `µ` survives, since only U+03BC `μ` is in `greek_map`.
 
 If a quote you copied verbatim still fails, run `just count-verified-snippets` —
 it names the span it could not find rather than leaving you guessing.
@@ -350,8 +408,10 @@ Copy it from there. `just check-reference-titles` gates new mismatches (offline,
 similarity-based, so punctuation, dashes, diacritics and source-XML markup do
 not trip it) and prints the cached title in the failure message, so the fix is a
 copy-paste. `just list-reference-title-mismatches` is the triage view;
-`scripts/find_missing_reference_titles.py` is the complementary check for
-*absent* titles.
+`just check-reference-titles-present` is the complementary gate for *absent*
+titles: every evidence item must carry one. Fill a gap with
+`uv run python scripts/backfill_reference_titles.py <file>`, which copies the
+cached title, rather than typing it.
 
 ## Frequency claims
 

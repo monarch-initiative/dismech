@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temple Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Temple Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Temple Syndrome</h1>
+                
+                <p class="report-subtitle">Temple Syndrome (TS14): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-10-24</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0100507" target="_blank" rel="noopener noreferrer">MONDO:0100507</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">30 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Temple Syndrome (TS14): A Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Temple syndrome (TS14)
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0100507" target="_blank" rel="noopener noreferrer">MONDO:0100507</a> · <strong>OMIM:</strong> #616222 · <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:254528" target="_blank" rel="noopener noreferrer">ORPHA:254528</a>
+<strong>Causal locus:</strong> Chromosome 14q32.2 imprinted <em>DLK1-DIO3</em> domain
+<strong>Category:</strong> Mendelian / imprinting disorder</p>
+<hr />
+<h2>Summary</h2>
+<p><strong>Temple syndrome is a rare genomic imprinting disorder of the chromosome 14q32.2 <em>DLK1-DIO3<em> domain.</em><em> Its defining molecular lesion is the loss of expression of the </em><em>paternally expressed, protein-coding genes — chiefly </em>DLK1<em> (Delta-Like Non-Canonical Notch Ligand 1), together with </em>RTL1<em> and </em>DIO3</em></strong> — combined with biallelic over-expression of the maternally expressed non-coding RNAs of the same cluster (<em>MEG3</em>/GTL2, <em>MEG8</em>, the <em>RTL1</em> antisense transcript, and an embedded miRNA/snoRNA array). This dosage imbalance is produced by three convergent mechanisms, all of which manifest as hypomethylation of the <em>MEG3/DLK1</em> intergenic differentially methylated region (IG-DMR) and the <em>MEG3</em>-DMR: (1) <strong>maternal uniparental disomy of chromosome 14 [upd(14)mat]</strong>, (2) <strong>isolated paternal epimutation (loss of methylation)</strong> of the IG-DMR/MEG3-DMR, and (3) <strong>paternal microdeletion of 14q32</strong>. In the two largest cohorts the proportions are roughly 29–61% epimutation, 29–88% upd(14)mat, and 5–11% deletion, varying with ascertainment [<a href="https://pubmed.ncbi.nlm.nih.gov/29659920/" target="_blank" rel="noopener noreferrer">PMID: 29659920</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>].</p>
+<p><strong>Clinically, TS14 presents as a multi-system growth and metabolic disorder.</strong> Cardinal features are pre- and postnatal growth restriction (most children are small for gestational age), neonatal hypotonia and feeding difficulties, motor and language delay, small hands and feet, later truncal obesity, and <strong>central precocious puberty (CPP)</strong> — the last driven specifically by loss of <em>DLK1</em>. Pooled data from 51 published cases gave hypotonia 93%, motor delay 83%, early puberty 86% (mean menarche 10 years 2 months), small hands 87%, small feet 96%, and obesity 49% [<a href="https://pubmed.ncbi.nlm.nih.gov/24891339/" target="_blank" rel="noopener noreferrer">PMID: 24891339</a>]. A genetically confirmed 60-patient Japanese cohort reported SGA 88.3%, postnatal short stature 87.0%, and CPP 86.0% [<a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>]. Cognition is generally normal to mildly reduced (median IQ ~85–91), and adult functional outcome is favourable (98.2% attended college or held jobs), but there is meaningful lifelong cardiometabolic risk — obesity ~20%, hypercholesterolemia ~27%, and early type 2 diabetes ~13% [<a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36362517/" target="_blank" rel="noopener noreferrer">PMID: 36362517</a>].</p>
+<p><strong>TS14 is clinically important chiefly because it is under-diagnosed and treatable.</strong> It overlaps substantially with Silver-Russell syndrome (SRS) and Prader-Willi syndrome (PWS) and is identified in roughly 2% of patients referred for PWS or SRS testing [<a href="https://pubmed.ncbi.nlm.nih.gov/29159982/" target="_blank" rel="noopener noreferrer">PMID: 29159982</a>]. Diagnosis rests on tiered methylation and copy-number/UPD testing of 14q32. Management is supportive and multidisciplinary: recombinant growth hormone (rhGH) improves short- and long-term height and body composition, GnRH-analogue therapy suppresses precocious puberty, and lifelong metabolic surveillance addresses the obesity/dyslipidemia/diabetes risk. No disease-modifying or gene-directed therapy exists. Recurrence risk is low for the common sporadic mechanisms, but paternally inherited 14q32 deletions are Mendelian with a parent-of-origin twist: the <em>same</em> deletion transmitted through a mother produces the mirror-image disorder, <strong>Kagami-Ogata syndrome (KOS)</strong>.</p>
+<hr />
+<h2>Section 1 — Disease Information</h2>
+<p><strong>Overview.</strong> Temple syndrome (TS14) is a rare, clinically recognizable imprinting disorder caused by absence of the paternally expressed genes and/or over-expression of the maternally expressed non-coding RNAs within a single imprinted cluster on human chromosome 14q32 [<a href="https://pubmed.ncbi.nlm.nih.gov/32592473/" target="_blank" rel="noopener noreferrer">PMID: 32592473</a>]. It was delineated as a distinct entity and given its eponym by Ioannides et al. in 2014 after analysis of 51 published cases of what had previously been called the "maternal UPD14 phenotype," honouring clinician-geneticist I. Karen Temple [<a href="https://pubmed.ncbi.nlm.nih.gov/24891339/" target="_blank" rel="noopener noreferrer">PMID: 24891339</a>].</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OMIM</td>
+<td>#616222</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0100507" target="_blank" rel="noopener noreferrer">MONDO:0100507</a></td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:254528" target="_blank" rel="noopener noreferrer">ORPHA:254528</a></td>
+</tr>
+<tr>
+<td>HGNC genes</td>
+<td><em>DLK1</em> (<a href="https://bioregistry.io/HGNC:2907" target="_blank" rel="noopener noreferrer">HGNC:2907</a>), <em>MEG3</em> (<a href="https://bioregistry.io/HGNC:14575" target="_blank" rel="noopener noreferrer">HGNC:14575</a>), <em>RTL1</em> (<a href="https://bioregistry.io/HGNC:35814" target="_blank" rel="noopener noreferrer">HGNC:35814</a>), <em>MEG8</em>, <em>DIO3</em></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names:</strong> maternal uniparental disomy 14 syndrome; upd(14)mat phenotype/syndrome; TS14; 14q32.2 maternal imprinting defect [<a href="https://pubmed.ncbi.nlm.nih.gov/34460908/" target="_blank" rel="noopener noreferrer">PMID: 34460908</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>].</p>
+<p><strong>Information source.</strong> This report is derived from aggregated disease-level resources (OMIM, Orphanet, MONDO) and from published clinical cohorts and case series (human clinical evidence), supplemented by model-organism and in-vitro mechanistic studies. It is not EHR/individual-patient derived.</p>
+<hr />
+<h2>Section 2 — Etiology</h2>
+<p><strong>Primary cause — genetic/epigenetic.</strong> TS14 is a constitutional (epi)genetic disorder with <strong>no infectious, toxic, or classical lifestyle cause.</strong> The primary lesion is a parent-of-origin dosage imbalance at 14q32.2 produced by three mechanisms [<a href="https://pubmed.ncbi.nlm.nih.gov/38715103/" target="_blank" rel="noopener noreferrer">PMID: 38715103</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32592473/" target="_blank" rel="noopener noreferrer">PMID: 32592473</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29659920/" target="_blank" rel="noopener noreferrer">PMID: 29659920</a>]:</p>
+<ol>
+<li><strong>Maternal uniparental disomy of chromosome 14 [upd(14)mat]</strong> — typically a maternal meiosis-I nondisjunction error followed by postzygotic trisomy-14 rescue (occasionally monosomy rescue or a mitotic error), which explains the occasional co-occurrence of TS14 with mosaic trisomy 14 [<a href="https://pubmed.ncbi.nlm.nih.gov/30181735/" target="_blank" rel="noopener noreferrer">PMID: 30181735</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33746039/" target="_blank" rel="noopener noreferrer">PMID: 33746039</a>].</li>
+<li><strong>Isolated primary epimutation</strong> — sporadic loss of methylation at the paternal IG-DMR/MEG3-DMR [<a href="https://pubmed.ncbi.nlm.nih.gov/26395259/" target="_blank" rel="noopener noreferrer">PMID: 26395259</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25351781/" target="_blank" rel="noopener noreferrer">PMID: 25351781</a>].</li>
+<li><strong>Paternal 14q32 microdeletion</strong> — heritable and Mendelian [<a href="https://pubmed.ncbi.nlm.nih.gov/38715103/" target="_blank" rel="noopener noreferrer">PMID: 38715103</a>].</li>
+</ol>
+<p><strong>Genetic risk factors.</strong> The causal "variants" are the (epi)genetic lesions above. There are no established common susceptibility loci or modifier alleles with proven effect on TS14 risk. Multilocus imprinting disturbance (MLID) can co-affect other imprinted loci (e.g., 11p15), sometimes attributable to variants in methylation-machinery genes, and represents an etiologic modifier rather than an independent cause [<a href="https://pubmed.ncbi.nlm.nih.gov/35266280/" target="_blank" rel="noopener noreferrer">PMID: 35266280</a>].</p>
+<p><strong>Environmental risk factors.</strong> (1) <strong>Advanced maternal age</strong> is associated with the meiotic nondisjunction that underlies upd(14)mat via trisomy rescue [<a href="https://pubmed.ncbi.nlm.nih.gov/30181735/" target="_blank" rel="noopener noreferrer">PMID: 30181735</a>]. (2) <strong>Assisted reproductive technology (ART)</strong> is a recognized (though not TS14-specific) risk for imprinting epimutations: "ART procedures, especially ovarian hyperstimulation, in vitro fertilization (IVF), and embryo culture, coincide with critical periods of epigenetic reprogramming and may contribute to epimutations in imprinting control regions" [<a href="https://pubmed.ncbi.nlm.nih.gov/41153459/" target="_blank" rel="noopener noreferrer">PMID: 41153459</a>].</p>
+<p><strong>Protective factors.</strong> No protective alleles or environmental protective factors are established for TS14.</p>
+<p><strong>Gene–environment interactions.</strong> The <em>DLK1-MEG3</em> methylation state is environmentally sensitive: preeclampsia exposure is associated with hypermethylation of the IG-DMR and altered <em>DLK1/MEG3</em> expression in umbilical vessels, illustrating that environmental stress can perturb this locus [<a href="https://pubmed.ncbi.nlm.nih.gov/30234781/" target="_blank" rel="noopener noreferrer">PMID: 30234781</a>]. This is mechanistically illustrative rather than a demonstrated cause of TS14.</p>
+<hr />
+<h2>Section 3 — Phenotypes</h2>
+<p>TS14 phenotypes are predominantly physical manifestations, clinical signs, and some behavioural/neurodevelopmental features, with a few laboratory abnormalities (dyslipidemia, hyperglycemia) emerging later in life.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term (suggested)</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Frequency</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Intrauterine / prenatal growth restriction</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" rel="noopener noreferrer">HP:0001511</a></td>
+<td>Physical</td>
+<td>Prenatal</td>
+<td>67–88% SGA; 100% IUGR in some cohorts</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36362517/" target="_blank" rel="noopener noreferrer">PMID: 36362517</a></td>
+</tr>
+<tr>
+<td>Postnatal short stature</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a></td>
+<td>Physical</td>
+<td>Childhood (~2 y)</td>
+<td>87%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a></td>
+</tr>
+<tr>
+<td>Muscular hypotonia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a></td>
+<td>Clinical sign</td>
+<td>Neonatal</td>
+<td>71–100% (pooled 93%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24891339/" target="_blank" rel="noopener noreferrer">PMID: 24891339</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36362517/" target="_blank" rel="noopener noreferrer">PMID: 36362517</a></td>
+</tr>
+<tr>
+<td>Feeding difficulties</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" rel="noopener noreferrer">HP:0011968</a></td>
+<td>Clinical sign</td>
+<td>Neonatal</td>
+<td>53–86%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42026594/" target="_blank" rel="noopener noreferrer">PMID: 42026594</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36362517/" target="_blank" rel="noopener noreferrer">PMID: 36362517</a></td>
+</tr>
+<tr>
+<td>Motor delay</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" rel="noopener noreferrer">HP:0001270</a></td>
+<td>Behavioural/neuro</td>
+<td>Infancy</td>
+<td>83%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24891339/" target="_blank" rel="noopener noreferrer">PMID: 24891339</a></td>
+</tr>
+<tr>
+<td>Delayed speech / language</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a></td>
+<td>Behavioural/neuro</td>
+<td>Childhood</td>
+<td>Common</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42026594/" target="_blank" rel="noopener noreferrer">PMID: 42026594</a></td>
+</tr>
+<tr>
+<td>Small hands</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200055" target="_blank" rel="noopener noreferrer">HP:0200055</a></td>
+<td>Physical</td>
+<td>Congenital</td>
+<td>87%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24891339/" target="_blank" rel="noopener noreferrer">PMID: 24891339</a></td>
+</tr>
+<tr>
+<td>Small feet</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001773" target="_blank" rel="noopener noreferrer">HP:0001773</a></td>
+<td>Physical</td>
+<td>Congenital</td>
+<td>96%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24891339/" target="_blank" rel="noopener noreferrer">PMID: 24891339</a></td>
+</tr>
+<tr>
+<td>Truncal obesity / weight gain</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001956" target="_blank" rel="noopener noreferrer">HP:0001956</a></td>
+<td>Physical</td>
+<td>Later childhood</td>
+<td>~20–49%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24891339/" target="_blank" rel="noopener noreferrer">PMID: 24891339</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a></td>
+</tr>
+<tr>
+<td>Central precocious puberty</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000826" target="_blank" rel="noopener noreferrer">HP:0000826</a></td>
+<td>Clinical sign</td>
+<td>Childhood</td>
+<td>86–89%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36362517/" target="_blank" rel="noopener noreferrer">PMID: 36362517</a></td>
+</tr>
+<tr>
+<td>Intellectual/developmental disability (mild)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+<td>Behavioural/neuro</td>
+<td>Childhood</td>
+<td>~22% (IQ median ~85–91)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36362517/" target="_blank" rel="noopener noreferrer">PMID: 36362517</a></td>
+</tr>
+<tr>
+<td>Hypercholesterolemia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003124" target="_blank" rel="noopener noreferrer">HP:0003124</a></td>
+<td>Lab abnormality</td>
+<td>≥6 y</td>
+<td>26.5%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a></td>
+</tr>
+<tr>
+<td>Diabetes mellitus (type 2)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" rel="noopener noreferrer">HP:0000819</a></td>
+<td>Lab abnormality</td>
+<td>≥9 y</td>
+<td>12.8%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Severity/progression.</strong> Core features (growth restriction, small hands/feet, hypotonia) are congenital and largely stable/non-progressive. The metabolic phenotype (obesity, dyslipidemia, early diabetes) is progressive/age-dependent. Precocious puberty is episodic in presentation but reversible with treatment. Expressivity is variable.</p>
+<p><strong>Quality-of-life impact.</strong> TS14 affects growth, feeding, motor/language development, and psychosocial function; psycho-behavioral problems were reported in ~53% of one cohort [<a href="https://pubmed.ncbi.nlm.nih.gov/36362517/" target="_blank" rel="noopener noreferrer">PMID: 36362517</a>]. Despite early special-education enrolment (~43–54%), the great majority achieve independent adult function [<a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>]. No TS14-specific EQ-5D/SF-36 data are available.</p>
+<hr />
+<h2>Section 4 — Genetic / Molecular Information</h2>
+<p><strong>Causal genes and domain architecture.</strong> The disorder maps to the imprinted <em>DLK1-DIO3</em> domain at 14q32.2. "The domain contains three imprinted protein-coding genes, Dlk1, Rtl1 and Dio3, expressed from the paternally inherited chromosome and several imprinted large and small noncoding RNA genes expressed from the maternally inherited homolog" [<a href="https://pubmed.ncbi.nlm.nih.gov/18471925/" target="_blank" rel="noopener noreferrer">PMID: 18471925</a>]. Loss of the paternal program (DLK1, RTL1, DIO3) plus gain of the maternal program (MEG3/GTL2, MEG8, RTL1as, miRNAs/snoRNAs) produces TS14 [<a href="https://pubmed.ncbi.nlm.nih.gov/38715103/" target="_blank" rel="noopener noreferrer">PMID: 38715103</a>].</p>
+<ul>
+<li><strong>DLK1</strong> (<a href="https://bioregistry.io/HGNC:2907" target="_blank" rel="noopener noreferrer">HGNC:2907</a>; OMIM *176290) — the principal driver of the precocious-puberty and adiposity phenotype. "Loss-of-function mutations in DLK1 … have been linked to central precocious puberty (CPP) and increased body fat in girls" [<a href="https://pubmed.ncbi.nlm.nih.gov/42677749/" target="_blank" rel="noopener noreferrer">PMID: 42677749</a>].</li>
+<li><strong>MEG3/GTL2</strong> (<a href="https://bioregistry.io/HGNC:14575" target="_blank" rel="noopener noreferrer">HGNC:14575</a>), <strong>MEG8</strong>, <strong>RTL1/RTL1as</strong> (<a href="https://bioregistry.io/HGNC:35814" target="_blank" rel="noopener noreferrer">HGNC:35814</a>), <strong>DIO3</strong> — maternally or paternally expressed cluster members contributing to the imbalance.</li>
+</ul>
+<p><strong>Pathogenic variants / lesion classes.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Mechanism</th>
+<th>Lesion class</th>
+<th>Approx. frequency (Geoffron, n=28)</th>
+<th>Consequence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IG-DMR/MEG3-DMR epimutation</td>
+<td>Primary epigenetic LOM</td>
+<td>60.7%</td>
+<td>Silences paternal DLK1/RTL1</td>
+</tr>
+<tr>
+<td>upd(14)mat</td>
+<td>Whole-chromosome UPD (structural)</td>
+<td>28.6%</td>
+<td>Loss of paternal alleles</td>
+</tr>
+<tr>
+<td>Paternal 14q32 microdeletion</td>
+<td>Structural deletion</td>
+<td>10.7%</td>
+<td>Loss of paternal copy</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>"Seventeen (60.7%) patients showed loss of methylation of the MEG3/DLK1 intergenic differentially methylated region by epimutation. Eight (28.6%) patients had maternal uniparental disomy of chromosome 14 and three (10.7%) had a paternal deletion in 14q32.2" [<a href="https://pubmed.ncbi.nlm.nih.gov/29659920/" target="_blank" rel="noopener noreferrer">PMID: 29659920</a>]. Proportions differ by cohort and referral pattern; in the 60-patient Japanese cohort upd(14)mat predominated (31/60) [<a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>].</p>
+<p><strong>Variant classification / origin.</strong> The lesions are germline/constitutional (not somatic). Deletions are classed pathogenic; epimutations and UPD are pathogenic epigenetic/structural events rather than ACMG sequence variants. Allele-frequency databases (gnomAD etc.) are not applicable to UPD/epimutation. A rare novel structural mechanism — <strong>interchromosomal template-switching</strong> forming DUP-TRP/INV-DUP complex rearrangements and generating segmental UPD(14)mat — has been described: "these CGRs may lead to genetic abnormalities in carriers due to dosage-sensitive genes mapping within the copy-number variant regions" [<a href="https://pubmed.ncbi.nlm.nih.gov/31014393/" target="_blank" rel="noopener noreferrer">PMID: 31014393</a>].</p>
+<p><strong>Functional consequence.</strong> Net effect is <strong>loss of function of paternally expressed genes</strong> (DLK1/RTL1/DIO3) with <strong>gain of expression of maternally expressed non-coding RNAs</strong>.</p>
+<p><strong>Modifier genes.</strong> No robust modifier genes are established. MLID can co-involve machinery genes affecting multiple loci [<a href="https://pubmed.ncbi.nlm.nih.gov/35266280/" target="_blank" rel="noopener noreferrer">PMID: 35266280</a>]. In SRS, pathogenic <em>PLAG1</em> variants secondarily deregulate the MEG8:Int2-DMR of the 14q32 cluster, connecting this domain to a wider growth-disorder network [<a href="https://pubmed.ncbi.nlm.nih.gov/41276848/" target="_blank" rel="noopener noreferrer">PMID: 41276848</a>].</p>
+<p><strong>Epigenetic information.</strong> The germline <strong>IG-DMR</strong> (methylated on the paternal allele) hierarchically controls imprinting across the domain, with the somatic <strong>MEG3-DMR</strong> downstream; paternal loss of IG-DMR methylation is the unifying biomarker of TS14 [<a href="https://pubmed.ncbi.nlm.nih.gov/18471925/" target="_blank" rel="noopener noreferrer">PMID: 18471925</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25351781/" target="_blank" rel="noopener noreferrer">PMID: 25351781</a>].</p>
+<p><strong>Chromosomal abnormalities.</strong> upd(14)mat (± mosaic trisomy 14 or small supernumerary marker chromosome 14) and paternal 14q32 microdeletions [<a href="https://pubmed.ncbi.nlm.nih.gov/33746039/" target="_blank" rel="noopener noreferrer">PMID: 33746039</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/30181735/" target="_blank" rel="noopener noreferrer">PMID: 30181735</a>].</p>
+<hr />
+<h2>Section 5 — Environmental Information</h2>
+<p>TS14 has <strong>no established toxic, occupational, pollution, dietary, or infectious cause.</strong> Environmental relevance is confined to (a) ART-associated epimutation risk during epigenetic reprogramming windows [<a href="https://pubmed.ncbi.nlm.nih.gov/41153459/" target="_blank" rel="noopener noreferrer">PMID: 41153459</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39889767/" target="_blank" rel="noopener noreferrer">PMID: 39889767</a>] and (b) demonstration that the <em>DLK1-MEG3</em> methylation state is modifiable by gestational stress such as preeclampsia [<a href="https://pubmed.ncbi.nlm.nih.gov/30234781/" target="_blank" rel="noopener noreferrer">PMID: 30234781</a>]. No infectious agents are implicated.</p>
+<hr />
+<h2>Section 6 — Mechanism / Pathophysiology</h2>
+<h3>Causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li>A parent-of-origin lesion at 14q32.2 occurs — <strong>upd(14)mat</strong>, <strong>paternal IG-DMR/MEG3-DMR epimutation</strong>, or <strong>paternal 14q32 microdeletion</strong> — <em>leads to</em> loss of the paternal allele's contribution across the domain [<a href="https://pubmed.ncbi.nlm.nih.gov/38715103/" target="_blank" rel="noopener noreferrer">PMID: 38715103</a>].</li>
+<li>Loss of paternal IG-DMR methylation <em>results in</em> silencing of the paternally expressed protein-coding genes <strong>DLK1, RTL1, DIO3</strong> and biallelic activation of the maternally expressed non-coding RNAs <strong>MEG3, MEG8, RTL1as</strong> and the embedded miRNA/snoRNA cluster [<a href="https://pubmed.ncbi.nlm.nih.gov/18471925/" target="_blank" rel="noopener noreferrer">PMID: 18471925</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25351781/" target="_blank" rel="noopener noreferrer">PMID: 25351781</a>].</li>
+<li><strong>Loss of DLK1</strong> (a Notch-pathway non-canonical ligand) <em>leads to</em> dysregulated GnRH-axis timing and altered adipogenesis, <em>resulting in</em> <strong>central precocious puberty</strong> and <strong>increased body fat</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/42677749/" target="_blank" rel="noopener noreferrer">PMID: 42677749</a>]. (The precise circuit is still being resolved and appears to act up- or downstream of GnRH neurons — <em>inferred</em> from iPSC modelling [<a href="https://pubmed.ncbi.nlm.nih.gov/40924042/" target="_blank" rel="noopener noreferrer">PMID: 40924042</a>].)</li>
+<li>Loss of paternal gene dosage across the domain (<em>DLK1/RTL1</em>) <em>results in</em> impaired fetal/placental growth signalling, <em>leading to</em> <strong>pre- and postnatal growth restriction</strong> and <strong>small hands/feet</strong> (<em>inferred</em> from mouse upd(12) and <em>Dlk1</em>-null models) [<a href="https://pubmed.ncbi.nlm.nih.gov/17449025/" target="_blank" rel="noopener noreferrer">PMID: 17449025</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42677749/" target="_blank" rel="noopener noreferrer">PMID: 42677749</a>].</li>
+<li>Reduced muscle maturation and connective-tissue/skeletal effects <em>lead to</em> <strong>neonatal hypotonia and feeding difficulties</strong> (<em>inferred</em> from the mouse upd(12) muscle/bone phenotype) [<a href="https://pubmed.ncbi.nlm.nih.gov/17449025/" target="_blank" rel="noopener noreferrer">PMID: 17449025</a>].</li>
+<li>Loss of DLK1's restraint on adipogenesis plus later positive energy balance <em>leads to</em> <strong>truncal obesity</strong>, which <em>results in</em> <strong>dyslipidemia and type 2 diabetes</strong> in later life (though hypercholesterolemia/diabetes can precede overt obesity) [<a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26395259/" target="_blank" rel="noopener noreferrer">PMID: 26395259</a>].</li>
+</ol>
+<p>Where the mechanism <strong>branches:</strong> the identical structural deletion produces <strong>TS14 if paternally inherited</strong> but the mirror disorder <strong>Kagami-Ogata syndrome if maternally inherited</strong> — opposite dosage, opposite (overgrowth) phenotype [<a href="https://pubmed.ncbi.nlm.nih.gov/39210340/" target="_blank" rel="noopener noreferrer">PMID: 39210340</a>].</p>
+<h3>Supporting mechanistic detail</h3>
+<ul>
+<li><strong>Molecular pathways.</strong> DLK1 is a non-canonical Notch ligand; its activation during neuronal differentiation induces Wnt-pathway genes and alters neural fate, linking DLK1 dosage to neurodevelopment and pubertal timing [<a href="https://pubmed.ncbi.nlm.nih.gov/40924042/" target="_blank" rel="noopener noreferrer">PMID: 40924042</a>]. RTL1 is reciprocally regulated by RTL1as-encoded microRNAs: "these results suggest that RTL1as-encoded microRNA functions as a repressor of RTL1" [<a href="https://pubmed.ncbi.nlm.nih.gov/22917972/" target="_blank" rel="noopener noreferrer">PMID: 22917972</a>].</li>
+<li><strong>Cellular processes.</strong> Skeletal-muscle maturation, bone formation, placental growth/organization, adipocyte differentiation, and GnRH-neuron ontogeny [<a href="https://pubmed.ncbi.nlm.nih.gov/17449025/" target="_blank" rel="noopener noreferrer">PMID: 17449025</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40924042/" target="_blank" rel="noopener noreferrer">PMID: 40924042</a>]. The domain's miRNAs (e.g., miR-127-3p) regulate cell-cycle arrest/senescence in model systems [<a href="https://pubmed.ncbi.nlm.nih.gov/33279585/" target="_blank" rel="noopener noreferrer">PMID: 33279585</a>].</li>
+<li><strong>Protein dysfunction.</strong> Loss of function of DLK1 (and RTL1/DIO3 proteins). DIO3 is a deiodinase affecting local thyroid-hormone metabolism — a plausible contributor to growth/metabolic features (<em>inferred</em>).</li>
+<li><strong>Metabolic changes.</strong> Increased adiposity, dyslipidemia, and early insulin resistance/T2DM [<a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>].</li>
+<li><strong>Suggested ontology terms.</strong> GO: <a href="http://purl.obolibrary.org/obo/GO_0007219" target="_blank" rel="noopener noreferrer">GO:0007219</a> (Notch signaling), <a href="http://purl.obolibrary.org/obo/GO_0045444" target="_blank" rel="noopener noreferrer">GO:0045444</a> (fat cell differentiation), <a href="http://purl.obolibrary.org/obo/GO_0001701" target="_blank" rel="noopener noreferrer">GO:0001701</a> (in utero embryonic development). CL: <a href="http://purl.obolibrary.org/obo/CL_0000136" target="_blank" rel="noopener noreferrer">CL:0000136</a> (adipocyte), <a href="http://purl.obolibrary.org/obo/CL_0000187" target="_blank" rel="noopener noreferrer">CL:0000187</a> (muscle cell), <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" rel="noopener noreferrer">CL:0000617</a> (GnRH neuron, approximate). CHEBI: cholesterol (<a href="http://purl.obolibrary.org/obo/CHEBI_16113" target="_blank" rel="noopener noreferrer">CHEBI:16113</a>), glucose (<a href="http://purl.obolibrary.org/obo/CHEBI_17234" target="_blank" rel="noopener noreferrer">CHEBI:17234</a>).</li>
+</ul>
+<hr />
+<h2>Section 7 — Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ/system level.</strong> Endocrine system (hypothalamic-pituitary-gonadal axis — precocious puberty; metabolic/endocrine — obesity, dyslipidemia, T2DM); musculoskeletal system (hypotonia, short stature, small hands/feet); nervous system (motor/language delay, mild ID); digestive (neonatal feeding difficulties); and the placenta prenatally. Fatty-liver disease has been reported as a newer-recognized feature [<a href="https://pubmed.ncbi.nlm.nih.gov/33746039/" target="_blank" rel="noopener noreferrer">PMID: 33746039</a>].</li>
+<li><strong>Tissue/cell level.</strong> Skeletal muscle, bone/connective tissue, adipose tissue, and GnRH neurons are the principal targets (<em>inferred</em> from model organisms) [<a href="https://pubmed.ncbi.nlm.nih.gov/17449025/" target="_blank" rel="noopener noreferrer">PMID: 17449025</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40924042/" target="_blank" rel="noopener noreferrer">PMID: 40924042</a>].</li>
+<li><strong>Subcellular level.</strong> DIO3 and thyroid-hormone handling implicate cytoplasmic/membrane compartments; the central lesion is nuclear/chromatin (DMR methylation). GO cellular-component: <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> (nucleus, site of imprinting lesion).</li>
+<li><strong>Localization / lateralization.</strong> Effects are systemic and bilateral/symmetric; body asymmetry (characteristic of SRS) is generally absent in TS14, aiding differentiation [<a href="https://pubmed.ncbi.nlm.nih.gov/25351781/" target="_blank" rel="noopener noreferrer">PMID: 25351781</a>].</li>
+<li><strong>Suggested UBERON terms.</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0001013" target="_blank" rel="noopener noreferrer">UBERON:0001013</a> (adipose tissue), <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a> (skeletal muscle), <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a> (liver), <a href="http://purl.obolibrary.org/obo/UBERON_0001898" target="_blank" rel="noopener noreferrer">UBERON:0001898</a> (hypothalamus), <a href="http://purl.obolibrary.org/obo/UBERON_0000992" target="_blank" rel="noopener noreferrer">UBERON:0000992</a> (ovary), <a href="http://purl.obolibrary.org/obo/UBERON_0001987" target="_blank" rel="noopener noreferrer">UBERON:0001987</a> (placenta).</li>
+</ul>
+<hr />
+<h2>Section 8 — Temporal Development</h2>
+<ul>
+<li><strong>Onset.</strong> Congenital/neonatal: growth restriction is prenatal; hypotonia and feeding difficulties present at birth. Onset is insidious/chronic rather than acute.</li>
+<li><strong>Progression.</strong> Core dysmorphic/growth features are stable and non-progressive. Puberty becomes precocious in childhood (mean menarche ~10 years 2 months) [<a href="https://pubmed.ncbi.nlm.nih.gov/24891339/" target="_blank" rel="noopener noreferrer">PMID: 24891339</a>]. The metabolic phenotype is progressive and age-dependent — hypercholesterolemia from ≥6 years, diabetes from ≥9 years [<a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>].</li>
+<li><strong>Disease course.</strong> Chronic and lifelong but compatible with normal life expectancy and favourable adult function [<a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>].</li>
+<li><strong>Critical periods / intervention windows.</strong> Infancy/early childhood for feeding support and growth-hormone initiation (benefit shown with early start); pre-pubertal window for GnRH-analogue therapy; lifelong metabolic surveillance thereafter [<a href="https://pubmed.ncbi.nlm.nih.gov/36977395/" target="_blank" rel="noopener noreferrer">PMID: 36977395</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>].</li>
+</ul>
+<hr />
+<h2>Section 9 — Inheritance and Population</h2>
+<ul>
+<li><strong>Epidemiology.</strong> Exact prevalence and incidence are <strong>unknown</strong>; TS14 is rare and recognized as under-diagnosed, detected in ~2% of patients referred for PWS or SRS testing [<a href="https://pubmed.ncbi.nlm.nih.gov/29159982/" target="_blank" rel="noopener noreferrer">PMID: 29159982</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24891339/" target="_blank" rel="noopener noreferrer">PMID: 24891339</a>].</li>
+<li><strong>Inheritance pattern.</strong> Most cases are <strong>sporadic/de novo</strong> (upd(14)mat from maternal nondisjunction + trisomy rescue; sporadic epimutation). <strong>Deletion-based cases are Mendelian with a parent-of-origin effect</strong> — paternal transmission → TS14; maternal transmission of the same deletion → Kagami-Ogata syndrome [<a href="https://pubmed.ncbi.nlm.nih.gov/39210340/" target="_blank" rel="noopener noreferrer">PMID: 39210340</a>].</li>
+<li><strong>Penetrance / expressivity.</strong> High penetrance for the core phenotype among those with the lesion; expressivity is variable. No genetic anticipation (not a repeat-expansion disorder).</li>
+<li><strong>Germline mosaicism / founder effects / consanguinity.</strong> No established founder effects; consanguinity is not a driver (this is not autosomal-recessive). Mosaic trisomy 14 can coexist with upd(14)mat [<a href="https://pubmed.ncbi.nlm.nih.gov/30181735/" target="_blank" rel="noopener noreferrer">PMID: 30181735</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33746039/" target="_blank" rel="noopener noreferrer">PMID: 33746039</a>].</li>
+<li><strong>Population demographics.</strong> No strong ethnic/geographic predilection; cases are reported across European, Japanese, and Chinese populations [<a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42026594/" target="_blank" rel="noopener noreferrer">PMID: 42026594</a>]. No consistent sex bias is established, although precocious-puberty ascertainment skews some cohorts toward girls.</li>
+</ul>
+<hr />
+<h2>Section 10 — Diagnostics</h2>
+<p><strong>Tiered molecular approach</strong> (all three mechanisms share MEG3-DMR hypomethylation):</p>
+<ol>
+<li><strong>First-line — methylation analysis</strong> of the MEG3/DLK1 IG-DMR and MEG3-DMR by methylation-specific MLPA (MS-MLPA; ME032/ME034 kits) or bisulfite pyrosequencing detects the hypomethylation common to all three mechanisms [<a href="https://pubmed.ncbi.nlm.nih.gov/40229547/" target="_blank" rel="noopener noreferrer">PMID: 40229547</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25351781/" target="_blank" rel="noopener noreferrer">PMID: 25351781</a>].</li>
+<li><strong>Microsatellite / SNP-array genotyping</strong> of parent–child trios distinguishes upd(14)mat [<a href="https://pubmed.ncbi.nlm.nih.gov/33746039/" target="_blank" rel="noopener noreferrer">PMID: 33746039</a>].</li>
+<li><strong>MLPA / chromosomal microarray / FISH</strong> detect paternal 14q32 microdeletions [<a href="https://pubmed.ncbi.nlm.nih.gov/40229547/" target="_blank" rel="noopener noreferrer">PMID: 40229547</a>].</li>
+</ol>
+<p><strong>Prenatal diagnosis.</strong> NIPT followed by amniotic MS-MLPA/CMA/FISH can detect imprinted 14q32 abnormalities, including recurrent KOS/TS14 in at-risk families [<a href="https://pubmed.ncbi.nlm.nih.gov/40229547/" target="_blank" rel="noopener noreferrer">PMID: 40229547</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39210340/" target="_blank" rel="noopener noreferrer">PMID: 39210340</a>].</p>
+<p><strong>Clinical/laboratory findings.</strong> Lab monitoring for lipids and glucose given cardiometabolic risk; endocrine evaluation (LH/FSH, bone age) for precocious puberty.</p>
+<p><strong>Differential diagnosis.</strong> Silver-Russell syndrome (11p15/upd(7)mat), Prader-Willi syndrome (15q11-q13), and Schaaf-Yang syndrome (<em>MAGEL2</em>), distinguished by locus-specific methylation testing. "Most patients with 14q32.2 disruption fulfill the criteria for a clinical diagnosis of SRS" [<a href="https://pubmed.ncbi.nlm.nih.gov/29659920/" target="_blank" rel="noopener noreferrer">PMID: 29659920</a>], and "The most common genetic diagnoses were Temple syndrome (formerly known as maternal uniparental disomy 14), Schaaf-Yang syndrome…" in PWS-like cohorts [<a href="https://pubmed.ncbi.nlm.nih.gov/34460908/" target="_blank" rel="noopener noreferrer">PMID: 34460908</a>]. Testing for TS14 is recommended when PWS/SRS testing is negative [<a href="https://pubmed.ncbi.nlm.nih.gov/36362517/" target="_blank" rel="noopener noreferrer">PMID: 36362517</a>].</p>
+<hr />
+<h2>Section 11 — Outcome / Prognosis</h2>
+<p><strong>Survival and cognition are generally favourable.</strong> Life expectancy is essentially normal; there are no TS14-specific mortality data indicating reduced survival. In the 60-patient Japanese cohort, "42.9% of patients were enrolled in special classes in childhood, whereas 98.2% of patients attended college or had jobs in adulthood" [<a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>]. Median IQ is ~85–91 [<a href="https://pubmed.ncbi.nlm.nih.gov/36362517/" target="_blank" rel="noopener noreferrer">PMID: 36362517</a>].</p>
+<p><strong>Morbidity is cardiometabolic.</strong> Long-term risks: intellectual/developmental disability 21.6%, neurodevelopmental disorders 21.6%, obesity 20.0%, hypercholesterolemia 26.5% (≥6 y), and diabetes mellitus 12.8% (≥9 y) [<a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>]. Importantly, hypercholesterolemia and diabetes sometimes preceded obesity and were controllable with oral medication, underscoring the need for early metabolic surveillance [<a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26395259/" target="_blank" rel="noopener noreferrer">PMID: 26395259</a>].</p>
+<p><strong>Prognostic factors.</strong> Earlier diagnosis permits earlier GH/GnRH-analogue intervention and metabolic monitoring, improving growth and (likely) cardiometabolic outcomes. Final adult height without treatment is reduced (median ~ −2.04 SDS) [<a href="https://pubmed.ncbi.nlm.nih.gov/24891339/" target="_blank" rel="noopener noreferrer">PMID: 24891339</a>].</p>
+<hr />
+<h2>Section 12 — Treatment</h2>
+<p>Management is <strong>supportive, multidisciplinary, and non-curative</strong> — no disease-modifying or gene-directed therapy exists.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention</th>
+<th>Evidence / effect</th>
+<th>Source</th>
+<th>NCIT (suggested)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Recombinant growth hormone (rhGH)</strong></td>
+<td>1 yr: height +1.31 SDS, HV 5.30 cm/yr. 5 yr: height SDS −1.78 → +0.11; fat-mass% SDS fell, lean-body-mass SDS rose</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30836360/" target="_blank" rel="noopener noreferrer">PMID: 30836360</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36977395/" target="_blank" rel="noopener noreferrer">PMID: 36977395</a></td>
+<td>Recombinant Human Growth Hormone (NCIT:C1762)</td>
+</tr>
+<tr>
+<td><strong>GnRH-analogue therapy</strong></td>
+<td>Ameliorated central precocious puberty in 32/60 patients</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a></td>
+<td>GnRH Analogue</td>
+</tr>
+<tr>
+<td><strong>Neonatal tube/supportive feeding</strong></td>
+<td>For feeding difficulties/failure to thrive</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26395259/" target="_blank" rel="noopener noreferrer">PMID: 26395259</a></td>
+<td>Enteral Nutrition (NCIT:C15190)</td>
+</tr>
+<tr>
+<td><strong>Physiotherapy / OT / speech therapy</strong></td>
+<td>For hypotonia, motor and language delay</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36362517/" target="_blank" rel="noopener noreferrer">PMID: 36362517</a></td>
+<td>Rehabilitation Therapy (NCIT:C15917)</td>
+</tr>
+<tr>
+<td><strong>Metabolic management (statins/oral hypoglycemics, diet)</strong></td>
+<td>Dyslipidemia/early T2DM controllable with oral medication</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a></td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>GH response in TS14 is "similar to the response in patients treated under the small for gestational age indication" [<a href="https://pubmed.ncbi.nlm.nih.gov/30836360/" target="_blank" rel="noopener noreferrer">PMID: 30836360</a>]. Over 5 years, "mean (95% CI) height SDS increased significantly during 5 years of GH treatment from -1.78 (-2.52; -1.04) to 0.11 (-0.66; 0.87). Fat mass percentage SDS decreased significantly during the first year of GH, and lean body mass (LBM) SDS and LBM index increased significantly" [<a href="https://pubmed.ncbi.nlm.nih.gov/36977395/" target="_blank" rel="noopener noreferrer">PMID: 36977395</a>]. No pharmacogenomic, gene-therapy, cell-therapy, RNA-based, immunotherapy, or TS14-specific surgical treatments are established.</p>
+<hr />
+<h2>Section 13 — Prevention</h2>
+<ul>
+<li><strong>Primary prevention.</strong> None available for the genetic lesion. Counselling about advanced-maternal-age nondisjunction risk and ART-associated imprinting-defect risk is relevant [<a href="https://pubmed.ncbi.nlm.nih.gov/30181735/" target="_blank" rel="noopener noreferrer">PMID: 30181735</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41153459/" target="_blank" rel="noopener noreferrer">PMID: 41153459</a>].</li>
+<li><strong>Secondary prevention.</strong> Early recognition via testing TS14 in PWS/SRS-like infants with negative primary testing [<a href="https://pubmed.ncbi.nlm.nih.gov/36362517/" target="_blank" rel="noopener noreferrer">PMID: 36362517</a>]; prenatal detection in deletion-carrier families (NIPT + confirmatory MS-MLPA/CMA/FISH) [<a href="https://pubmed.ncbi.nlm.nih.gov/40229547/" target="_blank" rel="noopener noreferrer">PMID: 40229547</a>].</li>
+<li><strong>Tertiary prevention.</strong> Lifelong surveillance and management of growth and cardiovascular risk factors, as explicitly recommended: "improved diagnosis and long-term monitoring, especially of growth and cardiovascular risk factors, is required" [<a href="https://pubmed.ncbi.nlm.nih.gov/24891339/" target="_blank" rel="noopener noreferrer">PMID: 24891339</a>].</li>
+<li><strong>Genetic counselling.</strong> Essential for deletion carriers given the parent-of-origin recurrence of TS14 vs KOS [<a href="https://pubmed.ncbi.nlm.nih.gov/39210340/" target="_blank" rel="noopener noreferrer">PMID: 39210340</a>]. No vaccine or public-health/environmental prevention applies.</li>
+</ul>
+<hr />
+<h2>Section 14 — Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / orthology.</strong> The human 14q32 domain is syntenic with <strong>mouse distal chromosome 12</strong> (<em>Mus musculus</em>, NCBI Taxon 10090). Orthologues: <em>Dlk1</em>, <em>Rtl1/Peg11</em>, <em>Dio3</em>, <em>Meg3/Gtl2</em>, <em>Meg8</em>, <em>Rian/Mirg</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/18471925/" target="_blank" rel="noopener noreferrer">PMID: 18471925</a>].</li>
+<li><strong>Natural disease in animals.</strong> No well-characterized naturally occurring Temple-syndrome analogue is documented in companion animals or wildlife (no evidence found).</li>
+<li><strong>Comparative biology / evolutionary conservation.</strong> The imprinted architecture and parent-of-origin regulation of the DLK1-DIO3 domain are conserved between human and mouse, making the mouse a valid model of the dosage imbalance [<a href="https://pubmed.ncbi.nlm.nih.gov/18471925/" target="_blank" rel="noopener noreferrer">PMID: 18471925</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/17449025/" target="_blank" rel="noopener noreferrer">PMID: 17449025</a>].</li>
+<li><strong>Transmission.</strong> Not applicable — TS14 is non-infectious and non-zoonotic.</li>
+</ul>
+<hr />
+<h2>Section 15 — Model Organisms</h2>
+<ul>
+<li><strong>Mouse uniparental disomy chromosome 12 [upd(12)].</strong> Reproduces the TS14-type dosage imbalance and causes "defects in skeletal muscle maturation, bone formation, placenta size and organization and prenatal lethality" [<a href="https://pubmed.ncbi.nlm.nih.gov/17449025/" target="_blank" rel="noopener noreferrer">PMID: 17449025</a>] — recapitulating the muscle/growth/placental aspects of TS14; prenatal lethality is a limitation not seen in human TS14.</li>
+<li><strong>Dlk1-knockout mouse.</strong> Shows growth retardation, increased adiposity/obesity, and metabolic changes recapitulating core TS14 features; a recent study found "Dlk1-deficient mice achieve puberty despite low body weight and low levels of leptin and kisspeptin," informing the DLK1–puberty link [<a href="https://pubmed.ncbi.nlm.nih.gov/42677749/" target="_blank" rel="noopener noreferrer">PMID: 42677749</a>].</li>
+<li><strong>Human iPSC / stem-cell models.</strong> hPSC <em>DLK1</em>-edited lines reveal a dual role of DLK1 in GnRH neuron ontogeny, with timing-dependent effects on GnRH lineage commitment [<a href="https://pubmed.ncbi.nlm.nih.gov/40924042/" target="_blank" rel="noopener noreferrer">PMID: 40924042</a>]. iPSC models of imprinting disorders are feasible but prone to culture-induced hypermethylation of the MEG3/DLK1:IG-DMR unless specialized media/hypoxic conditions are used [<a href="https://pubmed.ncbi.nlm.nih.gov/36578048/" target="_blank" rel="noopener noreferrer">PMID: 36578048</a>].</li>
+<li><strong>In-vitro domain biology.</strong> Mouse chromosome-12 miRNA (e.g., miR-127-3p) studies illuminate cell-cycle/senescence regulation by the cluster [<a href="https://pubmed.ncbi.nlm.nih.gov/33279585/" target="_blank" rel="noopener noreferrer">PMID: 33279585</a>].</li>
+<li><strong>Limitations.</strong> Full upd(12) mouse shows prenatal lethality; single-gene (<em>Dlk1</em>) models capture the metabolic/pubertal axis but not the full multi-gene imbalance; iPSC models require careful methylation control.</li>
+<li><strong>Resources.</strong> MGI (mouse), Alliance of Genome Resources.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code> Paternal 14q32 lesion (upd(14)mat / IG-DMR epimutation / paternal deletion)
+              |
+              v
+Loss of paternal IG-DMR methylation  --&gt; unified biomarker: MEG3-DMR hypomethylation
+              |
++---------------------+---------------------+
+v                                           v
+  Silence paternal genes                    Activate maternal ncRNAs (biallelic)
+   DLK1 v , RTL1 v , DIO3 v                  MEG3 ^ , MEG8 ^ , RTL1as ^ , miRNAs ^
+|                                           |
+v                                           v
+  DLK1 loss -&gt; GnRH-axis dysregulation       RTL1as miRNA represses RTL1 (reinforces loss)
+  + increased adipogenesis                   -&gt; placental/growth effects
+|
++--&gt; Central precocious puberty (86-89%)
++--&gt; Pre/postnatal growth restriction, small hands/feet
++--&gt; Hypotonia, feeding difficulties (muscle immaturity)
++--&gt; Truncal obesity -&gt; dyslipidemia -&gt; early T2DM
+
+ PARENT-OF-ORIGIN BRANCH (deletion carriers):
+   Paternal transmission --&gt; TS14 (loss of paternal program)
+   Maternal transmission --&gt; Kagami-Ogata syndrome (mirror / overgrowth)
+</code></pre>
+<p>The unifying insight is <strong>dosage reciprocity</strong>: the three mechanisms converge on the same methylation biomarker and the same net dosage imbalance, while the DLK1-DIO3 domain's sensitivity to parent-of-origin makes TS14 and KOS mechanistic mirror images.</p>
+<hr />
+<h2>Evidence Base (key literature)</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24891339/">24891339</a></td>
+<td>Eponym origin; pooled phenotype frequencies &amp; growth metrics from 51 cases</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32592473/">32592473</a></td>
+<td>Defines 14q32 locus, parent-of-origin mechanisms, TS14↔KOS relationship</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38715103/">38715103</a></td>
+<td>Three mechanisms; gene-dosage imbalance; clinical features</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29659920/">29659920</a></td>
+<td>Mechanism frequencies; SRS overlap</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39693239/">39693239</a></td>
+<td>Largest cohort (n=60) — phenotype frequencies, morbidity, outcome, treatment</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30836360/">30836360</a></td>
+<td>rhGH 1-year growth response</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36977395/">36977395</a></td>
+<td>Long-term (5-yr) GH/body-composition benefit</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42026594/">42026594</a></td>
+<td>Chinese cohort phenotype &amp; GH therapy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42677749/">42677749</a></td>
+<td>DLK1 LOF → CPP &amp; adiposity (mouse)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40924042/">40924042</a></td>
+<td>DLK1 mechanism in GnRH neuron ontogeny; iPSC model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18471925/">18471925</a></td>
+<td>Domain architecture; IG-DMR hierarchy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17449025/">17449025</a></td>
+<td>Mouse upd(12) model phenotype</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22917972/">22917972</a></td>
+<td>RTL1as miRNA represses RTL1</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39210340/">39210340</a></td>
+<td>Parent-of-origin recurrence (TS14 mother → KOS offspring)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31014393/">31014393</a></td>
+<td>Novel template-switching mechanism for UPD(14)mat</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29159982/">29159982</a></td>
+<td>Under-diagnosis rate (2.1% of PWS referrals)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40229547/">40229547</a></td>
+<td>Diagnostic modalities (MS-MLPA, FISH, CMA, NIPT)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34460908/">34460908</a></td>
+<td>Synonym (maternal UPD14); PWS-like differential dx</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36362517/">36362517</a></td>
+<td>Body composition, IQ, testing recommendation (n=15)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26395259/">26395259</a></td>
+<td>Isolated epimutation case; metabolic risk</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41153459/">41153459</a></td>
+<td>ART epimutation risk</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35266280/">35266280</a></td>
+<td>Multilocus imprinting disturbance (11p15 + 14q32)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30234781/">30234781</a></td>
+<td>Gene–environment interaction (preeclampsia, DLK1-MEG3)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30181735/">30181735</a></td>
+<td>Trisomy-rescue origin (TS14 + mosaic trisomy 14)</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Epidemiology is undefined.</strong> No reliable prevalence or incidence figures exist; TS14 is recognized as under-diagnosed [<a href="https://pubmed.ncbi.nlm.nih.gov/24891339/" target="_blank" rel="noopener noreferrer">PMID: 24891339</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29159982/" target="_blank" rel="noopener noreferrer">PMID: 29159982</a>].</li>
+<li><strong>Ascertainment bias.</strong> Reported mechanism proportions and phenotype frequencies vary widely between cohorts (e.g., upd(14)mat ~29% vs ~52%) because referral routes (precocious puberty vs growth clinics vs PWS/SRS testing) differ [<a href="https://pubmed.ncbi.nlm.nih.gov/29659920/" target="_blank" rel="noopener noreferrer">PMID: 29659920</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>].</li>
+<li><strong>Mechanistic attribution is partly inferred.</strong> The specific contribution of each gene (DLK1 vs RTL1 vs DIO3) to each clinical feature relies heavily on mouse/iPSC models; the exact pathway from DLK1 loss to CPP remains incompletely resolved and appears to act up-/downstream of GnRH neurons [<a href="https://pubmed.ncbi.nlm.nih.gov/40924042/" target="_blank" rel="noopener noreferrer">PMID: 40924042</a>].</li>
+<li><strong>Treatment evidence is limited and short-to-medium term.</strong> GH and GnRH-analogue data derive from small, retrospective, uncontrolled cohorts; long-term adult cardiometabolic and final-height outcomes with treatment are not fully quantified.</li>
+<li><strong>No disease-modifying therapy or validated biomarkers of progression</strong> exist, and there are no TS14-specific quality-of-life instruments.</li>
+<li><strong>Sex-ratio and population-genetic data are sparse</strong>, and there are no natural animal-disease analogues.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Establish a prospective international TS14 registry</strong> with uniform molecular and phenotyping protocols to resolve true prevalence, mechanism-specific genotype–phenotype correlations, and long-term cardiometabolic outcomes.</li>
+<li><strong>Controlled/longitudinal treatment studies</strong> of rhGH and GnRH-analogue therapy with adult final-height, body-composition, lipid, and glucose endpoints; test whether early GH initiation (&lt;2 y) modifies metabolic trajectory.</li>
+<li><strong>Dissect DLK1's CPP mechanism</strong> using conditional/temporally controlled DLK1 models and patient iPSC-derived hypothalamic/GnRH-neuron organoids to define whether the pubertal defect is pre- or post-synaptic to GnRH neurons [building on <a href="https://pubmed.ncbi.nlm.nih.gov/40924042/" target="_blank" rel="noopener noreferrer">PMID: 40924042</a>].</li>
+<li><strong>Define metabolic-surveillance thresholds</strong>: prospectively characterize the onset sequence of hypercholesterolemia, obesity, and T2DM to set evidence-based screening intervals, given that lipids/glucose can precede obesity [<a href="https://pubmed.ncbi.nlm.nih.gov/39693239/" target="_blank" rel="noopener noreferrer">PMID: 39693239</a>].</li>
+<li><strong>Quantify ART-associated epimutation risk specifically for 14q32</strong> in large ART-conceived cohorts to inform preconception and prenatal counselling [<a href="https://pubmed.ncbi.nlm.nih.gov/41153459/" target="_blank" rel="noopener noreferrer">PMID: 41153459</a>].</li>
+<li><strong>Develop methylation-based multi-locus diagnostic panels</strong> (and refine NIPT workflows) to improve early/prenatal detection and reduce diagnostic delay, especially in PWS/SRS-like infants with negative first-line testing [<a href="https://pubmed.ncbi.nlm.nih.gov/40229547/" target="_blank" rel="noopener noreferrer">PMID: 40229547</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36362517/" target="_blank" rel="noopener noreferrer">PMID: 36362517</a>].</li>
+</ol>
+<hr />
+<p><em>Report compiled from 11 confirmed findings and 42 reviewed papers across 5 investigation iterations. Evidence types: human clinical cohorts/case series (primary), model-organism (mouse upd(12), Dlk1-KO), and in-vitro (iPSC, placental) studies.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Temple_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Temple_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.4.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>30</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:42677749</code> <em>(abstract only)</em>: "Loss-of-function mutations in DLK1 … have been linked to central precocious puberty (CPP) and increased body fat in girls"</li>
+<li>closest text in source: "Loss-of-function mutations in DLK1, encoding Delta Like Non-Canonical Notch Ligand 1, have been linked to central precocious puberty (CPP) and increased body fat in girls, suggesting a role in the connection between metabolism and reproduction"</li>
+</ul>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:39889767</code> (2 mentions) - Effects of Assisted Reproductive Technology on Genetics, Obstetrics, and Neonatal Outcomes.</li>
+<li>shared terms: disorder</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>ts14</code>, <code>dlk1</code>, <code>upd</code>, <code>growth</code>, <code>q32</code>, <code>mechanism</code>, <code>cohort</code>, <code>metabolic</code>, <code>puberty</code>, <code>phenotype</code>, <code>mat</code>, <code>domain</code>, <code>model</code>, <code>methylation</code>, <code>disorder</code>, <code>precocious</code>, <code>gene</code>, <code>risk</code>, <code>rtl1</code>, <code>epimutation</code>.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>11</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0100507</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>multiple congenital anomalies due to 14q32.2 paternally expressed gene defect</strong></li>
+<li><code>CL:0000617</code> (1 mention) - the report calls it "GnRH neuron, approximate"; CL calls it <strong>GABAergic neuron</strong></li>
+<li><code>GO:0005634</code> (1 mention) - the report calls it "nucleus, site of imprinting lesion"; GO calls it <strong>nucleus</strong></li>
+<li><code>NCIT:C1762</code> (1 mention) - the report calls it "Recombinant Human Growth Hormone"; NCIT calls it <strong>Raloxifene Hydrochloride</strong></li>
+<li><code>NCIT:C15190</code> (1 mention) - the report calls it "Enteral Nutrition"; NCIT calls it <strong>Needle Biopsy</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0001511</code> (1 mention) - the report calls it "Intrauterine / prenatal growth restriction"; HP calls it <strong>Intrauterine growth retardation</strong>, and lists "Intrauterine growth restriction" among its other names</li>
+<li><code>HP:0004322</code> (1 mention) - the report calls it "Postnatal short stature"; HP calls it <strong>Short stature</strong></li>
+<li><code>HP:0001252</code> (1 mention) - the report calls it "Muscular hypotonia"; HP calls it <strong>Hypotonia</strong>, and lists "Muscular hypotonia" among its other names</li>
+<li><code>HP:0000750</code> (1 mention) - the report calls it "Delayed speech / language"; HP calls it <strong>Delayed speech and language development</strong>, and lists "Delayed speech" among its other names</li>
+<li><code>HP:0001956</code> (1 mention) - the report calls it "Truncal obesity / weight gain"; HP calls it <strong>Truncal obesity</strong></li>
+<li><code>HP:0000826</code> (1 mention) - the report calls it "Central precocious puberty"; HP calls it <strong>Precocious puberty</strong></li>
+<li><code>HP:0001249</code> (1 mention) - the report calls it "Intellectual/developmental disability (mild)"; HP calls it <strong>Intellectual disability</strong></li>
+<li><code>HP:0000819</code> (1 mention) - the report calls it "Diabetes mellitus (type 2)"; HP calls it <strong>Diabetes mellitus</strong></li>
+<li><code>GO:0007219</code> (1 mention) - the report calls it "Notch signaling"; GO calls it <strong>Notch signaling pathway</strong></li>
+<li><code>UBERON:0001134</code> (1 mention) - the report calls it "skeletal muscle"; UBERON calls it <strong>skeletal muscle tissue</strong>, and lists "skeletal muscle" among its other names</li>
+<li><code>NCIT:C15917</code> (1 mention) - the report calls it "Rehabilitation Therapy"; NCIT calls it <strong>Arterial Embolization</strong></li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Teebi_Hypertelorism_Syndrome_2-openscientist.html">← Teebi Hypertelorism Syndrome 2 (OpenScientist)</a>
+                
+                
+                <a href="Temtamy_Preaxial_Brachydactyly_Syndrome-falcon.html">Temtamy Preaxial Brachydactyly Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Temple_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Temple_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

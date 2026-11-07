@@ -41,6 +41,7 @@ import sys
 import urllib.request
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -118,15 +119,54 @@ def fetch_open_curation_issues(token: str) -> list[dict]:
     return out
 
 
+def _mondo_id(term: Any) -> str | None:
+    if isinstance(term, dict):
+        tid = term.get("id")
+        if isinstance(tid, str) and tid.startswith("MONDO:"):
+            return tid
+    return None
+
+
 def curated_mondo_ids() -> dict[str, str]:
     """MONDO IDs that count as curated, mapped to the entry that curates them.
 
     Matches the coverage rule in CLAUDE.md: primary `disease_term`, `has_subtypes`
     terms, and `mappings.mondo_mappings` whose predicate is exactMatch or
-    narrowMatch. Other mapping predicates are cross-references and do not retire a
-    concept from the queue.
+    (legacy) narrowMatch. `broadMatch` -- including as the canonical §3a/§3e
+    parent-anchor spelling -- is a cross-reference and never retires a concept
+    from the queue, matching the unchanged CLAUDE.md rule; only `exactMatch`
+    does that unconditionally, and legacy `narrowMatch` does it outside the
+    shared-anchor exception below.
+
+    A `disease_term` shared by more than one entry is the §3a/§3e anchor
+    pattern -- a promoted stratum with no MONDO class of its own anchors its
+    `disease_term` to its parent's (recording `broadMatch`, or the legacy
+    `narrowMatch`, to the same CURIE in `mondo_mappings`). Marking that shared
+    CURIE "curated" just because a stratum anchors to it is the bug
+    dismech#10165 and dismech#16243 describe: the stratum curates itself, not
+    the broader parent disease. So a shared `disease_term` only counts as
+    curated when some entry in the group *also* claims `skos:exactMatch` for
+    it -- i.e. some entry actually IS that class, not merely anchored to it.
+    The same exception applies to a legacy `narrowMatch` mapping row used the
+    same way. An unshared `disease_term` (the overwhelming majority) is
+    unaffected: it counts as curated as before, with no exactMatch row
+    required.
+
+    The guard only fires once a CURIE is shared by *two or more* entries: a
+    lone stratum anchoring to a parent that has no other claimant yet (no
+    sibling stratum, no class entry) still retires that parent through this
+    same unshared-`disease_term` path. That is not new here -- the
+    pre-existing code always retired a plain `disease_term` unconditionally --
+    and closing it needs telling a genuine single-entry parent from a
+    single-stratum anchor, which this function cannot do without reading the
+    entry's own `mondo_mappings` row for that CURIE. Left to dismech#16250.
     """
-    covered: dict[str, str] = {}
+    # Pass 1: collect raw facts per entry, cross-file, before deciding coverage.
+    disease_term_holders: dict[str, list[str]] = defaultdict(list)
+    exact_claimants: dict[str, list[str]] = defaultdict(list)
+    narrow_claimants: dict[str, list[str]] = defaultdict(list)
+    subtype_covered: dict[str, str] = {}
+
     for path in sorted(glob.glob("kb/disorders/*.yaml")) + sorted(
         glob.glob("kb/groupings/*.yaml")
     ):
@@ -138,30 +178,54 @@ def curated_mondo_ids() -> dict[str, str]:
             continue
         stem = Path(path).stem
 
-        def add(term, stem=stem):
-            if isinstance(term, dict):
-                tid = term.get("id")
-                if isinstance(tid, str) and tid.startswith("MONDO:"):
-                    covered.setdefault(tid, stem)
+        dterm_id = _mondo_id((doc.get("disease_term") or {}).get("term") or doc.get("disease_term"))
+        if dterm_id:
+            disease_term_holders[dterm_id].append(stem)
 
-        dterm = doc.get("disease_term")
-        if isinstance(dterm, dict):
-            add(dterm.get("term") or dterm)
         for sub in doc.get("has_subtypes") or []:
-            if isinstance(sub, dict):
-                t = (
-                    sub.get("subtype_term")
-                    or sub.get("disease_term")
-                    or sub.get("term")
-                )
-                if isinstance(t, dict):
-                    add(t.get("term") or t)
+            if not isinstance(sub, dict):
+                continue
+            t = sub.get("subtype_term") or sub.get("disease_term") or sub.get("term")
+            sub_id = _mondo_id((t or {}).get("term") or t)
+            if sub_id:
+                subtype_covered.setdefault(sub_id, stem)
+
         for mapping in (doc.get("mappings") or {}).get("mondo_mappings") or []:
-            if isinstance(mapping, dict) and mapping.get("mapping_predicate") in (
-                "skos:exactMatch",
-                "skos:narrowMatch",
-            ):
-                add(mapping.get("term") or mapping)
+            if not isinstance(mapping, dict):
+                continue
+            predicate = mapping.get("mapping_predicate")
+            map_id = _mondo_id(mapping.get("term") or mapping)
+            if not map_id:
+                continue
+            if predicate == "skos:exactMatch":
+                exact_claimants[map_id].append(stem)
+            elif predicate == "skos:narrowMatch":
+                narrow_claimants[map_id].append(stem)
+            # skos:broadMatch (and closeMatch/relatedMatch) never retire here.
+
+    # Pass 2: resolve coverage, applying the shared-anchor exception only
+    # where a disease_term is actually shared.
+    covered: dict[str, str] = dict(subtype_covered)
+
+    for curie, stems in exact_claimants.items():
+        covered.setdefault(curie, min(stems))
+
+    def _shared_without_exact_claim(curie: str) -> bool:
+        holders = disease_term_holders.get(curie, [])
+        return len(holders) > 1 and curie not in exact_claimants
+
+    for curie, stems in disease_term_holders.items():
+        if curie in covered:
+            continue
+        if _shared_without_exact_claim(curie):
+            continue  # anchored-to, not curated-as; left open for the queue
+        covered[curie] = min(stems)
+
+    for curie, stems in narrow_claimants.items():
+        if curie in covered or _shared_without_exact_claim(curie):
+            continue
+        covered[curie] = min(stems)
+
     return covered
 
 
