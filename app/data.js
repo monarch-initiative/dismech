@@ -36587,18 +36587,24 @@ window.searchData = [
       "Ganglionic Acetylcholine Receptor Autoantibodies",
       "Antibody-Mediated Ganglionic Acetylcholine Receptor Dysfunction",
       "Postganglionic Sympathetic and Parasympathetic Failure",
+      "Deficient Norepinephrine Release on Standing",
+      "Failure of Baroreflex-Mediated Vasoconstriction",
       "Extra-Autonomic Neural Involvement"
     ],
     "cell_types": [
-      "autonomic neuron"
+      "autonomic neuron",
+      "sympathetic noradrenergic neuron"
     ],
     "cell_type_ids": [
-      "CL:0000107"
+      "CL:0000107",
+      "CL:3000002"
     ],
     "biological_processes": [
       "humoral immune response mediated by circulating immunoglobulin",
       "acetylcholine receptor signaling pathway",
-      "cholinergic synaptic transmission"
+      "cholinergic synaptic transmission",
+      "norepinephrine secretion",
+      "baroreflex arterial vasoconstriction"
     ],
     "phenotypes": [
       "Orthostatic Hypotension",
@@ -36657,11 +36663,11 @@ window.searchData = [
     "source_file": "Autoimmune_Autonomic_Ganglionopathy.yaml",
     "page_url": "../pages/disorders/Autoimmune_Autonomic_Ganglionopathy.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 6,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Autoimmune Disease, Multisystem, Infantile-Onset, 2",
@@ -124810,6 +124816,119 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Cytokine Release Syndrome",
+    "disease_id": "MONDO:0600008",
+    "category": "Complex",
+    "parents": [
+      "Iatrogenic condition",
+      "Systemic inflammatory response syndrome"
+    ],
+    "creation_date": "2026-11-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cytokine release syndrome is a systemic hyperinflammatory toxicity of immune therapies that activate or engage T cells and other immune effector cells, most prominently chimeric antigen receptor (CAR) T cell products and T cell engaging bispecific antibodies. Engagement of target antigen activates the effector cells, which release tumour necrosis factor; these recruit and activate host monocytes and macrophages, and in a humanised mouse model that myeloid compartment rather than the engineered cells is the dominant source of the interleukin-1 and interleukin-6 that drive the systemic syndrome. The resulting hypercytokinemia activates vascular endothelium throughout the body, producing capillary leak, coagulopathy and distributive shock. Fever is obligatory at onset; hypotension, hypoxia and end-organ dysfunction follow in more severe grades. Neurological toxicity, graded separately as immune effector cell-associated neurotoxicity syndrome, usually follows CRS and responds differently to treatment, and its pathophysiology is not settled. The syndrome is the engineered-therapy route into the conserved cytokine storm mechanism, and is substantially reversible when recognised and treated.",
+    "pathophysiology": [
+      "Effector Cell Engagement of Target Antigen",
+      "Effector Cytokine Release",
+      "Myeloid Recruitment and Cytokine Amplification",
+      "Systemic Hypercytokinemia",
+      "Endothelial Activation and Capillary Leak",
+      "Distributive Shock and Organ Dysfunction",
+      "Blood-Brain Barrier Disruption and Pericyte Stress"
+    ],
+    "cell_types": [
+      "T cell",
+      "monocyte",
+      "macrophage",
+      "endothelial cell",
+      "brain pericyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000576",
+      "CL:0000235",
+      "CL:0000115",
+      "CL:2000043"
+    ],
+    "biological_processes": [
+      "T cell activation",
+      "tumor necrosis factor production",
+      "positive regulation of interleukin-6 production",
+      "interleukin-1 beta production",
+      "interleukin-6 production",
+      "inflammatory response",
+      "regulation of vascular permeability"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Hypotension",
+      "Hypoxemia",
+      "Tachycardia",
+      "Capillary leak",
+      "Disseminated intravascular coagulation",
+      "Acute kidney injury",
+      "Encephalopathy",
+      "Delirium",
+      "Headache",
+      "Seizure",
+      "Elevated circulating C-reactive protein concentration",
+      "Increased circulating ferritin concentration",
+      "Thrombocytopenia",
+      "Reduced left ventricular ejection fraction",
+      "Arrhythmia"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002615",
+      "HP:0012418",
+      "HP:0001649",
+      "HP:0030005",
+      "HP:0005521",
+      "HP:0001919",
+      "HP:0001298",
+      "HP:0031258",
+      "HP:0002315",
+      "HP:0001250",
+      "HP:0011227",
+      "HP:0003281",
+      "HP:0001873",
+      "HP:0012664",
+      "HP:0011675"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TNFRSF1B"
+    ],
+    "treatments": [
+      "Tocilizumab",
+      "Prophylactic Tocilizumab",
+      "Anakinra",
+      "Corticosteroid therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cytokine_Release_Syndrome.yaml",
+    "page_url": "../pages/disorders/Cytokine_Release_Syndrome.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Cytomegalovirus Retinitis",
     "disease_id": "MONDO:0000878",
     "category": "Infectious Disease",
@@ -129709,6 +129828,8 @@ window.searchData = [
       "Alpha-Synuclein Aggregation and Lewy Body Formation",
       "Peripheral Autonomic and Lower Brainstem Lewy Pathology",
       "Cardiac Sympathetic Noradrenergic Denervation",
+      "Deficient Norepinephrine Release on Standing",
+      "Failure of Baroreflex-Mediated Vasoconstriction",
       "Olfactory Bulb Lewy Pathology",
       "Pontine REM-Atonia Circuit Lewy Pathology",
       "REM Sleep Atonia Loss",
@@ -129729,6 +129850,7 @@ window.searchData = [
       "sympathetic neuron",
       "enteric neuron",
       "postganglionic sympathetic noradrenergic neuron",
+      "sympathetic noradrenergic neuron",
       "glutamatergic REM-on neuron of the sublaterodorsal nucleus",
       "substantia nigra dopaminergic neuron",
       "basal forebrain cholinergic neuron",
@@ -129746,6 +129868,8 @@ window.searchData = [
     "biological_processes": [
       "autophagy",
       "inclusion body assembly",
+      "norepinephrine secretion",
+      "baroreflex arterial vasoconstriction",
       "sensory perception of smell",
       "REM sleep",
       "skeletal muscle contraction during REM sleep",
@@ -129841,7 +129965,10 @@ window.searchData = [
     "treatments": [
       "Cholinesterase Inhibitors",
       "Levodopa",
-      "Symptomatic Management"
+      "Symptomatic Management",
+      "Midodrine",
+      "Droxidopa",
+      "Fludrocortisone"
     ],
     "environmental": [
       "Caffeine Consumption",
@@ -129851,10 +129978,10 @@ window.searchData = [
     "source_file": "Dementia_with_Lewy_Bodies.yaml",
     "page_url": "../pages/disorders/Dementia_with_Lewy_Bodies.html",
     "num_phenotypes": 27,
-    "num_pathophysiology": 18,
+    "num_pathophysiology": 20,
     "num_genes": 3,
-    "num_treatments": 3,
-    "causal_graph_edges": "53",
+    "num_treatments": 6,
+    "causal_graph_edges": "59",
     "causal_graph_longest_path": "9"
   },
   {
@@ -284428,6 +284555,8 @@ window.searchData = [
       "Striatonigral Degeneration",
       "Olivopontocerebellar Degeneration",
       "Central Autonomic Network Degeneration",
+      "Deficient Norepinephrine Release on Standing",
+      "Failure of Baroreflex-Mediated Vasoconstriction",
       "Laryngeal Abductor Denervation"
     ],
     "cell_types": [
@@ -284435,14 +284564,16 @@ window.searchData = [
       "Neuron",
       "Microglia",
       "Astrocyte",
-      "T cell"
+      "T cell",
+      "sympathetic noradrenergic neuron"
     ],
     "cell_type_ids": [
       "CL:0000128",
       "CL:0000540",
       "CL:0000129",
       "CL:0000127",
-      "CL:0000084"
+      "CL:0000084",
+      "CL:3000002"
     ],
     "biological_processes": [
       "Inclusion Body Assembly",
@@ -284450,7 +284581,9 @@ window.searchData = [
       "Myelination",
       "Autophagy",
       "Oxidative Phosphorylation",
-      "Inflammatory Response"
+      "Inflammatory Response",
+      "norepinephrine secretion",
+      "baroreflex arterial vasoconstriction"
     ],
     "phenotypes": [
       "Orthostatic Hypotension",
@@ -284505,6 +284638,8 @@ window.searchData = [
       "Midodrine",
       "Levodopa",
       "Droxidopa",
+      "Atomoxetine",
+      "Pyridostigmine",
       "Anticholinergics",
       "Clean Intermittent Catheterization",
       "Physical Therapy",
@@ -284520,11 +284655,11 @@ window.searchData = [
     "source_file": "Multiple_System_Atrophy.yaml",
     "page_url": "../pages/disorders/Multiple_System_Atrophy.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 11,
+    "num_pathophysiology": 13,
     "num_genes": 2,
-    "num_treatments": 8,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 10,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Multisystem Inflammatory Syndrome in Children (MIS-C)",
@@ -308033,6 +308168,93 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Omsk Hemorrhagic Fever",
+    "disease_id": "MONDO:0017882",
+    "category": "Infectious",
+    "parents": [
+      "viral hemorrhagic fever"
+    ],
+    "creation_date": "2026-11-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Omsk hemorrhagic fever (OHF) is a geographically focal tick-borne and rodent-associated zoonotic viral hemorrhagic fever of western Siberia caused by Orthoflavivirus omskense, historically called Omsk hemorrhagic fever virus. The virus sits within the mammalian tick-borne flaviviruses and is maintained in a forest-steppe/lake ecology that couples Dermacentor reticulatus ticks to introduced muskrats (Ondatra zibethicus). Humans acquire infection through tick bite and, especially in later outbreaks, through contact with infected muskrats; they are incidental hosts and do not maintain the enzootic cycle. After a short incubation, disease presents as fever with headache, myalgia and cough, and can develop thrombocytopenia, petechial rash, pneumonia, hematuria, meningeal signs and mucosal or internal hemorrhage. A 2025 endothelial-cell study showed that the OHFV NS1 protein can directly increase human microvascular endothelial permeability, providing an Omsk-specific route into the shared vascular-leak arm of the viral hemorrhagic fever syndrome. No specific therapy or human vaccine is approved.",
+    "pathophysiology": [
+      "OHFV Replication in Mammalian Cells",
+      "NS1-Mediated Endothelial Barrier Disruption",
+      "Increased Vascular Permeability"
+    ],
+    "cell_types": [
+      "vascular endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "viral genome replication",
+      "regulation of vascular permeability"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Myalgia",
+      "Cough",
+      "Petechiae",
+      "Thrombocytopenia",
+      "Abnormal bleeding",
+      "Pneumonia",
+      "Hematuria",
+      "Nuchal rigidity"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Neurological",
+      "Respiratory",
+      "Dermatological",
+      "Hematological",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0003326",
+      "HP:0012735",
+      "HP:0000967",
+      "HP:0001873",
+      "HP:0001892",
+      "HP:0002090",
+      "HP:0000790",
+      "HP:0031179"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Supportive Care",
+      "Tick-Borne Encephalitis Vaccination"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Omsk_Hemorrhagic_Fever.yaml",
+    "page_url": "../pages/disorders/Omsk_Hemorrhagic_Fever.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Onchocerciasis",
     "disease_id": "MONDO:0017137",
     "category": "Infectious Disease",
@@ -322166,7 +322388,11 @@ window.searchData = [
       "Blood-Brain Barrier Dysfunction",
       "Metabolic Dysfunction and Weight Loss",
       "PP2A Phosphatase Activation Failure",
-      "Postsynaptic D2/D3 Receptor Occupancy by Agonist Therapy"
+      "Postsynaptic D2/D3 Receptor Occupancy by Agonist Therapy",
+      "Cardiac and Vascular Sympathetic Noradrenergic Denervation",
+      "Intermediolateral Nucleus Preganglionic Neuron Loss",
+      "Deficient Norepinephrine Release on Standing",
+      "Failure of Baroreflex-Mediated Vasoconstriction"
     ],
     "cell_types": [
       "Dopaminergic Neuron",
@@ -322183,7 +322409,9 @@ window.searchData = [
       "Enteric Neuron",
       "glutamatergic REM-on neuron of the sublaterodorsal nucleus",
       "Brain Endothelial Cell",
-      "Pericyte"
+      "Pericyte",
+      "sympathetic noradrenergic neuron",
+      "autonomic neuron"
     ],
     "cell_type_ids": [
       "CL:0000700",
@@ -322197,7 +322425,9 @@ window.searchData = [
       "CL:0002563",
       "CL:0007011",
       "CL:2000044",
-      "CL:0000669"
+      "CL:0000669",
+      "CL:3000002",
+      "CL:0000107"
     ],
     "biological_processes": [
       "Dopamine Biosynthesis",
@@ -322244,7 +322474,9 @@ window.searchData = [
       "Ferroptosis",
       "BBB Maintenance",
       "Vascular Permeability",
-      "Metabolic process"
+      "Metabolic process",
+      "norepinephrine secretion",
+      "baroreflex arterial vasoconstriction"
     ],
     "phenotypes": [
       "Resting Tremor",
@@ -322265,7 +322497,8 @@ window.searchData = [
       "Anxiety",
       "Freezing of Gait",
       "Insomnia",
-      "Hallucinations"
+      "Hallucinations",
+      "Neurogenic Orthostatic Hypotension"
     ],
     "phenotype_categories": [
       "Neurological",
@@ -322274,9 +322507,11 @@ window.searchData = [
       "Psychiatric",
       "Sleep",
       "Cognitive",
-      "Constitutional"
+      "Constitutional",
+      "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
       "Constitutional",
       "Digestive",
       "Growth",
@@ -322303,7 +322538,8 @@ window.searchData = [
       "HP:0000739",
       "HP:0031825",
       "HP:0100785",
-      "HP:0000738"
+      "HP:0000738",
+      "HP:0004926"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -322334,7 +322570,11 @@ window.searchData = [
       "COMT Inhibitors",
       "Deep Brain Stimulation",
       "Physical Therapy",
-      "Botulinum Neurotoxin A (BoNT/A) for Depression"
+      "Botulinum Neurotoxin A (BoNT/A) for Depression",
+      "Midodrine",
+      "Droxidopa",
+      "Fludrocortisone",
+      "Atomoxetine"
     ],
     "environmental": [
       "Pesticide Exposure",
@@ -322361,11 +322601,11 @@ window.searchData = [
     ],
     "source_file": "Parkinsons_Disease.yaml",
     "page_url": "../pages/disorders/Parkinson's_Disease.html",
-    "num_phenotypes": 19,
-    "num_pathophysiology": 33,
+    "num_phenotypes": 20,
+    "num_pathophysiology": 37,
     "num_genes": 14,
-    "num_treatments": 8,
-    "causal_graph_edges": "113",
+    "num_treatments": 12,
+    "causal_graph_edges": "124",
     "causal_graph_longest_path": "15"
   },
   {
@@ -378337,8 +378577,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Silo Filler Disease",
@@ -422391,6 +422631,87 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Weil's Disease",
+    "disease_id": "MONDO:0043004",
+    "category": "Infectious Disease",
+    "parents": [
+      "Leptospirosis"
+    ],
+    "creation_date": "2026-09-30T01:01:36Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Weil's disease is the severe icteric form of zoonotic human leptospirosis, most often caused by pathogenic Leptospira interrogans serogroup Icterohaemorrhagiae after exposure to infected animal urine or urine-contaminated water and soil, in which hematogenous dissemination and vascular, proximal-tubular, hepatic, pulmonary, and cardiac injury produce high fever, jaundice, acute kidney injury, hemorrhage, myocarditis, and potentially fatal multi-organ dysfunction.",
+    "pathophysiology": [
+      "Environmental Leptospira Acquisition",
+      "Hematogenous Leptospiral Dissemination",
+      "Hepatocyte Dissociation",
+      "Endothelial Immune Vascular Leak",
+      "Proximal Tubule Transporter Loss",
+      "Icteric Multiorgan Injury"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "endothelial cell",
+      "kidney proximal convoluted tubule epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000115",
+      "CL:1000838"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "complement activation",
+      "sodium ion transmembrane transport"
+    ],
+    "phenotypes": [
+      "High Fever",
+      "Jaundice",
+      "Acute Kidney Injury",
+      "Pulmonary Hemorrhage",
+      "Myocarditis",
+      "Thrombocytopenia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Integument",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0000952",
+      "HP:0001919",
+      "HP:0040223",
+      "HP:0012819",
+      "HP:0001873"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Severity-stratified antibacterial therapy",
+      "Renal replacement therapy",
+      "Mechanical ventilation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Weils_Disease.yaml",
+    "page_url": "../pages/disorders/Weil's_Disease.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Weiss-Kruszka Syndrome",
     "disease_id": "MONDO:0032836",
     "category": "Mendelian",
@@ -431216,17 +431537,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4002,
+  "total_disorder_pages": 4005,
   "total_subtypes": 5029,
-  "total_disorders_and_subtypes": 9031,
-  "total_unique_evidence_sources": 59282,
-  "total_unique_publications": 55454,
+  "total_disorders_and_subtypes": 9034,
+  "total_unique_evidence_sources": 59317,
+  "total_unique_publications": 55489,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4000,
-  "total_unique_pathological_events": 26169,
+  "total_pathographs": 4003,
+  "total_unique_pathological_events": 26187,
   "total_modules": 227,
-  "total_research_reports": 4111,
+  "total_research_reports": 4113,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 130
