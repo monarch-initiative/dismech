@@ -4776,6 +4776,12 @@ list-research:
 literature-scan days='7' max_records='100':
     uv run python scripts/literature_scan.py --days {{days}} --max-records {{max_records}}
 
+# Packet of papers indexed recently that cite references KB entries already use.
+# Pass entry stems to scan only those, e.g. `just citation-scan 7 Asthma Marfan_Syndrome`
+[group('Research')]
+citation-scan days='7' *entries:
+    uv run python scripts/citation_scan.py --days {{days}} {{entries}}
+
 # Generate a deterministic Europe PMC mechanistic knowledge-gap scan packet
 [group('Research')]
 knowledge-gap-scan days='7' max_records='200':
