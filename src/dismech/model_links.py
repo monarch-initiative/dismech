@@ -6,9 +6,10 @@ A ``ModelMechanismLink`` -- the object carrying ``target``, ``relationship``,
 
 * the three top-level model sections, ``experimental_models``,
   ``animal_models`` and ``computational_models``; and
-* ``model_systems`` on a *proposed* experiment, under
-  ``discussions[].proposed_experiments[]`` and on that experiment's
-  ``controls[]``.
+* the model lists on a *proposed* experiment, under
+  ``discussions[].proposed_experiments[]`` -- ``model_systems``,
+  ``animal_models`` and ``computational_models`` -- and ``model_systems`` on
+  that experiment's ``controls[]``.
 
 The fourth was invisible to every check. ``tests/test_data.py`` and
 ``scripts/model_scale_audit.py`` each walked only the top-level sections, so a
@@ -39,6 +40,7 @@ from collections.abc import Iterator
 from typing import Any, NamedTuple
 
 __all__ = [
+    "EXPERIMENT_MODEL_SLOTS",
     "MODEL_SECTIONS",
     "ModelLinkSite",
     "iter_model_links",
@@ -47,6 +49,17 @@ __all__ = [
 #: The three top-level sections whose entries carry ``modeled_mechanisms``.
 MODEL_SECTIONS: tuple[str, ...] = (
     "experimental_models",
+    "animal_models",
+    "computational_models",
+)
+
+
+#: The model lists a proposed experiment may carry. ``model_systems`` holds
+#: non-animal systems; ``animal_models`` and ``computational_models`` mirror the
+#: disease-level split so a proposal need not file a mouse as ``OTHER``. A
+#: control arm still carries only ``model_systems``.
+EXPERIMENT_MODEL_SLOTS: tuple[str, ...] = (
+    "model_systems",
     "animal_models",
     "computational_models",
 )
@@ -123,11 +136,10 @@ def iter_model_links(
             if not isinstance(experiment, dict):
                 continue
             base = f"discussions[{d_index}].proposed_experiments[{e_index}]"
-            yield from _links_in_models(
-                experiment.get("model_systems"),
-                f"{base}.model_systems",
-                proposed=True,
-            )
+            for slot in EXPERIMENT_MODEL_SLOTS:
+                yield from _links_in_models(
+                    experiment.get(slot), f"{base}.{slot}", proposed=True
+                )
             controls = experiment.get("controls")
             if not isinstance(controls, list):
                 continue
