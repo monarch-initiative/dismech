@@ -18,8 +18,7 @@ The order of preference
    exists: ``MGI:`` mouse, ``RGD:`` rat, ``ZFIN:`` zebrafish, ``Xenbase:``
    Xenopus, ``FB:`` Drosophila, ``WB:`` C. elegans, ``SGD:`` yeast. This holds
    whether the model acts on the gene or on its product.
-3. Otherwise ``NCBIGene:`` (pig, dog, macaque), or ``UniProtKB:`` for a gene
-   product.
+3. Otherwise ``NCBIGene:`` (pig, dog, macaque).
 
 This matches the Monarch KG, where the MOD identifier is the gene node and NCBI
 Gene is ingested only for species without one. It is deliberately *not* the
@@ -35,7 +34,7 @@ rule lives.
 What it gates on, and why each is a real defect
 -----------------------------------------------
 ``NON_HUMAN_OUTSIDE_MODEL``
-    A MOD, `NCBIGene:` or `UniProtKB:` binding anywhere except the `genes` of a
+    A MOD or `NCBIGene:` binding anywhere except the `genes` of a
     model or dataset. Anywhere else the claim is about human disease, and the
     gene is HGNC's.
 ``MALFORMED_ID``
@@ -54,7 +53,7 @@ What it gates on, and why each is a real defect
     identifier carrying the right gene's symbol reads correctly to every human
     reviewer.
 ``MOD_PREFERRED``
-    An `NCBIGene:` or `UniProtKB:` binding for a species that has a MOD. Offline
+    An `NCBIGene:` binding for a species that has a MOD. Offline
     this fires when the model or dataset records its `organism`; online it also
     fires from the taxon the record itself reports, which covers animal models
     (whose `species` is free text).
@@ -62,12 +61,8 @@ What it gates on, and why each is a real defect
     Online only: the source reports the record discontinued, replaced, or
     inactive. Bind the current identifier instead.
 ``HUMAN_GENE``
-    Online only: an `NCBIGene:` or `UniProtKB:` record for a human gene
+    Online only: an `NCBIGene:` record for a human gene
     (taxon 9606). A human gene is `hgnc:` everywhere, including in a model.
-
-`UniProtKB:` labels are not checked here: that prefix is routed through OAK's
-`uniprot:` adapter, so `just validate-terms` checks them. This script checks
-its species online.
 
 What it reports without gating
 ------------------------------
@@ -147,7 +142,7 @@ MISSPELLINGS = {
     "wormbase": "WB",
 }
 
-FALLBACK_PREFIXES = ("NCBIGene", "UniProtKB")
+FALLBACK_PREFIXES = ("NCBIGene",)
 NON_HUMAN_PREFIXES = (*MODS, *FALLBACK_PREFIXES)
 CACHED_PREFIXES = (*MODS, "NCBIGene")
 MODEL_GENE_PREFIXES = ("hgnc", *NON_HUMAN_PREFIXES)
@@ -164,7 +159,6 @@ GATING = (
 
 ESUMMARY_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi"
 ALLIANCE_GENE_URL = "https://www.alliancegenome.org/api/gene/{curie}"
-UNIPROT_ENTRY_URL = "https://rest.uniprot.org/uniprotkb/{accession}.json"
 
 
 def _prefix(curie: str) -> str:
@@ -272,21 +266,6 @@ def fetch_mod(curie: str) -> tuple[str | None, tuple[str, str] | None]:
     if not symbol:
         return None, ("UNRESOLVED", "the Alliance record has no gene symbol")
     return symbol, None
-
-
-def fetch_uniprot(curie: str) -> tuple[str, str] | None:
-    """Ask UniProt whether an accession is live and which species it belongs to."""
-    import requests
-
-    accession = curie.split(":", 1)[1]
-    response = requests.get(UNIPROT_ENTRY_URL.format(accession=accession), timeout=60)
-    if response.status_code in (400, 404):
-        return "UNRESOLVED", "UniProt has no entry for this accession"
-    response.raise_for_status()
-    entry = response.json()
-    if str(entry.get("entryType", "")).casefold() == "inactive":
-        return "RETIRED", "UniProt reports this entry inactive"
-    return _taxon_problem(str((entry.get("organism") or {}).get("taxonId", "")))
 
 
 class Finding:
@@ -444,7 +423,7 @@ def _load(path: Path) -> object | None:
 
 
 def resolve_online(paths: list[Path] | None = None) -> list[Finding]:
-    """Resolve every uncached MOD and NCBIGene identifier, and every UniProtKB one.
+    """Resolve every uncached MOD and NCBIGene identifier.
 
     A record that resolves cleanly gets a cache row. One that does not (retired,
     human, a MOD species on a fallback prefix) is reported and never cached, so
@@ -474,9 +453,6 @@ def resolve_online(paths: list[Path] | None = None) -> list[Finding]:
             record(curie, symbol, problem)
     for curie in sorted(c for c in wanted if _prefix(c) in MODS and c not in labels):
         record(curie, *fetch_mod(curie))
-        time.sleep(0.2)
-    for curie in sorted(c for c in wanted if _prefix(c) == "UniProtKB"):
-        record(curie, None, fetch_uniprot(curie))
         time.sleep(0.2)
 
     for prefix, rows in sorted(resolved.items()):

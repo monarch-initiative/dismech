@@ -159,12 +159,12 @@ Maps ontology prefixes to OAK adapters for term validation:
   also records the precondition for migrating a further prefix)
 - HGNC (and lowercase `hgnc`), GENO, ECTO (and `ExO`, which is bundled with
   ECTO), XCO, OPL, ICD10CM, icd11f → `sqlite:obo:<name>`
-- UniProtKB → `uniprot:` (OAK's experimental UniProt SPARQL adapter), for a
-  gene product on a model's or dataset's `genes`. **NCBIGene and the Alliance
-  MOD prefixes (MGI, RGD, ZFIN, Xenbase, FB, WB, SGD) are not routed**: no OAK
-  adapter serves them reliably, so `just check-gene-namespaces` checks them
+- **NCBIGene and the Alliance MOD prefixes (MGI, RGD, ZFIN, Xenbase, FB, WB,
+  SGD), admitted only on a model's or dataset's `genes`, are not routed**: no
+  OAK adapter serves them reliably, so `just check-gene-namespaces` checks them
   against `cache/<prefix>/terms.csv` instead (see *Naming Genes in a Model's
-  Own Species* below)
+  Own Species* below). A gene-product (`UniProtKB:`) accession is not an
+  accepted namespace for now; a follow-up issue tracks adding it
 
 Note this governs **automated term validation** only. Several modules build an
 adapter directly and ignore this file — notably
@@ -1866,7 +1866,7 @@ model, which is `PARTIALLY_RECAPITULATES` against `Motor Neuron Degeneration`
 while `RECAPITULATES` `Oxidative Stress`, with a `RESTORED` readout for the
 vitamin-E rescue arm.
 
-### Naming Genes in a Model's Own Species (MOD first, then `NCBIGene:` / `UniProtKB:`)
+### Naming Genes in a Model's Own Species (MOD first, then `NCBIGene:`)
 
 HGNC names human genes only. That is right for `genetic:` and for
 pathophysiology nodes, and wrong for a model system: a Coch knock-in mouse
@@ -1893,7 +1893,11 @@ animal_models:
 | human (including a human transgene, a human cell line) | `hgnc:` | HGNC symbol |
 | mouse / rat / zebrafish / *Xenopus* / *Drosophila* / *C. elegans* / *S. cerevisiae* | `MGI:` / `RGD:` / `ZFIN:ZDB-GENE-…` / `Xenbase:XB-GENE-…` / `FB:FBgn…` / `WB:WBGene…` / `SGD:S…` | the MOD's official symbol |
 | anything else (pig, dog, macaque) | `NCBIGene:` | NCBI official symbol |
-| anything else, for a gene product | `UniProtKB:` | the protein's recommended name |
+
+A gene-product (`UniProtKB:`) accession is **not** an accepted namespace for
+now — a non-MOD species' gene, whether the model acts on the gene or its
+product, takes its `NCBIGene:` identifier, with the protein name in
+`preferred_term`. A follow-up issue tracks adding `UniProtKB:` support.
 
 - **A model organism always takes its MOD**, whether the model acts on the gene
   (knockout, knockdown, a carried variant) or on its product (an injected
@@ -1920,8 +1924,7 @@ UniProt), never from memory. **The term validator does not check MOD or
 `conf/oak_config.yaml`, and a prefix with no adapter passes `just
 validate-terms` with any label at all. That gap is not theoretical: three
 `MGI:` bindings reached `main` carrying the right symbol on another gene's ID
-(`MGI:107573` labelled *Blm* is *Ott*). `UniProtKB:` labels *are* checked,
-through OAK's experimental `uniprot:` adapter.
+(`MGI:107573` labelled *Blm* is *Ott*).
 
 ```bash
 just check-gene-namespaces                      # gate (offline, in `just qc`, ungated in CI)
@@ -1931,7 +1934,7 @@ just check-gene-namespaces --format list        # also the advisory worklist
 
 The gate fails on a non-human binding outside a model's or dataset's `genes`; a
 misspelled or malformed MOD ID; a MOD or `NCBIGene:` ID that is uncached or
-whose label is not the official symbol; and an `NCBIGene:`/`UniProtKB:` binding
+whose label is not the official symbol; and an `NCBIGene:` binding
 on a record whose `organism` has a MOD. The online mode resolves MOD IDs through
 the Alliance API and NCBIGene through E-utilities, and also rejects retired
 records, human genes, and fallback-prefix records whose own taxon has a MOD —

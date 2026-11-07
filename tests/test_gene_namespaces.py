@@ -6,7 +6,7 @@ The schema tests fix where the namespaces are admitted: the `genes` of
 
 The check tests fix what `scripts/check_gene_namespaces.py` treats as a
 defect, including the order of preference: HGNC for human, the Alliance MOD
-for a model organism, NCBIGene or UniProtKB otherwise. See that script's
+for a model organism, NCBIGene otherwise. See that script's
 docstring for why each gating class is one.
 """
 
@@ -40,7 +40,6 @@ def _gene(curie: str, label: str) -> dict:
 MOUSE_COCH = _gene("MGI:1278313", "Coch")
 ZEBRAFISH_TMEM165 = _gene("ZFIN:ZDB-GENE-030131-3222", "tmem165")
 PIG_COCH = _gene("NCBIGene:100624179", "COCH")
-PIG_TRYPSIN = _gene("UniProtKB:P00761", "Trypsin")
 HUMAN_TMEM165 = _gene("hgnc:30760", "TMEM165")
 
 
@@ -113,13 +112,13 @@ def test_preferred_namespaces_are_clean() -> None:
         animal_models=[{"name": "knock-in", "genes": [MOUSE_COCH]},
                        {"name": "morphant", "genes": [ZEBRAFISH_TMEM165]}],
         experimental_models=[{"name": "cells", "genes": [HUMAN_TMEM165]},
-                             {"name": "pig cells", "organism": PIG, "genes": [PIG_COCH, PIG_TRYPSIN]}],
+                             {"name": "pig cells", "organism": PIG, "genes": [PIG_COCH]}],
         datasets=[{"accession": "geo:GSE1", "organism": MOUSE, "genes": [MOUSE_COCH]}],
     )
     assert _kinds(data) == set()
 
 
-@pytest.mark.parametrize("gene", [MOUSE_COCH, PIG_COCH, PIG_TRYPSIN])
+@pytest.mark.parametrize("gene", [MOUSE_COCH, PIG_COCH])
 def test_non_human_gene_outside_a_model_is_a_defect(gene: dict) -> None:
     data = _doc(genetic=[{"name": "COCH", "gene_term": gene}])
     assert "NON_HUMAN_OUTSIDE_MODEL" in _kinds(data)
@@ -137,7 +136,7 @@ def test_malformed_mod_identifiers_are_defects(curie: str) -> None:
     assert _kinds(_doc(animal_models=[{"genes": [_gene(curie, "x")]}])) == {"MALFORMED_ID"}
 
 
-@pytest.mark.parametrize("gene", [_gene("NCBIGene:12810", "Coch"), _gene("UniProtKB:Q62507", "Cochlin")])
+@pytest.mark.parametrize("gene", [_gene("NCBIGene:12810", "Coch")])
 def test_fallback_prefix_on_a_mod_organism_is_a_defect(gene: dict) -> None:
     data = _doc(datasets=[{"accession": "geo:GSE1", "organism": MOUSE, "genes": [gene]}])
     assert "MOD_PREFERRED" in _kinds(data, {"NCBIGene:12810": "Coch"})

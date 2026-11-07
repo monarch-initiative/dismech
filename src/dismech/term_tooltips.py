@@ -92,7 +92,6 @@ ONTOLOGY_NAMES: dict[str, Ontology] = {
     "SO": Ontology("SO", "Sequence Ontology"),
     "UBERON": Ontology("UBERON", "Uberon multi-species anatomy ontology"),
     "UPHENO": Ontology("UPHENO", "Unified Phenotype Ontology"),
-    "UNIPROTKB": Ontology("UniProtKB", "UniProt Knowledgebase"),
     "WB": Ontology("WB", "WormBase", definite=False),
     "XCO": Ontology("XCO", "Experimental Conditions Ontology"),
     "XENBASE": Ontology("Xenbase", "Xenbase", definite=False),
