@@ -93423,23 +93423,22 @@ window.searchData = [
     "creation_date": "2026-08-27T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Charcot-Marie-Tooth disease type 4K (CMT4K) is an autosomal recessive demyelinating peripheral neuropathy caused by biallelic variants in SURF1, which encodes an assembly factor for mitochondrial respiratory chain complex IV (cytochrome c oxidase). It is unusual among the CMT4 subtypes: the other members of that series arise from loss of Schwann-cell myelin-maintenance genes, whereas CMT4K is an oxidative phosphorylation disorder whose leading manifestation happens to be peripheral nerve. Patients present with severe childhood-onset demyelinating neuropathy with markedly slowed motor conduction, accompanied by lactic acidosis, and may later develop cerebellar ataxia and putaminal or periaqueductal brain lesions \u2014 features that overlap the Leigh syndrome caused by the same gene. The distinguishing molecular observation is that complex IV remains partially functional in muscle and fibroblasts, which is the current explanation for why these patients present as neuropathy rather than as fulminant Leigh encephalopathy.",
+    "description": "Charcot-Marie-Tooth disease type 4K (CMT4K) is an autosomal recessive demyelinating sensorimotor neuropathy caused by biallelic SURF1 variants. SURF1 encodes an assembly factor for mitochondrial respiratory chain complex IV (cytochrome c oxidase). The original three patients from two families presented in childhood with marked conduction slowing, distal muscle wasting, sensory loss, areflexia and elevated lactate. Hearing loss, nystagmus, kyphoscoliosis, brain MRI abnormalities and later cerebellar ataxia occurred in different combinations. In the one biochemically investigated patient, absent SURF1 protein accompanied reduced but residual complex IV assembly and activity. Residual activity also occurs in SURF1-related Leigh syndrome and does not explain or reliably distinguish the neuropathy-predominant presentation. The basis of this clinical variability remains unresolved.",
     "pathophysiology": [
-      "SURF1 Loss and Impaired Complex IV Assembly",
-      "Schwann Cell Energy Failure and Demyelination",
-      "Delayed Basal Ganglia and Brainstem Injury",
-      "Systemic Lactic Acidosis",
-      "Severe Childhood-Onset Demyelinating Neuropathy"
+      "Biallelic SURF1 Variants",
+      "Aberrant SURF1 Splicing",
+      "SURF1 Protein Deficiency",
+      "Reduced Complex IV Assembly",
+      "Reduced Complex IV Activity",
+      "Peripheral Nerve Demyelination",
+      "Peripheral Axonal Loss",
+      "Systemic Lactate Elevation"
     ],
-    "cell_types": [
-      "Schwann cell"
-    ],
-    "cell_type_ids": [
-      "CL:0002573"
-    ],
+    "cell_types": [],
+    "cell_type_ids": [],
     "biological_processes": [
-      "Mitochondrial Respiratory Chain Complex IV Assembly",
-      "Myelination"
+      "mitochondrial respiratory chain complex IV assembly",
+      "myelination"
     ],
     "phenotypes": [
       "Demyelinating Peripheral Neuropathy",
@@ -93449,15 +93448,23 @@ window.searchData = [
       "Distal Muscle Atrophy",
       "Distal Sensory Impairment",
       "Lactic Acidosis",
-      "Cerebellar Ataxia"
+      "Cerebellar Ataxia",
+      "Areflexia",
+      "Horizontal Nystagmus",
+      "Hearing Loss",
+      "Kyphoscoliosis"
     ],
     "phenotype_categories": [
       "Neurological",
       "Biochemical",
-      "Metabolic"
+      "Metabolic",
+      "Otolaryngological",
+      "Musculoskeletal"
     ],
     "phenotype_hpo_categories": [
       "Cellular",
+      "Ear",
+      "Eye",
       "Metabolism",
       "Musculoskeletal",
       "Nervous System"
@@ -93467,35 +93474,39 @@ window.searchData = [
       "HP:0008347",
       "HP:0003431",
       "HP:0002460",
-      "HP:0003202",
+      "HP:0003693",
       "HP:0002936",
       "HP:0003128",
-      "HP:0001251"
+      "HP:0001251",
+      "HP:0001284",
+      "HP:0000666",
+      "HP:0000365",
+      "HP:0002751"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "SURF1"
     ],
     "treatments": [
       "Physical and Occupational Therapy",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "Orthoses and Mobility Support",
+      "Medication Risk Review",
+      "Investigational SURF1 Gene Addition"
     ],
     "environmental": [],
     "biochemical": [
       "Complex IV (cytochrome c oxidase) activity in muscle and fibroblasts",
-      "Serum lactate"
+      "Blood lactate"
     ],
     "source_file": "Charcot-Marie-Tooth_Disease_Type_4K.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Type_4K.html",
-    "num_phenotypes": 8,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 12,
+    "num_pathophysiology": 8,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 5,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Charcot-Marie-Tooth Disease Type X",
@@ -421807,6 +421818,117 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Waisman Syndrome",
+    "disease_id": "MONDO:0010709",
+    "category": "Mendelian",
+    "parents": [
+      "X-linked Syndromic Intellectual Disability",
+      "Parkinsonian Disorder",
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-11-07T11:30:26Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Waisman syndrome (early-onset parkinsonism-intellectual disability syndrome; OMIM 311510) is an ultra-rare X-linked recessive neurological disorder caused by hemizygous loss-of-function variants in RAB39B at Xq28, which encodes a brain-enriched Rab GTPase of the Golgi and recycling-endosome compartments. Affected males show a developmental phase from infancy or early childhood - intellectual disability and developmental delay, often with poor speech and motor coordination, and in variable combination autism spectrum disorder, macrocephaly and epileptic seizures - followed in adolescence or adulthood by a progressive, typically tremor-predominant parkinsonism. Post-mortem study of the index family showed nigral dopaminergic neuron loss with widespread Lewy body pathology, cortical Lewy bodies, brain iron accumulation, tau immunoreactivity and axonal spheroids, and brain imaging in later families shows paramagnetic (iron) deposition in the basal ganglia and midbrain with pallidal calcification in some patients. Every reported disease allele (nonsense, splice, frameshift, nonstop, whole-gene deletion, and a destabilizing missense) abolishes or depletes the protein. Model systems connect the loss to three cellular consequences: disinhibited PI3K-AKT-mTOR signaling and over-proliferation of neural progenitors (macrocephaly and autism-like phenotypes), mistrafficking of GluA2-containing AMPA receptors with immature dendritic spines (synaptic and cognitive phenotypes), and impaired macroautophagy with alpha-synuclein dysregulation and degeneration of substantia nigra dopaminergic neurons (parkinsonism). Management is symptomatic; the parkinsonism is levodopa-responsive but prone to early treatment-induced motor complications.",
+    "pathophysiology": [
+      "RAB39B Loss of Function",
+      "Impaired Golgi-Endosomal Vesicular Trafficking",
+      "GluA2 AMPA Receptor Mistrafficking and Immature Dendritic Spines",
+      "Reduced Presynaptic Bouton Formation",
+      "PI3K-AKT-mTOR Hyperactivation in Neural Progenitors",
+      "Neural Progenitor Overproliferation",
+      "Impaired Macroautophagy",
+      "Alpha-Synuclein Dysregulation and Lewy Body Pathology",
+      "Substantia Nigra Dopaminergic Neuron Degeneration"
+    ],
+    "cell_types": [
+      "glutamatergic neuron",
+      "hippocampal neuron",
+      "neural progenitor cell",
+      "dopaminergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000679",
+      "CL:0002608",
+      "CL:0011020",
+      "CL:0000700"
+    ],
+    "biological_processes": [
+      "vesicle-mediated transport",
+      "dendritic spine morphogenesis",
+      "presynapse assembly",
+      "phosphatidylinositol 3-kinase/protein kinase B signal transduction",
+      "TOR signaling",
+      "neural precursor cell proliferation",
+      "macroautophagy",
+      "neuron apoptotic process"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Global developmental delay",
+      "Absent speech",
+      "Incoordination",
+      "Autistic behavior",
+      "Attention deficit hyperactivity disorder",
+      "Macrocephaly",
+      "Seizure",
+      "Parkinsonism",
+      "Resting tremor",
+      "Bradykinesia",
+      "Postural tremor",
+      "Iron accumulation in brain",
+      "Basal ganglia calcification"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0001344",
+      "HP:0002311",
+      "HP:0000729",
+      "HP:0007018",
+      "HP:0000256",
+      "HP:0001250",
+      "HP:0001300",
+      "HP:0002322",
+      "HP:0002067",
+      "HP:0002174",
+      "HP:0012675",
+      "HP:0002135"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "RAB39B"
+    ],
+    "treatments": [
+      "Levodopa",
+      "Subthalamic Deep Brain Stimulation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Waisman_Syndrome.yaml",
+    "page_url": "../pages/disorders/Waisman_Syndrome.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Waldenstrom Macroglobulinemia",
     "disease_id": "MONDO:0100280",
     "category": "Cancer",
@@ -431630,17 +431752,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4006,
+  "total_disorder_pages": 4007,
   "total_subtypes": 5037,
-  "total_disorders_and_subtypes": 9043,
-  "total_unique_evidence_sources": 59341,
-  "total_unique_publications": 55510,
+  "total_disorders_and_subtypes": 9044,
+  "total_unique_evidence_sources": 59363,
+  "total_unique_publications": 55529,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4004,
-  "total_unique_pathological_events": 26195,
+  "total_pathographs": 4005,
+  "total_unique_pathological_events": 26204,
   "total_modules": 227,
-  "total_research_reports": 4114,
+  "total_research_reports": 4115,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 130
