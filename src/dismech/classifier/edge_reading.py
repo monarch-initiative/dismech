@@ -246,9 +246,7 @@ def edge_reading(claim: dict) -> dict[str, Any]:
     The returned state is detached from the input, including all nested values.
     """
     canonical = structured_claim_task(claim).state
-    _check_context_metadata(
-        canonical["about"]["disease"], class_name="ClaimDiseaseIdentity"
-    )
+    _check_context_metadata(canonical["about"]["disease"], class_name="Disease")
     assertion_type = canonical["assertion_type"]
     if assertion_type not in _KINDS:
         raise ValueError(
@@ -401,8 +399,8 @@ def edge_reading_task(
 def edge_aspect_schema(claim: dict, fields: Iterable[str] = EDGE_FIELDS) -> dict:
     """Keep canonical response keys while questions address the readable state.
 
-    Unknown selected fields fail closed. Known fields absent or null on the edge
-    produce no question, matching the existing aspect compiler's present-field rule.
+    Unknown selected fields fail closed. Known fields absent, null or an empty
+    collection produce no question, matching the existing aspect compiler's rule.
     """
     state = edge_reading(claim)
     fields = tuple(fields)
@@ -427,7 +425,7 @@ def edge_aspect_schema(claim: dict, fields: Iterable[str] = EDGE_FIELDS) -> dict
             if field == "target"
             else state["relationship"].get(field)
         )
-        if value is not None:
+        if value is not None and value != [] and value != {}:
             descriptions[f"/assertion/{field}"] = (
                 meanings[field] + "\n" + _semantics(field)
             )

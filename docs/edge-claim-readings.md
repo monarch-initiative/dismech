@@ -46,7 +46,7 @@ Response keys retain the canonical aspect paths (`/`, `/about/disease`,
 fields (`scope.disease`, `object.name`, `relationship.description`, etc.). The default
 `EDGE_FIELDS` selects target, description, causal-link type, intermediates,
 hypothesis groups and treatment effect when present and non-null; unknown selected
-fields fail. Empty but present values follow the existing aspect compiler's rule.
+fields fail. Empty collections produce no question, matching the aspect compiler.
 The root assesses all relationship fields, endpoint identities/qualifiers and
 explicit scope, not every independent observation in the endpoint definitions.
 Target identity includes qualifications in the target name; unclear disease

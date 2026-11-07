@@ -53,7 +53,10 @@ def document(treatment=False):
         source.update(subtypes=["Model subtype"], mechanism_confidence="PROVISIONAL")
     return {
         "name": "Synthetic condition",
-        "disease_term": {"preferred_term": "Synthetic condition"},
+        "disease_term": {
+            "preferred_term": "Synthetic condition",
+            "term": {"id": "SYNTHETIC:condition", "label": "Synthetic condition label"},
+        },
         "has_subtypes": [
             {"name": "Model subtype", "description": "Only the modeled arm."}
         ],
@@ -337,13 +340,16 @@ def test_nested_evaluation_metadata_fails_instead_of_leaking(metadata):
         edge_reading(c)
 
 
-def test_empty_present_fields_follow_existing_aspect_contract():
+@pytest.mark.parametrize("empty", [[], {}])
+def test_empty_present_fields_follow_existing_aspect_contract(empty):
     c = claim()
-    c["assertion"]["intermediate_mechanisms"] = []
-    assert "/assertion/intermediate_mechanisms" in edge_aspect_schema(c)["properties"]
+    c["assertion"]["intermediate_mechanisms"] = empty
+    assert (
+        "/assertion/intermediate_mechanisms" not in edge_aspect_schema(c)["properties"]
+    )
     assert (
         "/assertion/intermediate_mechanisms"
-        in aspect_output_schema(c, fields=EDGE_FIELDS)["properties"]
+        not in aspect_output_schema(c, fields=EDGE_FIELDS)["properties"]
     )
 
 
