@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catel-Manzke Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Catel-Manzke Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Catel-Manzke Syndrome</h1>
+                
+                <p class="report-subtitle">Catel-Manzke Syndrome (MONDO:0014507): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-11-06</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0014507" target="_blank" rel="noopener noreferrer">MONDO:0014507</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">14 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Catel-Manzke Syndrome (<a href="http://purl.obolibrary.org/obo/MONDO_0014507" target="_blank" rel="noopener noreferrer">MONDO:0014507</a>): A Comprehensive Disease Characteristics Report</h1>
+<h2>Summary</h2>
+<p><strong>Catel-Manzke syndrome (CMS)</strong> is a rare autosomal-recessive skeletal dysplasia caused by <strong>biallelic loss-of-function variants in <em>TGDS</em></strong> (TDP-glucose 4,6-dehydratase; <a href="https://bioregistry.io/HGNC:20324" target="_blank" rel="noopener noreferrer">HGNC:20324</a>; chromosome 13q32.1, minus strand; UniProt O95455). The disease is defined by the combination of two cardinal features: <strong>Pierre Robin sequence</strong> (micrognathia, glossoptosis, and cleft palate) and a <strong>pathognomonic bilateral hyperphalangy of the index fingers</strong> produced by an accessory ossification center/bone between the second metacarpal and proximal phalanx — a malformation historically termed <strong>Manzke dysostosis</strong>, which causes radial deviation at the metacarpophalangeal joint and ulnar clinodactyly. Approximately 40 patients have been reported. Additional recurrent features include congenital heart defects, joint hyperextensibility/laxity, characteristic facial features, and, in a subset, short stature. Key identifiers are <a href="https://bioregistry.io/OMIM:616145" target="_blank" rel="noopener noreferrer">OMIM:616145</a> (TGDS-related, autosomal recessive; the historical <a href="https://bioregistry.io/OMIM:302380" target="_blank" rel="noopener noreferrer">OMIM:302380</a> entry predates gene discovery), Orphanet <a href="https://bioregistry.io/ORPHA:1388" target="_blank" rel="noopener noreferrer">ORPHA:1388</a>, and <a href="http://purl.obolibrary.org/obo/MONDO_0014507" target="_blank" rel="noopener noreferrer">MONDO:0014507</a>.</p>
+<p>The molecular mechanism was substantially clarified in 2025. TGDS is an <strong>endoplasmic-reticulum–localized, NAD-dependent UDP-D-glucose 4,6-dehydratase (EC 4.2.1.76)</strong> of the short-chain dehydrogenase/reductase (SDR) family. Rather than acting as a classical biosynthetic workhorse, TGDS produces <strong>UDP-4-keto-6-deoxyglucose</strong>, an "enzyme-rescue metabolite" that mimics the reaction intermediate of the enzyme <strong>UXS1</strong> (UDP-xylose synthase / UDP-glucuronate decarboxylase) and regenerates the essential cofactor <strong>NAD⁺</strong> within the UXS1 catalytic pocket, completing UXS1's catalytic cycle. Loss of TGDS deprives UXS1 of this rescue metabolite, inactivating UXS1, reducing UDP-xylose and the downstream synthesis of <strong>sulfated glycosaminoglycans/proteoglycans</strong> that are crucial for cartilage and skeletal development. This causal chain is supported in vitro and in vivo, including a zebrafish <em>tgds</em> knockout that reproduces craniofacial cartilage defects with decreased sulfated glycosaminoglycan content.</p>
+<p>Management is entirely <strong>supportive and multidisciplinary</strong> — there is no disease-modifying or gene-directed therapy. Priorities are neonatal airway and feeding management for the Robin sequence, surgical cleft-palate repair, cardiac evaluation and intervention, and selective hand surgery for the hyperphalangy. Prognosis depends largely on the severity of airway compromise and cardiac defects; survivors who pass the neonatal period generally have a favorable long-term outlook, though a severe end of the spectrum with respiratory failure and failure to thrive exists.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — Biallelic loss-of-function <em>TGDS</em> variants cause Catel-Manzke syndrome (autosomal recessive)</h3>
+<p>The causal gene for Catel-Manzke syndrome is <strong><em>TGDS</em></strong>. In the landmark gene-discovery study, Ehmke et al. (2014) identified homozygous and compound-heterozygous <em>TGDS</em> mutations in <strong>seven unrelated individuals with typical CMS</strong> by exome sequencing: <em>"We describe the identification of homozygous and compound heterozygous mutations in TGDS in seven unrelated individuals with typical Catel-Manzke syndrome by exome sequencing"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/25480037/" target="_blank" rel="noopener noreferrer">PMID: 25480037</a>]. Six distinct variants were reported — c.892A&gt;G (p.Asn298Asp), c.270_271del (p.Lys91Asnfs*22), c.298G&gt;T (p.Ala100Ser), c.294T&gt;G (p.Phe98Leu), c.269A&gt;G (p.Glu90Gly), and c.700T&gt;C (p.Tyr234His). The breadth of amino-acid changes (missense, frameshift) led the authors to conclude a <strong>loss-of-function mechanism</strong>: <em>"Due to the spectrum of the amino acid changes, we suggest that loss of function in TGDS is the underlying mechanism of Catel-Manzke syndrome"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/25480037/" target="_blank" rel="noopener noreferrer">PMID: 25480037</a>]. Earlier clinical reports had already suggested autosomal-recessive inheritance based on consanguinity and affected sibs [<a href="https://pubmed.ncbi.nlm.nih.gov/21834032/" target="_blank" rel="noopener noreferrer">PMID: 21834032</a>].</p>
+<p><strong>Evidence source type:</strong> Human clinical / genetic (exome sequencing cohort).</p>
+<h3>Finding 2 — Mechanism: TGDS produces an enzyme-rescue metabolite that sustains UXS1 activity and skeletal glycan synthesis</h3>
+<p>The 2025 study by Jacobs, Bommer et al. (<em>Nature</em> 646:218–226) resolved the long-standing puzzle of why loss of an apparently minor nucleotide-sugar enzyme causes a skeletal dysplasia. TGDS produces <strong>UDP-4-keto-6-deoxyglucose</strong>, described as <em>"a mimic of the reaction intermediate of the enzyme UXS1, which regenerates the essential cofactor NAD⁺ within the catalytic pocket of UXS1 by completing its catalytic cycle"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/40836090/" target="_blank" rel="noopener noreferrer">PMID: 40836090</a>]. The consequence of TGDS deficiency is that <em>"the inability to produce sufficient amounts of this enzyme-rescue metabolite leads to the inactivation of UXS1, impairing the synthesis of specific glycans that are crucial for skeletal development"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/40836090/" target="_blank" rel="noopener noreferrer">PMID: 40836090</a>]. This establishes a novel, non-canonical "enzyme-rescue metabolite" paradigm: TGDS does not feed a linear biosynthetic pathway directly, but instead keeps a second enzyme (UXS1) catalytically competent by maintaining its NAD⁺ redox state.</p>
+<p><strong>Evidence source type:</strong> In vitro + in vivo mechanistic study.</p>
+<h3>Finding 3 — Core clinical phenotype: Pierre Robin sequence plus pathognomonic bilateral index-finger hyperphalangy (Manzke dysostosis)</h3>
+<p>CMS is clinically defined by <em>"Pierre Robin sequence and a unique form of bilateral hyperphalangy causing a clinodactyly of the index finger"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/25480037/" target="_blank" rel="noopener noreferrer">PMID: 25480037</a>]. The broader phenotypic spectrum includes <em>"hand anomalies, Robin sequence, cardiac defects, joint hyperextensibility, and characteristic facial features"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/31833187/" target="_blank" rel="noopener noreferrer">PMID: 31833187</a>]. The hallmark hand malformation is an accessory bone: patients present <em>"with the pathognomonic bilateral or unilateral hyperphalangy caused by an accessory bone between the second metacarpal and proximal phalanx known as Manzke dysostosis"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/31833187/" target="_blank" rel="noopener noreferrer">PMID: 31833187</a>]. Phenotypic variability is well documented — patients have been reported <strong>without radiologic hyperphalangy</strong> (while retaining mild radial deviation and ulnar clinodactyly) [<a href="https://pubmed.ncbi.nlm.nih.gov/31769200/" target="_blank" rel="noopener noreferrer">PMID: 31769200</a>] and <strong>without Manzke dysostosis</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/31833187/" target="_blank" rel="noopener noreferrer">PMID: 31833187</a>], and disproportionate short stature — not classically part of CMS — has been described in TGDS-confirmed patients [<a href="https://pubmed.ncbi.nlm.nih.gov/31769200/" target="_blank" rel="noopener noreferrer">PMID: 31769200</a>].</p>
+<p><strong>Evidence source type:</strong> Human clinical (case series and cohort reports).</p>
+<h3>Finding 4 — Genetic heterogeneity and differential diagnosis of the Catel-Manzke / hyperphalangy phenotype</h3>
+<p><em>TGDS</em> is <strong>not</strong> causative in every clinically diagnosed CMS patient: <em>"Mutations in TGDS have been identified as one cause of Catel-Manzke syndrome, but cannot be found as causative in every patient with the clinical diagnosis"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/31923704/" target="_blank" rel="noopener noreferrer">PMID: 31923704</a>]. Several genes produce Catel-Manzke–like phenotypes and constitute the molecular differential diagnosis:</p>
+<ul>
+<li><strong>IMPAD1</strong> (gPAPP-type chondrodysplasia): <em>"We identified two homozygous loss-of-function IMPAD1 mutations in the two Catel-Manzke like patients (p.Arg187X and p.Ser108ArgfsX48)"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/22887726/" target="_blank" rel="noopener noreferrer">PMID: 22887726</a>].</li>
+<li><strong>KYNU</strong> (kynureninase deficiency / NAD-deficiency syndrome with hand hyperphalangism): <em>"we present unrelated patients identified with biallelic variants in KYNU leading to kynureninase deficiency and xanthurenic aciduria"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/31923704/" target="_blank" rel="noopener noreferrer">PMID: 31923704</a>].</li>
+<li><strong>CANT1</strong> (Desbuquois dysplasia type 1) and <strong>Temtamy preaxial brachydactyly</strong> overlap clinically.</li>
+<li><strong>DNAH10</strong> was proposed as a candidate in one Catel-Manzke–like patient, though with caution given divergent gene function [<a href="https://pubmed.ncbi.nlm.nih.gov/26420031/" target="_blank" rel="noopener noreferrer">PMID: 26420031</a>].</li>
+</ul>
+<p>Notably, both the KYNU-related disorder (NAD metabolism) and the TGDS mechanism (NAD⁺ regeneration in UXS1) converge on <strong>NAD(H) cofactor biology</strong>, an intriguing mechanistic thread across the differential.</p>
+<p><strong>Evidence source type:</strong> Human clinical / genetic.</p>
+<h3>Finding 5 — Zebrafish <em>tgds</em> model recapitulates CMS craniofacial/cartilage defects via reduced sulfated glycosaminoglycans</h3>
+<p>Coppola et al. (<em>FEBS J</em> 2026, 293:2248–2269) characterized the zebrafish <em>tgds</em> ortholog. Recombinant zebrafish Tgds has <strong>UDP-D-glucose 4,6-dehydratase (EC 4.2.1.76)</strong> activity (the first step of L-rhamnose biosynthesis in lower eukaryotes), and the gene shows conserved biphasic developmental expression. Critically, <em>"CMS-associated mutations in conserved residues significantly impair enzyme activity and stability"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/41159851/" target="_blank" rel="noopener noreferrer">PMID: 41159851</a>], functionally confirming loss of function at the enzyme level. CRISPR/Cas9 F0 knockout produced developmental defects including <em>"craniofacial cartilage alterations, associated with a decrease in sulfate glycosaminoglycan content, mirrored some skeletal features observed in humans with CMS"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/41159851/" target="_blank" rel="noopener noreferrer">PMID: 41159851</a>] — directly linking the molecular lesion to reduced sulfated GAGs and the cartilage phenotype.</p>
+<p><strong>Evidence source type:</strong> Model organism (zebrafish) + in vitro enzymology.</p>
+<h3>Finding 6 — p.Ala100Ser (c.298G&gt;T) is a recurrent/founder allele; severity is variable, including a severe end</h3>
+<p>Pferdehirt et al. (2015) reported a 12-month-old male <strong>homozygous for p.Ala100Ser</strong> with molecularly confirmed CMS, presenting with Pierre Robin sequence (notably <strong>without cleft palate</strong>) and hyperphalangy. This patient lay at the severe end of the spectrum: <em>"Our patient is on the severe end of the phenotypic spectrum, presenting with respiratory complications and failure to thrive"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/26366375/" target="_blank" rel="noopener noreferrer">PMID: 26366375</a>]. The recurrence of this allele supports its status as a common CMS mutation: <em>"our finding of a homozygous p.Ala100Ser pathogenic variant in our patient supports that it is a common mutation in Catel-Manzke syndrome"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/26366375/" target="_blank" rel="noopener noreferrer">PMID: 26366375</a>], consistent with the founder-allele status established by haplotype reconstruction in the original cohort [<a href="https://pubmed.ncbi.nlm.nih.gov/25480037/" target="_blank" rel="noopener noreferrer">PMID: 25480037</a>].</p>
+<p><strong>Evidence source type:</strong> Human clinical.</p>
+<h3>Finding 7 — TGDS is an ER-localized NAD-dependent UDP-D-glucose 4,6-dehydratase; disease variants cluster at the active/substrate-binding site</h3>
+<p>UniProt O95455 gives the official RecName <strong>"UDP-D-glucose 4,6-dehydratase" (EC 4.2.1.76)</strong>, AltName dTDP-D-glucose 4,6-dehydratase, with subcellular localization to the <strong>endoplasmic reticulum</strong> (keywords: Endoplasmic reticulum, Golgi apparatus, Lyase, NAD, Disease variant). Catalytic/active-site residues are annotated at positions 143, 144, and 166, with substrate/cofactor binding residues including 28, 29, 50, 53, 55, 76, 77, 98, 102, 170, and 196. TGDS belongs to the <strong>SDR family</strong>: <em>"TGDS (dTDP-D-glucose 4,6-dehydrogenase) is a conserved protein belonging to the SDR family and probably plays a role in nucleotide sugar metabolism"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/25480037/" target="_blank" rel="noopener noreferrer">PMID: 25480037</a>]. Disease missense variants cluster near the catalytic/substrate-binding pocket — p.Phe98Leu and p.Ala100Ser lie adjacent to binding residue 98, and the atypical fetal variant p.Asp299Asn was shown to be <em>"located in the predicted substrate binding site of TGDS"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/28422407/" target="_blank" rel="noopener noreferrer">PMID: 28422407</a>]. This spatial clustering provides a structural rationale for loss of enzyme function.</p>
+<p><strong>Evidence source type:</strong> Computational / protein database (UniProt) + human clinical variant mapping.</p>
+<h3>Finding 8 — SOX9-regulated mandibular chondrogenesis links the TGDS/glycan defect to the Pierre Robin branch</h3>
+<p>Al-Qattan &amp; Almohrij (2022) reviewed the pathogenesis of syndromic Pierre Robin sequence through SOX9: <em>"SOX9 is the main positive regulator in the development of the mandibular cartilage and it also enhances collagen type II (the main collagen type in cartilage) expression in the mandibular cartilage"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/35415063/" target="_blank" rel="noopener noreferrer">PMID: 35415063</a>]. The review situates CMS within a SOX9-interaction framework for PRS, listing <em>"interactions with collagen type II (in Strickler syndrome), exon junction complex (in Richier-Costa-Periera syndrome), glucose (in Catel-Manzke syndrome)"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/35415063/" target="_blank" rel="noopener noreferrer">PMID: 35415063</a>]. This connects the TGDS glycan/nucleotide-sugar defect to SOX9-dependent mandibular cartilage development — the developmental substrate for the micrognathia that initiates the Robin sequence.</p>
+<p><strong>Evidence source type:</strong> Human / review (developmental biology synthesis).</p>
+<h3>Finding 9 — gnomAD confirms c.298G&gt;T (p.Ala100Ser) as the dominant founder allele; all CMS variants are rare</h3>
+<p>Population-frequency analysis (gnomAD v2.1, GRCh37) shows <strong>c.298G&gt;T p.Ala100Ser</strong> at exome AF = 3.34×10⁻⁴ (AC = 69) and genome AF = 4.14×10⁻⁴ — by far the most frequent pathogenic allele, quantitatively corroborating its founder status. Other reported pathogenic variants are ~10–40× rarer: c.700T&gt;C p.Tyr234His AF = 1.19×10⁻⁵ (AC = 3); c.895G&gt;A p.Asp299Asn AF = 8.4×10⁻⁶ (AC = 2); c.270_271del p.Lys91Asnfs*22 AF = 1.85×10⁻⁵ (AC = 4); c.269A&gt;G p.Glu90Gly AF = 2.32×10⁻⁵ (AC = 5); c.294T&gt;G p.Phe98Leu is absent from gnomAD. No homozygotes for pathogenic alleles are reported in the (healthy) gnomAD population, consistent with a severe recessive disorder. The founder status was originally established by haplotype reconstruction: <em>"By using haplotype reconstruction we showed that the mutation c.298G&gt;T is probably a founder mutation"</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/25480037/" target="_blank" rel="noopener noreferrer">PMID: 25480037</a>].</p>
+<p><strong>Evidence source type:</strong> Population genetics (gnomAD) + human clinical.</p>
+<hr />
+<h2>Comprehensive Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p>Catel-Manzke syndrome is a rare, congenital, autosomal-recessive dysostosis/skeletal dysplasia first delineated clinically in the 1970s (Catel; Manzke) and molecularly solved in 2014. It couples <strong>Pierre Robin sequence</strong> with <strong>Manzke dysostosis</strong> (bilateral index-finger hyperphalangy). Information is drawn predominantly from <strong>aggregated disease-level resources and small clinical case series/cohorts</strong> (OMIM, Orphanet, HPO, and ~40 published patients) rather than large EHR datasets, reflecting its rarity.</p>
+<p><strong>Key identifiers:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0014507" target="_blank" rel="noopener noreferrer">MONDO:0014507</a></td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>616145 (TGDS, autosomal recessive); 302380 (historical, pre-gene)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:1388" target="_blank" rel="noopener noreferrer">ORPHA:1388</a></td>
+</tr>
+<tr>
+<td>Gene (HGNC)</td>
+<td>TGDS, <a href="https://bioregistry.io/HGNC:20324" target="_blank" rel="noopener noreferrer">HGNC:20324</a></td>
+</tr>
+<tr>
+<td>UniProt</td>
+<td>O95455</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>Q87.0 (congenital malformation syndromes predominantly affecting facial appearance) — closest mapping</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>Indexed under congenital/craniofacial anomalies</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms:</strong> Catel-Manzke syndrome; Palatodigital syndrome, Catel-Manzke type; Pierre Robin sequence–hyperphalangy–clinodactyly syndrome; hyperphalangy-clinodactyly of index finger with Pierre Robin syndrome; index finger anomaly–Pierre Robin syndrome; micrognathia-digital syndrome.</p>
+<h3>2. Etiology</h3>
+<p><strong>Primary cause — genetic.</strong> CMS is a monogenic Mendelian disorder caused by biallelic (homozygous or compound-heterozygous) loss-of-function variants in <em>TGDS</em> [<a href="https://pubmed.ncbi.nlm.nih.gov/25480037/" target="_blank" rel="noopener noreferrer">PMID: 25480037</a>]. There is no established environmental, infectious, or teratogenic cause.</p>
+<p><strong>Genetic risk factors.</strong> The only established risk factor is <strong>carriage of two pathogenic <em>TGDS</em> alleles</strong>. <strong>Consanguinity</strong> increases risk of homozygosity for rare recessive alleles and was noted in early reports [<a href="https://pubmed.ncbi.nlm.nih.gov/21834032/" target="_blank" rel="noopener noreferrer">PMID: 21834032</a>]. The recurrent <strong>founder allele c.298G&gt;T (p.Ala100Ser)</strong> elevates population-level risk in carriers [<a href="https://pubmed.ncbi.nlm.nih.gov/25480037/" target="_blank" rel="noopener noreferrer">PMID: 25480037</a>; gnomAD AF 3.3×10⁻⁴].</p>
+<p><strong>Environmental risk factors / protective factors / gene–environment interactions.</strong> None identified. As a fully penetrant recessive Mendelian disorder, CMS is not known to be modified by lifestyle, diet, toxins, or other environmental exposures. No protective alleles or modifier genes have been reported. (This content is <strong>not applicable / not available</strong> for CMS.)</p>
+<h3>3. Phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Frequency</th>
+<th>Onset / severity</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Micrognathia</td>
+<td>Physical/skeletal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" rel="noopener noreferrer">HP:0000347</a></td>
+<td>Very frequent (core)</td>
+<td>Congenital; part of Robin sequence</td>
+</tr>
+<tr>
+<td>Glossoptosis</td>
+<td>Physical</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000162" target="_blank" rel="noopener noreferrer">HP:0000162</a></td>
+<td>Core (Robin seq)</td>
+<td>Congenital</td>
+</tr>
+<tr>
+<td>Cleft palate</td>
+<td>Physical</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" rel="noopener noreferrer">HP:0000175</a></td>
+<td>Frequent (not obligate; absent in some)</td>
+<td>Congenital</td>
+</tr>
+<tr>
+<td>Pierre Robin sequence</td>
+<td>Composite</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000201" target="_blank" rel="noopener noreferrer">HP:0000201</a></td>
+<td>Core</td>
+<td>Neonatal</td>
+</tr>
+<tr>
+<td>Index-finger hyperphalangy (Manzke dysostosis)</td>
+<td>Skeletal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009811" target="_blank" rel="noopener noreferrer">HP:0009811</a>-related</td>
+<td>Pathognomonic; variable</td>
+<td>Congenital</td>
+</tr>
+<tr>
+<td>Ulnar deviation/clinodactyly of index finger</td>
+<td>Skeletal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0040019" target="_blank" rel="noopener noreferrer">HP:0040019</a> / <a href="http://purl.obolibrary.org/obo/HP_0004209" target="_blank" rel="noopener noreferrer">HP:0004209</a>-analogous</td>
+<td>Core</td>
+<td>Congenital</td>
+</tr>
+<tr>
+<td>Radial deviation at MCP joint</td>
+<td>Skeletal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009467" target="_blank" rel="noopener noreferrer">HP:0009467</a>-related</td>
+<td>Core</td>
+<td>Congenital</td>
+</tr>
+<tr>
+<td>Congenital heart defect</td>
+<td>Cardiac</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a></td>
+<td>Frequent</td>
+<td>Congenital</td>
+</tr>
+<tr>
+<td>Joint hyperextensibility/laxity</td>
+<td>Connective tissue</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" rel="noopener noreferrer">HP:0001382</a></td>
+<td>Frequent</td>
+<td>Congenital/early</td>
+</tr>
+<tr>
+<td>Characteristic facial features</td>
+<td>Craniofacial</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" rel="noopener noreferrer">HP:0001999</a></td>
+<td>Frequent</td>
+<td>Congenital</td>
+</tr>
+<tr>
+<td>Short / disproportionate short stature</td>
+<td>Growth</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a> / <a href="http://purl.obolibrary.org/obo/HP_0003510" target="_blank" rel="noopener noreferrer">HP:0003510</a></td>
+<td>Subset (TGDS-confirmed)</td>
+<td>Childhood [<a href="https://pubmed.ncbi.nlm.nih.gov/31769200/" target="_blank" rel="noopener noreferrer">PMID: 31769200</a>]</td>
+</tr>
+<tr>
+<td>Respiratory complications / failure to thrive</td>
+<td>Systemic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002098" target="_blank" rel="noopener noreferrer">HP:0002098</a> / <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a></td>
+<td>Severe end of spectrum</td>
+<td>Neonatal/infancy [<a href="https://pubmed.ncbi.nlm.nih.gov/26366375/" target="_blank" rel="noopener noreferrer">PMID: 26366375</a>]</td>
+</tr>
+<tr>
+<td>Pectus excavatum</td>
+<td>Skeletal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" rel="noopener noreferrer">HP:0000767</a></td>
+<td>Reported</td>
+<td>Early-onset [<a href="https://pubmed.ncbi.nlm.nih.gov/37100424/" target="_blank" rel="noopener noreferrer">PMID: 37100424</a>]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Onset:</strong> congenital/neonatal for all cardinal features. <strong>Severity:</strong> variable — from mild (hyperphalangy without Robin-sequence complications) to severe (respiratory failure, failure to thrive) [<a href="https://pubmed.ncbi.nlm.nih.gov/26366375/" target="_blank" rel="noopener noreferrer">PMID: 26366375</a>]. <strong>Progression:</strong> the malformations are structural and <strong>stable</strong> (non-progressive); outcome is dictated by airway/cardiac complications and surgical correction. <strong>Quality-of-life impact:</strong> feeding and breathing difficulty in infancy, speech and dental impact from cleft palate, and hand-function limitation from the digital malformation; no disease-specific QoL instrument exists.</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Causal gene:</strong> <em>TGDS</em> (TDP-glucose 4,6-dehydratase), <a href="https://bioregistry.io/HGNC:20324" target="_blank" rel="noopener noreferrer">HGNC:20324</a>, chromosome 13q32.1 (minus strand); disease OMIM 616145. Encodes UniProt O95455, an SDR-family NAD-dependent dehydratase.</p>
+<p><strong>Pathogenic variants (classification, type, frequency):</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant (cDNA)</th>
+<th>Protein</th>
+<th>Type</th>
+<th>gnomAD AF</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c.298G&gt;T</td>
+<td>p.Ala100Ser</td>
+<td>Missense</td>
+<td>3.34×10⁻⁴ (exome)</td>
+<td>Founder allele; near binding residue 98</td>
+</tr>
+<tr>
+<td>c.294T&gt;G</td>
+<td>p.Phe98Leu</td>
+<td>Missense</td>
+<td>Absent</td>
+<td>Binding-site region</td>
+</tr>
+<tr>
+<td>c.269A&gt;G</td>
+<td>p.Glu90Gly</td>
+<td>Missense</td>
+<td>2.32×10⁻⁵</td>
+<td>Active-site cluster</td>
+</tr>
+<tr>
+<td>c.270_271del</td>
+<td>p.Lys91Asnfs*22</td>
+<td>Frameshift</td>
+<td>1.85×10⁻⁵</td>
+<td>LoF</td>
+</tr>
+<tr>
+<td>c.700T&gt;C</td>
+<td>p.Tyr234His</td>
+<td>Missense</td>
+<td>1.19×10⁻⁵</td>
+<td>—</td>
+</tr>
+<tr>
+<td>c.892A&gt;G</td>
+<td>p.Asn298Asp</td>
+<td>Missense</td>
+<td>—</td>
+<td>Original cohort</td>
+</tr>
+<tr>
+<td>c.895G&gt;A</td>
+<td>p.Asp299Asn</td>
+<td>Missense</td>
+<td>8.4×10⁻⁶</td>
+<td>Atypical fetal case; substrate-binding site [<a href="https://pubmed.ncbi.nlm.nih.gov/28422407/" target="_blank" rel="noopener noreferrer">PMID: 28422407</a>]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Classification:</strong> pathogenic / likely pathogenic per ACMG (recurrent, functionally validated, segregating). <strong>Functional consequence:</strong> loss of function [<a href="https://pubmed.ncbi.nlm.nih.gov/25480037/" target="_blank" rel="noopener noreferrer">PMID: 25480037</a>; 41159851]. <strong>Somatic vs germline:</strong> germline. <strong>Modifier genes / epigenetics / chromosomal abnormalities:</strong> none established; CMS is not caused by copy-number or cytogenetic changes (karyotype/microarray normal). ClinVar lists ~240 TGDS variant records.</p>
+<h3>5. Environmental Information</h3>
+<p><strong>Not applicable.</strong> No environmental, lifestyle, or infectious contributors have been identified. CMS is a purely genetic Mendelian disorder.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li><strong>Biallelic loss-of-function variants in <em>TGDS</em></strong> (missense clustering at the active/substrate-binding site, or frameshift) <strong>lead to</strong> loss of TGDS enzymatic activity and protein stability [<a href="https://pubmed.ncbi.nlm.nih.gov/25480037/" target="_blank" rel="noopener noreferrer">PMID: 25480037</a>; 41159851].</li>
+<li>Loss of TGDS activity <strong>results in</strong> failure to produce sufficient <strong>UDP-4-keto-6-deoxyglucose</strong>, the enzyme-rescue metabolite [<a href="https://pubmed.ncbi.nlm.nih.gov/40836090/" target="_blank" rel="noopener noreferrer">PMID: 40836090</a>].</li>
+<li>Absence of this rescue metabolite <strong>leads to</strong> failure to regenerate <strong>NAD⁺</strong> within the catalytic pocket of <strong>UXS1</strong>, so UXS1 cannot complete its catalytic cycle and becomes <strong>inactivated</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/40836090/" target="_blank" rel="noopener noreferrer">PMID: 40836090</a>].</li>
+<li>UXS1 inactivation <strong>results in</strong> reduced production of <strong>UDP-xylose</strong>, the obligatory initiator sugar for glycosaminoglycan (GAG) chain assembly on proteoglycan core proteins (downstream inference supported by the zebrafish GAG data) [<a href="https://pubmed.ncbi.nlm.nih.gov/40836090/" target="_blank" rel="noopener noreferrer">PMID: 40836090</a>].</li>
+<li>Reduced UDP-xylose <strong>leads to</strong> impaired synthesis of <strong>sulfated glycosaminoglycans/proteoglycans</strong> crucial for cartilage extracellular matrix [<a href="https://pubmed.ncbi.nlm.nih.gov/40836090/" target="_blank" rel="noopener noreferrer">PMID: 40836090</a>; 41159851].</li>
+<li>Deficient cartilage proteoglycan matrix <strong>results in</strong> abnormal <strong>chondrogenesis</strong>, which <strong>branches</strong> into:</li>
+<li><strong>(a) Mandibular cartilage branch</strong> → micrognathia → glossoptosis → (secondary) cleft palate = <strong>Pierre Robin sequence</strong>; this branch intersects <strong>SOX9</strong>-driven mandibular chondrogenesis [<a href="https://pubmed.ncbi.nlm.nih.gov/35415063/" target="_blank" rel="noopener noreferrer">PMID: 35415063</a>].</li>
+<li><strong>(b) Appendicular/hand branch</strong> → aberrant ossification producing the accessory bone between the 2nd metacarpal and proximal phalanx = <strong>Manzke dysostosis / index-finger hyperphalangy</strong> (mechanistic link to the GAG deficit inferred from the shared chondrogenesis defect and zebrafish craniofacial cartilage findings) [<a href="https://pubmed.ncbi.nlm.nih.gov/41159851/" target="_blank" rel="noopener noreferrer">PMID: 41159851</a>].</li>
+</ol>
+<p><strong>Molecular pathways / biochemistry:</strong> nucleotide-sugar metabolism; NAD⁺/NADH cofactor cycling; UDP-xylose → UDP-glucuronic acid → GAG (chondroitin/heparan sulfate) biosynthesis. <strong>Enzymes:</strong> TGDS (EC 4.2.1.76); UXS1 (UDP-glucuronate decarboxylase). <strong>Subcellular compartments:</strong> endoplasmic reticulum / Golgi (<a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a> endoplasmic reticulum; <a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" rel="noopener noreferrer">GO:0005794</a> Golgi apparatus). <strong>Biological processes (GO):</strong> nucleotide-sugar metabolic process (<a href="http://purl.obolibrary.org/obo/GO_0009225" target="_blank" rel="noopener noreferrer">GO:0009225</a>); glycosaminoglycan biosynthetic process (<a href="http://purl.obolibrary.org/obo/GO_0006024" target="_blank" rel="noopener noreferrer">GO:0006024</a>); proteoglycan biosynthetic process (<a href="http://purl.obolibrary.org/obo/GO_0030166" target="_blank" rel="noopener noreferrer">GO:0030166</a>); chondrocyte differentiation (<a href="http://purl.obolibrary.org/obo/GO_0002062" target="_blank" rel="noopener noreferrer">GO:0002062</a>); skeletal system development (<a href="http://purl.obolibrary.org/obo/GO_0001501" target="_blank" rel="noopener noreferrer">GO:0001501</a>); NAD metabolic process (<a href="http://purl.obolibrary.org/obo/GO_0019674" target="_blank" rel="noopener noreferrer">GO:0019674</a>). <strong>Cell types (CL):</strong> chondrocyte (<a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a>); neural-crest-derived cranial cartilage cells; osteoblast (<a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a>). <strong>Upstream vs downstream:</strong> TGDS loss is upstream; UXS1 inactivation and GAG deficiency are proximal downstream; cartilage/skeletal malformation is the terminal manifestation.</p>
+<pre><code>TGDS LoF ──► no UDP-4-keto-6-deoxyglucose ──► UXS1 can't regenerate NAD+ ──► UXS1 inactive
+     │                                                                            │
+     └──────────────────────────────────────────────► ↓ UDP-xylose ◄────────────┘
+                                        │
+                                        ↓ sulfated GAG / proteoglycan synthesis
+                                        │
+                   ┌────────────────────┴────────────────────┐
+                   ▼ (SOX9 mandibular cartilage)              ▼ (hand cartilage/ossification)
+         Micrognathia→glossoptosis→cleft palate        Manzke dysostosis / hyperphalangy
+              = PIERRE ROBIN SEQUENCE                   = index-finger clinodactyly
+</code></pre>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ/system level — primary:</strong> craniofacial skeleton (mandible — <a href="http://purl.obolibrary.org/obo/UBERON_0001684" target="_blank" rel="noopener noreferrer">UBERON:0001684</a>), hands/digits (manus <a href="http://purl.obolibrary.org/obo/UBERON_0002398" target="_blank" rel="noopener noreferrer">UBERON:0002398</a>; phalanx <a href="http://purl.obolibrary.org/obo/UBERON_0001449" target="_blank" rel="noopener noreferrer">UBERON:0001449</a>), secondary palate (<a href="http://purl.obolibrary.org/obo/UBERON_0001716" target="_blank" rel="noopener noreferrer">UBERON:0001716</a>). <strong>Secondary:</strong> heart (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>; congenital heart defects); airway/pharynx (secondary to micrognathia/glossoptosis). <strong>Body systems:</strong> skeletal, craniofacial, cardiovascular, respiratory (secondary), connective tissue (joint laxity).</li>
+<li><strong>Tissue/cell level:</strong> cartilage (<a href="http://purl.obolibrary.org/obo/UBERON_0002418" target="_blank" rel="noopener noreferrer">UBERON:0002418</a>) and its chondrocytes (<a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a>); connective tissue (ligamentous laxity); bone/ossification centers.</li>
+<li><strong>Subcellular level:</strong> endoplasmic reticulum (<a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a>) and Golgi apparatus (<a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" rel="noopener noreferrer">GO:0005794</a>) — sites of nucleotide-sugar synthesis and proteoglycan glycosylation.</li>
+<li><strong>Localization / lateralization:</strong> hand findings are characteristically <strong>bilateral</strong> (occasionally unilateral); craniofacial findings are midline (mandible/palate).</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> congenital; cardinal features present at birth. Robin-sequence airway/feeding problems manifest <strong>neonatally</strong>; hyperphalangy becomes radiographically evident in infancy/early childhood.</li>
+<li><strong>Progression:</strong> malformations are <strong>structural and non-progressive (stable)</strong>. Short stature, when present, becomes apparent across childhood [<a href="https://pubmed.ncbi.nlm.nih.gov/31769200/" target="_blank" rel="noopener noreferrer">PMID: 31769200</a>].</li>
+<li><strong>Course/duration:</strong> lifelong structural condition; natural history is dominated by the early (neonatal/infant) critical window of airway and feeding risk. No remission concept; clinical improvement follows surgical/supportive intervention.</li>
+<li><strong>Critical period:</strong> the <strong>neonatal–infant period</strong> is the window of greatest vulnerability (airway obstruction, feeding failure) and of greatest intervention opportunity.</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Inheritance:</strong> autosomal recessive [<a href="https://pubmed.ncbi.nlm.nih.gov/25480037/" target="_blank" rel="noopener noreferrer">PMID: 25480037</a>; 21834032].</li>
+<li><strong>Penetrance:</strong> high/complete for biallelic LoF (no unaffected biallelic individuals observed; no pathogenic homozygotes in gnomAD).</li>
+<li><strong>Expressivity:</strong> variable — from absence of hyperphalangy [<a href="https://pubmed.ncbi.nlm.nih.gov/31769200/" target="_blank" rel="noopener noreferrer">PMID: 31769200</a>] or Manzke dysostosis [<a href="https://pubmed.ncbi.nlm.nih.gov/31833187/" target="_blank" rel="noopener noreferrer">PMID: 31833187</a>] to severe respiratory failure/failure to thrive [<a href="https://pubmed.ncbi.nlm.nih.gov/26366375/" target="_blank" rel="noopener noreferrer">PMID: 26366375</a>].</li>
+<li><strong>Epidemiology:</strong> very rare; ~40 reported patients. Prevalence/incidence not formally established (effectively &lt;1/1,000,000).</li>
+<li><strong>Founder effect:</strong> c.298G&gt;T (p.Ala100Ser) is a founder allele [<a href="https://pubmed.ncbi.nlm.nih.gov/25480037/" target="_blank" rel="noopener noreferrer">PMID: 25480037</a>], the most common pathogenic variant (gnomAD exome AF 3.3×10⁻⁴).</li>
+<li><strong>Consanguinity:</strong> contributes to homozygous cases [<a href="https://pubmed.ncbi.nlm.nih.gov/21834032/" target="_blank" rel="noopener noreferrer">PMID: 21834032</a>].</li>
+<li><strong>Carrier frequency / sex ratio / geographic distribution:</strong> carrier frequency is low and dominated by the founder allele; no strong sex bias expected (autosomal); no defined endemic geography.</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Clinical recognition:</strong> the combination of Pierre Robin sequence + bilateral index-finger hyperphalangy/clinodactyly is highly suggestive.</li>
+<li><strong>Imaging:</strong> <strong>hand radiographs</strong> are central — they reveal the accessory ossification center/bone between the 2nd metacarpal and proximal phalanx (Manzke dysostosis) [<a href="https://pubmed.ncbi.nlm.nih.gov/31833187/" target="_blank" rel="noopener noreferrer">PMID: 31833187</a>]. Echocardiography for cardiac defects; skeletal survey as indicated.</li>
+<li><strong>Genetic testing (confirmatory):</strong> <strong>single-gene <em>TGDS</em> sequencing</strong> or multigene skeletal-dysplasia/Robin-sequence panels; <strong>whole-exome sequencing (WES)</strong> is how the gene was discovered and remains high-yield, especially for atypical presentations [<a href="https://pubmed.ncbi.nlm.nih.gov/25480037/" target="_blank" rel="noopener noreferrer">PMID: 25480037</a>]. WGS and CMA add little for the point-mutation etiology (karyotype/microarray normal). Targeted testing for the founder allele p.Ala100Ser is an efficient first-tier.</li>
+<li><strong>Differential diagnosis (with distinguishing molecular features):</strong> IMPAD1-related chondrodysplasia (gPAPP) [<a href="https://pubmed.ncbi.nlm.nih.gov/22887726/" target="_blank" rel="noopener noreferrer">PMID: 22887726</a>]; KYNU-related NAD-deficiency syndrome with hyperphalangism and xanthurenic aciduria [<a href="https://pubmed.ncbi.nlm.nih.gov/31923704/" target="_blank" rel="noopener noreferrer">PMID: 31923704</a>]; CANT1-related Desbuquois dysplasia type 1; Temtamy preaxial brachydactyly; DNAH10-candidate Catel-Manzke–like case [<a href="https://pubmed.ncbi.nlm.nih.gov/26420031/" target="_blank" rel="noopener noreferrer">PMID: 26420031</a>]. Urine organic acids (xanthurenic aciduria) help flag KYNU.</li>
+<li><strong>Screening:</strong> no newborn-screening program; cascade carrier testing within affected families and genetic counseling are appropriate.</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Survival/mortality:</strong> no disease-specific mortality statistics; outcome hinges on neonatal airway compromise and congenital heart defects. A <strong>severe end of the spectrum</strong> (respiratory complications, failure to thrive) exists [<a href="https://pubmed.ncbi.nlm.nih.gov/26366375/" target="_blank" rel="noopener noreferrer">PMID: 26366375</a>]. Children who are managed through the neonatal period generally have a favorable long-term structural prognosis.</li>
+<li><strong>Morbidity/function:</strong> feeding and respiratory difficulty in infancy; cleft-palate-related speech/dental issues; hand-function limitation from digital malformation; joint laxity. Intellect is typically normal.</li>
+<li><strong>Complications:</strong> airway obstruction, feeding failure, recurrent otitis/hearing issues (cleft palate), cardiac sequelae.</li>
+<li><strong>Prognostic factors:</strong> severity of Robin-sequence airway obstruction and cardiac anomaly are the main determinants; genotype–phenotype correlation is incomplete (p.Ala100Ser homozygotes span mild to severe).</li>
+</ul>
+<h3>12. Treatment</h3>
+<p><strong>No disease-modifying or gene-directed therapy exists.</strong> Management is supportive and multidisciplinary:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Intervention</th>
+<th>NCIT suggestion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Airway (Robin sequence)</td>
+<td>Prone positioning, nasopharyngeal airway, mandibular distraction osteogenesis, tongue-lip adhesion, or tracheostomy in severe cases</td>
+<td>NCIT:C15329 (Surgery)</td>
+</tr>
+<tr>
+<td>Feeding</td>
+<td>NG/gastrostomy feeding; specialized nutrition</td>
+<td>NCIT:C15300 (Nutritional Support)</td>
+</tr>
+<tr>
+<td>Cleft palate</td>
+<td>Surgical palatoplasty</td>
+<td>Cleft-palate repair</td>
+</tr>
+<tr>
+<td>Cardiac</td>
+<td>Medical/surgical correction of congenital heart defects</td>
+<td>NCIT:C15329</td>
+</tr>
+<tr>
+<td>Hand</td>
+<td>Selective reconstructive/orthopedic hand surgery for the hyperphalangy</td>
+<td>Orthopedic surgery</td>
+</tr>
+<tr>
+<td>Rehabilitation</td>
+<td>Speech therapy, physical/occupational therapy</td>
+<td>NCIT:C15317 (Rehabilitation Therapy)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Pharmacotherapy / pharmacogenomics / advanced therapeutics (gene, cell, RNA, targeted, immunotherapy):</strong> none applicable. <strong>Experimental trials:</strong> none specific to CMS. <strong>Personalized medicine:</strong> limited to genotype confirmation and genetic counseling.</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> not applicable (genetic, congenital). <strong>Genetic counseling</strong> for at-risk/consanguineous families is the principal preventive measure, with a <strong>25% recurrence risk</strong> per pregnancy for carrier couples.</li>
+<li><strong>Reproductive options:</strong> <strong>carrier/cascade testing</strong>, <strong>prenatal diagnosis</strong> (targeted <em>TGDS</em> testing when familial variants are known; atypical CMS has been diagnosed in a fetus [<a href="https://pubmed.ncbi.nlm.nih.gov/28422407/" target="_blank" rel="noopener noreferrer">PMID: 28422407</a>]), and <strong>preimplantation genetic testing</strong>.</li>
+<li><strong>Secondary/tertiary prevention:</strong> early neonatal airway/feeding management and cardiac surveillance to prevent complications. <strong>Immunization / public-health / environmental prevention:</strong> not applicable.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Orthologs / comparative biology:</strong> TGDS orthologs are functionally conserved. The <strong>zebrafish</strong> (<em>Danio rerio</em>; NCBI Taxon:7955) <em>tgds</em> ortholog encodes an active UDP-D-glucose 4,6-dehydratase and models the disease [<a href="https://pubmed.ncbi.nlm.nih.gov/41159851/" target="_blank" rel="noopener noreferrer">PMID: 41159851</a>]. A <strong><em>Caenorhabditis elegans</em></strong> (NCBI Taxon:6239) homolog, <strong>bus-5</strong>, <em>"is homologous to human dTDP-D-glucose 4,6-dehydratase, which is implicated in Catel-Manzke syndrome,"</em> and its mutation affects surface glycosylation and cuticle integrity [<a href="https://pubmed.ncbi.nlm.nih.gov/36911920/" target="_blank" rel="noopener noreferrer">PMID: 36911920</a>] — underscoring deep evolutionary conservation of the enzyme's role in glycan biology.</li>
+<li><strong>Natural disease / veterinary relevance:</strong> no naturally occurring companion-animal or wildlife CMS equivalent is documented (OMIA). <strong>Zoonotic/transmission:</strong> not applicable (non-infectious, genetic).</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Zebrafish (<em>Danio rerio</em>):</strong> CRISPR/Cas9 F0 <em>tgds</em> knockout recapitulates craniofacial cartilage alterations with decreased sulfated GAG content, mirroring human CMS skeletal features; recombinant Tgds assays confirm CMS mutations impair activity/stability [<a href="https://pubmed.ncbi.nlm.nih.gov/41159851/" target="_blank" rel="noopener noreferrer">PMID: 41159851</a>]. <strong>Phenotype recapitulation:</strong> good for the cartilage/craniofacial and glycan-deficiency aspects. <strong>Limitations:</strong> zebrafish Tgds functions in L-rhamnose biosynthesis (a lower-eukaryote pathway), so the enzymatic context differs from the human UXS1-rescue mechanism; F0 mosaic knockouts carry inherent variability.</li>
+<li><strong>C. elegans (bus-5):</strong> invertebrate model informative for the glycosylation/surface-coat role of the enzyme [<a href="https://pubmed.ncbi.nlm.nih.gov/36911920/" target="_blank" rel="noopener noreferrer">PMID: 36911920</a>], but not a skeletal-disease model.</li>
+<li><strong>Mammalian models:</strong> no published mouse-knockout CMS phenotype was identified in this investigation (knowledge gap).</li>
+<li><strong>Resources:</strong> ZFIN (zebrafish), WormBase (<em>C. elegans</em>), Alliance of Genome Resources.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The central and most novel insight is that <strong>CMS is not caused by loss of a biosynthetic end-product per se, but by loss of a catalytic "rescue" service</strong>. TGDS's physiologically important output is <strong>UDP-4-keto-6-deoxyglucose</strong>, a transition-state/intermediate mimic that <strong>re-primes UXS1's NAD⁺ cofactor</strong>. UXS1 decarboxylates UDP-glucuronic acid to UDP-xylose — the first sugar laid down on proteoglycan core proteins. When TGDS fails, UXS1 stalls in an NADH-bound, catalytically dead state, UDP-xylose falls, and <strong>sulfated proteoglycan synthesis in cartilage collapses</strong>. Because the mandibular condylar cartilage (SOX9-dependent) and the developing hand skeleton both depend on proteoglycan-rich matrix, the defect manifests precisely as the two hallmark features — Pierre Robin sequence and Manzke dysostosis.</p>
+<p>This model unifies several otherwise disparate observations: (i) the <strong>SDR/NAD-dependent</strong> nature of TGDS and its ER/Golgi localization; (ii) the <strong>reduced sulfated GAGs</strong> in the zebrafish knockout; (iii) the <strong>convergence on NAD biology</strong> shared with the KYNU differential diagnosis; and (iv) the <strong>variant clustering</strong> at the substrate/active site producing loss of function. The branch point at defective chondrogenesis cleanly separates the craniofacial (Robin) and appendicular (hyperphalangy) phenotypes while keeping a single upstream lesion.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role in this report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25480037/">25480037</a></td>
+<td><em>Homozygous/compound-het mutations in TGDS cause CMS</em></td>
+<td>Gene discovery; LoF mechanism; founder allele; SDR family</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40836090/">40836090</a></td>
+<td><em>A missing enzyme-rescue metabolite as cause of a rare skeletal dysplasia</em></td>
+<td>Core mechanism: TGDS→UDP-4-keto-6-deoxyglucose→UXS1 NAD⁺ rescue</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41159851/">41159851</a></td>
+<td><em>Zebrafish as a model for CMS</em></td>
+<td>In vivo recapitulation; reduced sulfated GAGs; enzyme-LoF confirmation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31833187/">31833187</a></td>
+<td><em>CMS without Manzke dysostosis</em></td>
+<td>Phenotype spectrum; Manzke dysostosis / accessory bone</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31769200/">31769200</a></td>
+<td><em>TGDS variants cause CMS without hyperphalangy</em></td>
+<td>Phenotype expansion; short stature</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26366375/">26366375</a></td>
+<td><em>CMS further delineation</em></td>
+<td>p.Ala100Ser recurrence; severe end (respiratory failure, FTT)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28422407/">28422407</a></td>
+<td><em>Atypical CMS in a fetus</em></td>
+<td>p.Asp299Asn at substrate-binding site; prenatal context</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31923704/">31923704</a></td>
+<td><em>Biallelic KYNU variants</em></td>
+<td>Genetic heterogeneity / differential diagnosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22887726/">22887726</a></td>
+<td><em>IMPAD1 mutations in CMS-like patients</em></td>
+<td>Differential diagnosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26420031/">26420031</a></td>
+<td><em>Exome in CMS-like, DNAH10 candidate</em></td>
+<td>Differential / candidate-gene caution</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35415063/">35415063</a></td>
+<td><em>Pathogenesis of PRS through SOX9</em></td>
+<td>Links CMS to SOX9 mandibular chondrogenesis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36911920/">36911920</a></td>
+<td><em>C. elegans surface mutants</em></td>
+<td>Conserved ortholog (bus-5); glycosylation role</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21834032/">21834032</a></td>
+<td><em>CMS autosomal recessive inheritance</em></td>
+<td>Early AR evidence; consanguinity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37100424/">37100424</a></td>
+<td><em>Early-onset pectus excavatum genetics</em></td>
+<td>CMS among genetic causes of early-onset PE</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Small evidence base:</strong> ~40 reported patients; no formal prevalence/incidence, survival, or validated QoL data. Natural-history data are anecdotal.</li>
+<li><strong>Hand-phenotype mechanism is inferred:</strong> the direct molecular link from UDP-xylose/GAG deficiency to the specific accessory ossification center (Manzke dysostosis) is plausible but not experimentally demonstrated at the cellular level.</li>
+<li><strong>UXS1 rescue mechanism</strong> is newly described (2025); independent replication and human-tissue confirmation in CMS patients remain limited.</li>
+<li><strong>No mammalian (mouse) model</strong> phenotype was identified — a gap for translational/preclinical work.</li>
+<li><strong>Incomplete genotype–phenotype correlation:</strong> the same founder allele (p.Ala100Ser) spans mild to severe presentations, implying unidentified modifiers or stochastic developmental factors.</li>
+<li><strong>Citation verification flags:</strong> two mechanism snippets (<a href="https://pubmed.ncbi.nlm.nih.gov/40836090/" target="_blank" rel="noopener noreferrer">PMID:40836090</a>) and two zebrafish/severity snippets were marked "mismatch" during automated validation; the substantive claims are consistent with the papers, but exact quotes should be re-verified against the published abstracts before database ingestion.</li>
+<li><strong>Historical OMIM ambiguity:</strong> OMIM 302380 predates gene discovery; annotations should be anchored to OMIM 616145 / <em>TGDS</em>.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Generate a conditional mouse <em>Tgds</em> knockout</strong> (cartilage-specific, e.g., <em>Col2a1-Cre</em>) to test cartilage proteoglycan deficiency and recapitulate micrognathia/hyperphalangy in a mammal.</li>
+<li><strong>Directly measure UXS1 activity, UDP-xylose, and sulfated GAG levels</strong> in patient-derived chondrocytes/iPSC-chondrocytes to confirm the rescue-metabolite mechanism in human cells.</li>
+<li><strong>Structural/enzymology studies:</strong> co-crystallize UXS1 with UDP-4-keto-6-deoxyglucose and model each CMS missense variant against TGDS active-site residues 143/144/166 and binding residues 98/102 to refine genotype–activity relationships.</li>
+<li><strong>Metabolite-supplementation rescue test:</strong> determine whether supplying UDP-4-keto-6-deoxyglucose or a cell-permeable analog restores UXS1 activity — proof-of-concept for a future therapeutic avenue.</li>
+<li><strong>Curate a patient registry</strong> to establish prevalence, natural history, genotype–phenotype correlations, airway/cardiac outcomes, and standardized QoL metrics.</li>
+<li><strong>Re-verify citation snippets</strong> flagged as mismatches and finalize HPO/GO/CL/UBERON/NCIT ontology mappings for knowledge-base ingestion.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 9 confirmed findings and 20 reviewed papers over 5 investigation iterations. Evidence types: human clinical/genetic, model organism (zebrafish, C. elegans), in vitro enzymology, and computational/database (UniProt, gnomAD, ClinVar).</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Catel-Manzke_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Catel-Manzke_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>14</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>42</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0014507</code> (3 mentions) - the report calls it "MONDO"; MONDO calls it <strong>Catel-Manzke syndrome</strong></li>
+<li><code>HP:0000347</code> (1 mention) - the report calls it "Physical/skeletal"; HP calls it <strong>Micrognathia</strong></li>
+<li><code>HP:0000162</code> (1 mention) - the report calls it "Physical"; HP calls it <strong>Glossoptosis</strong></li>
+<li><code>HP:0000175</code> (1 mention) - the report calls it "Physical"; HP calls it <strong>Cleft palate</strong></li>
+<li><code>HP:0000201</code> (1 mention) - the report calls it "Composite"; HP calls it <strong>Pierre-Robin sequence</strong></li>
+<li><code>HP:0001382</code> (1 mention) - the report calls it "Connective tissue"; HP calls it <strong>Joint hypermobility</strong></li>
+<li><code>HP:0001999</code> (1 mention) - the report calls it "Craniofacial"; HP calls it <strong>Abnormal facial shape</strong></li>
+<li><code>HP:0000767</code> (1 mention) - the report calls it "Skeletal"; HP calls it <strong>Pectus excavatum</strong></li>
+<li><code>NCIT:C15329</code> (2 mentions) - the report calls it "Surgery", "Medical/surgical correction of congenital heart defects"; NCIT calls it <strong>Surgical Procedure</strong></li>
+<li><code>NCIT:C15300</code> (1 mention) - the report calls it "Nutritional Support"; NCIT calls it <strong>Photodynamic Therapy</strong></li>
+<li><code>NCIT:C15317</code> (1 mention) - the report calls it "Rehabilitation Therapy"; NCIT calls it <strong>Second-Look Surgery</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0001627</code> (1 mention) - the report calls it "Cardiac"; HP calls it <strong>Abnormal heart morphology</strong>, and lists "Cardiac anomaly" among its other names</li>
+<li><code>GO:0005783</code> (2 mentions) - the report calls it "Subcellular level:<strong> endoplasmic reticulum"; GO calls it </strong>endoplasmic reticulum**</li>
+<li><code>UBERON:0002418</code> (1 mention) - the report calls it "Tissue/cell level:<strong> cartilage"; UBERON calls it </strong>cartilage tissue**</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>NCIT:C15329</code> - called "Surgery", "Medical/surgical correction of congenital heart defects"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>OMIM</code>, <code>ORPHA</code>, <code>Taxon</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Catecholaminergic_Polymorphic_Ventricular_Tachycardia-claude_code.html">← Catecholaminergic Polymorphic Ventricular Tachycardia (Claude Code)</a>
+                
+                
+                <a href="CATSHL_Syndrome-claude_code.html">CATSHL Syndrome (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Catel-Manzke_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Catel-Manzke_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
