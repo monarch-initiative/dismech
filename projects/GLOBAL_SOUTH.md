@@ -102,6 +102,15 @@ Nothing in the validation stack measures this. An entry whose nodes were never j
 
 Tiers come from a structural audit: mechanism nodes, causal edges, nodes with no edge in or out, connected components, phenotype inlinks, ontology bindings, treatment wiring, and `just check-granularity`.
 
+**The tables are a snapshot taken on 2026-11-06 and will go stale as the issues below close.** Nothing regenerates them, so treat a figure here as the state when the audit ran, not as current. Each column can be recomputed per entry:
+
+| Column | Where it comes from |
+|---|---|
+| Nodes, Edges | `pathophysiology[]` and its `downstream[].target` entries |
+| Floating | nodes with no edge in or out; no recipe reports these yet, which is #7855 |
+| Phenotypes wired | `just list-disconnected-phenotypes kb/disorders/<Entry>.yaml` |
+| Main gaps | `just check-granularity kb/disorders/<Entry>.yaml`, plus the graph columns above |
+
 ### Tier 1 — no usable pathograph (5)
 
 | Disease | Nodes | Edges | Floating | Phenotypes wired | Issue |
