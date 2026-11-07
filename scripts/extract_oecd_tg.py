@@ -134,7 +134,50 @@ def is_in_scope_section(heading: str) -> bool:
 
 def normalise(text: str) -> str:
     """Collapse the whitespace that justified typesetting leaves inside a line."""
-    return re.sub(r"\s+", " ", text).strip()
+    return close_hyphen_gaps(re.sub(r"\s+", " ", text).strip())
+
+
+# A hyphenated compound can arrive split in two ways, and both make the word
+# unquotable. Across a line break, the join inserts the space ("non-" +
+# "sensitisers"); within one line, pypdf's `layout` mode preserves the horizontal
+# position of justified text and a wide gap after the hyphen comes through as a
+# space ("Reverse Transcription- quantitative PCR"). Both are the mid-word gap
+# defect pypdf's `plain` mode produces ("con sidered"); they survived because the
+# gap sits at a hyphen, where it reads as ordinary punctuation.
+#
+# The hyphen itself is kept. Every such break in TG 442D is a lexical compound --
+# "up-regulated", "Kelch-like", "IL-8", "Reverse Transcription-quantitative" -- and
+# keeping a character the source printed fails conservatively if a guideline ever
+# breaks a word at a soft hyphen: that quote will not verify, rather than the
+# paragraph text being silently altered.
+#
+# The exception is a suspended hyphen -- "5- and 10-fold" -- where the space is
+# correct. Same shape, and the same guard, as COORD_RE in
+# scripts/check_folded_hyphens.py, so the two detectors agree by construction.
+COORD_RE = re.compile(r"^(and|or|to|vs|nor|&)\b", re.IGNORECASE)
+
+# A word character, a hyphen, one space, then a word character. Requiring a word
+# character *before* the hyphen is what keeps a spaced dash used as punctuation
+# (" - ") out of this.
+HYPHEN_GAP_RE = re.compile(r"(?<=\w)- (?=\w)")
+
+
+def close_hyphen_gaps(text: str) -> str:
+    """Close a spurious space after a hyphen inside a single line."""
+
+    def repair(match: re.Match[str]) -> str:
+        return "- " if COORD_RE.match(text[match.end() :]) else "-"
+
+    return HYPHEN_GAP_RE.sub(repair, text)
+
+
+def join_lines(left: str, right: str) -> str:
+    """Join two lines of one paragraph, closing a hyphenated line break."""
+    if not left or not right:
+        return left or right
+    if left.endswith("-") and right[0].isalnum() and not COORD_RE.match(right):
+        return f"{left}{right}"
+    return f"{left} {right}"
 
 
 def parse_pages(pages: Sequence[Sequence[str]]) -> tuple[list[Paragraph], list[str]]:
@@ -221,12 +264,12 @@ def parse_pages(pages: Sequence[Sequence[str]]) -> tuple[list[Paragraph], list[s
                 # A subheading wraps onto a second line, or a stray line precedes the
                 # division's first paragraph.
                 if subheading is not None and not pending_break:
-                    subheading = normalise(f"{subheading} {stripped}")
+                    subheading = join_lines(subheading, normalise(stripped))
                 continue
 
             addition = normalise(line)
             if addition:
-                current.text = f"{current.text} {addition}"
+                current.text = join_lines(current.text, addition)
                 if page_number not in current.pdf_pages:
                     current.pdf_pages.append(page_number)
             pending_break = False

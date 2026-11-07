@@ -94,11 +94,92 @@ right. It is made against the index rather than against the PDF, so the result i
 checkable.
 
 ```bash
-just check-tg-extraction --records path/to/records.json
+just check-tg-extraction --records data/oecd_tg/tg442d-methods.json
 ```
 
 A record is one per **test method**, not one per guideline — TG 442D yields five —
-with the source guideline as a property of the record.
+with the source guideline as a property of the record. The judgement itself is
+guided by the `extract-tg-method` skill, which carries the field vocabulary and the
+four ways a verbatim quote can still be cited for a claim it does not make.
+
+`data/oecd_tg/tg442d-methods.json` holds the result: KeratinoSens™, LuSens, EpiSensA,
+Epi2SensA and α-Sens®, plus `CITED_COMPARATOR` stubs for the five animal methods TG 442D
+names but does not describe (GPMT and the Buehler Test under TG 406, the LLNA under
+TG 429, and its modifications under TG 442A and TG 442B). Seventy-four quoted facts,
+each verified against the index.
+
+## What actually distinguishes the five methods
+
+The method names carry none of this, and it is the reason to extract at all. Every
+statement below is quoted and paragraph-cited in `tg442d-methods.json`.
+
+**The guideline's own split is two families, not five methods** (GI ¶2): "three in vitro
+ARE-Nrf2 luciferase test methods and two test methods based on gene expression
+quantification". That division decides almost everything else.
+
+| | KeratinoSens™ · LuSens · α-Sens® | EpiSensA · Epi2SensA |
+|---|---|---|
+| What is measured | a transgenic luciferase reporter | four endogenous transcripts by RT-qPCR |
+| Response arms seen | Nrf2–ARE cytoprotective only | **inflammatory** (ATF3, IL-8) **and cytoprotective** (GCLM, DNAJB4) |
+| Substrate | adherent keratinocyte culture (2D is implied, never stated) | 3D reconstructed human epidermis, air–liquid interface |
+| Chemical delivery | dissolved or dispersed in the exposure medium | applied directly to the tissue surface |
+| Lipophilic range | LogP above 7 may be insoluble | lipophilic vehicles usable, logKow > 3.5 testable |
+| Metabolic capacity | "limited metabolic capability of the cell line used" | "similar metabolic capacity as human skin, but further confirmation is still needed" |
+| Pro-/pre-haptens | may read negative | rated correct-positive, unless activation needs > 6 h |
+| Readout artefact | chemicals acting on luciferase itself — phytoestrogens above 1 µM over-activate the reporter | none of that class; no reporter enzyme |
+
+**Both families share one mechanistic blind spot**, and it is chemical rather than
+technical: the pathway is entered by "the electrophilic reaction of stressors with
+nucleophilic thiols (cysteine sulfhydryl groups) of Keap-1", so "substances with an
+exclusive reactivity towards lysine-residues can be detected as negative". That is why
+the guideline insists these methods be used inside an IATA rather than alone.
+
+**Within the luciferase family the differences are in the construct, not the pathway:**
+
+| | KeratinoSens™ (IA) | LuSens (IB) | α-Sens® (ID) |
+|---|---|---|---|
+| Response element | ARE of the **human** *AKR1C2* gene | ARE of the **rat** *NQO1* gene | quadruplicated ARE, sequence-identical to the VRM (*AKR1C2*) |
+| Reporter | luciferase, constitutive promoter fused to the ARE | luciferase, promoter fused to the ARE | Firefly Luc+ **plus** TK-driven Renilla |
+| Viability | measured separately | measured separately | **same cells**, via Renilla; readout is normalised ARE Activity |
+| Nrf2 dependence | demonstrated directly | direct for the VRM, **indirect** for LuSens | direct for the VRM |
+| Culture | — | — | **FBS-free** |
+| Host line | not named by the guideline | not named by the guideline | **PHK 16-0b** (HPV16-immortalised) |
+
+**Within the RhE family the only biological difference is the tissue** — LabCyte
+EPI-MODEL24 for EpiSensA, EpiDerm™ EPI-200 for Epi2SensA — with the exposure schedule
+(6 h versus 1 h + 5 h post-incubation), viability floor (≥ 80% versus ≥ 60%) and
+decision rule (one marker gene versus two) following from it.
+
+**Two things the guideline does not say, which matter as much as what it does.**
+"HaCaT" appears nowhere in its 98 pages, and neither does "monolayer": the host line of
+KeratinoSens™ and LuSens is only ever "an immortalised adherent cell line derived from
+human keratinocytes", and the 2D format is implicit. The records leave both unstated
+rather than supplying the familiar answer from memory, and say so in a note. An absent
+fact recorded as absent is a curation gap someone can close; one filled in from recall
+is a false statement about a source.
+
+**Performance figures are mostly agreement with a mouse assay.** All five methods report
+accuracy against the LLNA; only EpiSensA and α-Sens® also report it against human data,
+and the two diverge — EpiSensA is 67.6% specific against the LLNA and 52.9% against
+human results. The comparator is therefore part of the field name
+(`performance_vs_llna`, `performance_vs_human`), not a neighbouring field that can be
+dropped while the number survives.
+
+## Citing a guideline from a KB entry
+
+Not yet possible with a verified snippet. `just fetch-reference
+DOI:10.1787/9789264229822-en` resolves and titles correctly — "Test No. 442D: In Vitro
+Skin Sensitisation" — but caches with `content_type: unavailable`, because the OECD
+iLibrary landing page carries no abstract. There is no body for
+`linkml-reference-validator` to match a quote against, so an entry can name the
+guideline but cannot quote it.
+
+The paragraph index is the missing body, and the repository already has the pattern for
+this: a structured-database source (`src/dismech/structured_sources/`) that writes a
+line-oriented `references_cache/` file whose rows are stable quotable substrings, as
+`ORPHA:`, `CGGV:`, `ICEES:` and `NCIT:` do. Until that exists, a method carried into a
+disease entry cites the literature for its evidence and names the guideline and
+paragraph in prose.
 
 ## What the checker does and does not establish
 
@@ -120,7 +201,7 @@ marker-gene sentence recorded against Key Event 3, say. That needs a reader, and
 `test_the_checker_cannot_tell_whether_a_quote_supports_its_value` pins the limitation so
 nobody mistakes a green run for a correct extraction.
 
-## Two things that will bite
+## Four things that will bite
 
 **Use pypdf's `layout` extraction mode, not the default.** On this document the default
 `plain` mode inserts spaces inside words — `asses sing`, `Ker atinoSens`, `de pendent`.
@@ -129,10 +210,28 @@ word, so every quote taken from `plain` output is unusable as a verbatim quote. 
 extractor pins this, and
 `test_a_mid_word_gap_still_fails` keeps the checker from papering over it.
 
+**A hyphenated word breaks across a line, and the join splits it.** `layout` mode has
+its own version of the same defect, and it is harder to see because the gap lands on a
+hyphen where it reads as punctuation. "non-sensitisers" printed across a line break
+arrived as `non- sensitisers`, and `Reverse Transcription-quantitative PCR` as
+`Transcription- quantitative` from justified spacing inside a single line. Seventeen
+such spots were committed in the first index, including `IL- 8` in the EpiSensA
+marker-gene list, which made that list unquotable. `join_lines` and
+`close_hyphen_gaps` close both causes, keeping the hyphen and dropping only the space;
+a suspended hyphen (`5- and 10-fold`) is exempted by the same `COORD_RE` guard
+`scripts/check_folded_hyphens.py` uses, so the two detectors agree by construction.
+`test_committed_index_has_no_word_split_at_a_hyphen` keeps the committed index clean.
+
 **The guideline writes the same method name several ways.** Body text has
-`KeratinoSens™`; title blocks have `KeratinoSensTM`. The checker drops the trademark
-marker on both sides, so a quote typed `KeratinoSens`, `KeratinoSens(TM)` or
-`KeratinoSens™` all verify. Prefer quoting body text.
+`KeratinoSens™`; title blocks have `KeratinoSensTM` — and appendices IB and ID use the
+title-block spelling in running prose. The checker drops the trademark marker on both
+sides, so a quote typed `KeratinoSens`, `KeratinoSens(TM)` or `KeratinoSens™` all
+verify.
+
+**One α is not the other.** Paragraph ID/3 writes the α-Sens® name once with U+237A,
+the APL functional symbol, where every other mention uses U+03B1. Both fold to `alpha`,
+so a quote copied from either sentence verifies — but a tool comparing the raw strings
+would see two different method names.
 
 ## Source pinning
 

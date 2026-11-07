@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MSX2-Related Craniosynostosis · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>MSX2-Related Craniosynostosis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>MSX2-Related Craniosynostosis</h1>
+                
+                <p class="report-subtitle">MSX2-Related Craniosynostosis (Boston-Type, CRS2): Comprehensive Disease Report</p>
+                
+                
+                <div class="report-date">2026-11-05</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0011481" target="_blank" rel="noopener noreferrer">MONDO:0011481</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">18 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>MSX2-Related Craniosynostosis (Boston-Type, CRS2): Comprehensive Disease Report</h1>
+<p><strong>Disease:</strong> MSX2-Related Craniosynostosis (Boston-type) · <strong>Causal gene: MSX2</strong> (msh homeobox 2, <a href="https://bioregistry.io/HGNC:7392" target="_blank" rel="noopener noreferrer">HGNC:7392</a>, UniProt P35548, 5q35.2)
+<strong><a href="http://purl.obolibrary.org/obo/MONDO_0011481" target="_blank" rel="noopener noreferrer">MONDO:0011481</a></strong> ("craniosynostosis 2") · <strong>OMIM #604757</strong> · <strong>Orphanet <a href="https://bioregistry.io/ORPHA:1541" target="_blank" rel="noopener noreferrer">ORPHA:1541</a></strong> · <strong><a href="http://purl.obolibrary.org/obo/DOID_0061009" target="_blank" rel="noopener noreferrer">DOID:0061009</a></strong> · <strong>MedGen/UMLS C1858160</strong> · <strong>SNOMED CT 720817008</strong></p>
+<hr />
+<h2>Summary</h2>
+<p>MSX2-Related Craniosynostosis, historically called <strong>Boston-type craniosynostosis (CRS2)</strong> and also <strong>Warman-Mulliken-Hayward syndrome</strong>, is a rare autosomal dominant disorder of premature cranial-suture fusion caused by <strong>gain-of-activity</strong> alterations of the homeodomain transcription factor <strong>MSX2</strong> on chromosome 5q35.2. The disease is genetically distinct from the many FGFR-, TWIST1-, and EFNB1-driven craniosynostosis syndromes; its defining molecular lesion is the recurrent missense change at <strong>codon 148 of MSX2</strong> (p.Pro148His in the original Boston kindred, with subsequent families carrying p.Pro148Leu and other Pro148 substitutions), and, less commonly, <strong>MSX2 copy-number gains</strong> (intragenic duplication and 5q35 triplication). The proline at position 148 corresponds to position 7 of the MSX2 homeodomain and is highly conserved.</p>
+<p>The central mechanistic insight — established across human genetics and reciprocal mouse models — is that <strong>MSX2 is dosage-sensitive and bidirectionally determines skull phenotype</strong>. <em>Increased</em> MSX2 activity drives excessive osteogenic differentiation and proliferation of cranial-suture osteoprogenitors, producing premature suture fusion (craniosynostosis). <em>Decreased</em> MSX2 activity (haploinsufficiency) produces the opposite phenotype: defective calvarial ossification with persistent enlarged parietal foramina (PFM). This reciprocity is one of the clearest dosage-phenotype relationships in human developmental genetics and has been validated by transgenic mice overexpressing mutant Msx2 (which develop craniosynostosis and ectopic cranial bone) and Msx2-null mice (which develop calvarial foramina from defective osteoprogenitor proliferation).</p>
+<p>Clinically, Boston-type craniosynostosis shows <strong>highly variable expression and incomplete penetrance</strong>, ranging from isolated single-suture synostosis to severe multi-suture fusion with turribrachycephaly and (in the original family) cloverleaf skull. Multiple endocranial erosions ("digital markings") on CT are a recurrent diagnostic clue. Extracranial features are generally mild (minor limb/digit anomalies, refraction errors); copy-number gains have additionally caused ocular colobomas and microphthalmia-spectrum defects. Intelligence is typically normal. The condition is <strong>extraordinarily rare</strong> — only a handful of families reported worldwide — against a background craniosynostosis birth prevalence of ~1 in 2,500. Management is entirely surgical (cranial vault remodeling or endoscopic suturectomy, &lt;1% mortality) combined with genetic counseling; no targeted pharmacotherapy exists.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — The recurrent causal lesion is a gain-of-function missense change at MSX2 codon 148</h3>
+<p>The original Boston kindred reported by Jabs et al. (1993) carries a <strong>C&gt;A transversion in MSX2</strong> that substitutes <strong>histidine for a highly conserved proline at position 7 of the homeodomain</strong> — equivalent to <strong>p.Pro148His (P148H)</strong> in full-length protein numbering. The variant segregated with autosomal dominant craniosynostosis with no recombination to an intronic MSX2 marker, establishing MSX2 as the causal gene.</p>
+<blockquote>
+<p><em>"a histidine substitutes for a highly conserved proline at position 7 of the MSX2 homeodomain exclusively in affected members"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/8106171/">PMID: 8106171</a></p>
+</blockquote>
+<p>For nearly two decades this remained the only reported MSX2 craniosynostosis mutation. Two subsequent families then independently confirmed <strong>codon 148 as a recurrent causal locus</strong>: one carrying <strong>p.Pro148Leu</strong> (c.443C&gt;T) and another carrying a different Pro148 substitution.</p>
+<blockquote>
+<p><em>"A c.443C&gt;T missense mutation in MSX2, which predicts p.Pro148Leu was identified and segregated with the disease in all affected family members"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/23949913/">PMID: 23949913</a></p>
+</blockquote>
+<p>The convergence of three unrelated families on the same codon — the protein's homeodomain DNA-contacting region — is strong evidence that this residue is uniquely sensitive and that the mechanism involves altered DNA-binding behavior rather than simple protein ablation.</p>
+<h3>Finding 2 — MSX2 dosage bidirectionally determines skull phenotype: gain causes craniosynostosis, loss causes parietal foramina</h3>
+<p>This is the cornerstone finding of MSX2 biology. Wilkie et al. (2000) identified heterozygous <strong>loss-of-function</strong> MSX2 lesions — a ~206 kb whole-gene deletion, a homeodomain RK159-160 deletion, and the R172H substitution — in three families with <strong>parietal foramina (PFM)</strong>. The PFM mutant proteins showed <strong>&gt;85% reduction in DNA binding</strong>, in direct contrast to the craniosynostosis-causing P148H, which binds the same DNA target with <em>enhanced</em> affinity.</p>
+<blockquote>
+<p><em>"PFM and craniosynostosis result, respectively, from loss and gain of activity in an MSX2-mediated pathway of calvarial osteogenic differentiation"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/10742103/">PMID: 10742103</a></p>
+<p><em>"Mouse Msx2 protein with either of the homeodomain mutations exhibited more than 85% reduction in binding to an optimal Msx2 DNA-binding site"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/10742103/">PMID: 10742103</a></p>
+</blockquote>
+<p>The dosage model is reinforced from the opposite direction by <strong>copy-number gains</strong>: MSX2 <strong>gene triplication</strong> within a complex 5q35 rearrangement (<a href="https://pubmed.ncbi.nlm.nih.gov/18000908/">PMID: 18000908</a>) and <strong>intragenic duplication</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/24666290/">PMID: 24666290</a>) both cause craniosynostosis — i.e., <em>more</em> MSX2 recapitulates the gain-of-function phenotype. Thus a continuous allelic series runs from loss of function (parietal foramina) through normal dosage to gain of function/overdosage (craniosynostosis).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>MSX2 activity</th>
+<th>Molecular lesion</th>
+<th>Skull phenotype</th>
+<th>OMIM</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Gain</strong></td>
+<td>p.Pro148His/Leu; gene duplication/triplication</td>
+<td>Craniosynostosis (Boston-type, CRS2)</td>
+<td>#604757</td>
+</tr>
+<tr>
+<td>Normal</td>
+<td>wild-type</td>
+<td>Normal calvarial ossification</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Loss</strong> (haploinsufficiency)</td>
+<td>whole-gene deletion; RK159-160del; R172H</td>
+<td>Enlarged parietal foramina (PFM)</td>
+<td>#168500</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Finding 3 — Reciprocal mouse models confirm the dosage mechanism acts through osteoprogenitor proliferation</h3>
+<p>The dosage model is not merely inferred from human genetics; it is directly demonstrated by two complementary mouse models. Transgenic mice <strong>overexpressing mutant (Boston-type) Msx2</strong> in the developing skull develop <strong>craniosynostosis and ectopic cranial bone</strong>, recapitulating the human gain-of-function phenotype (Liu et al., 1995).</p>
+<blockquote>
+<p><em>"expression of the mouse counterpart of this mutant gene in the developing skulls of transgenic mice causes craniosynostosis and ectopic cranial bone"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/7597092/">PMID: 7597092</a></p>
+</blockquote>
+<p>Conversely, <strong>Msx2-null mice</strong> show defective skull ossification and persistent calvarial foramina arising from <strong>defective proliferation of osteoprogenitors at the osteogenic front</strong> — phenocopying human MSX2 haploinsufficiency (Satokata et al., 2000).</p>
+<blockquote>
+<p><em>"This phenotype results from defective proliferation of osteoprogenitors at the osteogenic front during calvarial morphogenesis, and closely resembles that associated with human MSX2 haploinsufficiency in parietal foramina"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/10742104/">PMID: 10742104</a></p>
+</blockquote>
+<p>These models pinpoint the <strong>cellular target</strong> (the osteoprogenitor/pre-osteoblast pool at the osteogenic front of the suture) and the <strong>cellular process</strong> (proliferation and differentiation balance). Calvarial defects in Msx2−/− mice are further enhanced by concurrent Msx1 loss, indicating that <strong>Msx-gene dosage as a family</strong> modifies the phenotype.</p>
+<h3>Finding 4 — P148H shows enhanced DNA binding but reduced protein stability; the functional output is context-dependent</h3>
+<p>The mechanistic picture at the protein level is nuanced. The P148H substitution <strong>increases MSX2 binding affinity</strong> for its DNA response element — the original basis for the gain-of-function hypothesis.</p>
+<blockquote>
+<p><em>"The increased binding affinity of MSX2 (P148H) to the response element has led many to hypothesize that the substitution is a gain-of-function mutation"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/18786927/">PMID: 18786927</a></p>
+</blockquote>
+<p>However, Yoon et al. (2008) reported that wild-type MSX2 stimulates suture-mesenchyme cell proliferation and cyclin D1, whereas P148H does not. P148H has a <strong>shorter half-life, is more heavily ubiquitylated (via the Praja1 E3 ligase), and is degraded faster</strong>, and it increases ubiquitylation of co-expressed wild-type MSX2 — behaving as a <strong>dominant-negative</strong> in that assay.</p>
+<blockquote>
+<p><em>"The ubiquitylation of Msx2-WT was higher in the presence of Msx2 (P148H), which indicated that P148H functions as a dominant-negative mutant"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/18786927/">PMID: 18786927</a></p>
+</blockquote>
+<p>The reconciliation is that MSX2 function is <strong>context- and target-dependent</strong>: the mutation can enhance binding/repression at some targets while destabilizing the protein and interfering with wild-type at others. Crucially, the <strong>net human phenotype (craniosynostosis) and the copy-number-gain data both indicate that the pathway output in the suture is one of increased MSX2 activity</strong> — overdosage of MSX2 and P148H converge on the same clinical endpoint.</p>
+<h3>Finding 5 — MSX2 acts as a BMP-inducible transcriptional repressor antagonized by DLX5 at osteoblast genes</h3>
+<p>MSX2 is a <strong>transcriptional repressor</strong> whose activity is finely balanced against the activator DLX5. Msx and Dlx homeoproteins <strong>heterodimerize through their homeodomains</strong>, with dimerization and DNA binding being mutually exclusive, producing reciprocal functional antagonism (Zhang et al., 1997).</p>
+<blockquote>
+<p><em>"Msx proteins act as transcriptional repressors and Dlx proteins act as activators, while in combination, Msx and Dlx proteins counteract each other's transcriptional activities"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/9111364/">PMID: 9111364</a></p>
+</blockquote>
+<p>At a concrete osteoblast-differentiation target, MSX2 represses the <strong>osteocalcin promoter by ~80%</strong>, and DLX5 completely reverses this repression (Newberry et al., 1998).</p>
+<blockquote>
+<p><em>"Msx2 suppresses transcriptional activity by ca. 80%. However, Dlx5 completely reverses Msx2 repression of the OC promoter"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/9819228/">PMID: 9819228</a></p>
+</blockquote>
+<p>Upstream, <strong>BMP4 induces Msx2 expression</strong>, placing MSX2 downstream of BMP signaling in the osteogenic program; YY1 can additionally activate Msx2 independent of BMP (Tan et al., 2002).</p>
+<blockquote>
+<p><em>"bone morphogenetic protein type 4 (BMP4) regulates Msx2 expression in embryonic tissues"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/11861914/">PMID: 11861914</a></p>
+</blockquote>
+<h3>Finding 6 — Clinical spectrum: variable multi-suture involvement, endocranial erosions, mild extracranial features; very rare</h3>
+<p>Reported families show autosomal dominant inheritance with <strong>highly variable expression and incomplete penetrance</strong>. Affected individuals range from isolated sagittal or unicoronal synostosis to severe trigonocephaly and multi-suture (coronal, sagittal, metopic, lambdoid) fusion. <strong>Multiple endocranial erosions ("digital markings") on CT</strong> are a recurrent diagnostic clue shared with the original family.</p>
+<blockquote>
+<p><em>"our patients share with the original family autosomal dominant inheritance and the presence of multiple endocranial erosions on CT imaging"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/23918290/">PMID: 23918290</a></p>
+</blockquote>
+<p>Extracranial features include cutaneous syndactyly/minor limb anomalies and refraction errors; MSX2 copy-number gain additionally caused ocular colobomas and microphthalmia-spectrum defects. MSX2 is explicitly described as a <strong>very rare cause</strong> of craniosynostosis — only a handful of families worldwide — against a background craniosynostosis birth prevalence of ~1 in 2,500.</p>
+<blockquote>
+<p><em>"MSX2 mutations are a very rare cause of craniosynostosis"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/24666290/">PMID: 24666290</a></p>
+</blockquote>
+<hr />
+<h2>Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> MSX2-Related (Boston-type) craniosynostosis is an autosomal dominant premature fusion of one or more cranial sutures caused by gain-of-activity variants of the MSX2 homeodomain transcription factor. It is syndromic in that extracranial (limb, ocular) features can occur, but these are typically mild, and intelligence is usually normal.</p>
+<p><strong>Key identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0011481" target="_blank" rel="noopener noreferrer">MONDO:0011481</a> ("craniosynostosis 2"); OMIM #604757; Orphanet <a href="https://bioregistry.io/ORPHA:1541" target="_blank" rel="noopener noreferrer">ORPHA:1541</a>; <a href="http://purl.obolibrary.org/obo/DOID_0061009" target="_blank" rel="noopener noreferrer">DOID:0061009</a>; GARD 0005538; MedGen/UMLS C1858160 (MedGen UID 346753); SNOMED CT 720817008. ICD-10 maps to Q75.0 (craniosynostosis). MeSH: Craniosynostoses (D003398). Gene: MSX2 — Ensembl ENSG00000120149, NCBI Entrez Gene 4488, <a href="https://bioregistry.io/HGNC:7392" target="_blank" rel="noopener noreferrer">HGNC:7392</a>, UniProt P35548, cytoband 5q35.2 (GRCh38 chr5:174,724,551–174,730,896, + strand).</p>
+<p><strong>Synonyms:</strong> craniosynostosis type 2; CRS2; Boston-type craniosynostosis; Warman-Mulliken-Hayward syndrome; craniosynostosis, Warman type.</p>
+<p><strong>Information source:</strong> Aggregated disease-level resources (OMIM, Orphanet, HPO, ClinVar) plus individual family case reports; there is no EHR-scale cohort owing to extreme rarity.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factors — genetic.</strong> The primary cause is heterozygous gain-of-activity of MSX2: recurrent missense change at codon 148 (p.Pro148His, p.Pro148Leu, other Pro148 substitutions) and copy-number gains (intragenic duplication, 5q35 triplication). There is no known infectious or primary environmental cause.</p>
+<p><strong>Genetic risk factors.</strong> The causal variants themselves are the risk determinant; MSX1/MSX2 gene-family dosage acts as a modifier (mouse data). No common susceptibility loci are implicated in this Mendelian form.</p>
+<p><strong>Environmental risk factors.</strong> None established for the MSX2 form specifically. In craniosynostosis broadly, a population study found <strong>primarily null associations</strong> between maternal periconceptional alcohol and craniosynostosis (<a href="https://pubmed.ncbi.nlm.nih.gov/39665132/">PMID: 39665132</a>) — not specific to MSX2.</p>
+<p><strong>Protective factors / gene-environment interactions.</strong> None documented for this disorder. Information not available.</p>
+<h3>3. Phenotypes</h3>
+<p>The official HPO annotation set for <a href="https://bioregistry.io/OMIM:604757" target="_blank" rel="noopener noreferrer">OMIM:604757</a> comprises <strong>22 terms</strong> (JAX/HPO annotation). Characteristic features:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Craniosynostosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001363" target="_blank" rel="noopener noreferrer">HP:0001363</a></td>
+<td>Core feature; multi-suture common</td>
+</tr>
+<tr>
+<td>Bicoronal synostosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011318" target="_blank" rel="noopener noreferrer">HP:0011318</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Unicoronal synostosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011315" target="_blank" rel="noopener noreferrer">HP:0011315</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Metopic synostosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011330" target="_blank" rel="noopener noreferrer">HP:0011330</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Trigonocephaly</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000243" target="_blank" rel="noopener noreferrer">HP:0000243</a></td>
+<td>From metopic fusion</td>
+</tr>
+<tr>
+<td>Turricephaly</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000262" target="_blank" rel="noopener noreferrer">HP:0000262</a></td>
+<td>Tower skull</td>
+</tr>
+<tr>
+<td>Brachycephaly</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000248" target="_blank" rel="noopener noreferrer">HP:0000248</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Frontal bossing</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002007" target="_blank" rel="noopener noreferrer">HP:0002007</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Hypotelorism</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000601" target="_blank" rel="noopener noreferrer">HP:0000601</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Wormian bones</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002645" target="_blank" rel="noopener noreferrer">HP:0002645</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Cleft soft palate</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000185" target="_blank" rel="noopener noreferrer">HP:0000185</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Supernumerary tooth</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011069" target="_blank" rel="noopener noreferrer">HP:0011069</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Brachydactyly</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" rel="noopener noreferrer">HP:0001156</a></td>
+<td>Mild limb/digit anomaly</td>
+</tr>
+<tr>
+<td>Triphalangeal thumb</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001199" target="_blank" rel="noopener noreferrer">HP:0001199</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Myopia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" rel="noopener noreferrer">HP:0000545</a></td>
+<td>Refraction error</td>
+</tr>
+<tr>
+<td>Hypermetropia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000540" target="_blank" rel="noopener noreferrer">HP:0000540</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Visual field defect</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001123" target="_blank" rel="noopener noreferrer">HP:0001123</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Headache</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a></td>
+<td>Possible raised ICP</td>
+</tr>
+<tr>
+<td>Seizure</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Intellectual disability</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+<td>Atypical; intelligence usually normal</td>
+</tr>
+<tr>
+<td>Infantile onset</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003593" target="_blank" rel="noopener noreferrer">HP:0003593</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Autosomal dominant inheritance</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank" rel="noopener noreferrer">HP:0000006</a></td>
+<td></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The curated OMIM description adds <strong>turribrachycephaly, cloverleaf skull, supraorbital-ridge hypoplasia, short first metatarsal, and middle phalangeal agenesis of the feet</strong>, with normal intelligence typical. <strong>Onset is congenital/infantile</strong>; severity is <strong>variable</strong> (mild single-suture to severe multi-suture); the suture fusion itself is <strong>stable/non-progressive</strong> once formed, but secondary raised intracranial pressure can progress without surgery. <strong>Quality-of-life impact</strong> derives chiefly from head-shape abnormality, potential raised ICP, and the burden of cranial surgery; treated patients generally have QoL comparable to controls (general NSC data, <a href="https://pubmed.ncbi.nlm.nih.gov/40210850/">PMID: 40210850</a>).</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Causal gene:</strong> MSX2 (OMIM *123101; <a href="https://bioregistry.io/HGNC:7392" target="_blank" rel="noopener noreferrer">HGNC:7392</a>; Entrez 4488; UniProt P35548), 5q35.2.</p>
+<p><strong>Pathogenic variants.</strong> Recurrent <strong>missense at codon 148</strong>: c.442C&gt;A p.Pro148His (original Boston family), c.443C&gt;T p.Pro148Leu, and a further Pro148 substitution. Also <strong>copy-number gains</strong>: intragenic duplication and 5q35 triplication. ClinVar lists <strong>298 submitted MSX2 variants</strong>, of which <strong>45 Pathogenic and 7 Likely Pathogenic</strong>, spanning both the gain-of-function craniosynostosis and the loss-of-function parietal-foramina allelic disorders. Variant types: <strong>missense</strong> (craniosynostosis, gain of function) and <strong>copy-number gain</strong> (gain of function/overdosage); the allelic PFM disorder involves <strong>whole-gene deletion, in-frame homeodomain deletion, and loss-of-function missense (R172H)</strong>. All reported craniosynostosis variants are <strong>germline</strong>; de novo cases arise but most families show dominant transmission. Population allele frequency in gnomAD is effectively absent for the pathogenic codon-148 changes (private family variants). <strong>Functional consequence:</strong> gain of MSX2 pathway activity (enhanced DNA binding and/or overdosage), with an additional dominant-negative/protein-stability component for P148H.</p>
+<p><strong>Modifier genes:</strong> MSX1 (gene-family dosage modifies calvarial phenotype in mouse); DLX5 (functional antagonist). <strong>Epigenetic information:</strong> none specifically characterized for this disorder. <strong>Chromosomal abnormalities:</strong> 5q35 duplication/triplication within complex rearrangements cause the craniosynostosis phenotype via MSX2 overdosage.</p>
+<h3>5. Environmental Information</h3>
+<p>No environmental factor, lifestyle factor, or infectious agent is established as a cause or trigger of MSX2-related craniosynostosis. The disorder is monogenic. (General craniosynostosis environmental associations such as maternal alcohol are null/weak and not MSX2-specific.)</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li>A germline <strong>gain-of-activity MSX2 lesion</strong> (p.Pro148His/Leu missense, or gene duplication/triplication) <strong>results in</strong> increased MSX2 pathway activity in cranial-suture mesenchyme — via enhanced DNA-binding affinity (P148H) and/or increased MSX2 gene dosage (CNV).</li>
+<li>MSX2 sits <strong>downstream of BMP4</strong> signaling (BMP4 induces MSX2; YY1 can also activate it) — so the lesion <strong>amplifies a BMP-driven osteogenic signal</strong> (<em>inferred for the human mutant; demonstrated that BMP4 regulates Msx2</em>).</li>
+<li>Elevated MSX2 <strong>shifts the MSX2↔DLX5 repressor/activator balance</strong> at osteoblast-differentiation genes (e.g., osteocalcin), which MSX2 represses by ~80% and DLX5 reverses — perturbing the timing of osteogenic differentiation at the suture.</li>
+<li>This <strong>leads to</strong> dysregulated <strong>proliferation and differentiation of osteoprogenitors at the osteogenic front</strong> of the suture (the exact cellular target identified in Msx2 mouse models).</li>
+<li>Dysregulated osteoprogenitor behavior <strong>results in</strong> premature ossification across the suture — <strong>premature suture fusion (craniosynostosis)</strong> — and, in gain-of-function models, ectopic cranial bone.</li>
+<li>Fused sutures <strong>constrain calvarial growth perpendicular to the suture</strong>, <strong>leading to</strong> the abnormal head shapes (turribrachycephaly, trigonocephaly, cloverleaf skull) and, where multiple sutures fuse, <strong>raised intracranial pressure</strong>, endocranial erosions ("digital markings"), headache, visual compromise, and (rarely) seizures.</li>
+</ol>
+<p><strong>Branch (opposite dosage):</strong> A <em>loss-of-function</em> MSX2 lesion instead <strong>results in</strong> defective osteoprogenitor proliferation at the osteogenic front → deficient parietal ossification → <strong>enlarged parietal foramina</strong> (the reciprocal allelic disorder).</p>
+<p><strong>Pathways/processes/terms.</strong> BMP signaling (upstream); homeodomain transcriptional repression (MSX2) antagonized by DLX5. Cellular processes: <strong><a href="http://purl.obolibrary.org/obo/GO_0008284" target="_blank" rel="noopener noreferrer">GO:0008284</a> positive regulation of cell proliferation</strong>, <strong><a href="http://purl.obolibrary.org/obo/GO_0001649" target="_blank" rel="noopener noreferrer">GO:0001649</a> osteoblast differentiation</strong>, <strong><a href="http://purl.obolibrary.org/obo/GO_0060349" target="_blank" rel="noopener noreferrer">GO:0060349</a> bone morphogenesis</strong>. Cell types: <strong><a href="http://purl.obolibrary.org/obo/CL_0007010" target="_blank" rel="noopener noreferrer">CL:0007010</a> preosteoblast / <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a> osteoblast</strong>, cranial neural-crest– and mesoderm–derived <strong>mesenchymal stem cells (<a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" rel="noopener noreferrer">CL:0000134</a>)</strong> of the suture. Protein dysfunction: altered DNA-binding and reduced protein stability (enhanced Praja1-mediated ubiquitylation of P148H). No metabolic, immune, or infectious component.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ level:</strong> skull/calvaria (primary); brain (secondary, via raised ICP); eye (refraction errors, colobomas with CNVs). Body system: <strong>skeletal (craniofacial)</strong>; secondarily nervous and visual systems.</li>
+<li><strong>Tissue/cell level:</strong> cranial suture <strong>mesenchyme</strong> and its <strong>osteoprogenitors/osteoblasts</strong> at the osteogenic front; connective/bone tissue.</li>
+<li><strong>Subcellular:</strong> nucleus (<strong><a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a></strong>) — MSX2 is a nuclear transcription factor acting at target promoters; the ubiquitin-proteasome system governs its turnover.</li>
+<li><strong>Localization (UBERON):</strong> cranial sutures — <strong><a href="http://purl.obolibrary.org/obo/UBERON_0007617" target="_blank" rel="noopener noreferrer">UBERON:0007617</a> cranial suture</strong>; specific sutures: coronal, sagittal, metopic, lambdoid; parietal bone (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0000210" target="_blank" rel="noopener noreferrer">UBERON:0000210</a></strong>) for the reciprocal PFM disorder. Lateralization: <strong>bilateral or asymmetric</strong> depending on sutures involved (e.g., unicoronal = unilateral).</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<p><strong>Onset:</strong> congenital/infantile — suture fusion present at or shortly after birth. <strong>Onset pattern:</strong> chronic developmental (prenatal). <strong>Progression:</strong> the primary suture fusion is essentially <strong>stable once established</strong>, but head-shape deformity and secondary raised ICP can <strong>progress during the period of rapid brain growth</strong> (first 1–2 years), defining the <strong>critical window for surgical intervention</strong> (ideally within the first year; endoscopic repair favored ≤4 months). <strong>Course:</strong> non-episodic; lifelong structural change. <strong>Remission:</strong> only treatment-induced (surgical correction).</p>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Inheritance:</strong> autosomal dominant (<a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank" rel="noopener noreferrer">HP:0000006</a>).</li>
+<li><strong>Penetrance/expressivity:</strong> incomplete penetrance and highly variable expressivity within families.</li>
+<li><strong>Epidemiology:</strong> MSX2-related Boston type is <strong>extraordinarily rare</strong> (a handful of families worldwide). Background craniosynostosis birth prevalence is <strong>~1 in 2,500</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/36593018/">PMID: 36593018</a>); syndromic forms are ~15% of cases, and MSX2 is a very rare subset of those. Regional incidence data (e.g., Oman 2.5/10,000 live births, male:female ~1.5:1) are for craniosynostosis overall, not MSX2 specifically (<a href="https://pubmed.ncbi.nlm.nih.gov/39698983/">PMID: 39698983</a>).</li>
+<li><strong>Anticipation / germline mosaicism / founder effects / consanguinity / carrier frequency:</strong> no evidence of anticipation or founder effects; the private family variants have negligible population allele frequency. Consanguinity is not relevant (dominant). No carrier-frequency estimate applies.</li>
+<li><strong>Demographics:</strong> no ethnic predilection established given rarity; sex ratio not skewed for the MSX2 form.</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Imaging:</strong> skull <strong>CT with 3D reconstruction</strong> is the diagnostic mainstay — demonstrates fused sutures and the characteristic <strong>multiple endocranial erosions ("digital markings")</strong>; plain radiographs and ultrasound (fontanelle) are adjuncts.</li>
+<li><strong>Clinical exam:</strong> abnormal head shape (turribrachycephaly, trigonocephaly, cloverleaf), palpable suture ridging, frontal bossing, hypotelorism.</li>
+<li><strong>Genetic testing:</strong> <strong>single-gene MSX2 sequencing</strong> or inclusion of MSX2 in a <strong>craniosynostosis gene panel</strong> (FGFR1/2/3, TWIST1, MSX2, EFNB1, TCF12, ERF); <strong>chromosomal microarray (CMA)</strong> to detect 5q35 duplication/triplication; WES/WGS for undiagnosed cases. GTR/ClinVar/GeneReviews are primary resources.</li>
+<li><strong>No laboratory biomarker</strong> (blood/urine/metabolic) exists; diagnosis is radiologic + molecular.</li>
+<li><strong>Clinical criteria / differential diagnosis:</strong> distinguish from FGFR-related syndromes (Apert, Crouzon, Pfeiffer, Muenke — typically more severe limb/facial features), Saethre-Chotzen (TWIST1), and non-syndromic single-suture synostosis. MSX2 is suggested by AD inheritance, variable multi-suture involvement, mild extracranial features, endocranial erosions, and normal intelligence.</li>
+<li><strong>Screening:</strong> cascade genetic testing of at-risk relatives once a familial variant is known; prenatal/preimplantation testing is feasible.</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Survival/mortality:</strong> life expectancy is <strong>normal</strong>; the disorder is not life-limiting. Surgical mortality for craniosynostosis repair is <strong>&lt;1%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40210850/">PMID: 40210850</a>).</li>
+<li><strong>Morbidity:</strong> driven by raised ICP (if multi-suture and untreated), visual field defects, headaches, and the morbidity of cranial surgery. Treated patients generally achieve good cosmetic and functional outcomes.</li>
+<li><strong>Function/QoL:</strong> intelligence typically normal; school-age children with treated non-syndromic craniosynostosis show subtle lower cognitive/behavioral performance on average but patient-reported QoL comparable to controls (<a href="https://pubmed.ncbi.nlm.nih.gov/40210850/">PMID: 40210850</a>).</li>
+<li><strong>Complications:</strong> raised intracranial pressure, visual compromise, recurrence requiring reoperation.</li>
+<li><strong>Prognostic factors:</strong> number of sutures involved and presence/severity of raised ICP; earlier surgery generally yields better morphometric outcomes.</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Primary treatment is surgical.</strong> Options (from the craniosynostosis literature): <strong>cranial vault remodeling (CVR)</strong>, <strong>fronto-orbital advancement/remodeling</strong>, <strong>endoscope-assisted strip craniectomy/suturectomy with postoperative orthotic (helmet) therapy</strong>, <strong>spring-assisted cranioplasty</strong>, and <strong>distraction osteogenesis</strong> for complex three-dimensional deformities (<a href="https://pubmed.ncbi.nlm.nih.gov/42686138/">PMID: 42686138</a>). Posterior vault expansion (remodeling, distraction, or spring-assisted) is used for raised ICP in multi-suture disease.</li>
+<li><strong>Timing:</strong> surgery is ideally in the <strong>first year of life</strong>; early endoscopic repair (≤4 months) yields superior morphometric gains, lower blood loss, and shorter stays (<a href="https://pubmed.ncbi.nlm.nih.gov/42059979/">PMID: 42059979</a>).</li>
+<li><strong>NCIT terms:</strong> cranial vault remodeling / craniectomy / fronto-orbital advancement (surgical interventions).</li>
+<li><strong>Pharmacotherapy / gene therapy / RNA therapy / targeted therapy:</strong> <strong>none</strong> — there is no approved or investigational molecularly targeted drug therapy for MSX2 craniosynostosis.</li>
+<li><strong>Supportive/rehabilitative:</strong> ophthalmologic management of refraction errors; neurosurgical ICP monitoring; developmental support as needed.</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> not possible for a germline monogenic disorder; <strong>genetic counseling</strong> and reproductive options (prenatal diagnosis, preimplantation genetic testing) are the relevant interventions once a familial variant is known.</li>
+<li><strong>Secondary prevention:</strong> early diagnosis (prenatal imaging/molecular, early infant exam) to enable timely surgery and prevent raised-ICP sequelae.</li>
+<li><strong>Tertiary prevention:</strong> ICP monitoring and reoperation to prevent neurological/visual complications.</li>
+<li><strong>Counseling:</strong> autosomal dominant 50% transmission risk; counsel on variable expressivity and incomplete penetrance.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Ortholog:</strong> mouse <strong>Msx2</strong> (NCBI Gene 17702); zebrafish and chick msx orthologs exist. Evolutionary conservation of the homeodomain and of the BMP→Msx→Dlx osteogenic module is high.</li>
+<li><strong>Natural disease in other species:</strong> no well-characterized spontaneous MSX2 craniosynostosis in companion animals is documented (OMIA). The disease is studied almost exclusively via engineered mouse models (below).</li>
+<li><strong>Comparative biology:</strong> mouse Msx2 gain- and loss-of-function reproduce human craniosynostosis and parietal foramina respectively, demonstrating strong cross-species mechanistic conservation.</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Mouse (Mus musculus, NCBI Taxon 10090):</strong></li>
+<li><strong>Transgenic Msx2 (Boston-type mutant) overexpression</strong> → craniosynostosis + ectopic cranial bone (<a href="https://pubmed.ncbi.nlm.nih.gov/7597092/">PMID: 7597092</a>). Models the <strong>gain-of-function</strong> human phenotype well.</li>
+<li><strong>Msx2 knockout (Msx2−/−)</strong> → defective skull ossification, persistent calvarial foramina from defective osteoprogenitor proliferation; pleiotropic bone and ectodermal-organ defects (<a href="https://pubmed.ncbi.nlm.nih.gov/10742104/">PMID: 10742104</a>). Models the <strong>loss-of-function/parietal-foramina</strong> allelic disorder.</li>
+<li><strong>Msx1;Msx2 compound mutants</strong> reveal gene-family dosage modification.</li>
+<li><strong>Phenotype recapitulation:</strong> excellent for the core calvarial dosage phenotype (both directions). <strong>Limitations:</strong> mouse models do not fully capture the variable multi-suture pattern, endocranial erosions, or the human extracranial spectrum; the dominant-negative/protein-stability nuance of P148H is best studied in cell-based assays (Praja1 ubiquitylation, <a href="https://pubmed.ncbi.nlm.nih.gov/18786927/">PMID: 18786927</a>).</li>
+<li><strong>Resources:</strong> MGI (Msx2), IMPC/IMSR for alleles; cell-based transfection assays for transcriptional/stability studies.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>BMP4  --induces--&gt;  MSX2 (homeodomain repressor)  &lt;--antagonizes-- DLX5 (activator)
+                   |                                 ^
+     [YY1 activates MSX2           |  represses osteoblast genes     | heterodimerize via
+      independent of BMP]          |  (e.g. osteocalcin ~80%)        | homeodomain (mutually
+                   v                                 | exclusive w/ DNA binding)
+        osteoprogenitors at the
+        OSTEOGENIC FRONT of cranial suture
+                   |
++--------------------------+---------------------------------+
+     GAIN of MSX2 activity                                  LOSS of MSX2 activity
+  (P148H enhanced binding;                               (deletion, RK159-160del,
+   gene duplication/triplication)                          R172H; &gt;85% down DNA binding)
+|                                                         |
+   dysregulated osteoprogenitor                           reduced osteoprogenitor
+   proliferation &amp; premature                              proliferation,
+   differentiation                                        deficient ossification
+|                                                         |
+   PREMATURE SUTURE FUSION + ectopic bone                 ENLARGED PARIETAL
+   = CRANIOSYNOSTOSIS (Boston-type, #604757)              FORAMINA (#168500)
+|
+   abnormal head shape (turribrachycephaly,
+   trigonocephaly, cloverleaf) +/- raised ICP,
+   endocranial erosions, visual compromise
+</code></pre>
+<p>The unifying interpretation is a <strong>dosage rheostat</strong>: MSX2 activity must be held within a narrow window for normal calvarial ossification. Push it up (missense gain of function or extra gene copies) and sutures fuse too early; push it down (haploinsufficiency) and ossification fails, leaving parietal foramina. P148H is mechanistically subtle — it enhances DNA binding at some targets yet is itself unstable and can act dominant-negatively at others — but the <strong>convergent human genetics (missense + copy-number gain) and reciprocal mouse models place the net suture-level output firmly on the "too much MSX2" side</strong>. The cellular locus of action is the osteoprogenitor pool at the osteogenic front, and the pathway context is BMP4→MSX2⊣(DLX5)→osteoblast-differentiation genes.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role in this report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8106171/">8106171</a></td>
+<td>Homeodomain MSX2 mutation in AD craniosynostosis</td>
+<td>Original P148H discovery (Finding 1)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23949913/">23949913</a></td>
+<td>Second mutation (p.Pro148Leu)</td>
+<td>Confirms codon 148 recurrence (Finding 1)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23918290/">23918290</a></td>
+<td>Second family, clinical-spectrum expansion</td>
+<td>Variable expression; endocranial erosions (Finding 6)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10742103/">10742103</a></td>
+<td>MSX2 haploinsufficiency → skull defects</td>
+<td>Dosage model, &gt;85% down binding (Finding 2)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7597092/">7597092</a></td>
+<td>Msx2 transgenic mice</td>
+<td>Gain-of-function mouse model (Finding 3)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10742104/">10742104</a></td>
+<td>Msx2 knockout mice</td>
+<td>Loss-of-function mouse model; osteoprogenitor mechanism (Finding 3)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18786927/">18786927</a></td>
+<td>P148H ubiquitin-dependent degradation</td>
+<td>Enhanced binding vs reduced stability (Finding 4)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9111364/">9111364</a></td>
+<td>Msx/Dlx heterodimerization</td>
+<td>MSX2 repressor antagonized by DLX5 (Finding 5)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9819228/">9819228</a></td>
+<td>Osteocalcin regulation by Msx2/Dlx5</td>
+<td>~80% repression, DLX5 reversal (Finding 5)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11861914/">11861914</a></td>
+<td>YY1/BMP4 regulation of Msx2</td>
+<td>BMP4 upstream of MSX2 (Finding 5)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24666290/">24666290</a></td>
+<td>MSX2 duplication, eye defects</td>
+<td>Copy-number gain; rarity (Findings 2, 6)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18000908/">18000908</a></td>
+<td>MSX2 triplication (dup5q)</td>
+<td>Overdosage → craniosynostosis (Finding 2)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36593018/">36593018</a></td>
+<td>Molecular mechanisms review</td>
+<td>Background prevalence 1:2,500; MSX2 among key genes</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40210850/">40210850</a></td>
+<td>Non-syndromic craniosynostosis review</td>
+<td>Surgical mortality &lt;1%, QoL, timing</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42059979/">42059979</a></td>
+<td>Ideal surgical age</td>
+<td>Early endoscopic repair window</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42686138/">42686138</a></td>
+<td>Operative strategy review</td>
+<td>Surgical options</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10879654/">10879654</a></td>
+<td>MSX1/MSX2 craniofacial disorders</td>
+<td>Gain vs loss contrast summary</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Evidence-type mix:</strong> human clinical genetics (family studies, ClinVar), model-organism (mouse transgenic and knockout), in-vitro/cell-based (DNA-binding, ubiquitylation, promoter assays), and computational/database cross-referencing (Ensembl, MyGene, OLS4/MONDO, HPO/JAX).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Extreme rarity:</strong> only a handful of MSX2 craniosynostosis families are reported, so penetrance, expressivity, and genotype-phenotype correlations rest on small numbers; no population-scale natural-history or QoL data specific to MSX2 exist.</li>
+<li><strong>Mechanistic ambiguity of P148H:</strong> the coexistence of enhanced DNA binding (gain of function) and reduced protein stability/dominant-negative behavior is not fully resolved; the precise target genes dysregulated in human sutures are not mapped.</li>
+<li><strong>No omics in patients:</strong> there are no transcriptomic, proteomic, metabolomic, or single-cell/spatial datasets from MSX2-craniosynostosis patient suture tissue; mechanism is inferred from mouse and cell models.</li>
+<li><strong>No targeted therapy or biomarker:</strong> management is purely structural/surgical; no molecular prognostic biomarker exists.</li>
+<li><strong>Modifier landscape under-characterized:</strong> beyond MSX1 gene-family dosage (mouse), human modifiers of the variable expressivity are unknown.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Patient-derived models:</strong> generate iPSC-derived cranial neural-crest/osteoprogenitor organoids carrying P148H and MSX2 duplication to directly test proliferation/differentiation output and reconcile the gain-of-function vs dominant-negative debate.</li>
+<li><strong>Suture-specific transcriptomics/single-cell:</strong> profile osteogenic-front cells in Msx2-gain and -loss mouse models (and any available patient tissue) to define the dysregulated target-gene program and confirm the BMP4→MSX2⊣DLX5→osteocalcin axis in vivo.</li>
+<li><strong>Allelic-series functional assay:</strong> systematically compare DNA binding, protein half-life, Praja1-mediated ubiquitylation, and transcriptional output across P148H, P148L, and other Pro148 substitutions to build a quantitative genotype-function map.</li>
+<li><strong>Registry/cascade data collection:</strong> aggregate reported families into a shared registry to refine penetrance/expressivity estimates and endocranial-erosion specificity as a diagnostic marker.</li>
+<li><strong>Therapeutic exploration:</strong> test whether modulating BMP signaling or MSX2 stability (proteasome pathway) alters suture fusion in the transgenic mouse — a first step toward any non-surgical intervention.</li>
+</ol>
+<hr />
+<p><em>Report prepared from 9 confirmed findings across 5 iterations and 32 reviewed papers. All mechanistic and clinical claims are cited to primary literature by PMID; ontology terms (HPO, GO, CL, UBERON, MONDO) are suggested throughout for knowledge-base annotation.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/MSX2-Related_Craniosynostosis-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/MSX2-Related_Craniosynostosis-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>19</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>HP:0000006</code> - called "Autosomal dominant inheritance", "Inheritance:** autosomal dominant"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>, <code>OMIM</code>.</p>
+<p>33 of 36 terms resolved to a current term; the rest could not be looked up either way.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="MSMO1_Deficiency-claude_code.html">← MSMO1 Deficiency (Claude Code)</a>
+                
+                
+                <a href="MT-ATP6_MT-ATP8-Related_Infantile_Hypertrophic_Cardiomyopathy-falcon.html">MT-ATP6/MT-ATP8-Related Infantile Hypertrophic Cardiomyopathy (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/MSX2-Related_Craniosynostosis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/MSX2-Related_Craniosynostosis-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -277,6 +277,7 @@ informational; see below):
 |---|---|
 | `TAGGED` | proceed to Step 2 |
 | `TAGGED_RETIRED` | the only tagged chapter is a retired one (`[retired chapter]`), withdrawn by GeneReviews and kept for historical reference. Not blocking, and the tag itself is correct. If a current chapter covers the disease (a `GENE_SCOPED` row, an *Overview*), ask for it to be cited and mined; if none does, the retired chapter may stay as the baseline. Then proceed to Step 2 |
+| `TAGGED_OVERVIEW` | every current tagged chapter is in the Overview format (`[purpose statement only]`): its cached PubMed abstract is a statement of purpose with no clinical characteristics, so there is no phenotype baseline in it to cross-check (#11848). Not blocking, and the tag is correct. Ask for a disease- or gene-specific chapter if one covers the disease (a `GENE_SCOPED` row); otherwise check that `notes:` says the Overview is not a usable baseline and where the phenotypes came from instead. Do not ask for the Overview to be "mined" — there is nothing in it. Then proceed to Step 2 |
 | `UNTAGGED_CHAPTER` | a chapter whose title equals one of the entry's names exists and is not tagged: **blocking omission** for a new Mendelian entry → `REQUEST_CHANGES` |
 | `CITED_UNTAGGED` | the chapter is cited in the file but not tagged in `references:` — same, and `just tag-references FILE` fixes a PMID citation |
 | `MISTAGGED` | a reference tagged `GeneReviews` is not a GeneReviews chapter: **blocking** — say which |
