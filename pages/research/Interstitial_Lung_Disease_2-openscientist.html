@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interstitial Lung Disease 2 · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Interstitial Lung Disease 2</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Interstitial Lung Disease 2</h1>
+                
+                <p class="report-subtitle">Interstitial Lung Disease 2 (ILD2, SFTPA2): Comprehensive Disease Report</p>
+                
+                
+                <div class="report-date">2026-11-07</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0800497" target="_blank" rel="noopener noreferrer">MONDO:0800497</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">20 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Interstitial Lung Disease 2 (ILD2, SFTPA2): Comprehensive Disease Report</h1>
+<p><strong>Disease:</strong> Interstitial Lung Disease 2 (ILD2)
+<strong>Causal gene:</strong> <strong>SFTPA2</strong> (surfactant protein A2; <a href="https://bioregistry.io/HGNC:10799" target="_blank" rel="noopener noreferrer">HGNC:10799</a>; UniProt Q8IWL1; chr10q22.3)
+<strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0800497" target="_blank" rel="noopener noreferrer">MONDO:0800497</a> · <strong>OMIM:</strong> 178500 · <strong>DOID:</strong> 0060971 · <strong>GARD:</strong> 0028066 · <strong>MedGen/UMLS:</strong> C5561926</p>
+<hr />
+<h2>Summary</h2>
+<p>Interstitial Lung Disease 2 (ILD2) is a rare, <strong>autosomal-dominant, adult-onset form of familial pulmonary fibrosis caused by heterozygous missense mutations in SFTPA2</strong>, the gene encoding surfactant protein A2 (SP-A2). It must not be confused with similarly named interstitial lung diseases driven by other genes (e.g., SFTPB-, SFTPC-, ABCA3-, NKX2-1-, or telomere-gene–related fibrosis); the defining lesion of ILD2 is a coding mutation in <strong>SFTPA2</strong>, most characteristically in the C-terminal <strong>carbohydrate-recognition domain (CRD)</strong> of the protein (canonical variants p.Gly231Val and p.Phe198Ser). The disease was originally defined by linkage in a large kindred co-segregating usual interstitial pneumonia (UIP)–pattern pulmonary fibrosis with lung adenocarcinoma, establishing ILD2 as a fibrosis syndrome with a strong cancer predisposition.</p>
+<p>The core pathophysiology is a <strong>toxic gain-of-function / proteostasis mechanism</strong> rather than simple haploinsufficiency. Mutant SP-A2 misfolds, is retained in the endoplasmic reticulum (ER) of alveolar type II (AT2) epithelial cells, and fails to be secreted. ER retention activates the <strong>unfolded protein response (UPR)</strong>, which in turn drives secretion of <strong>latent TGF-β1</strong>, autocrine/paracrine TGF-β signaling, <strong>epithelial–mesenchymal transition (EMT)</strong> and epithelial cell death. This cascade produces progressive fibrotic remodeling of the lung with a UIP histologic pattern. The same secretory failure is shared across pathogenic SFTPA1/SFTPA2 variants, and the accompanying bronchiolar metaplasia and epithelial dysregulation are thought to underlie the elevated lung-cancer risk in variant carriers.</p>
+<p>Clinically, ILD2 presents earlier than sporadic IPF (familial pulmonary fibrosis median diagnosis ~61 years vs ~67 years, with cases reported from the late teens to 90s), with exertional dyspnea, cough, reduced diffusing capacity, ground-glass opacities and cysts on CT, and a UIP pattern. Prognosis is poor — surfactant-related-gene (SRG) carriers have low transplant-free survival (median ~44 months in one cohort). There is <strong>no SFTPA2-specific therapy</strong>; management relies on antifibrotics (pirfenidone, nintedanib), selective immunomodulation in some surfactant-gene cases, lung-cancer CT surveillance, genetic counseling, and lung transplantation. This report synthesizes nine confirmed findings drawn from 27 reviewed papers and authoritative database annotations (OMIM, ClinVar, UniProt/InterPro, Monarch/HPO).</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> ILD2 is a Mendelian interstitial lung disease defined by Monarch as <em>"An interstitial lung disease in which the cause of the disease is a variation in the SFTPA2 gene."</em> It manifests as adult-onset familial pulmonary fibrosis, usually with a <strong>usual interstitial pneumonia (UIP)</strong> histologic pattern, and carries a predisposition to <strong>lung adenocarcinoma</strong>. It falls within the broader clinical category of familial pulmonary fibrosis / familial interstitial pneumonia and is one of the "surfactant-related gene" (SRG) forms of pulmonary fibrosis (distinct from telomere-related gene forms).</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OMIM</td>
+<td>178500</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0800497" target="_blank" rel="noopener noreferrer">MONDO:0800497</a></td>
+</tr>
+<tr>
+<td>DOID</td>
+<td><a href="http://purl.obolibrary.org/obo/DOID_0060971" target="_blank" rel="noopener noreferrer">DOID:0060971</a></td>
+</tr>
+<tr>
+<td>GARD</td>
+<td>0028066</td>
+</tr>
+<tr>
+<td>MedGen / UMLS</td>
+<td>C5561926</td>
+</tr>
+<tr>
+<td>Gene (HGNC)</td>
+<td>SFTPA2 (<a href="https://bioregistry.io/HGNC:10799" target="_blank" rel="noopener noreferrer">HGNC:10799</a>)</td>
+</tr>
+<tr>
+<td>UniProt</td>
+<td>Q8IWL1 (SFPA2_HUMAN)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> Interstitial lung disease 2; fibrocystic pulmonary dysplasia; cryptogenic fibrosing alveolitis; familial idiopathic pulmonary fibrosis; usual interstitial pneumonitis; idiopathic pulmonary fibrosis (when caused by SFTPA2). Note that several of these synonyms are generic IPF terms; the ILD2 label specifically denotes the SFTPA2-caused subtype.</p>
+<p><strong>Nature of the information.</strong> The knowledge base here is derived predominantly from <strong>aggregated, disease-level resources</strong> (OMIM, ClinVar, UniProt, Monarch/HPO) and from <strong>published family/cohort studies</strong> rather than from individual EHR records. Evidence sources span human clinical cohorts, in vitro functional assays, and database curation.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause (genetic).</strong> ILD2 is caused by <strong>heterozygous germline missense mutations in SFTPA2</strong>, inherited in an autosomal-dominant manner. The original disease-defining study mapped linkage in a large IPF/lung-adenocarcinoma family to chromosome 10 (a 15.7-Mb interval) and identified rare missense mutations <strong>G231V</strong> and <strong>F198S</strong> in SFTPA2, both affecting invariant residues of the highly conserved CRD (<a href="https://pubmed.ncbi.nlm.nih.gov/19100526/">PMID: 19100526</a>). The authors reported: <em>"Both mutations involve invariant residues in the highly conserved carbohydrate-recognition domain of the protein and are predicted to disrupt protein structure. Recombinant proteins carrying these mutations are retained in the endoplasmic reticulum and are not secreted."</em></p>
+<p><strong>Genetic risk factors.</strong>
+- <em>Causal variants:</em> CRD missense variants in SFTPA2 (p.Gly231Val, p.Phe198Ser, and additional ClinVar pathogenic variants such as p.Asn171Ile, p.Tyr186Cys, p.Trp233Arg, and the in-frame p.Tyr240del).
+- <em>Shared pathway genes:</em> Pathogenic variants in the paralog <strong>SFTPA1</strong> cause an essentially indistinguishable SP-A–disorder phenotype, and other surfactant genes (SFTPC, ABCA3, NKX2-1) and telomere-related genes (TERT, TERC, RTEL1, PARN, TINF2, DKC1) cause overlapping familial pulmonary fibrosis.
+- <em>Common modifier/susceptibility loci in broader IPF:</em> the <strong>MUC5B promoter polymorphism</strong> and SNPs in TERT, FAM13A, and surfactant genes are established IPF risk alleles, though these are general IPF modifiers rather than ILD2-specific (<a href="https://pubmed.ncbi.nlm.nih.gov/35795226/">PMID: 35795226</a>).</p>
+<p><strong>Environmental risk factors.</strong> For SFTPA2-caused disease itself, the mutation is the dominant driver, with incomplete/age-dependent penetrance implying additional modifiers. In the broader IPF context relevant to disease expression, recognized environmental/host risk factors include <strong>aging, male sex, cigarette smoking, and occupational/inhalational exposures</strong>. Smoking is particularly relevant given the lung-cancer predisposition in carriers.</p>
+<p><strong>Protective factors.</strong> No specific genetic or environmental protective alleles have been established for ILD2. Longer telomere length relative to typical IPF has been noted as a <em>distinguishing feature</em> (not necessarily protective) of SFTPA2-variant carriers (<a href="https://pubmed.ncbi.nlm.nih.gov/36135709/">PMID: 36135709</a>).</p>
+<p><strong>Gene–environment interactions.</strong> The incomplete penetrance and variable expressivity of SFTPA2 mutations strongly imply gene–environment and gene–gene interaction (e.g., smoking, aging, and modifier loci shaping whether and when fibrosis or cancer develops), although specific GxE mechanisms have not been formally quantified for ILD2.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The Monarch Initiative provides an authoritative set of 12 HPO annotations for ILD2 (<a href="http://purl.obolibrary.org/obo/MONDO_0800497" target="_blank" rel="noopener noreferrer">MONDO:0800497</a> / OMIM 178500):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pulmonary fibrosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" rel="noopener noreferrer">HP:0002206</a></td>
+<td>Clinical/imaging/pathology</td>
+<td>Core feature; progressive</td>
+</tr>
+<tr>
+<td>Usual interstitial pneumonia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031950" target="_blank" rel="noopener noreferrer">HP:0031950</a></td>
+<td>Histopathology pattern</td>
+<td>Predominant pattern in familial PF</td>
+</tr>
+<tr>
+<td>Dyspnea</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a></td>
+<td>Symptom</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Exertional dyspnea</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002875" target="_blank" rel="noopener noreferrer">HP:0002875</a></td>
+<td>Symptom</td>
+<td>Early, common</td>
+</tr>
+<tr>
+<td>Cough</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" rel="noopener noreferrer">HP:0012735</a></td>
+<td>Symptom</td>
+<td>Typically dry/chronic</td>
+</tr>
+<tr>
+<td>Clubbing of fingers</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100759" target="_blank" rel="noopener noreferrer">HP:0100759</a></td>
+<td>Clinical sign</td>
+<td>Sign of chronic hypoxemia/fibrosis</td>
+</tr>
+<tr>
+<td>Decreased DLCO</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0045051" target="_blank" rel="noopener noreferrer">HP:0045051</a></td>
+<td>Lab/functional</td>
+<td>Hallmark of impaired gas transfer</td>
+</tr>
+<tr>
+<td>Pulmonary arterial hypertension</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" rel="noopener noreferrer">HP:0002092</a></td>
+<td>Complication</td>
+<td>Secondary to fibrosis/hypoxia</td>
+</tr>
+<tr>
+<td>Alveolar cell carcinoma</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006519" target="_blank" rel="noopener noreferrer">HP:0006519</a></td>
+<td>Neoplasm</td>
+<td>Lung adenocarcinoma predisposition</td>
+</tr>
+<tr>
+<td>Elevated BAL neutrophil proportion</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0032977" target="_blank" rel="noopener noreferrer">HP:0032977</a></td>
+<td>Lab abnormality</td>
+<td>BAL finding</td>
+</tr>
+<tr>
+<td>Increased circulating immunoglobulin</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0010702" target="_blank" rel="noopener noreferrer">HP:0010702</a></td>
+<td>Lab abnormality</td>
+<td></td>
+</tr>
+<tr>
+<td>Cirrhosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" rel="noopener noreferrer">HP:0001394</a></td>
+<td>Extrapulmonary</td>
+<td>More typical of telomere forms; listed in annotation set</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Phenotype characteristics.</strong>
+- <em>Age of onset:</em> Adult/late-onset; familial pulmonary fibrosis is diagnosed younger than sporadic (mean 61.4 vs 66.6 years, p=0.012), with a wide reported range (19–92 years) (<a href="https://pubmed.ncbi.nlm.nih.gov/22853774/">PMID: 22853774</a>). SFTPA2-variant carriers are often younger than typical IPF patients.
+- <em>Severity:</em> Variable but frequently severe; carriers can present with substantially reduced lung function (FVC ~72% predicted, DLCO ~46% predicted in an SRG cohort) (<a href="https://pubmed.ncbi.nlm.nih.gov/36370864/">PMID: 36370864</a>).
+- <em>Progression:</em> Progressive and frequently fatal, with low transplant-free survival.
+- <em>Frequency:</em> ILD and/or lung adenocarcinoma was reported in 13/14 families (93%) in a French SP-A disorder cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/32855221/">PMID: 32855221</a>).</p>
+<p><strong>Quality-of-life impact.</strong> Progressive dyspnea, cough, exercise limitation, oxygen dependence, and the psychological burden of a hereditary, cancer-predisposing, often-fatal disease substantially impair daily functioning. Disease-specific QoL instrument values were not resolved in this investigation; this is a knowledge gap.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <strong>SFTPA2</strong> (surfactant protein A2), chromosome 10q22.3; encodes SP-A2, an innate-immune collectin of pulmonary surfactant (UniProt Q8IWL1).</p>
+<p><strong>Pathogenic variants.</strong> Pathogenic/likely-pathogenic variants are predominantly <strong>missense or small in-frame changes clustered in the C-type lectin carbohydrate-recognition domain (CRD)</strong>. ClinVar (queried November 2026) held <strong>137 SFTPA2 records</strong>; among the first 100 reviewed, 5 Pathogenic, 2 Likely pathogenic, 2 Conflicting, ~55 VUS, and ~35 benign/likely benign. Confirmed pathogenic/likely-pathogenic SNVs include (NM_001098668.4):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>cDNA</th>
+<th>Protein</th>
+<th>Type</th>
+<th>Domain</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c.512A&gt;T</td>
+<td>p.Asn171Ile</td>
+<td>missense</td>
+<td>CRD</td>
+</tr>
+<tr>
+<td>c.557A&gt;G</td>
+<td>p.Tyr186Cys</td>
+<td>missense</td>
+<td>CRD</td>
+</tr>
+<tr>
+<td>c.697T&gt;A</td>
+<td>p.Trp233Arg</td>
+<td>missense</td>
+<td>CRD</td>
+</tr>
+<tr>
+<td>c.719_721del</td>
+<td>p.Tyr240del</td>
+<td>in-frame del</td>
+<td>CRD</td>
+</tr>
+<tr>
+<td>(literature)</td>
+<td>p.Gly231Val</td>
+<td>missense</td>
+<td>CRD</td>
+</tr>
+<tr>
+<td>(literature)</td>
+<td>p.Phe198Ser</td>
+<td>missense</td>
+<td>CRD</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Variant classification/type.</strong> Per ACMG/AMP interpretation in ClinVar, the pathogenic set is enriched for missense/in-frame variants in a functionally critical domain; many remaining SFTPA2 records are VUS, reflecting the gene's high natural polymorphism.</p>
+<p><strong>Allele frequency.</strong> Pathogenic CRD variants are <strong>rare</strong> (private/family-level), consistent with high-penetrance Mendelian disease; functional studies report that deleterious SFTPA2 variants were found at ~1.3% prevalence in an unselected IPF whole-genome cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/36135709/">PMID: 36135709</a>).</p>
+<p><strong>Somatic vs germline.</strong> The disease-causing variants are <strong>germline</strong>. Large 10q duplications classified pathogenic in ClinVar are incidental CNVs, not SFTPA2-specific.</p>
+<p><strong>Functional consequence.</strong> A <strong>toxic gain-of-function / proteostasis defect</strong>: recombinant mutant SP-A2 proteins are <strong>retained in the ER and not secreted</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/19100526/">PMID: 19100526</a>). Across 11 pathogenic SFTPA1/SFTPA2 mutations, <em>"protein production was preserved but secretion was abolished"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32855221/">PMID: 32855221</a>) — i.e., the lesion is secretory/misfolding rather than loss of expression.</p>
+<p><strong>Modifier genes / epigenetics / chromosomal abnormalities.</strong> No ILD2-specific modifier genes are firmly established; broader IPF modifiers (MUC5B, TERT, FAM13A) and epigenetic drivers (specific microRNAs/lncRNAs, transposon dysregulation affecting TGF-β/sirtuin/telomere axes) have been proposed for IPF in general (<a href="https://pubmed.ncbi.nlm.nih.gov/35795226/">PMID: 35795226</a>). No recurrent chromosomal abnormality defines ILD2.</p>
+<p><strong>UniProt/InterPro annotation (Q8IWL1).</strong> SP-A2 is a collectin with an N-terminal collagen-like region and a C-terminal C-type lectin CRD (InterPro IPR033990 Collectin_CTLD, IPR001304 C-type lectin; Pfam PF00059 Lectin_C). In the presence of calcium ions it binds surfactant phospholipids and lowers surface tension at the alveolar air–liquid interface, essential for normal respiration. Localization: secreted/surface film, plus lamellar body (<a href="http://purl.obolibrary.org/obo/GO_0042599" target="_blank" rel="noopener noreferrer">GO:0042599</a>), ER membrane (<a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a>), multivesicular body (<a href="http://purl.obolibrary.org/obo/GO_0005771" target="_blank" rel="noopener noreferrer">GO:0005771</a>), clathrin-coated endocytic vesicle (<a href="http://purl.obolibrary.org/obo/GO_0045334" target="_blank" rel="noopener noreferrer">GO:0045334</a>).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>Environmental contributors to ILD2 are those of pulmonary fibrosis generally — <strong>cigarette smoke, inhaled/occupational particulates, and aging</strong> — acting on a genetically primed epithelium. Smoking is doubly relevant given the lung-cancer predisposition. No infectious agent causes ILD2; however, SP-A2's innate-immune role means surfactant dysfunction may alter host defense. There are no established dietary/lifestyle protective exposures specific to ILD2.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li>A <strong>germline missense mutation in SFTPA2</strong> (e.g., p.Gly231Val, p.Phe198Ser) alters an invariant residue of the CRD → <strong>leads to</strong> a misfolded SP-A2 protein (demonstrated: predicted structural disruption; recombinant proteins misfold).</li>
+<li>Misfolded SP-A2 <strong>is retained in the endoplasmic reticulum</strong> of alveolar type II (AT2) cells and <strong>is not secreted</strong> → protein production is preserved but secretion abolished (demonstrated in recombinant and patient-derived systems).</li>
+<li>ER accumulation of misfolded protein <strong>results in ER stress and activation of the unfolded protein response (UPR)</strong> (demonstrated; UPR activation required for maximal downstream effect).</li>
+<li>UPR activation <strong>leads to secretion of latent TGF-β1</strong>, coordinately upregulating TGF-β1, LTBP-1 and LTBP-4 (demonstrated in lung epithelial cells; mutant-specific — not seen with common SP-A2 variants or other misfolded proteins).</li>
+<li>Latent/active TGF-β1 <strong>drives autocrine and paracrine TGF-β signaling</strong> in the alveolar epithelium (demonstrated).</li>
+<li>TGF-β signaling <strong>causes epithelial–mesenchymal transition (EMT) and epithelial cell death</strong> (demonstrated; reversed by pan-TGF-β antibody, TGF-β receptor antagonist, or LTBP silencing).</li>
+<li>Repeated AT2 injury, EMT, and aberrant fibroblast/myofibroblast activation <strong>result in progressive extracellular-matrix deposition and UIP-pattern pulmonary fibrosis</strong> (inferred from integration of steps 1–6 with UIP histology in patients).</li>
+<li><strong>Branch:</strong> The same epithelial dysregulation / bronchiolar metaplasia <strong>predisposes to lung adenocarcinoma</strong> (inferred/epidemiologically supported; original families co-segregated fibrosis and adenocarcinoma, and SRG carriers show high cancer risk).</li>
+<li>Advancing fibrosis <strong>leads to impaired gas exchange (decreased DLCO), exertional dyspnea, hypoxemia, pulmonary arterial hypertension, respiratory failure, and death</strong> (clinically demonstrated).</li>
+</ol>
+<pre><code>SFTPA2 CRD mutation
+│ misfolding
+▼
+ER retention / no secretion ──► ER stress ──► UPR activation
+│                                           │
+│                                           ▼
+│                                  latent TGF-β1 secretion
+│                                  (↑TGF-β1, LTBP-1/4)
+│                                           │
+│                                           ▼
+│                              autocrine/paracrine TGF-β signaling
+│                                           │
+│                             ┌─────────────┴─────────────┐
+│                             ▼                           ▼
+│                      EMT + epithelial            bronchiolar metaplasia /
+│                      cell death                  epithelial dysregulation
+│                             │                           │
+▼                             ▼                           ▼
+ surfactant dysfunction     progressive UIP fibrosis      lung adenocarcinoma
+└──────────────► impaired gas exchange, PAH, respiratory failure
+</code></pre>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> Core driver is <strong>TGF-β1 signaling</strong>, activated via the <strong>UPR/ER-stress</strong> axis; downstream IPF-associated pathways include Wnt/β-catenin and PI3K/Akt (<a href="https://pubmed.ncbi.nlm.nih.gov/42510961/">PMID: 42510961</a>).</li>
+<li><strong>Cellular processes:</strong> Protein misfolding, impaired proteostasis, ER stress, apoptosis/cell death, EMT, and fibroblast-to-myofibroblast differentiation.</li>
+<li><strong>Protein dysfunction:</strong> Misfolding of the C-type lectin CRD → ER retention → gain-of-function proteotoxicity (not haploinsufficiency).</li>
+<li><strong>Immune involvement:</strong> SP-A2 is an <strong>innate host-defense collectin</strong> that interacts with the alveolar macrophage and modulates surfactant structure/function (<a href="https://pubmed.ncbi.nlm.nih.gov/34484180/">PMID: 34484180</a>); BAL neutrophilia and increased circulating immunoglobulin are observed.</li>
+<li><strong>Tissue damage mechanism:</strong> Chronic fibrosis with ECM accumulation, driven by repetitive epithelial injury.</li>
+<li><strong>GO/CL suggestions:</strong> biological processes — response to ER stress (<a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" rel="noopener noreferrer">GO:0034976</a>), UPR (<a href="http://purl.obolibrary.org/obo/GO_0030968" target="_blank" rel="noopener noreferrer">GO:0030968</a>), TGF-β receptor signaling (<a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" rel="noopener noreferrer">GO:0007179</a>), EMT (<a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" rel="noopener noreferrer">GO:0001837</a>), surfactant homeostasis (<a href="http://purl.obolibrary.org/obo/GO_0043129" target="_blank" rel="noopener noreferrer">GO:0043129</a>); cell types — alveolar type II cell (<a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" rel="noopener noreferrer">CL:0002063</a>), alveolar macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a>), (myo)fibroblast (<a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a> / <a href="http://purl.obolibrary.org/obo/CL_0000186" target="_blank" rel="noopener noreferrer">CL:0000186</a>).</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level:</strong> <strong>Lung</strong> (primary; <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>), respiratory system (<a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" rel="noopener noreferrer">UBERON:0001004</a>). Secondary: pulmonary vasculature → <strong>pulmonary arterial hypertension</strong>; right heart strain (cor pulmonale) as a downstream complication.</li>
+<li><strong>Tissue/cell level:</strong> Alveolar epithelium (<strong>alveolar type II cells</strong>, <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" rel="noopener noreferrer">CL:0002063</a>) is the primary injured cell; <strong>alveolar macrophages</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a>) interact with SP-A2; <strong>fibroblasts/myofibroblasts</strong> mediate matrix deposition. Fibrosis predominates in the <strong>alveolar interstitium</strong>; bronchiolar metaplasia is noted.</li>
+<li><strong>Subcellular level:</strong> <strong>Endoplasmic reticulum</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a>, site of mutant retention) is central; normal SP-A2 trafficking involves the <strong>lamellar body</strong> (<a href="http://purl.obolibrary.org/obo/GO_0042599" target="_blank" rel="noopener noreferrer">GO:0042599</a>), multivesicular body (<a href="http://purl.obolibrary.org/obo/GO_0005771" target="_blank" rel="noopener noreferrer">GO:0005771</a>), clathrin-coated endocytic vesicle (<a href="http://purl.obolibrary.org/obo/GO_0045334" target="_blank" rel="noopener noreferrer">GO:0045334</a>), and the secreted <strong>surface film</strong> at the air–liquid interface.</li>
+<li><strong>Localization / lateralization:</strong> <strong>Bilateral</strong>, typically basal/subpleural-predominant fibrosis consistent with a UIP distribution.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Adult/late-onset, <strong>insidious and chronic</strong>; familial cases present earlier than sporadic (mean ~61 vs ~67 years; range 19–92) (<a href="https://pubmed.ncbi.nlm.nih.gov/22853774/">PMID: 22853774</a>). SFTPA2 carriers skew younger than typical IPF.</li>
+<li><strong>Progression:</strong> Chronic and <strong>progressive</strong>, often to respiratory failure. SRG-mutation ILD shows low transplant-free survival (<strong>median ~44 months</strong>) (<a href="https://pubmed.ncbi.nlm.nih.gov/36370864/">PMID: 36370864</a>); familial IPF shows faster physiological decline in some cohorts (e.g., FVC −2.36%/yr, DLCO −4.44%/yr) (<a href="https://pubmed.ncbi.nlm.nih.gov/41618408/">PMID: 41618408</a>).</li>
+<li><strong>Disease course:</strong> Progressive, lifelong; no spontaneous remission. Partial, temporary stabilization may occur with immunomodulation in some surfactant-gene cases.</li>
+<li><strong>Critical periods:</strong> Early diagnosis (genetic ascertainment of at-risk relatives) opens a window for surveillance and timely transplant referral.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> <strong>Autosomal dominant</strong> (OMIM 178500).</li>
+<li><strong>Penetrance/expressivity:</strong> <strong>Incomplete, likely age-dependent penetrance</strong> and <strong>variable expressivity</strong> — some carriers develop fibrosis, some lung cancer, some both, and importantly some SFTPA2 carriers present with IPF <strong>without</strong> a personal/family history of lung cancer (<a href="https://pubmed.ncbi.nlm.nih.gov/36135709/">PMID: 36135709</a>).</li>
+<li><strong>Epidemiology:</strong> ILD2 is rare. Surfactant biology mutations account for roughly <strong>1–3% of IPF</strong>, and functionally deleterious SFTPA2 variants were found in ~1.3% of an unselected IPF genome cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/36135709/">PMID: 36135709</a>). Overall IPF prevalence is ~2–29 per 100,000 (<a href="https://pubmed.ncbi.nlm.nih.gov/35795226/">PMID: 35795226</a>); ILD2 is a small genetic subset of this.</li>
+<li><strong>Carrier frequency / founder effects:</strong> Pathogenic variants are rare and often family-private; no established founder variant for SFTPA2 specifically.</li>
+<li><strong>Demographics:</strong> No strong ethnic predilection established for SFTPA2; Western IPF cohorts show surfactant-gene–driven architecture more than some Asian cohorts (<a href="https://pubmed.ncbi.nlm.nih.gov/41618408/">PMID: 41618408</a>). IPF overall is more common in older males and smokers; SRG carriers are younger and less often male than typical IPF (<a href="https://pubmed.ncbi.nlm.nih.gov/36370864/">PMID: 36370864</a>).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Imaging.</strong> High-resolution CT is central. Surfactant-gene ILD is characteristically associated with <strong>ground-glass opacities and cysts</strong> (in addition to UIP features): <em>"Surfactant genes mutations are usually associated with ground-glass opacities and cysts on CT scan..."</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32437840/">PMID: 32437840</a>).</p>
+<p><strong>Functional tests.</strong> Pulmonary function testing shows a <strong>restrictive pattern with decreased DLCO</strong> (<a href="http://purl.obolibrary.org/obo/HP_0045051" target="_blank" rel="noopener noreferrer">HP:0045051</a>); carriers may present with markedly reduced FVC (~72% predicted) and DLCO (~46% predicted) (<a href="https://pubmed.ncbi.nlm.nih.gov/36370864/">PMID: 36370864</a>).</p>
+<p><strong>BAL / labs.</strong> Elevated BAL neutrophil proportion (<a href="http://purl.obolibrary.org/obo/HP_0032977" target="_blank" rel="noopener noreferrer">HP:0032977</a>) and increased circulating immunoglobulin (<a href="http://purl.obolibrary.org/obo/HP_0010702" target="_blank" rel="noopener noreferrer">HP:0010702</a>) have been annotated.</p>
+<p><strong>Histopathology.</strong> <strong>UIP pattern</strong> predominates in familial pulmonary fibrosis; bronchiolar metaplasia is noted on biopsy/explant in SFTPA2 carriers. Altered lung SP-A expression pattern was observed in 6/28 patients in a functional cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/32855221/">PMID: 32855221</a>).</p>
+<p><strong>Genetic testing.</strong> The definitive diagnostic. Recommended approaches: <strong>NGS gene panels</strong> for familial ILD covering surfactant genes (SFTPA1, SFTPA2, SFTPC, ABCA3, NKX2-1) and telomere genes (TERT, TERC, RTEL1, PARN), <strong>whole-exome/whole-genome sequencing</strong>, or <strong>targeted single-gene testing</strong> of SFTPA2. NGS has uncovered surfactant- and telomere-gene determinants and improves classification of overlapping ILD phenotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/42510961/">PMID: 42510961</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36833253/">PMID: 36833253</a>). Karyotyping, FISH, CMA, mtDNA, and repeat-expansion testing are <strong>not applicable</strong>.</p>
+<p><strong>Clinical criteria / differential.</strong> Diagnosis follows ATS/ERS IPF/ILD frameworks (clinical–radiologic–pathologic integration) plus family history and genetics. Differential includes sporadic IPF, telomere-related PF, SFTPC/ABCA3 disease, hypersensitivity pneumonitis, and connective-tissue-disease ILD. Distinguishing features favoring SFTPA2: younger onset, <strong>longer telomeres</strong> than typical IPF, cysts/ground-glass on CT, and strong family history of fibrosis ± lung adenocarcinoma (<a href="https://pubmed.ncbi.nlm.nih.gov/36135709/">PMID: 36135709</a>).</p>
+<p><strong>Screening.</strong> <strong>Cascade genetic testing</strong> of first-degree relatives and <strong>lung-cancer CT surveillance</strong> in variant carriers are recommended (<a href="https://pubmed.ncbi.nlm.nih.gov/38575158/">PMID: 38575158</a>).</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Survival.</strong> Poor. SRG-mutation ILD carries <strong>median transplant-free survival ~44 months</strong>, with lower baseline FVC and DLCO (<a href="https://pubmed.ncbi.nlm.nih.gov/36370864/">PMID: 36370864</a>). Familial IPF can show faster physiological decline than sporadic disease.</p>
+<p><strong>Morbidity.</strong> Progressive dyspnea, oxygen dependence, exercise limitation, pulmonary arterial hypertension, and the burden of malignancy risk.</p>
+<p><strong>Complications.</strong> Respiratory failure, PAH/cor pulmonale, acute exacerbations, and <strong>lung adenocarcinoma</strong> (a defining complication of this subtype).</p>
+<p><strong>Prognostic factors.</strong> Baseline and rate-of-decline in FVC/DLCO, extent of fibrosis, PAH, and development of lung cancer. Lung transplantation can be a valid option with reportedly good post-transplant outcomes in surfactant-disorder patients, though lung-cancer screening before and after transplant is essential (<a href="https://pubmed.ncbi.nlm.nih.gov/38020562/">PMID: 38020562</a>).</p>
+<hr />
+<h2>12. Treatment</h2>
+<p>There is <strong>no SFTPA2-specific or curative therapy.</strong> Management is supportive and disease-modifying:</p>
+<ul>
+<li><strong>Antifibrotics (standard of care for IPF-pattern disease):</strong> <strong>pirfenidone</strong> and <strong>nintedanib</strong> (NCIT: Pirfenidone, Nintedanib) slow lung-function decline but do not reverse fibrosis (<a href="https://pubmed.ncbi.nlm.nih.gov/38263193/">PMID: 38263193</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38805909/">PMID: 38805909</a>).</li>
+<li><strong>Immunomodulation (surfactant-gene–specific consideration):</strong> Surfactant-gene ILD <em>"may improve with steroids, hydroxychloroquine or azithromycin"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32437840/">PMID: 32437840</a>) — a notable contrast to sporadic IPF, where immunosuppression is generally avoided.</li>
+<li><strong>Lung transplantation:</strong> A valid option in adults with surfactant-disorder ILD, with good reported prognosis; immunosuppressive protocol was unchanged but close lung-cancer screening is required before and after (<a href="https://pubmed.ncbi.nlm.nih.gov/38020562/">PMID: 38020562</a>).</li>
+<li><strong>Lung-cancer management/surveillance:</strong> CT screening given high cancer risk in SRG carriers (<a href="https://pubmed.ncbi.nlm.nih.gov/38575158/">PMID: 38575158</a>).</li>
+<li><strong>Supportive care:</strong> Supplemental oxygen, pulmonary rehabilitation, vaccination, treatment of PAH and GERD.</li>
+<li><strong>Experimental / mechanistically rational agents (preclinical IPF):</strong> Selective <strong>Src-kinase inhibition</strong> (saracatinib) (<a href="https://pubmed.ncbi.nlm.nih.gov/35998281/">PMID: 35998281</a>), selective <strong>PDE4 inhibitors</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/38805909/">PMID: 38805909</a>), <strong>PD-1/PD-L1 checkpoint</strong> modulation (<a href="https://pubmed.ncbi.nlm.nih.gov/38263193/">PMID: 38263193</a>), proton-pump-inhibitor/pirfenidone combinations (<a href="https://pubmed.ncbi.nlm.nih.gov/36450789/">PMID: 36450789</a>), and anti–miR-21 strategies (<a href="https://pubmed.ncbi.nlm.nih.gov/33394826/">PMID: 33394826</a>) — none validated specifically for ILD2.</li>
+</ul>
+<p><strong>Mechanistically, the UPR→TGF-β1→EMT axis</strong> suggests TGF-β pathway inhibition and proteostasis/ER-stress modulation as rational targets; in vitro, pan-TGF-β antibody, TGF-β receptor antagonist, and LTBP silencing reversed mutant-SP-A2–induced EMT and cell death (<a href="https://pubmed.ncbi.nlm.nih.gov/23223528/">PMID: 23223528</a>).</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> No means to prevent the inherited mutation; <strong>smoking cessation</strong> and avoidance of fibrogenic/carcinogenic inhalational exposures are prudent in carriers.</li>
+<li><strong>Secondary prevention:</strong> <strong>Cascade genetic screening</strong> of relatives, longitudinal PFT/HRCT monitoring of carriers, and <strong>CT lung-cancer surveillance</strong>.</li>
+<li><strong>Tertiary prevention:</strong> Antifibrotics, pulmonary rehabilitation, oxygen, PAH management, timely transplant referral.</li>
+<li><strong>Genetic counseling:</strong> Essential for autosomal-dominant, incompletely penetrant, cancer-predisposing disease; includes reproductive options (prenatal/preimplantation testing) and family planning guidance.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / orthologs:</strong> Human SP-A is encoded by <strong>two genes, SFTPA1 and SFTPA2</strong>, whereas <strong>rodents have a single Sftpa gene</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/34484180/">PMID: 34484180</a>). This architectural difference complicates direct modeling of SFTPA2-specific disease.</li>
+<li><strong>Natural disease in animals:</strong> No well-established naturally occurring SFTPA2 orthologous Mendelian ILD is documented here; this is a knowledge gap for OMIA/veterinary resources.</li>
+<li><strong>Comparative biology:</strong> SP-A's innate-immune/alveolar-macrophage function is conserved, but the two-gene human system means human SP-A1/SP-A2 variant biology is not fully recapitulated by single-gene rodents.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>In vitro / cellular models (primary evidence base):</strong> Human <strong>lung epithelial cell lines</strong> expressing mutant SP-A2 reproduce ER retention, UPR activation, latent TGF-β1 secretion, EMT and cell death (<a href="https://pubmed.ncbi.nlm.nih.gov/23223528/">PMID: 23223528</a>); recombinant-protein secretion assays demonstrate abolished secretion (<a href="https://pubmed.ncbi.nlm.nih.gov/19100526/">PMID: 19100526</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32855221/">PMID: 32855221</a>).</li>
+<li><strong>Mouse models:</strong> Humanized SP-A1/SP-A2 variant mice have been used to study differential effects on alveolar macrophages, surfactant structure/function, and survival after infection/oxidative stress (<a href="https://pubmed.ncbi.nlm.nih.gov/34484180/">PMID: 34484180</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32670284/">PMID: 32670284</a>).</li>
+<li><strong>Limitations:</strong> Single rodent Sftpa gene; models emphasize innate-immune/surfactant function rather than full UIP fibrosis + lung-cancer phenotype. No model fully recapitulates the complete human ILD2 syndrome.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>ILD2 is best understood as a <strong>proteostasis/gain-of-function disease of the alveolar type II cell</strong>. A single CRD missense change in SFTPA2 is sufficient, in a dominant fashion, to misfold SP-A2 and trap it in the ER. Crucially, this is <strong>not haploinsufficiency</strong>: protein is made but not secreted, and it is the <em>retained, misfolded protein</em> that is pathogenic. The retained protein's ER burden triggers the UPR, and the UPR — in a manner specific to these mutants, not to generic misfolded proteins — licenses secretion of latent TGF-β1 together with its latency-binding proteins LTBP-1/4. TGF-β1 then acts as the central fibrogenic effector, driving EMT and epithelial death, which through repetitive injury and myofibroblast activation yields UIP-pattern fibrosis. A parallel branch — epithelial dysregulation and bronchiolar metaplasia — explains the signature lung-adenocarcinoma predisposition. This model is strongly supported because each step was experimentally demonstrated and the downstream EMT/death was <em>reversible</em> by blocking TGF-β or LTBPs.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Upstream → Downstream</th>
+<th>Evidence strength</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SFTPA2 CRD mutation → misfolding</td>
+<td>Strong (structural prediction + recombinant assays)</td>
+</tr>
+<tr>
+<td>Misfolding → ER retention / no secretion</td>
+<td>Strong (recombinant + 11-variant cohort)</td>
+</tr>
+<tr>
+<td>ER retention → UPR</td>
+<td>Strong (required for maximal TGF-β1 output)</td>
+</tr>
+<tr>
+<td>UPR → latent TGF-β1 (+LTBP-1/4)</td>
+<td>Strong, mutant-specific</td>
+</tr>
+<tr>
+<td>TGF-β1 → EMT + cell death</td>
+<td>Strong (reversible by blockade)</td>
+</tr>
+<tr>
+<td>EMT/injury → UIP fibrosis</td>
+<td>Inferred (integration + patient histology)</td>
+</tr>
+<tr>
+<td>Epithelial dysregulation → lung adenocarcinoma</td>
+<td>Epidemiologic/clinical</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Role in this report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19100526/">19100526</a></td>
+<td><strong>Foundational</strong> — links SFTPA2 CRD missense (G231V, F198S) to familial fibrosis + lung cancer; ER retention, no secretion</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23223528/">23223528</a></td>
+<td><strong>Mechanism</strong> — mutant SP-A2 → UPR → latent TGF-β1 → EMT; reversible by TGF-β/LTBP blockade</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32855221/">32855221</a></td>
+<td>11 SFTPA1/SFTPA2 mutations: production preserved, secretion abolished; 93% family ILD/adenocarcinoma</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32437840/">32437840</a></td>
+<td>Imaging (ground-glass + cysts) and immunomodulatory treatment response</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36370864/">36370864</a></td>
+<td>SRG-mutation ILD: younger, lower FVC/DLCO, median survival ~44 months</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38575158/">38575158</a></td>
+<td>High lung-cancer risk in SRG carriers → CT screening</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36135709/">36135709</a></td>
+<td>SFTPA2 variants ~1.3% of IPF; may occur without cancer/family history; longer telomeres</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34484180/">34484180</a></td>
+<td>SP-A2 innate-immune/alveolar-macrophage role; human two-gene architecture</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22853774/">22853774</a></td>
+<td>Familial vs sporadic PF: younger onset (61.4 vs 66.6 y), UIP histology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38020562/">38020562</a></td>
+<td>Lung transplant outcomes in surfactant-disorder ILD; cancer screening</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42510961/">42510961</a></td>
+<td>NGS in PF; TGF-β/Wnt/PI3K-Akt pathways</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35795226/">35795226</a></td>
+<td>IPF molecular genetics, prevalence, epigenetics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41618408/">41618408</a></td>
+<td>Korean cohort; population-specific architecture; familial faster decline</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36833253/">36833253</a></td>
+<td>NGS supports diagnosis of familial interstitial pneumonia</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Database annotations:</strong> OMIM 178500; Monarch/HPO (12 ILD2 phenotype annotations); ClinVar (137 SFTPA2 records; pathogenic cluster in CRD); UniProt Q8IWL1 / InterPro IPR033990, IPR001304 / Pfam PF00059 (collectin C-type lectin CRD; secreted + lamellar body localization).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Final fibrosis step is inferential.</strong> The jump from demonstrated epithelial EMT/death to full UIP tissue remodeling integrates cell-based data with patient histology rather than a single demonstrated in vivo chain.</li>
+<li><strong>Cancer-mechanism gap.</strong> The link between SFTPA2 mutation and lung adenocarcinoma is epidemiologic/clinical; the molecular route (via bronchiolar metaplasia/epithelial dysregulation) is not mechanistically resolved.</li>
+<li><strong>No faithful whole-animal model.</strong> The human two-gene SP-A system is not recapitulated by single-Sftpa rodents; no model reproduces the complete fibrosis + cancer phenotype.</li>
+<li><strong>Penetrance/modifiers unquantified.</strong> Incomplete, age-dependent penetrance implies modifiers and GxE effects that remain uncharacterized for SFTPA2 specifically.</li>
+<li><strong>Epidemiology is coarse.</strong> ILD2-specific prevalence/incidence, sex ratio, and QoL metrics are not precisely established; figures are extrapolated from broader IPF/SRG cohorts.</li>
+<li><strong>VUS burden.</strong> A large fraction of ClinVar SFTPA2 records are VUS, complicating clinical interpretation.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>AT2-specific / organoid models:</strong> Generate patient-iPSC–derived AT2 organoids or humanized SFTPA1/SFTPA2 knock-in mice carrying p.Gly231Val/p.Phe198Ser to test whether the UPR→TGF-β1→EMT axis produces bona fide progressive fibrosis in vivo.</li>
+<li><strong>Therapeutic proof-of-concept:</strong> Test ER-stress/UPR modulators (e.g., chemical chaperones, PERK/IRE1 modulators) and TGF-β pathway inhibitors in these models, building on the demonstrated reversibility of EMT by TGF-β/LTBP blockade.</li>
+<li><strong>Cancer-mechanism studies:</strong> Lineage-trace bronchiolar metaplastic cells in carriers to dissect the fibrosis-to-adenocarcinoma transition and identify early biomarkers.</li>
+<li><strong>Variant curation:</strong> Apply functional secretion assays systematically to reclassify SFTPA2 VUS, building a ClinGen-style evidence framework.</li>
+<li><strong>Natural-history registry:</strong> Assemble an SFTPA2-specific cohort to quantify penetrance, decline rates, sex distribution, QoL, and transplant/cancer outcomes.</li>
+<li><strong>Clinical protocol:</strong> Formalize carrier management — cascade testing, antifibrotic timing, trial of immunomodulation in surfactant-gene cases, and structured CT lung-cancer surveillance.</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Interstitial_Lung_Disease_2-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Interstitial_Lung_Disease_2-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>20</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0800497</code> (3 mentions) - the report calls it "MONDO"; MONDO calls it <strong>interstitial lung disease 2</strong></li>
+<li><code>DOID:0060971</code> (1 mention) - the report calls it "DOID"; DOID calls it <strong>interstitial lung disease 2</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0045051</code> (2 mentions) - the report calls it "Decreased DLCO", "restrictive pattern with decreased DLCO"; HP calls it <strong>Decreased DLCO</strong></li>
+<li><code>HP:0032977</code> (2 mentions) - the report calls it "Elevated BAL neutrophil proportion"; HP calls it <strong>Elevated bronchoalveolar lavage fluid neutrophil proportion</strong></li>
+<li><code>HP:0010702</code> (2 mentions) - the report calls it "Increased circulating immunoglobulin"; HP calls it <strong>Increased circulating immunoglobulin concentration</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>HP:0045051</code> - called "Decreased DLCO", "restrictive pattern with decreased DLCO"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Interstitial_Lung_Disease_1-perplexity.html">← Interstitial Lung Disease 1 (Perplexity)</a>
+                
+                
+                <a href="Intestinal_Hypomagnesemia_1-claude_code.html">Intestinal Hypomagnesemia 1 (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Interstitial_Lung_Disease_2.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Interstitial_Lung_Disease_2-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

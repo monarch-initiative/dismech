@@ -5137,6 +5137,47 @@ window.searchData = [
     "source_file": "kb/disorders/Cystic_Fibrosis.yaml"
   },
   {
+    "model_key": "KEAP1-NRF2-ARE_Signaling_Module--computational-model-semi-mechanistic-nrf2-srxn1-dynamic-model--0",
+    "name": "Semi-mechanistic NRF2-SRXN1 dynamic model",
+    "description": "A semi-mechanistic mathematical model, fitted with a nonlinear mixed-effect approach with partially hierarchical parameters, of NRF2 and SRXN1 protein expression over time in HepG2 cells exposed, singly or repeatedly, to the NRF2-activating soft electrophiles sulforaphane, andrographolide, ethacrynic acid and CDDO-methyl across a wide concentration range. It reproduces the observed dynamics and concludes that NRF2 abundance alone does not set its transcription-factor activity \u2014 a cofactor or post-translational modification is required, in a time-, compound- and exposure-specific way.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:40972999",
+    "runnable": "Reference only",
+    "source_type": "Module",
+    "source_name": "KEAP1-NRF2-ARE Signaling Module",
+    "disease_id": null,
+    "category": "",
+    "parents": [],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "NRF2 Transcriptional Activation of ARE Genes"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:40972999"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-11-07T00:00:00Z",
+    "page_url": "../../pages/modules/keap1_nrf2_are_signaling.html#computational-model-semi-mechanistic-nrf2-srxn1-dynamic-model",
+    "model_page_url": "",
+    "source_file": "kb/modules/keap1_nrf2_are_signaling.yaml"
+  },
+  {
     "model_key": "Glioblastoma,_IDH-Wildtype--computational-model-serial-mri-high-grade-glioma-data-assimilation-digital-twin--1",
     "name": "Serial-MRI High-Grade Glioma Data-Assimilation Digital Twin",
     "description": "Patient-specific two-species reaction-diffusion model of enhancing and non-enhancing tumor regions. The platform repeatedly assimilates quantitative MRI-derived cell-density maps during chemoradiotherapy to update spatial tumor forecasts, and also evaluates longer forecasts initialized from two visits with patient-specific and cohort-derived parameters.",
@@ -7040,8 +7081,8 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 144,
-  "total_source_entries": 64,
+  "total_models": 145,
+  "total_source_entries": 65,
   "total_model_types": 11,
   "total_runnable": 4,
   "total_with_repository": 56
