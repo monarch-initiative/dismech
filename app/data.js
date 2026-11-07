@@ -335178,6 +335178,7 @@ window.searchData = [
     "updated_date": null,
     "subtypes": [
       "PPCD1",
+      "PPCD2",
       "PPCD3",
       "PPCD4"
     ],
@@ -335239,6 +335240,7 @@ window.searchData = [
     "genes": [
       "OVOL2",
       "ZEB1",
+      "COL8A2",
       "GRHL2"
     ],
     "treatments": [
@@ -335257,7 +335259,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Posterior_Polymorphous_Corneal_Dystrophy.html",
     "num_phenotypes": 9,
     "num_pathophysiology": 5,
-    "num_genes": 3,
+    "num_genes": 4,
     "num_treatments": 4,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
@@ -431629,8 +431631,8 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 4006,
-  "total_subtypes": 5036,
-  "total_disorders_and_subtypes": 9042,
+  "total_subtypes": 5037,
+  "total_disorders_and_subtypes": 9043,
   "total_unique_evidence_sources": 59341,
   "total_unique_publications": 55510,
   "total_unique_disease_categories": 61,
