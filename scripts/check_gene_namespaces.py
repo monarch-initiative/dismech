@@ -37,6 +37,11 @@ What it gates on, and why each is a real defect
     A MOD or `NCBIGene:` binding anywhere except the `genes` of a
     model or dataset. Anywhere else the claim is about human disease, and the
     gene is HGNC's.
+``REJECTED_PREFIX``
+    A `UniProtKB:` binding (a gene-product accession). Recognised but not an
+    accepted gene namespace yet -- bind the gene's `NCBIGene:` identifier and
+    name the product in `preferred_term`. Deferred to issue #16817, and
+    rejected with a pointer rather than ignored as an unknown prefix.
 ``MALFORMED_ID``
     A MOD identifier with the wrong prefix spelling (`XENBASE:`, `FlyBase:`) or
     local-ID shape (`MGI:MGI:1278313`, `ZFIN:tmem165`).
@@ -146,9 +151,14 @@ FALLBACK_PREFIXES = ("NCBIGene",)
 NON_HUMAN_PREFIXES = (*MODS, *FALLBACK_PREFIXES)
 CACHED_PREFIXES = (*MODS, "NCBIGene")
 MODEL_GENE_PREFIXES = ("hgnc", *NON_HUMAN_PREFIXES)
+# Prefixes recognised but deliberately not accepted yet, rejected with a
+# pointer rather than silently ignored as an unknown prefix. UniProtKB (a
+# gene-product accession) is deferred to issue #16817.
+REJECTED_PREFIXES = ("UniProtKB",)
 
 GATING = (
     "NON_HUMAN_OUTSIDE_MODEL",
+    "REJECTED_PREFIX",
     "MALFORMED_ID",
     "UNRESOLVED",
     "LABEL_MISMATCH",
@@ -346,7 +356,8 @@ def check_document(path: Path, data: object, labels: dict[str, str] | None = Non
     for location, descriptor in _bindings(data):
         curie = str(descriptor["term"]["id"])
         prefix = _prefix(curie)
-        if (prefix in NON_HUMAN_PREFIXES or prefix.casefold() in MISSPELLINGS) and id(descriptor) not in allowed:
+        recognised = prefix in NON_HUMAN_PREFIXES or prefix in REJECTED_PREFIXES or prefix.casefold() in MISSPELLINGS
+        if recognised and id(descriptor) not in allowed:
             findings.append(
                 Finding(path, location, "NON_HUMAN_OUTSIDE_MODEL",
                         f"{curie} is only admitted on the genes of an animal model, experimental model or dataset")
@@ -363,6 +374,13 @@ def check_document(path: Path, data: object, labels: dict[str, str] | None = Non
 
         if problem := _malformed(curie):
             findings.append(Finding(path, location, "MALFORMED_ID", problem))
+            continue
+        if prefix in REJECTED_PREFIXES:
+            findings.append(
+                Finding(path, location, "REJECTED_PREFIX",
+                        f"{curie}: {prefix} is not an accepted gene namespace yet (see issue #16817); "
+                        f"bind the gene's NCBIGene: identifier and name the product in preferred_term")
+            )
             continue
         if prefix not in MODEL_GENE_PREFIXES:
             findings.append(
@@ -488,7 +506,7 @@ def main() -> int:
     parser.add_argument(
         "--online",
         action="store_true",
-        help="first resolve uncached identifiers (Alliance API, NCBI E-utilities, UniProt) and cache them",
+        help="first resolve uncached identifiers (Alliance API, NCBI E-utilities) and cache them",
     )
     args = parser.parse_args()
 

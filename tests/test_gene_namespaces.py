@@ -154,6 +154,20 @@ def test_unchecked_prefix_on_a_model_is_reported_not_gated() -> None:
     assert "UNCHECKED_PREFIX" not in cgn.GATING
 
 
+def test_uniprotkb_on_a_model_gene_is_rejected_not_ignored() -> None:
+    # UniProtKB is recognised but not an accepted namespace yet (issue #16817).
+    # It must be rejected with a pointer, not fall through to UNCHECKED_PREFIX.
+    data = _doc(experimental_models=[{"name": "pig cells", "organism": PIG,
+                                      "genes": [_gene("UniProtKB:P00761", "Trypsin")]}])
+    assert _kinds(data) == {"REJECTED_PREFIX"}
+    assert "REJECTED_PREFIX" in cgn.GATING
+
+
+def test_uniprotkb_outside_a_model_is_a_defect() -> None:
+    data = _doc(genetic=[{"name": "COCH", "gene_term": _gene("UniProtKB:Q62507", "Cochlin")}])
+    assert "NON_HUMAN_OUTSIDE_MODEL" in _kinds(data)
+
+
 @pytest.mark.parametrize("gene", [MOUSE_COCH, PIG_COCH])
 def test_uncached_identifier_is_a_defect(gene: dict) -> None:
     # The term validator passes any label on an unrouted prefix, so an
