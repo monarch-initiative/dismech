@@ -54852,6 +54852,184 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Basilicata-Akhtar Syndrome",
+    "disease_id": "MONDO:0026730",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-11-06T20:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Basilicata-Akhtar syndrome (OMIM 301032) is an X-linked syndromic neurodevelopmental disorder caused by MSL3 variants, most of them de novo and loss-of-function, that affects males and females equally. MSL3 is a subunit of the male-specific lethal (MSL) complex, whose acetyltransferase MOF (KAT8) deposits bulk histone H4 lysine 16 acetylation (H4K16ac). Patient variants impair MSL complex assembly and reduce H4K16ac in patient cells, with transcriptome changes in morphogenesis and cell-migration pathways. The presentation begins in infancy with global developmental delay, speech delay, truncal hypotonia and early feeding difficulty; spasticity tends to emerge with age, and movement disorders (dystonia, hypokinesia, ataxia), autism spectrum disorder, secondary macrocephaly, gastrointestinal problems, hearing loss and visual abnormalities are common. Hypoplasia of the inferior cerebellar vermis is a consistent MRI finding. Pathogenic variants cluster in the exons encoding the MRG domain. Management is supportive and organ-system based; no disease-specific therapy exists.",
+    "pathophysiology": [
+      "MSL3 Loss of Function",
+      "MSL Complex Assembly Failure",
+      "Reduced Histone H4K16 Acetylation",
+      "Dysregulated Developmental Gene Expression",
+      "Altered Fibroblast Migration"
+    ],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "regulation of gene expression",
+      "cell migration"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Delayed Speech and Language Development",
+      "Axial Hypotonia",
+      "Spasticity",
+      "Dystonia",
+      "Hypokinesia",
+      "Ataxia",
+      "Gait Disturbance",
+      "Seizure",
+      "Autism Spectrum Disorder",
+      "Inferior Cerebellar Vermis Hypoplasia",
+      "Postnatal Macrocephaly",
+      "Short Stature",
+      "Growth Hormone Deficiency",
+      "Polyhydramnios",
+      "Feeding Difficulties",
+      "Constipation",
+      "Gastroesophageal Reflux",
+      "Hearing Impairment",
+      "Visual Abnormalities",
+      "Round Face",
+      "Wide Nasal Bridge",
+      "Hypertelorism",
+      "Coarse Facial Features",
+      "Skeletal Abnormalities",
+      "Pes Planus",
+      "Plagiocephaly",
+      "Pectus Carinatum",
+      "Scoliosis",
+      "Outer Ear Abnormality",
+      "Low-Set Ears",
+      "Posteriorly Rotated Ears",
+      "Preauricular Skin Tag",
+      "Overfolded Helix",
+      "Epicanthus",
+      "Prominent Forehead",
+      "Cleft Palate",
+      "Delayed Eruption of Permanent Teeth",
+      "Urinary Tract Abnormalities",
+      "Urinary Retention",
+      "Hydronephrosis",
+      "Ureteropelvic Junction Obstruction",
+      "Hydrocele Testis",
+      "Respiratory Abnormalities",
+      "Cardiovascular Abnormalities"
+    ],
+    "phenotype_categories": [
+      "Neurodevelopmental",
+      "Neurological",
+      "Behavioral",
+      "Growth",
+      "Endocrine",
+      "Prenatal",
+      "Gastrointestinal",
+      "Sensory",
+      "Craniofacial",
+      "Skeletal",
+      "Genitourinary",
+      "Respiratory",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0008936",
+      "HP:0001257",
+      "HP:0001332",
+      "HP:0002375",
+      "HP:0001251",
+      "HP:0001288",
+      "HP:0001250",
+      "HP:0000729",
+      "HP:0007068",
+      "HP:0005490",
+      "HP:0004322",
+      "HP:0000824",
+      "HP:0001561",
+      "HP:0011968",
+      "HP:0002019",
+      "HP:0002020",
+      "HP:0000365",
+      "HP:0000504",
+      "HP:0000311",
+      "HP:0000431",
+      "HP:0000316",
+      "HP:0000280",
+      "HP:0000924",
+      "HP:0001763",
+      "HP:0001357",
+      "HP:0000768",
+      "HP:0002650",
+      "HP:0000356",
+      "HP:0000369",
+      "HP:0000358",
+      "HP:0000384",
+      "HP:0000396",
+      "HP:0000286",
+      "HP:0011220",
+      "HP:0000175",
+      "HP:0000696",
+      "HP:0000079",
+      "HP:0000016",
+      "HP:0000126",
+      "HP:0000074",
+      "HP:0000034",
+      "HP:0002086",
+      "HP:0001626"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "MSL3"
+    ],
+    "treatments": [
+      "Multidisciplinary Surveillance and Supportive Care",
+      "Recombinant Growth Hormone",
+      "Carbidopa-Levodopa",
+      "Histone Deacetylase Inhibition (Experimental)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Basilicata-Akhtar_Syndrome.yaml",
+    "page_url": "../pages/disorders/Basilicata-Akhtar_Syndrome.html",
+    "num_phenotypes": 46,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Bazex-Dupre-Christol Syndrome",
     "disease_id": "MONDO:0010535",
     "category": "Mendelian",
@@ -82599,6 +82777,101 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "PRKACA-Related Cardioacrofacial Dysplasia",
+    "disease_id": "MONDO:0030876",
+    "category": "Mendelian",
+    "parents": [
+      "cardioacrofacial dysplasia"
+    ],
+    "creation_date": "2026-11-06T19:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Heterozygous PRKACA variants (the recurrent missense p.Gly137Arg and an in-frame deletion p.Asn290_Ile292del) alter the PKA catalytic subunit alpha at surfaces that tether the regulatory subunits, weakening that interaction so the holoenzyme is more easily activated by cAMP. The net effect is raised PKA pathway activity; the gain comes from loss of regulatory-subunit restraint (ClinGen describes the mechanism as partial loss-of-function at the protein level, and the in-frame-deletion protein has lower intrinsic catalytic activity) rather than from higher intrinsic catalysis.",
+    "pathophysiology": [
+      "PRKACA Gain-of-Function",
+      "Inhibition of Hedgehog Signaling",
+      "Reduced Primary Ciliation",
+      "Disrupted Hedgehog-Dependent Developmental Patterning"
+    ],
+    "cell_types": [
+      "chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "Hedgehog (smoothened) signaling pathway",
+      "cilium assembly",
+      "chondrocyte differentiation"
+    ],
+    "phenotypes": [
+      "Common atrium",
+      "Atrioventricular septal defect",
+      "Postaxial polydactyly",
+      "Short limbs",
+      "Brachydactyly",
+      "Short stature",
+      "Genu valgum",
+      "Narrow chest",
+      "Midface retrusion",
+      "Dental anomalies",
+      "Nail hypoplasia",
+      "Aortic root dilation",
+      "Coronary artery dilatation",
+      "Arterial tortuosity",
+      "Osteopenia",
+      "Neonatal hypotonia"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0011565",
+      "HP:0006695",
+      "HP:0100259",
+      "HP:0009826",
+      "HP:0001156",
+      "HP:0004322",
+      "HP:0002857",
+      "HP:0000774",
+      "HP:0011800",
+      "HP:0000164",
+      "HP:0008386",
+      "HP:0002616",
+      "HP:0030882",
+      "HP:0005116",
+      "HP:0000938",
+      "HP:0001319"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PRKACA"
+    ],
+    "treatments": [
+      "Surgical repair of the congenital heart defect",
+      "Orthopedic correction of knee deformity",
+      "Vasculopathy pharmacotherapy (angiotensin-receptor blocker and antiplatelet)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cardioacrofacial_Dysplasia_1.yaml",
+    "page_url": "../pages/disorders/PRKACA-Related_Cardioacrofacial_Dysplasia.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Cardiofaciocutaneous Syndrome",
     "disease_id": "MONDO:0015280",
     "category": "Mendelian",
@@ -86891,6 +87164,117 @@ window.searchData = [
     "num_treatments": 20,
     "causal_graph_edges": "25",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Catel-Manzke Syndrome",
+    "disease_id": "MONDO:0014507",
+    "category": "Mendelian",
+    "parents": [
+      "Skeletal Dysplasia",
+      "Congenital Malformation Syndrome"
+    ],
+    "creation_date": "2026-11-06T21:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Catel-Manzke syndrome is a rare autosomal recessive congenital malformation syndrome caused by biallelic loss-of-function variants in TGDS, which encodes the nucleotide-sugar enzyme TDP-glucose 4,6-dehydratase. It combines Pierre Robin sequence (micrognathia, glossoptosis and cleft palate) with a characteristic hand malformation, Manzke dysostosis: an accessory bone between the second metacarpal and the proximal phalanx of the index finger that produces radial deviation and ulnar clinodactyly of the index fingers. Congenital heart defects, joint laxity, short stature and facial features complete the picture. The features are present at birth or prenatally, and in infancy the airway and feeding consequences of the Robin sequence dominate. TGDS loss is now understood to act through a second enzyme: TGDS makes UDP-4-keto-6-deoxyglucose, which keeps UDP-xylose synthase (UXS1) catalytically active, and without it the glycans needed for skeletal development are not made in sufficient amounts. About 40 patients have been reported.",
+    "pathophysiology": [
+      "Biallelic TGDS Loss of Function",
+      "Deficient UDP-4-keto-6-deoxyglucose Production",
+      "UXS1 Inactivation from Failed NAD+ Regeneration",
+      "Impaired Skeletal Glycosaminoglycan Synthesis",
+      "Abnormal Craniofacial and Digital Cartilage Development"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "glycosaminoglycan biosynthetic process",
+      "cartilage development"
+    ],
+    "phenotypes": [
+      "Pierre-Robin sequence",
+      "Micrognathia",
+      "Glossoptosis",
+      "Cleft palate",
+      "Hyperphalangy of the index finger",
+      "Ulnar clinodactyly of the index finger",
+      "Radial deviation of the index finger",
+      "Ventricular septal defect",
+      "Atrial septal defect",
+      "Joint hypermobility",
+      "Joint stiffness",
+      "Short stature",
+      "Disproportionate short stature",
+      "Failure to thrive",
+      "Malar flattening",
+      "Full cheeks",
+      "Highly arched eyebrow",
+      "Posteriorly rotated ears",
+      "Chronic otitis media",
+      "Scoliosis",
+      "Pectus excavatum",
+      "Talipes equinovarus"
+    ],
+    "phenotype_categories": [
+      "Craniofacial",
+      "Skeletal",
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Growth",
+      "Ear"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0000201",
+      "HP:0000347",
+      "HP:0000162",
+      "HP:0000175",
+      "HP:0030368",
+      "HP:0040022",
+      "HP:0009467",
+      "HP:0001629",
+      "HP:0001631",
+      "HP:0001382",
+      "HP:0001387",
+      "HP:0004322",
+      "HP:0003498",
+      "HP:0001508",
+      "HP:0000272",
+      "HP:0000293",
+      "HP:0002553",
+      "HP:0000358",
+      "HP:0000389",
+      "HP:0002650",
+      "HP:0000767",
+      "HP:0001762"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TGDS"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Catel-Manzke_Syndrome.yaml",
+    "page_url": "../pages/disorders/Catel-Manzke_Syndrome.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Cauda Equina Syndrome",
@@ -283713,6 +284097,73 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Multiple Self-Healing Squamous Epithelioma",
+    "disease_id": "MONDO:0007566",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary neoplastic syndrome"
+    ],
+    "creation_date": "2026-11-06T20:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Multiple self-healing squamous epithelioma (MSSE, Ferguson-Smith disease) is an autosomal dominant skin tumor predisposition caused by heterozygous germline loss-of-function variants in TGFBR1, the type I TGF-beta receptor. Carriers develop crops of rapidly growing, locally invasive skin tumors that resemble well-differentiated squamous cell carcinoma or keratoacanthoma, mostly on sun-exposed skin of the face, ears and limbs. Each tumor regresses spontaneously after several months and leaves a pitted scar; distant metastasis has not been reported. The first tumor appears between 8 and 81 years of age in genotyped carriers, so onset can be in childhood or adolescence. Tumors show somatic loss of heterozygosity at TGFBR1 with loss of the wild-type allele, so TGFBR1 behaves as a tumor suppressor here. The disease is allelic with Loeys-Dietz syndrome 1 and is separated from it by variant class: MSSE alleles are truncating variants throughout the gene or missense variants in the extracellular ligand-binding domain, whereas Loeys-Dietz alleles are mostly missense variants in the kinase domain, and MSSE carriers are not reported to develop aortic aneurysms. Haplotype studies in Scottish families support a requirement for a permissive variant at a second, unidentified locus on 9q22.3. Radiotherapy is contraindicated because it provokes more numerous and more invasive tumors in the irradiated field.",
+    "pathophysiology": [
+      "Germline TGFBR1 Loss-of-Function",
+      "Somatic Loss of the Wild-Type TGFBR1 Allele",
+      "Loss of TGF-beta Receptor Signaling in Keratinocytes",
+      "Spontaneous Tumor Involution"
+    ],
+    "cell_types": [
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "TGF-beta receptor signaling"
+    ],
+    "phenotypes": [
+      "Self-healing squamous epithelioma",
+      "Pitted skin scars"
+    ],
+    "phenotype_categories": [
+      "Neoplasm",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Integument",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0034720",
+      "HP:0100699"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "TGFBR1"
+    ],
+    "treatments": [
+      "Surgical Excision",
+      "Oral Retinoid Therapy",
+      "Intralesional Triamcinolone"
+    ],
+    "environmental": [
+      "Radiotherapy to the skin"
+    ],
+    "biochemical": [],
+    "source_file": "Multiple_Self-Healing_Squamous_Epithelioma.yaml",
+    "page_url": "../pages/disorders/Multiple_Self-Healing_Squamous_Epithelioma.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Multiple Sulfatase Deficiency",
     "disease_id": "MONDO:0010088",
     "category": "Genetic",
@@ -325694,6 +326145,165 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Perlman Syndrome",
+    "disease_id": "MONDO:0009965",
+    "category": "Mendelian",
+    "parents": [
+      "Overgrowth Syndrome",
+      "Wilms Tumor Predisposition Syndrome"
+    ],
+    "creation_date": "2026-11-06T20:10:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Perlman syndrome is a rare autosomal recessive congenital overgrowth syndrome caused by biallelic germline loss-of-function variants in DIS3L2, which encodes a cytoplasmic 3'-5' exoribonuclease that degrades 3'-oligouridylated RNAs, including uridylated pre-let-7 and aberrant structured noncoding RNAs. It presents prenatally with polyhydramnios, fetal ascites, macrosomia and nephromegaly; neonates show distinctive facies, hypotonia, renal dysplasia with nephroblastomatosis and visceromegaly. Neonatal mortality is high, from renal failure, respiratory failure and pulmonary hypoplasia. Children who survive the neonatal period have developmental delay and a high, early risk of Wilms tumor, often bilateral, so renal ultrasound surveillance is recommended. ClinGen classifies DIS3L2 for Perlman syndrome as Definitive (autosomal recessive). The germline syndrome is kept separate from the Wilms tumor it predisposes to, which has its own entry.",
+    "pathophysiology": [
+      "DIS3L2 Biallelic Loss of Function",
+      "Failure of DIS3L2-Mediated Decay of Uridylated RNAs",
+      "Dysregulated ER-Targeted Translation and ER Calcium Leak",
+      "Increased PI3K/AKT Signaling",
+      "IGF2 Upregulation in Nephron Progenitor Cells",
+      "Mitotic Abnormalities",
+      "Increased Cell Proliferation and Tissue Overgrowth"
+    ],
+    "cell_types": [
+      "nephron progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000324"
+    ],
+    "biological_processes": [
+      "cytoplasmic RNA surveillance of uridylated noncoding RNAs",
+      "decay of uridylated pre-let-7",
+      "endoplasmic reticulum calcium ion homeostasis",
+      "PI3K/AKT signaling",
+      "mitotic spindle assembly checkpoint signaling",
+      "cell proliferation"
+    ],
+    "phenotypes": [
+      "Polyhydramnios",
+      "Fetal ascites",
+      "Large for gestational age",
+      "Enlarged kidney",
+      "Renal dysplasia",
+      "Nephroblastomatosis",
+      "Nephroblastoma",
+      "Visceromegaly",
+      "Hepatomegaly",
+      "Deeply set eye",
+      "Wide nasal bridge",
+      "Low-set ears",
+      "High forehead",
+      "Macrocephaly",
+      "Facial hypotonia",
+      "Hypotonia",
+      "Global developmental delay",
+      "Renal insufficiency",
+      "Respiratory failure",
+      "Pulmonary hypoplasia",
+      "Cryptorchidism",
+      "Hyperinsulinemia",
+      "Cholestasis",
+      "Intellectual disability",
+      "Abnormal upper lip morphology",
+      "Micrognathia",
+      "Retrognathia",
+      "Short nose",
+      "Round face",
+      "Smooth philtrum",
+      "Open mouth",
+      "Tall stature",
+      "Abnormal pancreas morphology",
+      "Hypoplasia of penis"
+    ],
+    "phenotype_categories": [
+      "Prenatal",
+      "Growth",
+      "Renal",
+      "Neoplasm",
+      "Abdominal",
+      "Craniofacial",
+      "Neurological",
+      "Respiratory",
+      "Genitourinary",
+      "Metabolic",
+      "Hepatic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001561",
+      "HP:0001791",
+      "HP:0001520",
+      "HP:0000105",
+      "HP:0000110",
+      "HP:0008643",
+      "HP:0002667",
+      "HP:0003271",
+      "HP:0002240",
+      "HP:0000490",
+      "HP:0000431",
+      "HP:0000369",
+      "HP:0000348",
+      "HP:0000256",
+      "HP:0000297",
+      "HP:0001252",
+      "HP:0001263",
+      "HP:0000083",
+      "HP:0002878",
+      "HP:0002089",
+      "HP:0000028",
+      "HP:0000842",
+      "HP:0001396",
+      "HP:0001249",
+      "HP:0000177",
+      "HP:0000347",
+      "HP:0000278",
+      "HP:0003196",
+      "HP:0000311",
+      "HP:0000319",
+      "HP:0000194",
+      "HP:0000098",
+      "HP:0012090",
+      "HP:0008736"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "DIS3L2"
+    ],
+    "treatments": [
+      "Renal Ultrasound Surveillance",
+      "Neonatal Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Perlman_Syndrome.yaml",
+    "page_url": "../pages/disorders/Perlman_Syndrome.html",
+    "num_phenotypes": 34,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Peroxisomal Acyl-CoA Oxidase Deficiency",
     "disease_id": "MONDO:0009919",
     "category": "Metabolic Disorder",
@@ -344627,7 +345237,7 @@ window.searchData = [
     "num_pathophysiology": 19,
     "num_genes": 0,
     "num_treatments": 14,
-    "causal_graph_edges": "71",
+    "causal_graph_edges": "74",
     "causal_graph_longest_path": "8"
   },
   {
@@ -377260,6 +377870,164 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Sideroblastic Anemia with B-Cell Immunodeficiency, Periodic Fevers, and Developmental Delay",
+    "disease_id": "MONDO:0014487",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-11-06T21:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Sideroblastic anemia with B-cell immunodeficiency, periodic fevers, and developmental delay (SIFD; OMIM 616084) is an autosomal recessive, infancy-onset multisystem disorder caused by biallelic partial loss-of-function variants in TRNT1, the CCA-adding enzyme that completes the 3' end of both cytosolic and mitochondrial tRNAs. Patient fibroblasts carry mitochondrial tRNAs lacking the CCA end and a deficiency of mature cytosolic tRNAs; TRNT1 deficiency sensitises cells to oxidative stress with angiogenin-dependent tRNA cleavage, eIF2-alpha phosphorylation and dysregulated protein clearance. Clinically the core tetrad is a severe, markedly microcytic sideroblastic anemia, B-cell lymphopenia with panhypogammaglobulinemia, recurrent aseptic febrile episodes with gastrointestinal disturbance, and developmental delay, with variable seizures, cerebellar involvement, sensorineural deafness, retinitis pigmentosa, cataract, cardiomyopathy, renal tubulopathy and other organ involvement. The inflammatory episodes carry a cytokine signature (serum IL-6 and IFN-gamma; tissue TNF and IL-1-beta) and respond to TNF inhibition. Median onset is in the first months of life, and severe cases present as fetal hydrops. Mortality is substantial: early onset, seizures and low B-cell counts predict poorer survival. Management combines transfusion, iron chelation and immunoglobulin replacement with TNF inhibitors; hematopoietic cell transplantation has corrected the hematologic and immunologic disease in some children but carries high risk.",
+    "pathophysiology": [
+      "TRNT1 Partial Loss of Function",
+      "Impaired tRNA 3'-CCA Addition",
+      "Mitochondrial tRNA CCA-End Deficiency",
+      "Cytosolic Mature tRNA Deficiency",
+      "Translational Stress and Proteostasis Dysregulation",
+      "TNF-Driven Autoinflammation",
+      "Sideroblastic Erythropoiesis",
+      "Pre-B-Cell Maturation Arrest",
+      "Retinal Autophagy Deficit and Oxidative Stress"
+    ],
+    "cell_types": [
+      "erythroblast",
+      "precursor B cell",
+      "photoreceptor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000765",
+      "CL:0000817",
+      "CL:0000210"
+    ],
+    "biological_processes": [
+      "tRNA 3'-terminal CCA addition",
+      "integrated stress response signaling",
+      "response to oxidative stress",
+      "response to endoplasmic reticulum stress",
+      "inflammatory response",
+      "tumor necrosis factor production",
+      "erythrocyte differentiation",
+      "B cell differentiation",
+      "autophagy"
+    ],
+    "phenotypes": [
+      "Sideroblastic Anemia",
+      "Microcytic Anemia",
+      "Recurrent Fever",
+      "Global Developmental Delay",
+      "Decreased Total B Cell Count",
+      "Panhypogammaglobulinemia",
+      "Recurrent Infections",
+      "Diarrhea",
+      "Vomiting",
+      "Electrolyte Imbalance During Febrile Episodes",
+      "Villous Atrophy",
+      "Exocrine Pancreatic Insufficiency",
+      "Hepatosplenomegaly",
+      "Failure to Thrive",
+      "Seizure",
+      "Cerebellar Atrophy",
+      "Sensorineural Hearing Impairment",
+      "Retinitis Pigmentosa",
+      "Cataract",
+      "Cardiomyopathy",
+      "Renal Tubular Dysfunction",
+      "Nephrocalcinosis",
+      "Brittle Hair",
+      "Neutrophilic Infiltration of the Skin",
+      "Arthritis",
+      "Hydrops Fetalis",
+      "Extramedullary Hematopoiesis",
+      "Circulating Nucleated Red Blood Cells"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Immunologic",
+      "Neurodevelopmental",
+      "Gastrointestinal",
+      "Metabolic",
+      "Growth",
+      "Neurologic",
+      "Ear",
+      "Ophthalmologic",
+      "Cardiovascular",
+      "Renal",
+      "Dermatologic",
+      "Musculoskeletal",
+      "Prenatal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0001924",
+      "HP:0001935",
+      "HP:0001954",
+      "HP:0001263",
+      "HP:0010976",
+      "HP:0003139",
+      "HP:0002719",
+      "HP:0002014",
+      "HP:0002013",
+      "HP:0003111",
+      "HP:0011473",
+      "HP:0001738",
+      "HP:0001433",
+      "HP:0001508",
+      "HP:0001250",
+      "HP:0001272",
+      "HP:0000407",
+      "HP:0000510",
+      "HP:0000518",
+      "HP:0001638",
+      "HP:0000124",
+      "HP:0000121",
+      "HP:0002299",
+      "HP:0031234",
+      "HP:0001369",
+      "HP:0001789",
+      "HP:0001978",
+      "HP:0033281"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TRNT1"
+    ],
+    "treatments": [
+      "Red Blood Cell Transfusion and Iron Chelation",
+      "Immunoglobulin Replacement",
+      "TNF Inhibitor Therapy",
+      "Thalidomide",
+      "Hematopoietic Cell Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Sideroblastic_Anemia_B-Cell_Immunodeficiency_Periodic_Fevers_and_Developmental_Delay.yaml",
+    "page_url": "../pages/disorders/Sideroblastic_Anemia_with_B-Cell_Immunodeficiency,_Periodic_Fevers,_and_Developmental_Delay.html",
+    "num_phenotypes": 28,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Sifrim-Hitz-Weiss syndrome",
@@ -430448,17 +431216,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3996,
+  "total_disorder_pages": 4002,
   "total_subtypes": 5029,
-  "total_disorders_and_subtypes": 9025,
-  "total_unique_evidence_sources": 59210,
-  "total_unique_publications": 55390,
+  "total_disorders_and_subtypes": 9031,
+  "total_unique_evidence_sources": 59282,
+  "total_unique_publications": 55454,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 3994,
-  "total_unique_pathological_events": 26136,
+  "total_pathographs": 4000,
+  "total_unique_pathological_events": 26169,
   "total_modules": 227,
-  "total_research_reports": 4105,
+  "total_research_reports": 4111,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 130
