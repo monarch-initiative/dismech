@@ -56,7 +56,7 @@ def matches(pattern: str, text: str) -> bool:
     >>> matches("sj[oö]gren|sicca", "Systemic lupus erythematosus")
     False
     """
-    return re.search(pattern, text, re.I) is not None
+    return re.search(pattern, text, re.IGNORECASE) is not None
 
 
 def gql(query: str, variables: dict | None = None) -> dict:
