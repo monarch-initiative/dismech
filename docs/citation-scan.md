@@ -3,7 +3,9 @@
 The citation scan finds recent papers that cite the references a KB entry
 already relies on. It runs weekly as the `citation-scan` job in
 `.github/workflows/literature-scan.yml`, after the keyword-based literature
-scan, and files at most a handful of `[citation-scan]` curation issues.
+scan, and files at most 5 `[citation-scan]` curation issues (`max_issues`). The
+keyword scan has its own limit of 5, so one Friday run of the workflow can now
+open up to 10 issues.
 
 The two scans find different papers. The [literature scan](https://github.com/monarch-initiative/dismech/blob/main/scripts/literature_scan.py)
 searches a fixed keyword profile and guesses which entry a paper is about from
@@ -43,7 +45,7 @@ Several rules then narrow the list:
 |---|---|
 | At least 2 shared references | 81-82% of pairs share only one, and those are mostly noise. A picornavirus polymerase paper reached the ALS shortlist on a single shared reference. |
 | At most 3 papers per entry | The score is a sum, so an entry citing 115 papers outscores one citing 10 on volume alone. In a test without the cap, ALS took 29 of the top 40 places. |
-| One row per paper | A review of non-nutritional rickets shared references with four sibling rickets entries. It is shown once, under its best match, with the other entries listed. |
+| One row per paper | A review of non-nutritional rickets shared references with four sibling rickets entries. It is shown once, under its best match, with the other entries listed. If its best entry already has three papers, it goes under its next-best entry rather than being dropped. |
 | GeneReviews and StatPearls chapters get a neutral weight | Europe PMC undercounts citations to Bookshelf chapters. It reports the GeneReviews Alkaptonuria chapter as cited once, which would make it look like a rare, highly informative reference. Chapters listed in `cache/bookshelf/` are weighted as moderately cited instead. |
 | Notices are dropped | Errata, retraction notices and expressions of concern are about another paper. |
 | Papers the entry already cites are dropped | |
@@ -55,9 +57,11 @@ as evidence to quote, so the curator decides.
 
 The moving window does most of the work: a citing paper is fetched in the week
 it is indexed and not again. The **issue ledger** covers the rest. Before
-scoring, the workflow lists every open or closed issue titled `[lit-scan]`,
-`[preprint]` or `[citation-scan]`, and the scan drops any (paper, entry) pair
-that already has one.
+scoring, the workflow lists every open or closed issue labelled `curation` and
+titled `[lit-scan]`, `[preprint]` or `[citation-scan]`, and the scan drops any
+(paper, entry) pair that already has one. A scanner issue whose `curation`
+label has been removed is not in the ledger, so its paper can be proposed
+again.
 
 Any closed issue counts as decided, whatever its close reason. Curators close
 scanner issues as completed or duplicate whether or not anything was added (none
@@ -86,7 +90,11 @@ A whole-KB run over one week (3,784 entries, 48,464 distinct PMIDs) took 6
 minutes 50 seconds and 538 Europe PMC requests. It found 438 citing papers and
 779 (paper, entry) pairs, 137 of them sharing at least two references. Most of
 the time goes on fetching reference lists, which runs four at a time
-(`--workers`).
+(`--workers`). Europe PMC rate limiting (HTTP 429) and server errors are
+retried with backoff. A reference list that still cannot be fetched skips that
+paper and is listed in the packet. The next weekly run will not see it again,
+because its window has moved on; re-running the same window retries it, since
+failed lists are not saved to `--reference-cache`.
 
 A longer window is a backfill. The scheduled run never does one; run it by hand
 with `--days` and expect the candidate count to scale with the window.

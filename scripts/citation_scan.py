@@ -218,6 +218,17 @@ def is_notice(pub_type: str) -> bool:
 # Europe PMC client
 
 
+RETRIES = 5
+
+
+def retry_after_seconds(response: httpx.Response) -> float:
+    """Seconds a 429 asks us to wait; capped so one bad header cannot stall the job."""
+    try:
+        return min(float(response.headers.get("Retry-After", "0")), 60.0)
+    except ValueError:
+        return 0.0
+
+
 class EuropePMC:
     """Thin client. Tests replace it with a stub exposing the same methods."""
 
@@ -227,18 +238,25 @@ class EuropePMC:
         self.requests = 0
 
     def _request(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:
-        for attempt in range(4):
+        """Retry transport errors, 5xx and 429 (rate limiting) with backoff."""
+        response = None
+        for attempt in range(RETRIES):
+            delay = 2**attempt
             try:
                 response = self.client.request(method, url, **kwargs)
                 self.requests += 1
-                if response.status_code < 500:
+                if response.status_code == 429:
+                    delay = max(delay, retry_after_seconds(response))
+                elif response.status_code < 500:
                     response.raise_for_status()
                     time.sleep(self.pause)
                     return response.json()
             except httpx.TransportError:
-                if attempt == 3:
+                if attempt == RETRIES - 1:
                     raise
-            time.sleep(2**attempt)
+            if attempt < RETRIES - 1:
+                time.sleep(delay)
+        assert response is not None
         response.raise_for_status()
         return response.json()
 
@@ -384,21 +402,31 @@ def parse_ledger(issues: list[dict[str, Any]]) -> list[LedgerDecision]:
     return decisions
 
 
-def one_row_per_paper(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Keep each paper's best entry; list the rest on that row.
+def select_rows(rows: list[dict[str, Any]], max_per_entry: int) -> list[dict[str, Any]]:
+    """Pick at most one row per paper and ``max_per_entry`` rows per entry.
 
-    A review of non-nutritional rickets overlaps four sibling rickets entries;
-    four rows would become four issues for one paper. ``rows`` is ranked.
+    One pass over ``rows``, which is already ranked. A paper is placed under
+    its best entry that still has room, and its other entries are listed on
+    that row: a review of non-nutritional rickets overlaps four sibling rickets
+    entries, and four rows would become four issues for one paper. A paper
+    whose best entry is full falls through to its next-best entry instead of
+    being dropped. ``max_per_entry`` of 0 means no cap.
     """
-    best: dict[str, dict[str, Any]] = {}
+    placed: dict[str, dict[str, Any]] = {}
+    taken: dict[str, int] = {}
     kept: list[dict[str, Any]] = []
     for row in rows:
-        first = best.get(row["pmid"])
-        if first is None:
-            row["also_overlaps"] = []
-            best[row["pmid"]] = row
-            kept.append(row)
-        else:
+        if row["pmid"] in placed:
+            continue
+        if max_per_entry > 0 and taken.get(row["entry"], 0) >= max_per_entry:
+            continue
+        row["also_overlaps"] = []
+        placed[row["pmid"]] = row
+        taken[row["entry"]] = taken.get(row["entry"], 0) + 1
+        kept.append(row)
+    for row in rows:
+        first = placed.get(row["pmid"])
+        if first is not None and first is not row:
             first["also_overlaps"].append(
                 {
                     "entry": row["entry"],
@@ -406,21 +434,6 @@ def one_row_per_paper(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "score": row["score"],
                 }
             )
-    return kept
-
-
-def cap_per_entry(
-    rows: list[dict[str, Any]], max_per_entry: int
-) -> list[dict[str, Any]]:
-    """Keep each entry's best ``max_per_entry`` rows; ``rows`` is already ranked."""
-    if max_per_entry <= 0:
-        return rows
-    taken: dict[str, int] = {}
-    kept: list[dict[str, Any]] = []
-    for row in rows:
-        if taken.get(row["entry"], 0) < max_per_entry:
-            taken[row["entry"]] = taken.get(row["entry"], 0) + 1
-            kept.append(row)
     return kept
 
 
@@ -530,11 +543,20 @@ def run_scan(
             candidates[pmid].references = set(refs)
     to_fetch = [pmid for pmid in candidates if pmid not in known]
     log(f"Fetching reference lists for {len(to_fetch)} of {len(candidates)} candidates")
+    fetch_failures: list[str] = []
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {pool.submit(api.references, pmid): pmid for pmid in to_fetch}
         for index, future in enumerate(as_completed(futures), start=1):
-            candidates[futures[future]].references = future.result()
-            known[futures[future]] = sorted(candidates[futures[future]].references)
+            pmid = futures[future]
+            try:
+                candidates[pmid].references = future.result()
+            except httpx.HTTPError as error:
+                # One unreadable reference list skips that paper, not the run.
+                # It is not cached, so re-running the same window retries it.
+                fetch_failures.append(pmid)
+                log(f"  reference list for PMID:{pmid} failed: {error}")
+                continue
+            known[pmid] = sorted(candidates[pmid].references)
             if index % 200 == 0:
                 log(f"  {index}/{len(to_fetch)}")
 
@@ -567,7 +589,7 @@ def run_scan(
         else:
             suppressed[verdict] = suppressed.get(verdict, 0) + 1
 
-    shown = cap_per_entry(one_row_per_paper(kept), max_per_entry)[:max_candidates]
+    shown = select_rows(kept, max_per_entry)[:max_candidates]
     abstracts = lookup_records(api, {row["pmid"] for row in shown}, "core")
     for row in shown:
         candidate = candidates[row["pmid"]]
@@ -607,6 +629,7 @@ def run_scan(
         "reportable_count": len(kept),
         "record_count": len(shown),
         "europe_pmc_requests": getattr(api, "requests", None),
+        "reference_fetch_failures": sorted(fetch_failures, key=int),
         "records": shown,
     }
 
@@ -629,6 +652,10 @@ def render_markdown(packet: dict[str, Any]) -> str:
             f"({packet['entry_pmid_count']} distinct PMIDs)"
         ),
         f"- Citing papers found: {packet['candidate_count']}",
+        (
+            "- Reference lists that could not be fetched: "
+            f"{len(packet['reference_fetch_failures'])}"
+        ),
         f"- (paper, entry) pairs: {packet['pair_count']}; by shared references: "
         + ", ".join(f"{k}: {v}" for k, v in packet["overlap_histogram"].items()),
         f"- Pairs sharing at least {packet['min_overlap']}: {packet['above_min_overlap']}",

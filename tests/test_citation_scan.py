@@ -6,6 +6,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import httpx
+
 ROOT = Path(__file__).parent.parent
 SCRIPT_PATH = ROOT / "scripts" / "citation_scan.py"
 SPEC = importlib.util.spec_from_file_location("citation_scan", SCRIPT_PATH)
@@ -214,19 +216,20 @@ def test_min_overlap_drops_single_reference_pairs() -> None:
     assert [row["pmid"] for row in rows] == ["900"]
 
 
-def test_cap_per_entry_keeps_small_entries_in_the_packet() -> None:
-    rows = [{"entry": "big", "pmid": str(i)} for i in range(5)] + [
-        {"entry": "small", "pmid": "9"}
+def test_select_rows_caps_each_entry_and_keeps_small_entries() -> None:
+    rows = [
+        {"entry": "big", "pmid": str(i), "overlap": 2, "score": 1.0} for i in range(5)
     ]
+    rows.append({"entry": "small", "pmid": "9", "overlap": 2, "score": 0.5})
 
-    kept = citation_scan.cap_per_entry(rows, 2)
+    kept = citation_scan.select_rows(rows, 2)
 
     assert [(row["entry"], row["pmid"]) for row in kept] == [
         ("big", "0"),
         ("big", "1"),
         ("small", "9"),
     ]
-    assert citation_scan.cap_per_entry(rows, 0) == rows
+    assert len(citation_scan.select_rows(rows, 0)) == 6
 
 
 def test_bookshelf_chapters_do_not_count_as_rare_references(tmp_path: Path) -> None:
@@ -278,17 +281,84 @@ def test_reference_lists_are_reused_not_refetched(tmp_path: Path) -> None:
     assert packet["records"][0]["is_review"] is True
 
 
-def test_one_row_per_paper_keeps_the_best_entry_and_lists_the_rest() -> None:
+def test_select_rows_keeps_one_row_per_paper_and_lists_the_rest() -> None:
     rows = [
         {"pmid": "900", "entry": "VDDR1", "overlap": 6, "score": 1.3},
         {"pmid": "901", "entry": "Other", "overlap": 2, "score": 0.9},
         {"pmid": "900", "entry": "VDDR2", "overlap": 4, "score": 0.7},
     ]
 
-    kept = citation_scan.one_row_per_paper(rows)
+    kept = citation_scan.select_rows(rows, 3)
 
     assert [(row["pmid"], row["entry"]) for row in kept] == [
         ("900", "VDDR1"),
         ("901", "Other"),
     ]
     assert kept[0]["also_overlaps"] == [{"entry": "VDDR2", "overlap": 4, "score": 0.7}]
+
+
+def test_select_rows_falls_through_when_the_best_entry_is_full() -> None:
+    # ALS already holds its one slot, so paper 902 lands under its next-best entry.
+    rows = [
+        {"pmid": "900", "entry": "ALS", "overlap": 9, "score": 2.0},
+        {"pmid": "902", "entry": "ALS", "overlap": 5, "score": 1.5},
+        {"pmid": "902", "entry": "ALS_subtype", "overlap": 3, "score": 0.8},
+    ]
+
+    kept = citation_scan.select_rows(rows, 1)
+
+    assert [(row["pmid"], row["entry"]) for row in kept] == [
+        ("900", "ALS"),
+        ("902", "ALS_subtype"),
+    ]
+    assert kept[1]["also_overlaps"] == [{"entry": "ALS", "overlap": 5, "score": 1.5}]
+
+
+def test_request_retries_rate_limiting(monkeypatch) -> None:
+    responses = iter([429, 429, 200])
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        status = next(responses)
+        calls.append(status)
+        return httpx.Response(status, headers={"Retry-After": "0"}, json={"ok": True})
+
+    monkeypatch.setattr(citation_scan.time, "sleep", lambda _seconds: None)
+    api = citation_scan.EuropePMC()
+    api.client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    assert api._request("GET", "https://example.org/x") == {"ok": True}
+    assert calls == [429, 429, 200]
+
+
+def test_a_failed_reference_list_skips_that_paper_not_the_run(tmp_path: Path) -> None:
+    api = StubEuropePMC(
+        citing={
+            "900": {"pmid": "900", "title": "Good", "pubType": "research-article"},
+            "901": {"pmid": "901", "title": "Broken", "pubType": "research-article"},
+        },
+        references={"900": {"1", "2"}, "901": {"1", "2"}},
+        cited_by={"1": 10, "2": 10},
+    )
+    working = api.references
+
+    def references(pmid: str) -> set[str]:
+        if pmid == "901":
+            raise httpx.HTTPError("boom")
+        return working(pmid)
+
+    api.references = references
+    known: dict[str, list[str]] = {}
+
+    packet = citation_scan.run_scan(
+        api,
+        [entry("kb/disorders/A.yaml", {"1", "2"})],
+        date_from="2026-10-01",
+        date_to="2026-10-07",
+        cache_dir=tmp_path,
+        reference_lists=known,
+    )
+
+    assert packet["reference_fetch_failures"] == ["901"]
+    assert [row["pmid"] for row in packet["records"]] == ["900"]
+    assert "901" not in known  # not cached, so a re-run of the window retries it
