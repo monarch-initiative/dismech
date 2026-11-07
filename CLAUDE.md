@@ -47,6 +47,10 @@ Claude Code skills are available in `.claude/skills/`:
   `coarse_binding_basis` on a phenotype bound to a coarse HPO term.
 - **entry-naming**: Use when choosing, reviewing, or changing an entry's `name`,
   including when creating an entry from a stub.
+- **[browse-issues](.claude/skills/browse-issues/SKILL.md)**: Use when browsing,
+  searching or cleaning up the open issues that already exist, of any kind, or
+  opening one named issue as its own interactive session. Its selector
+  (`just select-issues`) is also what `curate-next` shortlists with.
 
 **A skill file that is misnamed or missing its frontmatter is not an error — it
 is a skill that never loads.** Claude Code discovers a skill by looking for
@@ -822,7 +826,7 @@ pathophysiology:
 - **Consistency checking**: If a node declares `conforms_to`, it should include the expected biological processes and causal edges from the module
 - **Reference format**: `"module_name#Node Name"` — module name matches the filename in `kb/modules/` (without `.yaml`), node name matches a pathophysiology `name` in that module
 - **More than one module**: a node that is a genuine instance of two module nodes lists both — `conforms_to:` followed by a YAML list of references — instead of picking one (dismech#13923). The plain-string form stays valid and needs no migration. In code, read the slot through `dismech.conformance.iter_conforms_to`, which returns a list for either spelling; an `isinstance(value, str)` check silently drops the list form
-- **Validated exactly like a disorder**: `just validate-module-batch <files>` (what CI runs on changed modules) and `just validate-modules` (all modules, in `just qc`) apply the `validate-disorders` gate, including abstract-only `--no-full-text` snippet matching; the pytest sweep runs every disorder structural check on modules too. What is *not* checked is conformance content: `conforms_to` must resolve to a real module node, but nothing compares the conforming node's processes or edges against it
+- **Validated exactly like a disorder**: `just validate-module-batch <files>` (what CI runs on changed modules) and `just validate-modules` (all modules, in `just qc`) apply the `validate-disorders` gate, including abstract-only `--no-full-text` snippet matching; the pytest sweep runs every disorder structural check on modules too. Conformance content is **reported but not gated**: `conforms_to` must resolve to a real module node, and `just check-conformance-content` then compares the conforming node's terms and edges against that node (see below)
 
 **Creating a module?** Use the `create-module` skill — it covers the module
 schema shape, the trigger→consequence node chain, the treatment
@@ -849,6 +853,36 @@ rg -n "conforms_to:.*fibrotic_response#" kb/disorders kb/comorbidities kb/module
 
 Inspect likely matches before creating a new module — a mechanism is often
 already covered by a module under a name you did not guess.
+
+**Is a conformance link honoured?** The anchor resolving is a foreign-key
+check; it says nothing about the node. The contract above — a conforming node
+*should* carry the module node's processes and causal edges — is **reported,
+never gated**:
+
+```bash
+just check-conformance-content                             # summary + per-module ranking
+just check-conformance-content kb/disorders/MyDisease.yaml
+just list-conformance-content --kind edges_absent          # one line per finding
+```
+
+Four classes, kept apart because they have different causes: `process_absent`
+(the module node binds a GO term the conformer does not), `anchor_no_process`
+(the module node binds none, so there is nothing to compare — never read as
+agreement), `cell_type_absent` (the conformer binds no cell type where the
+module does, skipping the organ-specific substitution conformance exists for),
+and `edges_absent` (the conformer took the node and dropped the chain). The
+first two partition the links; the last two are orthogonal to them.
+
+**A `process_absent` finding is a lead, not a defect.** The common benign case
+is exactly what the primer asks for: the module binds a generic process and the
+conformer binds the specific one its disease runs. Separating that from a
+mis-picked anchor needs a GO closure walk, which would mean the 200 MB `go.db`
+build `conf/oak_config.yaml` routes around — so the check stays offline and
+declines to guess. Extending `cache/closure/` to cover module-node terms is the
+right way to make it stricter. Read the per-module ranking rather than the
+corpus total: a module where almost no conformer shares its terms is anchored
+too generically or being cited as a label, which is a different job from one
+with a single divergent conformer.
 
 A module's own `description` is the authoritative statement of its scope,
 complementarity with sibling modules, worked conformers, and key conformance
@@ -1095,6 +1129,36 @@ happen in the other four `BARE_TARGET_SLOTS` (`phenotypes[].sequelae`,
 `downstream`-only gate above and still surface only through
 `just check-causal-targets`' report.
 
+### Two Rows With One Name Are One Node (dismech#15443)
+
+`dismech.graph` keys pathograph nodes on `name`, so two rows that share a name
+render as **one** node, and every row but the last drops out of the graph. It
+validates, renders, and passes `check-causal-targets`, because a target naming
+two rows still resolves. The sections involved are the eight node sections plus
+animal models and variants.
+
+```bash
+just check-name-collisions                      # gate (in `just qc` and CI)
+just list-name-collisions                       # census of all three classes
+just list-name-collisions --format tsv
+```
+
+- **`UNSTRATIFIED` is gated.** Two rows in one section not told apart by
+  distinct `subtype:` values (one has none, or both have the same one) are
+  almost always an accident. Merge them, or rename one and update any bare
+  `target:` that named it. The backlog is grandfathered in
+  `tests/name_collision_baseline.txt`, which only shrinks.
+- **`STRATIFIED` is reported, not a defect.** The same phenotype for CAIS and
+  for PAIS, each row with its own `subtype:`, is what *Subtype Naming
+  Conventions* asks for. Do not rename those rows to make the report go away:
+  `name` is the foreign-key and bare-target key, and the graph's inability to
+  show stratified rows separately is a graph limitation, still undecided.
+- **`CROSS_SECTION` is reported.** A pathophysiology node and a phenotype with
+  the same name are one node, and an edge between them becomes a self-loop
+  (the case the `downstream` self-loop gate above catches). When you add a
+  phenotype with the same name as a mechanism node, give one of them a
+  distinct name.
+
 ### Phenotypes Nothing Points At (dismech#11935)
 
 `check-causal-targets` asks which declared edges name a target that resolves to
@@ -1297,9 +1361,12 @@ creating any new cancer/neoplasm entry. The short version:
   `has_subtypes` on the parent; promote to a separate entry only with ≥2
   stratum-specific pathophysiology nodes **and** a distinct first-line therapy
   or diagnostic pathway. A promoted stratum without its own MONDO term anchors
-  to the parent term with `mapping_predicate: skos:narrowMatch` in
+  to the parent term with `mapping_predicate: skos:broadMatch` in
   `mappings.mondo_mappings` (never bare parent-term reuse), records overlap
-  with non-disjoint sibling strata, and is covered by a `Grouping`.
+  with non-disjoint sibling strata, and is covered by a `Grouping`. SKOS
+  predicates read subject to object with the entry as the subject, so the
+  stratum records its broader parent as `broadMatch`, not `narrowMatch` — see
+  *Shared `disease_term` anchors read subject to object* below.
 - **Variant tiers** (exon 19 del vs L858R) are `has_subtypes` inside the
   stratum entry — unless therapy is variant-specific (KRAS G12C).
 - **Stage is never an entry.** Metastatic/advanced disease is `stages:` on the
@@ -2444,13 +2511,18 @@ For MONDO coverage and epic-checklist synchronization, an entry's primary
 `relatedMatch` are cross-references and must not retire the mapped concept from
 the curation queue.
 
-**Two disorder entries may share a `disease_term` only if both say how.** Each
-records that CURIE in `mappings.mondo_mappings` as `skos:exactMatch` (at most
-one entry: the one that is the class) or `skos:narrowMatch` (a narrower entry,
-such as a promoted cancer stratum under design decisions §3a). If your new entry
-lands on a term another entry already holds and is not narrower than it, it is
-probably a duplicate. `just check-shared-disease-terms` gates this (in `just qc`,
-ungated in CI) and `just list-shared-disease-terms` is the worklist for the
+**Shared `disease_term` anchors read subject to object.** Two disorder entries
+may share a `disease_term` only if both say how. Each records that CURIE in
+`mappings.mondo_mappings` as `skos:exactMatch` (at most one entry: the one that
+is the class) or `skos:broadMatch` (a narrower entry anchoring to its broader
+parent, such as a promoted cancer stratum under design decisions §3a — the
+stratum is the subject, so the parent it maps to is `broadMatch`, not
+`narrowMatch`). If your new entry lands on a term another entry already holds
+and is not narrower than it, it is probably a duplicate.
+`just check-shared-disease-terms` gates this (in `just qc`, ungated in CI) and
+accepts the legacy `skos:narrowMatch` spelling on existing entries while that
+backlog is migrated (dismech#10165, dismech#16243); write `broadMatch` in new
+curation. `just list-shared-disease-terms` is the worklist for the
 grandfathered groups (#10113). See `docs/quality-control.md`.
 
 ### Coarse Phenotype Bindings Must Say Why
@@ -4088,12 +4160,22 @@ Non-negotiable rules:
   prose describing repository state is content, and it rots.
 
 **Publisher typography folds — a snippet need not be byte-identical.** Both
-sides of the comparison are normalized (`normalize_text` maps every non-word
-non-space character to a space, then collapses whitespace with `\s+`, which in
-Python matches Unicode whitespace). So an ordinary space matches the U+2009 thin
-spaces Nature journals put around `=`, and a hyphen matches an en dash or
-unicode minus in a range: `"AUC = 0.933"` typed normally matches the source. In
-the #9308 tranche 8 of 15 snippets were not byte-exact and all 15 verified.
+sides of the comparison are normalized (`normalize_text` maps punctuation to a
+space, then collapses whitespace with `\s+`, which in Python matches Unicode
+whitespace). So an ordinary space matches the U+2009 thin spaces Nature
+journals put around `=`, and a hyphen matches an en dash in a range:
+`"AUC = 0.933"` typed normally matches the source. In the #9308 tranche 8 of 15
+snippets were not byte-exact and all 15 verified.
+
+**Signs, comparisons and numbers are not punctuation (linkml-reference-validator
+0.5.0).** `<` `>` `≤` `≥` (and MEDLINE's `>/=` `</=`) become `lt` `gt` `le`
+`ge`, `±` and `+/-` become `pm`, a minus sign stays on its number, and a point
+or comma between digits stays in it. So a snippet that drops or flips one no
+longer verifies: `ratios 3:1` fails against `ratios ≥3:1`, and `0.8, 7.3` fails
+against `0.8,7.3`. Publisher spellings of the same thing still match: an en dash
+or `−` printed as a minus, a Lancet middle-dot decimal (`57·4` is `57.4`), and
+`+/–`. A match must also start and end on whole words, so `activates` does not
+match `inactivates`.
 
 **Greek letters are transliterated, so both spellings verify.** `normalize_text`
 maps them through `greek_map` on both sides: `α3β3` becomes `alpha3beta3`, `γ`
@@ -4114,8 +4196,9 @@ than any typography.
 Prefer plain ASCII for characters that are **invisible or lookalikes** — those
 are a trap for the next curator, and they buy nothing. Existing snippets that copied
 the source's thin spaces and en dashes verbatim are equally valid and need no
-repair. The characters that do **not** fold are `x` typed for `×`, mid-word soft
-hyphens and zero-width spaces, `ﬁ`-style ligatures, and the U+00B5 micro sign.
+repair. The characters that do **not** fold are `x` typed for `×`, and mid-word
+soft hyphens and zero-width spaces. (`ﬁ`-style ligatures and the U+00B5 micro
+sign now do: `µ` matches `μ`.)
 Full detail, including why this matters, in `.claude/skills/dismech-references`.
 
 To check how a candidate will compare, call the real normalizer rather than a
@@ -4320,7 +4403,13 @@ because GeneReviews often covers a disease inside a gene's spectrum chapter
 Searching PubMed by hand, use `genereviews[book]`, never `GeneReviews[TI]`,
 which matches nothing. An entry whose only tagged chapters are retired ones
 reports `TAGGED_RETIRED`, never gating: the tag is correct (a retired chapter is
-still GeneReviews), but the baseline is withdrawn content (#16018). Nothing gates on StatPearls: it is a point-of-care
+still GeneReviews), but the baseline is withdrawn content (#16018). An entry
+whose current tagged chapters all cache as an Overview-format statement of
+purpose ("The purpose of this overview is to: …", no `CLINICAL
+CHARACTERISTICS` section) reports `TAGGED_OVERVIEW`, also never gating: the
+cache holds no phenotype baseline to mine, so the entry takes its phenotypes
+from elsewhere and says so in `notes:` (#11848). `just fetch-reference` warns
+on both kinds of chapter when it caches one. Nothing gates on StatPearls: it is a point-of-care
 reference across all of medicine with a light editorial process, citable for
 orientation (and taggable as `StatPearls`) but never a baseline, and its absence
 is never a gap. `just tag-references` now decides chapter membership from the
@@ -4351,8 +4440,17 @@ Treat committed CSVs under `cache/` as derived, authority-backed artifacts:
 - Never hand-write, append, or reorder cache rows. Populate term caches through
   `just validate-terms` or `just validate`, then use `just normalize-cache` for
   canonical CURIE ordering.
-- Use `just check-term-cache-integrity` for structural validation and
-  `just check-cache-order` for a read-only ordering report.
+- **Committed caches must be in canonical order, and that is gated.**
+  `just check-cache-order` (in `just qc`, and an ungated whole-tree CI step)
+  fails on any `cache/enums/*.csv` or `cache/*/terms.csv` row out of the
+  codepoint CURIE order `just normalize-cache` writes. Do not keep rows
+  appended at end-of-file to avoid a reorder diff: that puts every concurrent
+  PR's cache change in the same final hunk and hands the re-sort to whoever
+  validates next (#7753). If your branch fails it — usually after merging
+  `main` or resolving a cache conflict — run `just normalize-cache` and commit
+  the result; the diff is the misplaced rows moving, nothing else. Never
+  resolve a cache conflict by taking one side wholesale.
+- Use `just check-term-cache-integrity` for structural validation.
 
 ```bash
 just validate-terms kb/disorders/YourFile.yaml

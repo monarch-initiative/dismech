@@ -820,6 +820,30 @@ grouping-anchor-audit *args="":
 grouping-mondo-consistency *args="":
     uv run python scripts/grouping_mondo_consistency.py {{args}}
 
+# For each grouping with a MONDO mapping, fetch the mapped term's MONDO
+# descendant closure and report which descendants a dismech entry already
+# covers and which are curation gaps. By default only exactMatch mappings
+# drive gaps (an exact mapping says the two concepts are the same, so a
+# missing descendant is a real gap); --include-inexact also reports the
+# narrow/broad/related mappings as a diagnostic. Needs the ~588 MB local MONDO
+# build (`just fetch-ontology-dbs mondo`) -- this is the descendant-closure
+# direction grouping-mondo-consistency deliberately avoids. Report-only.
+[group('QC')]
+grouping-mondo-gaps *args="":
+    uv run python scripts/grouping_mondo_gaps.py {{args}}
+
+# Local, deterministic census of every disorder's MONDO anchoring: primary
+# disease_term state (missing/obsolete/label-drift via OAK), whether an
+# unanchored entry mentions MONDO elsewhere (promote vs. new-term candidate),
+# the mondo_mappings skos-predicate breakdown (narrow/broad granularity
+# mismatch, read subject to object with the dismech entry as the subject),
+# and shared primary anchors (the same MONDO id as >1 entry's disease_term --
+# see check-shared-disease-terms for the gate on that). Needs the local MONDO
+# OAK build. Report-only; --tsv also writes a machine-readable worklist.
+[group('QC')]
+mondo-anchor-audit *args="":
+    uv run python scripts/mondo_anchor_audit.py {{args}}
+
 # For every grouping with a HAS_MOLECULAR_FUNCTION criterion, check that each
 # member's causal genes carry an activity under the criterion's GO roots in
 # GO's own annotations (QuickGO) or in the gene's ai-gene-review core functions
@@ -932,12 +956,14 @@ check-enum-cache:
 check-enum-cache-offline:
     uv run python -m dismech.enum_cache --schema {{schema_path}} --cache-dir cache --oak-config {{oak_config}} --offline
 
-# Report non-canonical CURIE ordering in enum and ontology term caches.
-# Phase 0 is advisory/read-only: warnings do not fail until the coordinated
-# cache normalization cutover enables strict ordering.
+# Gate: every cache/enums/*.csv and cache/*/terms.csv must be in canonical
+# (codepoint) CURIE order -- the order `just normalize-cache` writes. Read-only,
+# offline, sub-second; exits 1 on an out-of-order row. Runs in `just qc` and as
+# an ungated whole-tree CI step, because appended-at-end rows arrive in
+# kb/-only curation PRs and by merge (#7753). Fix with `just normalize-cache`.
 [group('QC')]
 check-cache-order:
-    uv run python -m dismech.enum_cache --cache-dir cache --check-order
+    uv run python -m dismech.enum_cache --cache-dir cache --check-order --strict-order
 
 # Pre-provision the sqlite:obo:* ontology DBs (with resume/retry) that term
 # validation needs, so a flaky/blocked download does not abort validation
@@ -1041,6 +1067,52 @@ check-claims claims=claims_file *args="":
 next-unclaimed count="5" claims=claims_file *args="":
     uv run dismech-stubs next {{count}} --claims {{ if claims =~ '^--' { claims_file + " " + claims } else { claims } }} {{args}}
 
+# Run this as the LAST step before opening a curation PR. It re-checks the MONDO
+# ID against open claim issues AND open PRs (the creation-time guard only sees
+# claims at open time; this catches a sibling that pulled ahead into a PR while
+# you curated — the #16098 -> PR #16142 failure, issue #16202). Pass
+# --self-issue / --self-branch to exclude your own; exits non-zero on a competitor
+[group('Curation')]
+preflight-claim-conflict mondo *args="":
+    uv run python scripts/preflight_claim_conflict.py {{mondo}} {{args}}
+
+# Run this immediately AFTER filing a claim issue, before curating (issue #16202).
+# It re-reads the open claims for this MONDO off the immediately-consistent list
+# endpoint and applies the lowest-issue-number keeper rule the workflow guard uses.
+# exit 0 = your claim is the keeper, proceed; exit 3 = you lost the race, stand
+# down and close your claim as a duplicate of the printed KEEPER; exit 2 = error.
+[group('Curation')]
+claim-self-check mondo *args="":
+    uv run python scripts/claim_self_check.py {{mondo}} {{args}}
+
+# Writes one snapshot to tmp/issues.json; --from tmp/issues.json re-sorts it.
+# Every excluded issue is counted under a reason code. Read-only.
+# Shortlist existing open issues of any kind (N picks, or --list)
+[group('Curation')]
+select-issues *args="":
+    uv run python -m dismech.issue_queue.cli select {{args}}
+
+# From GitHub's link and cross-reference records, never the `#N` text search,
+# which also matches `ORPHA:N`. Prints state/relation for each PR.
+# Show the PRs attached to one or more issues
+[group('Curation')]
+issue-prs +issues:
+    uv run python -m dismech.issue_queue.cli prs {{issues}}
+
+# A label listed here never routes an issue, so issues carrying only such
+# labels land in the GENERAL lane. Report-only.
+# List repository labels that no issue-lane rule reads
+[group('Curation')]
+check-issue-lanes:
+    uv run python -m dismech.issue_queue.cli lanes
+
+# Assigns the issue, creates a worktree, and opens a tmux window running
+# `claude`. Run only for an issue the user named; --dry-run changes nothing.
+# Open one named issue as its own interactive Claude Code session
+[group('Curation')]
+launch-issue-session issue *args="":
+    uv run python -m dismech.issue_queue.launch {{issue}} {{args}}
+
 # Never overwrites an existing stub. Default source format is the Monarch
 # rare-disease-identification prioritised list.
 # Add stubs for nominated diseases that are neither curated nor already stubbed
@@ -1069,7 +1141,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-logical-rules check-causal-targets check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1147,6 +1219,18 @@ assay-inventory *args="":
 [group('QC')]
 model-inventory *args="":
     uv run python scripts/model_inventory.py {{args}}
+
+# Filter `computational_models` for quantitative medicine (QM) candidates: one
+# step per part of FDA's definition (mechanistic, rerunnable, outputs mapped to
+# a LOINC test or HPO phenotype, tied to a treatment target or an FDA surrogate
+# endpoint), then the survivors' decision links with relationship, fidelity and
+# typed divergences. Counts each step; ranks nothing, since a link is "not a
+# quality score" (docs/explanation/model-credibility.md). Report-only, exits 0.
+#   just model-qm-candidates
+#   just model-qm-candidates --format tsv --out tmp/qm_candidates.tsv
+[group('QC')]
+model-qm-candidates *args="":
+    uv run python scripts/model_qm_candidates.py {{args}}
 
 # For a named entity, the schema path of every string match, whether the holding
 # object carries a bound term, and whether the mention is identity, prose or
@@ -1676,6 +1760,45 @@ check-causal-targets *files:
 list-causal-targets *files:
     uv run python scripts/check_causal_targets.py --report "$@"
 
+# Rows sharing a pathograph node name collapse into ONE node, silently: the
+# graph keys nodes on `name` and the last row wins (#15443). Gates only the
+# UNSTRATIFIED class -- same-section rows not told apart by distinct `subtype:`
+# values -- with the existing backlog grandfathered in
+# tests/name_collision_baseline.txt (shrink-only). Offline, whole KB by default.
+[group('QC')]
+check-name-collisions *files:
+    uv run python scripts/check_name_collisions.py "$@"
+
+# Census of every name collision (UNSTRATIFIED / STRATIFIED / CROSS_SECTION),
+# exit 0. Pass `--format tsv` for one row per collision.
+[group('QC')]
+list-name-collisions *args:
+    uv run python scripts/check_name_collisions.py --report "$@"
+
+# Drop baseline rows that no longer collide. Never adds a row.
+[group('QC')]
+update-name-collision-baseline:
+    uv run python scripts/check_name_collisions.py --update-baseline
+
+# What a `conforms_to` link claims but nothing checks: whether the conforming
+# node carries the module node's content. The anchor itself IS a foreign key
+# (groupings.module_node_names resolves it), so what is missing is CLAUDE.md's
+# own contract -- "should include the expected biological processes and causal
+# edges from the module" -- under which a node can name an anchor it shares
+# nothing with and pass every gate. Report-only and NOT in `just qc`: a
+# conformer binding the specific process where the module binds the generic one
+# is the substitution the primer asks for, not a defect, and telling those
+# apart needs a GO closure this deliberately runs without. Read the per-module
+# ranking, not the corpus total. `--strict` gates a subset for whoever wants it.
+[group('QC')]
+check-conformance-content *args:
+    uv run python scripts/check_conformance_content.py "$@"
+
+# One line per conformance-content finding (anchor, node, what diverged).
+[group('QC')]
+list-conformance-content *args:
+    uv run python scripts/check_conformance_content.py --format list "$@"
+
 # Resolve every hypothesis exploration directory to its kb entry. A directory
 # under kb/hypotheses/ reaches the disease page through two verbatim name
 # matches in render.collect_hypothesis_research_links -- <slug> against the
@@ -1921,6 +2044,24 @@ list-gene-term-mismatches *files:
 [group('QC')]
 list-gene-term-mismatches-online *files:
     uv run python scripts/check_gene_term_identity.py --resolve "$@"
+
+# Report ClinGen gene-disease validity rows whose gene is not the causal gene
+# MONDO records for the row's disease class (#12941). The worked case pairs
+# COQ6 with MONDO:0014754, which MONDO defines by COQ7: a quotable CGGV: row
+# that passes every gate. Reads MONDO's RO:0004003 axioms from OLS, cached in
+# the gitignored tmp/clingen_mondo_genes.json, so this offline recipe has no
+# opinion until the -online one has run once. Disputed/Refuted rows are
+# counted separately (ClinGen often curates a gene AGAINST another gene's
+# disease on purpose). REPORT-ONLY: exits 0; `--strict` exits 1 on mismatches.
+[group('QC')]
+list-clingen-mondo-gene-mismatches *args:
+    uv run python scripts/list_clingen_mondo_gene_mismatches.py "$@"
+
+# Same, fetching every MONDO class not yet cached from OLS (~2,000 classes,
+# a few minutes on a cold cache). Needs network; not for CI.
+[group('QC')]
+list-clingen-mondo-gene-mismatches-online *args:
+    uv run python scripts/list_clingen_mondo_gene_mismatches.py --resolve "$@"
 
 # Adjudicate free-text claims that a *cited source* is defective (#9226) --
 # "the cached abstract is truncated", "that record has no abstract", "the
@@ -2930,6 +3071,71 @@ alternative-models-research provider slug *args="":
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
     {{dr_client}} research \
         --template {{templates_dir}}/disease_alternative_models_research.md \
+        "${var_args[@]}" \
+        $provider_arg \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
+        {{dr_validation}} \
+        {{dr_term_validation}} \
+        {{dr_fallback}} \
+        {{args}} || dr_status=$?
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
+    fi
+    rmdir "$staging_dir" 2>/dev/null || true
+    exit ${dr_status:-0}
+
+# Print the prompt `just claim-confirmation` would send for one use case in
+# templates/claim_confirmation/, and stop. Rendered through the client's own
+# template processor, so the preview cannot drift from what a run sends.
+# Print it first: the claim list is the whole experiment, and a run costs real
+# time and credit.
+# Example: just claim-confirmation-prompt paul_2023_pesticides
+[group('Research')]
+claim-confirmation-prompt slug:
+    uv run python scripts/claim_confirmation_vars.py {{slug}} --format prompt
+
+# Deep research asking whether each claim drawn from a single source is
+# independently confirmed, contradicted, or untested elsewhere. Independent
+# excludes the source's own companion papers and papers that merely cite it, so
+# the answer separates an established finding from a single-source one.
+#
+# Unlike its siblings, every variable is hand-written in
+# templates/claim_confirmation/<slug>.yaml, because nothing here can derive a
+# claim list: which assertions of a source are worth checking is the curator's
+# judgement. Committing the spec is what makes a run reproducible rather than
+# hand-assembled and lost.
+#
+# This answers "has anyone else reported this", not "does my quote say what I
+# attached it to" -- the second is claim-evidence mismatch (#10609, #12106) and
+# needs the cached document, not the literature.
+# Examples:
+#   just claim-confirmation-prompt paul_2023_pesticides
+#   just claim-confirmation openscientist paul_2023_pesticides
+[group('Research')]
+claim-confirmation provider slug *args="":
+    #!/usr/bin/env bash
+    set -e
+    entry=$(uv run python scripts/claim_confirmation_vars.py {{slug}} --format entry)
+    out_dir="{{research_dir}}/claim_confirmation"
+    mkdir -p "$out_dir"
+    output_file="$out_dir/$entry-claim-confirmation-{{slug}}-deep-research-{{provider}}.md"
+    requested_provider="{{provider}}"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
+    # The variable values are multi-line, so they go through a NUL-separated
+    # file: command substitution would drop the separators.
+    uv run python scripts/claim_confirmation_vars.py {{slug}} --format null > "$staging_dir/vars"
+    var_args=()
+    while IFS= read -r -d '' record; do
+        var_args+=(--var "$record")
+    done < "$staging_dir/vars"
+    rm -f "$staging_dir/vars"
+    echo "Claim confirmation: $entry [{{slug}}] ({{provider}}) -> $output_file"
+    provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+    {{dr_client}} research \
+        --template {{templates_dir}}/claim_confirmation_research.md \
         "${var_args[@]}" \
         $provider_arg \
         --output "$staged_file" \
@@ -4399,8 +4605,8 @@ normalize-cache:
 # What this gives up: before, every `validate*` run re-sorted the caches whether
 # or not it had touched them, which quietly repaired ordering broken some other
 # way, most often by a merge of two branches that each appended rows to the same
-# cache file. That case is no longer self-healed here. Ordering is audited only
-# by `check-cache-order`, which is advisory and not part of `qc` or CI;
+# cache file. That case is no longer self-healed here. Ordering is gated by
+# `check-cache-order`, which is in `qc` and runs whole-tree in CI (#7753);
 # `check-term-cache-integrity` checks row structure, not order. Run
 # `just normalize-cache` by hand after such a merge. A missing or unreadable
 # stamp falls back to normalizing, so a degraded run fails safe. (#11005)
@@ -4713,3 +4919,20 @@ jev-audit-cache *args:
 [group('Schedule')]
 schedule-expand config=".claude/schedule-config.yaml" *flags:
     uv run python -m dismech.schedule --config {{config}} {{flags}}
+
+# ============== OECD Test Guideline extraction (#16338) ==============
+
+# Rebuild the paragraph index for a Test Guideline PDF. The PDF is not committed;
+# `data/oecd_tg/MANIFEST.yaml` pins the bytes the committed index was built from.
+# Extraction uses pypdf's layout mode: the default mode inserts spaces inside words
+# on this document, which would make every quote unusable as a verbatim quote.
+extract-oecd-tg pdf out="data/oecd_tg/tg442d-paragraphs.json":
+    @uv run python scripts/extract_oecd_tg.py {{pdf}} --out {{out}}
+
+# Each quote must be a real substring of the paragraph it cites. This cannot tell
+# whether a quote supports the value it is attached to -- a verbatim quote cited for a
+# claim it does not make passes, and that needs a reader. Pass no --records to report
+# on the index alone.
+# Check extracted Test Guideline facts against the paragraphs they cite
+check-tg-extraction *args="":
+    @uv run python scripts/check_tg_extraction.py {{args}}

@@ -9,6 +9,8 @@ tags: [MECHANISM, SPLICING, SPLICEOSOMOPATHY, NEURODEVELOPMENT, NONCODING]
 diseases:
   - RNU5B-1_Related_Neurodevelopmental_Disorder_With_Seizures_And_Joint_Laxity
   - ReNU_Syndrome
+  - RNU4-2-Related_Autosomal_Recessive_Neurodevelopmental_Disorder
+  - U4_and_U6_snRNA_Gene-Related_Retinitis_Pigmentosa
   - RNU12-related_Minor_Spliceopathy
   - Roifman-syndrome
   - Microcephalic_Osteodysplastic_Primordial_Dwarfism_Type_I
@@ -92,6 +94,8 @@ structural element.
 |---|---|---|---|
 | RNU5B-1_Related_Neurodevelopmental_Disorder_With_Seizures_And_Joint_Laxity | RNU5B-1 | U5 | major |
 | ReNU_Syndrome | RNU4-2 | U4 | major |
+| RNU4-2-Related_Autosomal_Recessive_Neurodevelopmental_Disorder | RNU4-2 | U4 | major |
+| U4_and_U6_snRNA_Gene-Related_Retinitis_Pigmentosa | RNU4-2, RNU6-1, RNU6-2, RNU6-8, RNU6-9 | U4 and U6 | major |
 | RNU12-related_Minor_Spliceopathy | RNU12 | U12 | minor |
 | Roifman-syndrome | RNU4ATAC | U4atac | minor |
 | Microcephalic_Osteodysplastic_Primordial_Dwarfism_Type_I | RNU4ATAC | U4atac | minor |
@@ -127,15 +131,16 @@ structural element.
 |---|---|---|
 | Congenital cerebellar ataxia due to RNU12 mutation (MONDO:0033717) | RNU12 | The SCAR33 subtype of RNU12-related_Minor_Spliceopathy; Orphanet's term for the same disease as OMIM:620208 |
 | Developmental and epileptic encephalopathy 119 (MONDO:1060177) | RNU2-2 | A subtype of Genetic_Developmental_and_Epileptic_Encephalopathy |
-| Recessive RNU4-2-related neurodevelopmental disorder | RNU4-2 | A subtype of ReNU_Syndrome |
-| RNU4-2- and RNU6-related retinitis pigmentosa | RNU4-2, RNU6 genes | A subtype of ReNU_Syndrome |
 | RNU4ATAC spectrum disorder (MONDO:0100558) | RNU4ATAC | A grouping over Roifman, MOPD I and Lowry-Wood |
 
-None of these has a stub. MONDO has no term yet for the recessive RNU4-2
-disorder or for snRNA-gene retinitis pigmentosa: OLS searches of MONDO for
-"RNU4-2", "RNU6" and "retinitis pigmentosa small nuclear RNA" returned no such
-term, and retinitis pigmentosa 96 to 101 are caused by other genes (SAG, VWA8,
-TMEM216, IDH3G, TBC1D32, CLN3). A stub can be added once MONDO has a term.
+None of these needs a stub.
+
+MONDO has no term for the recessive RNU4-2 disorder or for U4/U6 snRNA-gene
+retinitis pigmentosa, so both entries leave `disease_term` unbound and map a
+broader MONDO class (Mendelian neurodevelopmental disorder; retinitis
+pigmentosa) as `skos:broadMatch`, with the searches recorded in each
+`mapping_justification`. ReNU_Syndrome lists both as differential diagnoses
+pointing at the new entries.
 
 ### Not yet curated
 
@@ -188,12 +193,17 @@ this mechanism should conform to `antisense_oligonucleotide_therapy`.
   mis-splicing of a sensitive transcript subset (the key conformance target),
   an optional P53 branch, failure of splicing-sensitive cells, and
   tissue-restricted disease.
-- `Spliceosomopathies` grouping: 22 members defined by a single
+- `Spliceosomopathies` grouping: 24 members defined by a single
   `CONFORMS_TO_MODULE` criterion, three of them through the nested
   RNU4ATAC_Spectrum_Disorder grouping.
 - Curated from stubs: PRPF8, SNRNP200, U2AF2, PRPF19, CWC27, SNRPE (Hypotrichosis
   11) and LSM7. RNU12 cerebellar ataxia was folded into the existing SCAR33
   subtype.
+- New entries without a MONDO term: RNU4-2-related autosomal recessive
+  neurodevelopmental disorder and U4/U6 snRNA gene-related retinitis
+  pigmentosa, previously listed only as differential diagnoses of ReNU. Neither
+  shows a splicing defect in patient blood, so each conforms to the module at
+  its variant node only (and, for the retinopathy, the photoreceptor node).
 - Wired to the module: SNIP1, DHX16, WBP4 and SRRM2. Craniofacial_Microsomia
   is left out, because its SF3B2 node also carries FOXI3, GBX2 and SHROOM3.
 - Not every member conforms at the mis-splicing node. Mis-splicing is not
@@ -205,6 +215,6 @@ this mechanism should conform to `antisense_oligonucleotide_therapy`.
 
 - Test which LSm ring LSM7 variants disrupt: the entry proposes a patient-cell
   experiment that separates splicing from mRNA decay.
-- Add stubs for the recessive RNU4-2 and snRNA retinitis pigmentosa disorders
-  once MONDO has terms for them.
+- Bind `disease_term` on the recessive RNU4-2 and U4/U6 snRNA retinitis
+  pigmentosa entries once MONDO has terms for them.
 - Audit how consistently Group 2 splice variants are recorded on gene entries.

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1093/neuonc/noaa046
+extractor_version: 1
 title: Advancing biology-based therapeutic approaches for atypical teratoid rhabdoid tumors
 authors:
 - Lindsey M Hoffman
@@ -21,7 +22,8 @@ journal: Neuro-Oncology
 year: '2020'
 doi: 10.1093/neuonc/noaa046
 content_type: abstract_only
-full_text_attempted: true
+is_preprint: false
+full_text_declined: "access_type:publisher_free"
 ---
 
 # Advancing biology-based therapeutic approaches for atypical teratoid rhabdoid tumors
@@ -31,4 +33,6 @@ full_text_attempted: true
 
 ## Content
 
-AbstractAtypical teratoid rhabdoid tumor (ATRT) is a rare, highly malignant central nervous system cancer arising in infants and younger children, historically considered to be homogeneous, monogenic, and incurable. Recent use of intensified therapies has modestly improved survival for ATRT; however, a majority of patients will still succumb to their disease. While ATRTs almost universally exhibit loss of SMARCB1 (BAF47/INI1/SNF5), recent whole genome, transcriptome, and epigenomic analyses of large cohorts reveal previously underappreciated molecular heterogeneity. These discoveries provide novel insights into how SMARCB1 loss drives oncogenesis and confer specific therapeutic vulnerabilities, raising exciting prospects for molecularly stratified treatment for patients with ATRT.
+Abstract
+
+Atypical teratoid rhabdoid tumor (ATRT) is a rare, highly malignant central nervous system cancer arising in infants and younger children, historically considered to be homogeneous, monogenic, and incurable. Recent use of intensified therapies has modestly improved survival for ATRT; however, a majority of patients will still succumb to their disease. While ATRTs almost universally exhibit loss of SMARCB1 (BAF47/INI1/SNF5), recent whole genome, transcriptome, and epigenomic analyses of large cohorts reveal previously underappreciated molecular heterogeneity. These discoveries provide novel insights into how SMARCB1 loss drives oncogenesis and confer specific therapeutic vulnerabilities, raising exciting prospects for molecularly stratified treatment for patients with ATRT.

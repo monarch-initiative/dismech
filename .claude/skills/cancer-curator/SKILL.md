@@ -48,9 +48,11 @@ supersedes the older "molecular subtypes as discrete entities" framing in
 2. **Biomarker/therapy strata** (EGFR-mutant NSCLC, MSI-H CRC, TNBC): default
    `has_subtypes`; a separate entry requires ≥2 stratum-specific
    pathophysiology nodes AND a distinct first-line therapy/diagnostic pathway.
-   When promoted: `skos:narrowMatch` mondo_mapping if no exact MONDO term
-   exists (file an NTR), record overlap with non-disjoint sibling strata, add
-   the entry to a covering grouping, and leave a pointer subtype in the parent.
+   When promoted: `skos:broadMatch` mondo_mapping to the parent if no exact
+   MONDO term exists (file an NTR) — SKOS predicates read subject to object,
+   so the stratum records its broader parent as `broadMatch`, not
+   `narrowMatch` — record overlap with non-disjoint sibling strata, add the
+   entry to a covering grouping, and leave a pointer subtype in the parent.
 3. **Variant tiers** stay `has_subtypes` inside the stratum entry unless
    therapy is variant-specific (KRAS G12C).
 4. **Stage/metastasis is never an entry** — use `stages:` +

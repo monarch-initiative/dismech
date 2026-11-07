@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KIZ-related Retinopathy · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>KIZ-related Retinopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>KIZ-related Retinopathy</h1>
+                
+                <p class="report-subtitle">Key Findings</p>
+                
+                
+                <div class="report-date">2026-10-30</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0700232" target="_blank" rel="noopener noreferrer">MONDO:0700232</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">9 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>Key Findings</h2>
+<h3>Finding 1 — RP69 is an autosomal recessive retinitis pigmentosa caused by biallelic loss-of-function in KIZ</h3>
+<p>Whole-exome sequencing of a consanguineous family with autosomal-recessive rod-cone dystrophy identified a homozygous nonsense mutation <strong>c.226C&gt;T (p.Arg76*)</strong> in <em>KIZ</em>, which encodes centrosomal protein kizuna. Sanger screening of 340 additional AR/sporadic rod-cone dystrophy cases uncovered two more affected individuals: one homozygous for p.Arg76* and one compound heterozygous for <strong>c.119_122delAACT (p.Lys40Ilefs*14)</strong> and <strong>c.52G&gt;T (p.Glu18*)</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/24680887/" target="_blank" rel="noopener noreferrer">PMID: 24680887</a>]. The disease is catalogued as <strong>Retinitis pigmentosa 69, OMIM #615780</strong>; the gene as <em>KIZ</em>, OMIM *615757, <a href="https://bioregistry.io/HGNC:20738" target="_blank" rel="noopener noreferrer">HGNC:20738</a>, on chromosome 20p11.23.</p>
+<blockquote>
+<p>"identified a homozygous nonsense mutation, c.226C&gt;T (p.Arg76(∗)), in KIZ, which encodes centrosomal protein kizuna" — <a href="https://pubmed.ncbi.nlm.nih.gov/24680887/">PMID: 24680887</a></p>
+</blockquote>
+<p>This establishes KIZ as the causal gene and anchors the disease firmly in the recessive rod-cone dystrophy / retinitis pigmentosa category. <strong>Suggested ontology terms:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0700232" target="_blank" rel="noopener noreferrer">MONDO:0700232</a>; <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" rel="noopener noreferrer">HP:0000510</a> (Rod-cone dystrophy), <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" rel="noopener noreferrer">HP:0000512</a> (Abnormal electroretinogram); gene <a href="https://bioregistry.io/HGNC:20738" target="_blank" rel="noopener noreferrer">HGNC:20738</a>.</p>
+<h3>Finding 2 — c.226C&gt;T (p.Arg76*) is an Ashkenazi Jewish founder allele acting through a dual (nonsense + exon-3-skipping) mechanism</h3>
+<p>In the largest reported cohort to date, <strong>31 patients with biallelic KIZ mutations</strong> were characterized: 28 were homozygous for c.226C&gt;T (p.Arg76*), 2 were compound heterozygous for p.Arg76* / c.3G&gt;A (p.Met1?), and 1 was homozygous for c.247C&gt;T (p.Arg83*) [<a href="https://pubmed.ncbi.nlm.nih.gov/38927740/" target="_blank" rel="noopener noreferrer">PMID: 38927740</a>]. The founder allele lies within an <strong>exonic splicing enhancer (ESE)</strong>, and the C&gt;T change produces not only a premature stop codon but also <strong>pronounced skipping of exon 3</strong>.</p>
+<blockquote>
+<p>"Thirty-one patients with biallelic KIZ mutations were identified: 28 homozygous for c.226C&gt;T (p.R76*)" — <a href="https://pubmed.ncbi.nlm.nih.gov/38927740/">PMID: 38927740</a></p>
+<p>"c.226C&gt;T is a founder mutation among patients of Jewish descent." — <a href="https://pubmed.ncbi.nlm.nih.gov/38927740/">PMID: 38927740</a></p>
+<p>"p.R76* affect an ESE which in turn results in the pronounced skipping of exon 3. Therefore, RNA-based therapies might show low efficacy" — <a href="https://pubmed.ncbi.nlm.nih.gov/38927740/">PMID: 38927740</a></p>
+</blockquote>
+<p>This dual mechanism is therapeutically important: because the pathogenic transcript is already mis-spliced (exon 3 skipped), antisense/splice-correcting strategies targeting the point mutation are predicted to have <strong>low efficacy</strong>.</p>
+<h3>Finding 3 — RP69 is early-onset and progressive but milder than DHDDS/FAM161A RP, with measurable annual decline</h3>
+<p>Multimodal imaging of KIZ patients reveals classic rod-cone dysfunction on ERG, <strong>outer-retinal atrophy with a centrally preserved ellipsoid zone (EZ)</strong>, hyperautofluorescent rings, and surrounding loss of autofluorescence. Quantitatively, peripheral RPE atrophy area increased <strong>~4.9%/year</strong>, visual acuity declined at a mean exponential rate of <strong>8.5%/year</strong>, 30-Hz flicker amplitude declined <strong>15.9%/year</strong>, and EZ width shrank <strong>~66.5 μm/year</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/32052671/" target="_blank" rel="noopener noreferrer">PMID: 32052671</a>].</p>
+<blockquote>
+<p>"KIZ-associated RP is an early-onset severe rod-cone dystrophy." — <a href="https://pubmed.ncbi.nlm.nih.gov/32052671/">PMID: 32052671</a></p>
+<p>"The RPE atrophy area increased annually by 4.9%" — <a href="https://pubmed.ncbi.nlm.nih.gov/32052671/">PMID: 32052671</a></p>
+</blockquote>
+<p>In the 31-patient cohort, clinical parameters were <strong>less severe in KIZ than in DHDDS and FAM161A</strong> patients [<a href="https://pubmed.ncbi.nlm.nih.gov/38927740/" target="_blank" rel="noopener noreferrer">PMID: 38927740</a>]. A 62-year-old homozygous for the start-codon variant <strong>c.3G&gt;A (p.Met1?)</strong> retained measurable cone responses with macular sparing into the seventh decade, expanding the mild end of the clinical spectrum [<a href="https://pubmed.ncbi.nlm.nih.gov/41557064/" target="_blank" rel="noopener noreferrer">PMID: 41557064</a>].</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Imaging / functional metric</th>
+<th>Annual rate of change</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Peripheral RPE atrophy area</td>
+<td>+4.9 %/yr</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32052671/" target="_blank" rel="noopener noreferrer">PMID: 32052671</a></td>
+</tr>
+<tr>
+<td>Best-corrected visual acuity (exponential)</td>
+<td>−8.5 %/yr</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32052671/" target="_blank" rel="noopener noreferrer">PMID: 32052671</a></td>
+</tr>
+<tr>
+<td>30-Hz flicker ERG amplitude (exponential)</td>
+<td>−15.9 %/yr</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32052671/" target="_blank" rel="noopener noreferrer">PMID: 32052671</a></td>
+</tr>
+<tr>
+<td>Ellipsoid zone width</td>
+<td>−66.5 μm/yr</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32052671/" target="_blank" rel="noopener noreferrer">PMID: 32052671</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Suggested HPO terms:</strong> <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" rel="noopener noreferrer">HP:0000662</a> (Nyctalopia / night blindness), <a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank" rel="noopener noreferrer">HP:0001133</a> (Constriction of peripheral visual field), <a href="http://purl.obolibrary.org/obo/HP_0000546" target="_blank" rel="noopener noreferrer">HP:0000546</a> (Retinal degeneration), <a href="http://purl.obolibrary.org/obo/HP_0007843" target="_blank" rel="noopener noreferrer">HP:0007843</a> (Attenuation of retinal blood vessels), <a href="http://purl.obolibrary.org/obo/HP_0040049" target="_blank" rel="noopener noreferrer">HP:0040049</a> (Macular edema), <a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" rel="noopener noreferrer">HP:0000512</a> (Abnormal electroretinogram), <a href="http://purl.obolibrary.org/obo/HP_0030506" target="_blank" rel="noopener noreferrer">HP:0030506</a> (Yellow/white lesions of the retina).</p>
+<h3>Finding 4 — KIZ/kizuna is a Plk1-substrate centrosomal protein localizing to the photoreceptor connecting-cilium basal body; the disease is a ciliopathy of outer-segment maintenance</h3>
+<p>Kizuna (Kiz) was originally identified as a <strong>centrosomal substrate of Plk1</strong> whose phosphorylation maintains mitotic spindle-pole and pericentriolar-material (PCM) integrity; its depletion causes <strong>centrosome fragmentation and multipolar spindles</strong> [<a href="https://pubmed.ncbi.nlm.nih.gov/16980960/" target="_blank" rel="noopener noreferrer">PMID: 16980960</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/17011480/" target="_blank" rel="noopener noreferrer">PMID: 17011480</a>]. In post-mitotic photoreceptors, immunohistology localizes KIZ to the <strong>basal body of primary cilia</strong> in human fibroblasts [<a href="https://pubmed.ncbi.nlm.nih.gov/24680887/" target="_blank" rel="noopener noreferrer">PMID: 24680887</a>], and the mouse ortholog PLK1S1 localizes to the base of the photoreceptor connecting cilium. KIZ expression is highest in retina; <em>Plk1s1</em> mRNA is present in the outer nuclear layer / rod photoreceptors and declines as photoreceptors degenerate in <em>rd1</em> mice [<a href="https://pubmed.ncbi.nlm.nih.gov/24680887/" target="_blank" rel="noopener noreferrer">PMID: 24680887</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/29057815/" target="_blank" rel="noopener noreferrer">PMID: 29057815</a>].</p>
+<blockquote>
+<p>"we identify a novel centrosomal substrate of Plk1, Kizuna (Kiz), depletion of which causes fragmentation and dissociation of the pericentriolar material from centrioles at prometaphase, resulting in multipolar spindles" — <a href="https://pubmed.ncbi.nlm.nih.gov/16980960/">PMID: 16980960</a></p>
+<p>"Immunohistology revealed KIZ localization at the basal body of the cilia in human fibroblasts" — <a href="https://pubmed.ncbi.nlm.nih.gov/24680887/">PMID: 24680887</a></p>
+</blockquote>
+<p>Importantly, patient fibroblasts showed <strong>preserved KIZ localization and normal cilium length</strong>, indicating fibroblasts are a poor disease model and that the pathology is photoreceptor-specific [<a href="https://pubmed.ncbi.nlm.nih.gov/29057815/" target="_blank" rel="noopener noreferrer">PMID: 29057815</a>]. <strong>Suggested ontology terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0007098" target="_blank" rel="noopener noreferrer">GO:0007098</a> (centrosome cycle), <a href="http://purl.obolibrary.org/obo/GO_0051225" target="_blank" rel="noopener noreferrer">GO:0051225</a> (spindle assembly), <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" rel="noopener noreferrer">GO:0060271</a> (cilium assembly), <a href="http://purl.obolibrary.org/obo/GO_0120197" target="_blank" rel="noopener noreferrer">GO:0120197</a> (photoreceptor outer segment organization); cellular components <a href="http://purl.obolibrary.org/obo/GO_0005813" target="_blank" rel="noopener noreferrer">GO:0005813</a> (centrosome), <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" rel="noopener noreferrer">GO:0036064</a> (ciliary basal body), <a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" rel="noopener noreferrer">GO:0005929</a> (cilium); cell type <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" rel="noopener noreferrer">CL:0000210</a> (photoreceptor cell), <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a> (retinal rod cell).</p>
+<h3>Finding 5 — gnomAD v4 quantifies the Ashkenazi founder effect (~1.15% carrier frequency) and confirms global rarity</h3>
+<p>gnomAD v4.1 genomes show the founder nonsense allele <strong>c.226C&gt;T / p.Arg76* (20-21136463-C-T)</strong> at a <strong>global allele frequency of 3.16×10⁻⁴</strong> (AC 48/152,128) but an <strong>Ashkenazi Jewish AF of 5.76×10⁻³</strong> (AC 20/3,472) — roughly <strong>65× the non-Finnish European AF (8.82×10⁻⁵)</strong>. This corresponds to a heterozygous <strong>carrier frequency of ~1.15% (≈1 in 87)</strong> and a Hardy-Weinberg-predicted homozygote disease incidence of <strong>~3.3×10⁻⁵ (~1 in 30,000)</strong> in Ashkenazim from this allele alone. Other pathogenic alleles are much rarer: c.119_122del (p.Lys40Ilefs*14) global AF 8.5×10⁻⁵; c.247C&gt;T (p.Arg83*), c.52G&gt;T (p.Glu18*), and c.3G&gt;A (p.Met1?) each ≤7×10⁻⁶ globally (c.3G&gt;A reaches asj AF ~2.9×10⁻⁴). <strong>No homozygotes</strong> are listed in gnomAD, consistent with a recessive disease allele depleted in population reference databases.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Allele</th>
+<th>Protein</th>
+<th>Global AF</th>
+<th>Ashkenazi (asj) AF</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c.226C&gt;T</td>
+<td>p.Arg76*</td>
+<td>3.16×10⁻⁴</td>
+<td>5.76×10⁻³</td>
+<td>Founder; ESE/exon-3 skipping</td>
+</tr>
+<tr>
+<td>c.119_122del</td>
+<td>p.Lys40Ilefs*14</td>
+<td>8.5×10⁻⁵</td>
+<td>—</td>
+<td>Frameshift</td>
+</tr>
+<tr>
+<td>c.247C&gt;T</td>
+<td>p.Arg83*</td>
+<td>≤7×10⁻⁶</td>
+<td>—</td>
+<td>Nonsense</td>
+</tr>
+<tr>
+<td>c.52G&gt;T</td>
+<td>p.Glu18*</td>
+<td>≤7×10⁻⁶</td>
+<td>—</td>
+<td>Nonsense</td>
+</tr>
+<tr>
+<td>c.3G&gt;A</td>
+<td>p.Met1?</td>
+<td>≤7×10⁻⁶</td>
+<td>~2.9×10⁻⁴</td>
+<td>Start-loss</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Finding 6 — ClinVar/UniProt: ~30 pathogenic/likely-pathogenic alleles, predominantly loss-of-function, in a largely disordered centrosomal protein</h3>
+<p>ClinVar (KIZ[gene], 593 records) contains <strong>15 Pathogenic + 12 Likely pathogenic + 3 Pathogenic/Likely-pathogenic</strong> variants distributed along the gene, almost all loss-of-function: nonsense (e.g., c.805A&gt;T p.Lys269*, c.1390C&gt;T p.Gln464*, c.943A&gt;T p.Arg315*, c.1316C&gt;G p.Ser439*), frameshift (e.g., c.1119dup, c.875dup, c.305_309dup, c.62_65del), and canonical splice-site variants (c.1042+1G&gt;T, c.153-1G&gt;C, c.405+1dup, c.1353-1G&gt;C). Contiguous-gene 20p CNV deletions appear in ClinVar but represent <strong>multigene syndromes, not isolated KIZ retinopathy</strong>. UniProt <strong>Q2M2Z5 (KIZ_HUMAN, 673 aa)</strong> annotates KIZ as a centrosomal protein that stabilizes expanded pericentriolar material and localizes to both the centrosome/MTOC and the cilium basal body; the protein is <strong>largely intrinsically disordered</strong> (5 disordered regions) with InterPro domains <strong>IPR060349 (Kizuna_N)</strong> and <strong>IPR026742 (Centrosomal_kizuna)</strong>. The uniform LoF spectrum across the whole gene strongly supports a <strong>haploinsufficiency/complete-loss-of-function</strong> disease mechanism rather than dominant-negative or gain-of-function.</p>
+<h3>Finding 7 — KIZ is a rare, long-tail IRD gene, with conserved orthologs for modeling</h3>
+<p>In the nationwide <strong>Israeli IRD consortium</strong> cohort (2,420 families / 3,413 individuals, ~40% of Israeli IRD patients; RP 43%; AR 60%), the most frequently mutated genes were <strong>ABCA4, USH2A, FAM161A, CNGA3, and EYS</strong> — KIZ is not among the top genes, placing it in the rare long tail [<a href="https://pubmed.ncbi.nlm.nih.gov/31456290/" target="_blank" rel="noopener noreferrer">PMID: 31456290</a>]. Similarly, the <strong>Foundation Fighting Blindness Consortium</strong> gene poll (33,834 patients / 27,561 families) found top etiologies ABCA4 (17%), USH2A (9%), RPGR (6%), PRPH2 (5%), RHO (4%), with the top 100 genes explaining 94.4% of cases — KIZ again outside the top ranks [<a href="https://pubmed.ncbi.nlm.nih.gov/39908130/" target="_blank" rel="noopener noreferrer">PMID: 39908130</a>]. NCBI orthologs of human <em>KIZ</em> (GeneID 55857): <strong>mouse <em>Kiz</em> (228730), rat <em>Kiz</em> (311502), dog <em>KIZ</em> (477134), zebrafish <em>kiz</em> (567100)</strong> — a conserved toolkit for future disease modeling.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li>A <strong>biallelic loss-of-function variant in KIZ</strong> (most commonly the founder nonsense c.226C&gt;T / p.Arg76*) <strong>leads to</strong> absent or truncated, non-functional kizuna protein. <em>(Demonstrated: nonsense/frameshift/splice alleles; the founder allele additionally disrupts an ESE causing exon-3 skipping — <a href="https://pubmed.ncbi.nlm.nih.gov/24680887/" target="_blank" rel="noopener noreferrer">PMID 24680887</a>, 38927740.)</em></li>
+<li>Loss of functional kizuna <strong>results in</strong> deficient stabilization of the <strong>pericentriolar material / centrosome–basal-body apparatus</strong>, the role established for kizuna in mitotic cells. <em>(Demonstrated in dividing cells — <a href="https://pubmed.ncbi.nlm.nih.gov/16980960/" target="_blank" rel="noopener noreferrer">PMID 16980960</a>, 17011480; inferred for post-mitotic photoreceptors.)</em></li>
+<li>In photoreceptors, kizuna normally localizes to the <strong>basal body of the connecting cilium</strong>; its loss <strong>leads to</strong> impaired integrity/maintenance of the connecting cilium that gates protein transport to the outer segment. <em>(Localization demonstrated — <a href="https://pubmed.ncbi.nlm.nih.gov/24680887/" target="_blank" rel="noopener noreferrer">PMID 24680887</a>, 29057815; functional consequence inferred.)</em></li>
+<li>Impaired connecting-cilium / basal-body function <strong>results in</strong> defective <strong>outer-segment maintenance and renewal</strong> in rods (and later cones). <em>(Inferred from ciliopathy framework; supported by declining Plk1s1 expression as photoreceptors degenerate in rd1 mice — <a href="https://pubmed.ncbi.nlm.nih.gov/29057815/" target="_blank" rel="noopener noreferrer">PMID 29057815</a>.)</em></li>
+<li>Progressive outer-segment failure <strong>leads to</strong> <strong>rod photoreceptor dysfunction then death</strong>, clinically night blindness and peripheral field constriction, with abnormal rod-cone ERG. <em>(Demonstrated clinically — <a href="https://pubmed.ncbi.nlm.nih.gov/32052671/" target="_blank" rel="noopener noreferrer">PMID 32052671</a>, 41557064.)</em></li>
+<li>Photoreceptor loss <strong>results in</strong> secondary <strong>retinal pigment epithelium (RPE) atrophy</strong> that expands centripetally (~4.9%/yr), with eventual cone involvement — but the fovea/EZ is relatively <strong>spared longer</strong> than in DHDDS/FAM161A RP, yielding a comparatively mild course. <em>(Demonstrated — <a href="https://pubmed.ncbi.nlm.nih.gov/32052671/" target="_blank" rel="noopener noreferrer">PMID 32052671</a>, 38927740, 41557064.)</em></li>
+</ol>
+<pre><code>KIZ biallelic LoF (p.Arg76* + ESE/exon-3 skip)
+│
+▼
+Loss of functional kizuna protein (673 aa, disordered centrosomal protein)
+│
+▼
+Deficient PCM / centrosome–basal-body stabilization  ◄── canonical Plk1-substrate role
+│
+▼
+Impaired connecting-cilium basal body in photoreceptors
+│
+▼
+Defective outer-segment maintenance / protein transport
+│
+├──► Rod dysfunction → night blindness, peripheral field loss, abnormal ERG
+│
+▼
+Rod death → secondary RPE atrophy (expanding ring)
+│
+▼
+Later cone involvement (EZ/fovea relatively spared → milder than DHDDS/FAM161A)
+</code></pre>
+<p><strong>Upstream vs downstream:</strong> The mutation and loss of kizuna's centrosomal/basal-body stabilizing function are upstream; outer-segment failure, photoreceptor death, and RPE atrophy are downstream. <strong>Cell types:</strong> retinal rod photoreceptors (<a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a>) first, then cone photoreceptors (<a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a>) and RPE cells (<a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" rel="noopener noreferrer">CL:0002586</a>). <strong>Subcellular compartments:</strong> ciliary basal body (<a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" rel="noopener noreferrer">GO:0036064</a>), centrosome (<a href="http://purl.obolibrary.org/obo/GO_0005813" target="_blank" rel="noopener noreferrer">GO:0005813</a>), connecting cilium/photoreceptor cilium (<a href="http://purl.obolibrary.org/obo/GO_0032391" target="_blank" rel="noopener noreferrer">GO:0032391</a>). <strong>Key uncertainty:</strong> the precise post-mitotic function of kizuna at the connecting cilium (steps 3–4) is <strong>inferred by localization rather than directly demonstrated</strong>; patient fibroblasts have normal cilia, underscoring a photoreceptor-specific requirement not yet mechanistically dissected.</p>
+<hr />
+<h2>Mapping to the Research Template</h2>
+<p><strong>1. Disease information.</strong> Non-syndromic AR rod-cone dystrophy = Retinitis Pigmentosa 69. Identifiers: <a href="http://purl.obolibrary.org/obo/MONDO_0700232" target="_blank" rel="noopener noreferrer">MONDO:0700232</a>; OMIM #615780; gene OMIM <em>615757; <a href="https://bioregistry.io/HGNC:20738" target="_blank" rel="noopener noreferrer">HGNC:20738</a>. Synonyms: RP69; KIZ-related retinitis pigmentosa; KIZ-associated rod-cone dystrophy. Information is drawn from </em><em>aggregated disease-level resources</em>* (OMIM, ClinVar, gnomAD, UniProt) plus individual-patient case series/cohorts (<a href="https://pubmed.ncbi.nlm.nih.gov/24680887/" target="_blank" rel="noopener noreferrer">PMID 24680887</a>, 32052671, 38927740, 41557064).</p>
+<p><strong>2. Etiology.</strong> Purely <strong>genetic</strong> — biallelic loss-of-function variants in KIZ; no environmental, infectious, or toxic cause. Principal genetic risk factor is <strong>Ashkenazi Jewish ancestry carrying p.Arg76*</strong> (~1.15% carrier rate; consanguinity increases homozygosity risk). No established protective alleles or gene–environment interactions. Modifier genes are unknown.</p>
+<p><strong>3. Phenotypes.</strong> Night blindness (<a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" rel="noopener noreferrer">HP:0000662</a>), peripheral visual-field constriction (<a href="http://purl.obolibrary.org/obo/HP_0001133" target="_blank" rel="noopener noreferrer">HP:0001133</a>), progressive retinal degeneration/RPE atrophy (<a href="http://purl.obolibrary.org/obo/HP_0000546" target="_blank" rel="noopener noreferrer">HP:0000546</a>), attenuated vessels (<a href="http://purl.obolibrary.org/obo/HP_0007843" target="_blank" rel="noopener noreferrer">HP:0007843</a>), abnormal/rod-cone ERG (<a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" rel="noopener noreferrer">HP:0000512</a>), hyperautofluorescent ring, occasional cystoid macular edema (<a href="http://purl.obolibrary.org/obo/HP_0040049" target="_blank" rel="noopener noreferrer">HP:0040049</a>). <strong>Onset:</strong> early (childhood/young adult); <strong>progression:</strong> slow–moderate, progressive; <strong>severity:</strong> variable, generally milder than DHDDS/FAM161A RP; retained cone responses possible into the 7th decade (<a href="https://pubmed.ncbi.nlm.nih.gov/41557064/" target="_blank" rel="noopener noreferrer">PMID 41557064</a>). QoL impact: progressive visual disability affecting mobility and reading, but with longer central-vision preservation than many RP forms.</p>
+<p><strong>4. Genetic/molecular.</strong> Causal gene KIZ; ~30 P/LP ClinVar alleles, predominantly nonsense/frameshift/splice (LoF). Variant classification per ACMG; founder c.226C&gt;T (p.Arg76*) is pathogenic. Allele frequencies per gnomAD (Finding 5). <strong>Germline</strong>, recessive; functional consequence = <strong>loss of function</strong> (not dominant-negative). Epigenetic modifiers: none established. Contiguous 20p deletions are multigene, not isolated RP69.</p>
+<p><strong>5. Environmental.</strong> <strong>Not applicable</strong> — no environmental, lifestyle, or infectious contributors identified for this Mendelian disease.</p>
+<p><strong>6. Mechanism.</strong> See causal chain above. Pathways: Plk1 centrosomal signaling; cilium assembly/maintenance. GO: <a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" rel="noopener noreferrer">GO:0060271</a> (cilium assembly), <a href="http://purl.obolibrary.org/obo/GO_0120197" target="_blank" rel="noopener noreferrer">GO:0120197</a> (photoreceptor outer segment organization), <a href="http://purl.obolibrary.org/obo/GO_0007098" target="_blank" rel="noopener noreferrer">GO:0007098</a> (centrosome cycle).</p>
+<p><strong>7. Anatomical structures.</strong> Primary organ: <strong>eye/retina</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a> eye, <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a> retina); specifically photoreceptor layer and RPE; connecting cilium basal body (subcellular). Body system: visual/sensory nervous system. <strong>Bilateral</strong>, generally symmetric. Secondary: RPE atrophy. Cells: rod then cone photoreceptors, RPE.</p>
+<p><strong>8. Temporal development.</strong> Onset early (pediatric–young adult), insidious/chronic; progressive course; lifelong, no remission; critical window for future gene-based intervention is before advanced photoreceptor loss (EZ still preserved).</p>
+<p><strong>9. Inheritance and population.</strong> <strong>Autosomal recessive</strong>; penetrance appears high/complete when biallelic; variable expressivity (mild–moderate). <strong>Founder effect</strong> in Ashkenazi Jews (p.Arg76*, carrier ~1.15%, predicted homozygote incidence ~1 in 30,000 in that population); <strong>consanguinity</strong> contributes elsewhere. Rare globally (long-tail IRD gene). No sex predilection expected (autosomal).</p>
+<p><strong>10. Diagnostics.</strong> <strong>Genetic testing</strong> is definitive: IRD gene panels / whole-exome / whole-genome sequencing; single-gene or targeted founder-allele testing in Ashkenazi patients (<a href="https://pubmed.ncbi.nlm.nih.gov/24680887/" target="_blank" rel="noopener noreferrer">PMID 24680887</a>; WGS/splice context <a href="https://pubmed.ncbi.nlm.nih.gov/34795310/" target="_blank" rel="noopener noreferrer">PMID 34795310</a>). Phenotyping: full-field ERG (rod-cone pattern), SD-OCT (outer-retinal thinning, EZ constriction, possible CME), fundus autofluorescence (hyperAF ring, surrounding hypoAF), dilated fundus exam (disc pallor, vessel attenuation, bone-spicule/peripheral pigment). Differential diagnosis: other AR RP genes (USH2A, EYS, FAM161A, DHDDS) — distinguished by genetics and relative severity.</p>
+<p><strong>11. Outcome/prognosis.</strong> Non-fatal; <strong>no effect on life expectancy</strong>. Morbidity = progressive visual impairment, variable but often milder than other RP forms; central vision and cone function can persist for decades. Prognostic factors: genotype (e.g., milder with retained cones in p.Met1? case), EZ width, age. No validated molecular prognostic biomarkers beyond imaging metrics.</p>
+<p><strong>12. Treatment.</strong> <strong>No gene-specific or disease-modifying therapy.</strong> Supportive/symptomatic: carbonic anhydrase inhibitors (e.g., topical dorzolamide) for cystoid macular edema (used in <a href="https://pubmed.ncbi.nlm.nih.gov/41557064/" target="_blank" rel="noopener noreferrer">PMID 41557064</a>); low-vision rehabilitation; genetic counseling. <strong>RNA-based/splice-correcting therapies predicted to be low-efficacy for the founder allele</strong> because the mutant transcript already skips exon 3 (<a href="https://pubmed.ncbi.nlm.nih.gov/38927740/" target="_blank" rel="noopener noreferrer">PMID 38927740</a>). No approved gene therapy; AAV gene augmentation is conceptually plausible given LoF mechanism but unproven. NCIT suggestions: carbonic anhydrase inhibitor therapy; gene therapy (investigational).</p>
+<p><strong>13. Prevention.</strong> Primary prevention is genetic: <strong>carrier screening</strong> (Ashkenazi Jewish panels including p.Arg76*), cascade testing of relatives, preimplantation/prenatal genetic diagnosis, and <strong>genetic counseling</strong> (NSGC/ACMG; relevance supported by <a href="https://pubmed.ncbi.nlm.nih.gov/39946424/" target="_blank" rel="noopener noreferrer">PMID 39946424</a>). No behavioral, immunization, or public-health prevention applies.</p>
+<p><strong>14. Other species / natural disease.</strong> Conserved orthologs: mouse <em>Kiz</em> (NCBI GeneID 228730), rat <em>Kiz</em> (311502), dog <em>KIZ</em> (477134), zebrafish <em>kiz</em> (567100). No well-documented naturally occurring KIZ retinopathy in companion animals/wildlife reported; comparative/evolutionary conservation of the centrosomal function is strong. Not zoonotic.</p>
+<p><strong>15. Model organisms.</strong> Mouse (<em>Plk1s1/Kiz</em>) is the principal model; mRNA in outer nuclear layer/rod photoreceptors, with expression declining during degeneration in <em>rd1</em> mice (<a href="https://pubmed.ncbi.nlm.nih.gov/29057815/" target="_blank" rel="noopener noreferrer">PMID 29057815</a>). <strong>Patient fibroblasts are a poor model</strong> (normal cilium length, preserved localization) — <a href="https://pubmed.ncbi.nlm.nih.gov/29057815/" target="_blank" rel="noopener noreferrer">PMID 29057815</a>. Zebrafish and dog orthologs available for future knockout/knock-in modeling; iPSC-derived retinal organoids would be a logical photoreceptor-specific system.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Evidence type</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24680887/">24680887</a></td>
+<td>WES identifies KIZ as a ciliary gene in AR rod-cone dystrophy</td>
+<td>Human genetics + histology</td>
+<td><strong>Defines the disease</strong>: founder nonsense p.Arg76*, basal-body localization</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38927740/">38927740</a></td>
+<td>Genetic &amp; clinical analyses of KIZ (31-patient cohort)</td>
+<td>Human cohort</td>
+<td>Founder effect, dual ESE/exon-3-skipping mechanism, milder than DHDDS/FAM161A</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32052671/">32052671</a></td>
+<td>Progressive RPE atrophy &amp; photoreceptor death in KIZ RP</td>
+<td>Human longitudinal imaging</td>
+<td>Quantitative progression rates</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41557064/">41557064</a></td>
+<td>Retained cone responses, homozygous start-codon variant</td>
+<td>Human case report</td>
+<td>Expands mild spectrum; dorzolamide management</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29057815/">29057815</a></td>
+<td>Further insights into KIZ / murine PLK1S1</td>
+<td>Human + mouse</td>
+<td>Fibroblasts poor model; retinal expression dynamics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16980960/">16980960</a></td>
+<td>Plk1 target Kizuna stabilizes mitotic centrosomes</td>
+<td>In vitro cell biology</td>
+<td>Canonical centrosomal function</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17011480/">17011480</a></td>
+<td>"Sealed with a Kiz": Plk1 &amp; spindle-pole integrity</td>
+<td>Review</td>
+<td>Supports centrosomal mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25558830/">25558830</a></td>
+<td>Kizuna is a mitotic substrate for CDC25B</td>
+<td>In vitro</td>
+<td>Additional regulatory context</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31272276/">31272276</a></td>
+<td>Clathrin pT606 / GAK–PLK1–Kiz axis</td>
+<td>In vitro</td>
+<td>Kizuna phospho-regulation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21839059/">21839059</a></td>
+<td>Poloxin PBD inhibitor, Kizuna dysfunction</td>
+<td>In vitro / in vivo</td>
+<td>Kizuna in centrosome fragmentation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31456290/">31456290</a></td>
+<td>Nationwide Israeli IRD consortium</td>
+<td>Human epidemiology</td>
+<td>KIZ is a long-tail gene; founder-mutation context</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39908130/">39908130</a></td>
+<td>FFB Consortium gene poll</td>
+<td>Human epidemiology</td>
+<td>Top IRD genes; KIZ rarity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34795310/">34795310</a></td>
+<td>WGS + splice assays for IRDs</td>
+<td>Human genetics</td>
+<td>Diagnostic context for noncoding/splice variants</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39946424/">39946424</a></td>
+<td>Genetic counselling in inherited eye diseases</td>
+<td>Human epidemiology</td>
+<td>Counseling/testing relevance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32307445/">32307445</a></td>
+<td>ABCA4 dark matter (Stargardt)</td>
+<td>Human genetics</td>
+<td>Comparative IRD methodology</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The in vitro/cell-biology papers (16980960, 17011480, 25558830, 31272276, 21839059) consistently define kizuna's <strong>centrosomal/PCM-stabilizing</strong> role but address dividing cells; they <strong>support</strong> the upstream mechanism while leaving the <strong>post-mitotic photoreceptor function inferred</strong> — the principal mechanistic gap. The clinical papers (24680887, 32052671, 38927740, 41557064) provide concordant, quantitative human evidence; no paper contradicts the core LoF-ciliopathy model.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ul>
+<li><strong>Post-mitotic mechanism is inferred, not proven.</strong> Kizuna's photoreceptor-specific function at the connecting-cilium basal body is established by localization, not by functional assays in rods; the leap from "centrosomal PCM stabilizer in mitosis" to "outer-segment maintenance in post-mitotic photoreceptors" remains a hypothesis.</li>
+<li><strong>No in vivo retinal disease model has been reported</strong> showing recapitulation of the human degeneration; patient fibroblasts are explicitly a poor model (normal cilia).</li>
+<li><strong>Natural history is based on small cohorts</strong> (largest n = 31) from populations enriched for the single founder allele, limiting genotype–phenotype generalizability for non-founder variants.</li>
+<li><strong>Penetrance, expressivity, and modifier genes are poorly quantified</strong>; the basis for RP69 being milder than DHDDS/FAM161A RP is not mechanistically explained.</li>
+<li><strong>Epidemiology outside Ashkenazi Jewish populations is essentially unknown</strong>; global prevalence is extrapolated from gnomAD allele frequencies, not measured.</li>
+<li><strong>No approved or trial-stage therapy</strong>; the ESE/exon-3-skipping finding specifically dampens enthusiasm for splice-modulating ASOs against the founder allele.</li>
+</ul>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Generate a photoreceptor-specific disease model</strong> — a <em>Kiz</em> knockout or p.Arg76* knock-in mouse, and/or patient iPSC-derived retinal organoids — to directly test outer-segment maintenance and connecting-cilium integrity (addresses the key inferred step).</li>
+<li><strong>Functional connecting-cilium assays</strong> in photoreceptor-like cells: quantify ciliary protein transport, outer-segment disc morphogenesis, and basal-body stability with and without kizuna.</li>
+<li><strong>Test AAV-mediated KIZ gene augmentation</strong> in a validated model, exploiting the clean loss-of-function mechanism that favors gene-replacement over gene-editing strategies.</li>
+<li><strong>Minigene/transcript studies of non-founder alleles</strong> to confirm whether the ESE/exon-3-skipping mechanism is unique to c.226C&gt;T, which would refine ASO/splice-therapy prioritization.</li>
+<li><strong>Deep natural-history study with standardized OCT/FAF/ERG endpoints</strong> across diverse genotypes and ancestries to define progression trajectories and trial-ready biomarkers (EZ width, RPE-atrophy area).</li>
+<li><strong>Carrier-screening expansion</strong>: ensure p.Arg76* is included on Ashkenazi Jewish reproductive carrier panels and promote cascade testing and genetic counseling.</li>
+<li><strong>Modifier-gene search</strong> (e.g., whole-genome analysis across patients with discordant severity) to explain the comparatively mild phenotype.</li>
+</ol>
+<hr />
+<p><em>Report generated from 7 confirmed findings across 15 reviewed papers (5 investigation iterations). Evidence spans human clinical genetics, human imaging cohorts, in vitro cell biology, and computational/population-database analysis, with source types indicated per claim.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/KIZ-related_Retinopathy-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/KIZ-related_Retinopathy-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.4.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>15</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>GO:0120197</code> (2 mentions) - the report calls it "photoreceptor outer segment organization"; GO calls it <strong>mucociliary clearance</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0000662</code> (2 mentions) - the report calls it "Nyctalopia / night blindness"; HP calls it <strong>Nyctalopia</strong>, and lists "Night blindness" among its other names</li>
+<li><code>HP:0030506</code> (1 mention) - the report calls it "Yellow/white lesions of the retina"; HP calls it <strong>Yellow/white retinal lesion</strong>, and lists "Yellow/white lesions of the retina" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="KIT_Mutant_Melanoma-falcon.html">← KIT Mutant Melanoma (Falcon)</a>
+                
+                
+                <a href="KLC4-Related_Early-Childhood-Onset_Neurodegeneration-falcon.html">KLC4-Related Early-Childhood-Onset Neurodegeneration (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/KIZ-related_Retinopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/KIZ-related_Retinopathy-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1186/s12982-024-00247-1
+extractor_version: 1
 title: Classical and innovative drugs for the treatment of Leishmania infections
 authors:
 - Wanessa J. S. Mota
@@ -12,12 +13,14 @@ journal: Discover Public Health
 year: '2024'
 doi: 10.1186/s12982-024-00247-1
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1186/s12982-024-00247-1.pdf"
 oa_status: diamond
 license: cc-by
 local_pdf_path: files/DOI_10.1186_s12982-024-00247-1.pdf
+full_text_access_type: open
 ---
 
 # Classical and innovative drugs for the treatment of Leishmania infections
@@ -27,7 +30,9 @@ local_pdf_path: files/DOI_10.1186_s12982-024-00247-1.pdf
 
 ## Content
 
-AbstractAlthough among the six most common parasitic diseases, leishmaniasis is considered a neglected disease, being recognised as a serious public health burden worldwide. This fact impairs technological advancements and investments in innovative therapeutic approaches, so that commonly available drugs are still associated with low therapeutic rates and significant side effects. Pentavalent antimonials, such as Pentostan® and Glucantime®, were established as chemotherapeutic agents since the 1940s, being the first line of treatment for leishmaniasis; however, 60% of cases of leishmaniasis are resistant to pentavalent antimonials. Thus, the search for more effective therapies and new therapeutic agents with potential leishmanicidal activity is still in-demand. In this review, an overview about the disease and its pathophysiology is given, discussing the current state-of-the-art of the standard treatments and new alternatives based on drug delivery approaches, enhancing the need for more effective pharmaceutical treatments.
+Abstract
+
+Although among the six most common parasitic diseases, leishmaniasis is considered a neglected disease, being recognised as a serious public health burden worldwide. This fact impairs technological advancements and investments in innovative therapeutic approaches, so that commonly available drugs are still associated with low therapeutic rates and significant side effects. Pentavalent antimonials, such as Pentostan ® and Glucantime ® , were established as chemotherapeutic agents since the 1940s, being the first line of treatment for leishmaniasis; however, 60% of cases of leishmaniasis are resistant to pentavalent antimonials. Thus, the search for more effective therapies and new therapeutic agents with potential leishmanicidal activity is still in-demand. In this review, an overview about the disease and its pathophysiology is given, discussing the current state-of-the-art of the standard treatments and new alternatives based on drug delivery approaches, enhancing the need for more effective pharmaceutical treatments.
 
 Vol.:(0123456789)
  Discover Public Health          (2024) 21:122  | https://doi.org/10.1186/s12982-024-00247-1

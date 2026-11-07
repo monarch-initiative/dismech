@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s42003-023-05268-1
+extractor_version: 1
 title: A G1528C Hadha knock-in mouse model recapitulates aspects of human clinical phenotypes for long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency
 authors:
 - Garen Gaston
@@ -19,12 +20,14 @@ journal: Communications Biology
 year: '2023'
 doi: 10.1038/s42003-023-05268-1
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s42003-023-05268-1.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s42003-023-05268-1.pdf
+full_text_access_type: open
 ---
 
 # A G1528C Hadha knock-in mouse model recapitulates aspects of human clinical phenotypes for long-chain 3-hydroxyacyl-CoA dehydrogenase deficiency
@@ -34,7 +37,9 @@ local_pdf_path: files/DOI_10.1038_s42003-023-05268-1.pdf
 
 ## Content
 
-AbstractLong chain 3-hydroxyacyl-CoA dehydrogenase deficiency (LCHADD) is a fatty acid oxidation disorder (FAOD) caused by a pathogenic variant, c.1528 G > C, in HADHA encoding the alpha subunit of trifunctional protein (TFPα). Individuals with LCHADD develop chorioretinopathy and peripheral neuropathy not observed in other FAODs in addition to the more ubiquitous symptoms of hypoketotic hypoglycemia, rhabdomyolysis and cardiomyopathy. We report a CRISPR/Cas9 generated knock-in murine model of G1528C in Hadha that recapitulates aspects of the human LCHADD phenotype. Homozygous pups are less numerous than expected from Mendelian probability, but survivors exhibit similar viability with wildtype (WT) littermates. Tissues of LCHADD homozygotes express TFPα protein, but LCHADD mice oxidize less fat and accumulate plasma 3-hydroxyacylcarnitines compared to WT mice. LCHADD mice exhibit lower ketones with fasting, exhaust earlier during treadmill exercise and develop a dilated cardiomyopathy compared to WT mice. In addition, LCHADD mice exhibit decreased visual performance, decreased cone function, and disruption of retinal pigment epithelium. Neurological function is affected, with impaired motor function during wire hang test and reduced open field activity. The G1528C knock-in mouse exhibits a phenotype similar to that observed in human patients; this model will be useful to explore pathophysiology and treatments for LCHADD in the future.
+Abstract
+
+Long chain 3-hydroxyacyl-CoA dehydrogenase deficiency (LCHADD) is a fatty acid oxidation disorder (FAOD) caused by a pathogenic variant, c.1528 G > C, in HADHA encoding the alpha subunit of trifunctional protein (TFPα). Individuals with LCHADD develop chorioretinopathy and peripheral neuropathy not observed in other FAODs in addition to the more ubiquitous symptoms of hypoketotic hypoglycemia, rhabdomyolysis and cardiomyopathy. We report a CRISPR/Cas9 generated knock-in murine model of G1528C in Hadha that recapitulates aspects of the human LCHADD phenotype. Homozygous pups are less numerous than expected from Mendelian probability, but survivors exhibit similar viability with wildtype (WT) littermates. Tissues of LCHADD homozygotes express TFPα protein, but LCHADD mice oxidize less fat and accumulate plasma 3-hydroxyacylcarnitines compared to WT mice. LCHADD mice exhibit lower ketones with fasting, exhaust earlier during treadmill exercise and develop a dilated cardiomyopathy compared to WT mice. In addition, LCHADD mice exhibit decreased visual performance, decreased cone function, and disruption of retinal pigment epithelium. Neurological function is affected, with impaired motor function during wire hang test and reduced open field activity. The G1528C knock-in mouse exhibits a phenotype similar to that observed in human patients; this model will be useful to explore pathophysiology and treatments for LCHADD in the future.
 
 ARTICLE
 A G1528C Hadha knock-in mouse model

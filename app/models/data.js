@@ -792,6 +792,54 @@ window.searchData = [
     "source_file": "kb/disorders/Fanconi_Anemia.yaml"
   },
   {
+    "model_key": "Alzheimer_Disease--computational-model-camd-alzheimer-disease-clinical-trial-simulation-model--1",
+    "name": "CAMD Alzheimer Disease Clinical Trial Simulation Model",
+    "description": "Beta-regression drug-disease-trial model of longitudinal ADAS-Cog 11 progression in mild-to-moderate Alzheimer disease, fit jointly to patient-level control-arm data from the Coalition Against Major Diseases (CAMD) database, ADNI natural-history data and summary-level literature data. It estimates disease progression (dependent on time, APOE4 status, age and sex), placebo effect, acetylcholinesterase-inhibitor effects and dropout, and is used for clinical trial simulation. FDA deemed it fit for purpose for designing mild-to-moderate Alzheimer disease trials on 12 June 2013. It is an empirical disease-progression model and does not represent any biological mechanism.",
+    "model_type": "Unclassified",
+    "model_type_raw": "",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:22821139",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Alzheimer Disease",
+    "disease_id": "MONDO:0004975",
+    "category": "Neurodegenerative Disorder",
+    "parents": [
+      "Dementia",
+      "Neurodegenerative Disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [],
+    "num_mechanisms": 0,
+    "findings": [
+      "The CAMD clinical trial simulation tool went through formal regulatory review at FDA and EMA.",
+      "FDA deemed the CAMD clinical trial simulation tool fit for purpose for designing trials in mild to moderate Alzheimer disease on 12 June 2013.",
+      "Modelled ADAS-Cog progression depended on time, APOE4 status, age and sex.",
+      "The model passed predictive checks and external validation."
+    ],
+    "num_findings": 4,
+    "evidence_refs": [
+      "PMID:22821139",
+      "PMID:25669145"
+    ],
+    "num_evidence": 2,
+    "notes": "No modeled_mechanisms link is recorded: the model describes the rate of change of the 11-item ADAS-Cog total, a composite of memory, language, praxis and orientation items, and represents no biological mechanism, so no pathophysiology node in this entry is its target. It was built from mild-to-moderate, trial-eligible patients without consistent amyloid or tau biomarker data. model_type is left unset because no ComputationalModelTypeEnum value fits a statistical disease-progression model; the closest, PHYSIOLOGICAL, is defined as a PBPK or organ model. FDA's fit-for-purpose determination is also listed in its Drug Development Tools Fit-for-Purpose table.",
+    "creation_date": "2025-12-04T16:57:31Z",
+    "page_url": "../../pages/disorders/Alzheimer_Disease.html#computational-model-camd-alzheimer-disease-clinical-trial-simulation-model",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Alzheimer_Disease.yaml"
+  },
+  {
     "model_key": "CDK8-Related_Disorder--computational-model-cdk8-cyclin-c-molecular-dynamics--0",
     "name": "CDK8\u2013Cyclin C Molecular Dynamics",
     "description": "Reference, Ser62Leu and Arg178Gln CDK8\u2013cyclin C structures with ATP were compared by molecular dynamics. The modeling used CDK8 structure 4F7S and an aligned CDK9 ATP template, with unresolved regions modeled in MOE and replicate simulations in GROMACS. The variants were predicted to restrict substrate-pocket opening without grossly changing the overall fold.",
@@ -1296,9 +1344,10 @@ window.searchData = [
     "findings": [],
     "num_findings": 0,
     "evidence_refs": [
-      "PMID:30439387"
+      "PMID:30439387",
+      "PMID:42797696"
     ],
-    "num_evidence": 1,
+    "num_evidence": 2,
     "notes": "Carries no mechanism link for the same reason as the SARA model: it integrates the per-key-event assay readouts into a hazard and potency prediction for the outcome, and this entry has no adverse-outcome node. Its inputs cover key events 1 to 3, so no single node corresponds to it either. Hazard accuracy is about 85 to 86 percent against local lymph node assay and human reference data, but the correct potency category is reached for only 59 to 68 percent of chemicals. The structural component rests on chemical structure and statistical association rather than on the molecular processes of sensitization.",
     "creation_date": "2026-03-13T18:40:33Z",
     "page_url": "../../pages/disorders/Contact_Dermatitis.html#computational-model-decision-tree-defined-approach-with-derek-nexus-and-a-k-nearest-neighbours-potency-model",
@@ -4162,6 +4211,69 @@ window.searchData = [
     "source_file": "kb/modules/cellular_senescence.yaml"
   },
   {
+    "model_key": "Familial_Long_QT_Syndrome--computational-model-populations-of-human-ventricular-action-potential-models-passini-2017--3",
+    "name": "Populations of Human Ventricular Action Potential Models (Passini 2017)",
+    "description": "In silico drug-trial framework in which the O'Hara-Rudy dynamic (ORd) human ventricular action potential model is expanded into a population of 1,213 control models whose ionic-current conductances vary, retaining only models consistent with human experimental recordings. Reference compounds are applied as multi-channel pore block (IC50 and Hill coefficient), and the occurrence of repolarization abnormalities across the population is used to predict clinical torsade de pointes risk. It models drug-induced (acquired) proarrhythmia in wild-type cells, not the inherited channel defects that define this entry; it is linked here through the drug-unmasking node that the two forms share.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "O'Hara-Rudy ORd human ventricular action potential model (PMID:21637795)",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:28955244",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Familial Long QT Syndrome",
+    "disease_id": "MONDO:0019171",
+    "category": "Genetic",
+    "parents": [
+      "Cardiac Arrhythmia",
+      "Channelopathy"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [
+      "SCN5A",
+      "KCNH2",
+      "KCNQ1",
+      "KCND3",
+      "CACNA1C",
+      "KCNJ2"
+    ],
+    "perturbation_ids": [
+      "hgnc:10593",
+      "hgnc:6251",
+      "hgnc:6294",
+      "hgnc:6239",
+      "hgnc:1390",
+      "hgnc:6263"
+    ],
+    "modeled_mechanisms": [
+      "QT-Prolonging Drug Unmasking of Reduced Repolarization Reserve",
+      "Early Afterdepolarizations"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "Repolarization abnormalities in the model population predicted clinical torsade de pointes risk for 62 reference compounds with 89% accuracy.",
+      "The in silico classification was more accurate than a published animal comparator, the rabbit isolated Langendorff heart (89% for 62 compounds against 75% for 64 compounds).",
+      "Simulated action potential duration changes agreed with rabbit QT interval and hiPSC-cardiomyocyte calcium-transient changes for the compounds compared."
+    ],
+    "num_findings": 3,
+    "evidence_refs": [
+      "PMID:28955244"
+    ],
+    "num_evidence": 1,
+    "notes": "No FDA regulatory action on this model was found in the cited sources. Each compound is modelled as block of up to seven currents (INa, INaL, IKr, IKs, Ito, ICaL and IK1); the perturbations list the genes encoding the principal channel for each current.",
+    "creation_date": "2026-04-14T05:37:14Z",
+    "page_url": "../../pages/disorders/Familial_Long_QT_Syndrome.html#computational-model-populations-of-human-ventricular-action-potential-models-passini-2017",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Long_QT_Syndrome.yaml"
+  },
+  {
     "model_key": "Stem_Cell_Exhaustion_Module--computational-model-predicting-clonal-self-renewal-and-extinction-of-hematopoietic-stem-cells--2",
     "name": "Predicting Clonal Self-Renewal and Extinction of Hematopoietic Stem Cells",
     "description": "Stochastic model of hematopoietic stem cell clone dynamics that predicts the probability of a clone self-renewing versus going extinct, reconciling the observed persistence of some clones with the loss of most.",
@@ -5150,6 +5262,113 @@ window.searchData = [
       "Dermatological Disease",
       "Inflammatory Disease"
     ],
+    "variables": [
+      "Human repeat insult patch test result",
+      "Local lymph node assay result",
+      "Direct peptide reactivity assay result",
+      "KeratinoSens result",
+      "Human cell line activation test result",
+      "U-SENS result",
+      "Sensitiser potency metric",
+      "Margin of exposure",
+      "Probability that an exposure is low risk"
+    ],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 9,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [],
+    "num_mechanisms": 0,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:35311660",
+      "PMID:35835397"
+    ],
+    "num_evidence": 2,
+    "notes": "Carries no mechanism link, because what it predicts is the sensitization outcome and this entry has no adverse-outcome node to attach that to; see the no_node_for_integrated_outcome_prediction discussion. The potency metric is inferred statistically rather than measured, and the model is anchored on human patch test and local lymph node assay reference data, so it inherits those reference sets' domains. Whether the safety assessment factors used with animal data suit a non-animal point of departure is unresolved.",
+    "creation_date": "2026-03-13T18:40:33Z",
+    "page_url": "../../pages/disorders/Contact_Dermatitis.html#computational-model-skin-allergy-risk-assessment-sara-model",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Contact_Dermatitis.yaml"
+  },
+  {
+    "model_key": "Contact_Dermatitis--computational-model-skin-allergy-risk-assessment-integrated-chemical-environment-sara-ice--3",
+    "name": "Skin Allergy Risk Assessment - Integrated Chemical Environment (SARA-ICE)",
+    "description": "A Bayesian framework for quantitative skin sensitization hazard and potency assessment, developed by NICEATM and Unilever, that estimates the ED01: the dermal dose associated with a 1 percent sensitization probability in humans. It integrates in chemico and in vitro assay results and can also take historical human and murine data. Two implementations share the one model. SARA-ICE DA is a fixed defined approach accepted into OECD Guideline 497 for deriving a point of departure and usable under Mutual Acceptance of Data; it reports the point of departure as the geometric mean of the ED01 distribution. SARA-ICE Extended returns the full ED01 distribution, a prediction uncertainty ratio, and probabilities for the GHS subcategories.",
+    "model_type": "Machine Learning",
+    "model_type_raw": "MACHINE_LEARNING",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:41816003",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Contact Dermatitis",
+    "disease_id": "MONDO:0005480",
+    "category": "Complex",
+    "parents": [
+      "Dermatological Disease",
+      "Inflammatory Disease"
+    ],
+    "variables": [
+      "Direct peptide reactivity assay result",
+      "Kinetic direct peptide reactivity assay result",
+      "KeratinoSens result",
+      "Human cell line activation test result",
+      "U937 cell line activation test result",
+      "Human predictive patch test result",
+      "Local lymph node assay result",
+      "ED01",
+      "SARA-ICE DA point of departure",
+      "SARA-ICE prediction uncertainty ratio",
+      "GHS subcategory probability"
+    ],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 11,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [],
+    "num_mechanisms": 0,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:41816003"
+    ],
+    "num_evidence": 1,
+    "notes": "Carries no mechanism link for the same reason as the SARA model above: it predicts the sensitization outcome from inputs spanning several key events, and this entry has no adverse-outcome node to attach that to; see the no_node_for_integrated_outcome_prediction discussion. A separate record from the SARA model rather than a re-curation of it, because SARA-ICE was built on the Unilever SARA model with an expanded training set drawn from the NICEATM Integrated Chemical Environment database and a curated human predictive patch test set, names the ED01 as its output quantity, and takes kinetic direct peptide reactivity assay results, which SARA does not. The two implementations are recorded as one model because the source presents them as two implementations of one Bayesian framework, differing in output and in whether a user can change them: the defined approach is fixed and cannot be altered outside a guideline update, while Extended is versioned and may gain input types. The human input is the same quantity the SARA record calls human repeat insult patch test; the later paper uses the umbrella term human predictive patch test for the maximization and repeat-insult tests together. The defined approach requires at least two key event inputs to be acceptable under Mutual Acceptance of Data. Two limits on what the evaluation supports. Specificity for non-sensitizers was lower than sensitivity, so the model is more reliable at identifying a sensitizer than at clearing a non-sensitizer; and GHS subcategorization accuracy of 33 to 77 percent means the potency category is considerably weaker than the hazard call, as it is for the defined approach recorded above. The input enumeration and every per-assay count in this record come from the source's Methods section 2.1.1, which describes a database of 434 distinct chemicals and nearly 5000 data points; that section is not in the cached abstract, so no snippet here covers those figures. Two further statements in this record are beyond the cached abstract in the same way, and no snippet covers them either: the abstract records acceptance by the OECD and use under Mutual Acceptance of Data without naming Guideline 497, which the source identifies in its introduction, and the defined approach's two-key-event input requirement, which is in Methods section 2.1.2. The 180 substances in the evidence below are the evaluation set, tested in the direct peptide reactivity assay, KeratinoSens and the human cell line activation test only, and are not the training database. What this source does not give is each input's measured endpoint and unit as the model consumes it: it states the assay names and defers the model's internals to Reinke et al. 2025 and Reynolds et al. 2019 and 2022. The endpoints are therefore recorded here only where this entry already curates the assay as its own model.",
+    "creation_date": "2026-03-13T18:40:33Z",
+    "page_url": "../../pages/disorders/Contact_Dermatitis.html#computational-model-skin-allergy-risk-assessment-integrated-chemical-environment-sara-ice",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Contact_Dermatitis.yaml"
+  },
+  {
+    "model_key": "Contact_Dermatitis--computational-model-skin-sensitization-prediction-model-sspm--2",
+    "name": "Skin Sensitization Prediction Model (SSPM)",
+    "description": "An algorithm that compares a proposed cosmetic or personal-care formulation against a database of more than 20 years of human repeat insult patch test (HRIPT) results on 1274 product formulations and 1226 common ingredients, tested on 203,640 human subjects, to set per-ingredient and per-formulation risk thresholds from dosage density, occlusion potential, skin-barrier-impairment potential, and potential effects on immune-primed skin.",
+    "model_type": "Unclassified",
+    "model_type_raw": "",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:40953631",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Contact Dermatitis",
+    "disease_id": "MONDO:0005480",
+    "category": "Complex",
+    "parents": [
+      "Dermatological Disease",
+      "Inflammatory Disease"
+    ],
     "variables": [],
     "variable_ids": [],
     "variable_terms": [],
@@ -5161,12 +5380,12 @@ window.searchData = [
     "findings": [],
     "num_findings": 0,
     "evidence_refs": [
-      "PMID:35311660"
+      "PMID:40953631"
     ],
     "num_evidence": 1,
-    "notes": "Carries no mechanism link, because what it predicts is the sensitization outcome and this entry has no adverse-outcome node to attach that to; see the no_node_for_integrated_outcome_prediction discussion. The potency metric is inferred statistically rather than measured, and the model is anchored on human patch test and local lymph node assay reference data, so it inherits those reference sets' domains. Whether the safety assessment factors used with animal data suit a non-animal point of departure is unresolved.",
+    "notes": "Carries no mechanism link for the same reason as the SARA model: it predicts a formulation-level sensitization risk call rather than measuring any single mechanism step, and this entry has no adverse-outcome node to attach that to; see the no_node_for_integrated_outcome_prediction discussion. It is a rule-based risk-threshold calculator over historical human test data rather than a trained statistical or machine-learning model, so no ComputationalModelTypeEnum value is a good fit and model_type is left unset. Its reference data is a separate, proprietary HRIPT database rather than the published HPPT database (PMID:37615678, in this entry's references catalog) that the other assay-validation records cite.",
     "creation_date": "2026-03-13T18:40:33Z",
-    "page_url": "../../pages/disorders/Contact_Dermatitis.html#computational-model-skin-allergy-risk-assessment-sara-model",
+    "page_url": "../../pages/disorders/Contact_Dermatitis.html#computational-model-skin-sensitization-prediction-model-sspm",
     "model_page_url": "",
     "source_file": "kb/disorders/Contact_Dermatitis.yaml"
   },
@@ -5868,6 +6087,55 @@ window.searchData = [
     "page_url": "../../pages/disorders/Multiple_Sclerosis.html#computational-model-uiss-ms-agent-based-treatment-simulator",
     "model_page_url": "",
     "source_file": "kb/disorders/Multiple_Sclerosis.yaml"
+  },
+  {
+    "model_key": "Diabetes_mellitus--computational-model-uva-padova-type-1-diabetes-simulator--4",
+    "name": "UVA/Padova Type 1 Diabetes Simulator",
+    "description": "Simulator of glucose-insulin dynamics with a population of in silico subjects with type 1 diabetes, built on the Dalla Man meal model of the glucose-insulin system. The 2013 version (S2013) adds nonlinear insulin-dependent glucose utilization in hypoglycemia and glucagon kinetics, secretion and action. It is used for in silico trials of glucose sensors, insulin dosing and closed-loop (artificial pancreas) controllers, and its developers report that FDA accepted it in 2008 as a substitute for animal trials in pre-clinical testing of insulin treatment strategies; no FDA document recording that decision is cited here. It describes the type 1 diabetes subtype only, not the other forms this umbrella entry covers.",
+    "model_type": "Physiological",
+    "model_type_raw": "PHYSIOLOGICAL",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "Dalla Man meal simulation model of the glucose-insulin system (PMID:17926672)",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:24876534",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Diabetes mellitus",
+    "disease_id": "MONDO:0005015",
+    "category": "Complex",
+    "parents": [
+      "endocrine pancreas disorder",
+      "glucose metabolism disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Chronic Hyperglycemia (shared diabetic complication cascade)"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "The simulator's developers report that FDA accepted it in January 2008 as a substitute for animal trials in pre-clinical testing of insulin treatment strategies.",
+      "The S2013 version describes hypoglycemic events better than the earlier version."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:17926672",
+      "PMID:24876534",
+      "PMID:37743740"
+    ],
+    "num_evidence": 3,
+    "notes": "Placed on this umbrella entry rather than on Type_I_Diabetes at the maintainer's direction on issue #16321. The simulator is distributed under licence by the University of Virginia and is not in a public repository.",
+    "creation_date": "2026-02-21T15:39:12Z",
+    "page_url": "../../pages/disorders/Diabetes_mellitus.html#computational-model-uva-padova-type-1-diabetes-simulator",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Diabetes_Mellitus.yaml"
   },
   {
     "model_key": "Advanced_Sleep_Phase_Syndrome--computational-model-vanselow-per2-multisite-phosphorylation-oscillator--0",
@@ -6733,7 +7001,7 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 138,
+  "total_models": 143,
   "total_source_entries": 64,
   "total_model_types": 11,
   "total_runnable": 4,

@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STAR Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>STAR Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>STAR Syndrome</h1>
+                
+                <p class="report-subtitle">STAR Syndrome: A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-11-05</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010408" target="_blank" rel="noopener noreferrer">MONDO:0010408</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">9 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>STAR Syndrome: A Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> STAR syndrome (toe <strong>S</strong>yndactyly, <strong>T</strong>elecanthus, <strong>A</strong>nogenital and <strong>R</strong>enal malformations)
+<strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0010408" target="_blank" rel="noopener noreferrer">MONDO:0010408</a> · <strong>OMIM (phenotype):</strong> 300707 · <strong>OMIM (gene):</strong> 300708 · <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:83617" target="_blank" rel="noopener noreferrer">ORPHA:83617</a>
+<strong>Causal gene:</strong> <strong>CCNQ</strong> (HGNC-approved symbol; historical/alias symbol <strong>FAM58A</strong>, protein "Cyclin M" / "Cyclin Q")
+<strong>Inheritance:</strong> X-linked dominant, essentially female-limited</p>
+<hr />
+<h2>Summary</h2>
+<p>STAR syndrome is an ultra-rare X-linked dominant congenital malformation syndrome defined by the tetrad of <strong>toe Syndactyly, Telecanthus, and Anogenital and Renal malformations</strong>. Its causal gene is <strong>CCNQ</strong> — the HGNC-approved symbol for the gene historically published as <strong>FAM58A</strong>, located at <strong>Xq28</strong>. The gene product is <strong>Cyclin Q</strong> (also called Cyclin M; UniProt Q8N1B3, 248 amino acids), the activating cyclin of the orphan cyclin-dependent kinase <strong>CDK10</strong>. The syndrome was first delineated by Unger and colleagues in 2008, who identified causative FAM58A/CCNQ mutations in all affected individuals across multiple families and established the X-linked dominant inheritance pattern (<a href="https://pubmed.ncbi.nlm.nih.gov/18297069/">PMID: 18297069</a>). It is important to distinguish STAR syndrome from the separate, biallelic recessive <strong>CDK10</strong>-deficiency disorder (severe growth retardation, spine malformations), which affects the kinase partner rather than the cyclin (<a href="https://pubmed.ncbi.nlm.nih.gov/28886341/">PMID: 28886341</a>).</p>
+<p>Mechanistically, STAR-associated Cyclin Q mutants <strong>fail to bind CDK10</strong>, abolishing the kinase activity of the CDK10/Cyclin Q complex (<a href="https://pubmed.ncbi.nlm.nih.gov/24218572/">PMID: 24218572</a>). The downstream consequences converge on two documented axes: (1) <strong>impaired proteasomal degradation of the transcription factor ETS2</strong>, which accumulates in patient-derived cells and elevates MAPK/RAS-pathway output; and (2) <strong>dysregulation of the PKN2–RhoA–actin cytoskeletal axis</strong>, which drives aberrant assembly and elongation of the <strong>primary cilium</strong>. Kidney tissue from a STAR patient displays dilated renal tubules and abnormal, elongated cilia, directly linking the renal malformation to a ciliopathy-like mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/27104747/">PMID: 27104747</a>). The CDK10/Cyclin Q complex additionally phosphorylates RNA polymerase II C-terminal domain (CTD), c-MYC, and RB1, situating it within transcriptional and cell-cycle control (<a href="https://pubmed.ncbi.nlm.nih.gov/35291876/">PMID: 35291876</a>).</p>
+<p>The disorder is essentially limited to females, consistent with presumed male lethality; this is quantitatively supported by strong gnomAD loss-of-function constraint on CCNQ (pLI 0.99, LOEUF 0.44; 3 observed vs 17.7 expected LoF variants). The phenotypic spectrum is broad and includes a <strong>lethal "STAR plus" form</strong> associated with large contiguous-gene Xq28 deletions. There is no disease-specific or curative therapy — management is supportive, malformation-directed (surgical correction of syndactyly, anorectal and renal anomalies), and anchored by genetic counseling.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> STAR syndrome is a recognizable multiple-congenital-anomaly syndrome whose name is an acronym for its cardinal features: toe <strong>S</strong>yndactyly, <strong>T</strong>elecanthus, and <strong>A</strong>nogenital and <strong>R</strong>enal malformations. All four cardinal features were present in every affected individual in the original cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/18297069/">PMID: 18297069</a>). It is a developmental disorder of Mendelian, X-linked dominant inheritance.</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0010408" target="_blank" rel="noopener noreferrer">MONDO:0010408</a></td>
+</tr>
+<tr>
+<td>OMIM (phenotype)</td>
+<td>300707</td>
+</tr>
+<tr>
+<td>OMIM (gene, CCNQ/FAM58A)</td>
+<td>300708</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:83617" target="_blank" rel="noopener noreferrer">ORPHA:83617</a></td>
+</tr>
+<tr>
+<td>Gene (HGNC)</td>
+<td>CCNQ, <a href="https://bioregistry.io/HGNC:28434" target="_blank" rel="noopener noreferrer">HGNC:28434</a></td>
+</tr>
+<tr>
+<td>NCBI Gene</td>
+<td>92002</td>
+</tr>
+<tr>
+<td>Ensembl</td>
+<td>ENSG00000262919</td>
+</tr>
+<tr>
+<td>UniProt (protein)</td>
+<td>Q8N1B3 (Cyclin-Q)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> "STAR syndrome"; "Syndactyly, telecanthus, and anogenital and renal malformations"; "Toe syndactyly–telecanthus–anogenital and renal malformations syndrome." The causal gene has been published under both <strong>FAM58A</strong> (original) and <strong>CCNQ</strong> (current HGNC symbol); the protein is referred to as <strong>Cyclin M</strong> and <strong>Cyclin Q</strong> interchangeably in the literature.</p>
+<p><strong>Information source.</strong> The disease-level knowledge base here is derived from <strong>aggregated resources</strong> (OMIM, Orphanet, gnomAD, UniProt, InterPro) combined with a small set of <strong>individual patient reports and case series</strong> (the primary literature). Because the condition is ultra-rare, essentially all clinical knowledge comes from individual or small-pedigree case reports rather than large registries or EHR cohorts.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factors.</strong> STAR syndrome is a <strong>monogenic, genetic</strong> disorder. The primary cause is <strong>loss of function of CCNQ/FAM58A</strong> on Xq28. Two variant mechanisms are documented: (a) <strong>intragenic point mutations</strong> (e.g., the nonsense variant c.651G&gt;A, p.Trp217<em>) and (b) </em><em>contiguous-gene microdeletions</em>* at Xq28 that remove CCNQ (and, when large, neighboring genes). There are no established environmental or infectious causes.</p>
+<p><strong>Genetic risk factors.</strong> The disease-causing variants are themselves the sole genetic "risk factor." Being female is the principal demographic determinant of observed disease, because affected males are presumed to be non-viable (male lethality). gnomAD constraint metrics confirm that CCNQ is highly intolerant to loss of function (pLI 0.989; LOEUF 0.438; 3 observed vs 17.7 expected LoF variants), consistent with pathogenic LoF and male lethality.</p>
+<p><strong>Environmental / lifestyle risk factors.</strong> None identified. STAR syndrome is congenital and determined by the germline genotype; no toxin, occupational exposure, diet, or lifestyle factor is implicated.</p>
+<p><strong>Protective factors.</strong> No genetic modifier alleles or environmental protective factors have been reported. In females, <strong>X-inactivation patterns</strong> (skewing toward silencing the mutant allele) are a plausible but unproven modifier of expressivity — this remains inferred rather than demonstrated.</p>
+<p><strong>Gene–environment interactions.</strong> None documented; the disorder is explained by the germline CCNQ lesion alone.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The cardinal tetrad was present in all affected individuals in the founding study (<a href="https://pubmed.ncbi.nlm.nih.gov/18297069/">PMID: 18297069</a>). Severity is <strong>variable</strong> even within a single pedigree, and the spectrum has expanded with subsequent reports.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Suggested HPO term</th>
+<th>Onset</th>
+<th>Frequency / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Toe syndactyly</td>
+<td>Physical malformation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001770" target="_blank" rel="noopener noreferrer">HP:0001770</a> (Toe syndactyly)</td>
+<td>Congenital</td>
+<td>Cardinal; all patients in original cohort</td>
+</tr>
+<tr>
+<td>Telecanthus</td>
+<td>Physical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000506" target="_blank" rel="noopener noreferrer">HP:0000506</a> (Telecanthus)</td>
+<td>Congenital</td>
+<td>Cardinal</td>
+</tr>
+<tr>
+<td>Anogenital malformation (anal stenosis/atresia, clitoromegaly, urogenital sinus)</td>
+<td>Physical malformation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002023" target="_blank" rel="noopener noreferrer">HP:0002023</a> (Anal atresia); <a href="http://purl.obolibrary.org/obo/HP_0008665" target="_blank" rel="noopener noreferrer">HP:0008665</a> (Anal stenosis); <a href="http://purl.obolibrary.org/obo/HP_0008730" target="_blank" rel="noopener noreferrer">HP:0008730</a> (Clitoromegaly)</td>
+<td>Congenital</td>
+<td>Cardinal</td>
+</tr>
+<tr>
+<td>Renal malformation (renal hypoplasia, dysplasia, vesicoureteral reflux)</td>
+<td>Physical malformation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000089" target="_blank" rel="noopener noreferrer">HP:0000089</a> (Renal hypoplasia); <a href="http://purl.obolibrary.org/obo/HP_0000076" target="_blank" rel="noopener noreferrer">HP:0000076</a> (Vesicoureteral reflux)</td>
+<td>Congenital</td>
+<td>Cardinal</td>
+</tr>
+<tr>
+<td>Congenital heart disease</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a> (Abnormal heart morphology)</td>
+<td>Congenital</td>
+<td>Reported in severe cases</td>
+</tr>
+<tr>
+<td>Ocular: medial upper-eyelid prominences, madarosis, optic nerve hypoplasia, peripapillary atrophy, macular drusen</td>
+<td>Clinical signs</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000540" target="_blank" rel="noopener noreferrer">HP:0000540</a> (Optic nerve hypoplasia); <a href="http://purl.obolibrary.org/obo/HP_0000561" target="_blank" rel="noopener noreferrer">HP:0000561</a> (Absent eyelashes / madarosis)</td>
+<td>Congenital</td>
+<td>Mother–daughter pair (<a href="https://pubmed.ncbi.nlm.nih.gov/26882209/">PMID: 26882209</a>)</td>
+</tr>
+<tr>
+<td>Tethered spinal cord</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002144" target="_blank" rel="noopener noreferrer">HP:0002144</a> (Tethered cord)</td>
+<td>Congenital/childhood</td>
+<td>Added by multigenerational pedigree (<a href="https://pubmed.ncbi.nlm.nih.gov/28322501/">PMID: 28322501</a>)</td>
+</tr>
+<tr>
+<td>Hearing loss</td>
+<td>Sensory sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" rel="noopener noreferrer">HP:0000365</a> (Hearing impairment)</td>
+<td>Childhood</td>
+<td>Added by same pedigree</td>
+</tr>
+<tr>
+<td>"STAR plus" (cleft lip/palate, omphalocele, cerebral malformations)</td>
+<td>Severe/lethal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0410030" target="_blank" rel="noopener noreferrer">HP:0410030</a> (Cleft lip); <a href="http://purl.obolibrary.org/obo/HP_0001539" target="_blank" rel="noopener noreferrer">HP:0001539</a> (Omphalocele)</td>
+<td>Congenital</td>
+<td>Lethal form with large Xq28 deletion (<a href="https://pubmed.ncbi.nlm.nih.gov/29088509/">PMID: 29088509</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Severity and progression.</strong> Severity ranges from <strong>mild</strong> (e.g., a mother with unilateral foot syndactyly, telecanthus, anal stenosis, and a hypoplastic kidney) to <strong>lethal</strong> (STAR plus). Malformations are structural and <strong>stable/non-progressive</strong> once formed, though secondary renal functional decline can occur over time. In the mother–daughter pair, the daughter's presentation was uniformly more severe than the mother's, illustrating intrafamilial variable expressivity (<a href="https://pubmed.ncbi.nlm.nih.gov/26882209/">PMID: 26882209</a>).</p>
+<p><strong>Quality of life.</strong> No formal EQ-5D/SF-36/PROMIS data exist for this ultra-rare condition. Impact is driven by the burden of multiple reconstructive surgeries (syndactyly, anorectal, urogenital), renal function monitoring, and, where present, developmental or sensory impairment. Lethal forms have the most extreme impact (neonatal death).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <strong>CCNQ</strong> (alias FAM58A), Xq28; <a href="https://bioregistry.io/HGNC:28434" target="_blank" rel="noopener noreferrer">HGNC:28434</a>; NCBI Gene 92002; Ensembl ENSG00000262919 (transcripts ENST00000440428 / ENST00000576892); gene OMIM 300708. The protein, <strong>Cyclin Q</strong> (UniProt Q8N1B3), is 248 amino acids and contains <strong>two cyclin-box folds</strong> — InterPro IPR048055 ("Cyclin-Q first cyclin box") and IPR048053 ("Cyclin-Q second cyclin box"), with Pfam domains PF00134 (Cyclin_N) and PF21797 (CycT2-like C-terminal).</p>
+<p><strong>Pathogenic variants.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Type</th>
+<th>Classification</th>
+<th>Consequence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c.651G&gt;A, p.Trp217* (NM_152274)</td>
+<td>Nonsense</td>
+<td>Pathogenic</td>
+<td>Truncates terminal 31 residues (217–248), removing part of the C-terminal/second cyclin box (<a href="https://pubmed.ncbi.nlm.nih.gov/28322501/">PMID: 28322501</a>)</td>
+</tr>
+<tr>
+<td>Original FAM58A mutations (Unger 2008)</td>
+<td>Point mutations / small lesions</td>
+<td>Pathogenic</td>
+<td>Loss of function (<a href="https://pubmed.ncbi.nlm.nih.gov/18297069/">PMID: 18297069</a>)</td>
+</tr>
+<tr>
+<td>~130 kb Xq28 deletion including FAM58A</td>
+<td>Contiguous-gene deletion</td>
+<td>Pathogenic</td>
+<td>LoF + flanking genes → lethal STAR plus (<a href="https://pubmed.ncbi.nlm.nih.gov/29088509/">PMID: 29088509</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Functional consequence.</strong> <strong>Loss of function.</strong> STAR-associated Cyclin Q mutants are <strong>unable to interact with CDK10</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/24218572/">PMID: 24218572</a>), abolishing kinase-complex activity. The p.Trp217* truncation removes the C-terminal cyclin-box region required for CDK10 binding, mechanistically explaining the loss of interaction.</p>
+<p><strong>Allele frequency.</strong> Pathogenic variants are not present at appreciable frequency in population databases; CCNQ shows only 3 observed LoF variants against 17.7 expected in gnomAD (strong depletion; LoF Z = 2.96, missense Z = 2.19).</p>
+<p><strong>Somatic vs germline.</strong> <strong>Germline</strong> (constitutional, congenital). No somatic STAR-syndrome mechanism is described, although CDK10/Cyclin Q is noted to act as a <strong>tumour suppressor</strong> in other contexts (<a href="https://pubmed.ncbi.nlm.nih.gov/35291876/">PMID: 35291876</a>).</p>
+<p><strong>Modifier genes / epigenetics.</strong> No specific modifier genes identified. In females, <strong>X-chromosome inactivation</strong> is the most plausible epigenetic modifier of expressivity (inferred). No DNA-methylation or histone-modification signature is established for the disease.</p>
+<p><strong>Chromosomal abnormalities.</strong> Contiguous-gene <strong>Xq28 microdeletions</strong> are a documented cause; large deletions correlate with the lethal STAR plus phenotype.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No environmental, lifestyle, or infectious agents contribute to STAR syndrome. It is a purely genetic, congenital malformation syndrome. This section is <strong>not applicable</strong> beyond noting the absence of non-genetic contributors.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li>A germline <strong>loss-of-function lesion in CCNQ/FAM58A</strong> (point mutation such as p.Trp217<em>, or Xq28 deletion) </em><em>truncates or eliminates Cyclin Q</em>*, removing part of its C-terminal cyclin box.</li>
+<li>The truncated/absent Cyclin Q <strong>cannot bind CDK10</strong> → <strong>loss of CDK10/Cyclin Q kinase complex activity</strong> (demonstrated: STAR mutants fail to interact with CDK10, <a href="https://pubmed.ncbi.nlm.nih.gov/24218572/">PMID: 24218572</a>).</li>
+<li>Loss of kinase activity <strong>branches</strong> into two documented downstream effects:</li>
+<li><strong>Branch A (transcription-factor / MAPK axis):</strong> CDK10/Cyclin Q normally phosphorylates <strong>ETS2</strong> and promotes its <strong>proteasomal degradation</strong>. Without the kinase, <strong>ETS2 protein accumulates</strong> (observed in STAR patient cells) → <strong>increased ETS/MAPK transcriptional output</strong> (demonstrated, <a href="https://pubmed.ncbi.nlm.nih.gov/24218572/">PMID: 24218572</a>).</li>
+<li><strong>Branch B (cytoskeleton / cilium axis):</strong> CDK10/Cyclin Q normally phosphorylates <strong>PKN2</strong> on Thr121/Thr124 within its RhoA-binding domain. Loss of this phosphorylation <strong>destabilizes RhoA and the actin network</strong> → <strong>aberrant assembly and elongation of the primary cilium</strong> (demonstrated; ectopic RhoA rescues the phenotype, <a href="https://pubmed.ncbi.nlm.nih.gov/27104747/">PMID: 27104747</a>).</li>
+<li><strong>Abnormal, elongated primary cilia</strong> and dysregulated developmental signaling <strong>lead to</strong> the congenital malformations — directly evidenced by <strong>dilated renal tubules and abnormal elongated cilia in STAR patient kidney tissue</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/27104747/">PMID: 27104747</a>).</li>
+<li>These developmental defects <strong>result in</strong> the clinical tetrad (toe syndactyly, telecanthus, anogenital and renal malformations) and the broader phenotypic spectrum.</li>
+</ol>
+<pre><code>CCNQ/FAM58A LoF (p.Trp217*, Xq28 del)
+│  truncates C-terminal cyclin box
+▼
+Cyclin Q cannot bind CDK10
+│  loss of CDK10/Cyclin Q kinase activity
+├───────────────────────────┐
+▼ (Branch A)                 ▼ (Branch B)
+ ETS2 not phosphorylated      PKN2 not phosphorylated (T121/T124)
+│ not degraded               │ RhoA destabilized
+▼                            ▼
+ ETS2 accumulates             actin network dysregulated
+│ ↑MAPK/ETS output           │
+▼                            ▼
+   developmental       primary cilium over-assembly/elongation
+   signaling imbalance         │  (ciliopathy-like)
+└───────────┬──────────┘
+            ▼
+     Congenital malformations: toe syndactyly, telecanthus,
+     anogenital + renal anomalies (dilated renal tubules,
+     abnormal cilia seen in patient kidney)
+</code></pre>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathways.</strong> CDK10/Cyclin Q sits at the intersection of <strong>ETS2/MAPK-RAS signaling</strong>, <strong>RhoA–PKN2 cytoskeletal signaling</strong>, and <strong>transcriptional/cell-cycle control</strong> (RNA Pol II CTD, c-MYC, RB1 phosphorylation, <a href="https://pubmed.ncbi.nlm.nih.gov/35291876/">PMID: 35291876</a>). Suggested GO: <strong><a href="http://purl.obolibrary.org/obo/GO_0004693" target="_blank" rel="noopener noreferrer">GO:0004693</a></strong> (cyclin-dependent protein serine/threonine kinase activity), <strong><a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" rel="noopener noreferrer">GO:0007399</a></strong> (nervous system development), <strong><a href="http://purl.obolibrary.org/obo/GO_0060271" target="_blank" rel="noopener noreferrer">GO:0060271</a></strong> (cilium assembly).</li>
+<li><strong>Cellular processes.</strong> Primary <strong>ciliogenesis</strong> (aberrant cilium elongation), <strong>actin cytoskeleton organization</strong>, <strong>proteasomal protein degradation</strong>, and <strong>cell-growth/cell-cycle modulation</strong>. Suggested GO: <strong><a href="http://purl.obolibrary.org/obo/GO_0030036" target="_blank" rel="noopener noreferrer">GO:0030036</a></strong> (actin cytoskeleton organization), <strong><a href="http://purl.obolibrary.org/obo/GO_0043161" target="_blank" rel="noopener noreferrer">GO:0043161</a></strong> (proteasome-mediated ubiquitin-dependent protein catabolic process).</li>
+<li><strong>Protein dysfunction.</strong> <strong>Loss of function</strong> by truncation of the cyclin partner → failure of complex assembly (not misfolding/aggregation). The lesion disables an activating cyclin rather than the enzyme itself.</li>
+<li><strong>Metabolic changes.</strong> Comparative transcriptomics of Cdk10-knockout mouse organs revealed <strong>lipid metabolic changes</strong> consistent with growth impairment (<a href="https://pubmed.ncbi.nlm.nih.gov/28886341/">PMID: 28886341</a>) — relevant to the kinase partner's loss and a reasonable proxy for pathway output in STAR.</li>
+<li><strong>Biochemical abnormality.</strong> Deficient <strong>serine/threonine kinase activity</strong> of the CDK10/Cyclin Q holoenzyme.</li>
+<li><strong>Tissue-level mechanism.</strong> Ciliary dysfunction in renal tubular epithelium → <strong>dilated renal tubules</strong> (patient tissue); developmental signaling imbalance in limb, midface, and cloacal/urogenital fields.</li>
+<li><strong>Molecular profiling.</strong> ETS2 accumulation in patient cells (proteomic-level observation); longer cilia in CDK10-knockout MEFs; lipid-metabolic transcriptomic shifts in knockout organs.</li>
+</ul>
+<p><strong>Cell types (suggested CL terms):</strong> renal tubular epithelial cell (<strong><a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" rel="noopener noreferrer">CL:0002518</a></strong>), ciliated epithelial cell (<strong><a href="http://purl.obolibrary.org/obo/CL_0000067" target="_blank" rel="noopener noreferrer">CL:0000067</a></strong>), fibroblast (<strong><a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a></strong>). <strong>Anatomy (UBERON):</strong> kidney (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a></strong>), renal tubule (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0001231" target="_blank" rel="noopener noreferrer">UBERON:0001231</a></strong>). <strong>Subcellular (GO cellular component):</strong> cilium (<strong><a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" rel="noopener noreferrer">GO:0005929</a></strong>).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level (primary):</strong> kidney (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>), anorectal region / anus (<a href="http://purl.obolibrary.org/obo/UBERON_0001245" target="_blank" rel="noopener noreferrer">UBERON:0001245</a>), external genitalia / clitoris (<a href="http://purl.obolibrary.org/obo/UBERON_0003233" target="_blank" rel="noopener noreferrer">UBERON:0003233</a>), toes/feet (<a href="http://purl.obolibrary.org/obo/UBERON_0001466" target="_blank" rel="noopener noreferrer">UBERON:0001466</a>), periorbital/midface region (telecanthus).</li>
+<li><strong>Secondary / associated organ involvement:</strong> heart (congenital heart disease), eye and optic nerve (ocular anomalies, optic nerve hypoplasia; <a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" rel="noopener noreferrer">UBERON:0000941</a> optic nerve), spinal cord (tethered cord; <a href="http://purl.obolibrary.org/obo/UBERON_0002240" target="_blank" rel="noopener noreferrer">UBERON:0002240</a>), ear/auditory system (hearing loss), and in lethal forms the brain (cerebral malformations; <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>) and ventral body wall (omphalocele).</li>
+<li><strong>Body systems:</strong> genitourinary, gastrointestinal (anorectal), musculoskeletal (digits), craniofacial, and variably cardiovascular, nervous, auditory, and visual systems.</li>
+<li><strong>Tissue/cell level:</strong> epithelial tissue (renal tubular and ciliated epithelium), with primary-cilium pathology the unifying cellular lesion. Suggested CL: renal tubular epithelial cell (<a href="http://purl.obolibrary.org/obo/CL_0002518" target="_blank" rel="noopener noreferrer">CL:0002518</a>), ciliated cell (<a href="http://purl.obolibrary.org/obo/CL_0000064" target="_blank" rel="noopener noreferrer">CL:0000064</a>).</li>
+<li><strong>Subcellular level:</strong> <strong>primary cilium (<a href="http://purl.obolibrary.org/obo/GO_0005929" target="_blank" rel="noopener noreferrer">GO:0005929</a>)</strong>, <strong>actin cytoskeleton (<a href="http://purl.obolibrary.org/obo/GO_0015629" target="_blank" rel="noopener noreferrer">GO:0015629</a>)</strong>, <strong>proteasome complex (<a href="http://purl.obolibrary.org/obo/GO_0000502" target="_blank" rel="noopener noreferrer">GO:0000502</a>)</strong>, and nucleus (transcriptional substrates RNA Pol II CTD, c-MYC, RB1).</li>
+<li><strong>Localization / lateralization:</strong> malformations may be <strong>unilateral or bilateral and asymmetric</strong> — e.g., unilateral foot syndactyly and hypoplastic left kidney in one mother, versus bilateral renal hypoplasia in her more severely affected daughter (<a href="https://pubmed.ncbi.nlm.nih.gov/26882209/">PMID: 26882209</a>).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> <strong>Congenital</strong> — all cardinal malformations are present at birth and often detectable prenatally (e.g., oligohydramnios from renal anomalies). Onset pattern is structural/developmental rather than acute.</li>
+<li><strong>Progression:</strong> Structural anomalies are <strong>stable</strong> once formed. Secondary <strong>renal functional decline</strong> may progress with age depending on the severity of renal hypoplasia/dysplasia. The lethal STAR plus form progresses rapidly to <strong>neonatal/early-infant death</strong> (respiratory failure at 6 weeks in the reported case, <a href="https://pubmed.ncbi.nlm.nih.gov/29088509/">PMID: 29088509</a>).</li>
+<li><strong>Disease course:</strong> Chronic and lifelong in survivors; defined by the burden of congenital anomalies and their surgical management.</li>
+<li><strong>Critical period:</strong> <strong>Embryonic organogenesis</strong> is the window of vulnerability (limb, midface, cloacal/urogenital, and renal development). There is no postnatal window for mechanistic "cure"; postnatal care is reconstructive and supportive.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Epidemiology:</strong> <strong>Ultra-rare.</strong> Fewer than a few dozen cases are reported worldwide; precise prevalence/incidence figures are not established (Orphanet <a href="https://bioregistry.io/ORPHA:83617" target="_blank" rel="noopener noreferrer">ORPHA:83617</a>). No population-based incidence data exist.</li>
+<li><strong>Inheritance pattern:</strong> <strong>X-linked dominant</strong>, established by Unger et al. who found causative FAM58A mutations on Xq28 in all affected individuals and inferred X-linked dominant inheritance (<a href="https://pubmed.ncbi.nlm.nih.gov/18297069/">PMID: 18297069</a>).</li>
+<li><strong>Sex ratio:</strong> Essentially <strong>female-limited</strong>; affected males are presumed non-viable (male lethality), consistent with the strong LoF constraint on CCNQ.</li>
+<li><strong>Penetrance / expressivity:</strong> Apparently high penetrance in heterozygous females but <strong>highly variable expressivity</strong>, documented across a multigenerational pedigree and in mother–daughter pairs (<a href="https://pubmed.ncbi.nlm.nih.gov/28322501/">PMID: 28322501</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26882209/">PMID: 26882209</a>). Variable <strong>X-inactivation</strong> is the leading (inferred) explanation.</li>
+<li><strong>Anticipation:</strong> Not applicable (not a repeat-expansion disorder).</li>
+<li><strong>Germline mosaicism / founder effects / consanguinity:</strong> No founder effect or consanguinity role established; de novo occurrence and familial transmission both documented.</li>
+<li><strong>Carrier frequency:</strong> Not applicable in the classic sense — heterozygous females are affected, not silent carriers.</li>
+<li><strong>Population demographics:</strong> No ethnic predilection or geographic clustering reported; cases are sporadic across populations.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Clinical recognition:</strong> Diagnosis is suspected from the characteristic tetrad (toe syndactyly + telecanthus + anogenital + renal malformations) in a female. STAR syndrome should be included in the <strong>differential diagnosis of anorectal malformation in female neonates</strong>, as highlighted in a clinical/genetic ARM case series (<a href="https://pubmed.ncbi.nlm.nih.gov/36062518/">PMID: 36062518</a>).</li>
+<li><strong>Imaging:</strong> Renal/urogenital ultrasound (hypoplasia, reflux, urogenital sinus), echocardiography (congenital heart disease), spinal imaging (tethered cord), and ophthalmologic examination (a full ophthalmic exam is warranted given reported ocular anomalies, <a href="https://pubmed.ncbi.nlm.nih.gov/26882209/">PMID: 26882209</a>).</li>
+<li><strong>Genetic testing (definitive):</strong></li>
+<li><strong>Single-gene testing / sequencing of CCNQ (FAM58A)</strong> detects intragenic point mutations (e.g., p.Trp217*).</li>
+<li><strong>Whole-exome sequencing (WES)</strong> has been diagnostic in practice — clinical WES identified the c.651G&gt;A (p.Trp217*) variant across a pedigree (<a href="https://pubmed.ncbi.nlm.nih.gov/28322501/">PMID: 28322501</a>).</li>
+<li><strong>Chromosomal microarray / array CGH</strong> detects Xq28 contiguous-gene deletions (array CGH was part of the original gene discovery and detects deletion cases, <a href="https://pubmed.ncbi.nlm.nih.gov/18297069/">PMID: 18297069</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29088509/">PMID: 29088509</a>).</li>
+<li><strong>X-inactivation studies</strong> may help interpret expressivity in females.</li>
+<li><strong>Omics-based diagnostics:</strong> Not routinely used; <strong>ETS2 protein level</strong> in patient cells is a research-grade functional readout, not a clinical test.</li>
+<li><strong>Clinical criteria:</strong> No formal consensus diagnostic criteria exist; diagnosis rests on phenotype plus molecular confirmation of a pathogenic CCNQ variant/deletion.</li>
+<li><strong>Differential diagnosis:</strong> Other causes of VACTERL/VATER-spectrum and anorectal malformations, other telecanthus/hypertelorism syndromes, and other ciliopathies with renal and limb involvement.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival / mortality:</strong> Highly <strong>variable and genotype-dependent</strong>. Patients with <strong>intragenic point mutations are generally survivable</strong> into adulthood (the original pedigrees include affected adult mothers). Patients with <strong>large Xq28 deletions</strong> can have the <strong>lethal STAR plus</strong> phenotype — one such female died at 6 weeks from respiratory failure (<a href="https://pubmed.ncbi.nlm.nih.gov/29088509/">PMID: 29088509</a>).</li>
+<li><strong>Morbidity / function:</strong> Determined by renal function, the extent of anorectal/urogenital reconstruction needed, and any neurodevelopmental, auditory, or visual involvement. Chronic kidney disease is the principal long-term risk.</li>
+<li><strong>Quality-of-life measures:</strong> No formal instruments applied in the literature (ultra-rare disease).</li>
+<li><strong>Complications:</strong> Chronic kidney disease, recurrent urinary tract infection (reflux), complications of anorectal and reconstructive surgery, and in lethal forms respiratory failure.</li>
+<li><strong>Prognostic factors:</strong> <strong>Variant type/size is the strongest prognostic factor</strong> — point mutation (survivable) vs large contiguous-gene deletion (potentially lethal). Severity of renal and cardiac involvement also predicts outcome.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>There is no disease-specific or curative therapy.</strong> Management is entirely <strong>supportive and malformation-directed</strong>, requiring multidisciplinary care.</p>
+<ul>
+<li><strong>Surgical/interventional:</strong> Correction of <strong>toe syndactyly</strong>, repair of <strong>anorectal malformations</strong> (anoplasty for anal stenosis/atresia), <strong>urogenital reconstruction</strong> (clitoromegaly, urogenital sinus), management of <strong>vesicoureteral reflux</strong>, <strong>congenital heart disease</strong> repair where indicated, and neurosurgical release of <strong>tethered cord</strong>. Suggested NCIT concepts: Surgical Procedure (NCIT:C15329), Reconstructive Surgery.</li>
+<li><strong>Supportive / rehabilitative:</strong> Nephrology follow-up for renal function; audiology and ophthalmology management for sensory anomalies; developmental support where needed. Suggested NCIT: Supportive Care (NCIT:C15346).</li>
+<li><strong>Pharmacotherapy / advanced therapeutics:</strong> <strong>None disease-specific.</strong> No approved drugs, gene therapy, cell therapy, RNA-based therapy, or targeted therapy exist. The molecular target (CDK10/Cyclin Q kinase complex) is not currently druggable for STAR, and because the defect is a developmental loss of function arising during organogenesis, postnatal pharmacologic restoration is not a realistic current option.</li>
+<li><strong>Experimental:</strong> No registered clinical trials specific to STAR syndrome.</li>
+<li><strong>Personalized medicine / counseling:</strong> Genotype (point mutation vs deletion) informs prognosis and counseling. Suggested NCIT: Genetic Counseling (NCIT:C15587).</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not possible for de novo cases. For families with a known pathogenic CCNQ variant, <strong>genetic counseling, prenatal testing, and preimplantation genetic testing (PGT)</strong> are the available options to prevent recurrence.</li>
+<li><strong>Secondary prevention:</strong> Early detection via prenatal imaging (renal anomalies, oligohydramnios) and cascade genetic testing of at-risk female relatives.</li>
+<li><strong>Tertiary prevention:</strong> Prevent complications in affected individuals — renal protection, infection prophylaxis for reflux, and timely surgical correction to reduce long-term morbidity.</li>
+<li><strong>Counseling:</strong> Genetic counseling is central: X-linked dominant inheritance with likely male lethality, variable expressivity in females, and recurrence-risk assessment. <strong>NSGC/ACMG</strong> frameworks and <strong>GeneReviews</strong>-style counseling apply.</li>
+<li><strong>Immunization / public health / environmental interventions:</strong> Not applicable (non-infectious, non-environmental genetic disorder).</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> The gene is conserved in mammals; <strong>mouse (Mus musculus, NCBI Taxon 10090)</strong> is the principal model species.</li>
+<li><strong>Orthologous genes:</strong> Mouse <em>Ccnq</em> / <em>Fam58a</em> (Cyclin Q) and its partner <em>Cdk10</em>. The CDK10/Cyclin M(Q) module is evolutionarily conserved.</li>
+<li><strong>Natural disease in other species:</strong> No naturally occurring STAR-syndrome equivalent is reported in companion animals or wildlife (no OMIA entry identified in this investigation). Veterinary relevance is limited to engineered mouse models.</li>
+<li><strong>Comparative biology:</strong> The <strong>CDK10-knockout mouse</strong> recapitulates several features of CDK10-related human disease (growth retardation, skeletal defects, kidney and lung abnormalities) and, at the cellular level, <strong>longer primary cilia</strong> — mirroring the ciliary mechanism central to STAR syndrome (<a href="https://pubmed.ncbi.nlm.nih.gov/28886341/">PMID: 28886341</a>). This cross-species conservation of the ciliary phenotype supports evolutionary conservation of the disease mechanism.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Key phenotype</th>
+<th>Relevance to STAR</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Cdk10-knockout mouse</strong> (conditional/constitutive)</td>
+<td>Mammalian, genetic</td>
+<td>Postnatal death with severe growth retardation, skeletal defects, kidney and lung abnormalities; <strong>MEFs develop longer cilia</strong>; lipid-metabolic transcriptomic changes</td>
+<td>Models the kinase-partner loss; recapitulates renal and ciliary phenotypes central to STAR (<a href="https://pubmed.ncbi.nlm.nih.gov/28886341/">PMID: 28886341</a>)</td>
+</tr>
+<tr>
+<td><strong>STAR patient-derived fibroblasts</strong></td>
+<td>Human, in vitro</td>
+<td><strong>Increased ETS2 protein</strong>; used to show loss of CDK10 binding</td>
+<td>Direct patient-cell validation of the molecular mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/24218572/">PMID: 24218572</a>)</td>
+</tr>
+<tr>
+<td><strong>Recombinant CDK10/Cyclin Q complex</strong></td>
+<td>In vitro biochemistry</td>
+<td>Phosphorylates ETS2, PKN2, RNA Pol II CTD, c-MYC, RB1</td>
+<td>Defines the substrate repertoire of the complex (<a href="https://pubmed.ncbi.nlm.nih.gov/35291876/">PMID: 35291876</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Model characteristics.</strong> The Cdk10-knockout mouse captures the <strong>ciliary and renal</strong> dimensions of the human disease and demonstrates the kinase's role in transducing signals at the primary cilium. <strong>Limitations:</strong> the mouse models the kinase (CDK10) rather than the cyclin (CCNQ), and knockout mice die postnatally, so they imperfectly model the female-limited, variably expressive human phenotype. No dedicated <strong>Ccnq/Fam58a</strong> mouse model of STAR syndrome was identified in this investigation, representing a clear gap. Resources: MGI (mouse), and patient-derived fibroblast lines in the primary literature.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>STAR syndrome is best understood as a <strong>cyclin-deficiency disorder that disables a developmental kinase module</strong>. The unifying lesion is loss of the activating cyclin (Cyclin Q), which renders CDK10 inactive. From that single node, two experimentally supported branches explain the pleiotropic malformations:</p>
+<ol>
+<li>A <strong>transcription-factor branch</strong>, in which failure to degrade ETS2 raises MAPK/ETS output — a plausible driver of developmental patterning defects.</li>
+<li>A <strong>ciliary/cytoskeletal branch</strong>, in which loss of PKN2 phosphorylation destabilizes RhoA and the actin network, producing <strong>over-elongated primary cilia</strong>. The direct observation of dilated tubules and abnormal cilia in STAR patient kidney makes STAR a <strong>ciliopathy-overlap syndrome</strong> at the tissue level.</li>
+</ol>
+<p>The nomenclature deserves emphasis for knowledge-base integrity: the gene is <strong>CCNQ</strong> (HGNC), published historically as <strong>FAM58A</strong>, encoding <strong>Cyclin Q / Cyclin M (Q8N1B3)</strong>. STAR syndrome (cyclin loss, X-linked dominant) must not be conflated with the <strong>recessive CDK10-deficiency disorder</strong> (kinase loss) — they are distinct conditions affecting the two halves of the same holoenzyme.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18297069/">18297069</a></td>
+<td>FAM58A mutations cause STAR syndrome</td>
+<td><strong>Foundational</strong> — names the syndrome, identifies causal FAM58A/CCNQ at Xq28, establishes X-linked dominant inheritance and the cardinal tetrad</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24218572/">24218572</a></td>
+<td>CDK10/Cyclin M controls ETS2 degradation; deficient in STAR</td>
+<td><strong>Mechanism (Branch A)</strong> — STAR mutants fail to bind CDK10; ETS2 accumulates in patient cells</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27104747/">27104747</a></td>
+<td>CDK10/Cyclin M regulates actin and ciliogenesis</td>
+<td><strong>Mechanism (Branch B)</strong> — PKN2/RhoA/actin axis, cilium elongation; dilated tubules and abnormal cilia in patient kidney</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35291876/">35291876</a></td>
+<td>Functional characterization of human Cdk10/Cyclin Q</td>
+<td><strong>Nomenclature + substrates</strong> — confirms Cyclin Q; adds RNA Pol II CTD, c-MYC, RB1; notes tumour-suppressor role</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28322501/">28322501</a></td>
+<td>Multigenerational pedigree; novel FAM58A variant</td>
+<td><strong>Variant + spectrum</strong> — p.Trp217* (c.651G&gt;A); adds tethered cord, hearing loss; variable expressivity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29088509/">29088509</a></td>
+<td>STAR syndrome plus: lethal female form</td>
+<td><strong>Spectrum</strong> — Xq28 deletion, lethal phenotype (cleft lip/palate, omphalocele, cerebral malformations), death at 6 weeks</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26882209/">26882209</a></td>
+<td>Ocular manifestations of STAR</td>
+<td><strong>Phenotype expansion</strong> — eyelid prominences, madarosis, optic nerve hypoplasia in a mother–daughter pair</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28886341/">28886341</a></td>
+<td>CDK10 mutations in humans and mice</td>
+<td><strong>Model organism + comparative</strong> — Cdk10-KO mouse recapitulates renal/ciliary phenotype; longer cilia; distinguishes the recessive CDK10 disorder</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36062518/">36062518</a></td>
+<td>Genetic approach to anorectal malformation</td>
+<td><strong>Differential diagnosis</strong> — STAR should be considered in female neonates with ARM</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Direct supporting quotes (verified against abstracts):</strong>
+- "<em>…we found causative mutations in FAM58A on Xq28 in all affected individuals, suggesting an X-linked dominant inheritance pattern for this recognizable syndrome.</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/18297069/">PMID: 18297069</a>)
+- "<em>We show that STAR syndrome-associated cyclin M mutants are unable to interact with CDK10.</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/24218572/">PMID: 24218572</a>)
+- "<em>…kidney sections from a STAR patient display dilated renal tubules and abnormal, elongated cilia.</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/27104747/">PMID: 27104747</a>)
+- "<em>She presented with cleft lip palate, omphalocele, and cerebral malformations… She died at 6 weeks from respiratory failure.</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/29088509/">PMID: 29088509</a>)
+- "<em>…bi-allelic loss-of-function CDK10 mutations segregating with this disease… Cdk10-knockout MEFs developed longer cilia.</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/28886341/">PMID: 28886341</a>)</p>
+<p><strong>Evidence-type mix:</strong> human clinical case reports/series (18297069, 28322501, 29088509, 26882209, 36062518), human patient-cell + biochemical (24218572, 27104747, 35291876), and model organism (28886341). Population-genetics constraint data (gnomAD) provide computational support for LoF pathogenicity.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Ultra-rare disease, small N.</strong> All clinical knowledge derives from a handful of case reports and small pedigrees; no registries, natural-history studies, prevalence/incidence figures, or formal QoL data exist.</li>
+<li><strong>No dedicated Ccnq/Fam58a animal model.</strong> Mechanistic in-vivo evidence relies on the <strong>CDK10-knockout mouse</strong> (the kinase partner), not a cyclin-specific STAR model, leaving a gap in modeling the exact female-limited human condition.</li>
+<li><strong>Mechanistic branches not fully integrated.</strong> The relative contributions of the ETS2/MAPK branch versus the PKN2/RhoA/cilia branch to each specific malformation are not resolved; which malformations are ETS2-driven vs cilia-driven is inferred rather than demonstrated.</li>
+<li><strong>Expressivity determinants unproven.</strong> The role of X-inactivation skewing in modulating severity is plausible but not experimentally established.</li>
+<li><strong>No therapeutics.</strong> There is no targeted or curative treatment, and no clinical trials.</li>
+<li><strong>Penetrance/male lethality are inferential.</strong> Male lethality is inferred from the female-limited presentation and gnomAD constraint, not directly demonstrated.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Generate a conditional <em>Ccnq/Fam58a</em> mouse (and/or zebrafish) model</strong> to directly test which malformations arise from cyclin loss and to compare with the Cdk10-knockout phenotype.</li>
+<li><strong>Patient-derived iPSC and organoid models</strong> (kidney organoids, cloacal/urogenital models) to dissect tissue-specific ciliary vs ETS2/MAPK contributions and to serve as drug-screening platforms.</li>
+<li><strong>Systematic X-inactivation analysis</strong> across affected females correlating skewing with severity to test the expressivity hypothesis.</li>
+<li><strong>Genotype–phenotype correlation study</strong> aggregating all reported cases (point mutation vs deletion size) to formalize the prognostic rule that large Xq28 deletions predict the lethal STAR plus form.</li>
+<li><strong>Establish an international STAR syndrome registry</strong> to capture natural history, renal outcomes, surgical burden, and QoL.</li>
+<li><strong>Pathway-rescue experiments</strong> (e.g., ETS2 knockdown, RhoA restoration, or MAPK modulation) in patient cells/organoids to test whether targeting a single branch normalizes the ciliary and developmental phenotype — a prerequisite for any future therapeutic concept.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 7 confirmed findings and 9 primary-literature sources across a 5-iteration autonomous investigation. Causal gene: </em><em>CCNQ</em><em> (FAM58A), encoding </em><em>Cyclin Q</em><em>, activating cyclin of </em><em>CDK10</em><em>.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/STAR_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/STAR_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>2</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>9</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:29088509</code> <em>(abstract only)</em>: "<em>She presented with cleft lip palate, omphalocele, and cerebral malformations… She died at 6 weeks from respiratory failure.</em>"</li>
+<li>closest text in source: "She presented with cleft lip palate, omphalocele, and cerebral malformations not previously considered part of the phenotypic spectrum of this syndrome"</li>
+<li><code>PMID:28886341</code> <em>(abstract only)</em>: "<em>…bi-allelic loss-of-function CDK10 mutations segregating with this disease… Cdk10-knockout MEFs developed longer cilia.</em>"</li>
+<li>closest text in source: "Using homozygosity mapping, array CGH, and exome sequencing, we uncovered bi-allelic loss-of-function CDK10 mutations segregating with this disease"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0010408</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>syndactyly-telecanthus-anogenital and renal malformations syndrome</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0005929</code> (2 mentions) - the report calls it "Subcellular level:<strong> </strong>primary cilium"; GO calls it <strong>cilium</strong>, and lists "primary cilium" among its other names</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Staphyloenterotoxemia-openscientist.html">← Staphyloenterotoxemia (OpenScientist)</a>
+                
+                
+                <a href="Stargardt_Disease-falcon.html">Stargardt Disease (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/STAR_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/STAR_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

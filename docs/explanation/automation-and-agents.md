@@ -815,6 +815,32 @@ gives that issue an assignee, so it simultaneously **removes the issue from
 should not work the same issue — but nothing announces it, and it is the reason
 the distinction on this page matters in practice rather than only in theory.
 
+### An open PR that closes an issue also takes it out of the queue
+
+An issue can have no assignee and still be in progress, because a scanner run
+already opened a PR for it. Nothing on the issue records that, so later runs
+used to pick it again: #4990 and #5105 record clusters of two to four PRs
+against one issue, and #12842 got two that both merged.
+
+Before the agent starts, `curation-scanner` now runs
+`.github/scripts/open_pr_issue_index.py`, which reads the open-PR list and
+returns every issue an open PR says it `Closes`, `Fixes`, `Resolves` or
+`Addresses`. The agent is told never to select those issues. It also runs the
+script's `--check <issue>` mode immediately before `gh pr create`, which catches
+a PR opened while it was working.
+
+Two consequences for anyone writing a PR body:
+
+- **`Refs #N` does not take the issue out of the queue; `Closes #N` does.** A PR
+  that does one part of an umbrella issue (one subtype of a 15-subtype split)
+  should say `Refs`, so the issue stays available for its other parts.
+- **Closing such a PR unmerged puts the issue back** on the next run. Nothing
+  has to be removed by hand, which is why this is computed from live PR state
+  and not recorded as a label or an assignee on the issue.
+
+Run it yourself with
+`python3 .github/scripts/open_pr_issue_index.py --repo monarch-initiative/dismech --check <issue>`.
+
 Finally, two automations need no prompting at all: `claude-issue-triage` and
 `claude-issue-summarize` both fire on `issues: [opened]`. If a bot commented on
 your issue moments after you filed it and you did nothing, that was one of these.

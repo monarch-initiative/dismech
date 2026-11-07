@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s42000-023-00508-9
+extractor_version: 1
 title: Genetics of hereditary forms of primary hyperparathyroidism
 authors:
 - Katherine A. English
@@ -9,12 +10,14 @@ journal: Hormones
 year: '2024'
 doi: 10.1007/s42000-023-00508-9
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s42000-023-00508-9.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s42000-023-00508-9.pdf
+full_text_access_type: open
 ---
 
 # Genetics of hereditary forms of primary hyperparathyroidism
@@ -24,7 +27,9 @@ local_pdf_path: files/DOI_10.1007_s42000-023-00508-9.pdf
 
 ## Content
 
-AbstractPrimary hyperparathyroidism (PHPT), a relatively common disorder characterized by hypercalcemia with raised or inappropriately normal serum parathyroid hormone (PTH) concentrations, may occur as part of a hereditary syndromic disorder or as a non-syndromic disease. The associated syndromic disorders include multiple endocrine neoplasia types 1–5 (MEN1-5) and hyperparathyroidism with jaw tumor (HPT-JT) syndromes, and the non-syndromic forms include familial hypocalciuric hypercalcemia types 1–3 (FHH1-3), familial isolated hyperparathyroidism (FIHP), and neonatal severe hyperparathyroidism (NS-HPT). Such hereditary forms may occur in > 10% of patients with PHPT, and their recognition is important for implementation of gene-specific screening protocols and investigations for other associated tumors. Syndromic PHPT tends to be multifocal and multiglandular with most patients requiring parathyroidectomy with the aim of limiting end-organ damage associated with hypercalcemia, particularly osteoporosis, nephrolithiasis, and renal failure. Some patients with non-syndromic PHPT may have mutations of the MEN1 gene or the calcium-sensing receptor (CASR), whose loss of function mutations usually cause FHH1, a disorder associated with mild hypercalcemia and may follow a benign clinical course. Measurement of the urinary calcium-to-creatinine ratio clearance (UCCR) may help to distinguish patients with FHH from those with PHPT, as the majority of FHH patients have low urinary calcium excretion (UCCR < 0.01). Once genetic testing confirms a hereditary cause of PHPT, further genetic testing can be offered to the patients’ relatives and subsequent screening can be carried out in these affected family members, which prevents inappropriate testing in normal individuals.
+Abstract
+
+Primary hyperparathyroidism (PHPT), a relatively common disorder characterized by hypercalcemia with raised or inappropriately normal serum parathyroid hormone (PTH) concentrations, may occur as part of a hereditary syndromic disorder or as a non-syndromic disease. The associated syndromic disorders include multiple endocrine neoplasia types 1–5 (MEN1-5) and hyperparathyroidism with jaw tumor (HPT-JT) syndromes, and the non-syndromic forms include familial hypocalciuric hypercalcemia types 1–3 (FHH1-3), familial isolated hyperparathyroidism (FIHP), and neonatal severe hyperparathyroidism (NS-HPT). Such hereditary forms may occur in > 10% of patients with PHPT, and their recognition is important for implementation of gene-specific screening protocols and investigations for other associated tumors. Syndromic PHPT tends to be multifocal and multiglandular with most patients requiring parathyroidectomy with the aim of limiting end-organ damage associated with hypercalcemia, particularly osteoporosis, nephrolithiasis, and renal failure. Some patients with non-syndromic PHPT may have mutations of the MEN1 gene or the calcium-sensing receptor ( CASR ), whose loss of function mutations usually cause FHH1, a disorder associated with mild hypercalcemia and may follow a benign clinical course. Measurement of the urinary calcium-to-creatinine ratio clearance (UCCR) may help to distinguish patients with FHH from those with PHPT, as the majority of FHH patients have low urinary calcium excretion (UCCR < 0.01). Once genetic testing confirms a hereditary cause of PHPT, further genetic testing can be offered to the patients’ relatives and subsequent screening can be carried out in these affected family members, which prevents inappropriate testing in normal individuals.
 
 Vol.:(0123456789)1 3
 h

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41467-024-50582-9
+extractor_version: 1
 title: Modelling onchocerciasis-associated epilepsy and the impact of ivermectin treatment on its prevalence and incidence
 authors:
 - Jacob N. Stapley
@@ -12,12 +13,14 @@ journal: Nature Communications
 year: '2024'
 doi: 10.1038/s41467-024-50582-9
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41467-024-50582-9.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41467-024-50582-9.pdf
+full_text_access_type: open
 ---
 
 # Modelling onchocerciasis-associated epilepsy and the impact of ivermectin treatment on its prevalence and incidence
@@ -27,7 +30,9 @@ local_pdf_path: files/DOI_10.1038_s41467-024-50582-9.pdf
 
 ## Content
 
-AbstractRetrospective cohort studies in Cameroon found an association between Onchocerca volvulus microfilarial load in childhood (measured in 1991–1993) and risk of developing epilepsy later in life (measured in 2017). We parameterised and integrated this relationship (across children aged 3–15 years) into the previously published, stochastic transmission model, EPIONCHO-IBM, for Simulium damnosum sensu lato-transmitted onchocerciasis. We simulated 19 years (1998–2017) of annual ivermectin mass drug administration (MDA) reflecting coverage in the study area, and modelled epilepsy prevalence and incidence. Scenario-based simulations of 25 years of (annual and biannual) MDA in hyper- and holoendemic settings, with 65% and 80% therapeutic coverage, were also conducted. EPIONCHO-IBM predicted 7.6% epilepsy prevalence (compared to 8.2% in the Cameroon study) and incidence of 317 cases/100,000 person-years (compared to 350). In hyperendemic areas, 25 years of biannual MDA (80% coverage) eliminated onchocerciasis-associated epilepsy (OAE) and protected untreated under-fives from its development. Strengthening onchocerciasis programmes, implementing alternative strategies, and evaluating treatment for under-fives and school-age children are crucial to prevent OAE in highly-endemic settings.
+Abstract
+
+Retrospective cohort studies in Cameroon found an association between Onchocerca volvulus microfilarial load in childhood (measured in 1991–1993) and risk of developing epilepsy later in life (measured in 2017). We parameterised and integrated this relationship (across children aged 3–15 years) into the previously published, stochastic transmission model, EPIONCHO-IBM, for Simulium damnosum sensu lato-transmitted onchocerciasis. We simulated 19 years (1998–2017) of annual ivermectin mass drug administration (MDA) reflecting coverage in the study area, and modelled epilepsy prevalence and incidence. Scenario-based simulations of 25 years of (annual and biannual) MDA in hyper- and holoendemic settings, with 65% and 80% therapeutic coverage, were also conducted. EPIONCHO-IBM predicted 7.6% epilepsy prevalence (compared to 8.2% in the Cameroon study) and incidence of 317 cases/100,000 person-years (compared to 350). In hyperendemic areas, 25 years of biannual MDA (80% coverage) eliminated onchocerciasis-associated epilepsy (OAE) and protected untreated under-fives from its development. Strengthening onchocerciasis programmes, implementing alternative strategies, and evaluating treatment for under-fives and school-age children are crucial to prevent OAE in highly-endemic settings.
 
 Article https://doi.org/10.1038/s41467-024-50582-9
 Modelling onchocerciasis-associated

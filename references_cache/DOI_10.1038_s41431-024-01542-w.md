@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41431-024-01542-w
+extractor_version: 1
 title: Diagnostic uplift through the implementation of short tandem repeat analysis using exome sequencing
 authors:
 - Jihoon G. Yoon
@@ -15,12 +16,14 @@ journal: European Journal of Human Genetics
 year: '2024'
 doi: 10.1038/s41431-024-01542-w
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41431-024-01542-w.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41431-024-01542-w.pdf
+full_text_access_type: open
 ---
 
 # Diagnostic uplift through the implementation of short tandem repeat analysis using exome sequencing
@@ -30,7 +33,9 @@ local_pdf_path: files/DOI_10.1038_s41431-024-01542-w.pdf
 
 ## Content
 
-AbstractTo date, approximately 50 short tandem repeat (STR) disorders have been identified; yet, clinical laboratories rarely conduct STR analysis on exomes. To assess its diagnostic value, we analyzed STRs in 6099 exomes from 2510 families with mostly suspected neurogenetic disorders. We employed ExpansionHunter and REViewer to detect pathogenic repeat expansions, confirming them using orthogonal methods. Genotype-phenotype correlations led to the diagnosis of thirteen individuals in seven previously undiagnosed families, identifying three autosomal dominant disorders: dentatorubral-pallidoluysian atrophy (n = 3), spinocerebellar ataxia type 7 (n = 2), and myotonic dystrophy type 1 (n = 2), resulting in a diagnostic gain of 0.28% (7/2510). Additionally, we found expanded ATXN1 alleles (≥39 repeats) with varying patterns of CAT interruptions in twelve individuals, accounting for approximately 0.19% in the Korean population. Our study underscores the importance of integrating STR analysis into exome sequencing pipeline, broadening the application of exome sequencing for STR assessments.
+Abstract
+
+To date, approximately 50 short tandem repeat (STR) disorders have been identified; yet, clinical laboratories rarely conduct STR analysis on exomes. To assess its diagnostic value, we analyzed STRs in 6099 exomes from 2510 families with mostly suspected neurogenetic disorders. We employed ExpansionHunter and REViewer to detect pathogenic repeat expansions, confirming them using orthogonal methods. Genotype-phenotype correlations led to the diagnosis of thirteen individuals in seven previously undiagnosed families, identifying three autosomal dominant disorders: dentatorubral-pallidoluysian atrophy (n = 3), spinocerebellar ataxia type 7 (n = 2), and myotonic dystrophy type 1 (n = 2), resulting in a diagnostic gain of 0.28% (7/2510). Additionally, we found expanded ATXN1 alleles (≥39 repeats) with varying patterns of CAT interruptions in twelve individuals, accounting for approximately 0.19% in the Korean population. Our study underscores the importance of integrating STR analysis into exome sequencing pipeline, broadening the application of exome sequencing for STR assessments.
 
 BRIEF COMMUNICATION OPEN
 Diagnostic uplift through the implementation of short tandem
