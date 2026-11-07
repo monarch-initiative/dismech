@@ -1,7 +1,7 @@
 """Synthetic contracts for the opt-in edge reading, without curated expectations."""
 
-from copy import deepcopy
 import json
+from copy import deepcopy
 
 import pytest
 from jsonschema import Draft7Validator
@@ -12,11 +12,12 @@ from dismech.classifier.edge_reading import (
     EDGE_FIELDS,
     canonical_edge_claim,
     edge_claim_aspect_schema,
+    edge_claim_task,
     edge_prompt,
     edge_reading,
-    edge_claim_task,
 )
-from dismech.classifier.rubric import CRITERIA, INSTRUCTIONS as RUBRIC_INSTRUCTIONS
+from dismech.classifier.rubric import CRITERIA
+from dismech.classifier.rubric import INSTRUCTIONS as RUBRIC_INSTRUCTIONS
 from dismech.classifier.structured import structured_claim_task
 
 

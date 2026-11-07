@@ -5,8 +5,9 @@ it. Legacy extraction is an explicit, separate migration step.
 """
 
 import json
+from collections.abc import Iterable
 from copy import deepcopy
-from typing import Any, Iterable
+from typing import Any
 
 from dismech.classifier.aspects import _semantics
 from dismech.classifier.base import ClassificationTask
@@ -18,7 +19,8 @@ from dismech.classifier.claims import (
     schema,
     without_annotations,
 )
-from dismech.classifier.rubric import CRITERIA, INSTRUCTIONS as RUBRIC_INSTRUCTIONS
+from dismech.classifier.rubric import CRITERIA
+from dismech.classifier.rubric import INSTRUCTIONS as RUBRIC_INSTRUCTIONS
 from dismech.classifier.structured import structured_claim_task
 
 EDGE_FIELDS = (
@@ -224,7 +226,7 @@ def _context(bindings: list[dict]) -> list[dict]:
         if path in seen and seen[path] != value:
             raise ValueError(f"Inconsistent context bindings at {path}")
         seen[path] = value
-        result.append(dict(path=path, value=value, role=binding["role"]))
+        result.append({"path": path, "value": value, "role": binding["role"]})
     return result
 
 
@@ -343,39 +345,39 @@ def edge_reading(claim: dict) -> dict[str, Any]:
 
     def endpoint_identity(binding):
         value = binding["value"]
-        return dict(
-            name=value["name"],
-            document_path=binding["path"],
-            qualifiers={k: deepcopy(value[k]) for k in _QUALIFIERS if k in value},
-        )
+        return {
+            "name": value["name"],
+            "document_path": binding["path"],
+            "qualifiers": {k: deepcopy(value[k]) for k in _QUALIFIERS if k in value},
+        }
 
     kind = _KINDS[assertion_type]
     reading = f'Claimed {kind} from "{source["value"]["name"]}" to "{target}".'
     if description is not None:
         reading += " " + description
-    return dict(
-        reading=reading,
-        scope=dict(
-            disease=without_annotations(canonical["about"]["disease"]),
-            subtypes=[_scoped(b) for b in subtypes],
-            hypotheses=[_scoped(b) for b in hypotheses],
-            additional_context=[
+    return {
+        "reading": reading,
+        "scope": {
+            "disease": without_annotations(canonical["about"]["disease"]),
+            "subtypes": [_scoped(b) for b in subtypes],
+            "hypotheses": [_scoped(b) for b in hypotheses],
+            "additional_context": [
                 _scoped(b)
                 for b in sorted(bindings, key=lambda b: b["path"])
                 if b["path"] not in consumed
             ],
-        ),
-        subject=endpoint_identity(source),
-        relationship={
+        },
+        "subject": endpoint_identity(source),
+        "relationship": {
             "kind": kind,
             **deepcopy({k: v for k, v in assertion.items() if k != "target"}),
         },
-        object=endpoint_identity(endpoint),
-        definitions=dict(
-            subject=deepcopy(source["value"]), object=deepcopy(endpoint["value"])
-        ),
-        selected_evidence=deepcopy(canonical["selected_evidence"]),
-    )
+        "object": endpoint_identity(endpoint),
+        "definitions": {
+            "subject": deepcopy(source["value"]), "object": deepcopy(endpoint["value"])
+        },
+        "selected_evidence": deepcopy(canonical["selected_evidence"]),
+    }
 
 
 def canonical_edge_claim(legacy_claim: dict) -> dict[str, Any]:
@@ -660,17 +662,17 @@ def edge_claim_aspect_schema(claim: dict, fields: Iterable[str] = EDGE_FIELDS) -
             path = "/object/name" if field == "target" else f"/relationship/{field}"
             descriptions[path] = meanings[field] + "\n" + _semantics(field)
     properties = {
-        path: dict(type="string", enum=list(CRITERIA), description=description)
+        path: {"type": "string", "enum": list(CRITERIA), "description": description}
         for path, description in descriptions.items()
     }
-    return dict(
-        type="object",
-        properties=properties,
-        required=list(properties),
-        additionalProperties=False,
-    )
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": list(properties),
+        "additionalProperties": False,
+    }
 
 
 def edge_prompt() -> dict[str, str]:
     """Return the canonical edge-claim prompt."""
-    return dict(name="edge_claim_aspects", version="2", instructions=INSTRUCTIONS)
+    return {"name": "edge_claim_aspects", "version": "2", "instructions": INSTRUCTIONS}
