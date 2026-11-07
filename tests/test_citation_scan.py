@@ -200,3 +200,79 @@ def test_run_scan_end_to_end_with_stub(tmp_path: Path) -> None:
         2,
     )
     assert "Citation Scan Packet" in citation_scan.render_markdown(packet)
+
+
+def test_min_overlap_drops_single_reference_pairs() -> None:
+    candidates = {
+        "900": citation_scan.Candidate(pmid="900", references={"1", "2"}),
+        "901": citation_scan.Candidate(pmid="901", references={"1"}),
+    }
+    entries = [entry("kb/disorders/A.yaml", {"1", "2"})]
+
+    rows = citation_scan.score_overlaps(candidates, entries, {}, min_overlap=2)
+
+    assert [row["pmid"] for row in rows] == ["900"]
+
+
+def test_cap_per_entry_keeps_small_entries_in_the_packet() -> None:
+    rows = [{"entry": "big", "pmid": str(i)} for i in range(5)] + [
+        {"entry": "small", "pmid": "9"}
+    ]
+
+    kept = citation_scan.cap_per_entry(rows, 2)
+
+    assert [(row["entry"], row["pmid"]) for row in kept] == [
+        ("big", "0"),
+        ("big", "1"),
+        ("small", "9"),
+    ]
+    assert citation_scan.cap_per_entry(rows, 0) == rows
+
+
+def test_bookshelf_chapters_do_not_count_as_rare_references(tmp_path: Path) -> None:
+    bookshelf = tmp_path / "bookshelf"
+    bookshelf.mkdir()
+    (bookshelf / "genereviews.csv").write_text(
+        "pmid,nbk,retired,pubdate,title\n2,NBK1454,0,1993,Alkaptonuria.\n"
+    )
+    api = StubEuropePMC(
+        citing={
+            "900": {"pmid": "900", "title": "Case report", "pubType": "Case Reports"}
+        },
+        references={"900": {"1", "2"}},
+        cited_by={"1": 10, "2": 1},  # Europe PMC undercounts the chapter
+    )
+
+    packet = citation_scan.run_scan(
+        api,
+        [entry("kb/disorders/A.yaml", {"1", "2"})],
+        date_from="2026-10-01",
+        date_to="2026-10-07",
+        cache_dir=tmp_path,
+        bookshelf_dir=bookshelf,
+    )
+
+    weights = {ref["pmid"]: ref for ref in packet["records"][0]["overlap_refs"]}
+    assert weights["2"]["cited_by"] is None
+    assert weights["2"]["weight"] == round(citation_scan.reference_weight(None), 3)
+
+
+def test_reference_lists_are_reused_not_refetched(tmp_path: Path) -> None:
+    api = StubEuropePMC(
+        citing={"900": {"pmid": "900", "title": "New paper", "pubType": "Review"}},
+        references={"900": {"1", "2"}},
+        cited_by={"1": 10, "2": 10},
+    )
+    api.references = lambda pmid: (_ for _ in ()).throw(AssertionError("refetched"))
+    known = {"900": ["1", "2"]}
+
+    packet = citation_scan.run_scan(
+        api,
+        [entry("kb/disorders/A.yaml", {"1", "2"})],
+        date_from="2026-10-01",
+        date_to="2026-10-07",
+        cache_dir=tmp_path,
+        reference_lists=known,
+    )
+
+    assert packet["records"][0]["is_review"] is True
