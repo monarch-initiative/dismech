@@ -192753,7 +192753,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 5,
     "num_treatments": 3,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "6"
   },
   {
@@ -432176,7 +432176,7 @@ window.searchMetrics = {
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4009,
   "total_unique_pathological_events": 26224,
-  "total_modules": 227,
+  "total_modules": 228,
   "total_research_reports": 4119,
   "total_classifications": 21,
   "total_comorbidities": 55,
