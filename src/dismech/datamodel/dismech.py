@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-11-03T14:51:27
+# Generation date: 2026-11-06T07:22:52
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -1734,8 +1734,12 @@ class Experiment(YAMLRoot):
     name: Union[str, ExperimentName] = None
     experiment_id: str = None
     description: Optional[str] = None
+    experiment_design: Optional[Union[str, "ExperimentDesignEnum"]] = None
     experiment_type: Optional[Union[dict, Descriptor]] = None
+    executability: Optional[Union[str, "ExperimentExecutabilityEnum"]] = None
     model_systems: Optional[Union[dict[Union[str, ExperimentalModelName], Union[dict, ExperimentalModel]], list[Union[dict, ExperimentalModel]]]] = empty_dict()
+    animal_models: Optional[Union[Union[dict, "AnimalModel"], list[Union[dict, "AnimalModel"]]]] = empty_list()
+    computational_models: Optional[Union[dict[Union[str, ComputationalModelName], Union[dict, "ComputationalModel"]], list[Union[dict, "ComputationalModel"]]]] = empty_dict()
     perturbations: Optional[Union[dict[Union[str, ExperimentalPerturbationName], Union[dict, "ExperimentalPerturbation"]], list[Union[dict, "ExperimentalPerturbation"]]]] = empty_dict()
     assays: Optional[Union[Union[dict, AssayDescriptor], list[Union[dict, AssayDescriptor]]]] = empty_list()
     readouts: Optional[Union[dict[Union[str, ExperimentalReadoutName], Union[dict, "ExperimentalReadout"]], list[Union[dict, "ExperimentalReadout"]]]] = empty_dict()
@@ -1765,10 +1769,22 @@ class Experiment(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
+        if self.experiment_design is not None and not isinstance(self.experiment_design, ExperimentDesignEnum):
+            self.experiment_design = ExperimentDesignEnum(self.experiment_design)
+
         if self.experiment_type is not None and not isinstance(self.experiment_type, Descriptor):
             self.experiment_type = Descriptor(**as_dict(self.experiment_type))
 
+        if self.executability is not None and not isinstance(self.executability, ExperimentExecutabilityEnum):
+            self.executability = ExperimentExecutabilityEnum(self.executability)
+
         self._normalize_inlined_as_list(slot_name="model_systems", slot_type=ExperimentalModel, key_name="name", keyed=True)
+
+        if not isinstance(self.animal_models, list):
+            self.animal_models = [self.animal_models] if self.animal_models is not None else []
+        self.animal_models = [v if isinstance(v, AnimalModel) else AnimalModel(**as_dict(v)) for v in self.animal_models]
+
+        self._normalize_inlined_as_list(slot_name="computational_models", slot_type=ComputationalModel, key_name="name", keyed=True)
 
         self._normalize_inlined_as_list(slot_name="perturbations", slot_type=ExperimentalPerturbation, key_name="name", keyed=True)
 
@@ -9475,6 +9491,78 @@ class ExperimentalModelTypeEnum(EnumDefinitionImpl):
         description="""Broad disease-centric categories for experimental model systems, primarily non-animal systems curated in this section""",
     )
 
+class ExperimentDesignEnum(EnumDefinitionImpl):
+    """
+    Broad design family of an experiment, proposed or carried out. This is the coarse, always-fillable classification
+    of *how* a question is addressed, and is deliberately small and closed so it can be populated on every experiment;
+    finer detail belongs in `experiment_type`, which takes an ontology-backed Descriptor.
+    """
+    PERTURBATION_SCREEN = PermissibleValue(
+        text="PERTURBATION_SCREEN",
+        title="Perturbation screen",
+        description="""A systematic screen applying a compound, genetic, or degrader library across one or more model systems with a common readout, typically triaged against a counter-screen.""")
+    TARGETED_PERTURBATION = PermissibleValue(
+        text="TARGETED_PERTURBATION",
+        title="Targeted perturbation",
+        description="""A hypothesis-directed perturbation of one or a few named targets, including isogenic knock-in or knockout comparisons and rescue arms, rather than an unbiased library screen.""")
+    HUMAN_OBSERVATIONAL = PermissibleValue(
+        text="HUMAN_OBSERVATIONAL",
+        title="Human observational study",
+        description="""A cohort, registry, case-control, or natural-history study in humans with no intervention assigned by the investigator.""")
+    INTERVENTIONAL_TRIAL = PermissibleValue(
+        text="INTERVENTIONAL_TRIAL",
+        title="Interventional trial",
+        description="A trial assigning an intervention to human participants, randomized or otherwise.")
+    DESCRIPTIVE_PROFILING = PermissibleValue(
+        text="DESCRIPTIVE_PROFILING",
+        title="Descriptive profiling",
+        description="""Measurement or mapping without a deliberate perturbation, such as single-cell atlasing, spatial profiling, or postmortem tissue characterization.""")
+    IN_SILICO = PermissibleValue(
+        text="IN_SILICO",
+        title="In-silico study",
+        description="""A computational study whose primary object is a model or dataset rather than a bench or clinical measurement, including simulation, structural modeling, and machine-learning prediction.""")
+    METHOD_DEVELOPMENT = PermissibleValue(
+        text="METHOD_DEVELOPMENT",
+        title="Method or assay development",
+        description="""Work whose primary aim is to establish or validate an assay, model system, or measurement, rather than to test a disease-mechanism claim directly.""")
+    MIXED = PermissibleValue(
+        text="MIXED",
+        title="Mixed design",
+        description="""An experiment with arms spanning more than one design family, where no single value is the primary design. Prefer a specific value where one dominates.""")
+
+    _defn = EnumDefinition(
+        name="ExperimentDesignEnum",
+        description="""Broad design family of an experiment, proposed or carried out. This is the coarse, always-fillable classification of *how* a question is addressed, and is deliberately small and closed so it can be populated on every experiment; finer detail belongs in `experiment_type`, which takes an ontology-backed Descriptor.""",
+    )
+
+class ExperimentExecutabilityEnum(EnumDefinitionImpl):
+    """
+    How far an experiment has been specified, independent of whether anyone intends to run it. This records the honest
+    state of a proposal rather than implying readiness: a `CONCEPTUAL` proposal may still be an excellent experiment,
+    and most curated proposals are `CONCEPTUAL`.
+    """
+    CONCEPTUAL = PermissibleValue(
+        text="CONCEPTUAL",
+        title="Conceptual",
+        description="""A design sketch in prose. The result would be interpretable, but the experiment is not specified in enough detail to hand to anyone.""")
+    SPECIFIED = PermissibleValue(
+        text="SPECIFIED",
+        title="Specified",
+        description="""Model system, perturbation, readout, and comparator are named as structured objects, so a domain expert could write the protocol.""")
+    PARAMETERIZED = PermissibleValue(
+        text="PARAMETERIZED",
+        title="Parameterized",
+        description="""Bound to a named external protocol, with the scientific parameters supplied. Mechanical parameters still come from the protocol itself.""")
+    EXECUTABLE = PermissibleValue(
+        text="EXECUTABLE",
+        title="Executable",
+        description="""The bound protocol is machine-runnable and its parameters are complete, so it could be submitted to an automation core or cloud lab subject to the usual review and biosafety gates.""")
+
+    _defn = EnumDefinition(
+        name="ExperimentExecutabilityEnum",
+        description="""How far an experiment has been specified, independent of whether anyone intends to run it. This records the honest state of a proposal rather than implying readiness: a `CONCEPTUAL` proposal may still be an excellent experiment, and most curated proposals are `CONCEPTUAL`.""",
+    )
+
 class ModelMechanismRelationshipEnum(EnumDefinitionImpl):
     """
     Controlled relationship between an experimental, animal, or computational model and the pathophysiology node it is
@@ -14875,6 +14963,12 @@ slots.experiment_id = Slot(uri=DISMECH.experiment_id, name="experiment_id", curi
 
 slots.experiment_type = Slot(uri=DISMECH.experiment_type, name="experiment_type", curie=DISMECH.curie('experiment_type'),
                    model_uri=DISMECH.experiment_type, domain=None, range=Optional[Union[dict, Descriptor]])
+
+slots.experiment_design = Slot(uri=DISMECH.experiment_design, name="experiment_design", curie=DISMECH.curie('experiment_design'),
+                   model_uri=DISMECH.experiment_design, domain=None, range=Optional[Union[str, "ExperimentDesignEnum"]])
+
+slots.executability = Slot(uri=DISMECH.executability, name="executability", curie=DISMECH.curie('executability'),
+                   model_uri=DISMECH.executability, domain=None, range=Optional[Union[str, "ExperimentExecutabilityEnum"]])
 
 slots.model_systems = Slot(uri=DISMECH.model_systems, name="model_systems", curie=DISMECH.curie('model_systems'),
                    model_uri=DISMECH.model_systems, domain=None, range=Optional[Union[dict[Union[str, ExperimentalModelName], Union[dict, ExperimentalModel]], list[Union[dict, ExperimentalModel]]]])
