@@ -127,6 +127,20 @@ The WHO list below is used as the project scope. Some WHO groups are split into 
 
 ---
 
+## What the checkboxes below mean
+
+The ticks in STATUS record that a disease **has an entry**, not that its
+pathograph is usable. A structural audit in November 2026 found that three
+diseases ticked off here have mechanism nodes and no causal edges at all:
+Trachoma (1 node), Lymphatic filariasis (4 nodes) and Polycystic
+echinococcosis (3 nodes). Several more have a partial chain with nodes that
+nothing points at.
+
+Depth for these diseases is tracked separately in
+[GLOBAL_SOUTH](GLOBAL_SOUTH.md) and epic #16706, which carries a per-disease
+issue for each one. Leave the ticks here as they are — coverage really is
+complete on the WHO list — and read them as the coverage claim they are.
+
 # STATUS
 
 ## WHO List NTDs (20/20)
