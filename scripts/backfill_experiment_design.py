@@ -236,6 +236,26 @@ def iter_experiments(doc: dict):
                 yield exp
 
 
+def experiment_block(lines: list[str], start: int, key_indent: int) -> list[str]:
+    """The lines belonging to the experiment whose ``experiment_id`` is at ``start``.
+
+    The block ends at the next experiment, or at the first non-blank line that
+    dedents out of this list item. A fixed lookahead window instead reaches into
+    the *next* experiment and sees its ``experiment_design``, which reports this
+    experiment as already done and silently skips its insert on a re-run.
+    """
+    block: list[str] = []
+    for line in lines[start + 1 :]:
+        if not line.strip():
+            continue
+        if EXPERIMENT_ID_LINE.match(line):
+            break
+        if len(line) - len(line.lstrip()) < key_indent:
+            break
+        block.append(line)
+    return block
+
+
 def patch_file(path: Path, assignments: dict[str, str]) -> tuple[int, list[str]]:
     """Insert experiment_design after each matching experiment_id line.
 
@@ -256,7 +276,7 @@ def patch_file(path: Path, assignments: dict[str, str]) -> tuple[int, list[str]]
             continue
         # Idempotence: a value already in this block wins.
         key_indent = " " * len(m.group("lead"))
-        if any(DESIGN_LINE.match(nxt) for nxt in lines[i + 1 : i + 60]):
+        if any(DESIGN_LINE.match(nxt) for nxt in experiment_block(lines, i, len(key_indent))):
             already.append(eid)
             continue
         out.append(f"{key_indent}experiment_design: {design}\n")
