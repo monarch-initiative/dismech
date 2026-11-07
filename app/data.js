@@ -100584,9 +100584,13 @@ window.searchData = [
     ],
     "creation_date": "2025-12-18T17:01:35Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Tropical Pancreatitis"
+    ],
     "description": "Chronic pancreatitis is a progressive fibroinflammatory disease of the pancreas in which recurrent acinar cell injury drives irreversible parenchymal destruction and fibrosis. Persistent injury activates pancreatic stellate cells to deposit collagen, replacing functional tissue and producing the hallmark loss of exocrine and endocrine function. Clinically it manifests as chronic abdominal pain, steatorrhea and weight loss from exocrine insufficiency, and diabetes mellitus from progressive islet destruction; major causes include chronic alcohol use, smoking, and genetic predisposition.",
     "pathophysiology": [
+      "Premature Intrapancreatic Trypsinogen Activation",
+      "Impaired Ductal Chloride and Bicarbonate Secretion",
       "Recurrent Acinar Cell Injury",
       "Pancreatic Fibrosis",
       "Exocrine Insufficiency",
@@ -100594,15 +100598,19 @@ window.searchData = [
     ],
     "cell_types": [
       "Pancreatic Acinar Cell",
+      "Pancreatic Ductal Cell",
       "Pancreatic Stellate Cell",
       "Pancreatic Beta Cell"
     ],
     "cell_type_ids": [
       "CL:0002064",
+      "CL:0002079",
       "CL:0002410",
       "CL:0000169"
     ],
     "biological_processes": [
+      "Trypsinogen Activation",
+      "Intrapancreatic Proteolysis",
       "Inflammatory Response",
       "Extracellular Matrix Organization",
       "Digestive System Process"
@@ -100668,11 +100676,11 @@ window.searchData = [
     "source_file": "Chronic_Pancreatitis.yaml",
     "page_url": "../pages/disorders/Chronic_Pancreatitis.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 8,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Chronic Primary Adrenal Insufficiency",
@@ -105267,7 +105275,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "5"
   },
   {
@@ -170392,7 +170400,8 @@ window.searchData = [
       "Semantic Variant PPA",
       "Nonfluent Variant PPA",
       "FTD with Motor Neuron Disease",
-      "FTD3"
+      "FTD3",
+      "GRN-FTLD-TDP"
     ],
     "description": "Frontotemporal Dementia (FTD) is a group of neurodegenerative disorders characterized by progressive deterioration of the frontal and temporal lobes of the brain. It presents with prominent changes in personality, behavior, and/or language, typically with onset before age 65. FTD is associated with abnormal accumulation of tau, TDP-43, or (less commonly) FUS proteins.\n",
     "pathophysiology": [
@@ -190811,6 +190820,81 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "48",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Hemoglobin M Disease, Beta Type",
+    "disease_id": "MONDO:0018023",
+    "category": "Mendelian",
+    "parents": [
+      "Hematological Disease",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-11-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Distal (Hb M-Saskatoon)",
+      "Proximal (Hb M-Hyde Park)"
+    ],
+    "description": "Hemoglobin M disease, beta type (OMIM 617971, \"methemoglobinemia, beta type\") is a rare, autosomal dominant structural hemoglobinopathy caused by heterozygous germline missense variants in the beta-globin gene HBB that substitute a heme-coordinating residue of the beta-globin chain. The introduced residue (a tyrosine phenolate, or a glutamate carboxylate) bonds directly to the heme iron and stabilizes it in the oxidized ferric (Fe3+) state, so the mutant subunit is held as methemoglobin, which cannot reversibly bind oxygen and is resistant to reduction by the physiological cytochrome b5 reductase system and by therapeutic reducing agents (methylene blue, vitamin C). The clinical picture is lifelong central cyanosis with chocolate-brown blood and a pulse-oximetry \"saturation gap\", and the disorder is otherwise benign in most patients. Because beta-globin is absent from fetal hemoglobin, cyanosis in the beta type appears only after the perinatal fetal-to-adult (gamma-to-beta) hemoglobin switch, at roughly 3 to 6 months of age -- a pediatric timing that distinguishes it from the alpha-globin variants (symptomatic from birth) and the transient neonatal gamma-globin M-hemoglobins. The best-characterised beta variants fall into two mechanistic classes: distal (E7) histidine substitutions such as Hb M-Saskatoon (HBB:c.190C>T, beta63 His>Tyr), which stabilize the deoxy (T) quaternary state and lower the oxygen affinity of the normal subunits, and proximal (F8) histidine substitutions such as Hb M-Hyde Park/Akita (beta92 His>Tyr, codon 92 CAC>TAC), which raise oxygen affinity, abolish cooperativity, and yield an unstable hemoglobin with mild hemolysis. SCOPE NOTE: this entry covers the HBB (beta-globin) form only. MONDO:0018023 carries the broad label \"hemoglobin M disease\" and Orphanet (ORPHA:330041) lists HBA1, HBA2 and HBB as causal genes, but MONDO:0018023 is equivalentTo OMIM:617971 (\"methemoglobinemia, beta type\"), and ClinGen curates the HBB gene-disease relationship against this exact MONDO identifier (Definitive, autosomal dominant). The alpha-globin form is a separate concept (MONDO:0020835, methemoglobinemia alpha type, OMIM:617973; ClinGen Limited for HBA1/HBA2). The gamma-globin M-hemoglobins (e.g. Hb F-M-Fort Ripley) are transient neonatal and are curated in Cyanosis_Transient_Neonatal (MONDO:0013511). See the lump/split note below.\n",
+    "pathophysiology": [
+      "HBB Heme-Pocket Missense Substitution",
+      "Ferric Heme Iron Stabilization",
+      "Deoxy (T) Quaternary State Stabilization",
+      "Unstable High-Oxygen-Affinity Tetramer",
+      "Resistance to Methemoglobin Reduction",
+      "Persistent Circulating Methemoglobin and Reduced Oxygen Delivery"
+    ],
+    "cell_types": [
+      "erythrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000232"
+    ],
+    "biological_processes": [],
+    "phenotypes": [
+      "Cyanosis",
+      "Methemoglobinemia",
+      "Chocolate brown blood",
+      "Saturation gap",
+      "Hemolytic anemia"
+    ],
+    "phenotype_categories": [
+      "Phenotype"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0000961",
+      "HP:0012119",
+      "HP:6001452",
+      "HP:6001211",
+      "HP:0001878"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "HBB"
+    ],
+    "treatments": [
+      "Observation and supportive care",
+      "Avoidance of oxidizing agents and perioperative precautions",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hemoglobin_M_Disease.yaml",
+    "page_url": "../pages/disorders/Hemoglobin_M_Disease,_Beta_Type.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Hemolytic Disease of the Fetus and Newborn",
@@ -262081,7 +262165,8 @@ window.searchData = [
       "Transcranial Magnetic Stimulation",
       "Lithium Augmentation",
       "Behavioral Activation",
-      "Psilocybin-Assisted Therapy"
+      "Psilocybin-Assisted Therapy",
+      "Combined Chronotherapy (Sleep Deprivation and Light Therapy)"
     ],
     "environmental": [
       "Childhood Trauma",
@@ -262099,7 +262184,7 @@ window.searchData = [
     "num_phenotypes": 8,
     "num_pathophysiology": 12,
     "num_genes": 5,
-    "num_treatments": 9,
+    "num_treatments": 10,
     "causal_graph_edges": "31",
     "causal_graph_longest_path": "3"
   },
@@ -339728,8 +339813,8 @@ window.searchData = [
     "num_pathophysiology": 1,
     "num_genes": 2,
     "num_treatments": 1,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "2",
+    "causal_graph_longest_path": "1"
   },
   {
     "name": "Primary Progressive Apraxia of Speech",
@@ -345111,6 +345196,9 @@ window.searchData = [
     "updated_date": null,
     "subtypes": [
       "Pulmonary Arterial Hypertension (PAH)",
+      "Heritable PAH",
+      "Idiopathic PAH",
+      "PVOD/PCH",
       "Secondary Pulmonary Hypertension"
     ],
     "description": "Pulmonary hypertension is a hemodynamic disorder defined by abnormally elevated mean pulmonary arterial pressure. In pulmonary arterial hypertension, endothelial dysfunction and an imbalance of vasoactive mediators drive vasoconstriction and obstructive remodeling of the small pulmonary arteries (heritable forms involve BMPR2 and related TGF-beta pathway genes); other groups arise from left heart disease, lung disease, or chronic thromboembolism. Rising pulmonary vascular resistance imposes right ventricular overload, leading to right heart failure.",
@@ -345150,6 +345238,7 @@ window.searchData = [
       "HIF-1-alpha signaling pathway"
     ],
     "phenotypes": [
+      "Right Heart Failure",
       "Dyspnea",
       "Chest Pain",
       "Syncope",
@@ -345162,8 +345251,8 @@ window.searchData = [
       "Tricuspid Regurgitation"
     ],
     "phenotype_categories": [
-      "Respiratory",
       "Cardiovascular",
+      "Respiratory",
       "Systemic"
     ],
     "phenotype_hpo_categories": [
@@ -345175,6 +345264,7 @@ window.searchData = [
       "Respiratory"
     ],
     "phenotype_ids": [
+      "HP:0001708",
       "HP:0002094",
       "HP:0100749",
       "HP:0001279",
@@ -345187,8 +345277,8 @@ window.searchData = [
       "HP:0005180"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
       "FREQUENT",
+      "VERY_FREQUENT",
       "OCCASIONAL"
     ],
     "genes": [
@@ -345219,7 +345309,7 @@ window.searchData = [
     ],
     "source_file": "Pulmonary_hypertension.yaml",
     "page_url": "../pages/disorders/Pulmonary_hypertension.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 11,
     "num_pathophysiology": 7,
     "num_genes": 9,
     "num_treatments": 7,
@@ -368529,6 +368619,7 @@ window.searchData = [
     "genes": [],
     "treatments": [
       "Investigational gene therapy",
+      "Rebisufligene etisparvovec (FAYUVI)",
       "Substrate reduction therapy (genistein)",
       "iPSC-derived neural progenitor cell therapy (SGSH)",
       "Supportive symptomatic care"
@@ -368548,8 +368639,8 @@ window.searchData = [
     "num_phenotypes": 18,
     "num_pathophysiology": 6,
     "num_genes": 0,
-    "num_treatments": 4,
-    "causal_graph_edges": "54",
+    "num_treatments": 5,
+    "causal_graph_edges": "55",
     "causal_graph_longest_path": "5"
   },
   {
@@ -411708,7 +411799,7 @@ window.searchData = [
     "num_pathophysiology": 15,
     "num_genes": 3,
     "num_treatments": 10,
-    "causal_graph_edges": "79",
+    "causal_graph_edges": "84",
     "causal_graph_longest_path": "8"
   },
   {
@@ -431537,17 +431628,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4005,
-  "total_subtypes": 5029,
-  "total_disorders_and_subtypes": 9034,
-  "total_unique_evidence_sources": 59317,
-  "total_unique_publications": 55489,
+  "total_disorder_pages": 4006,
+  "total_subtypes": 5036,
+  "total_disorders_and_subtypes": 9042,
+  "total_unique_evidence_sources": 59341,
+  "total_unique_publications": 55510,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4003,
-  "total_unique_pathological_events": 26187,
+  "total_pathographs": 4004,
+  "total_unique_pathological_events": 26195,
   "total_modules": 227,
-  "total_research_reports": 4113,
+  "total_research_reports": 4114,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 130
