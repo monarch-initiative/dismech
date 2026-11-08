@@ -93525,36 +93525,36 @@ window.searchData = [
       "CMTX5",
       "CMTX6"
     ],
-    "description": "Charcot-Marie-Tooth disease type X (CMTX) is the X-linked compartment of Charcot-Marie-Tooth disease, sitting alongside the dominant demyelinating (CMT1), dominant axonal (CMT2) and autosomal-recessive (CMT4) compartments. It is overwhelmingly dominated by CMTX1, caused by loss-of-function variants in GJB1 encoding connexin-32 \u2014 the second most common cause of CMT overall after the PMP22 duplication of CMT1A. Connexin-32 forms the reflexive gap junctions that connect the abaxonal and adaxonal cytoplasm of a myelinating Schwann cell across its own non-compact myelin, providing a short radial diffusion path for ions and small metabolites that would otherwise have to travel the full spiral length of the sheath. Losing that path degrades Schwann-cell support of the axon it myelinates, producing an intermediate electrophysiology \u2014 conduction velocities slowed beyond pure axonal disease but not into the uniformly demyelinating range \u2014 and progressive length-dependent distal weakness, wasting, sensory loss and foot deformity. Because GJB1 is X-linked and the mechanism is loss of function, hemizygous males are consistently and more severely affected while heterozygous females are affected later, more mildly, and more variably. The mechanism of that female variability is unsettled: skewed X-inactivation in Schwann cells is the long-standing hypothesis, but the only study to measure it directly in affected nerve found random X-inactivation, so this entry does not assert it. Connexin-32 is also expressed by oligodendrocytes, which is why CMTX1 \u2014 alone among the CMT compartments \u2014 carries a recognized central nervous system phenotype, including stereotyped episodes of transient, reversible CNS white-matter dysfunction.\nThe remaining loci are individually rare and mechanistically unrelated to connexin biology, each converging on the same peripheral-nerve endpoint by a different route: AIFM1 (CMTX4 / Cowchock syndrome) and PDK3 (CMTX6) through mitochondrial bioenergetic failure, PRPS1 (CMTX5) through impaired purine nucleotide biosynthesis, and CMTX3 through a non-coding interchromosomal insertion at Xq27.1 whose transcriptional consequence is still unresolved. Several of these carry syndromic features \u2014 sensorineural hearing loss and optic atrophy in CMTX5, deafness and cognitive impairment in CMTX4 \u2014 that a pure CMTX1 picture does not.",
+    "description": "Charcot-Marie-Tooth disease type X (CMTX) comprises the X-linked inherited motor and sensory neuropathies. The predominant subtype, CMTX1, is caused by pathogenic GJB1 variants affecting connexin-32 in myelinating Schwann cells. Most peripheral neuropathy alleles impair normal Cx32 function through defective expression, trafficking, or channel properties. The downstream glial and axonal injury mechanisms are incompletely resolved: radial diffusion of small dyes persists in Gjb1-null mouse myelin, and early axonal abnormalities need not follow overt demyelination. Typical manifestations include distal weakness and wasting, sensory loss, depressed reflexes and foot deformity. Males generally have earlier, more severe disease; heterozygous females vary widely and can progress. CMTX1 can also involve the CNS, including fixed signs and self-limited stroke-like episodes. The molecular basis of CNS involvement may differ from the peripheral loss-of-function mechanism.\n\nThe rarer subtypes have distinct initiating lesions: a noncoding interchromosomal insertion in CMTX3, altered AIFM1 redox and apoptotic function in CMTX4, deficient PRPS1 enzyme activity in CMTX5, and hyperactive PDK3 in CMTX6. CMTX2 remains a linkage-defined entity without an established causal gene. AIFM1-associated deafness and intellectual disability and PRPS1-associated prelingual hearing loss and optic neuropathy distinguish syndromic forms; hearing impairment can also occur in CMTX1. Subtype-specific findings should not be generalized to all CMTX.",
     "pathophysiology": [
-      "Connexin-32 Reflexive Gap Junction Loss in Schwann Cells",
-      "Impaired Radial Metabolic Support of the Axon",
-      "PDK3 Hyperactivation and Reduced Pyruvate Flux",
-      "AIFM1 Mitochondrial Oxidoreductase Dysfunction",
-      "Purine Nucleotide Biosynthesis Deficiency",
-      "Demyelination with Secondary Axonal Loss",
+      "Cx32 Loss of Function in Schwann Cells",
+      "Peripheral Myelin Abnormalities in CMTX1",
+      "Impaired Axonal Transport in Gjb1-null Mice",
+      "PDK3 Kinase Hyperactivity",
+      "Proposed Reduction of Pyruvate Oxidation in CMTX6",
+      "Altered AIF Redox Activity",
+      "Increased Caspase-independent Apoptotic Susceptibility",
+      "Reduced PRPS1 Enzyme Activity",
+      "CMTX3 Interchromosomal Insertion",
+      "Increased FGF13 RNA in CMTX3 Lymphoblasts",
+      "Reduced SOX3 Expression During Early Neural Differentiation",
+      "Peripheral Axonal Degeneration",
       "Length-Dependent Distal Neuropathy",
-      "Oligodendrocyte Connexin-32 Loss and Transient CNS Dysfunction"
+      "Cx32 Dysfunction in Oligodendrocytes",
+      "Reduced Axon Caliber in Gjb1-null Mice",
+      "Neurofilament Dephosphorylation in Gjb1-null Mice"
     ],
     "cell_types": [
-      "Myelinating Schwann cell",
-      "Peripheral sensory neuron",
-      "Peripheral motor neuron",
-      "Oligodendrocyte"
+      "myelinating Schwann cell",
+      "oligodendrocyte"
     ],
     "cell_type_ids": [
       "CL:0000218",
-      "CL:0000101",
-      "CL:0000100",
       "CL:0000128"
     ],
     "biological_processes": [
-      "Gap junction assembly in non-compact myelin",
-      "Peripheral nervous system myelin maintenance",
-      "Pyruvate metabolic process",
-      "Apoptotic process",
-      "Purine nucleotide biosynthetic process",
-      "Myelination"
+      "peripheral nervous system myelin maintenance",
+      "apoptotic process"
     ],
     "phenotypes": [
       "Distal Muscle Weakness",
@@ -93568,7 +93568,18 @@ window.searchData = [
       "Transient Dysarthria",
       "Central White Matter Abnormality",
       "Sensorineural Hearing Impairment",
-      "Optic Atrophy"
+      "Optic Neuropathy",
+      "Gait Disturbance",
+      "Scoliosis",
+      "Paresthesia",
+      "Intellectual Disability",
+      "Fixed Ataxia",
+      "Spasticity",
+      "Hyperreflexia",
+      "Fixed Dysarthria",
+      "Motor Delay",
+      "Arthralgia",
+      "Foot Drop"
     ],
     "phenotype_categories": [
       "Neurological",
@@ -93578,6 +93589,7 @@ window.searchData = [
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Constitutional",
       "Ear",
       "Eye",
       "Limbs",
@@ -93594,13 +93606,21 @@ window.searchData = [
       "HP:0003376",
       "HP:0002401",
       "HP:0001260",
-      "HP:0011400",
+      "HP:0030890",
       "HP:0000407",
-      "HP:0000648"
+      "HP:0001138",
+      "HP:0001288",
+      "HP:0002650",
+      "HP:0003401",
+      "HP:0001249",
+      "HP:0001251",
+      "HP:0001257",
+      "HP:0001347",
+      "HP:0001270",
+      "HP:0002829",
+      "HP:0009027"
     ],
-    "frequencies": [
-      "VERY_FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "GJB1",
       "AIFM1",
@@ -93614,7 +93634,9 @@ window.searchData = [
       "Avoidance of Neurotoxic Medications",
       "AAV9-Mediated Schwann-Cell-Targeted GJB1 Gene Replacement",
       "Cochlear Implantation",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "Multidisciplinary Surveillance",
+      "Supportive Management of CNS Episodes"
     ],
     "environmental": [
       "Systemic stressors preceding transient CNS episodes in CMTX1"
@@ -93622,11 +93644,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Charcot-Marie-Tooth_Disease_Type_X.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Type_X.html",
-    "num_phenotypes": 12,
-    "num_pathophysiology": 8,
+    "num_phenotypes": 23,
+    "num_pathophysiology": 16,
     "num_genes": 4,
-    "num_treatments": 7,
-    "causal_graph_edges": "26",
+    "num_treatments": 9,
+    "causal_graph_edges": "52",
     "causal_graph_longest_path": "5"
   },
   {
@@ -432171,12 +432193,12 @@ window.searchMetrics = {
   "total_disorder_pages": 4011,
   "total_subtypes": 5044,
   "total_disorders_and_subtypes": 9055,
-  "total_unique_evidence_sources": 59414,
-  "total_unique_publications": 55575,
+  "total_unique_evidence_sources": 59421,
+  "total_unique_publications": 55577,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4009,
-  "total_unique_pathological_events": 26224,
+  "total_unique_pathological_events": 26231,
   "total_modules": 228,
   "total_research_reports": 4120,
   "total_classifications": 21,
