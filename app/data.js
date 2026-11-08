@@ -148034,8 +148034,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 6,
     "num_treatments": 5,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Ebstein Anomaly",
@@ -310048,7 +310048,8 @@ window.searchData = [
       "Agricultural insecticide exposure",
       "Intentional self-poisoning by ingestion",
       "Accidental pesticide exposure",
-      "Nerve agent exposure"
+      "Nerve agent exposure",
+      "Take-home and residential pesticide exposure in farmworker families"
     ],
     "biochemical": [
       "Erythrocyte acetylcholinesterase",
@@ -310060,7 +310061,7 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "25",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "7"
   },
   {
@@ -333362,8 +333363,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Polycystic Kidney Disease",
@@ -405012,8 +405013,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 6,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Tetanus neonatorum",
@@ -432170,14 +432171,14 @@ window.searchMetrics = {
   "total_disorder_pages": 4011,
   "total_subtypes": 5044,
   "total_disorders_and_subtypes": 9055,
-  "total_unique_evidence_sources": 59413,
-  "total_unique_publications": 55574,
+  "total_unique_evidence_sources": 59414,
+  "total_unique_publications": 55575,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4009,
   "total_unique_pathological_events": 26224,
   "total_modules": 228,
-  "total_research_reports": 4119,
+  "total_research_reports": 4120,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 130
