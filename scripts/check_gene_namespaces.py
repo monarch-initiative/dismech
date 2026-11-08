@@ -155,6 +155,10 @@ MODEL_GENE_PREFIXES = ("hgnc", *NON_HUMAN_PREFIXES)
 # pointer rather than silently ignored as an unknown prefix. UniProtKB (a
 # gene-product accession) is deferred to issue #16817.
 REJECTED_PREFIXES = ("UniProtKB",)
+# Matched case-insensitively, with the bare "UniProt" spelling other resources
+# use, so a lowercase or variant prefix is rejected rather than falling through
+# to the advisory UNCHECKED_PREFIX class.
+REJECTED_SPELLINGS = {prefix.casefold() for prefix in REJECTED_PREFIXES} | {"uniprot"}
 
 GATING = (
     "NON_HUMAN_OUTSIDE_MODEL",
@@ -173,6 +177,10 @@ ALLIANCE_GENE_URL = "https://www.alliancegenome.org/api/gene/{curie}"
 
 def _prefix(curie: str) -> str:
     return curie.split(":", 1)[0]
+
+
+def _rejected(prefix: str) -> bool:
+    return prefix.casefold() in REJECTED_SPELLINGS
 
 
 def cache_path(prefix: str) -> Path:
@@ -356,7 +364,7 @@ def check_document(path: Path, data: object, labels: dict[str, str] | None = Non
     for location, descriptor in _bindings(data):
         curie = str(descriptor["term"]["id"])
         prefix = _prefix(curie)
-        recognised = prefix in NON_HUMAN_PREFIXES or prefix in REJECTED_PREFIXES or prefix.casefold() in MISSPELLINGS
+        recognised = prefix in NON_HUMAN_PREFIXES or _rejected(prefix) or prefix.casefold() in MISSPELLINGS
         if recognised and id(descriptor) not in allowed:
             findings.append(
                 Finding(path, location, "NON_HUMAN_OUTSIDE_MODEL",
@@ -375,7 +383,7 @@ def check_document(path: Path, data: object, labels: dict[str, str] | None = Non
         if problem := _malformed(curie):
             findings.append(Finding(path, location, "MALFORMED_ID", problem))
             continue
-        if prefix in REJECTED_PREFIXES:
+        if _rejected(prefix):
             findings.append(
                 Finding(path, location, "REJECTED_PREFIX",
                         f"{curie}: {prefix} is not an accepted gene namespace yet (see issue #16817); "

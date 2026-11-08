@@ -163,6 +163,14 @@ def test_uniprotkb_on_a_model_gene_is_rejected_not_ignored() -> None:
     assert "REJECTED_PREFIX" in cgn.GATING
 
 
+@pytest.mark.parametrize("curie", ["uniprotkb:P00761", "UniProt:P00761", "UNIPROTKB:P00761"])
+def test_variant_uniprot_spellings_on_a_model_gene_are_rejected(curie: str) -> None:
+    # A lowercase or variant spelling must not slip to the advisory UNCHECKED_PREFIX.
+    data = _doc(experimental_models=[{"name": "pig cells", "organism": PIG,
+                                      "genes": [_gene(curie, "Trypsin")]}])
+    assert _kinds(data) == {"REJECTED_PREFIX"}
+
+
 def test_uniprotkb_outside_a_model_is_a_defect() -> None:
     data = _doc(genetic=[{"name": "COCH", "gene_term": _gene("UniProtKB:Q62507", "Cochlin")}])
     assert "NON_HUMAN_OUTSIDE_MODEL" in _kinds(data)
