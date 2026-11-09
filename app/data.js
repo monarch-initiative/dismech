@@ -126316,6 +126316,134 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "DEGS1-Related Hypomyelinating Leukodystrophy",
+    "disease_id": "MONDO:0032730",
+    "category": "Mendelian",
+    "parents": [
+      "leukodystrophy",
+      "hereditary disease"
+    ],
+    "creation_date": "2026-11-09T00:42:39Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive, early-onset hypomyelinating leukodystrophy (HLD18) caused by biallelic loss-of-function variants in DEGS1, which encodes the sphingolipid Delta-4-desaturase that performs the final step of de novo ceramide synthesis, converting dihydroceramide to ceramide. Loss of the enzyme makes dihydroceramide and other dihydrosphingolipids accumulate, with a raised dihydroceramide/ceramide ratio, and the sphingolipid imbalance impairs oligodendrocyte and Schwann-cell myelination. Children present in infancy with nystagmus, motor arrest, dystonia, spasticity and failure to thrive; MRI shows cerebral hypomyelination, a thin corpus callosum, and progressive thalamic and cerebellar atrophy. A demyelinating peripheral neuropathy occurs in a subset. There is no disease-modifying therapy. ClinGen rates DEGS1 Definitive for this disease.",
+    "pathophysiology": [
+      "Biallelic DEGS1 Loss of Function",
+      "Loss of Dihydroceramide Desaturase Activity",
+      "Dihydroceramide Accumulation",
+      "Reduced Ceramide and Downstream Sphingolipids",
+      "Mitochondria-Associated ER Membrane Dysfunction",
+      "Glial ER Expansion and Lipid-Droplet Depletion",
+      "Neuronal Rac1-NOX Oxidative Stress",
+      "Formation of Atypical Sphingoid Base SPB 18:1(14Z)",
+      "Reduced Myelinating Oligodendrocytes",
+      "Schwann Cell Myelin Defect",
+      "CNS Hypomyelination",
+      "Neurodegeneration"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "glial cell",
+      "neuron",
+      "oligodendrocyte",
+      "Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000125",
+      "CL:0000540",
+      "CL:0000128",
+      "CL:0002573"
+    ],
+    "biological_processes": [
+      "ceramide biosynthetic process",
+      "mitochondrial fusion",
+      "response to oxidative stress",
+      "lipid droplet formation",
+      "oligodendrocyte differentiation",
+      "myelination"
+    ],
+    "phenotypes": [
+      "Cerebral hypomyelination",
+      "Thin corpus callosum",
+      "Cerebellar atrophy",
+      "Abnormal thalamus morphology",
+      "Nystagmus",
+      "Global developmental delay",
+      "Dystonia",
+      "Spasticity",
+      "Seizures",
+      "Failure to thrive",
+      "Intellectual disability",
+      "Developmental regression",
+      "Scoliosis",
+      "Demyelinating Peripheral Neuropathy",
+      "Secondary microcephaly",
+      "Axial hypotonia",
+      "Feeding difficulties"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Constitutional",
+      "Musculoskeletal",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0006808",
+      "HP:0033725",
+      "HP:0001272",
+      "HP:0010663",
+      "HP:0000639",
+      "HP:0001263",
+      "HP:0001332",
+      "HP:0001257",
+      "HP:0001250",
+      "HP:0001508",
+      "HP:0001249",
+      "HP:0002376",
+      "HP:0002650",
+      "HP:0007108",
+      "HP:0005484",
+      "HP:0008936",
+      "HP:0011968"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "DEGS1"
+    ],
+    "treatments": [
+      "Antiseizure Pharmacotherapy",
+      "Ketogenic Diet",
+      "Supportive and Rehabilitative Care",
+      "Fingolimod (Experimental, Preclinical)",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Dihydroceramide"
+    ],
+    "source_file": "DEGS1-Related_Hypomyelinating_Leukodystrophy.yaml",
+    "page_url": "../pages/disorders/DEGS1-Related_Hypomyelinating_Leukodystrophy.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 12,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "DENND5A-Related Developmental and Epileptic Encephalopathy",
     "disease_id": "MONDO:0015002",
     "category": "Mendelian",
@@ -293490,6 +293618,116 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Nephrotic Syndrome Type 3",
+    "disease_id": "MONDO:0012546",
+    "category": "Mendelian",
+    "parents": [
+      "Familial Idiopathic Steroid-Resistant Nephrotic Syndrome"
+    ],
+    "creation_date": "2026-11-09T01:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive podocytopathy caused by biallelic loss-of-function variants in PLCE1, which encodes phospholipase C epsilon 1 (PLCepsilon1), a phosphoinositide-specific phospholipase expressed in developing and mature glomerular podocytes. Nephrotic syndrome usually begins in infancy or early childhood, is usually steroid resistant, and progresses to kidney failure. Diffuse mesangial sclerosis, read as an arrest of normal glomerular development, is the characteristic lesion; focal segmental glomerulosclerosis is seen in a share of cases. Unlike most monogenic steroid-resistant nephrotic syndromes, a few patients have remitted on glucocorticoids or ciclosporin, and asymptomatic relatives homozygous for the familial variant are documented. ClinGen rates PLCE1 Definitive.",
+    "pathophysiology": [
+      "Biallelic PLCE1 Loss of Function",
+      "Loss of PLCepsilon1 Phosphoinositide Hydrolysis",
+      "Reduced Podocyte Rac1 and Cdc42 Activation",
+      "Reduced EGF-Induced ERK Activation in Podocytes",
+      "Impaired Podocyte TGF-beta1 SMAD2 Signalling",
+      "Impaired Podocyte Lamellipodium Formation",
+      "Reduced Podocyte Migration",
+      "Reduced Podocyte Proliferation",
+      "Impaired Podocyte Differentiation",
+      "Arrested Glomerular Development",
+      "Hypertensive Glomerular Stress",
+      "Podocyte Foot Process Effacement",
+      "Glomerular Filtration Barrier Failure",
+      "Podocyte Loss",
+      "Progressive Glomerulosclerosis"
+    ],
+    "cell_types": [
+      "podocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000653"
+    ],
+    "biological_processes": [
+      "positive regulation of Rac protein signal transduction",
+      "regulation of Cdc42 protein signal transduction",
+      "ERK1 and ERK2 cascade",
+      "transforming growth factor beta receptor signaling pathway",
+      "SMAD protein signal transduction",
+      "lamellipodium assembly",
+      "podocyte cell migration",
+      "cell population proliferation",
+      "podocyte differentiation",
+      "actin cytoskeleton organization",
+      "glomerulus development",
+      "cell-cell junction organization",
+      "glomerular filtration"
+    ],
+    "phenotypes": [
+      "Nephrotic Syndrome",
+      "Steroid-Resistant Nephrotic Syndrome",
+      "Congenital Nephrotic Syndrome",
+      "Nephrotic Range Proteinuria",
+      "Hypoalbuminemia",
+      "Generalized Edema",
+      "Hyperlipidemia",
+      "Diffuse Mesangial Sclerosis",
+      "Focal Segmental Glomerulosclerosis",
+      "Kidney Failure"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Metabolic",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000100",
+      "HP:0012588",
+      "HP:0008677",
+      "HP:0012593",
+      "HP:0003073",
+      "HP:0007430",
+      "HP:0003077",
+      "HP:0001967",
+      "HP:0000097",
+      "HP:0003774"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "PLCE1"
+    ],
+    "treatments": [
+      "Calcineurin Inhibitor Trial",
+      "Glucocorticoids",
+      "Renin-Angiotensin-Aldosterone System Inhibition",
+      "Supportive Care",
+      "Dialysis",
+      "Kidney Transplantation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Nephrotic_Syndrome_Type_3.yaml",
+    "page_url": "../pages/disorders/Nephrotic_Syndrome_Type_3.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 15,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Nerve Agent Poisoning",
     "disease_id": "MONDO:0100331",
     "category": "Environmental",
@@ -432417,17 +432655,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4013,
+  "total_disorder_pages": 4015,
   "total_subtypes": 5045,
-  "total_disorders_and_subtypes": 9058,
-  "total_unique_evidence_sources": 59482,
-  "total_unique_publications": 55633,
+  "total_disorders_and_subtypes": 9060,
+  "total_unique_evidence_sources": 59515,
+  "total_unique_publications": 55664,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4011,
-  "total_unique_pathological_events": 26254,
+  "total_pathographs": 4013,
+  "total_unique_pathological_events": 26275,
   "total_modules": 228,
-  "total_research_reports": 4123,
+  "total_research_reports": 4125,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 130
