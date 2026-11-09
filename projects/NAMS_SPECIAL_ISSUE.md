@@ -134,14 +134,24 @@ as it is being built:
 | `cortex-mea-acute-network-primary-cell-rat` | AcN |
 | `cortex-mea-network-formation-primary-cell-rat` | NFA |
 
-Both validate as `NAMRecord` against the registry's `nam_records.yaml`, typed
-`TwoDCellCulture`, `biological_organization_level: CELLULAR_NEIGHBORHOOD`,
-`species: NCBITaxon:10116`, with each assay's applications and limitations carrying
-the paper's own sentences. One thing blocks them, and it is a question for the
-registry rather than for this screen: `source_resources` is required and means "a
-registry resource a NAM was found in", but this NAM was found in a journal paper,
-and the registry has no resource record for a publication. ToxCast is the likely
-home for the EPA MEA endpoints; that was not confirmed against invitrodb.
+Both are typed `TwoDCellCulture`, `biological_organization_level:
+CELLULAR_NEIGHBORHOOD`, `species: NCBITaxon:10116`, with each assay's applications
+and limitations carrying the paper's own sentences. They are open as a draft in
+[nams-registry#57](https://github.com/monarch-initiative/nams-registry/pull/57),
+where both were validated as `NAMRecord`, and their models as `TwoDCellCulture`,
+against that repository's own `nam_records.yaml` and the NAMO commit it pins.
+
+One thing holds that PR as a draft, and it is a question for the registry rather
+than for this screen. `source_resources` is required and is defined as "A registry
+resource a NAM was found in", but this NAM was found in a primary research paper, and a
+primary research paper cannot be a registry resource: the registry's own
+`ResourceTypeEnum.Report` says "A primary research paper is not a report."
+Something still has to go in that slot, because the registry's
+`test_nam_source_resources_exist` requires every value there to name a file in its
+`resources/`. The draft carries ToxCast as a marked placeholder — the plausible
+home for the EPA MEA endpoints, which could not be confirmed against invitrodb —
+and records the paper and this special issue in free text instead. A separate
+nams-registry issue covers the general case.
 
 `references_cache/PMID_38788893.md` is committed and is cited only from this page,
 not from any `kb/` entry. It is kept deliberately, so the quoted sentences above
