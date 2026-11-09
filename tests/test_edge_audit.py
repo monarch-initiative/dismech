@@ -116,7 +116,8 @@ def test_edge_cache_provenance_resume_and_reports(tmp_path):
     cache = ResultCache(tmp_path / "cache")
     fake = FakeClassifier()
     results = list(assess([row], fake, cache, 1, revision="revision"))
-    assert list(assess([row], fake, cache, 1))[0]["cached"]
+    (resumed,) = list(assess([row], fake, cache, 1))
+    assert resumed["cached"]
     assert fake.calls == 1
     saved = yaml.safe_load(next((tmp_path / "cache").glob("*/*.yaml")).read_text())
     item = saved["inputs"][input_key(row["claim"])]
@@ -180,5 +181,6 @@ def test_canonical_migration_preserves_old_scores_and_node_activity(tmp_path):
     assert saved["inputs"][input_key(edge["claim"])]["active"]
     assert saved["inputs"][input_key(node["claim"])]["active"]
     assert saved["assessments"][old[0]["cache_key"]]["result"] == old[0]["result"]
-    assert list(assess([node], fake, cache, 1))[0]["cached"]
+    (resumed,) = list(assess([node], fake, cache, 1))
+    assert resumed["cached"]
     assert fake.calls == 3
