@@ -8,6 +8,8 @@ description: >-
   deep research into nams-registry report rows and dismech pathograph model links.
 tags: [MODELS, NAM, EXTERNAL_COLLABORATION, ENVIRONMENTAL_EXPOSURE, EVIDENCE]
 modules:
+  - chemical_respiratory_allergy
+  - inhaled_irritant_airway_injury
   - keap1_nrf2_are_signaling
   - drug_induced_liver_injury
   - hepatic_steatosis_lipotoxicity
@@ -83,11 +85,12 @@ expectations to be verified against the full text during extraction, not curated
 | Read-across mutagenicity classification | 37993082 | Cheminformatics over an Ames dataset; no biological system, no mechanism |
 | Nanoparticle toxicity by machine learning | 38056590 | Learns cell death from physicochemical properties and exposure conditions |
 | Deep learning for prospective chemical hazards | 38104655 | Generates candidate hazardous structures; no mechanism in a system |
+| In vitro transcriptomic points of departure (HTTr) | 38043774 | Endpoint is a dose metric, not a mechanism; flagship NAM, so a strong registry candidate |
 | q-RASAR for subchronic oral NOAEL | 38705560 | Structure-based prediction of a rat apical endpoint |
 | True-dose workflow for in vitro testing | 38719068 | In vitro dosimetry workflow; no mechanism |
 | NGRA for occupational safety, sodium isethionate | 38857863 | Exposure and bioactivity-ratio workflow across a NAM battery |
 
-Four of the seven are recorded in the open-questions register: they are strong
+Five of the eight are recorded in the open-questions register: they are strong
 registry candidates with no dismech home, which is a different thing from being out of
 scope for the registry too.
 
@@ -101,6 +104,7 @@ scope for the registry too.
   `divergences` entry where the model cannot observe what it is cited for.
 - **Unmapped inventory** — a pairing with no matching dismech node is recorded in
   [open-questions.md](NAMS_SPECIAL_ISSUE/open-questions.md) with the kind of node it
-  would need. Several of these are already visible from the abstracts: there is no
-  module for inhaled-irritant injury to the conducting airway, and none for chemical
-  respiratory allergy, which three separate papers in this issue address.
+  would need. The two largest gaps the abstracts revealed are now closed: the
+  modules `inhaled_irritant_airway_injury` and `chemical_respiratory_allergy` were
+  built for dismech#16877 and dismech#16878, so the seven papers that needed them
+  have a conformance target.

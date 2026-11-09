@@ -21,6 +21,8 @@ recorded decisions.
 
 ## 1. A method can belong in the registry and have no dismech home
 
+Tracked as dismech#16882.
+
 Four screened-out papers are legitimate NAMs and would plausibly earn a registry entry,
 but offer nothing a pathograph node can attach to:
 
@@ -40,6 +42,8 @@ That argues for screening against the registry's criteria first and dismech's se
 rather than the single pass used here.
 
 ## 2. Is a simulation of a human protein a model of a mechanism?
+
+Tracked as dismech#16883.
 
 Three papers are purely computational but target a specific human protein and make a
 mechanistic claim about it:
@@ -63,6 +67,8 @@ confirmation might warrant a `KNOWLEDGE_GAP` discussion instead of a model link.
 
 ## 3. Human sequence variation as a modifier of toxicant susceptibility
 
+Tracked as dismech#16884.
+
 The aromatase paper's finding is that specific human variants differ in how strongly
 zearalenone inhibits the enzyme — T310S more susceptible, D309G and S478F possibly
 inactive. dismech has `population_effects` for a variant behaving differently across
@@ -76,6 +82,8 @@ paper's variant effects are computationally predicted, so whichever slot is chos
 source is a simulation and not an observed cohort difference.
 
 ## 4. No module for inhaled-irritant injury to the conducting airway
+
+Tracked as dismech#16877. **Closed** — the module `inhaled_irritant_airway_injury` now exists.
 
 Repeatedly needed and absent. Papers affected: 1,3-dichloropropene nasal exposure
 (PMID:37863466), Calu-3 aerosol exposure (PMID:38013136), heated tobacco products
@@ -91,6 +99,8 @@ several — oxidative and electrophilic injury, barrier loss, and loss of mucoci
 differentiation are distinguishable mechanisms that these papers measure separately.
 
 ## 5. No module for chemical respiratory allergy
+
+Tracked as dismech#16878. **Closed** — the module `chemical_respiratory_allergy` now exists.
 
 Three papers in this issue address it directly: the airway sensitizer biomarker study
 (PMID:38360295), the 3D tetraculture bronchial model (PMID:38369009), and, on the skin
@@ -110,6 +120,8 @@ protein binding molecular initiating event and diverge downstream, which is the 
 
 ## 6. Where does an IVIVE or PBPK bridge live?
 
+Tracked as dismech#16887.
+
 The ReproTracker paper (PMID:38029956) pairs an hiPSC assay with a PBPK model to turn an
 in vitro concentration into a human equivalent dose, and the 1,3-dichloropropene paper
 does the same with IVIVE. This dosimetry step is what carries the regulatory weight, and
@@ -121,6 +133,8 @@ and an internal concentration. Recording it as a model link to the mechanism the
 reads out would misstate what it computes. It may belong only in the registry.
 
 ## 7. A validated model with no pathology to attach it to
+
+Tracked as dismech#16888.
 
 The Calu-3 paper (PMID:38013136) and the bronchial tetraculture paper (PMID:38369009)
 both spend half their length establishing that the model reproduces normal mucociliary
@@ -135,6 +149,8 @@ is richer than the dismech link, which is worth stating explicitly if so.
 
 ## 8. Species scale in a multi-tissue co-culture
 
+Tracked as dismech#16889.
+
 The particulate matter paper (PMID:38029955) builds co-cultures from a mix of human
 cell lines (A549, HEK001), a rabbit corneal line (SIRC), and a mouse fibroblast feeder
 layer (BALB/3T3). The ocular arm is therefore not a human model, and the feeder layer
@@ -145,6 +161,8 @@ is non-human in all three arms.
 species. Recording one divergence for the construct loses which layer is affected.
 
 ## 9. Synergy between two exposures
+
+Tracked as dismech#16885.
 
 The pesticide AOP paper (PMID:38040083) finds that pairs of pesticides from different
 classes act synergistically on shared key events, with combination indexes below 1.
