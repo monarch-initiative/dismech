@@ -432,6 +432,104 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "2-Aminoadipic 2-Oxoadipic Aciduria",
+    "disease_id": "MONDO:0008774",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn disorder of lysine and hydroxylysine metabolism",
+      "Organic Aciduria",
+      "Inborn Error of Metabolism"
+    ],
+    "creation_date": "2026-11-09T00:42:39Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "2-Aminoadipic 2-oxoadipic aciduria (AMOXAD) is an autosomal recessive inborn error of L-lysine, L-hydroxylysine and L-tryptophan degradation caused by biallelic loss-of-function variants in DHTKD1. DHTKD1 encodes E1a, the thiamine diphosphate-dependent 2-oxoadipate dehydrogenase that, with the E2 (DLST) and E3 (DLD) subunits it shares with the 2-oxoglutarate dehydrogenase complex, converts 2-oxoadipate to glutaryl-CoA in the mitochondrial matrix. Loss of this step raises 2-oxoadipate, 2-aminoadipate and usually 2-hydroxyadipate in urine and plasma.\nThe biochemical defect is established; its clinical significance is not. Reported individuals range from early-onset developmental delay, epilepsy, ataxia and microcephaly to completely normal, including unaffected siblings with the same biochemistry, and most were found by metabolic screening of children who already had neurological problems. ClinGen classifies the condition as a biochemical abnormality because none of the associated clinical features has been shown to be caused by DHTKD1 deficiency. This entry therefore wires the pathograph through to the biochemical phenotypes and leaves the neurodevelopmental phenotypes on an explicitly provisional hypothesis branch.",
+    "pathophysiology": [
+      "DHTKD1 Biallelic Loss of Function",
+      "Defective E1a Incorporation into the 2-Oxoadipate Dehydrogenase Complex",
+      "Loss of 2-Oxoadipate Dehydrogenase Activity",
+      "Lysine, Hydroxylysine and Tryptophan Catabolic Flux",
+      "Impaired Oxidative Decarboxylation of 2-Oxoadipate to Glutaryl-CoA",
+      "2-Oxoadipate Accumulation",
+      "Residual 2-Oxoadipate Decarboxylation by OGDH",
+      "2-Aminoadipate Accumulation",
+      "2-Hydroxyadipate Accumulation"
+    ],
+    "cell_types": [
+      "patient-derived skin fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "L-lysine catabolic process",
+      "L-tryptophan catabolic process"
+    ],
+    "phenotypes": [
+      "2-Oxoadipic aciduria",
+      "Alpha-aminoadipic aciduria",
+      "Elevated circulating 2-aminoadipic acid",
+      "2-Hydroxyadipic aciduria",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Seizure",
+      "Ataxia",
+      "Microcephaly",
+      "Hypotonia",
+      "Speech delay",
+      "Attention deficit hyperactivity disorder"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Neurological",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:6000266",
+      "HP:0410309",
+      "HP:6000278",
+      "HP:0034465",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0001251",
+      "HP:0000252",
+      "HP:0001252",
+      "HP:0000750",
+      "HP:0007018"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DHTKD1"
+    ],
+    "treatments": [
+      "Lysine-restricted diet",
+      "Pyridoxine and thiamine supplementation",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "2-Aminoadipic acid (urine and plasma)",
+      "2-Oxoadipic acid (urine)",
+      "2-Hydroxyadipic acid (urine)"
+    ],
+    "source_file": "2-Aminoadipic_2-Oxoadipic_Aciduria.yaml",
+    "page_url": "../pages/disorders/2-Aminoadipic_2-Oxoadipic_Aciduria.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "2-Methylbutyryl-CoA Dehydrogenase Deficiency",
     "disease_id": "MONDO:0012392",
     "category": "Mendelian",
@@ -331797,8 +331895,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Plasma Cell Neoplasm",
@@ -432319,17 +432417,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4012,
+  "total_disorder_pages": 4013,
   "total_subtypes": 5045,
-  "total_disorders_and_subtypes": 9057,
-  "total_unique_evidence_sources": 59448,
-  "total_unique_publications": 55600,
+  "total_disorders_and_subtypes": 9058,
+  "total_unique_evidence_sources": 59482,
+  "total_unique_publications": 55633,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4010,
-  "total_unique_pathological_events": 26245,
+  "total_pathographs": 4011,
+  "total_unique_pathological_events": 26254,
   "total_modules": 228,
-  "total_research_reports": 4122,
+  "total_research_reports": 4123,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 130
