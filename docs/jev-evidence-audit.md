@@ -21,6 +21,9 @@ just jev-audit
 # A small selection before a larger run (the limit includes missing evidence).
 just jev-audit --input kb/disorders/Asthma.yaml --section phenotypes --limit 20
 
+# Only causal and treatment edges (the limit still includes missing evidence).
+just jev-audit --assertion-type CausalEdge --assertion-type TreatmentMechanismTarget --limit 20
+
 # Regenerate CSVs from saved predictions without inference.
 just jev-audit-report
 
@@ -38,7 +41,7 @@ preserving the previous response in `reassessments`.
 
 ## What gets assessed
 
-Each evidence item is paired with its owning assertion, retaining disease,
+Node evidence is paired with its owning assertion, retaining disease,
 ancestor and subtype context. The claim remains a structured object. Each request
 asks independent questions about `/` (the whole claim), `/about/disease`, each
 inherited context binding, and all present assertion fields. Term ID/label pairs
@@ -51,6 +54,27 @@ assessed through their own evidence. This includes pathophysiology downstream
 edges and phenotype sequelae. Other compound fields, such as biochemical readouts,
 remain part of the complete parent claim. A missing edge snippet cannot be
 rescued by evidence on the parent.
+
+Causal and treatment edges use the canonical v2 edge contract: `subject`,
+`relationship`, `object`, `scope`, `definitions`, and `selected_evidence`. The
+source is the containing node; the target resolves by exact name across
+pathophysiology and phenotype nodes. Referenced subtypes and mechanistic
+hypotheses are resolved from both endpoints and the edge. Missing or ambiguous
+bindings are `invalid_input`, never guessed or sent for inference.
+
+Edge questions address `/` (the complete relationship), `/scope/disease`,
+`/object/name`, and present relationship fields. Their v2 instructions, schema
+semantics and Choice options match the benchmark contract. Endpoint definitions
+provide context, not additional evidence. Citation annotations and extraction
+origins remain outside model input. Node questions and input identities are
+unchanged; other edge classes retain the generic structured-assertion route.
+
+`--assertion-type` selects schema classes and is repeatable. Selection is recorded
+in the manifest, together with both node and edge prompt configurations. Cache
+reconciliation still observes complete selected files: filtering inference does
+not retire unrelated node assessments. Historical edge inputs and responses are
+retained; successfully resolved canonical inputs receive new identities, while
+old inputs are marked inactive only after a complete extraction of the file.
 
 The excerpt is evaluated on its own. No cached reference text or evidence-item
 explanation is supplied. The declared SUPPORT / REFUTE / NO_EVIDENCE relationship
