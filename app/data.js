@@ -252203,6 +252203,7 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0002616",
       "HP:0002647",
+      "HP:0002617",
       "HP:0005294",
       "HP:0005116",
       "HP:0001659",
@@ -254602,8 +254603,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Lymphatic malformation 13",
@@ -332904,7 +332905,7 @@ window.searchData = [
   },
   {
     "name": "Pneumocystis Pneumonia",
-    "disease_id": "MONDO:0005923",
+    "disease_id": "MONDO:0019121",
     "category": "Infectious Disease",
     "parents": [
       "Fungal Respiratory Infection"
@@ -333500,7 +333501,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "3"
   },
   {
@@ -369288,7 +369289,7 @@ window.searchData = [
       "Cardiomyopathy",
       "Loss of ambulation",
       "Cardiomyopathy in gamma-sarcoglycanopathy",
-      "Respiratory insufficiency due to muscle weakness",
+      "Respiratory insufficiency in gamma-sarcoglycanopathy",
       "Scoliosis",
       "Flexion contracture",
       "Distal muscle weakness",
@@ -406855,7 +406856,8 @@ window.searchData = [
       "Protein S Deficiency",
       "Protein C Deficiency AD",
       "Protein C Deficiency AR",
-      "X-linked F9 Thrombophilia"
+      "X-linked F9 Thrombophilia",
+      "Heparin Cofactor II Deficiency"
     ],
     "description": "An inherited or acquired shift of hemostasis toward thrombosis, most often manifesting as venous thromboembolism (deep vein thrombosis and pulmonary embolism). This entry models the root concept plus the five classic hereditary subtypes: factor V Leiden (activated protein C resistance), prothrombin G20210A, and deficiencies of antithrombin, protein C, and protein S. Each subtype reflects either a gain of procoagulant function (factor V Leiden, prothrombin G20210A) or a loss of natural anticoagulant function (antithrombin, protein C, protein S deficiency), and all five converge on the same downstream coagulation-activation and thrombus-formation pathway. Acquired, antiphospholipid-antibody-mediated thrombophilia is a mechanistically distinct, autoimmune disease already modeled in Antiphospholipid_Syndrome.yaml and is cross-referenced rather than duplicated here. Penetrance is incomplete and strongly modified by transient exposures (surgery, immobility, pregnancy, estrogen, cancer, inflammation), so a hereditary thrombophilia genotype is a risk factor for, not a guarantee of, clinical thrombosis.",
     "pathophysiology": [
@@ -406865,6 +406867,7 @@ window.searchData = [
       "Protein C Deficiency",
       "Protein S Deficiency",
       "Factor IX Gain-of-Function Hyperactivity",
+      "Heparin Cofactor II Deficiency Loss of Thrombin Inhibition",
       "Coagulation Cascade Activation and Thrombin-Driven Fibrin Formation",
       "Pathological Venous Thrombus Formation",
       "Venous Thrombus Embolization to Pulmonary Arteries",
@@ -406926,7 +406929,8 @@ window.searchData = [
       "SERPINC1",
       "PROC",
       "PROS1",
-      "F9"
+      "F9",
+      "SERPIND1"
     ],
     "treatments": [
       "Acute Anticoagulation via Heparin-Potentiated Antithrombin",
@@ -406942,10 +406946,10 @@ window.searchData = [
     "source_file": "Thrombophilia.yaml",
     "page_url": "../pages/disorders/Thrombophilia.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 10,
-    "num_genes": 6,
+    "num_pathophysiology": 11,
+    "num_genes": 7,
     "num_treatments": 4,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "4"
   },
   {
@@ -409114,21 +409118,31 @@ window.searchData = [
     "subtypes": [],
     "description": "Trachoma is a neglected tropical disease caused by conjunctival infection with Chlamydia trachomatis, leading to chronic conjunctival inflammation, scarring, trichiasis, and blindness.",
     "pathophysiology": [
-      "Chronic conjunctival infection with scarring"
+      "Repeated conjunctival Chlamydia trachomatis infection",
+      "Chronic conjunctival inflammation (active trachoma)",
+      "Eyelid conjunctival scarring"
     ],
     "cell_types": [],
     "cell_type_ids": [],
-    "biological_processes": [],
+    "biological_processes": [
+      "inflammatory response"
+    ],
     "phenotypes": [
+      "Trichiasis",
+      "Corneal opacity",
       "Blindness"
     ],
     "phenotype_categories": [
       "Ophthalmologic"
     ],
     "phenotype_hpo_categories": [
-      "Eye"
+      "Eye",
+      "Head and Neck",
+      "Integument"
     ],
     "phenotype_ids": [
+      "HP:0001128",
+      "HP:0007957",
       "HP:0000618"
     ],
     "frequencies": [
@@ -409142,12 +409156,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Trachoma.yaml",
     "page_url": "../pages/disorders/Trachoma.html",
-    "num_phenotypes": 1,
-    "num_pathophysiology": 1,
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "0",
-    "causal_graph_longest_path": "0"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Transaldolase Deficiency",
@@ -432306,14 +432320,14 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 4012,
-  "total_subtypes": 5044,
-  "total_disorders_and_subtypes": 9056,
-  "total_unique_evidence_sources": 59435,
-  "total_unique_publications": 55589,
+  "total_subtypes": 5045,
+  "total_disorders_and_subtypes": 9057,
+  "total_unique_evidence_sources": 59448,
+  "total_unique_publications": 55600,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4010,
-  "total_unique_pathological_events": 26242,
+  "total_unique_pathological_events": 26245,
   "total_modules": 228,
   "total_research_reports": 4122,
   "total_classifications": 21,
