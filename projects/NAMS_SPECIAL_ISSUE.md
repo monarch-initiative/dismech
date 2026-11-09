@@ -83,7 +83,7 @@ compared head to head across 243 chemicals.
 | | MEA acute network function assay (AcN) | MEA network formation assay (NFA) |
 |---|---|---|
 | Exposure | "a 40-minute chemical exposure on day in vitro (DIV)13 or 15" | "a developmental exposure paradigm spanning DIV0 through DIV12" |
-| Sampling | network activity during the exposure | "network activity over time at DIV5, 7, 9, and 12 … reduced to an estimated area under the curve" |
+| Sampling | network activity during the exposure | "Measures of network activity over time at DIV5, 7, 9, and 12 in the NFA are reduced to an estimated area under the curve" |
 | Informative for | "identifying chemicals with a shared mode of action" | "information relevant to developmental exposure" |
 
 Across the 243 chemicals screened in both, the paper reports "70.3% concordance
@@ -108,16 +108,45 @@ to:
   any text.
 - The endpoint is **mechanism-agnostic and non-directional** by design. It records
   that something perturbed network function, in either direction, without saying
-  what or why. The closest dismech anchor,
-  `epilepsy_excitation_inhibition_imbalance`, is network-level rather than
-  channel-level and so matches on scale — but every node in its chain is
-  directional (excitation-inhibition imbalance, then hyperexcitability and
-  hypersynchrony), and a screen hit that may be a decrease in activity is not
-  evidence for a node asserting an increase.
+  what or why. `epilepsy_excitation_inhibition_imbalance` is the closest anchor,
+  and neither end of it fits. Its trigger node, `Ion Channel and Synaptic
+  Dysfunction`, *is* non-directional — it binds `GO:0042391 regulation of
+  membrane potential` and `GO:0007268 chemical synaptic transmission` with
+  `modifier: ABNORMAL`, which is the one annotation shape a bidirectional screen
+  readout could attach to — but it describes channel and synaptic transmission in
+  a neuron, where the MEA readout is emergent network function across a well, so
+  it is at the wrong level. The nodes that *are* at network level
+  (excitation-inhibition imbalance, then hyperexcitability and hypersynchrony) are
+  directional, and a screen hit that may be a decrease in activity is not evidence
+  for a node asserting an increase.
 
 This is the sharpest instance of the general problem #16882 raises, and the first
 case in this batch where a paper kept by the screen yields a registry entry and no
-dismech link. A registry entry should cite this issue.
+dismech link.
+
+The registry record is drafted as **two** `NAMRecord`s, because the two assays are
+different model systems rather than one system run two ways — the acute assay
+records a matured network at DIV13 or 15, the network formation assay records one
+as it is being built:
+
+| Proposed record id | Assay |
+|---|---|
+| `cortex-mea-acute-network-primary-cell-rat` | AcN |
+| `cortex-mea-network-formation-primary-cell-rat` | NFA |
+
+Both validate as `NAMRecord` against the registry's `nam_records.yaml`, typed
+`TwoDCellCulture`, `biological_organization_level: CELLULAR_NEIGHBORHOOD`,
+`species: NCBITaxon:10116`, with each assay's applications and limitations carrying
+the paper's own sentences. One thing blocks them, and it is a question for the
+registry rather than for this screen: `source_resources` is required and means "a
+registry resource a NAM was found in", but this NAM was found in a journal paper,
+and the registry has no resource record for a publication. ToxCast is the likely
+home for the EPA MEA endpoints; that was not confirmed against invitrodb.
+
+`references_cache/PMID_38788893.md` is committed and is cited only from this page,
+not from any `kb/` entry. It is kept deliberately, so the quoted sentences above
+and in the registry draft stay checkable — do not read its absence from `kb/` as
+uncited and prune it.
 
 The NFA's own gap — developmental neurotoxicity as an outcome, which dismech has
 no module for — is tracked separately as
