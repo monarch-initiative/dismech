@@ -40536,6 +40536,90 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Autosomal Dominant Nebulin-Related Myopathy",
+    "disease_id": "MONDO:1010152",
+    "category": "Mendelian",
+    "parents": [
+      "Distal myopathy",
+      "Congenital structural myopathy"
+    ],
+    "creation_date": "2026-11-09T16:51:16Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mild, predominantly distal skeletal myopathy caused by a single large heterozygous in-frame deletion in NEB, the gene for the thin-filament protein nebulin. The deletions span roughly 51 to 97 exons, all include exons 55-77, and are inherited dominantly or arise de novo, sometimes in mosaic form. The deleted allele is expressed as a shorter nebulin protein, which is thought to disturb sarcomere assembly and function in a dominant-negative manner. Foot drop and distal leg and hand weakness predominate; some patients have facial, neck flexor or proximal weakness and scapular winging, all reported patients remain ambulant, and respiratory function has not been reduced. Biopsies show type 1 fibre predominance, fibre atrophy and size variation, cores, or nemaline bodies and cap-like structures. The disease is distinct from recessive nemaline myopathy 2, which is caused by biallelic NEB variants. ClinGen classifies the gene-disease relationship as Moderate.",
+    "pathophysiology": [
+      "Large In-Frame NEB Deletion",
+      "Expression of Shortened Mini-Nebulin",
+      "Dominant-Negative Sarcomere Disruption",
+      "Distal Myofiber Pathology"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "sarcomere organization"
+    ],
+    "phenotypes": [
+      "Distal muscle weakness",
+      "Foot drop",
+      "Distal amyotrophy",
+      "Weakness of facial musculature",
+      "Neck flexor weakness",
+      "Proximal muscle weakness",
+      "Scapular winging",
+      "Asymmetric muscle weakness",
+      "High palate",
+      "Type 1 muscle fiber predominance",
+      "Nemaline bodies"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Cellular",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002460",
+      "HP:0009027",
+      "HP:0003693",
+      "HP:0030319",
+      "HP:0003722",
+      "HP:0003701",
+      "HP:0003691",
+      "HP:0001324",
+      "HP:0000218",
+      "HP:0003803",
+      "HP:0003798"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "NEB"
+    ],
+    "treatments": [
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Dominant_Nebulin-Related_Myopathy.yaml",
+    "page_url": "../pages/disorders/Autosomal_Dominant_Nebulin-Related_Myopathy.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Autosomal Dominant Non-Syndromic Intellectual Disability",
     "disease_id": "MONDO:0015802",
     "category": "Genetic",
@@ -51003,6 +51087,128 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "50",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "BMP4-Related Ocular Growth Disorder",
+    "disease_id": "MONDO:0100613",
+    "category": "Mendelian",
+    "parents": [
+      "Anophthalmia-Microphthalmia Spectrum",
+      "Syndromic Microphthalmia"
+    ],
+    "creation_date": "2026-11-09T16:54:59Z",
+    "updated_date": null,
+    "subtypes": [
+      "MCOPS6"
+    ],
+    "description": "Autosomal dominant developmental eye disorder caused by heterozygous loss-of-function variants in BMP4, or deletions of 14q22 that remove it. BMP4 is a secreted TGF-beta superfamily morphogen expressed in the optic vesicle, developing retina and lens, pituitary region and digits. The ocular presentation ranges from anophthalmia and microphthalmia to sclerocornea, Peters anomaly, anterior segment malformation, retinal dystrophy and myopia; extraocular features include brain anomalies, pituitary hormone deficiency, postaxial polydactyly, growth delay, developmental delay, diaphragmatic hernia and renal dysplasia. Expressivity is highly variable and non-penetrance is documented, including carriers without microphthalmia. ClinGen lumps all BMP4 cases with ocular features, including OMIM syndromic microphthalmia 6, into this entity and classifies the relationship as Definitive. In mouse embryos the level of BMP4 signaling sets the dorso-ventral domains and growth of the optic cup.",
+    "pathophysiology": [
+      "BMP4 Haploinsufficiency",
+      "Disrupted Dorso-Ventral Patterning of the Optic Cup",
+      "Failed Optic Cup Formation and Lens Induction",
+      "Disrupted Extraocular BMP4 Developmental Signaling"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "dorsal/ventral pattern formation of the optic cup",
+      "optic cup formation",
+      "embryonic digit morphogenesis",
+      "pituitary gland development"
+    ],
+    "phenotypes": [
+      "Anophthalmia",
+      "Microphthalmia",
+      "Coloboma",
+      "Sclerocornea",
+      "Peters anomaly",
+      "Corneal opacity",
+      "Retinal dystrophy",
+      "Myopia",
+      "Abnormal brain morphology",
+      "Hydrocephalus",
+      "Postaxial polydactyly",
+      "Hypopituitarism",
+      "Ectopic posterior pituitary",
+      "Macrocephaly",
+      "Growth delay",
+      "Global developmental delay",
+      "Congenital diaphragmatic hernia",
+      "Rieger anomaly",
+      "High myopia",
+      "Abnormal vitreous humor morphology",
+      "Retinal detachment",
+      "Sensorineural hearing impairment",
+      "Retrognathia",
+      "High palate",
+      "Renal dysplasia"
+    ],
+    "phenotype_categories": [
+      "Eye",
+      "Nervous System",
+      "Musculoskeletal",
+      "Endocrine",
+      "Growth",
+      "Respiratory",
+      "Audiologic",
+      "Craniofacial",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000528",
+      "HP:0000568",
+      "HP:0000589",
+      "HP:0000647",
+      "HP:0000659",
+      "HP:0007957",
+      "HP:0000556",
+      "HP:0000545",
+      "HP:0012443",
+      "HP:0000238",
+      "HP:0100259",
+      "HP:0040075",
+      "HP:0011755",
+      "HP:0000256",
+      "HP:0001510",
+      "HP:0001263",
+      "HP:0000776",
+      "HP:0000558",
+      "HP:0011003",
+      "HP:0004327",
+      "HP:0000541",
+      "HP:0000407",
+      "HP:0000278",
+      "HP:0000218",
+      "HP:0000110"
+    ],
+    "frequencies": [],
+    "genes": [
+      "BMP4"
+    ],
+    "treatments": [
+      "Orbital Socket Expansion"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "BMP4-Related_Ocular_Growth_Disorder.yaml",
+    "page_url": "../pages/disorders/BMP4-Related_Ocular_Growth_Disorder.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "BPTF-Related Neurodevelopmental Disorder",
@@ -293523,6 +293729,93 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Nephrotic Syndrome Type 20",
+    "disease_id": "MONDO:0026726",
+    "category": "Mendelian",
+    "parents": [
+      "Familial Idiopathic Steroid-Resistant Nephrotic Syndrome"
+    ],
+    "creation_date": "2026-11-09T16:51:16Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "X-linked podocytopathy caused by loss-of-function variants in TBC1D8B, which encodes a Rab GTPase-activating protein that binds active RAB11 and the slit-diaphragm protein nephrin. Affected males are hemizygous; heterozygous females are usually unaffected or have mild proteinuria, although a woman with adult-onset FSGS has been reported. Onset ranges from the first month of life to adulthood. Most patients have steroid-resistant nephrotic syndrome with focal segmental glomerulosclerosis and podocyte foot process effacement, but steroid-sensitive and steroid-dependent courses are documented. Loss of TBC1D8B impairs endocytosis and recycling in patient podocytes and fibroblasts, and in Drosophila nephrocytes it disturbs endosomal maturation and nephrin trafficking. Zebrafish tbc1d8b knockdown or knockout causes proteinuria that wild-type but not patient-mutant human mRNA rescues. ClinGen classifies the gene-disease relationship as Moderate.",
+    "pathophysiology": [
+      "TBC1D8B Loss of Function",
+      "Impaired Podocyte Endocytosis and Recycling",
+      "Defective Endosomal Maturation",
+      "Nephrin Mistrafficking",
+      "Glomerular Filtration Barrier Failure"
+    ],
+    "cell_types": [
+      "podocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000653"
+    ],
+    "biological_processes": [
+      "endocytic recycling",
+      "early endosome to late endosome transport",
+      "nephrin localization to the slit diaphragm",
+      "glomerular filtration"
+    ],
+    "phenotypes": [
+      "Nephrotic syndrome",
+      "Steroid-resistant nephrotic syndrome",
+      "Nephrotic range proteinuria",
+      "Hypoalbuminemia",
+      "Edema",
+      "Focal segmental glomerulosclerosis",
+      "Podocyte foot process effacement",
+      "Kidney failure",
+      "Acute kidney injury"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Metabolic",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000100",
+      "HP:0012588",
+      "HP:0012593",
+      "HP:0003073",
+      "HP:0000969",
+      "HP:0000097",
+      "HP:0031266",
+      "HP:0003774",
+      "HP:0001919"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TBC1D8B"
+    ],
+    "treatments": [
+      "Glucocorticoid Therapy",
+      "Cyclosporine",
+      "Antiproteinuric Therapy",
+      "Kidney Transplantation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Nephrotic_Syndrome_Type_20.yaml",
+    "page_url": "../pages/disorders/Nephrotic_Syndrome_Type_20.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Nephrotic Syndrome Type 21",
     "disease_id": "MONDO:0032826",
     "category": "Mendelian",
@@ -401379,6 +401672,109 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "TTLL5-Related Retinopathy",
+    "disease_id": "MONDO:1040038",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited Retinal Dystrophy",
+      "Cone-Rod Dystrophy"
+    ],
+    "creation_date": "2026-11-09T00:22:25Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive inherited retinal dystrophy caused by biallelic variants in TTLL5, which encodes a tubulin tyrosine ligase-like glutamylase. TTLL5 localizes to the base of the photoreceptor connecting cilium, where it glutamylates the retina-specific ORF15 isoform of RPGR; loss of that modification impairs RPGR function and produces a cone-predominant photoreceptor degeneration. Most patients present in adolescence or adult life with a cone or cone-rod dystrophy, reduced central vision, macular autofluorescence and outer-retinal changes, and frequently myopia; rod-cone and sectoral presentations are also described. Males carrying truncating alleles can additionally have reduced sperm motility and infertility, reflecting a second TTLL5 role in polyglutamylating sperm axonemal tubulin.",
+    "pathophysiology": [
+      "Biallelic TTLL5 Loss of Function",
+      "Loss of RPGR-ORF15 Glutamylation",
+      "Impaired Connecting Cilium Trafficking and Cone Opsin Mislocalization",
+      "Cone-Predominant Photoreceptor Degeneration",
+      "Reduced Sperm Axonemal Tubulin Polyglutamylation"
+    ],
+    "cell_types": [
+      "retinal cone cell",
+      "retinal rod cell",
+      "sperm"
+    ],
+    "cell_type_ids": [
+      "CL:0000573",
+      "CL:0000604",
+      "CL:0000019"
+    ],
+    "biological_processes": [
+      "protein polyglutamylation",
+      "protein localization to photoreceptor outer segment",
+      "photoreceptor cell maintenance",
+      "flagellated sperm motility"
+    ],
+    "phenotypes": [
+      "Cone/cone-rod dystrophy",
+      "Rod-cone dystrophy",
+      "Sectoral retinal dystrophy",
+      "Reduced visual acuity",
+      "Reduced light-adapted electroretinogram",
+      "Nyctalopia",
+      "Photophobia",
+      "Dyschromatopsia",
+      "Myopia",
+      "High myopia",
+      "Macular degeneration",
+      "Bull's eye maculopathy",
+      "Abnormal fundus autofluorescence",
+      "Photoreceptor layer loss on OCT",
+      "Tapetal-like fundal reflex",
+      "Reduced sperm motility",
+      "Male infertility"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological",
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Genitourinary",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000548",
+      "HP:0000510",
+      "HP:0007663",
+      "HP:0008275",
+      "HP:0000662",
+      "HP:0000613",
+      "HP:0007641",
+      "HP:0000545",
+      "HP:0011003",
+      "HP:0000608",
+      "HP:0011504",
+      "HP:0030602",
+      "HP:0030609",
+      "HP:0025583",
+      "HP:0012207",
+      "HP:0003251"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "TTLL5"
+    ],
+    "treatments": [
+      "Supportive care and low vision rehabilitation",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TTLL5-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/TTLL5-Related_Retinopathy.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "TTN-Related Myopathy, Dominant-Negative TTNsv",
     "disease_id": "MONDO:0100494",
     "category": "Mendelian",
@@ -432655,19 +433051,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4015,
-  "total_subtypes": 5045,
-  "total_disorders_and_subtypes": 9060,
-  "total_unique_evidence_sources": 59515,
-  "total_unique_publications": 55664,
+  "total_disorder_pages": 4019,
+  "total_subtypes": 5046,
+  "total_disorders_and_subtypes": 9065,
+  "total_unique_evidence_sources": 59548,
+  "total_unique_publications": 55693,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4013,
-  "total_unique_pathological_events": 26275,
+  "total_pathographs": 4017,
+  "total_unique_pathological_events": 26291,
   "total_modules": 228,
-  "total_research_reports": 4125,
+  "total_research_reports": 4129,
   "total_classifications": 21,
   "total_comorbidities": 55,
-  "total_groupings": 130
+  "total_groupings": 131
 };
 window.dispatchEvent(new Event('searchDataReady'));
