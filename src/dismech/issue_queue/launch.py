@@ -16,7 +16,9 @@ stopping at the first failure:
   4. creates a worktree at <worktree-root>/dismech-issue-<N> on a new branch
      issue-<N>-<slug> off origin/main;
   5. opens a window in the tmux session (created if needed) running `claude`
-     interactively there, with a short first prompt naming the issue.
+     interactively there, with a short first prompt naming the issue. The
+     window opens detached, so a launch never pulls an attached client off
+     the window it was on.
 
 The prompt is the `claude` command's own argument; nothing is ever typed into
 a running session. It never files or retitles a claim; `just check-claims`
@@ -107,6 +109,38 @@ def run(args: list[str], dry: bool, mutating: bool = True) -> str:
     if result.returncode:
         sys.exit(f"failed: {shlex.join(args)}\n{result.stderr.strip()}")
     return result.stdout
+
+
+def tmux_command(has_session: bool, session: str, window: str, path: Path) -> list[str]:
+    """The tmux argv that opens the window, always detached.
+
+    Without -d the new window becomes the session's active window, and every
+    client attached to that session is pulled onto it -- so launching an issue
+    yanks whatever else the user was watching out from under them.
+    """
+    if has_session:
+        return [
+            "tmux",
+            "new-window",
+            "-d",
+            "-t",
+            session,
+            "-n",
+            window,
+            "-c",
+            str(path),
+        ]
+    return [
+        "tmux",
+        "new-session",
+        "-d",
+        "-s",
+        session,
+        "-n",
+        window,
+        "-c",
+        str(path),
+    ]
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -226,30 +260,10 @@ def main(argv: list[str] | None = None) -> None:
         ).returncode
         == 0
     )
-    if has_session:
-        tmux = [
-            "tmux",
-            "new-window",
-            "-t",
-            a.tmux_session,
-            "-n",
-            window,
-            "-c",
-            str(path),
-        ]
-    else:
-        tmux = [
-            "tmux",
-            "new-session",
-            "-d",
-            "-s",
-            a.tmux_session,
-            "-n",
-            window,
-            "-c",
-            str(path),
-        ]
-    run(tmux + [shlex.join(claude)], a.dry_run)
+    run(
+        tmux_command(has_session, a.tmux_session, window, path) + [shlex.join(claude)],
+        a.dry_run,
+    )
 
     print(
         f"\n{'would open' if a.dry_run else 'opened'}: tmux window {window} in session {a.tmux_session}"
