@@ -154322,6 +154322,7 @@ window.searchData = [
     "description": "Esophageal carcinoma is a heterogeneous epithelial malignancy of the esophagus comprising two biologically and epidemiologically distinct histologic subtypes: esophageal squamous cell carcinoma (ESCC) and esophageal adenocarcinoma (EAC). ESCC dominates globally and is concentrated in East Asia, parts of Africa, and along the \"esophageal cancer belt\", and is driven largely by tobacco, alcohol, and other carcinogenic environmental exposures acting on stratified squamous mucosa. EAC predominates in Western populations, arises almost exclusively from Barrett metaplasia in the setting of chronic gastroesophageal reflux and obesity, and resembles chromosomally unstable gastric adenocarcinoma molecularly. Both subtypes typically present late with dysphagia and weight loss, carry a poor prognosis, and are managed with multimodality regimens combining surgery, chemoradiotherapy, and PD-1-directed immunotherapy.",
     "pathophysiology": [
       "ESCC Carcinogen-Driven Squamous Transformation",
+      "ESCC Constitutive NRF2 Pathway Activation",
       "Barrett Metaplasia to EAC Sequence",
       "Chromosomal Instability and Mutator Phenotype",
       "Adaptive Immune Resistance"
@@ -154382,10 +154383,10 @@ window.searchData = [
     "source_file": "Esophageal_Carcinoma.yaml",
     "page_url": "../pages/disorders/Esophageal_Carcinoma.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 5,
     "num_treatments": 5,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "2"
   },
   {
@@ -237156,6 +237157,7 @@ window.searchData = [
       "KRAS G12C Oncogenic Mutation",
       "Constitutive RAS Signaling",
       "Cell Proliferation and Survival",
+      "Constitutive NRF2 Pathway Activation",
       "KRAS G12C Inhibitor Resistance"
     ],
     "cell_types": [
@@ -237213,10 +237215,10 @@ window.searchData = [
     "source_file": "KRAS_G12C_Mutant_NSCLC.yaml",
     "page_url": "../pages/disorders/KRAS_G12C-Mutant_Non-Small_Cell_Lung_Cancer.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 3,
     "num_treatments": 5,
-    "causal_graph_edges": "3",
+    "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
   },
   {
@@ -244559,6 +244561,7 @@ window.searchData = [
       "Mutator Phenotype and Chromosomal Instability",
       "RB1 Biallelic Inactivation",
       "STK11 and KEAP1 Biallelic Inactivation",
+      "Constitutive NRF2 Pathway Activation",
       "Loss of G1/S Cell-Cycle Checkpoint Control",
       "Neuroendocrine Lineage Programme Expression",
       "NOTCH Pathway Dysregulation",
@@ -244623,10 +244626,10 @@ window.searchData = [
     "source_file": "Large_Cell_Neuroendocrine_Carcinoma.yaml",
     "page_url": "../pages/disorders/Large_Cell_Neuroendocrine_Carcinoma.html",
     "num_phenotypes": 2,
-    "num_pathophysiology": 11,
+    "num_pathophysiology": 12,
     "num_genes": 5,
     "num_treatments": 5,
-    "causal_graph_edges": "25",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "8"
   },
   {
@@ -290071,6 +290074,117 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "NKX2-5-Related Congenital, Conduction and Myopathic Heart Disease",
+    "disease_id": "MONDO:0800441",
+    "category": "Mendelian",
+    "parents": [
+      "heart conduction disease",
+      "familial cardiomyopathy"
+    ],
+    "creation_date": "2026-11-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant heart disease caused by heterozygous variants in NKX2-5, the cardiac homeodomain transcription factor at 5q35. One reduced gene dose produces three phenotypic arms that a single family may show in any combination: a congenital structural defect, most often a secundum atrial septal defect but also ventricular septal, conotruncal and left-heart hypoplastic lesions; atrioventricular conduction block that is progressive across a lifetime and carries a risk of syncope and sudden death; and a later-onset myopathic arm of hypertrabeculation or dilated cardiomyopathy with atrial and ventricular arrhythmia. The combination of septation failure with lifelong conduction decay reflects NKX2-5's two distinct roles, in cardiac morphogenesis and in the maturation and maintenance of the atrioventricular node.",
+    "pathophysiology": [
+      "NKX2-5 Haploinsufficiency",
+      "Impaired Cardiac Transcriptional Program",
+      "Defective Cardiac Septum Morphogenesis",
+      "Defective Outflow Tract and Valve Morphogenesis",
+      "Cardiac Conduction System Hypoplasia",
+      "Postnatal Conduction Cell Dropout",
+      "Progressive Atrioventricular Conduction Delay",
+      "Ectopic Ventricular BMP10 Expression",
+      "Defective Ventricular Trabecular Compaction"
+    ],
+    "cell_types": [
+      "cardiac muscle cell",
+      "nodal myocyte",
+      "Purkinje myocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002072",
+      "CL:0002068"
+    ],
+    "biological_processes": [
+      "NKX2-5-dependent transcription of cardiac target genes",
+      "cardiac septum morphogenesis",
+      "outflow tract morphogenesis",
+      "cardiac conduction system development",
+      "cardiac conduction",
+      "ectopic ventricular BMP10 signalling",
+      "ventricular trabecula myocardium morphogenesis"
+    ],
+    "phenotypes": [
+      "Secundum atrial septal defect",
+      "Atrioventricular block",
+      "Ventricular septal defect",
+      "Conotruncal defect",
+      "Tetralogy of Fallot",
+      "Hypoplastic left ventricle",
+      "Left ventricular noncompaction",
+      "Dilated cardiomyopathy",
+      "Ventricular arrhythmia",
+      "Supraventricular arrhythmia",
+      "Syncope",
+      "Sudden cardiac death",
+      "First degree atrioventricular block",
+      "Ebstein anomaly of the tricuspid valve",
+      "Abnormal tricuspid valve morphology",
+      "Double outlet right ventricle"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001684",
+      "HP:0001678",
+      "HP:0001629",
+      "HP:0001710",
+      "HP:0001636",
+      "HP:0004383",
+      "HP:0030682",
+      "HP:0001644",
+      "HP:0004308",
+      "HP:0005115",
+      "HP:0001279",
+      "HP:0001645",
+      "HP:0011705",
+      "HP:0010316",
+      "HP:0001702",
+      "HP:0001719"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "NKX2-5"
+    ],
+    "treatments": [
+      "Lifelong Conduction Surveillance and Permanent Pacing",
+      "Implantable Cardioverter-Defibrillator Consideration in Mutation Carriers",
+      "Surgical or Transcatheter Closure of the Septal Defect"
+    ],
+    "environmental": [
+      "Advanced maternal age"
+    ],
+    "biochemical": [],
+    "source_file": "NKX2-5-Related_Congenital_Conduction_and_Myopathic_Heart_Disease.yaml",
+    "page_url": "../pages/disorders/NKX2-5-Related_Congenital,_Conduction_and_Myopathic_Heart_Disease.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "NOG-Related Symphalangism Spectrum Disorder",
     "disease_id": "MONDO:0100521",
     "category": "Mendelian",
@@ -303439,6 +303553,7 @@ window.searchData = [
     "description": "Non-small cell lung cancer is driven by oncogenic driver mutations in genes such as EGFR, ALK, ROS1, and BRAF that produce constitutive proliferative signaling. Tumors evade immune destruction, remodel an immunosuppressive microenvironment, rewire metabolism, and induce angiogenesis to sustain growth. These capabilities enable local invasion and metastatic spread, commonly to the brain, bone, liver, and adrenal glands.",
     "pathophysiology": [
       "Oncogenic Driver Mutations",
+      "Constitutive NRF2 Pathway Activation",
       "Immune Evasion",
       "Angiogenesis",
       "Tumor Microenvironment Remodeling",
@@ -303551,10 +303666,10 @@ window.searchData = [
     "source_file": "Non-Small_Cell_Lung_Cancer.yaml",
     "page_url": "../pages/disorders/Non-Small_Cell_Lung_Cancer.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 9,
+    "num_pathophysiology": 10,
     "num_genes": 8,
     "num_treatments": 6,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "2"
   },
   {
@@ -432190,17 +432305,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4011,
+  "total_disorder_pages": 4012,
   "total_subtypes": 5044,
-  "total_disorders_and_subtypes": 9055,
-  "total_unique_evidence_sources": 59421,
-  "total_unique_publications": 55577,
+  "total_disorders_and_subtypes": 9056,
+  "total_unique_evidence_sources": 59435,
+  "total_unique_publications": 55589,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4009,
-  "total_unique_pathological_events": 26231,
+  "total_pathographs": 4010,
+  "total_unique_pathological_events": 26242,
   "total_modules": 228,
-  "total_research_reports": 4120,
+  "total_research_reports": 4122,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 130
