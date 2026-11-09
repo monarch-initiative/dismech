@@ -1,0 +1,24 @@
+---
+key: skin-toro-2008-bhd-mutations-new-series-50-families
+identifiers:
+  - PMID:18234728
+  - PMCID:PMC2564862
+  - DOI:10.1136/jmg.2007.054304
+title: "BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dubé syndrome: a new series of 50 families and a review of published reports"
+authors: "Toro JR, Wei MH, Glenn GM, Weinreich M, Toure O, Vocke C, Turner M, Choyke P, Merino MJ, Pinto PA, Steinberg SM, Schmidt LS, Linehan WM"
+year: 2008
+journal: "Journal of Medical Genetics 45(6):321-31"
+source_url: https://pmc.ncbi.nlm.nih.gov/articles/PMC2564862/
+content: excerpt
+---
+## Abstract and selected results (excerpt)
+
+Birt–Hogg–Dubé syndrome (BHDS) (MIM 135150) is an autosomal dominant predisposition to the development of follicular hamartomas (fibrofolliculomas), lung cysts, spontaneous pneumothorax, and kidney neoplasms. Germline mutations in BHD are associated with the susceptibility for BHDS. We previously described 51 BHDS families with BHD germline mutations.
+
+Ninety per cent (46/51) of families with BHDS had individuals with multiple 1–5 mm white or skin coloured papules distributed over the face, neck and/or upper trunk and a histologically confirmed fibrofolliculoma (FF). Fifty-seven per cent (26/46) of BHDS families with a histologically confirmed FF also had individuals with a second histologically confirmed cutaneous lesion associated with BHDS including: angiofibroma (AF) or trichodiscoma (TD) (12 families), perifollicular fibroma (PFF) (11 families), and both TD and PFF (three families). In 10% (5/51) of BHDS families the clinical diagnosis of FF was not confirmed histologically. However, four of these families had at least one individual with a histologically proven TD or AF (one individual in each of two families), or PFF (one individual in one family), or both an AF and a PFF (one individual in one family). One family had no individuals with FF, PFF, TD or AF. All of these individuals also had a germline BHD mutation. In addition, three of these families had individuals with a history of spontaneous pneumothorax and/or lung cysts supporting the clinical diagnosis of BHDS.
+
+Variable phenotypic expression may be observed among families and within members of BHDS families (table 1). Among the 51 families with BHDS: 25% (13/51) had FFs, a history of spontaneous pneumothorax and renal tumours; 24% (12/51) had both FFs and a history of spontaneous pneumothorax but no renal tumours; 18% (9/51) had both FFs and kidney tumours but no individuals with a history of pneumothorax; 24% (12/51) had FFs but no renal tumour or history of pneumothorax; 4% (2/51) had no FFs, renal tumour or a history of pneumothorax; 2% (1/51) had renal tumour but no FFs or a history of pneumothorax; and 4% (2/51) had renal tumours and a history of pneumothorax but no FFs (table 1).
+
+In the previously reported NCI BHDS cohort, 143 patients with BHD mutations had their skin papules biopsied and evaluated histologically. Of these 143 cases, 122 (85%) were diagnosed with a histologically proven FF.6 Excluding the NCI BHDS patients reported,6 73% (43/59) of individuals with germline mutations in BHD had a histologically confirmed FF (table 2).5 7–15 In five individuals with germline BHD mutations, FF was not confirmed histologically but they had a histologically proven trichodiscoma.8
+
+We also report in this study for the first time families with germline mutations in BHD and angiofibroma, perifollicular fibroma or both angiofibroma and perifollicular fibromas as their only BHDS cutaneous phenotype. Our findings support that BHDS is associated with a spectrum of cutaneous hamartomas ranging from AF to PFF to FF. BHDS associated hamartomas should be distinguish it from other genodermatoses with an increased risk for internal malignancy.38 Recently, a BHD mutation was reported in one of three families with only trichodiscomas.8 However, two of the three families had an atypical presentation and most likely do not have BHDS. In addition, we previously reported additional individuals with BHD germline mutations and trichodiscomas.6 It is of interest that we identified two individuals with germline mutations in BHD who also had a history of malignant melanoma. Only one previous confirmed case of melanoma in a BHDS patient has been reported.5 We also identified a BHDS family in whom one sibling developed a DFSP and another sibling had a cutaneous leiomyosarcoma. These tumours are rare and not previously reported in BHDS. We also identified two additional individuals with parotid gland tumours for a total of six cases in our group of 102 BHDS families6 and a total of eight cases reported to date.39 Most of the other internal neoplasms identified in this study have been previously reported in patients with BHDS.5 40–45 However, determining whether they are part of the clinical spectrum of BHDS remains to be investigated in further studies.
