@@ -24,6 +24,19 @@ review (green/pending checks, no changes requested) or approved-and-green and
 merely waiting for the deterministic auto-merge sweep. An un-PR'd claim issue
 always needs my work (a prior fire that crashed before pushing; resume it).
 
+**"Needs my work" is not the same as "I can hand this off."** The
+donate loop is an *unattended curation* hand-off. A PR that needs work but is
+not a routine curation fix — a human (non-bot) reviewer has asked for changes,
+or it edits code/schema/tooling/docs rather than KB content — is *deferred* to
+the author rather than attempted. Deferral needs evidence the caller passes:
+per-review authors in ``reviews`` (to tell a human reviewer from the automated
+one) and changed paths in ``files`` (to tell a curation PR from a code one).
+With neither, a PR is assumed hand-off-able, so existing callers are unaffected.
+A deferred PR does **not** block claiming new work — it is the author's now —
+but it is surfaced every fire so it is never silently dropped. Only an
+*actionable* (hand-off-able) needs-work PR, or an un-PR'd claim issue, blocks a
+new claim.
+
 Note the check semantics here are intentionally *looser* than
 ``scripts/auto_merge_ready_prs.py``: that script decides merge-readiness and so
 treats an empty rollup or ``UNKNOWN`` mergeability as not-ready. Reconcile asks
@@ -53,6 +66,105 @@ FAILING_STATES = frozenset({"FAILURE", "ERROR", "ACTION_REQUIRED"})
 
 ChecksState = Literal["failing", "pending", "green"]
 PRCategory = Literal["needs_my_work", "awaiting_review", "waiting_to_merge"]
+
+#: A GitHub App / bot login ends in this. A review from such a login is the
+#: automated reviewer; a review from any other login is a human whose
+#: changes-requested the author owns.
+BOT_LOGIN_SUFFIX = "[bot]"
+
+#: Repository paths that are NOT curation content. A PR touching any of these is
+#: a code / schema / tooling / docs change, out of scope for an unattended
+#: curation hand-off, so a needs-work PR that touches one is deferred to the
+#: author. KB content (kb/, history/, references_cache/, cache/, stubs/,
+#: research/, projects/, pages/, dashboard/, app/) is not listed here, so a
+#: pure-curation PR stays hand-off-able.
+NON_CURATION_PREFIXES = (
+    "src/",
+    "tests/",
+    "scripts/",
+    ".github/",
+    ".claude/",
+    "conf/",
+    "docs/",
+)
+#: Top-level non-curation files (no directory prefix to match on).
+NON_CURATION_FILES = frozenset(
+    {"CLAUDE.md", "AGENTS.md", "justfile", "pyproject.toml", "uv.lock", "mkdocs.yml"}
+)
+
+
+def _is_bot(login: str) -> bool:
+    return login.lower().endswith(BOT_LOGIN_SUFFIX)
+
+
+def _is_non_curation_path(path: str) -> bool:
+    if path in NON_CURATION_FILES or path.endswith(".justfile"):
+        return True
+    return any(path.startswith(prefix) for prefix in NON_CURATION_PREFIXES)
+
+
+def _file_paths(files: list[Any] | None) -> list[str]:
+    """Normalize a ``files`` input to path strings.
+
+    Accepts bare strings or the ``gh``/REST file-object shape (``filename`` or
+    ``path`` key), so the caller can pass whichever it has to hand.
+    """
+    out: list[str] = []
+    for entry in files or []:
+        if isinstance(entry, str):
+            out.append(entry)
+        elif isinstance(entry, dict):
+            path = entry.get("filename") or entry.get("path")
+            if path:
+                out.append(str(path))
+    return out
+
+
+def _latest_review_state_by_author(
+    reviews: list[dict[str, Any]] | None,
+) -> dict[str, str]:
+    """Reduce a chronological review list to each reviewer's latest state.
+
+    Accepts the ``{"state", "login"}`` shape the skill normalizes to, and the
+    richer ``gh``/REST shapes that nest the login under ``user`` or ``author``.
+    Later entries win, so a reviewer who commented and then requested changes is
+    recorded as ``CHANGES_REQUESTED``.
+    """
+    latest: dict[str, str] = {}
+    for review in reviews or []:
+        login = review.get("login")
+        if not login:
+            who = review.get("user") or review.get("author") or {}
+            login = who.get("login")
+        if not login:
+            continue
+        latest[str(login)] = (review.get("state") or "").upper()
+    return latest
+
+
+def _defer_reasons(pr: dict[str, Any]) -> tuple[str, ...]:
+    """Why a needs-work PR should go to the author instead of being attempted.
+
+    Empty means hand-off-able. Both signals are evidence-gated: absent
+    ``reviews``/``files`` yield no reason, so a caller that passes neither keeps
+    the old "attempt everything that needs work" behavior.
+    """
+    reasons: list[str] = []
+    for login, state in _latest_review_state_by_author(pr.get("reviews")).items():
+        if state == "CHANGES_REQUESTED" and not _is_bot(login):
+            reasons.append(
+                f"{login} (human reviewer) requested changes; the author decides"
+            )
+            break
+    non_curation = sorted(
+        {p for p in _file_paths(pr.get("files")) if _is_non_curation_path(p)}
+    )
+    if non_curation:
+        shown = ", ".join(non_curation[:3]) + (" …" if len(non_curation) > 3 else "")
+        reasons.append(
+            f"changes non-curation files ({shown}); not an unattended curation task"
+        )
+    return tuple(reasons)
 
 
 def classify_checks(rollup: list[dict[str, Any]] | None) -> ChecksState:
@@ -102,6 +214,13 @@ class PRClassification:
     review_decision: str
     mergeable: str
     reasons: tuple[str, ...] = ()
+    #: True when a needs-work PR is a routine curation fix the loop may attempt
+    #: unattended. False when it is deferred to the author (a human reviewer
+    #: asked for changes, or it changes non-curation files). Always True for a
+    #: parked PR; only consulted for ``needs_my_work`` ones.
+    hand_off_able: bool = True
+    #: Why it was deferred, for the report. Empty when hand-off-able.
+    defer_reasons: tuple[str, ...] = ()
 
     @property
     def needs_my_work(self) -> bool:
@@ -129,6 +248,7 @@ def classify_pr(pr: dict[str, Any]) -> PRClassification:
     else:
         category = "awaiting_review"
 
+    defer = _defer_reasons(pr)
     return PRClassification(
         number=int(pr.get("number", 0)),
         title=str(pr.get("title", "")),
@@ -138,6 +258,8 @@ def classify_pr(pr: dict[str, Any]) -> PRClassification:
         review_decision=review or "NONE",
         mergeable=mergeable or "UNKNOWN",
         reasons=tuple(reasons),
+        hand_off_able=not defer,
+        defer_reasons=defer,
     )
 
 
@@ -174,12 +296,32 @@ class Reconciliation:
         return tuple(c for c in self.pr_classifications if c.needs_my_work)
 
     @property
+    def actionable_prs(self) -> tuple[PRClassification, ...]:
+        """Needs-work PRs the loop may attempt unattended this fire."""
+        return tuple(
+            c for c in self.pr_classifications if c.needs_my_work and c.hand_off_able
+        )
+
+    @property
+    def deferred_prs(self) -> tuple[PRClassification, ...]:
+        """Needs-work PRs handed to the author; reported, not attempted."""
+        return tuple(
+            c
+            for c in self.pr_classifications
+            if c.needs_my_work and not c.hand_off_able
+        )
+
+    @property
     def awaiting_review(self) -> tuple[PRClassification, ...]:
-        return tuple(c for c in self.pr_classifications if c.category == "awaiting_review")
+        return tuple(
+            c for c in self.pr_classifications if c.category == "awaiting_review"
+        )
 
     @property
     def waiting_to_merge(self) -> tuple[PRClassification, ...]:
-        return tuple(c for c in self.pr_classifications if c.category == "waiting_to_merge")
+        return tuple(
+            c for c in self.pr_classifications if c.category == "waiting_to_merge"
+        )
 
 
 def reconcile(
@@ -229,15 +371,20 @@ def reconcile(
         classify_pr(pr) for pr in sorted(prs, key=lambda p: int(p.get("number", 0)))
     )
     unclaimed = tuple(
-        sorted(unclaimed_claim_issues(claim_issues), key=lambda i: int(i.get("number", 0)))
+        sorted(
+            unclaimed_claim_issues(claim_issues), key=lambda i: int(i.get("number", 0))
+        )
     )
 
-    needs_work = [c for c in classifications if c.needs_my_work]
-    should_claim = not needs_work and not unclaimed
+    actionable = [c for c in classifications if c.needs_my_work and c.hand_off_able]
+    deferred = [c for c in classifications if c.needs_my_work and not c.hand_off_able]
+    # A deferred PR is the author's, so it does NOT block a new claim; only an
+    # actionable needs-work PR or an un-PR'd claim issue does.
+    should_claim = not actionable and not unclaimed
 
     item: dict[str, Any] | None = None
-    if needs_work:
-        first = needs_work[0]
+    if actionable:
+        first = actionable[0]
         item = {
             "kind": "pr",
             "number": first.number,
@@ -254,7 +401,7 @@ def reconcile(
             "reasons": ["un-PR'd claim issue: resume curating to a pushed PR"],
         }
 
-    summary = _summarize(classifications, unclaimed, should_claim, item)
+    summary = _summarize(classifications, unclaimed, should_claim, item, deferred)
     return Reconciliation(
         pr_classifications=classifications,
         unclaimed_issues=unclaimed,
@@ -269,22 +416,33 @@ def _summarize(
     unclaimed: tuple[dict[str, Any], ...],
     should_claim: bool,
     item: dict[str, Any] | None,
+    deferred: list[PRClassification] | None = None,
 ) -> str:
+    deferred = deferred or []
     needs = sum(1 for c in classifications if c.needs_my_work)
+    actionable = needs - len(deferred)
     awaiting = sum(1 for c in classifications if c.category == "awaiting_review")
     merging = sum(1 for c in classifications if c.category == "waiting_to_merge")
     parts = [
         (
             f"{len(classifications)} open PR(s): "
-            f"{needs} need work, {awaiting} awaiting review, {merging} waiting to merge"
+            f"{needs} need work ({actionable} actionable, {len(deferred)} deferred to author), "
+            f"{awaiting} awaiting review, {merging} waiting to merge"
         ),
         f"{len(unclaimed)} un-PR'd claim issue(s)",
     ]
     if should_claim:
-        parts.append("decision: nothing needs my work -> claim one new disease")
+        parts.append(
+            "decision: nothing actionable needs my work -> claim one new disease"
+        )
     elif item:
         label = (
-            f"PR #{item['number']}" if item["kind"] == "pr" else f"claim issue #{item['number']}"
+            f"PR #{item['number']}"
+            if item["kind"] == "pr"
+            else f"claim issue #{item['number']}"
         )
         parts.append(f"decision: finish {label}, claim nothing new this fire")
+    if deferred:
+        names = ", ".join(f"#{c.number}" for c in deferred)
+        parts.append(f"deferred to author (not attempted): {names}")
     return "; ".join(parts)
