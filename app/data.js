@@ -5988,6 +5988,108 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "ACTL6A-related BAFopathy",
+    "disease_id": "MONDO:0700121",
+    "category": "Mendelian",
+    "parents": [
+      "BAFopathy"
+    ],
+    "creation_date": "2026-11-07T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Heterozygous ACTL6A variants reduce or impair BAF53A, the actin-related protein subunit of the SWI/SNF (BAF) complex. Patient cells show reduced ACTL6A protein and a loss-of-function/haploinsufficiency mechanism.",
+    "pathophysiology": [
+      "ACTL6A Loss-of-Function",
+      "BAF Complex Chromatin-Remodeling Dysfunction",
+      "Neural Progenitor Cell-Cycle Stall",
+      "Impaired Neurogenesis"
+    ],
+    "cell_types": [
+      "neural progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011020"
+    ],
+    "biological_processes": [
+      "chromatin remodeling",
+      "cell proliferation in forebrain",
+      "neuron differentiation"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Abnormal digit morphology",
+      "Abnormal facial shape",
+      "Abnormality of the genitourinary system",
+      "Abnormal heart morphology",
+      "Coarse facial features",
+      "Short attention span",
+      "Umbilical hernia",
+      "Inguinal hernia",
+      "Failure to thrive",
+      "Hydronephrosis",
+      "Hypospadias"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Musculoskeletal",
+      "Craniofacial",
+      "Genitourinary",
+      "Cardiovascular",
+      "Behavioral",
+      "Gastrointestinal",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0011297",
+      "HP:0001999",
+      "HP:0000119",
+      "HP:0001627",
+      "HP:0000280",
+      "HP:0000736",
+      "HP:0001537",
+      "HP:0000023",
+      "HP:0001508",
+      "HP:0000126",
+      "HP:0000047"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ACTL6A"
+    ],
+    "treatments": [
+      "Speech and language therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ACTL6A-related_BAFopathy.yaml",
+    "page_url": "../pages/disorders/ACTL6A-related_BAFopathy.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "ACys Amyloidosis",
     "disease_id": "MONDO:0007098",
     "category": "Mendelian",
@@ -307529,6 +307631,115 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Occupational Asthma",
+    "disease_id": "MONDO:0022742",
+    "category": "Complex",
+    "parents": [
+      "Asthma"
+    ],
+    "creation_date": "2026-11-09T01:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Sensitizer-induced",
+      "LMW-chemical",
+      "HMW-protein",
+      "Isocyanate-induced",
+      "Irritant-induced"
+    ],
+    "description": "A reactive low molecular weight chemical inhaled at the workplace binds nucleophilic residues on airway and serum proteins, generating the hapten-protein adduct that the immune system subsequently recognizes. This is the step that requires the agent to be chemically reactive, and it is why the low molecular weight agents behave differently from the protein allergens that sensitize directly.",
+    "pathophysiology": [
+      "Workplace Sensitizer Haptenation of Airway Proteins",
+      "Airway Epithelial Danger Signal Release on Workplace Exposure",
+      "Dendritic Cell Activation and Th2 Polarization",
+      "Hapten-Specific T Cell Memory",
+      "Irritant Injury of the Airway Epithelial Barrier",
+      "Work-Related Airway Hyperresponsiveness and Variable Airflow Limitation"
+    ],
+    "cell_types": [
+      "bronchial epithelial cell",
+      "lung fibroblast",
+      "endothelial cell",
+      "dendritic cell",
+      "T-helper 2 cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002328",
+      "CL:0002553",
+      "CL:0000115",
+      "CL:0000451",
+      "CL:0000546"
+    ],
+    "biological_processes": [
+      "cytokine production involved in inflammatory response",
+      "antigen processing and presentation",
+      "T-helper 2 cell differentiation",
+      "bicellular tight junction assembly",
+      "smooth muscle contraction"
+    ],
+    "phenotypes": [
+      "Asthma symptoms with a work-related pattern",
+      "Airway hyperresponsiveness",
+      "Wheezing",
+      "Dyspnea",
+      "Cough",
+      "Chest tightness",
+      "Variable airflow limitation",
+      "Occupational rhinitis"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Head and Neck",
+      "Immune",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002099",
+      "HP:0032933",
+      "HP:0030828",
+      "HP:0002094",
+      "HP:0012735",
+      "HP:0031352",
+      "HP:0032342",
+      "HP:0003193"
+    ],
+    "frequencies": [],
+    "genes": [
+      "Host susceptibility loci for diisocyanate asthma",
+      "HLA class II association with protein allergen sensitization",
+      "HLA-DQB1",
+      "HLA-DRB1 haplotype in isocyanate-induced asthma",
+      "HLA-DPB1",
+      "GSTM1",
+      "IL4R",
+      "CD14",
+      "Genetic susceptibility is partial and no locus is causative"
+    ],
+    "treatments": [
+      "Removal from exposure",
+      "Workplace exposure elimination as primary prevention",
+      "Anti-inflammatory asthma pharmacotherapy"
+    ],
+    "environmental": [
+      "Occupational exposure to chlorine",
+      "Occupational exposure to diisocyanates"
+    ],
+    "biochemical": [
+      "Fractional exhaled nitric oxide",
+      "Induced sputum eosinophil count"
+    ],
+    "source_file": "Occupational_Asthma.yaml",
+    "page_url": "../pages/disorders/Occupational_Asthma.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 9,
+    "num_treatments": 3,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Ochoa syndrome",
     "disease_id": "MONDO:0000463",
     "category": "Mendelian",
@@ -327802,6 +328013,107 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 2,
     "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Periventricular Nodular Heterotopia 7",
+    "disease_id": "MONDO:0014966",
+    "category": "Mendelian",
+    "parents": [
+      "Periventricular Nodular Heterotopia"
+    ],
+    "creation_date": "2026-11-07T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Periventricular nodular heterotopia 7 (PVNH7) is an ultra-rare autosomal dominant malformation of cortical development caused by heterozygous missense variants in NEDD4L, which encodes a HECT-type E3 ubiquitin ligase expressed in the ventricular zone and cortical plate of the developing brain. Most variants cluster in the catalytic HECT domain and appear to leave the ligase active or constitutively activated while making the protein unstable; they deregulate AKT-mTOR and TGF-beta/Smad2/3 signalling, and in the embryonic mouse cortex they arrest neurons in the ventricular/subventricular and intermediate zones and disrupt terminal translocation, producing bilateral nodules of grey matter along the lateral ventricles. The syndrome combines periventricular nodular heterotopia, frequently with perisylvian polymicrogyria, with global developmental delay or intellectual disability, hypotonia, seizures (often early-onset and drug-resistant), 2-3 toe syndactyly and cleft palate. Variants are usually de novo, but parental mosaicism and a familial variant with marked intrafamilial variability are documented.",
+    "pathophysiology": [
+      "NEDD4L Missense Variant",
+      "Aberrant NEDD4L Ubiquitin Ligase Activity",
+      "AKT-mTOR and TGF-beta Signalling Deregulation",
+      "Disrupted Neurogenesis and Neuronal Positioning"
+    ],
+    "cell_types": [
+      "neural progenitor cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "TORC1 signaling",
+      "PI3K/AKT signal transduction",
+      "TGF-beta/activin Smad2/3 signalling",
+      "neuron migration",
+      "neurogenesis"
+    ],
+    "phenotypes": [
+      "Periventricular nodular heterotopia",
+      "Polymicrogyria",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Hypotonia",
+      "Seizures",
+      "Infantile spasms",
+      "Cleft palate",
+      "2-3 toe syndactyly",
+      "Hypospadias",
+      "Talipes equinovarus",
+      "Foveal hypoplasia",
+      "Strabismus"
+    ],
+    "phenotype_categories": [
+      "Structural",
+      "Neurologic",
+      "Craniofacial",
+      "Skeletal",
+      "Genitourinary",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0032388",
+      "HP:0012650",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0012469",
+      "HP:0000175",
+      "HP:0004691",
+      "HP:0000047",
+      "HP:0001762",
+      "HP:0007750",
+      "HP:0000486"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "NEDD4L"
+    ],
+    "treatments": [
+      "Anti-seizure medication",
+      "Cleft palate repair",
+      "Developmental and rehabilitative therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Periventricular_Nodular_Heterotopia_7.yaml",
+    "page_url": "../pages/disorders/Periventricular_Nodular_Heterotopia_7.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "5"
   },
   {
@@ -433597,17 +433909,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4023,
-  "total_subtypes": 5048,
-  "total_disorders_and_subtypes": 9071,
-  "total_unique_evidence_sources": 59653,
-  "total_unique_publications": 55795,
+  "total_disorder_pages": 4026,
+  "total_subtypes": 5053,
+  "total_disorders_and_subtypes": 9079,
+  "total_unique_evidence_sources": 59687,
+  "total_unique_publications": 55827,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4021,
-  "total_unique_pathological_events": 26331,
-  "total_modules": 229,
-  "total_research_reports": 4135,
+  "total_pathographs": 4024,
+  "total_unique_pathological_events": 26343,
+  "total_modules": 231,
+  "total_research_reports": 4138,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 131
