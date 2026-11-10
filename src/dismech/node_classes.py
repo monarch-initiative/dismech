@@ -58,6 +58,7 @@ from pathlib import Path
 from typing import Any
 
 from dismech.node_class_definitions import Definition, DefinitionError, parse_definition
+from dismech.repo_root import repo_root
 
 INDENT = 2
 
@@ -76,7 +77,8 @@ VERSION_RE = re.compile(r"^# VERSION (?P<version>\d+\.\d+)\b", re.MULTILINE)
 #: answers a different question than the slot (a compensating node is also a
 #: cellular or tissue effect); DEBUNDLE TARGETS and STILL UNPLACED are worklists.
 NON_VALUE_ROOTS = frozenset({"ALSO CLASSES", "DEBUNDLE TARGETS", "STILL UNPLACED"})
-#: The schema module ``just gen-node-class-enum`` writes; dismech.yaml imports it.
+#: The packaged copy of the generated schema module, which dismech.yaml imports.
+#: Read it from here; write and check it through :func:`checkout_enum_schema`.
 ENUM_SCHEMA = Path(__file__).parent / "schema" / "pathograph_node_class.yaml"
 ENUM_NAME = "PathographNodeClassEnum"
 ENUM_HEADER = (
@@ -385,13 +387,34 @@ def render_enum_module(roots: list[ClassNode], version: str) -> str:
     return ENUM_HEADER + body
 
 
-def stale_enum_problem(tree_path: str | Path, enum_path: str | Path = ENUM_SCHEMA) -> str | None:
+def checkout_enum_schema() -> Path:
+    """The generated enum module in the checkout the command runs in.
+
+    :data:`ENUM_SCHEMA` names the tree the package was installed from, which
+    is right for reading (:func:`node_class_tiers`) but, with one virtualenv
+    shared across git worktrees, is the primary checkout: writing there would
+    put a worktree's regenerated enum on ``main``, and checking there would
+    compare the worktree's tree with ``main``'s enum (#15051). Falls back to
+    the packaged copy when the checkout has no ``src/dismech/schema/``, as
+    when the package is installed rather than run from source.
+    """
+    candidate = repo_root() / "src" / "dismech" / "schema" / ENUM_SCHEMA.name
+    return candidate if candidate.parent.is_dir() else ENUM_SCHEMA
+
+
+def stale_enum_problem(
+    tree_path: str | Path, enum_path: str | Path | None = None
+) -> str | None:
     """Why the committed enum does not match the tree, or None when it does.
 
-    Parsed YAML is compared, not text, so a formatter cannot make it fail.
+    ``enum_path`` defaults to :func:`checkout_enum_schema`, so the tree and
+    the enum are read from the same checkout. Parsed YAML is compared, not
+    text, so a formatter cannot make it fail.
     """
     import yaml
 
+    if enum_path is None:
+        enum_path = checkout_enum_schema()
     text = Path(tree_path).read_text(encoding="utf-8")
     version = tree_version(text)
     if version is None:
@@ -554,13 +577,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--write-enum",
         action="store_true",
-        help=f"write the generated node_class enum module to {ENUM_SCHEMA.name} "
-        "in the package's schema directory",
+        help="write the generated node_class enum module to "
+        f"src/dismech/schema/{ENUM_SCHEMA.name} in the checkout the command runs in",
     )
     parser.add_argument(
         "--check-enum",
         action="store_true",
-        help=f"fail if the committed {ENUM_SCHEMA.name} does not match the tree",
+        help=f"fail if the checkout's committed {ENUM_SCHEMA.name} does not match the tree",
     )
     parser.add_argument(
         "--verify-kb",
@@ -701,8 +724,9 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         module = render_enum_module(roots, version)
         if args.write_enum:
-            ENUM_SCHEMA.write_text(module, encoding="utf-8")
-            print(f"wrote {ENUM_SCHEMA} (tree version {version})", file=sys.stderr)
+            target = checkout_enum_schema()
+            target.write_text(module, encoding="utf-8")
+            print(f"wrote {target} (tree version {version})", file=sys.stderr)
         if args.format == "linkml-enum":
             print(module, end="")
 

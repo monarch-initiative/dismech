@@ -13,8 +13,10 @@ from dismech.node_classes import (
     STALE_EXAMPLE_HINT,
     ClassNode,
     ParseError,
+    checkout_enum_schema,
     iter_classes,
     iter_examples,
+    main,
     node_class_values,
     parse_file,
     parse_text,
@@ -308,9 +310,58 @@ def test_committed_tree_declares_a_version():
 @pytest.mark.ci_step_twin("dismech.node_classes --check-enum")
 def test_committed_node_class_enum_matches_the_tree():
     """The `node_class` enum is generated from the tree; parsed YAML is
-    compared, not text, so a reformatting tool cannot fail it."""
-    problem = stale_enum_problem(TREE)
+    compared, not text, so a reformatting tool cannot fail it. Both files are
+    read from this test's checkout, not from where the package was installed."""
+    problem = stale_enum_problem(TREE, ROOT / "src" / "dismech" / "schema" / ENUM_SCHEMA.name)
     assert problem is None, problem
+
+
+def _checkout(root: Path, *, with_schema_dir: bool) -> Path:
+    """A minimal dismech-shaped tree that ``repo_root()`` will resolve to."""
+    (root / "kb" / "node_classes").mkdir(parents=True)
+    (root / "justfile").write_text("", encoding="utf-8")
+    (root / "kb" / "node_classes" / "pathograph_node_classes.txt").write_text(
+        "# VERSION 1.0\nTOP -- a tier\n  leaf\n", encoding="utf-8"
+    )
+    if with_schema_dir:
+        (root / "src" / "dismech" / "schema").mkdir(parents=True)
+    return root.resolve()
+
+
+def test_write_and_check_enum_act_on_the_working_checkout(tmp_path, monkeypatch):
+    """With one virtualenv shared across worktrees the package's own tree is
+    the primary checkout, so writing the enum there would put a worktree's
+    output on main (#15051)."""
+    import yaml
+
+    from dismech import node_classes
+
+    root = _checkout(tmp_path / "wt", with_schema_dir=True)
+    # A stand-in for the installed package's copy, so that a regression
+    # overwrites this file and fails rather than overwriting the real one.
+    packaged = tmp_path / "site-packages" / ENUM_SCHEMA.name
+    packaged.parent.mkdir()
+    packaged.write_bytes(ENUM_SCHEMA.read_bytes())
+    monkeypatch.setattr(node_classes, "ENUM_SCHEMA", packaged)
+    monkeypatch.delenv("DISMECH_ROOT", raising=False)
+    monkeypatch.chdir(root)
+    written = root / "src" / "dismech" / "schema" / ENUM_SCHEMA.name
+
+    assert checkout_enum_schema() == written
+    assert main(["--check-enum"]) == 1  # this checkout has no enum yet
+    assert main(["--write-enum"]) == 0
+    values = yaml.safe_load(written.read_text(encoding="utf-8"))["enums"][ENUM_NAME]
+    assert set(values["permissible_values"]) == {"TOP", "LEAF"}
+    assert main(["--check-enum"]) == 0
+    assert packaged.read_bytes() == ENUM_SCHEMA.read_bytes()
+
+
+def test_checkout_enum_schema_falls_back_to_the_packaged_copy(tmp_path, monkeypatch):
+    """A checkout without src/dismech/schema/ is an installed package's."""
+    root = _checkout(tmp_path / "installed", with_schema_dir=False)
+    monkeypatch.delenv("DISMECH_ROOT", raising=False)
+    monkeypatch.chdir(root)
+    assert checkout_enum_schema() == ENUM_SCHEMA
 
 
 def test_stale_enum_problem_names_the_fix(tmp_path):
