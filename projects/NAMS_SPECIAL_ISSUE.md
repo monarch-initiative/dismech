@@ -76,6 +76,21 @@ PMID:38719068 (an in vitro true-dose workflow). Each predicts or conditions a
 toxicity endpoint without asserting a mechanism. Whether the registry takes them
 is [#16882](https://github.com/monarch-initiative/dismech/issues/16882).
 
+Three further papers were set aside for reasons other than a missing dismech
+anchor, and are listed here so the screen accounts for all twenty-five:
+PMID:37924932 (a QSAR case study for mercury) is aquatic ecotoxicology and
+reports a data gap rather than a working model; PMID:38104655 (a deep-learning
+framework that generates candidate hazardous structures) asserts no mechanism in
+a biological system; and PMID:38857863 (next generation risk assessment for
+occupational safety, sodium isethionate) is an exposure and
+bioactivity-ratio workflow across a NAM battery. The first is out of scope for
+both destinations. The other two raise the same registry question as the five
+above.
+
+The gaps and open questions this screen produced, including the ones that are
+not about any single paper, are kept in
+[open-questions.md](NAMS_SPECIAL_ISSUE/open-questions.md).
+
 ## Destination decisions
 
 ### PMID:38788893 — the two MEA neural network assays go to the registry only
