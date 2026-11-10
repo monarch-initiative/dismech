@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTLL5-Related Retinopathy · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>TTLL5-Related Retinopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>TTLL5-Related Retinopathy</h1>
+                
+                <p class="report-subtitle">TTLL5-Related Retinopathy — Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-11-09</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_1040038" target="_blank" rel="noopener noreferrer">MONDO:1040038</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">10 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>TTLL5-Related Retinopathy — Comprehensive Disease Characterization Report</h1>
+<p><strong>Disease:</strong> TTLL5-Related Retinopathy
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_1040038" target="_blank" rel="noopener noreferrer">MONDO:1040038</a> (umbrella) → <a href="http://purl.obolibrary.org/obo/MONDO_0014372" target="_blank" rel="noopener noreferrer">MONDO:0014372</a> Cone-rod dystrophy 19 (CORD19)
+<strong>Specific OMIM entity:</strong> Cone-rod dystrophy 19 (CORD19), OMIM #615860
+<strong>Causal gene:</strong> <strong>TTLL5</strong> (Tubulin Tyrosine Ligase Like 5; <a href="https://bioregistry.io/HGNC:19963" target="_blank" rel="noopener noreferrer">HGNC:19963</a>; 14q24.3; gene OMIM <em>612268)
+</em><em>Category:</em>* Mendelian, autosomal recessive</p>
+<hr />
+<h2>Summary</h2>
+<p><strong>TTLL5-related retinopathy is a rare, autosomal recessive, cone-dominated inherited retinal dystrophy (IRD) caused by biallelic loss-of-function variants in the gene <em>TTLL5</em>, which encodes a protein/tubulin polyglutamylase.</strong> The disease's specific OMIM entity is cone-rod dystrophy 19 (CORD19, OMIM #615860), and <a href="http://purl.obolibrary.org/obo/MONDO_1040038" target="_blank" rel="noopener noreferrer">MONDO:1040038</a> ("TTLL5-related retinopathy") is a ClinGen Ocular Clinical Domain Working Group umbrella term that encompasses this entity. The causal gene was identified in 2014 by exome sequencing of individuals with "cone-first" retinal disease, and the gene—not the generic disease name—defines the condition.</p>
+<p>The core disease mechanism is highly specific and well-supported. TTLL5 is the polyglutamylase responsible for adding glutamate side chains to <strong>RPGR-ORF15</strong>, a ciliary protein that resides at the photoreceptor connecting cilium. Loss of TTLL5 function abolishes RPGR-ORF15 glutamylation without markedly perturbing bulk tubulin glutamylation. This disrupts ciliary trafficking of opsins (early cone-opsin mislocalization is observed), leading to slow, progressive photoreceptor degeneration that preferentially affects cones first and then rods. The <em>Ttll5</em> mutant mouse phenocopies <em>Rpgr</em>-null mice, firmly linking TTLL5 disease to the RPGR pathway. Because TTLL5 is also expressed in the sperm flagellum centriole, male patients with truncating variants additionally exhibit reduced sperm motility and infertility (asthenozoospermia)—a genotype-dependent syndromic feature.</p>
+<p>Clinically, the disease presents in adulthood with slowly progressive central and color-vision loss, macular/parafoveal atrophy, cone-dominated electroretinogram (ERG) deficits, and frequent high myopia. The phenotypic spectrum spans cone dystrophy (CD), cone-rod dystrophy (CRD), and rod-cone dystrophy (RCD). Characteristic imaging features include parafoveal ellipsoid zone loss, macular hyperautofluorescence, and a described "solar flare" sign. There is currently <strong>no approved disease-specific therapy</strong>; management is supportive (refractive correction, low-vision aids, photophobia management, surveillance imaging, and genetic counseling). AAV-mediated gene augmentation is conceptually feasible given the recessive loss-of-function mechanism and manageable 1,281-amino-acid coding sequence, but remains hypothetical/preclinical for TTLL5.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> TTLL5-related retinopathy is a non-syndromic (occasionally syndromic) inherited retinal dystrophy with a cone-dominated, macula-centered pattern of degeneration. It belongs to the broad family of IRDs, which collectively affect approximately <strong>1 in 2,000 individuals worldwide</strong>, with over 324 genes implicated (<a href="https://pubmed.ncbi.nlm.nih.gov/40794304/">PMID: 40794304</a>): <em>"It affects 1/2000 individuals worldwide, and over 324 genes and 20 phenotypes are implicated in these pathologies."</em> Within IRDs, cone and cone-rod dystrophies are a minority subset (~10% of IRD probands in several cohorts), and TTLL5 is a rare gene even within that subset.</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO (umbrella)</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_1040038" target="_blank" rel="noopener noreferrer">MONDO:1040038</a> "TTLL5-related retinopathy"</td>
+</tr>
+<tr>
+<td>MONDO (child/specific)</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0014372" target="_blank" rel="noopener noreferrer">MONDO:0014372</a> "cone-rod dystrophy 19" (CORD19)</td>
+</tr>
+<tr>
+<td>OMIM (phenotype)</td>
+<td>#615860 (cone-rod dystrophy 19)</td>
+</tr>
+<tr>
+<td>OMIM (gene)</td>
+<td>*612268 (TTLL5)</td>
+</tr>
+<tr>
+<td>DOID</td>
+<td><a href="http://purl.obolibrary.org/obo/DOID_0111025" target="_blank" rel="noopener noreferrer">DOID:0111025</a></td>
+</tr>
+<tr>
+<td>UMLS</td>
+<td>C4014501</td>
+</tr>
+<tr>
+<td>MedGen</td>
+<td>862938</td>
+</tr>
+<tr>
+<td>GARD</td>
+<td>0016022 (CORD19); 0027241 (xref for umbrella)</td>
+</tr>
+<tr>
+<td>HGNC (gene)</td>
+<td><a href="https://bioregistry.io/HGNC:19963" target="_blank" rel="noopener noreferrer">HGNC:19963</a></td>
+</tr>
+<tr>
+<td>NCBI Gene</td>
+<td>23093</td>
+</tr>
+<tr>
+<td>Ensembl</td>
+<td>ENSG00000119685</td>
+</tr>
+<tr>
+<td>UniProt (protein)</td>
+<td>Q6EMB2</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> CORD19; cone-rod dystrophy 19; TTLL5 cone-rod dystrophy; cone-rod dystrophy caused by mutation in TTLL5; TTLL5-associated retinal dystrophy; TTLL5-associated cone/cone-rod dystrophy.</p>
+<p><strong>Information source.</strong> The knowledge base entry is derived from <strong>aggregated disease-level resources</strong> (OMIM, Orphanet, ClinGen, ClinVar, HGNC, UniProt) supplemented by <strong>individual patient case series and cohorts</strong> from the primary literature (Sergouniotis 2014; Bedoni/Astuti 2016; Oh 2022; Zhou 2026; Archer &amp; Ronquillo 2026), not from a single EHR system.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause (genetic).</strong> The disease is caused by <strong>biallelic (homozygous or compound heterozygous) pathogenic variants in TTLL5</strong>. The predominant mechanism is loss of function. TTLL5 was identified as the causal gene by exome sequencing in a cohort of individuals with cone-dominated retinal disease (<a href="https://pubmed.ncbi.nlm.nih.gov/24791901/">PMID: 24791901</a>): <em>"TTLL5, encoding a tubulin glutamylase, was highlighted as the most likely disease-associated gene."</em></p>
+<p><strong>Genetic risk factors.</strong> The causal variants themselves are the risk factor; being a biallelic carrier of pathogenic TTLL5 null alleles is effectively deterministic for retinal disease. Heterozygous carriers are unaffected (recessive). gnomAD constraint metrics confirm that heterozygous loss of function is tolerated (pLI ≈ 0; observed/expected LoF o/e = 0.78, LOEUF = 0.91), consistent with a recessive, non-haploinsufficient mechanism.</p>
+<p><strong>Environmental risk factors.</strong> No established environmental risk factors cause or trigger TTLL5 retinopathy. It is a monogenic Mendelian disease. Age is the principal modifier of severity (disease progresses with age); high myopia is an associated feature rather than an environmental cause. UV/light exposure is a theoretical aggravator for any cone/macular dystrophy but is not established as disease-modifying for TTLL5 specifically.</p>
+<p><strong>Protective factors.</strong> None established. No protective modifier alleles or environmental protective factors have been identified for TTLL5 retinopathy.</p>
+<p><strong>Gene–environment interactions.</strong> None documented. Consanguinity increases the probability of homozygosity for rare recessive null alleles and thus the occurrence of disease in affected families, but this is a population-genetic effect rather than a biological gene–environment interaction.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The disease produces a spectrum of overlapping phenotypes. The largest single-center cohort to date (Zhou et al. 2026, n=21 from 19 families) classified patients as <strong>2 cone dystrophy (CD), 12 cone-rod dystrophy (CRD), and 7 rod-cone dystrophy (RCD)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41933583/">PMID: 41933583</a>): <em>"2 patients were diagnosed with cone dystrophy (CD), 12 with cone-rod dystrophy (CRD), and 7 with rod-cone dystrophy (RCD)."</em></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Onset</th>
+<th>Severity / progression</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reduced central/visual acuity</td>
+<td>Symptom/clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" rel="noopener noreferrer">HP:0007663</a> / <a href="http://purl.obolibrary.org/obo/HP_0000572" target="_blank" rel="noopener noreferrer">HP:0000572</a></td>
+<td>Adult</td>
+<td>Progressive; BCVA correlates with age (R=0.704, P&lt;0.001)</td>
+<td>Universal</td>
+</tr>
+<tr>
+<td>Color vision defect (dyschromatopsia)</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000551" target="_blank" rel="noopener noreferrer">HP:0000551</a></td>
+<td>Adult</td>
+<td>Progressive</td>
+<td>Common (cone-dominated)</td>
+</tr>
+<tr>
+<td>Macular / parafoveal atrophy</td>
+<td>Clinical sign (imaging)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007906" target="_blank" rel="noopener noreferrer">HP:0007906</a> / <a href="http://purl.obolibrary.org/obo/HP_0001103" target="_blank" rel="noopener noreferrer">HP:0001103</a></td>
+<td>Adult</td>
+<td>Progressive, extends beyond posterior pole</td>
+<td>Characteristic</td>
+</tr>
+<tr>
+<td>Cone-dominated ERG loss</td>
+<td>Laboratory/functional abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000512" target="_blank" rel="noopener noreferrer">HP:0000512</a></td>
+<td>Adult</td>
+<td>Progressive</td>
+<td>Characteristic</td>
+</tr>
+<tr>
+<td>High myopia</td>
+<td>Physical/refractive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011003" target="_blank" rel="noopener noreferrer">HP:0011003</a></td>
+<td>Early–adult</td>
+<td>Structural</td>
+<td>66.7% (14/21) bilateral high myopia</td>
+</tr>
+<tr>
+<td>Photophobia</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" rel="noopener noreferrer">HP:0000613</a></td>
+<td>Adult</td>
+<td>Chronic</td>
+<td>Common in cone disease</td>
+</tr>
+<tr>
+<td>Reduced/absent rod function (RCD cases)</td>
+<td>Functional abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007675" target="_blank" rel="noopener noreferrer">HP:0007675</a></td>
+<td>Adult</td>
+<td>Progressive</td>
+<td>Subset (RCD)</td>
+</tr>
+<tr>
+<td>Reduced sperm motility / male infertility</td>
+<td>Laboratory/clinical (syndromic)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012864" target="_blank" rel="noopener noreferrer">HP:0012864</a> / <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" rel="noopener noreferrer">HP:0000789</a></td>
+<td>Adult</td>
+<td>—</td>
+<td>Males with truncating variants</td>
+</tr>
+<tr>
+<td>High-frequency hearing loss</td>
+<td>Clinical sign (rare)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000492" target="_blank" rel="noopener noreferrer">HP:0000492</a> / <a href="http://purl.obolibrary.org/obo/HP_0008542" target="_blank" rel="noopener noreferrer">HP:0008542</a></td>
+<td>Adult</td>
+<td>—</td>
+<td>Rare (single report)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Age of onset.</strong> Predominantly adult-onset. Zhou et al. report spherical equivalent -1.13 to -18.00 D and BCVA 0–2.70 LogMAR (median 0.6), correlating with age (<a href="https://pubmed.ncbi.nlm.nih.gov/41933583/">PMID: 41933583</a>): <em>"All patients were myopic, with spherical equivalent values ranging from -1.13 to -18.00 diopters, and 14 of 21 (66.67%) had bilateral high myopia."</em></p>
+<p><strong>Progression.</strong> Slowly progressive: retinal involvement is <em>"characterized by macular degeneration with progressive extension beyond the posterior pole"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41933583/">PMID: 41933583</a>).</p>
+<p><strong>Quality of life impact.</strong> Central and color-vision loss impairs reading, driving, face recognition, and fine visual tasks; high myopia compounds refractive disability; photophobia affects outdoor/bright-light function. No disease-specific EQ-5D/SF-36 data exist for TTLL5 retinopathy; QoL inference is based on comparable cone/cone-rod dystrophies.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <em>TTLL5</em> (OMIM <em>612268; <a href="https://bioregistry.io/HGNC:19963" target="_blank" rel="noopener noreferrer">HGNC:19963</a>; NCBI Gene 23093; Ensembl ENSG00000119685) at locus </em><em>14q24.3</em><em>. The protein (UniProt </em><em>Q6EMB2</em><em>) is 1,281 aa in the canonical isoform (a longer retina-enriched isoform of ~1,294 aa exists) and functions as an ATP-dependent protein/tubulin </em><em>polyglutamylase</em>* (EC 6.3.2.-; Rhea <a href="https://bioregistry.io/RHEA:60144" target="_blank" rel="noopener noreferrer">RHEA:60144</a>/60148), adding L-glutamate to γ-carboxyl side chains of substrate glutamates.</p>
+<p><strong>Protein architecture and variant localization.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain / region</th>
+<th>Approx. residues</th>
+<th>Function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Catalytic TTL domain</td>
+<td>aa 62–407</td>
+<td>ATP/substrate binding; glutamylation catalysis</td>
+</tr>
+<tr>
+<td>c-MTBD (C-terminal microtubule-binding domain)</td>
+<td>aa 378–488</td>
+<td>Microtubule association</td>
+</tr>
+<tr>
+<td>RPGR cofactor-interaction domain</td>
+<td>C-terminal portion</td>
+<td>Unique to TTLL5; targets RPGR-ORF15 glutamylation</td>
+</tr>
+<tr>
+<td>Disordered C-terminal regions</td>
+<td>C-terminus</td>
+<td>Regulatory</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Pathogenic variant spectrum.</strong> Variants are <strong>predominantly truncating</strong> (nonsense, frameshift, splice) and distributed across the gene, consistent with loss of function. Representative alleles: p.Gln117<em>, p.Leu134Argfs</em>45, p.Glu529Valfs<em>2, p.Glu543</em> (and missense p.Glu543Lys), p.Asp594fs, p.Met712fs, p.Lys810Argfs<em>35, p.Trp1118</em>, plus splice variants c.182-1G&gt;T and c.182-5T&gt;C. A frameshift localized to the cofactor-interaction domain was reported by Archer &amp; Ronquillo (<a href="https://pubmed.ncbi.nlm.nih.gov/42315353/">PMID: 42315353</a>): <em>"a novel homozygous TTLL5 frameshift mutation (c.2429del, p.Lys810Argfs</em>35) localized within the cofactor interaction domain."<em> Protein modeling of five variants </em>"suggest that they cause different effects on protein function, providing a potential reason for genotype-phenotype cor[relation]"* (<a href="https://pubmed.ncbi.nlm.nih.gov/35365235/">PMID: 35365235</a>).</p>
+<p><strong>ClinVar landscape (queried 2026, TTLL5[gene]).</strong> 1,291 total submitted variant records: <strong>167 Pathogenic, 70 Likely Pathogenic, and 1,218 Uncertain Significance (VUS)</strong>. The large VUS burden is expected for a 1,281-aa gene with abundant rare missense variation and limited functional/segregation data. Pathogenic/Likely-Pathogenic calls are dominated by truncating/splice (null, PVS1-eligible) variants.</p>
+<p><strong>Allele frequency.</strong> Individual pathogenic alleles are rare in gnomAD. Heterozygous LoF is tolerated (o/e LoF = 0.78; LOEUF = 0.91; pLI ≈ 0), confirming the gene is not haploinsufficient.</p>
+<p><strong>Somatic vs germline.</strong> Germline; this is an inherited (constitutional) disease. No somatic/cancer relevance.</p>
+<p><strong>Functional consequence.</strong> <strong>Loss of function</strong> (recessive). Truncating alleles abolish catalytic and/or cofactor-interaction activity; the missense p.Glu543Lys impairs catalysis. No convincing gain-of-function or dominant-negative mechanism is established.</p>
+<p><strong>Modifier genes.</strong> None firmly established. Allele-specific functional severity (truncating vs missense) and position relative to the RPGR cofactor-interaction domain appear to modulate phenotype, including fertility. RPGR itself is the key downstream partner but is a pathway effector, not a classic modifier gene.</p>
+<p><strong>Epigenetic information.</strong> No disease-specific DNA methylation, histone-modification, or chromatin data are available for TTLL5 retinopathy. (Not applicable / not reported.)</p>
+<p><strong>Chromosomal abnormalities.</strong> None characteristic. The disease is caused by point/small variants, not large-scale cytogenetic rearrangements.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Environmental factors.</strong> None established. TTLL5 retinopathy is a monogenic recessive disease with no documented toxic, radiation, pollution, or occupational contribution.</p>
+<p><strong>Lifestyle factors.</strong> None causally implicated. (UV/light protection and avoidance of additional retinal stressors are general ophthalmic prudence, not evidence-based disease modifiers.)</p>
+<p><strong>Infectious agents.</strong> Not applicable. The disease has no infectious etiology or trigger.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Biallelic loss-of-function variants in TTLL5</strong> → results in loss or severe reduction of functional TTLL5 polyglutamylase protein in photoreceptors (and sperm).</li>
+<li>Loss of TTLL5 catalytic/cofactor-interaction activity → <strong>abolishes polyglutamylation of RPGR-ORF15</strong> in its Glu-Gly-rich repetitive region, <strong>without marked change in bulk tubulin glutamylation</strong> (demonstrated in <em>Ttll5</em> mutant mice and human disease mutants).</li>
+<li>Loss of RPGR-ORF15 glutamylation → <strong>impairs RPGR function at the photoreceptor connecting cilium / basal body</strong> (inferred: RPGR glutamylation is required for its ciliary role; <em>Ttll5</em> mutants phenocopy <em>Rpgr</em>-null mice).</li>
+<li>Impaired ciliary RPGR function → <strong>defective trafficking of opsins through the connecting cilium to the outer segment</strong> (demonstrated: early cone-opsin mislocalization in <em>Ttll5</em> mutant mice; parallel rhodopsin-trafficking failure in glutamylation-imbalanced <em>pcd</em> mice).</li>
+<li>Opsin mislocalization / outer-segment transport failure → <strong>progressive photoreceptor dysfunction and slow degeneration</strong>, affecting <strong>cones first (then rods)</strong> → macular/parafoveal atrophy and ERG loss.</li>
+<li>Photoreceptor loss → <strong>adult-onset, progressive central and color-vision loss with macular atrophy</strong> (clinical manifestation).</li>
+</ol>
+<p><strong>Branch (syndromic):</strong> Step 1 → loss of TTLL5 at the <strong>sperm flagellum centriole</strong> → (in males with truncating variants) → <strong>reduced sperm motility / asthenozoospermia and infertility</strong>, reflecting a shared ciliary/centriolar mechanism between photoreceptors and spermatozoa.</p>
+<h3>Detail by category</h3>
+<p><strong>Molecular pathway / biochemical abnormality.</strong> The central lesion is a <strong>tubulin-tyrosine-ligase-like polyglutamylation defect</strong> acting on a non-tubulin substrate. TTLL5 <em>"glutamylates RPGR(ORF15) in its Glu-Gly-rich repetitive region"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27162334/">PMID: 27162334</a>). The RPGR C-terminal basic domain binds the noncatalytic cofactor-interaction domain unique to TTLL5, targeting glutamylation. Human <em>"TTLL5 disease mutants that cause human retinal dystrophy show impaired glutamylation of RPGR(ORF15)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27162334/">PMID: 27162334</a>).</p>
+<p><strong>Cellular process.</strong> Ciliary protein transport (intraflagellar/ciliary trafficking) and photoreceptor outer-segment maintenance; the downstream event is slow photoreceptor cell death. The <em>Ttll5</em> mutant mouse <em>"develops slow photoreceptor degeneration with early mislocalization of cone opsins, features resembling those of Rpgr-null mice"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27162334/">PMID: 27162334</a>).</p>
+<p><strong>Protein dysfunction.</strong> Loss of function of the polyglutamylase (truncation removes catalytic and/or cofactor-interaction domains; missense impairs catalysis).</p>
+<p><strong>Glutamylation balance.</strong> Correct glutamylation balance at the cilium governs opsin transport. In the <em>pcd</em> mouse (deglutamylase-null, hyperglutamylation), <em>"degeneration of photoreceptors in pcd is preceded by impaired rhodopsin trafficking to the rod outer segment"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/35404950/">PMID: 35404950</a>), and loss of the writer Ttll1 rescues degeneration—underscoring that both too little (TTLL5 loss) and too much glutamylation disrupt opsin trafficking.</p>
+<p><strong>Immune / metabolic / epigenetic involvement.</strong> No autoimmune, primary metabolic, or epigenetic mechanism is implicated. Tissue damage is degenerative (programmed photoreceptor death secondary to trafficking failure), not inflammatory, ischemic, or fibrotic.</p>
+<h3>Upstream vs downstream and ontology suggestions</h3>
+<ul>
+<li><strong>Upstream:</strong> TTLL5 LoF → loss of RPGR-ORF15 glutamylation.</li>
+<li><strong>Downstream:</strong> opsin mislocalization → photoreceptor degeneration → vision loss.</li>
+<li><strong>GO biological process:</strong> <a href="http://purl.obolibrary.org/obo/GO_0018095" target="_blank" rel="noopener noreferrer">GO:0018095</a> (protein polyglutamylation); <a href="http://purl.obolibrary.org/obo/GO_0035735" target="_blank" rel="noopener noreferrer">GO:0035735</a> (intraciliary transport); <a href="http://purl.obolibrary.org/obo/GO_0120197" target="_blank" rel="noopener noreferrer">GO:0120197</a> (photoreceptor cell outer segment organization); <a href="http://purl.obolibrary.org/obo/GO_0007286" target="_blank" rel="noopener noreferrer">GO:0007286</a> (spermatid development).</li>
+<li><strong>GO cellular component:</strong> <a href="http://purl.obolibrary.org/obo/GO_0097539" target="_blank" rel="noopener noreferrer">GO:0097539</a> (ciliary transition zone/connecting cilium region); <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" rel="noopener noreferrer">GO:0036064</a> (ciliary basal body); <a href="http://purl.obolibrary.org/obo/GO_0001917" target="_blank" rel="noopener noreferrer">GO:0001917</a> (photoreceptor inner segment); <a href="http://purl.obolibrary.org/obo/GO_0001750" target="_blank" rel="noopener noreferrer">GO:0001750</a> (photoreceptor outer segment).</li>
+<li><strong>Cell types (CL):</strong> <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a> (retinal cone cell); <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a> (retinal rod cell); <a href="http://purl.obolibrary.org/obo/CL_0000019" target="_blank" rel="noopener noreferrer">CL:0000019</a> (sperm).</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level.</strong> Primary organ: the <strong>eye</strong>, specifically the <strong>retina</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a>), with a macula-centered pattern. Secondary/associated: the <strong>male reproductive system</strong> (testis/spermatozoa) in truncating-variant carriers; rare auditory involvement (inner ear) in isolated reports. Body system: <strong>nervous/sensory (visual) system</strong>, with reproductive-system involvement as the syndromic branch.</p>
+<p><strong>Tissue and cell level.</strong> The <strong>neural retina</strong> (nervous tissue); the targeted cells are <strong>photoreceptors</strong>—cones preferentially and earliest (<a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a>), then rods (<a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a>). The <strong>retinal pigment epithelium</strong> is secondarily involved through macular atrophy. In males, <strong>spermatozoa</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000019" target="_blank" rel="noopener noreferrer">CL:0000019</a>) are affected.</p>
+<p><strong>Subcellular level.</strong> The disease localizes to the <strong>photoreceptor connecting cilium / basal body</strong> and the <strong>sperm flagellum centriole</strong>. TTLL5 antibodies <em>"stained the basal body of photoreceptor cells in rat and the centrosome of the spermatozoon flagellum in humans, suggesting a common mechanism of action in these two cell types"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28173158/">PMID: 28173158</a>). GO cellular-component terms: <a href="http://purl.obolibrary.org/obo/GO_0036064" target="_blank" rel="noopener noreferrer">GO:0036064</a> (ciliary basal body), <a href="http://purl.obolibrary.org/obo/GO_0005814" target="_blank" rel="noopener noreferrer">GO:0005814</a> (centriole), <a href="http://purl.obolibrary.org/obo/GO_0001917" target="_blank" rel="noopener noreferrer">GO:0001917</a> (photoreceptor inner segment).</p>
+<p><strong>Localization and lateralization.</strong> UBERON terms: <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a> (retina), <a href="http://purl.obolibrary.org/obo/UBERON_0001782" target="_blank" rel="noopener noreferrer">UBERON:0001782</a> (macula lutea; fovea <a href="http://purl.obolibrary.org/obo/UBERON_0001781" target="_blank" rel="noopener noreferrer">UBERON:0001781</a>), <a href="http://purl.obolibrary.org/obo/UBERON_0001789" target="_blank" rel="noopener noreferrer">UBERON:0001789</a> (photoreceptor layer), <a href="http://purl.obolibrary.org/obo/UBERON_0000473" target="_blank" rel="noopener noreferrer">UBERON:0000473</a> (testis). Retinal involvement is <strong>bilateral and largely symmetrical</strong>, beginning parafoveally/macularly and extending beyond the posterior pole.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset.</strong> Typically <strong>adult-onset</strong>, insidious/chronic. Central vision and color-vision symptoms predominate. High myopia may be noted earlier in life, but degenerative retinal symptoms emerge in adulthood.</p>
+<p><strong>Progression.</strong> Slow and <strong>progressive</strong>. In the Zhou cohort, BCVA correlated with age (Spearman R = 0.704, P &lt; 0.001), indicating gradual decline over decades. Degeneration follows a <strong>cone-first</strong> pattern (CD → CRD), with rod involvement (RCD) in a subset. The structural course is macular atrophy <em>"with progressive extension beyond the posterior pole"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41933583/">PMID: 41933583</a>).</p>
+<p><strong>Disease course / duration.</strong> Chronic, lifelong; no remission or relapsing-remitting pattern. There is no spontaneous recovery.</p>
+<p><strong>Critical periods / intervention window.</strong> As with other photoreceptor-trafficking IRDs, the therapeutic window for any future gene-augmentation therapy would be before extensive photoreceptor loss (while viable cones/rods remain)—inferred from the broader IRD gene-therapy field rather than demonstrated for TTLL5.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Inheritance.</strong> <strong>Autosomal recessive.</strong> Biallelic variants are required; the largest cohort described <em>"Twenty-one affected individuals from 19 unrelated families carrying biallelic TTLL5 variants"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41933583/">PMID: 41933583</a>). Many reported cases are homozygous, often from consanguineous families.</p>
+<p><strong>Penetrance and expressivity.</strong> Penetrance of the retinal phenotype in biallelic null carriers appears high (essentially complete for retinal disease), with <strong>variable expressivity</strong> across the CD–CRD–RCD spectrum and variable age/severity. The male-fertility phenotype shows <strong>genotype-dependent expressivity</strong>: <em>"The two male patients carrying truncating TTLL5 variants also displayed a substantial reduction in sperm motility and infertility, whereas those carrying missense changes were fertile"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28173158/">PMID: 28173158</a>).</p>
+<p><strong>Genetic anticipation / mosaicism / founder effects.</strong> No anticipation (not a repeat-expansion disorder). No germline mosaicism specifically reported. No well-defined founder mutation; cases arise worldwide (UK, Switzerland, Netherlands, Sweden, Spain, Morocco, China, North America), with consanguinity enriching homozygosity.</p>
+<p><strong>Carrier frequency.</strong> Not formally established; individual pathogenic alleles are rare in gnomAD, consistent with an ultra-rare recessive disease.</p>
+<p><strong>Epidemiology.</strong> No disease-specific prevalence/incidence figure exists for TTLL5 retinopathy. Context: IRDs affect ~1/2,000 (<a href="https://pubmed.ncbi.nlm.nih.gov/40794304/">PMID: 40794304</a>); cone/cone-rod dystrophies are ~10% of IRD probands (e.g., 41/403 = 10.2% in a Welsh cohort; 16/203 in a Polish cohort), and TTLL5 is a <strong>very rare</strong> gene within that subset. Del Pozo-Valero et al. listed TTLL5 among "very rare" genes in 1,036 Spanish macular-dystrophy families: <em>"Novel variants in the very rare genes PLA2G5 and TTLL5 revealed additional phenotypic associations"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/35119454/">PMID: 35119454</a>).</p>
+<p><strong>Population demographics.</strong> No strong ethnic predilection; worldwide distribution. <strong>Sex ratio:</strong> retinal disease affects both sexes; the infertility phenotype is male-specific (and genotype-dependent). <strong>Age distribution:</strong> adults, with severity increasing with age.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical / functional tests.</strong>
+- <strong>Full-field and pattern ERG:</strong> cone-dominated amplitude reduction (cone responses affected earlier/more than rod responses); rod involvement in RCD cases.
+- <strong>Spectral-domain OCT (SD-OCT):</strong> parafoveal <strong>ellipsoid zone loss</strong> — <em>"Multimodal imaging demonstrated parafoveal ellipsoid zone loss consistent with a cone-rod dystrophy pattern"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42315353/">PMID: 42315353</a>).
+- <strong>Fundus autofluorescence (FAF):</strong> parafoveal/macular hyperautofluorescence; macular atrophy.
+- <strong>Color fundus photography:</strong> macular degeneration/atrophy.
+- <strong>Color vision testing:</strong> dyschromatopsia.
+- <strong>Characteristic sign:</strong> the <strong>"solar flare" sign</strong> described in TTLL5-associated cone dystrophy (<a href="https://pubmed.ncbi.nlm.nih.gov/42315353/">PMID: 42315353</a>).
+- <strong>Refraction:</strong> frequent high myopia (≤ -6.0 D in two-thirds of patients).</p>
+<p><strong>Biomarkers / laboratory.</strong> No circulating biochemical biomarker exists. In males, <strong>semen analysis</strong> may reveal asthenozoospermia (reduced sperm motility) as an adjunct diagnostic clue in truncating-variant carriers.</p>
+<p><strong>Genetic testing (definitive).</strong> Molecular diagnosis is established by detecting biallelic pathogenic TTLL5 variants.
+- <strong>IRD gene panel (NGS)</strong> including TTLL5 — typical first-line test.
+- <strong>Whole-exome sequencing (WES)</strong> — effective; TTLL5 was discovered by exome sequencing (<a href="https://pubmed.ncbi.nlm.nih.gov/24791901/">PMID: 24791901</a>).
+- <strong>Whole-genome sequencing (WGS)</strong> — useful for deep-intronic/splice and structural variants (e.g., c.182-1G&gt;T, c.182-5T&gt;C splice alleles).
+- <strong>Single-gene / targeted testing</strong> — for cascade testing of known familial variants.
+- CMA, karyotyping, FISH, mtDNA testing, and repeat-expansion testing are <strong>not applicable</strong> (small-variant, nuclear, non-repeat disorder).</p>
+<p><strong>Clinical criteria / differential diagnosis.</strong> No disease-specific consensus criteria; diagnosis integrates phenotype (cone-dominated/macular dystrophy with high myopia), multimodal imaging, ERG, and biallelic TTLL5 genotype. <strong>Differential diagnoses:</strong> other cone/cone-rod dystrophy genes—notably <strong>ABCA4</strong> (Stargardt/CRD), <strong>RPGR</strong> (X-linked, phenotypically overlapping—TTLL5 LoF cone dystrophy <em>"closely resembles the phenotype observed in some patients with"</em> RPGR-related disease; <a href="https://pubmed.ncbi.nlm.nih.gov/42573183/">PMID: 42573183</a>), <strong>GUCY2D, PRPH2, RIMS1, KCNV2, CACNA1F</strong>, and macular dystrophies. High myopia and sex-specific infertility (truncating alleles) are distinguishing clues toward TTLL5.</p>
+<p><strong>Screening.</strong> Cascade genetic testing of relatives and carrier testing within affected families; no population newborn screening is indicated for this ultra-rare condition.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Survival / mortality.</strong> TTLL5 retinopathy is <strong>not life-threatening</strong>; life expectancy is normal. There is no disease-specific mortality.</p>
+<p><strong>Morbidity / function.</strong> The principal burden is <strong>progressive visual disability</strong>: central and color-vision loss impairing reading, driving, and daily visual tasks, compounded by high myopia and photophobia. BCVA ranges widely (0–2.70 LogMAR, median 0.6) and worsens with age (<a href="https://pubmed.ncbi.nlm.nih.gov/41933583/">PMID: 41933583</a>). In affected males, <strong>infertility</strong> (asthenozoospermia) is an additional morbidity for truncating-variant carriers.</p>
+<p><strong>Disease course / complications.</strong> Chronic, progressive macular atrophy extending beyond the posterior pole; rod involvement (night-vision difficulty) in RCD cases; rare auditory involvement in isolated reports — <em>"One patient also developed high-frequency hearing loss during a similar time period as the onset of retinal disease, potentially suggestive of a syndromic disorder"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/35365235/">PMID: 35365235</a>).</p>
+<p><strong>Recovery potential.</strong> None spontaneously; vision loss is irreversible with current (supportive-only) management.</p>
+<p><strong>Prognostic factors.</strong> <strong>Age</strong> is the strongest correlate of visual decline. <strong>Genotype</strong> modulates phenotype and the fertility outcome (truncating vs missense). Protein modeling suggests allele-specific functional effects underlie genotype-phenotype variability (<a href="https://pubmed.ncbi.nlm.nih.gov/35365235/">PMID: 35365235</a>). No validated molecular prognostic biomarker exists.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>There is no approved disease-specific therapy for TTLL5-related retinopathy, and no interventional clinical trials target TTLL5 (as of 2026).</strong> Management is <strong>supportive and symptomatic</strong>:</p>
+<ul>
+<li><strong>Refractive correction</strong> of the frequent high myopia (glasses/contact lenses). <em>(NCIT: Refractive Correction.)</em></li>
+<li><strong>Low-vision rehabilitation</strong> and aids (magnifiers, electronic aids, orientation/mobility support). <em>(NCIT: Rehabilitation Therapy.)</em></li>
+<li><strong>Photophobia management:</strong> tinted and UV-filtering lenses.</li>
+<li><strong>Surveillance:</strong> serial SD-OCT, FAF, and ERG to monitor progression.</li>
+<li><strong>Genetic counseling</strong> for this autosomal recessive condition, including recurrence risk (25% for siblings when both parents are carriers), carrier/cascade testing, and—where relevant—<strong>fertility counseling</strong> for males with truncating variants (assisted reproductive options such as ICSI may be discussed). <em>(NCIT: Genetic Counseling.)</em></li>
+</ul>
+<p><strong>Pharmacotherapy / pharmacogenomics.</strong> None established. (Not applicable.)</p>
+<p><strong>Advanced therapeutics (hypothetical/preclinical).</strong> The recessive <strong>loss-of-function</strong> mechanism of a <strong>non-haploinsufficient</strong> gene (pLI ≈ 0) and the manageable <strong>1,281-aa coding sequence</strong> make <strong>AAV-mediated gene augmentation</strong> conceptually feasible, analogous to RPGR gene-therapy programs (notably because TTLL5's key retinal substrate is RPGR-ORF15). This remains <strong>hypothetical/preclinical for TTLL5 itself</strong>. <em>(NCIT: Gene Therapy; Adeno-associated Viral Vector Gene Therapy.)</em> RNA-based and cell therapies are not currently under development for this gene.</p>
+<p><strong>Experimental treatments.</strong> No NCT-registered trials specific to TTLL5 identified.</p>
+<p><strong>Treatment outcomes / adverse events.</strong> Not applicable—no disease-specific pharmacologic or advanced therapy exists.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention.</strong> As a monogenic recessive disease, primary prevention is <strong>reproductive/genetic</strong>: carrier screening (especially in consanguineous families or populations with known alleles), genetic counseling, and reproductive options including <strong>preimplantation genetic testing (PGT)</strong> and <strong>prenatal diagnosis</strong> for couples known to both carry pathogenic TTLL5 variants. No vaccine or lifestyle prevention applies.</p>
+<p><strong>Secondary prevention.</strong> Early molecular diagnosis via IRD panels/WES enables timely counseling, low-vision planning, and eligibility for future trials; <strong>cascade genetic testing</strong> identifies affected/at-risk relatives.</p>
+<p><strong>Tertiary prevention.</strong> Minimize complications of visual impairment (fall prevention, mobility training, educational/occupational support); correct refractive error; manage photophobia; monitor for progression.</p>
+<p><strong>Counseling.</strong> Genetic counseling is central—recurrence risk, carrier status, and male-fertility implications of truncating variants.</p>
+<p><strong>Immunization / public-health / environmental interventions.</strong> Not applicable (non-infectious, non-environmental monogenic disease).</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p><strong>Taxonomy and orthologs.</strong> The gene is conserved across vertebrates. Mouse ortholog <strong>Ttll5</strong> (NCBI Gene 320244; <a href="https://bioregistry.io/MGI:2443657" target="_blank" rel="noopener noreferrer">MGI:2443657</a>; Ensembl ENSMUSG00000012609). <em>Homo sapiens</em> NCBI Taxon:9606; <em>Mus musculus</em> NCBI Taxon:10090.</p>
+<p><strong>Natural disease in other species.</strong> No well-characterized naturally occurring TTLL5 retinopathy has been documented in companion animals or wildlife (OMIA not definitive). The disease is primarily studied via engineered mouse models rather than natural animal disease.</p>
+<p><strong>Comparative biology.</strong> The TTLL5→RPGR-ORF15 glutamylation axis and ciliary opsin-trafficking mechanism are evolutionarily conserved between rodent and human photoreceptors (and between photoreceptors and spermatozoa), providing strong cross-species mechanistic conservation. The human disease closely mirrors the biology of <em>Rpgr</em>-null mice and overlaps phenotypically with human RPGR disease.</p>
+<p><strong>Transmission / zoonotic potential.</strong> Not applicable (inherited, non-transmissible).</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Primary model: the <em>Ttll5</em> mutant mouse.</strong> This is the central model and recapitulates key features of the human disease:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th><em>Ttll5</em> mutant mouse</th>
+<th>Human TTLL5 disease</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RPGR-ORF15 glutamylation</td>
+<td>Complete loss</td>
+<td>Impaired (disease mutants)</td>
+</tr>
+<tr>
+<td>Bulk tubulin glutamylation</td>
+<td>Largely unchanged</td>
+<td>(Consistent)</td>
+</tr>
+<tr>
+<td>Photoreceptor degeneration</td>
+<td>Slow, progressive</td>
+<td>Slow, progressive</td>
+</tr>
+<tr>
+<td>Cone-opsin mislocalization</td>
+<td>Early</td>
+<td>Cone-dominated disease</td>
+</tr>
+<tr>
+<td>Male fertility</td>
+<td>Reduced</td>
+<td>Reduced (truncating variants)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The mouse <em>"displays a complete loss of RPGR glutamylation without marked changes in tubulin glutamylation levels"</em> and <em>"develops slow photoreceptor degeneration with early mislocalization of cone opsins, features resembling those of Rpgr-null mice"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27162334/">PMID: 27162334</a>). Male <em>Ttll5</em>-mutant mice show reduced fertility, paralleling human truncating-variant carriers.</p>
+<p><strong>Complementary model (glutamylation balance): the <em>pcd</em> mouse.</strong> The <em>pcd</em> (Agtpbp1/Nna1/CCP1 deglutamylase-null) mouse exhibits <strong>hyper</strong>glutamylation causing photoreceptor, Purkinje, and mitral-cell degeneration; loss of the writer Ttll1 rescues photoreceptor degeneration. Critically, <em>"degeneration of photoreceptors in pcd is preceded by impaired rhodopsin trafficking to the rod outer segment"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/35404950/">PMID: 35404950</a>). This model establishes that <strong>both deficient and excessive glutamylation disrupt opsin trafficking and cause photoreceptor death</strong>, framing TTLL5 loss within a broader glutamylation-balance paradigm.</p>
+<p><strong>Phenotype recapitulation and limitations.</strong> The <em>Ttll5</em> mouse recapitulates the retinal and fertility phenotypes with high fidelity. Limitations: the human high-myopia association and the precise CD/CRD/RCD spectrum are not fully modeled; the rod-dominant mouse retina limits modeling of the cone-first, macula-centered human phenotype.</p>
+<p><strong>Resources.</strong> MGI (mouse); Alliance of Genome Resources; the RPGR-pathway literature for cross-model comparison. iPSC-derived retinal organoids are a plausible but not-yet-reported human in-vitro model for TTLL5.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code> Biallelic LoF variants in TTLL5 (14q24.3)
+ │
+ ▼
+ Loss of TTLL5 polyglutamylase activity
+ │
+     ┌───────────┴─────────────────────────────┐
+     ▼ (photoreceptor)                           ▼ (sperm, truncating alleles)
+ Loss of RPGR-ORF15 glutamylation          Loss of TTLL5 at flagellar
+ at connecting cilium / basal body          centriole
+     │  (tubulin glutamylation spared)           │
+     ▼                                            ▼
+ Impaired ciliary RPGR function              Impaired flagellar function
+     │                                            ▼
+     ▼                                       Reduced sperm motility
+ Defective opsin trafficking                 (asthenozoospermia) → infertility
+ to outer segment
+ (cone opsins mislocalize early)
+     │
+     ▼
+ Slow photoreceptor degeneration (cones → rods)
+     │
+     ▼
+ Macular/parafoveal atrophy, cone-dominated ERG loss
+     │
+     ▼
+ Adult-onset progressive central &amp; color-vision loss
+ (CD → CRD → RCD spectrum; frequent high myopia)
+</code></pre>
+<p>The model is unusually well-resolved for a rare IRD: a <strong>specific enzyme–substrate relationship (TTLL5 → RPGR-ORF15)</strong> connects genotype to the ciliary trafficking defect, and the mouse model phenocopies both the retinal and reproductive branches. The upstream lesion is the glutamylation defect; downstream events (opsin mislocalization → degeneration → vision loss) are shared with RPGR disease and with the broader glutamylation-balance paradigm illustrated by <em>pcd</em> mice.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role in this report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24791901/">24791901</a></td>
+<td><em>Biallelic TTLL5 variants cause retinal dystrophy</em></td>
+<td><strong>Gene discovery</strong>; TTLL5 as causal gene; recessive LoF alleles</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27162334/">27162334</a></td>
+<td><em>Loss of RPGR glutamylation underlies TTLL5 pathogenesis</em></td>
+<td><strong>Core mechanism</strong>; RPGR-ORF15 substrate; <em>Ttll5</em> mouse; human mutants impair glutamylation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28173158/">28173158</a></td>
+<td><em>TTLL5 mutations: cone-rod degeneration + reduced male fertility</em></td>
+<td><strong>Syndromic branch</strong>; genotype-dependent infertility; basal body/flagellar localization</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41933583/">41933583</a></td>
+<td><em>Clinical &amp; genetic spectrum (single-center cohort, n=21)</em></td>
+<td><strong>Phenotype spectrum</strong> (CD/CRD/RCD); high myopia 66.7%; BCVA–age correlation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42315353/">42315353</a></td>
+<td><em>Novel variant; "solar flare" sign</em></td>
+<td><strong>Imaging/diagnosis</strong>; ellipsoid zone loss; cofactor-interaction-domain variant</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35365235/">35365235</a></td>
+<td><em>Expanding the phenotype: case series</em></td>
+<td><strong>Variable expressivity</strong>; variant modeling; possible auditory involvement</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35404950/">35404950</a></td>
+<td><em>TTLL1/TTLL4 in pcd neurodegeneration</em></td>
+<td><strong>Glutamylation-balance</strong> paradigm; opsin-trafficking failure precedes degeneration</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42573183/">42573183</a></td>
+<td><em>RPGR sector RP with cone dystrophy</em></td>
+<td><strong>Differential/overlap</strong> with RPGR disease; phenotypic resemblance to TTLL5 LoF</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35119454/">35119454</a></td>
+<td><em>NGS in 1,036 Spanish macular-dystrophy families</em></td>
+<td><strong>Epidemiology</strong>; TTLL5 among "very rare" IRD genes</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40794304/">40794304</a></td>
+<td><em>Splice variants in Moroccan IRD families</em></td>
+<td><strong>Context</strong>; IRD prevalence ~1/2,000; &gt;324 genes</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Evidence types: <strong>human clinical</strong> (cohorts/case series: 24791901, 28173158, 41933583, 42315353, 35365235); <strong>model organism</strong> (27162334 <em>Ttll5</em> mouse; 35404950 <em>pcd</em> mouse); <strong>computational/in silico</strong> (variant/protein modeling within 35365235, 42573183); <strong>aggregated database</strong> (ClinVar, gnomAD, OMIM, HGNC, UniProt).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No disease-specific epidemiology.</strong> Prevalence/incidence and carrier frequency for TTLL5 retinopathy are unquantified; estimates are extrapolated from IRD/cone-rod subset frequencies.</li>
+<li><strong>Small cohorts.</strong> The largest study has 21 patients; phenotype frequencies and genotype-phenotype correlations rest on limited numbers.</li>
+<li><strong>Large VUS burden.</strong> 1,218 ClinVar VUS vs 237 P/LP complicate variant interpretation; functional assays for missense alleles are sparse.</li>
+<li><strong>Incomplete genotype-phenotype map.</strong> Determinants of CD vs CRD vs RCD presentation and of myopia severity are not fully explained.</li>
+<li><strong>Syndromic scope uncertain.</strong> The frequency of male infertility and the reality of auditory involvement (single report) need larger systematic study.</li>
+<li><strong>No human in-vitro model reported</strong> (e.g., patient iPSC-retinal organoids), and no natural animal disease characterized.</li>
+<li><strong>No therapeutics.</strong> Gene augmentation is only conceptual; no preclinical efficacy data or trials exist for TTLL5.</li>
+<li><strong>Epigenetic, metabolomic, proteomic, and single-cell data</strong> specific to TTLL5 retinopathy are absent.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Natural-history registry &amp; imaging study</strong> (multicenter) to quantify progression rates, define CD→CRD→RCD transitions, and establish trial-ready endpoints (ellipsoid-zone width, BCVA, FAF atrophy area).</li>
+<li><strong>Functional variant assays</strong> (in-vitro glutamylation of RPGR-ORF15 using purified/expressed TTLL5 missense variants) to reclassify VUS and build an ACMG-grade functional evidence set.</li>
+<li><strong>Patient iPSC-derived retinal organoids</strong> to model opsin mislocalization and test rescue, and to screen glutamylation-modulating interventions.</li>
+<li><strong>AAV-TTLL5 gene-augmentation proof-of-concept</strong> in <em>Ttll5</em> mutant mice (with RPGR-glutamylation readout) to establish feasibility, dosing, and therapeutic window.</li>
+<li><strong>Systematic andrology sub-study</strong> in male patients stratified by truncating vs missense genotype to define infertility penetrance and counsel accurately.</li>
+<li><strong>Audiology screening</strong> across cohorts to confirm or refute syndromic hearing involvement.</li>
+<li><strong>Deep-intronic/structural variant analysis via WGS</strong> in unsolved cone-dominated IRD cases to capture missed TTLL5 alleles.</li>
+</ol>
+<hr />
+<p><em>Evidence synthesized from 17 reviewed papers and aggregated databases (OMIM, Orphanet, MONDO, ClinVar, gnomAD, HGNC, UniProt, MGI). Primary mechanistic claims are supported by model-organism and human-clinical studies cited above with verified abstract quotes.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/TTLL5-Related_Retinopathy-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/TTLL5-Related_Retinopathy-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>10</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:1040038</code> (3 mentions) - the report calls it "umbrella", "TTLL5-related retinopathy"; MONDO calls it <strong>TTLL5-related retinopathy</strong></li>
+<li><code>DOID:0111025</code> (1 mention) - the report calls it "DOID"; DOID calls it <strong>cone-rod dystrophy 19</strong></li>
+<li><code>HP:0000551</code> (1 mention) - the report calls it "Symptom"; HP calls it <strong>Color vision defect</strong></li>
+<li><code>HP:0000512</code> (1 mention) - the report calls it "Laboratory/functional abnormality"; HP calls it <strong>Abnormal electroretinogram</strong></li>
+<li><code>HP:0011003</code> (1 mention) - the report calls it "Physical/refractive"; HP calls it <strong>High myopia</strong></li>
+<li><code>HP:0000613</code> (1 mention) - the report calls it "Symptom"; HP calls it <strong>Photophobia</strong></li>
+<li><code>HP:0007675</code> (1 mention) - the report calls it "Functional abnormality"; HP calls it <strong>Progressive night blindness</strong></li>
+<li><code>GO:0120197</code> (1 mention) - the report calls it "photoreceptor cell outer segment organization"; GO calls it <strong>mucociliary clearance</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0035735</code> (1 mention) - the report calls it "intraciliary transport"; GO calls it <strong>intraciliary transport involved in cilium assembly</strong>, and lists "intraflagellar transport" among its other names</li>
+<li><code>GO:0097539</code> (1 mention) - the report calls it "ciliary transition zone/connecting cilium region"; GO calls it <strong>ciliary transition fiber</strong>, and lists "ciliary transition fibre" among its other names</li>
+<li><code>CL:0000019</code> (2 mentions) - the report calls it "sperm", "spermatozoa"; CL calls it <strong>sperm</strong>, and lists "spermatozoid" among its other names</li>
+<li><code>UBERON:0001789</code> (1 mention) - the report calls it "photoreceptor layer"; UBERON calls it <strong>outer nuclear layer of retina</strong>, and lists "outer nuclear layer" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>MONDO:1040038</code> - called "umbrella", "TTLL5-related retinopathy"</li>
+<li><code>CL:0000019</code> - called "sperm", "spermatozoa"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>RHEA</code>, <code>MGI</code>, <code>Taxon</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="TRMU-Related_Acute_Infantile_Liver_Failure-claude_code.html">← TRMU-Related Acute Infantile Liver Failure (Claude Code)</a>
+                
+                
+                <a href="TTN_Related_Myopathy_Dominant_Negative_TTNsv-asta.html">TTN-Related Myopathy, Dominant-Negative TTNsv (Asta) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/TTLL5-Related_Retinopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/TTLL5-Related_Retinopathy-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
