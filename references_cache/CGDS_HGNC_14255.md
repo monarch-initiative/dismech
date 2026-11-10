@@ -48,6 +48,6 @@ content_type: "structured_record"
 
 ## Source
 
-ClinGen Dosage Sensitivity gene download and curated gene list GRCh38 snapshot **2026-07-31** (`gene_dosage.csv`, `gene_dosage_grch38.tsv`).
+ClinGen Dosage Sensitivity gene download and curated gene list GRCh38 snapshot **2026-11-10** (`gene_dosage.csv`, `gene_dosage_grch38.tsv`).
 
 [ClinGen dosage sensitivity downloads](https://search.clinicalgenome.org/kb/downloads)
