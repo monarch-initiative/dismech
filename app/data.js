@@ -59150,12 +59150,16 @@ window.searchData = [
       "Germline FLCN First-Hit Inactivation",
       "Somatic FLCN Second-Hit Inactivation",
       "Folliculin Loss and FNIP1-AMPK-mTOR Nutrient Sensing Dysregulation",
+      "Loss of FLCN-FNIP RagC/D GAP Activity",
+      "Constitutive TFEB/TFE3 Nuclear Activation",
       "Multiorgan Hamartoma and Renal Tumor Development"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
-      "TOR signaling"
+      "TOR signaling",
+      "protein import into nucleus",
+      "lysosome organization"
     ],
     "phenotypes": [
       "Fibrofolliculoma",
@@ -59182,7 +59186,10 @@ window.searchData = [
       "HP:0009726",
       "HP:0011798"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [
       "FLCN"
     ],
@@ -59196,11 +59203,11 @@ window.searchData = [
     "source_file": "Birt-Hogg-Dube_Syndrome.yaml",
     "page_url": "../pages/disorders/Birt-Hogg-Dube_Syndrome.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Bjornstad Syndrome",
@@ -101363,19 +101370,28 @@ window.searchData = [
     "description": "Chronic traumatic encephalopathy (CTE) is a progressive neurodegenerative tauopathy caused by exposure to repetitive head impacts \u2014 concussive and subconcussive \u2014 most strongly associated with contact sports (American football, boxing, soccer, ice hockey) and military blast exposure. Originally described as dementia pugilistica in boxers, CTE is now recognized across many causes of repeated head trauma. Its pathognomonic lesion is perivascular accumulation of hyperphosphorylated tau at the depths of cortical sulci, with supportive TDP-43 proteinopathy in limbic regions. Clinically it produces cognitive impairment, behavioral and mood disturbances, parkinsonism, and, in a subset, motor neuron disease \u2014 linking CTE to the elevated ALS risk observed in professional contact-sport athletes. CTE can presently be diagnosed definitively only at autopsy.",
     "pathophysiology": [
       "Repetitive Head Trauma",
+      "Strain-Induced Neuronal Tau Mislocalization",
+      "Microvascular Injury and Blood-Brain Barrier Leakage",
+      "Microglial Neuroinflammation",
       "Perivascular Hyperphosphorylated Tau Pathology",
       "TDP-43 Proteinopathy",
       "Neurodegeneration with Cognitive, Behavioral, and Motor Decline"
     ],
     "cell_types": [
       "neuron",
+      "endothelial cell",
+      "microglial cell",
       "astrocyte"
     ],
     "cell_type_ids": [
       "CL:0000540",
+      "CL:0000115",
+      "CL:0000129",
       "CL:0000127"
     ],
     "biological_processes": [
+      "response to mechanical stimulus",
+      "microglial cell activation",
       "inclusion body assembly",
       "neuron apoptotic process"
     ],
@@ -101395,8 +101411,13 @@ window.searchData = [
       "HP:0100543",
       "HP:0000708"
     ],
-    "frequencies": [],
-    "genes": [],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "APOE",
+      "TMEM106B"
+    ],
     "treatments": [],
     "environmental": [
       "Repetitive Head Trauma from Contact Sports and Military Blast"
@@ -101405,11 +101426,11 @@ window.searchData = [
     "source_file": "Chronic_Traumatic_Encephalopathy.yaml",
     "page_url": "../pages/disorders/Chronic_Traumatic_Encephalopathy.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 4,
-    "num_genes": 0,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
     "num_treatments": 0,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Chudley-McCullough Syndrome",
@@ -324142,7 +324163,11 @@ window.searchData = [
       "SYNJ1",
       "DNAJC6",
       "FBXO7",
-      "ITSN1"
+      "ITSN1",
+      "UCHL1",
+      "GIGYF2",
+      "HTRA2",
+      "EIF4G1"
     ],
     "treatments": [
       "Levodopa/Carbidopa",
@@ -324185,7 +324210,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Parkinson's_Disease.html",
     "num_phenotypes": 20,
     "num_pathophysiology": 37,
-    "num_genes": 14,
+    "num_genes": 18,
     "num_treatments": 12,
     "causal_graph_edges": "124",
     "causal_graph_longest_path": "15"
@@ -433575,14 +433600,14 @@ window.searchMetrics = {
   "total_disorder_pages": 4023,
   "total_subtypes": 5048,
   "total_disorders_and_subtypes": 9071,
-  "total_unique_evidence_sources": 59628,
-  "total_unique_publications": 55770,
+  "total_unique_evidence_sources": 59653,
+  "total_unique_publications": 55795,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4021,
-  "total_unique_pathological_events": 26326,
+  "total_unique_pathological_events": 26331,
   "total_modules": 229,
-  "total_research_reports": 4133,
+  "total_research_reports": 4135,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 131
