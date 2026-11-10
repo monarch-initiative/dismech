@@ -58948,6 +58948,14 @@ window.searchData = [
     ],
     "phenotypes": [
       "Manic Episodes",
+      "Decreased Need for Sleep",
+      "Pressured Speech",
+      "Racing Thoughts",
+      "Distractibility",
+      "Elevated or Expansive Mood",
+      "Grandiosity",
+      "Irritability",
+      "Risky Behavior",
       "Depressive Episodes",
       "Sleep Disturbance",
       "Psychosis",
@@ -58963,6 +58971,14 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0100754",
+      "HP:5200276",
+      "HP:5200265",
+      "HP:0033844",
+      "HP:0000736",
+      "HP:0031844",
+      "HP:5200270",
+      "HP:0000737",
+      "HP:0031472",
       "HP:0000716",
       "HP:0002360",
       "HP:0000709",
@@ -59005,7 +59021,7 @@ window.searchData = [
     ],
     "source_file": "Bipolar_Disorder.yaml",
     "page_url": "../pages/disorders/Bipolar_Disorder.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 14,
     "num_pathophysiology": 10,
     "num_genes": 7,
     "num_treatments": 7,
@@ -66777,6 +66793,113 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "33",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Brunner Syndrome",
+    "disease_id": "MONDO:0010379",
+    "category": "Mendelian",
+    "parents": [
+      "inborn disorder of neurotransmitter metabolism and transport",
+      "inborn disorder of amino acid metabolism",
+      "X-linked recessive disease"
+    ],
+    "creation_date": "2026-11-09T19:45:19Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Brunner syndrome is an X-linked recessive inborn error of monoamine metabolism caused by hemizygous loss-of-function variants in MAOA (monoamine oxidase A). Loss of MAO-A catalytic activity abolishes oxidative deamination of serotonin, norepinephrine and dopamine, producing a characteristic biochemical signature (elevated serum serotonin and urinary O-methylated amine metabolites, with low deaminated metabolites) together with borderline-to-mild intellectual disability and episodic impulsive or aggressive behaviour. It was first described in 1993 in a large Dutch kindred and remains reported in only a small number of families.",
+    "pathophysiology": [
+      "MAOA Loss-of-Function Variant",
+      "Loss of Monoamine Oxidase A Catalytic Activity",
+      "Impaired Oxidative Deamination of Monoamine Neurotransmitters",
+      "Accumulation of Serotonin, Norepinephrine and Dopamine",
+      "Depletion of Deaminated Monoamine Metabolites",
+      "Elevated O-Methylated Amine Metabolites",
+      "Peripheral Serotonin Excess",
+      "Developmental Monoamine Excess and Altered Circuit Maturation",
+      "NMDA Receptor Hyperfunction in Dopaminergic Neurons",
+      "Altered Central Monoaminergic Neurotransmission"
+    ],
+    "cell_types": [
+      "serotonergic neuron",
+      "dopaminergic neuron",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000850",
+      "CL:0000700",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "serotonin catabolic process",
+      "dopamine catabolic process",
+      "norepinephrine catabolic process"
+    ],
+    "phenotypes": [
+      "Borderline to mild intellectual disability",
+      "Impulsive and aggressive behavior",
+      "Autistic features",
+      "Attention deficit and hyperactivity",
+      "Self-injurious behavior",
+      "Compulsive and repetitive behavior",
+      "Sleep disturbance and REM sleep behavior disorder",
+      "Episodic flushing",
+      "Headache",
+      "Diarrhea",
+      "Palpitations"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Vascular",
+      "Gastrointestinal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001256",
+      "HP:0000718",
+      "HP:0000729",
+      "HP:0007018",
+      "HP:0100716",
+      "HP:0000722",
+      "HP:5200291",
+      "HP:0031284",
+      "HP:0002315",
+      "HP:0002014",
+      "HP:0001962"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MAOA"
+    ],
+    "treatments": [
+      "Serotonin reuptake inhibitor therapy",
+      "Serotonin antagonist and reuptake inhibitor (SARI) therapy",
+      "Clonazepam for REM sleep behavior disorder",
+      "Low-amine (low-tyramine) dietary modification",
+      "Avoidance of MAOI-contraindicated medications and anaesthetic precautions",
+      "Genetic counselling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum serotonin",
+      "Urinary normetanephrine",
+      "Urinary 5-hydroxyindoleacetic acid (5-HIAA)",
+      "Urinary vanillylmandelic acid (VMA)"
+    ],
+    "source_file": "Brunner_Syndrome.yaml",
+    "page_url": "../pages/disorders/Brunner_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Bryant-Li-Bhoj Neurodevelopmental Syndrome 1",
@@ -92464,12 +92587,12 @@ window.searchData = [
     "creation_date": "2026-09-01T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Charcot-Marie-Tooth disease dominant intermediate G (CMTDIG) is the intermediate-conduction presentation of autosomal dominant NEFL-related neuropathy: heterozygous missense variants in the neurofilament light polypeptide gene produce upper-limb motor conduction velocities in the intermediate band (roughly 25-45 m/s) that fit neither the demyelinating (CMT1F) nor the axonal (CMT2E) category. The mechanism explains why. NEFL variants disrupt neurofilament co-assembly and cause the protein to misdistribute and aggregate in neuronal cell bodies and proximal axons, so neurofilaments never reach the distal axon. Because neurofilaments are the space-filling structures that drive radial axonal growth, the axon fails to expand to normal calibre \u2014 and conduction velocity depends on calibre as well as on myelin. Slowed conduction therefore arises without a primary myelin lesion, which is exactly what an intermediate electrophysiological picture looks like. Two further features recur in reported CMTDIG families and set the entity apart from the ordinary length-dependent CMT picture: central nervous system involvement, from abnormal evoked potentials and blink reflexes through to cerebellar ataxia with cerebellar atrophy; and early onset, with delayed motor milestones in the more severe pedigrees.",
+    "description": "Charcot-Marie-Tooth disease dominant intermediate G (CMTDIG) is an autosomal dominant NEFL-related sensorimotor neuropathy classified by an intermediate nerve-conduction phenotype. Heterozygous missense variants include p.Glu396Lys, p.Asn98Ser, p.Leu312Pro and p.Ile384Phe. Distal weakness, sensory loss and foot deformity predominate; some patients have early motor delay, proximal weakness, hearing loss or central nervous system involvement. Neurofilament disorganization, abnormal axonal neurofilament content and reduced axonal calibre are supported by variant-specific experimental models. These findings do not establish a separate mechanism unique to CMTDIG, and neither aggregation nor a fixed 25\u201345 m/s velocity band is universal across variants and patients. Clinical and electrophysiological overlap with NEFL-related CMT1F and CMT2E is substantial.",
     "pathophysiology": [
       "Heterozygous NEFL Missense Variant",
-      "Neurofilament Network Disruption and NFL Aggregation",
-      "Failure of Neurofilament Delivery to Distal Axons",
-      "Failure of Radial Axonal Growth",
+      "Abnormal Neurofilament Organization",
+      "Reduced Axonal Neurofilament Content",
+      "Reduced Axonal Calibre",
       "Intermediate-Range Nerve Conduction Slowing",
       "Length-Dependent Sensorimotor Axonal Degeneration",
       "Central Nervous System Involvement"
@@ -92484,7 +92607,6 @@ window.searchData = [
     ],
     "biological_processes": [
       "neurofilament cytoskeleton organization",
-      "neurofilament bundle assembly",
       "radial growth and maintenance of axon diameter"
     ],
     "phenotypes": [
@@ -92501,13 +92623,19 @@ window.searchData = [
       "Nystagmus",
       "Onion Bulb Formation",
       "Claw Hand Deformity",
-      "Areflexia"
+      "Areflexia",
+      "Hearing Impairment",
+      "Tremor",
+      "Scoliosis",
+      "Dementia"
     ],
     "phenotype_categories": [
       "Neurological",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Auditory"
     ],
     "phenotype_hpo_categories": [
+      "Ear",
       "Eye",
       "Limbs",
       "Musculoskeletal",
@@ -92527,27 +92655,32 @@ window.searchData = [
       "HP:0000639",
       "HP:0003383",
       "HP:0034337",
-      "HP:0001284"
+      "HP:0001284",
+      "HP:0000365",
+      "HP:0001337",
+      "HP:0002650",
+      "HP:0000726"
     ],
-    "frequencies": [
-      "OBLIGATE"
-    ],
+    "frequencies": [],
     "genes": [
       "NEFL"
     ],
     "treatments": [
       "Multidisciplinary Symptomatic Management",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "Avoidance of neurotoxic medication exposure",
+      "NEFL-targeting antisense oligonucleotide research",
+      "Allele-selective NEFL genome editing research"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Charcot-Marie-Tooth_Disease_Dominant_Intermediate_G.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Dominant_Intermediate_G.html",
-    "num_phenotypes": 14,
+    "num_phenotypes": 18,
     "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "25",
+    "num_treatments": 5,
+    "causal_graph_edges": "31",
     "causal_graph_longest_path": "6"
   },
   {
@@ -147297,6 +147430,129 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "ERF-Related Craniosynostosis",
+    "disease_id": "MONDO:0010929",
+    "category": "Mendelian",
+    "parents": [
+      "craniosynostosis"
+    ],
+    "creation_date": "2026-11-09T19:45:19Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "ERF-related craniosynostosis (craniosynostosis 4, CRS4) is an autosomal dominant craniosynostosis syndrome caused by heterozygous loss-of-function variants in ERF, which encodes ETS2 repressor factor, an ETS-family transcriptional repressor that is switched off by ERK1/2-mediated nuclear export. Reduced ERF dosage (haploinsufficiency) de-represses osteogenic transcriptional programs in the cranial suture, producing postnatal, often insidious and progressive multisuture synostosis - most characteristically a combined sagittal and bilambdoid (\"Mercedes-Benz\") pattern - with a Crouzon-like facial appearance but a Class I occlusion. The condition carries a high and frequently unsuspected risk of raised intracranial pressure and Chiari type I malformation, and is commonly accompanied by speech, language, attention and fine-motor difficulties. Presentation is often delayed into childhood, so surveillance for raised intracranial pressure is important even when the skull shape looks mild.",
+    "pathophysiology": [
+      "ERF Haploinsufficiency",
+      "Reduced ERF Repression of Osteogenic Transcriptional Targets",
+      "Elevated Cyp26b1-Mediated Retinoic Acid Catabolism",
+      "Impaired Osteogenic Commitment of Suture Mesenchymal Progenitors",
+      "Accelerated Osteogenic Differentiation of Suture Mesenchyme",
+      "Premature Multisuture Cranial Fusion",
+      "Restricted Cranial Vault Growth and Raised Intracranial Pressure",
+      "Posterior Fossa Constriction and Hindbrain Herniation",
+      "Crouzonoid Craniofacial Dysmorphism",
+      "Neurodevelopmental Impairment of Uncertain Origin"
+    ],
+    "cell_types": [
+      "mesenchymal stem cell",
+      "osteoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000134",
+      "CL:0000062"
+    ],
+    "biological_processes": [
+      "negative regulation of transcription by RNA polymerase II",
+      "negative regulation of osteoblast differentiation",
+      "retinoic acid catabolic process",
+      "osteoblast differentiation",
+      "cranial suture morphogenesis"
+    ],
+    "phenotypes": [
+      "Craniosynostosis",
+      "Multiple suture craniosynostosis",
+      "Sagittal craniosynostosis",
+      "Lambdoidal craniosynostosis",
+      "Coronal craniosynostosis",
+      "Metopic synostosis",
+      "Increased intracranial pressure",
+      "Papilledema",
+      "Chiari type I malformation",
+      "Hypertelorism",
+      "Proptosis",
+      "Midface retrusion",
+      "Malar flattening",
+      "Short nose",
+      "Frontal bossing",
+      "Macrocephaly",
+      "Delayed speech and language development",
+      "Short attention span",
+      "Impulsivity",
+      "Hyperactivity",
+      "Poor fine motor coordination",
+      "Conductive hearing impairment",
+      "Brachydactyly"
+    ],
+    "phenotype_categories": [
+      "Physical",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001363",
+      "HP:0011324",
+      "HP:0004442",
+      "HP:0004443",
+      "HP:0004440",
+      "HP:0011330",
+      "HP:0002516",
+      "HP:0001085",
+      "HP:0007099",
+      "HP:0000316",
+      "HP:0000520",
+      "HP:0011800",
+      "HP:0000272",
+      "HP:0003196",
+      "HP:0002007",
+      "HP:0000256",
+      "HP:0000750",
+      "HP:0000736",
+      "HP:0100710",
+      "HP:0000752",
+      "HP:0007010",
+      "HP:0000405",
+      "HP:0001156"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ERF variants"
+    ],
+    "treatments": [
+      "Cranial vault remodelling and expansion",
+      "Posterior fossa / Chiari decompression",
+      "Ventriculoperitoneal shunt placement",
+      "Speech and language therapy and developmental assessment",
+      "Genetic counselling and cascade testing",
+      "ERF-activity-augmenting pharmacotherapy (preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ERF-Related_Craniosynostosis.yaml",
+    "page_url": "../pages/disorders/ERF-Related_Craniosynostosis.html",
+    "num_phenotypes": 23,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "ER-Positive Breast Cancer",
     "disease_id": "MONDO:0006512",
     "category": "",
@@ -177481,15 +177737,13 @@ window.searchData = [
     ],
     "phenotype_hpo_categories": [
       "Constitutional",
-      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0000739",
       "HP:0000711",
       "HP:0012378",
-      "HP:0000736",
-      "HP:0003552",
+      "HP:0031987",
       "HP:0002360",
       "HP:0000737"
     ],
@@ -263042,6 +263296,9 @@ window.searchData = [
       "Poor Appetite",
       "Concentration Difficulties",
       "Psychomotor Changes",
+      "Feelings of Worthlessness",
+      "Excessive Guilt",
+      "Suicidal Ideation",
       "Memory Impairment"
     ],
     "phenotype_categories": [
@@ -263061,8 +263318,11 @@ window.searchData = [
       "HP:0002360",
       "HP:0012378",
       "HP:0004396",
-      "HP:0100543",
+      "HP:0031987",
       "HP:0000713",
+      "HP:0031469",
+      "HP:6000011",
+      "HP:0031589",
       "HP:0002354"
     ],
     "frequencies": [
@@ -263102,7 +263362,7 @@ window.searchData = [
     ],
     "source_file": "Major_Depressive_Disorder.yaml",
     "page_url": "../pages/disorders/Major_Depressive_Disorder.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 11,
     "num_pathophysiology": 12,
     "num_genes": 5,
     "num_treatments": 10,
@@ -309924,6 +310184,7 @@ window.searchData = [
     "phenotypes": [
       "Atypical Defiant Behavior",
       "Irritability",
+      "Anger and Resentment",
       "Aggressive Behavior",
       "Anxiety",
       "Emotional Lability",
@@ -309937,8 +310198,9 @@ window.searchData = [
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0000708",
+      "HP:0010865",
       "HP:0000737",
+      "HP:0031473",
       "HP:0000718",
       "HP:0000739",
       "HP:0000712",
@@ -309957,11 +310219,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Oppositional_Defiant_Disorder.yaml",
     "page_url": "../pages/disorders/Oppositional_Defiant_Disorder.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 8,
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
   },
   {
@@ -334091,7 +334353,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "30",
     "causal_graph_longest_path": "14"
   },
   {
@@ -336205,8 +336467,16 @@ window.searchData = [
     ],
     "phenotypes": [
       "Intrusive Re-experiencing",
+      "Trauma-Related Nightmares",
+      "Dissociative Flashbacks",
       "Avoidance of Trauma Reminders",
       "Hyperarousal and Anxiety",
+      "Hypervigilance",
+      "Exaggerated Startle Response",
+      "Irritability and Angry Outbursts",
+      "Problems with Concentration",
+      "Sleep Disturbance",
+      "Emotional Numbing",
       "Depressive Symptoms"
     ],
     "phenotype_categories": [
@@ -336217,8 +336487,16 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0032937",
+      "HP:0032938",
+      "HP:0032940",
       "HP:0032942",
       "HP:0000739",
+      "HP:5200231",
+      "HP:0002267",
+      "HP:0000737",
+      "HP:0031987",
+      "HP:0002360",
+      "HP:0030213",
       "HP:0000716"
     ],
     "frequencies": [],
@@ -336234,11 +336512,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Post-Traumatic_Stress_Disorder.yaml",
     "page_url": "../pages/disorders/Post-Traumatic_Stress_Disorder.html",
-    "num_phenotypes": 4,
+    "num_phenotypes": 12,
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "21",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "8"
   },
   {
@@ -336664,6 +336942,8 @@ window.searchData = [
     "phenotypes": [
       "Depressed mood",
       "Anhedonia",
+      "Low Self-Esteem",
+      "Hopelessness",
       "Anxiety",
       "Insomnia",
       "Fatigue",
@@ -336682,6 +336962,8 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0000716",
       "HP:0012154",
+      "HP:0031469",
+      "HP:5200271",
       "HP:0000739",
       "HP:0100785",
       "HP:0012378",
@@ -336709,7 +336991,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Postpartum_Depression.yaml",
     "page_url": "../pages/disorders/Postpartum_Depression.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 10,
     "num_pathophysiology": 8,
     "num_genes": 4,
     "num_treatments": 4,
@@ -348193,6 +348475,94 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "41",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "RAB28-Related Retinopathy",
+    "disease_id": "MONDO:0100448",
+    "category": "Mendelian",
+    "parents": [
+      "Cone-Rod Dystrophy",
+      "Inherited Retinal Dystrophy"
+    ],
+    "creation_date": "2026-11-09T16:51:16Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive cone-rod dystrophy (cone-rod dystrophy 18, CORD18) caused by biallelic loss-of-function variants in RAB28, which encodes a farnesylated Rab-family small GTPase found at the photoreceptor basal body and ciliary rootlet and in cone outer segments. Patients have poor visual acuity from childhood, photophobia, impaired color vision, macular hyperpigmentation and outer retinal or RPE atrophy, with severely reduced or undetectable cone responses and milder loss of rod responses on the electroretinogram. In Rab28 knockout mice cones fail to shed their outer segment tips, RPE phagocytosis of cone outer segments is almost absent, and cones and then rods degenerate. Zebrafish rab28 knockouts show reduced outer segment shedding and reduced retinoid levels without retinal degeneration.",
+    "pathophysiology": [
+      "RAB28 Loss of Function",
+      "Defective Cone Outer Segment Shedding and Phagocytosis",
+      "Visual Cycle Retinoid Depletion",
+      "Progressive Cone-Then-Rod Photoreceptor Degeneration"
+    ],
+    "cell_types": [
+      "retinal cone cell",
+      "retinal pigment epithelial cell",
+      "retinal rod cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000573",
+      "CL:0002586",
+      "CL:0000604"
+    ],
+    "biological_processes": [
+      "phagocytosis of cone outer segments by the RPE",
+      "retinoid metabolic process",
+      "photoreceptor cell maintenance"
+    ],
+    "phenotypes": [
+      "Cone-rod dystrophy",
+      "Reduced visual acuity",
+      "Undetectable light-adapted electroretinogram",
+      "Dyschromatopsia",
+      "Photophobia",
+      "Macular hyperpigmentation",
+      "Retinal pigment epithelial atrophy",
+      "Macular atrophy",
+      "Bull's eye maculopathy",
+      "Central outer retinal thinning on OCT",
+      "Myopia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000548",
+      "HP:0007663",
+      "HP:0030465",
+      "HP:0007641",
+      "HP:0000613",
+      "HP:0011509",
+      "HP:0007722",
+      "HP:0007401",
+      "HP:0011504",
+      "HP:0030329",
+      "HP:0000545"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RAB28"
+    ],
+    "treatments": [
+      "RAB28 Gene Replacement (Preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "RAB28-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/RAB28-Related_Retinopathy.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "RAB33B-Related Smith-McCort Dysplasia 2",
@@ -371895,6 +372265,8 @@ window.searchData = [
       "Delusions",
       "Disorganized Thinking",
       "Social Withdrawal",
+      "Avolition",
+      "Anhedonia",
       "Flat Affect",
       "Working Memory Deficits",
       "Catatonia"
@@ -371912,6 +372284,10 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0000738",
       "HP:0000746",
+      "HP:0025769",
+      "HP:5200310",
+      "HP:0000745",
+      "HP:0012154",
       "HP:0030213"
     ],
     "frequencies": [
@@ -371953,7 +372329,7 @@ window.searchData = [
     ],
     "source_file": "Schizophrenia.yaml",
     "page_url": "../pages/disorders/Schizophrenia.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 9,
     "num_pathophysiology": 12,
     "num_genes": 14,
     "num_treatments": 7,
@@ -409336,6 +409712,9 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0100033",
+      "HP:0100034",
+      "HP:0100035",
+      "HP:0430112",
       "HP:0007018",
       "HP:0000739",
       "HP:0000716",
@@ -433193,17 +433572,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4020,
+  "total_disorder_pages": 4023,
   "total_subtypes": 5048,
-  "total_disorders_and_subtypes": 9068,
-  "total_unique_evidence_sources": 59572,
-  "total_unique_publications": 55716,
+  "total_disorders_and_subtypes": 9071,
+  "total_unique_evidence_sources": 59628,
+  "total_unique_publications": 55770,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4018,
-  "total_unique_pathological_events": 26302,
-  "total_modules": 228,
-  "total_research_reports": 4130,
+  "total_pathographs": 4021,
+  "total_unique_pathological_events": 26326,
+  "total_modules": 229,
+  "total_research_reports": 4133,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 131
