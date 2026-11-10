@@ -285,6 +285,52 @@ for this screen:
 not from any `kb/` entry. It is kept deliberately, so the quoted sentences above
 stay checkable — do not read its absence from `kb/` as uncited and prune it.
 
+### PMID:38740170 — the quadruple co-culture liver spheroid links into four dismech modules
+
+Sun et al. 2024, *Toxicology* 505:153829 ([#16861](https://github.com/monarch-initiative/dismech/issues/16861), merged in [#16923](https://github.com/monarch-initiative/dismech/pull/16923)).
+A self-assembled 3D liver spheroid of four human cell types (HepG2, PUMC-HUVEC-T1
+endothelial, THP-1-derived macrophages, human hepatic stellate cells) for DILI
+prediction. The contrast with the MEA case above is the point of keeping both:
+this paper names the pathology each readout stands for, so each proof-of-concept
+arm has a mechanism node to attach to.
+
+The model is added as one `experimental_models` entry on each of four modules,
+with a `modeled_mechanisms` link scoped to that module's relevant node:
+
+| Module | Node | relationship | Readout |
+|---|---|---|---|
+| `drug_induced_liver_injury` | Sterile and Immune-Mediated Inflammatory Amplification | `PARTIALLY_RECAPITULATES` | isoniazid cytotoxicity `INCREASED` by non-parenchymal cells |
+| `cholestatic_liver_injury` | Impaired Bile Formation and Secretion | `RECAPITULATES` | bile acid efflux `DECREASED` |
+| `hepatic_steatosis_lipotoxicity` | Hepatocyte Lipid Overload | `RECAPITULATES` | lipid accumulation `INCREASED` |
+| `fibrotic_response` | Mesenchymal Cell Activation | `RECAPITULATES` | α-SMA `INCREASED` |
+
+Three decisions carried through the links:
+
+- The **immune arm is `PARTIALLY_RECAPITULATES`, not `RECAPITULATES`.** The paper
+  shows the non-parenchymal cells amplify isoniazid toxicity, but reads a
+  mediating role in immune-mediated toxicity off that cytotoxicity difference
+  rather than measuring an immune effector. The link carries a `PROXY_QUANTITY`
+  divergence saying so.
+- The **cholestasis link carries a `BOUNDARY_OMISSION` divergence** for the
+  absent biliary tree, canalicular network and bile flow: the spheroid captures
+  transporter-level efflux inhibition, not downstream bile stasis.
+- The **lipid link carries a `PROXY_QUANTITY` divergence** because the bulk
+  lipid-dysregulation readout spans steatosis and phospholipidosis, which are
+  distinct. Drug-induced phospholipidosis as a node gap is tracked at
+  [#16881](https://github.com/monarch-initiative/dismech/issues/16881).
+
+The predictive-performance panel (22 DILI-positive, 5 DILI-negative compounds) is
+recorded as a `findings` entry on each model, not as a mechanism link — it is
+model validation, not a per-compound mechanism.
+
+The record is **abstract-only**; the full text was not retrievable in the curation
+environment, so every snippet is quoted from the abstract's summary statement and
+the links are not yet backed by per-compound or quantitative readout data. A `notes`
+line on each entry records that limit, and strengthening the links from the full
+text is tracked at
+[#16977](https://github.com/monarch-initiative/dismech/issues/16977).
+`references_cache/PMID_38740170.md` is committed with the modules.
+
 ## Gaps and questions the screen raised
 
 Mined out of the batch and filed separately, so they are not lost inside a
