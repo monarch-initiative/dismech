@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1002/ueg2.12568
+extractor_version: 1
 title: "Intestinal strictures in Crohn's disease: An update from 2023"
 authors:
 - Zishan Liu
@@ -20,6 +21,7 @@ journal: United European Gastroenterology Journal
 year: '2024'
 doi: 10.1002/ueg2.12568
 content_type: abstract_only
+is_preprint: false
 full_text_attempted: true
 ---
 
@@ -30,4 +32,6 @@ full_text_attempted: true
 
 ## Content
 
-AbstractCrohn's disease (CD) is a chronic inflammatory disease that leads to intestinal stricture in nearly 35% of cases within 10 years of initial diagnosis. The unknown pathogenesis, lack of universally accepted criteria, and absence of an effective management approach remain unconquered challenges in structuring CD. The pathogenesis of stricturing CD involves intricate interactions between factors such as immune cell dysbiosis, fibroblast activation, and microecology imbalance. New techniques such as single‐cell sequencing provide a fresh perspective. Non‐invasive diagnostic tools such as serum biomarkers and novel cross‐sectional imaging techniques offer a precise understanding of intestinal fibrostenosis. Here, we provide a timely and comprehensive review of the worthy advancements in intestinal strictures in 2023, aiming to dispense cutting‐edge information regarding fibrosis and to build a cornerstone for researchers and clinicians to make greater progress in the field of intestinal strictures.
+Abstract
+
+Crohn's disease (CD) is a chronic inflammatory disease that leads to intestinal stricture in nearly 35% of cases within 10 years of initial diagnosis. The unknown pathogenesis, lack of universally accepted criteria, and absence of an effective management approach remain unconquered challenges in structuring CD. The pathogenesis of stricturing CD involves intricate interactions between factors such as immune cell dysbiosis, fibroblast activation, and microecology imbalance. New techniques such as single‐cell sequencing provide a fresh perspective. Non‐invasive diagnostic tools such as serum biomarkers and novel cross‐sectional imaging techniques offer a precise understanding of intestinal fibrostenosis. Here, we provide a timely and comprehensive review of the worthy advancements in intestinal strictures in 2023, aiming to dispense cutting‐edge information regarding fibrosis and to build a cornerstone for researchers and clinicians to make greater progress in the field of intestinal strictures.

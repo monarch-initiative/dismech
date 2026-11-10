@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00223-024-01293-2
+extractor_version: 1
 title: "Dental Abnormalities in Osteogenesis Imperfecta: A Systematic Review"
 authors:
 - Laura Ventura
@@ -16,12 +17,14 @@ journal: Calcified Tissue International
 year: '2024'
 doi: 10.1007/s00223-024-01293-2
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00223-024-01293-2.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s00223-024-01293-2.pdf
+full_text_access_type: open
 ---
 
 # Dental Abnormalities in Osteogenesis Imperfecta: A Systematic Review
@@ -31,7 +34,9 @@ local_pdf_path: files/DOI_10.1007_s00223-024-01293-2.pdf
 
 ## Content
 
-AbstractOsteogenesis imperfecta (OI) is a rare genetic disorder characterized by fragile bones and skeletal deformities. Individuals with OI may have dental abnormalities such as dentinogenesis imperfecta (DI) type I, malocclusions, and unerupted or missing teeth. This review comprehensively examines these dental abnormalities to assess their prevalence among the OI population and explore potential differences across different clinical types of OI and pathogenic variants. In accordance with the PRISMA guidelines, a systematic literature search in PubMed, Embase, and Web of Science was conducted that included articles up to June 2024. Out of 672 articles screened, 34 were included. The included studies confirmed that dental abnormalities are prevalent in OI, with DI prevalence ranging from approximately 20 to 48%. Those with a more severe skeletal phenotype (OI type III/IV) exhibited more dental abnormalities than those with a milder skeletal phenotype (OI type I). Notably, OI type V individuals generally do not have DI, although a few isolated cases have been reported. The prevalence of occlusion types varied: Class I occlusion ranged from 14.8 to 50% and Class II malocclusion ranged from 0 to 37.5%, while Class III malocclusion from 4.1 to 84%. This differs from the general population, where Class III malocclusion is typically the least common. Open bites, cross-bites, and unerupted and missing teeth are also commonly reported, particularly in OI types III and IV. This review emphasizes the need for comprehensive dental examinations in OI due to the high prevalence of dental abnormalities. Additionally, the review draws attention to the lack of clear guidelines for diagnosing DI.
+Abstract
+
+Osteogenesis imperfecta (OI) is a rare genetic disorder characterized by fragile bones and skeletal deformities. Individuals with OI may have dental abnormalities such as dentinogenesis imperfecta (DI) type I, malocclusions, and unerupted or missing teeth. This review comprehensively examines these dental abnormalities to assess their prevalence among the OI population and explore potential differences across different clinical types of OI and pathogenic variants. In accordance with the PRISMA guidelines, a systematic literature search in PubMed, Embase, and Web of Science was conducted that included articles up to June 2024. Out of 672 articles screened, 34 were included. The included studies confirmed that dental abnormalities are prevalent in OI, with DI prevalence ranging from approximately 20 to 48%. Those with a more severe skeletal phenotype (OI type III/IV) exhibited more dental abnormalities than those with a milder skeletal phenotype (OI type I). Notably, OI type V individuals generally do not have DI, although a few isolated cases have been reported. The prevalence of occlusion types varied: Class I occlusion ranged from 14.8 to 50% and Class II malocclusion ranged from 0 to 37.5%, while Class III malocclusion from 4.1 to 84%. This differs from the general population, where Class III malocclusion is typically the least common. Open bites, cross-bites, and unerupted and missing teeth are also commonly reported, particularly in OI types III and IV. This review emphasizes the need for comprehensive dental examinations in OI due to the high prevalence of dental abnormalities. Additionally, the review draws attention to the lack of clear guidelines for diagnosing DI.
 
 Vol.:(0123456789)
 Calcified Tissue International (2024) 115:461–479 

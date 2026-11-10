@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41467-023-44475-6
+extractor_version: 1
 title: "Sequential immunotherapy and targeted therapy for metastatic BRAF V600 mutated melanoma: 4-year survival and biomarkers evaluation from the phase II SECOMBIT trial"
 authors:
 - Paolo A. Ascierto
@@ -43,12 +44,14 @@ journal: Nature Communications
 year: '2024'
 doi: 10.1038/s41467-023-44475-6
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41467-023-44475-6.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41467-023-44475-6.pdf
+full_text_access_type: open
 ---
 
 # Sequential immunotherapy and targeted therapy for metastatic BRAF V600 mutated melanoma: 4-year survival and biomarkers evaluation from the phase II SECOMBIT trial
@@ -58,7 +61,9 @@ local_pdf_path: files/DOI_10.1038_s41467-023-44475-6.pdf
 
 ## Content
 
-AbstractNo prospective data were available prior to 2021 to inform selection between combination BRAF and MEK inhibition versus dual blockade of programmed cell death protein-1 (PD-1) and cytotoxic T lymphocyte antigen-4 (CTLA-4) as first-line treatment options for BRAFV600-mutant melanoma. SECOMBIT (NCT02631447) was a randomized, three-arm, noncomparative phase II trial in which patients were randomized to one of two sequences with immunotherapy or targeted therapy first, with a third arm in which an 8-week induction course of targeted therapy followed by a planned switch to immunotherapy was the first treatment. BRAF/MEK inhibitors were encorafenib plus binimetinib and checkpoint inhibitors ipilimumab plus nivolumab. Primary outcome of overall survival was previously reported, demonstrating improved survival with immunotherapy administered until progression and followed by BRAF/MEK inhibition. Here we report 4-year survival outcomes, confirming long-term benefit with first-line immunotherapy. We also describe preliminary results of predefined biomarkers analyses that identify a trend toward improved 4-year overall survival and total progression-free survival in patients with loss-of-function mutations affecting JAK or low baseline levels of serum interferon gamma (IFNy). These long-term survival outcomes confirm immunotherapy as the preferred first-line treatment approach for most patients with BRAFV600-mutant metastatic melanoma, and the biomarker analyses are hypothesis-generating for future investigations of predictors of durable benefit with dual checkpoint blockade and targeted therapy.
+Abstract
+
+No prospective data were available prior to 2021 to inform selection between combination BRAF and MEK inhibition versus dual blockade of programmed cell death protein-1 (PD-1) and cytotoxic T lymphocyte antigen-4 (CTLA-4) as first-line treatment options for BRAFV 600-mutant melanoma. SECOMBIT (NCT02631447) was a randomized, three-arm, noncomparative phase II trial in which patients were randomized to one of two sequences with immunotherapy or targeted therapy first, with a third arm in which an 8-week induction course of targeted therapy followed by a planned switch to immunotherapy was the first treatment. BRAF/MEK inhibitors were encorafenib plus binimetinib and checkpoint inhibitors ipilimumab plus nivolumab. Primary outcome of overall survival was previously reported, demonstrating improved survival with immunotherapy administered until progression and followed by BRAF/MEK inhibition. Here we report 4-year survival outcomes, confirming long-term benefit with first-line immunotherapy. We also describe preliminary results of predefined biomarkers analyses that identify a trend toward improved 4-year overall survival and total progression-free survival in patients with loss-of-function mutations affecting JAK or low baseline levels of serum interferon gamma (IFNy). These long-term survival outcomes confirm immunotherapy as the preferred first-line treatment approach for most patients with BRAF V600-mutant metastatic melanoma, and the biomarker analyses are hypothesis-generating for future investigations of predictors of durable benefit with dual checkpoint blockade and targeted therapy.
 
 Article https://doi.org/10.1038/s41467-023-44475-6
 Sequential immunotherapy and targeted

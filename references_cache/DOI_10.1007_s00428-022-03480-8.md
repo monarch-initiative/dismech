@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00428-022-03480-8
+extractor_version: 1
 title: "International Consensus Classification of myeloid and lymphoid neoplasms: myeloproliferative neoplasms"
 authors:
 - Umberto Gianelli
@@ -13,12 +14,14 @@ journal: Virchows Archiv
 year: '2023'
 doi: 10.1007/s00428-022-03480-8
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00428-022-03480-8.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s00428-022-03480-8.pdf
+full_text_access_type: open
 ---
 
 # International Consensus Classification of myeloid and lymphoid neoplasms: myeloproliferative neoplasms
@@ -28,7 +31,9 @@ local_pdf_path: files/DOI_10.1007_s00428-022-03480-8.pdf
 
 ## Content
 
-AbstractThe recently published International Consensus Classification (ICC) of myeloid neoplasms summarized the results of an in-depth effort by pathologists, oncologists, and geneticists aimed to update the 2017 World Health Organization classification system for hematopoietic tumors. Along these lines, several important modifications were implemented in the classification of myeloproliferative neoplasms (MPNs). For chronic myeloid leukemia, BCR::ABL1-positive, the definition of accelerated and blast phase was simplified, and in the BCR::ABL1-negative MPNs, the classification was slightly updated to improve diagnostic specificity with a more detailed and better validated morphologic approach and the recommendation of more sensitive molecular techniques to capture in particular early stage diseases. In this regard, high sensitive single target (RT-qPCR, ddPCR) or multi-target next-generation sequencing assays with a minimal sensitivity of VAF 1% are now important for a proper diagnostic identification of MPN cases with low allelic frequencies at initial presentation. This review discusses the updated diagnostic criteria of MPN according to the ICC, particularly by highlighting the new concepts and how they can be applied in clinical settings to obtain an appropriate prognostic relevant diagnosis.
+Abstract
+
+The recently published International Consensus Classification (ICC) of myeloid neoplasms summarized the results of an in-depth effort by pathologists, oncologists, and geneticists aimed to update the 2017 World Health Organization classification system for hematopoietic tumors. Along these lines, several important modifications were implemented in the classification of myeloproliferative neoplasms (MPNs). For chronic myeloid leukemia, BCR::ABL1-positive, the definition of accelerated and blast phase was simplified, and in the BCR::ABL1-negative MPNs, the classification was slightly updated to improve diagnostic specificity with a more detailed and better validated morphologic approach and the recommendation of more sensitive molecular techniques to capture in particular early stage diseases. In this regard, high sensitive single target (RT-qPCR, ddPCR) or multi-target next-generation sequencing assays with a minimal sensitivity of VAF 1% are now important for a proper diagnostic identification of MPN cases with low allelic frequencies at initial presentation. This review discusses the updated diagnostic criteria of MPN according to the ICC, particularly by highlighting the new concepts and how they can be applied in clinical settings to obtain an appropriate prognostic relevant diagnosis.
 
 Vol.:(0123456789)1 3
 h

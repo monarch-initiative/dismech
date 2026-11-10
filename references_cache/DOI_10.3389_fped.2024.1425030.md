@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3389/fped.2024.1425030
+extractor_version: 1
 title: Identification of a novel FERMT1 variant causing kindler syndrome and a review of the clinical and molecular genetic features in Chinese patients
 authors:
 - Qiang Zhang
@@ -11,12 +12,14 @@ journal: Frontiers in Pediatrics
 year: '2024'
 doi: 10.3389/fped.2024.1425030
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://public-pages-files-2025.frontiersin.org/journals/pediatrics/articles/10.3389/fped.2024.1425030/pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.3389_fped.2024.1425030.pdf
+full_text_access_type: open
 ---
 
 # Identification of a novel FERMT1 variant causing kindler syndrome and a review of the clinical and molecular genetic features in Chinese patients
@@ -26,7 +29,25 @@ local_pdf_path: files/DOI_10.3389_fped.2024.1425030.pdf
 
 ## Content
 
-BackgroundKindler Syndrome (KS, OMIM #173650), a rare autosomal recessive genetic disorder, is characterized by a spectrum of symptoms such as cutaneous fragility, blistering, photosensitivity, and mucosal involvement. These symptoms result from variations in the FERMT1 gene (Fermitin family member 1, OMIM: 607900), encoding kindlin-1, an essential component of focal adhesions.ObjectiveThis study aims to ascertain the potential pathogenicity of a FERMT1 variant identified in a Chinese patient and to explore the phenotypic and molecular genetic characteristics of all reported cases of Kindler Syndrome in the Chinese population.MethodsWhole-exome sequencing (WES) was performed on the patient to identify candidate variants associated with KS, and Sanger sequencing was utilized to authenticate their presence and origin. To further assess the potential impact of these genetic variants, we employed a variety of in silico prediction tools. Concurrently, a review of various databases was undertaken to ascertain and consolidate information regarding cases of KS in Chinese families.ResultsWe identified a novel likely pathogenic frameshift variant in the FERMT1 gene, specifically c.567_579delTATATATGACCCC (p.Ile190Serfs*10). The clinical presentation of this patient aligns with the diagnostic criteria for KS. The literature review reveals that the core clinical features of KS reported in the Chinese population include skin abnormalities (100%), as well as hyperkeratosis of the palms and soles (91.70%). Other clinical phenotypes encompass nail abnormalities (77.78%), abnormalities of the fingers/toes (75.00%), oral damage (70.00%), eye abnormalities (57.14%), and constipation (50.00%).ConclusionOur study enriches the genetic landscape of KS in the Chinese population and augments the understanding of phenotypic variability resulting from FERMT1 gene variants. The findings hold considerable significance for refining variant-based screening, genetic diagnosis, and comprehending the molecular pathogenesis underlying FERMT1-related disorders.
+Background
+
+Kindler Syndrome (KS, OMIM #173650), a rare autosomal recessive genetic disorder, is characterized by a spectrum of symptoms such as cutaneous fragility, blistering, photosensitivity, and mucosal involvement. These symptoms result from variations in the FERMT1 gene (Fermitin family member 1, OMIM: 607900), encoding kindlin-1, an essential component of focal adhesions.
+
+Objective
+
+This study aims to ascertain the potential pathogenicity of a FERMT1 variant identified in a Chinese patient and to explore the phenotypic and molecular genetic characteristics of all reported cases of Kindler Syndrome in the Chinese population.
+
+Methods
+
+Whole-exome sequencing (WES) was performed on the patient to identify candidate variants associated with KS, and Sanger sequencing was utilized to authenticate their presence and origin. To further assess the potential impact of these genetic variants, we employed a variety of in silico prediction tools. Concurrently, a review of various databases was undertaken to ascertain and consolidate information regarding cases of KS in Chinese families.
+
+Results
+
+We identified a novel likely pathogenic frameshift variant in the FERMT1 gene, specifically c.567_579delTATATATGACCCC (p.Ile190Serfs*10). The clinical presentation of this patient aligns with the diagnostic criteria for KS. The literature review reveals that the core clinical features of KS reported in the Chinese population include skin abnormalities (100%), as well as hyperkeratosis of the palms and soles (91.70%). Other clinical phenotypes encompass nail abnormalities (77.78%), abnormalities of the fingers/toes (75.00%), oral damage (70.00%), eye abnormalities (57.14%), and constipation (50.00%).
+
+Conclusion
+
+Our study enriches the genetic landscape of KS in the Chinese population and augments the understanding of phenotypic variability resulting from FERMT1 gene variants. The findings hold considerable significance for refining variant-based screening, genetic diagnosis, and comprehending the molecular pathogenesis underlying FERMT1-related disorders.
 
 EDITED BY
 Hans Christian Hennies,

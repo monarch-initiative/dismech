@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41467-023-37340-z
+extractor_version: 1
 title: "An actin filament branching surveillance system regulates cell cycle progression, cytokinesis and primary ciliogenesis"
 authors:
 - Muqing Cao
@@ -17,12 +18,14 @@ journal: Nature Communications
 year: '2023'
 doi: 10.1038/s41467-023-37340-z
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41467-023-37340-z.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41467-023-37340-z.pdf
+full_text_access_type: open
 ---
 
 # An actin filament branching surveillance system regulates cell cycle progression, cytokinesis and primary ciliogenesis
@@ -32,7 +35,9 @@ local_pdf_path: files/DOI_10.1038_s41467-023-37340-z.pdf
 
 ## Content
 
-AbstractDysfunction of cell cycle control and defects of primary ciliogenesis are two features of many cancers. Whether these events are interconnected and the driving mechanism coordinating them remains elusive. Here, we identify an actin filament branching surveillance system that alerts cells of actin branching insufficiency and regulates cell cycle progression, cytokinesis and primary ciliogenesis. We find that Oral-Facial-Digital syndrome 1 functions as a class II Nucleation promoting factor to promote Arp2/3 complex-mediated actin branching. Perturbation of actin branching promotes OFD1 degradation and inactivation via liquid-to-gel transition. Elimination of OFD1 or disruption of OFD1-Arp2/3 interaction drives proliferating, non-transformed cells into quiescence with ciliogenesis by an RB-dependent mechanism, while it leads oncogene-transformed/cancer cells to incomplete cytokinesis and irreversible mitotic catastrophe via actomyosin ring malformation. Inhibition of OFD1 leads to suppression of multiple cancer cell growth in mouse xenograft models. Thus, targeting OFD1-mediated actin filament branching surveillance system provides a direction for cancer therapy.
+Abstract
+
+Dysfunction of cell cycle control and defects of primary ciliogenesis are two features of many cancers. Whether these events are interconnected and the driving mechanism coordinating them remains elusive. Here, we identify an actin filament branching surveillance system that alerts cells of actin branching insufficiency and regulates cell cycle progression, cytokinesis and primary ciliogenesis. We find that Oral-Facial-Digital syndrome 1 functions as a class II Nucleation promoting factor to promote Arp2/3 complex-mediated actin branching. Perturbation of actin branching promotes OFD1 degradation and inactivation via liquid-to-gel transition. Elimination of OFD1 or disruption of OFD1-Arp2/3 interaction drives proliferating, non-transformed cells into quiescence with ciliogenesis by an RB-dependent mechanism, while it leads oncogene-transformed/cancer cells to incomplete cytokinesis and irreversible mitotic catastrophe via actomyosin ring malformation. Inhibition of OFD1 leads to suppression of multiple cancer cell growth in mouse xenograft models. Thus, targeting OFD1-mediated actin filament branching surveillance system provides a direction for cancer therapy.
 
 Article https://doi.org/10.1038/s41467-023-37340-z
 An actin ﬁlament branching surveillance

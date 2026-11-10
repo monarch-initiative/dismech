@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1002/acn3.51980
+extractor_version: 1
 title: "Biallelic variants in <i>GTPBP3</i>: New patients, phenotypic spectrum, and outcome"
 authors:
 - Francesca Nardecchia
@@ -16,6 +17,7 @@ year: '2024'
 doi: 10.1002/acn3.51980
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Biallelic variants in <i>GTPBP3</i>: New patients, phenotypic spectrum, and outcome
@@ -25,4 +27,16 @@ is_preprint: false
 
 ## Content
 
-AbstractIntroductionCOXPD23 is a rare mitochondrial disease caused by biallelic pathogenic variants in GTPBP3. We report on two siblings with a mild phenotype.Case reportsThe young boy presented with global developmental delay, ataxic gait and upper limbs tremor, and the older sister with absence seizures and hypertrophic cardiomyopathy. Respiratory chain impairment was confirmed in muscle.DiscussionReviewed cases point toward clustering around two prevalent phenotypes: an early‐onset presentation with severe fatal encephalopathy and a late milder presentation with global developmental delay/ID and cardiopathy, with the latter as, is the main feature. Our patients showed an intermediate phenotype with intrafamilial variability.
+Abstract
+
+Introduction
+
+COXPD23 is a rare mitochondrial disease caused by biallelic pathogenic variants in GTPBP3. We report on two siblings with a mild phenotype.
+
+Case reports
+
+The young boy presented with global developmental delay, ataxic gait and upper limbs tremor, and the older sister with absence seizures and hypertrophic cardiomyopathy. Respiratory chain impairment was confirmed in muscle.
+
+Discussion
+
+Reviewed cases point toward clustering around two prevalent phenotypes: an early‐onset presentation with severe fatal encephalopathy and a late milder presentation with global developmental delay/ID and cardiopathy, with the latter as, is the main feature. Our patients showed an intermediate phenotype with intrafamilial variability.

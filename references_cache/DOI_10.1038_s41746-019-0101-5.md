@@ -1,5 +1,6 @@
 ---
-reference_id: "DOI:10.1038/s41746-019-0101-5"
+reference_id: DOI:10.1038/s41746-019-0101-5
+extractor_version: 1
 title: Finding missed cases of familial hypercholesterolemia in health systems using machine learning
 authors:
 - Juan M. Banda
@@ -31,6 +32,7 @@ full_text_url: "https://www.nature.com/articles/s41746-019-0101-5.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41746-019-0101-5.pdf
+full_text_access_type: open
 ---
 
 # Finding missed cases of familial hypercholesterolemia in health systems using machine learning
@@ -40,7 +42,9 @@ local_pdf_path: files/DOI_10.1038_s41746-019-0101-5.pdf
 
 ## Content
 
-AbstractFamilial hypercholesterolemia (FH) is an underdiagnosed dominant genetic condition affecting approximately 0.4% of the population and has up to a 20-fold increased risk of coronary artery disease if untreated. Simple screening strategies have false positive rates greater than 95%. As part of the FH Foundation′s FIND FH initiative, we developed a classifier to identify potential FH patients using electronic health record (EHR) data at Stanford Health Care. We trained a random forest classifier using data from known patients (n = 197) and matched non-cases (n = 6590). Our classifier obtained a positive predictive value (PPV) of 0.88 and sensitivity of 0.75 on a held-out test-set. We evaluated the accuracy of the classifier′s predictions by chart review of 100 patients at risk of FH not included in the original dataset. The classifier correctly flagged 84% of patients at the highest probability threshold, with decreasing performance as the threshold lowers. In external validation on 466 FH patients (236 with genetically proven FH) and 5000 matched non-cases from the Geisinger Healthcare System our FH classifier achieved a PPV of 0.85. Our EHR-derived FH classifier is effective in finding candidate patients for further FH screening. Such machine learning guided strategies can lead to effective identification of the highest risk patients for enhanced management strategies.
+Abstract
+
+Familial hypercholesterolemia (FH) is an underdiagnosed dominant genetic condition affecting approximately 0.4% of the population and has up to a 20-fold increased risk of coronary artery disease if untreated. Simple screening strategies have false positive rates greater than 95%. As part of the FH Foundation′s FIND FH initiative, we developed a classifier to identify potential FH patients using electronic health record (EHR) data at Stanford Health Care. We trained a random forest classifier using data from known patients ( n = 197) and matched non-cases ( n = 6590). Our classifier obtained a positive predictive value (PPV) of 0.88 and sensitivity of 0.75 on a held-out test-set. We evaluated the accuracy of the classifier′s predictions by chart review of 100 patients at risk of FH not included in the original dataset. The classifier correctly flagged 84% of patients at the highest probability threshold, with decreasing performance as the threshold lowers. In external validation on 466 FH patients (236 with genetically proven FH) and 5000 matched non-cases from the Geisinger Healthcare System our FH classifier achieved a PPV of 0.85. Our EHR-derived FH classifier is effective in finding candidate patients for further FH screening. Such machine learning guided strategies can lead to effective identification of the highest risk patients for enhanced management strategies.
 
 ARTICLE OPEN
 Finding missed cases of familial hypercholesterolemia in health

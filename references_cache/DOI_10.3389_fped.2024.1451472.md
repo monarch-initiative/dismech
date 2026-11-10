@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3389/fped.2024.1451472
+extractor_version: 1
 title: "Case Report: Cronkhite-Canada syndrome: presentation of a pediatric case and review of the literature"
 authors:
 - Weina Shi
@@ -12,7 +13,8 @@ journal: Frontiers in Pediatrics
 year: '2024'
 doi: 10.3389/fped.2024.1451472
 content_type: abstract_only
-full_text_attempted: true
+is_preprint: false
+full_text_declined: landing_page_only
 ---
 
 # Case Report: Cronkhite-Canada syndrome: presentation of a pediatric case and review of the literature
@@ -22,4 +24,14 @@ full_text_attempted: true
 
 ## Content
 
-BackgroundCronkhite-Canada syndrome (CCS) is extremely rare in children, presenting with complex clinical manifestations often leading to misdiagnosis.Case presentationWe reported a description of a 13-year-old boy with CSS presenting with persistent diarrhea, vomiting, abdominal pain, along with symptoms of weight loss, alopecia, and skin hyperpigmentation. The patient had ectodermal manifestations such as alopecia and skin hyperpigmentation. Laboratory tests revealed hypoalbuminemia, normal inflammatory indicators, positive anti-dsDNA antibodies, anti-centromere antibodies, and anti-nuclear antibodies. Gastrointestinal endoscopy identified polypoid changes in the stomach, duodenum, and colon, with pathology indicating glandular dilation, cryptitis, and crypt abscesses. Treatment with prednisone led to significant improvement in symptoms, including normalization of stool consistency, hair regrowth, and disappearance of skin hyperpigmentation.ConclusionThis study emphasizes the importance of comprehensive assessment, endoscopic examination, histological biopsy, and the effectiveness of steroid therapy in the diagnosis and management of CCS in children. In children presenting with diarrhea, abdominal pain, weight loss, polyposis, and ectodermal manifestations, CCS should be considered.
+Background
+
+Cronkhite-Canada syndrome (CCS) is extremely rare in children, presenting with complex clinical manifestations often leading to misdiagnosis.
+
+Case presentation
+
+We reported a description of a 13-year-old boy with CSS presenting with persistent diarrhea, vomiting, abdominal pain, along with symptoms of weight loss, alopecia, and skin hyperpigmentation. The patient had ectodermal manifestations such as alopecia and skin hyperpigmentation. Laboratory tests revealed hypoalbuminemia, normal inflammatory indicators, positive anti-dsDNA antibodies, anti-centromere antibodies, and anti-nuclear antibodies. Gastrointestinal endoscopy identified polypoid changes in the stomach, duodenum, and colon, with pathology indicating glandular dilation, cryptitis, and crypt abscesses. Treatment with prednisone led to significant improvement in symptoms, including normalization of stool consistency, hair regrowth, and disappearance of skin hyperpigmentation.
+
+Conclusion
+
+This study emphasizes the importance of comprehensive assessment, endoscopic examination, histological biopsy, and the effectiveness of steroid therapy in the diagnosis and management of CCS in children. In children presenting with diarrhea, abdominal pain, weight loss, polyposis, and ectodermal manifestations, CCS should be considered.

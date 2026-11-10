@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00439-020-02168-w
+extractor_version: 1
 title: AP1S1 missense mutations cause a congenital enteropathy via an epithelial barrier defect
 authors:
 - Katharina M. C. Klee
@@ -14,12 +15,14 @@ journal: Human Genetics
 year: '2020'
 doi: 10.1007/s00439-020-02168-w
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00439-020-02168-w.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s00439-020-02168-w.pdf
+full_text_access_type: open
 ---
 
 # AP1S1 missense mutations cause a congenital enteropathy via an epithelial barrier defect
@@ -29,7 +32,9 @@ local_pdf_path: files/DOI_10.1007_s00439-020-02168-w.pdf
 
 ## Content
 
-AbstractCongenital diarrheal disorders (CDD) comprise > 50 monogenic entities featuring chronic diarrhea of early-onset, including defects in nutrient and electrolyte absorption, enterocyte polarization, enteroendocrine cell differentiation, and epithelial integrity. Diarrhea is also a predominant symptom in many immunodeficiencies, congenital disorders of glycosylation, and in some defects of the vesicular sorting and transporting machinery. We set out to identify the etiology of an intractable diarrhea in 2 consanguineous families by whole-exome sequencing, and identified two novel AP1S1 mutations, c.269T>C (p.Leu90Pro) and c.346G>A (p.Glu116Lys). AP1S1 encodes the small subunit of the adaptor protein 1 complex (AP-1), which plays roles in clathrin coat-assembly and trafficking between trans-Golgi network, endosomes and the plasma membrane. An AP1S1 knock-out (KO) of a CaCo2 intestinal cell line was generated to characterize intestinal AP1S1 deficiency as well as identified mutations by stable expression in KO background. Morphology and prototype transporter protein distribution were comparable between parental and KO cells. We observed altered localization of tight-junction proteins ZO-1 and claudin 3, decreased transepithelial electrical resistance and an increased dextran permeability of the CaCo2-AP1S1-KO monolayer. In addition, lumen formation in 3D cultures of these cells was abnormal. Re-expression of wild-type AP1S1 in CaCo2-AP1S1-KO cells reverted these abnormalities, while expression of AP1S1 containing either missense mutation did not. Our data indicate that loss of AP1S1 function causes an intestinal epithelial barrier defect, and that AP1S1 mutations can cause a non-syndromic form of congenital diarrhea, whereas 2 reported truncating AP1S1 mutations caused MEDNIK syndrome, characterized by mental retardation, enteropathy, deafness, neuropathy, ichthyosis, and keratodermia.
+Abstract
+
+Congenital diarrheal disorders (CDD) comprise > 50 monogenic entities featuring chronic diarrhea of early-onset, including defects in nutrient and electrolyte absorption, enterocyte polarization, enteroendocrine cell differentiation, and epithelial integrity. Diarrhea is also a predominant symptom in many immunodeficiencies, congenital disorders of glycosylation, and in some defects of the vesicular sorting and transporting machinery. We set out to identify the etiology of an intractable diarrhea in 2 consanguineous families by whole-exome sequencing, and identified two novel AP1S1 mutations, c.269T>C (p.Leu90Pro) and c.346G>A (p.Glu116Lys). AP1S1 encodes the small subunit of the adaptor protein 1 complex (AP-1), which plays roles in clathrin coat-assembly and trafficking between trans-Golgi network, endosomes and the plasma membrane. An AP1S1 knock-out (KO) of a CaCo2 intestinal cell line was generated to characterize intestinal AP1S1 deficiency as well as identified mutations by stable expression in KO background. Morphology and prototype transporter protein distribution were comparable between parental and KO cells. We observed altered localization of tight-junction proteins ZO-1 and claudin 3, decreased transepithelial electrical resistance and an increased dextran permeability of the CaCo2-AP1S1-KO monolayer. In addition, lumen formation in 3D cultures of these cells was abnormal. Re-expression of wild-type AP1S1 in CaCo2-AP1S1-KO cells reverted these abnormalities, while expression of AP1S1 containing either missense mutation did not. Our data indicate that loss of AP1S1 function causes an intestinal epithelial barrier defect, and that AP1S1 mutations can cause a non-syndromic form of congenital diarrhea, whereas 2 reported truncating AP1S1 mutations caused MEDNIK syndrome, characterized by mental retardation, enteropathy, deafness, neuropathy, ichthyosis, and keratodermia.
 
 Vol.:(0123456789)1 3
 Human Genetics (2020) 139:1247–1259 

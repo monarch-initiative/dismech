@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1002/ajmg.a.62124
+extractor_version: 1
 title: Expanding the genotypic and phenotypic spectrum in a diverse cohort of 104 individuals with Wiedemann‐Steiner syndrome
 authors:
 - Sarah E. Sheppard
@@ -109,7 +110,8 @@ journal: American Journal of Medical Genetics Part A
 year: '2021'
 doi: 10.1002/ajmg.a.62124
 content_type: abstract_only
-full_text_attempted: true
+is_preprint: false
+full_text_declined: landing_page_only
 ---
 
 # Expanding the genotypic and phenotypic spectrum in a diverse cohort of 104 individuals with Wiedemann‐Steiner syndrome
@@ -119,4 +121,6 @@ full_text_attempted: true
 
 ## Content
 
-AbstractWiedemann‐Steiner syndrome (WSS) is an autosomal dominant disorder caused by monoallelic variants in KMT2A and characterized by intellectual disability and hypertrichosis. We performed a retrospective, multicenter, observational study of 104 individuals with WSS from five continents to characterize the clinical and molecular spectrum of WSS in diverse populations, to identify physical features that may be more prevalent in White versus Black Indigenous People of Color individuals, to delineate genotype–phenotype correlations, to define developmental milestones, to describe the syndrome through adulthood, and to examine clinicians' differential diagnoses. Sixty‐nine of the 82 variants (84%) observed in the study were not previously reported in the literature. Common clinical features identified in the cohort included: developmental delay or intellectual disability (97%), constipation (63.8%), failure to thrive (67.7%), feeding difficulties (66.3%), hypertrichosis cubiti (57%), short stature (57.8%), and vertebral anomalies (46.9%). The median ages at walking and first words were 20 months and 18 months, respectively. Hypotonia was associated with loss of function (LoF) variants, and seizures were associated with non‐LoF variants. This study identifies genotype–phenotype correlations as well as race‐facial feature associations in an ethnically diverse cohort, and accurately defines developmental trajectories, medical comorbidities, and long‐term outcomes in individuals with WSS.
+Abstract
+
+Wiedemann‐Steiner syndrome (WSS) is an autosomal dominant disorder caused by monoallelic variants in KMT2A and characterized by intellectual disability and hypertrichosis. We performed a retrospective, multicenter, observational study of 104 individuals with WSS from five continents to characterize the clinical and molecular spectrum of WSS in diverse populations, to identify physical features that may be more prevalent in White versus Black Indigenous People of Color individuals, to delineate genotype–phenotype correlations, to define developmental milestones, to describe the syndrome through adulthood, and to examine clinicians ' differential diagnoses. Sixty‐nine of the 82 variants (84%) observed in the study were not previously reported in the literature. Common clinical features identified in the cohort included: developmental delay or intellectual disability (97%), constipation (63.8%), failure to thrive (67.7%), feeding difficulties (66.3%), hypertrichosis cubiti (57%), short stature (57.8%), and vertebral anomalies (46.9%). The median ages at walking and first words were 20 months and 18 months, respectively. Hypotonia was associated with loss of function (LoF) variants, and seizures were associated with non‐LoF variants. This study identifies genotype–phenotype correlations as well as race‐facial feature associations in an ethnically diverse cohort, and accurately defines developmental trajectories, medical comorbidities, and long‐term outcomes in individuals with WSS.

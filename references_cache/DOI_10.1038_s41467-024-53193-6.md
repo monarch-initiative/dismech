@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41467-024-53193-6
+extractor_version: 1
 title: "Genomic landscape of adult testicular germ cell tumours in the 100,000 Genomes Project"
 authors:
 - Máire Ní Leathlobhair
@@ -33,12 +34,14 @@ journal: Nature Communications
 year: '2024'
 doi: 10.1038/s41467-024-53193-6
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41467-024-53193-6.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41467-024-53193-6.pdf
+full_text_access_type: open
 ---
 
 # Genomic landscape of adult testicular germ cell tumours in the 100,000 Genomes Project
@@ -48,7 +51,9 @@ local_pdf_path: files/DOI_10.1038_s41467-024-53193-6.pdf
 
 ## Content
 
-AbstractTesticular germ cell tumours (TGCT), which comprise seminoma and non-seminoma subtypes, are the most common cancers in young men. In this study, we present a comprehensive whole genome sequencing analysis of adult TGCTs. Leveraging samples from participants recruited via the UK National Health Service and data from the Genomics England 100,000 Genomes Project, our results provide an extended description of genomic elements underlying TGCT pathogenesis. This catalogue offers a comprehensive, high-resolution map of copy number alterations, structural variation, and key global genome features, including mutational signatures and analysis of extrachromosomal DNA amplification. This study establishes correlations between genomic alterations and histological diversification, revealing divergent evolutionary trajectories among TGCT subtypes. By reconstructing the chronological order of driver events, we identify a subgroup of adult TGCTs undergoing relatively late whole genome duplication. Additionally, we present evidence that human leukocyte antigen loss is a more prevalent mechanism of immune disruption in seminomas. Collectively, our findings provide valuable insights into the developmental and immune modulatory processes implicated in TGCT pathogenesis and progression.
+Abstract
+
+Testicular germ cell tumours (TGCT), which comprise seminoma and non-seminoma subtypes, are the most common cancers in young men. In this study, we present a comprehensive whole genome sequencing analysis of adult TGCTs. Leveraging samples from participants recruited via the UK National Health Service and data from the Genomics England 100,000 Genomes Project, our results provide an extended description of genomic elements underlying TGCT pathogenesis. This catalogue offers a comprehensive, high-resolution map of copy number alterations, structural variation, and key global genome features, including mutational signatures and analysis of extrachromosomal DNA amplification. This study establishes correlations between genomic alterations and histological diversification, revealing divergent evolutionary trajectories among TGCT subtypes. By reconstructing the chronological order of driver events, we identify a subgroup of adult TGCTs undergoing relatively late whole genome duplication. Additionally, we present evidence that human leukocyte antigen loss is a more prevalent mechanism of immune disruption in seminomas. Collectively, our findings provide valuable insights into the developmental and immune modulatory processes implicated in TGCT pathogenesis and progression.
 
 Article https://doi.org/10.1038/s41467-024-53193-6
 Genomic landscape of adult testicular germ

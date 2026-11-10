@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41586-023-05812-3
+extractor_version: 1
 title: The menin inhibitor revumenib in KMT2A-rearranged or NPM1-mutant leukaemia
 authors:
 - Ghayas C. Issa
@@ -30,12 +31,14 @@ journal: Nature
 year: '2023'
 doi: 10.1038/s41586-023-05812-3
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41586-023-05812-3.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41586-023-05812-3.pdf
+full_text_access_type: open
 ---
 
 # The menin inhibitor revumenib in KMT2A-rearranged or NPM1-mutant leukaemia
@@ -45,7 +48,9 @@ local_pdf_path: files/DOI_10.1038_s41586-023-05812-3.pdf
 
 ## Content
 
-AbstractTargeting critical epigenetic regulators reverses aberrant transcription in cancer, thereby restoring normal tissue function1–3. The interaction of menin with lysine methyltransferase 2A (KMT2A), an epigenetic regulator, is a dependence in acute leukaemia caused by either rearrangement of KMT2A or mutation of the nucleophosmin 1 gene (NPM1)4–6. KMT2A rearrangements occur in up to 10% of acute leukaemias and have an adverse prognosis, whereas NPM1 mutations occur in up to 30%, forming the most common genetic alteration in acute myeloid leukaemia7,8. Here, we describe the results of the first-in-human phase 1 clinical trial investigating revumenib (SNDX-5613), a potent and selective oral inhibitor of the menin–KMT2A interaction, in patients with relapsed or refractory acute leukaemia (ClinicalTrials.gov, NCT04065399). We show that therapy with revumenib was associated with a low frequency of grade 3 or higher treatment-related adverse events and a 30% rate of complete remission or complete remission with partial haematologic recovery (CR/CRh) in the efficacy analysis population. Asymptomatic prolongation of the QT interval on electrocardiography was identified as the only dose-limiting toxicity. Remissions occurred in leukaemias refractory to multiple previous lines of therapy. We demonstrate clearance of residual disease using sensitive clinical assays and identify hallmarks of differentiation into normal haematopoietic cells, including differentiation syndrome. These data establish menin inhibition as a therapeutic strategy for susceptible acute leukaemia subtypes.
+Abstract
+
+Targeting critical epigenetic regulators reverses aberrant transcription in cancer, thereby restoring normal tissue function 1–3 . The interaction of menin with lysine methyltransferase 2A (KMT2A), an epigenetic regulator, is a dependence in acute leukaemia caused by either rearrangement of KMT2A or mutation of the nucleophosmin 1 gene ( NPM1 ) 4–6 . KMT2A rearrangements occur in up to 10% of acute leukaemias and have an adverse prognosis, whereas NPM1 mutations occur in up to 30%, forming the most common genetic alteration in acute myeloid leukaemia 7,8 . Here, we describe the results of the first-in-human phase 1 clinical trial investigating revumenib (SNDX-5613), a potent and selective oral inhibitor of the menin–KMT2A interaction, in patients with relapsed or refractory acute leukaemia (ClinicalTrials.gov, NCT04065399). We show that therapy with revumenib was associated with a low frequency of grade 3 or higher treatment-related adverse events and a 30% rate of complete remission or complete remission with partial haematologic recovery (CR/CRh) in the efficacy analysis population. Asymptomatic prolongation of the QT interval on electrocardiography was identified as the only dose-limiting toxicity. Remissions occurred in leukaemias refractory to multiple previous lines of therapy. We demonstrate clearance of residual disease using sensitive clinical assays and identify hallmarks of differentiation into normal haematopoietic cells, including differentiation syndrome. These data establish menin inhibition as a therapeutic strategy for susceptible acute leukaemia subtypes.
 
 920 | Nature | Vol 615 | 30 March 2023
 Article
