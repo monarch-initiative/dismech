@@ -123,10 +123,10 @@ FREQUENCY_TO_HP = {
 # `test_modifier_curies_match_schema_meanings` pins this against
 # src/dismech/schema/dismech.yaml so the two cannot drift.
 MODIFIER_TO_CURIE = {
-    "INCREASED": "PATO:0002300",       # increased quality
-    "DECREASED": "PATO:0002301",       # decreased quality
-    "ABNORMAL": "PATO:0000460",        # abnormal
-    "ABSENT": "PATO:0000462",          # absent
+    "INCREASED": "PATO:0002300",  # increased quality
+    "DECREASED": "PATO:0002301",  # decreased quality
+    "ABNORMAL": "PATO:0000460",  # abnormal
+    "ABSENT": "PATO:0000462",  # absent
     "DYSREGULATED": "dismech:ModifierEnum#DYSREGULATED",
     "GAIN_OF_FUNCTION": "dismech:ModifierEnum#GAIN_OF_FUNCTION",
     "LOSS_OF_FUNCTION": "dismech:ModifierEnum#LOSS_OF_FUNCTION",
@@ -234,7 +234,9 @@ def phenotype_to_edge(
         return None
 
     # Format evidence (direct - attached to phenotype)
-    publications, supporting_text = _format_evidence(phenotype.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(
+        phenotype.get("evidence"), indirect=False
+    )
 
     # An HP-typed "phenotype" that drives a pathophysiology node is an UPSTREAM
     # risk state (e.g. a nutritional deficiency), not a manifestation. Emitting
@@ -279,7 +281,9 @@ def phenotype_to_edge(
     )
 
 
-def disease_comorbidity_to_edge(disease_id: str, phenotype: dict[str, Any]) -> Association | None:
+def disease_comorbidity_to_edge(
+    disease_id: str, phenotype: dict[str, Any]
+) -> Association | None:
     """
     Convert a phenotype entry whose object is a MONDO concept into a
     disease-to-disease association.
@@ -303,7 +307,9 @@ def disease_comorbidity_to_edge(disease_id: str, phenotype: dict[str, Any]) -> A
     if not term_id or not term_id.startswith("MONDO:"):
         return None
 
-    publications, supporting_text = _format_evidence(phenotype.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(
+        phenotype.get("evidence"), indirect=False
+    )
 
     return Association(
         id=_make_edge_id(),
@@ -321,7 +327,9 @@ def disease_comorbidity_to_edge(disease_id: str, phenotype: dict[str, Any]) -> A
 
 
 def cell_type_to_edge(
-    disease_id: str, cell_type: dict[str, Any], parent_evidence: list[dict[str, Any]] | None = None
+    disease_id: str,
+    cell_type: dict[str, Any],
+    parent_evidence: list[dict[str, Any]] | None = None,
 ) -> Association | None:
     """
     Convert a cell type entry to a KGX edge.
@@ -358,7 +366,9 @@ def cell_type_to_edge(
 
 
 def location_to_edge(
-    disease_id: str, location: dict[str, Any], parent_evidence: list[dict[str, Any]] | None = None
+    disease_id: str,
+    location: dict[str, Any],
+    parent_evidence: list[dict[str, Any]] | None = None,
 ) -> DiseaseOrPhenotypicFeatureToLocationAssociation | None:
     """
     Convert a location entry to a KGX edge.
@@ -395,7 +405,9 @@ def location_to_edge(
 
 
 def biological_process_to_edge(
-    disease_id: str, process: dict[str, Any], parent_evidence: list[dict[str, Any]] | None = None
+    disease_id: str,
+    process: dict[str, Any],
+    parent_evidence: list[dict[str, Any]] | None = None,
 ) -> Association | None:
     """
     Convert a biological process entry to a KGX edge.
@@ -445,7 +457,9 @@ def biological_process_to_edge(
     )
 
 
-def treatment_to_edge(disease_id: str, treatment: dict[str, Any]) -> ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation | None:
+def treatment_to_edge(
+    disease_id: str, treatment: dict[str, Any]
+) -> ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation | None:
     """
     Convert a treatment entry to a KGX edge.
 
@@ -465,7 +479,9 @@ def treatment_to_edge(disease_id: str, treatment: dict[str, Any]) -> ChemicalOrD
         return None
 
     # Format evidence (direct - attached to treatment)
-    publications, supporting_text = _format_evidence(treatment.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(
+        treatment.get("evidence"), indirect=False
+    )
 
     predicate = "biolink:treats_or_applied_or_studied_to_treat"
     return ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation(
@@ -483,19 +499,34 @@ def treatment_to_edge(disease_id: str, treatment: dict[str, Any]) -> ChemicalOrD
     )
 
 
-def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociation | None:
+# `relationship_type` values that record a gene-disease claim the KB does NOT
+# assert: DISPUTED says the claim is contested, REFUTED says the evidence
+# contradicts it. Both rows exist so the locus is not re-nominated, and both
+# cite the studies *against* the claim. Emitting `gene contributes_to disease`
+# for them would put the refuted claim into the knowledge graph with the
+# refutation as its supporting publication, so no edge is emitted (#16952).
+_UNASSERTED_RELATIONSHIP_TYPES = frozenset({"DISPUTED", "REFUTED"})
+
+
+def gene_to_edge(
+    disease_id: str, gene: dict[str, Any]
+) -> GeneToDiseaseAssociation | None:
     """
     Convert a genetic association entry to a KGX edge.
 
     Requires a curated gene_term.term.id (proper HGNC CURIE). Entries
-    without one are skipped — see #2099.
+    without one are skipped — see #2099. Entries whose `relationship_type`
+    is DISPUTED or REFUTED are skipped too: the KB records those claims in
+    order to say they are not established, and a contributes_to edge would
+    assert the opposite.
 
     Args:
         disease_id: The disease term ID
         gene: A gene dict from genetic[]
 
     Returns:
-        GeneToDiseaseAssociation or None if gene_term.term.id is absent
+        GeneToDiseaseAssociation, or None if gene_term.term.id is absent or
+        the relationship is DISPUTED/REFUTED
     """
     if not gene:
         return None
@@ -507,10 +538,15 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
     if not gene_id:
         return None
 
+    if gene.get("relationship_type") in _UNASSERTED_RELATIONSHIP_TYPES:
+        return None
+
     predicate = "biolink:contributes_to"
 
     # Format evidence (direct - attached to genetic entry)
-    publications, supporting_text = _format_evidence(gene.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(
+        gene.get("evidence"), indirect=False
+    )
 
     return GeneToDiseaseAssociation(
         id=_make_edge_id(),
@@ -532,9 +568,13 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
 # curated text indicates the exposure reduces disease risk (see #2098).
 _PROTECTIVE_EFFECT_PATTERNS = (
     re.compile(r"\breduces?\s+risk\b", re.IGNORECASE),
-    re.compile(r"\bdecreased?\s+(odds|risk|chance|incidence|likelihood)\b", re.IGNORECASE),
+    re.compile(
+        r"\bdecreased?\s+(odds|risk|chance|incidence|likelihood)\b", re.IGNORECASE
+    ),
     re.compile(r"\bprotect(s|ive|ion)?\s+against\b", re.IGNORECASE),
-    re.compile(r"\blower(s|ed)?\s+(odds|risk|chance|incidence|likelihood)\b", re.IGNORECASE),
+    re.compile(
+        r"\blower(s|ed)?\s+(odds|risk|chance|incidence|likelihood)\b", re.IGNORECASE
+    ),
 )
 
 
@@ -613,7 +653,9 @@ def _exposure_predicate(
     return "biolink:contributes_to"
 
 
-def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> ExposureEventToOutcomeAssociation | None:
+def exposure_to_edge(
+    disease_id: str, environmental: dict[str, Any]
+) -> ExposureEventToOutcomeAssociation | None:
     """
     Convert an environmental exposure entry to a KGX edge.
 
@@ -650,7 +692,9 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
         return None
 
     # Format evidence (direct - attached to environmental entry)
-    publications, supporting_text = _format_evidence(environmental.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(
+        environmental.get("evidence"), indirect=False
+    )
 
     predicate = _exposure_predicate(
         environmental.get("effect"),
@@ -660,7 +704,9 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
     )
 
     exposure_term = environmental.get("exposure_term")
-    modifier = exposure_term.get("modifier") if isinstance(exposure_term, dict) else None
+    modifier = (
+        exposure_term.get("modifier") if isinstance(exposure_term, dict) else None
+    )
     qualifier_curie = MODIFIER_TO_CURIE.get(modifier) if modifier else None
     qualifiers = [qualifier_curie] if qualifier_curie else None
 
@@ -681,7 +727,9 @@ def exposure_to_edge(disease_id: str, environmental: dict[str, Any]) -> Exposure
 
 
 def molecular_function_to_edge(
-    disease_id: str, mf: dict[str, Any], parent_evidence: list[dict[str, Any]] | None = None
+    disease_id: str,
+    mf: dict[str, Any],
+    parent_evidence: list[dict[str, Any]] | None = None,
 ) -> Association | None:
     """
     Convert a molecular function entry to a KGX edge.
@@ -727,7 +775,9 @@ def molecular_function_to_edge(
 
 
 def cellular_component_to_edge(
-    disease_id: str, component: dict[str, Any], parent_evidence: list[dict[str, Any]] | None = None
+    disease_id: str,
+    component: dict[str, Any],
+    parent_evidence: list[dict[str, Any]] | None = None,
 ) -> Association | None:
     """
     Convert a cellular component entry to a KGX edge.
@@ -762,7 +812,9 @@ def cellular_component_to_edge(
 
 
 def chemical_entity_to_edge(
-    disease_id: str, chemical: dict[str, Any], parent_evidence: list[dict[str, Any]] | None = None
+    disease_id: str,
+    chemical: dict[str, Any],
+    parent_evidence: list[dict[str, Any]] | None = None,
 ) -> Association | None:
     """
     Convert a chemical entity entry to a KGX edge.
@@ -797,7 +849,9 @@ def chemical_entity_to_edge(
 
 
 def pathway_to_edge(
-    disease_id: str, pathway: dict[str, Any], parent_evidence: list[dict[str, Any]] | None = None
+    disease_id: str,
+    pathway: dict[str, Any],
+    parent_evidence: list[dict[str, Any]] | None = None,
 ) -> Association | None:
     """
     Convert a pathway entry to a KGX edge.
@@ -843,7 +897,9 @@ def pathway_to_edge(
 
 
 def protein_complex_to_edge(
-    disease_id: str, complex_: dict[str, Any], parent_evidence: list[dict[str, Any]] | None = None
+    disease_id: str,
+    complex_: dict[str, Any],
+    parent_evidence: list[dict[str, Any]] | None = None,
 ) -> Association | None:
     """
     Convert a protein complex entry to a KGX edge.
@@ -895,7 +951,9 @@ def inheritance_to_edge(
     if not term_id:
         return None
 
-    publications, supporting_text = _format_evidence(inheritance.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(
+        inheritance.get("evidence"), indirect=False
+    )
 
     return DiseaseOrPhenotypicFeatureToGeneticInheritanceAssociation(
         id=_make_edge_id(),
@@ -931,7 +989,9 @@ def infectious_agent_to_edge(
     if not agent_id:
         return None
 
-    publications, supporting_text = _format_evidence(agent.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(
+        agent.get("evidence"), indirect=False
+    )
 
     return Association(
         id=_make_edge_id(),
@@ -968,7 +1028,9 @@ def histopathology_to_edge(
     if not term_id:
         return None
 
-    publications, supporting_text = _format_evidence(finding.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(
+        finding.get("evidence"), indirect=False
+    )
 
     return DiseaseToPhenotypicFeatureAssociation(
         id=_make_edge_id(),
@@ -1004,7 +1066,9 @@ def biomarker_to_edge(
     if not term_id:
         return None
 
-    publications, supporting_text = _format_evidence(biochemical.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(
+        biochemical.get("evidence"), indirect=False
+    )
 
     return Association(
         id=_make_edge_id(),
@@ -1022,7 +1086,9 @@ def biomarker_to_edge(
 
 
 def therapeutic_agent_to_edge(
-    disease_id: str, agent: dict[str, Any], parent_evidence: list[dict[str, Any]] | None = None
+    disease_id: str,
+    agent: dict[str, Any],
+    parent_evidence: list[dict[str, Any]] | None = None,
 ) -> ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation | None:
     """
     Convert a therapeutic agent (specific drug) to a KGX edge.
@@ -1060,8 +1126,10 @@ def therapeutic_agent_to_edge(
 
 
 def treatment_target_phenotype_to_edge(
-    disease_id: str, treatment_id: str, phenotype: dict[str, Any],
-    parent_evidence: list[dict[str, Any]] | None = None
+    disease_id: str,
+    treatment_id: str,
+    phenotype: dict[str, Any],
+    parent_evidence: list[dict[str, Any]] | None = None,
 ) -> ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation | None:
     """
     Convert a treatment's target phenotype to a KGX edge.
@@ -1126,7 +1194,9 @@ def differential_diagnosis_to_edge(
     if not term_id or term_id == disease_id:
         return None
 
-    publications, supporting_text = _format_evidence(differential.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(
+        differential.get("evidence"), indirect=False
+    )
 
     return Association(
         id=_make_edge_id(),
@@ -1164,7 +1234,9 @@ def diagnosis_to_edge(disease_id: str, diagnosis: dict[str, Any]) -> Association
     if not term_id:
         return None
 
-    publications, supporting_text = _format_evidence(diagnosis.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(
+        diagnosis.get("evidence"), indirect=False
+    )
 
     return Association(
         id=_make_edge_id(),
@@ -1234,7 +1306,9 @@ def dataset_to_edge(disease_id: str, dataset: dict[str, Any]) -> Association | N
     if not accession:
         return None
 
-    publications, supporting_text = _format_evidence(dataset.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(
+        dataset.get("evidence"), indirect=False
+    )
     publication = dataset.get("publication")
     if isinstance(publication, str) and publication and publication not in publications:
         publications.append(publication)
@@ -1306,7 +1380,9 @@ def clinical_trial_to_edge(
     Returns:
         Association
     """
-    publications, supporting_text = _format_evidence(trial.get("evidence"), indirect=False)
+    publications, supporting_text = _format_evidence(
+        trial.get("evidence"), indirect=False
+    )
 
     return Association(
         id=_make_edge_id(),
@@ -1324,7 +1400,9 @@ def clinical_trial_to_edge(
 
 
 def clinical_trial_target_phenotype_to_edge(
-    trial_id: str, phenotype: dict[str, Any], parent_evidence: list[dict[str, Any]] | None = None
+    trial_id: str,
+    phenotype: dict[str, Any],
+    parent_evidence: list[dict[str, Any]] | None = None,
 ) -> Association | None:
     """
     Convert a trial's target phenotype to a ClinicalTrial -> PhenotypicFeature edge.
@@ -1353,7 +1431,9 @@ def clinical_trial_target_phenotype_to_edge(
         object=phenotype_id,
         subject_category="biolink:ClinicalTrial",
         object_category=(
-            "biolink:Disease" if phenotype_id.startswith("MONDO:") else "biolink:PhenotypicFeature"
+            "biolink:Disease"
+            if phenotype_id.startswith("MONDO:")
+            else "biolink:PhenotypicFeature"
         ),
         publications=publications if publications else None,
         supporting_text=supporting_text if supporting_text else None,
@@ -1419,7 +1499,9 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
     """
     seen: set[str] = set()
 
-    def _emit(node_id: str | None, name: str | None, category: str) -> NamedThing | None:
+    def _emit(
+        node_id: str | None, name: str | None, category: str
+    ) -> NamedThing | None:
         if not node_id or node_id in seen:
             return None
         seen.add(node_id)
@@ -1453,56 +1535,82 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
         for cell_type in patho.get("cell_types") or []:
             term_id = _get_term_id(cell_type, ["term", "id"])
             label = _get_term_id(cell_type, ["term", "label"])
-            node = _emit(term_id, cell_type.get("preferred_term") or label, "biolink:Cell")
+            node = _emit(
+                term_id, cell_type.get("preferred_term") or label, "biolink:Cell"
+            )
             if node:
                 yield node
 
         for location in patho.get("locations") or []:
             term_id = _get_term_id(location, ["term", "id"])
             label = _get_term_id(location, ["term", "label"])
-            node = _emit(term_id, location.get("preferred_term") or label, "biolink:AnatomicalEntity")
+            node = _emit(
+                term_id,
+                location.get("preferred_term") or label,
+                "biolink:AnatomicalEntity",
+            )
             if node:
                 yield node
 
         for process in patho.get("biological_processes") or []:
             term_id = _get_term_id(process, ["term", "id"])
             label = _get_term_id(process, ["term", "label"])
-            node = _emit(term_id, process.get("preferred_term") or label, "biolink:BiologicalProcess")
+            node = _emit(
+                term_id,
+                process.get("preferred_term") or label,
+                "biolink:BiologicalProcess",
+            )
             if node:
                 yield node
 
         for mf in patho.get("molecular_functions") or []:
             term_id = _get_term_id(mf, ["term", "id"])
             label = _get_term_id(mf, ["term", "label"])
-            node = _emit(term_id, mf.get("preferred_term") or label, "biolink:MolecularActivity")
+            node = _emit(
+                term_id, mf.get("preferred_term") or label, "biolink:MolecularActivity"
+            )
             if node:
                 yield node
 
         for component in patho.get("cellular_components") or []:
             term_id = _get_term_id(component, ["term", "id"])
             label = _get_term_id(component, ["term", "label"])
-            node = _emit(term_id, component.get("preferred_term") or label, "biolink:CellularComponent")
+            node = _emit(
+                term_id,
+                component.get("preferred_term") or label,
+                "biolink:CellularComponent",
+            )
             if node:
                 yield node
 
         for chemical in patho.get("chemical_entities") or []:
             term_id = _get_term_id(chemical, ["term", "id"])
             label = _get_term_id(chemical, ["term", "label"])
-            node = _emit(term_id, chemical.get("preferred_term") or label, "biolink:ChemicalEntity")
+            node = _emit(
+                term_id,
+                chemical.get("preferred_term") or label,
+                "biolink:ChemicalEntity",
+            )
             if node:
                 yield node
 
         for pathway in patho.get("pathways") or []:
             term_id = _get_term_id(pathway, ["term", "id"])
             label = _get_term_id(pathway, ["term", "label"])
-            node = _emit(term_id, pathway.get("preferred_term") or label, "biolink:Pathway")
+            node = _emit(
+                term_id, pathway.get("preferred_term") or label, "biolink:Pathway"
+            )
             if node:
                 yield node
 
         for complex_ in patho.get("protein_complexes") or []:
             term_id = _get_term_id(complex_, ["term", "id"])
             label = _get_term_id(complex_, ["term", "label"])
-            node = _emit(term_id, complex_.get("preferred_term") or label, "biolink:MacromolecularComplex")
+            node = _emit(
+                term_id,
+                complex_.get("preferred_term") or label,
+                "biolink:MacromolecularComplex",
+            )
             if node:
                 yield node
 
@@ -1513,7 +1621,9 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
         # Use the canonical ontology label, not the free-text treatment.name —
         # multiple disorders share one NCIT CURIE with different free-text names,
         # and dedup would otherwise pick whichever name wins.
-        node = _emit(treatment_id, treatment_label or treatment.get("name"), "biolink:Treatment")
+        node = _emit(
+            treatment_id, treatment_label or treatment.get("name"), "biolink:Treatment"
+        )
         if node:
             yield node
 
@@ -1521,7 +1631,9 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
         for agent in treatment_term.get("therapeutic_agent") or []:
             term_id = _get_term_id(agent, ["term", "id"])
             label = _get_term_id(agent, ["term", "label"])
-            node = _emit(term_id, agent.get("preferred_term") or label, "biolink:ChemicalEntity")
+            node = _emit(
+                term_id, agent.get("preferred_term") or label, "biolink:ChemicalEntity"
+            )
             if node:
                 yield node
 
@@ -1529,7 +1641,11 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
         for phenotype in treatment.get("target_phenotypes") or []:
             term_id = _get_term_id(phenotype, ["term", "id"])
             label = _get_term_id(phenotype, ["term", "label"])
-            node = _emit(term_id, phenotype.get("preferred_term") or label, "biolink:PhenotypicFeature")
+            node = _emit(
+                term_id,
+                phenotype.get("preferred_term") or label,
+                "biolink:PhenotypicFeature",
+            )
             if node:
                 yield node
 
@@ -1547,7 +1663,9 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
     for environmental in record.get("environmental") or []:
         term_id = _get_term_id(environmental, ["exposure_term", "term", "id"])
         label = _get_term_id(environmental, ["exposure_term", "term", "label"])
-        node = _emit(term_id, environmental.get("name") or label, "biolink:ExposureEvent")
+        node = _emit(
+            term_id, environmental.get("name") or label, "biolink:ExposureEvent"
+        )
         if node:
             yield node
 
@@ -1579,7 +1697,9 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
     for biochemical in record.get("biochemical") or []:
         term_id = _get_term_id(biochemical, ["biomarker_term", "term", "id"])
         label = _get_term_id(biochemical, ["biomarker_term", "term", "label"])
-        node = _emit(term_id, biochemical.get("name") or label, "biolink:MolecularEntity")
+        node = _emit(
+            term_id, biochemical.get("name") or label, "biolink:MolecularEntity"
+        )
         if node:
             yield node
 
@@ -1688,7 +1808,11 @@ def _causal_node_index(record: dict[str, Any]) -> dict[str, tuple[str, str]]:
         name = phenotype.get("name")
         term_id = _get_term_id(phenotype, ["phenotype_term", "term", "id"])
         if name and term_id:
-            category = "biolink:Disease" if term_id.startswith("MONDO:") else "biolink:PhenotypicFeature"
+            category = (
+                "biolink:Disease"
+                if term_id.startswith("MONDO:")
+                else "biolink:PhenotypicFeature"
+            )
             index[name] = (term_id, category)
     if disease_name:
         for node in record.get("pathophysiology") or []:
@@ -1787,7 +1911,9 @@ def pathophysiology_layer_edges(record: dict[str, Any]) -> Iterator[EdgeWithEvid
         if not source_id:
             continue
         source_category = (
-            "biolink:Disease" if source_id.startswith("MONDO:") else "biolink:PhenotypicFeature"
+            "biolink:Disease"
+            if source_id.startswith("MONDO:")
+            else "biolink:PhenotypicFeature"
         )
         for sequela in phenotype.get("sequelae") or []:
             resolved = index.get(sequela.get("target"))
@@ -1876,7 +2002,10 @@ def iter_edges_with_evidence(record: dict[str, Any]) -> Iterator[EdgeWithEvidenc
             edge = biological_process_to_edge(disease_id, process, parent_evidence)
             if edge:
                 yield EdgeWithEvidence(
-                    edge, parent_evidence, "pathophysiology.biological_processes", **inherited
+                    edge,
+                    parent_evidence,
+                    "pathophysiology.biological_processes",
+                    **inherited,
                 )
 
         # Molecular functions (indirect evidence from parent mechanism)
@@ -1884,7 +2013,10 @@ def iter_edges_with_evidence(record: dict[str, Any]) -> Iterator[EdgeWithEvidenc
             edge = molecular_function_to_edge(disease_id, mf, parent_evidence)
             if edge:
                 yield EdgeWithEvidence(
-                    edge, parent_evidence, "pathophysiology.molecular_functions", **inherited
+                    edge,
+                    parent_evidence,
+                    "pathophysiology.molecular_functions",
+                    **inherited,
                 )
 
         # Cellular components (indirect evidence from parent mechanism)
@@ -1892,7 +2024,10 @@ def iter_edges_with_evidence(record: dict[str, Any]) -> Iterator[EdgeWithEvidenc
             edge = cellular_component_to_edge(disease_id, component, parent_evidence)
             if edge:
                 yield EdgeWithEvidence(
-                    edge, parent_evidence, "pathophysiology.cellular_components", **inherited
+                    edge,
+                    parent_evidence,
+                    "pathophysiology.cellular_components",
+                    **inherited,
                 )
 
         # Chemical entities (indirect evidence from parent mechanism)
@@ -1900,7 +2035,10 @@ def iter_edges_with_evidence(record: dict[str, Any]) -> Iterator[EdgeWithEvidenc
             edge = chemical_entity_to_edge(disease_id, chemical, parent_evidence)
             if edge:
                 yield EdgeWithEvidence(
-                    edge, parent_evidence, "pathophysiology.chemical_entities", **inherited
+                    edge,
+                    parent_evidence,
+                    "pathophysiology.chemical_entities",
+                    **inherited,
                 )
 
         # Pathways (indirect evidence from parent mechanism)
@@ -1916,7 +2054,10 @@ def iter_edges_with_evidence(record: dict[str, Any]) -> Iterator[EdgeWithEvidenc
             edge = protein_complex_to_edge(disease_id, complex_, parent_evidence)
             if edge:
                 yield EdgeWithEvidence(
-                    edge, parent_evidence, "pathophysiology.protein_complexes", **inherited
+                    edge,
+                    parent_evidence,
+                    "pathophysiology.protein_complexes",
+                    **inherited,
                 )
 
     # Extract treatment edges (action, therapeutic agents, and target phenotypes)
@@ -1988,7 +2129,9 @@ def iter_edges_with_evidence(record: dict[str, Any]) -> Iterator[EdgeWithEvidenc
     for differential in record.get("differential_diagnoses") or []:
         edge = differential_diagnosis_to_edge(disease_id, differential)
         if edge:
-            yield EdgeWithEvidence(edge, differential.get("evidence"), "differential_diagnoses")
+            yield EdgeWithEvidence(
+                edge, differential.get("evidence"), "differential_diagnoses"
+            )
 
     # Extract diagnostic procedure edges (#2100)
     for diagnosis in record.get("diagnosis") or []:
@@ -2009,10 +2152,14 @@ def iter_edges_with_evidence(record: dict[str, Any]) -> Iterator[EdgeWithEvidenc
             continue
         trial_evidence = trial.get("evidence")
         yield EdgeWithEvidence(
-            clinical_trial_to_edge(disease_id, trial_id, trial), trial_evidence, "clinical_trials"
+            clinical_trial_to_edge(disease_id, trial_id, trial),
+            trial_evidence,
+            "clinical_trials",
         )
         for phenotype in trial.get("target_phenotypes") or []:
-            edge = clinical_trial_target_phenotype_to_edge(trial_id, phenotype, trial_evidence)
+            edge = clinical_trial_target_phenotype_to_edge(
+                trial_id, phenotype, trial_evidence
+            )
             if edge:
                 yield EdgeWithEvidence(
                     edge, trial_evidence, "clinical_trials.target_phenotypes"
@@ -2056,7 +2203,9 @@ def _sepio_sidecar_path(koza_ctx: KozaTransform) -> Path | None:
     """
     writer = koza_ctx.writer
     output_dir = getattr(writer, "output_dir", None) or getattr(writer, "dirname", None)
-    source_name = getattr(writer, "source_name", None) or getattr(writer, "basename", None)
+    source_name = getattr(writer, "source_name", None) or getattr(
+        writer, "basename", None
+    )
     if not output_dir or not source_name:
         return None
     return Path(output_dir) / f"{source_name}{SEPIO_SIDECAR_SUFFIX}"
@@ -2067,7 +2216,9 @@ def open_sepio_sidecar(koza_ctx: KozaTransform) -> None:
     """Open the SEPIO sidecar file that accompanies the KGX node/edge files."""
     path = _sepio_sidecar_path(koza_ctx)
     if path is None:
-        koza_ctx.log("Writer has no output directory; skipping SEPIO sidecar", level="WARNING")
+        koza_ctx.log(
+            "Writer has no output directory; skipping SEPIO sidecar", level="WARNING"
+        )
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     # Koza builds a fresh transform context per input tag, so this hook can fire

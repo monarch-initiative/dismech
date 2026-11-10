@@ -5,7 +5,10 @@ from typing import Any, ClassVar
 
 import pytest
 
-pytest.importorskip("biolink_model", reason="biolink-model not installed (install with: uv sync --group export)")
+pytest.importorskip(
+    "biolink_model",
+    reason="biolink-model not installed (install with: uv sync --group export)",
+)
 
 from biolink_model.datamodel.pydanticmodel_v2 import (
     AnatomicalEntity,
@@ -88,7 +91,10 @@ class TestPhenotypeToEdge:
     def test_missing_term_id(self):
         """Test with phenotype_term but no term.id."""
         phenotype = {
-            "phenotype_term": {"preferred_term": "Wheezing", "term": {"label": "Wheezing"}}
+            "phenotype_term": {
+                "preferred_term": "Wheezing",
+                "term": {"label": "Wheezing"},
+            }
         }
         assert phenotype_to_edge("MONDO:0004979", phenotype) is None
 
@@ -289,7 +295,9 @@ class TestTreatmentToEdge:
             },
         }
         edge = treatment_to_edge("MONDO:0004979", treatment)
-        assert isinstance(edge, ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation)
+        assert isinstance(
+            edge, ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation
+        )
         # Treatment is subject, disease is object
         assert edge.subject == "NCIT:C15986"
         assert edge.predicate == "biolink:treats_or_applied_or_studied_to_treat"
@@ -340,6 +348,31 @@ class TestGeneToEdge:
         """Test with None gene."""
         assert gene_to_edge("MONDO:0004979", None) is None
 
+    def test_refuted_and_disputed_rows_emit_no_edge(self):
+        """A DISPUTED or REFUTED row records a claim the KB does not assert,
+        so no `contributes_to` edge may carry it into the graph (#16952)."""
+        for relationship in ("REFUTED", "DISPUTED"):
+            gene = {
+                "name": "GIGYF2",
+                "gene_term": {"term": {"id": "hgnc:11960", "label": "GIGYF2"}},
+                "relationship_type": relationship,
+                "evidence": [{"reference": "PMID:18923002", "supports": "SUPPORT"}],
+            }
+            assert gene_to_edge("MONDO:0005180", gene) is None, relationship
+
+    def test_other_relationship_types_still_emit_an_edge(self):
+        """The skip is only for the two unasserted grades."""
+        for relationship in ("CAUSATIVE", "RISK_FACTOR", "SUSCEPTIBILITY", "MODIFIER"):
+            gene = {
+                "name": "LRRK2",
+                "gene_term": {"term": {"id": "hgnc:18618", "label": "LRRK2"}},
+                "relationship_type": relationship,
+            }
+            edge = gene_to_edge("MONDO:0005180", gene)
+            assert edge is not None and edge.predicate == "biolink:contributes_to", (
+                relationship
+            )
+
 
 class TestModifierCurieMap:
     """The qualifier vocabulary is derived from the schema, not invented here."""
@@ -357,7 +390,9 @@ class TestModifierCurieMap:
         from dismech.export.kgx_export import MODIFIER_TO_CURIE
 
         schema = yaml.safe_load(
-            (Path(__file__).parent.parent / "src/dismech/schema/dismech.yaml").read_text()
+            (
+                Path(__file__).parent.parent / "src/dismech/schema/dismech.yaml"
+            ).read_text()
         )
         values = schema["enums"]["ModifierEnum"]["permissible_values"]
 
@@ -444,7 +479,9 @@ class TestExposureToEdge:
         environmental = {
             "name": "Physical Activity Restrictions",
             "effect": "Reduces risk of aortic dissection.",
-            "exposure_term": {"term": {"id": "XCO:0000059", "label": "physical activity"}},
+            "exposure_term": {
+                "term": {"id": "XCO:0000059", "label": "physical activity"}
+            },
         }
         edge = exposure_to_edge("MONDO:0007947", environmental)
         assert edge is not None
@@ -473,7 +510,9 @@ class TestExposureToEdge:
                 "exposure_term": {"term": {"id": "ECTO:0000001"}},
             }
             edge = exposure_to_edge("MONDO:0004979", environmental)
-            assert edge.predicate == "biolink:contributes_to", f"got non-default for {effect!r}"
+            assert edge.predicate == "biolink:contributes_to", (
+                f"got non-default for {effect!r}"
+            )
 
     def test_structured_protective_effect_flips_predicate(self):
         """A unanimous PROTECTS_AGAINST mechanism link is protective (#8033)."""
@@ -481,7 +520,10 @@ class TestExposureToEdge:
             "name": "Early-life farm microbial exposure",
             "exposure_term": {"term": {"id": "ECTO:0000001"}},
             "influences_mechanisms": [
-                {"target": "Allergic Sensitization", "environmental_effect": "PROTECTS_AGAINST"}
+                {
+                    "target": "Allergic Sensitization",
+                    "environmental_effect": "PROTECTS_AGAINST",
+                }
             ],
         }
         edge = exposure_to_edge("MONDO:0004979", environmental)
@@ -571,15 +613,22 @@ class TestExposureToEdge:
         }
         assert exposure_to_edge("MONDO:0004979", environmental).predicate == predicate
 
-    @pytest.mark.parametrize("disease_effect", ["TRIGGERS", "EXACERBATES", "PREDISPOSES", "MODULATES"])
-    def test_associated_only_causal_role_emits_no_causal_predicate(self, disease_effect):
+    @pytest.mark.parametrize(
+        "disease_effect", ["TRIGGERS", "EXACERBATES", "PREDISPOSES", "MODULATES"]
+    )
+    def test_associated_only_causal_role_emits_no_causal_predicate(
+        self, disease_effect
+    ):
         """ASSOCIATED_ONLY disclaims causation, so the edge must not assert it (#11112)."""
         environmental = {
             "exposure_term": {"term": {"id": "ECTO:0000001"}},
             "disease_effect": disease_effect,
             "causal_role": "ASSOCIATED_ONLY",
         }
-        assert exposure_to_edge("MONDO:0004979", environmental).predicate == "biolink:associated_with"
+        assert (
+            exposure_to_edge("MONDO:0004979", environmental).predicate
+            == "biolink:associated_with"
+        )
 
     def test_associated_only_keeps_protective_direction(self):
         """A protective association is already non-causal and keeps its direction."""
@@ -656,7 +705,10 @@ class TestExposureToEdge:
                 "term": {"id": "ECTO:9000123", "label": "exposure to folic acid"},
             },
             "influences_mechanisms": [
-                {"target": "Cardiac Septation", "environmental_effect": "PROTECTS_AGAINST"}
+                {
+                    "target": "Cardiac Septation",
+                    "environmental_effect": "PROTECTS_AGAINST",
+                }
             ],
         }
         edge = exposure_to_edge("MONDO:0002526", environmental)
@@ -848,7 +900,9 @@ class TestInheritanceToEdge:
             },
         }
         edge = inheritance_to_edge("MONDO:0004979", inheritance)
-        assert isinstance(edge, DiseaseOrPhenotypicFeatureToGeneticInheritanceAssociation)
+        assert isinstance(
+            edge, DiseaseOrPhenotypicFeatureToGeneticInheritanceAssociation
+        )
         assert edge.subject == "MONDO:0004979"
         assert edge.predicate == "biolink:has_mode_of_inheritance"
         assert edge.object == "HP:0000006"
@@ -862,9 +916,7 @@ class TestInheritanceToEdge:
 
     def test_missing_term_id(self):
         """Test with inheritance_term but no term.id."""
-        inheritance = {
-            "inheritance_term": {"preferred_term": "Autosomal dominant"}
-        }
+        inheritance = {"inheritance_term": {"preferred_term": "Autosomal dominant"}}
         assert inheritance_to_edge("MONDO:0004979", inheritance) is None
 
 
@@ -896,9 +948,7 @@ class TestInfectiousAgentToEdge:
 
     def test_missing_term_id(self):
         """Test with infectious_agent_term but no term.id."""
-        agent = {
-            "infectious_agent_term": {"preferred_term": "Chlamydia trachomatis"}
-        }
+        agent = {"infectious_agent_term": {"preferred_term": "Chlamydia trachomatis"}}
         assert infectious_agent_to_edge("MONDO:0004979", agent) is None
 
 
@@ -929,9 +979,7 @@ class TestHistopathologyToEdge:
 
     def test_missing_term_id(self):
         """Test with finding_term but no term.id."""
-        finding = {
-            "finding_term": {"preferred_term": "Squamous metaplasia"}
-        }
+        finding = {"finding_term": {"preferred_term": "Squamous metaplasia"}}
         assert histopathology_to_edge("MONDO:0004979", finding) is None
 
 
@@ -962,9 +1010,7 @@ class TestBiomarkerToEdge:
 
     def test_missing_term_id(self):
         """Test with biomarker_term but no term.id."""
-        biochemical = {
-            "biomarker_term": {"preferred_term": "Mesothelin"}
-        }
+        biochemical = {"biomarker_term": {"preferred_term": "Mesothelin"}}
         assert biomarker_to_edge("MONDO:0004979", biochemical) is None
 
 
@@ -978,7 +1024,9 @@ class TestTherapeuticAgentToEdge:
             "term": {"id": "NCIT:C65216", "label": "Adalimumab"},
         }
         edge = therapeutic_agent_to_edge("MONDO:0004979", agent)
-        assert isinstance(edge, ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation)
+        assert isinstance(
+            edge, ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation
+        )
         # Agent is subject, disease is object
         assert edge.subject == "NCIT:C65216"
         assert edge.predicate == "biolink:treats_or_applied_or_studied_to_treat"
@@ -1004,7 +1052,9 @@ class TestTreatmentTargetPhenotypeToEdge:
         edge = treatment_target_phenotype_to_edge(
             "MONDO:0004979", "NCIT:C15986", phenotype
         )
-        assert isinstance(edge, ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation)
+        assert isinstance(
+            edge, ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation
+        )
         assert edge.subject == "NCIT:C15986"
         assert edge.predicate == "biolink:treats_or_applied_or_studied_to_treat"
         assert edge.object == "HP:0012378"
@@ -1015,9 +1065,12 @@ class TestTreatmentTargetPhenotypeToEdge:
     def test_missing_term_id(self):
         """Test with missing term.id."""
         phenotype = {"preferred_term": "Fatigue"}
-        assert treatment_target_phenotype_to_edge(
-            "MONDO:0004979", "NCIT:C15986", phenotype
-        ) is None
+        assert (
+            treatment_target_phenotype_to_edge(
+                "MONDO:0004979", "NCIT:C15986", phenotype
+            )
+            is None
+        )
 
 
 class TestGeneToEdgeWithGeneTerm:
@@ -1043,18 +1096,21 @@ class TestGeneToEdgeWithGeneTerm:
         HGNC.SYMBOL:{name} fallback that produced malformed CURIEs (#2099),
         and no empty-CURIE subject either."""
         for gene in [
-            {"name": "IL4", "association": "Associated"},          # no gene_term at all
-            {"name": "", "association": "Associated"},             # no gene_term, empty name
-            {"name": "IL4", "gene_term": {}},                      # gene_term but no term
-            {"name": "IL4", "gene_term": {"term": {}}},            # term but no id
-            {"name": "IL4", "gene_term": {"term": {"id": ""}}},    # id present but empty
+            {"name": "IL4", "association": "Associated"},  # no gene_term at all
+            {"name": "", "association": "Associated"},  # no gene_term, empty name
+            {"name": "IL4", "gene_term": {}},  # gene_term but no term
+            {"name": "IL4", "gene_term": {"term": {}}},  # term but no id
+            {"name": "IL4", "gene_term": {"term": {"id": ""}}},  # id present but empty
         ]:
             assert gene_to_edge("MONDO:0004979", gene) is None, gene
 
     def test_skips_aneuploidy_or_disease_class(self):
         """Multi-word names that aren't real gene symbols are skipped (#2099)."""
-        for name in ["Trisomy 21", "Cat Eye Syndrome (chr22 duplication)",
-                     "EDS-Related Connective Tissue Disorder"]:
+        for name in [
+            "Trisomy 21",
+            "Cat Eye Syndrome (chr22 duplication)",
+            "EDS-Related Connective Tissue Disorder",
+        ]:
             assert gene_to_edge("MONDO:0018484", {"name": name}) is None
 
     def test_no_gene_term_no_name(self):
@@ -1149,7 +1205,10 @@ class TestTransform:
             "infectious_agent": [
                 {
                     "infectious_agent_term": {
-                        "term": {"id": "NCBITaxon:813", "label": "Chlamydia trachomatis"},
+                        "term": {
+                            "id": "NCBITaxon:813",
+                            "label": "Chlamydia trachomatis",
+                        },
                     },
                 },
             ],
@@ -1275,28 +1334,52 @@ class TestExtractNodes:
                 {
                     "name": "Mechanism A",
                     "cell_types": [
-                        {"preferred_term": "Cell A", "term": {"id": "CL:0000001", "label": "cell a"}},
+                        {
+                            "preferred_term": "Cell A",
+                            "term": {"id": "CL:0000001", "label": "cell a"},
+                        },
                     ],
                     "locations": [
-                        {"preferred_term": "Location A", "term": {"id": "UBERON:0000001", "label": "location a"}},
+                        {
+                            "preferred_term": "Location A",
+                            "term": {"id": "UBERON:0000001", "label": "location a"},
+                        },
                     ],
                     "biological_processes": [
-                        {"preferred_term": "Process A", "term": {"id": "GO:0000001", "label": "process a"}},
+                        {
+                            "preferred_term": "Process A",
+                            "term": {"id": "GO:0000001", "label": "process a"},
+                        },
                     ],
                     "molecular_functions": [
-                        {"preferred_term": "Function A", "term": {"id": "GO:0000002", "label": "function a"}},
+                        {
+                            "preferred_term": "Function A",
+                            "term": {"id": "GO:0000002", "label": "function a"},
+                        },
                     ],
                     "cellular_components": [
-                        {"preferred_term": "Component A", "term": {"id": "GO:0000003", "label": "component a"}},
+                        {
+                            "preferred_term": "Component A",
+                            "term": {"id": "GO:0000003", "label": "component a"},
+                        },
                     ],
                     "chemical_entities": [
-                        {"preferred_term": "Chemical A", "term": {"id": "CHEBI:00001", "label": "chemical a"}},
+                        {
+                            "preferred_term": "Chemical A",
+                            "term": {"id": "CHEBI:00001", "label": "chemical a"},
+                        },
                     ],
                     "pathways": [
-                        {"preferred_term": "Pathway A", "term": {"id": "GO:0000004", "label": "pathway a"}},
+                        {
+                            "preferred_term": "Pathway A",
+                            "term": {"id": "GO:0000004", "label": "pathway a"},
+                        },
                     ],
                     "protein_complexes": [
-                        {"preferred_term": "Complex A", "term": {"id": "GO:0000005", "label": "complex a"}},
+                        {
+                            "preferred_term": "Complex A",
+                            "term": {"id": "GO:0000005", "label": "complex a"},
+                        },
                     ],
                 },
             ],
@@ -1306,11 +1389,17 @@ class TestExtractNodes:
                     "treatment_term": {
                         "term": {"id": "NCIT:C25218", "label": "treatment a"},
                         "therapeutic_agent": [
-                            {"preferred_term": "Drug A", "term": {"id": "NCIT:C00001", "label": "drug a"}},
+                            {
+                                "preferred_term": "Drug A",
+                                "term": {"id": "NCIT:C00001", "label": "drug a"},
+                            },
                         ],
                     },
                     "target_phenotypes": [
-                        {"preferred_term": "Target Phenotype A", "term": {"id": "HP:0000003", "label": "target phenotype a"}},
+                        {
+                            "preferred_term": "Target Phenotype A",
+                            "term": {"id": "HP:0000003", "label": "target phenotype a"},
+                        },
                     ],
                 },
             ],
@@ -1340,7 +1429,10 @@ class TestExtractNodes:
                 {
                     "name": "Agent A",
                     "infectious_agent_term": {
-                        "term": {"id": "NCBITaxon:813", "label": "Chlamydia trachomatis"},
+                        "term": {
+                            "id": "NCBITaxon:813",
+                            "label": "Chlamydia trachomatis",
+                        },
                     },
                 },
             ],
@@ -1542,8 +1634,12 @@ class TestDifferentialAndDiagnosisEdges:
             "MONDO:0018484",
             {
                 "name": "Meniere Disease",
-                "disease_term": {"term": {"id": "MONDO:0007972", "label": "Meniere disease"}},
-                "evidence": [{"reference": "PMID:1", "supports": "SUPPORT", "snippet": "s"}],
+                "disease_term": {
+                    "term": {"id": "MONDO:0007972", "label": "Meniere disease"}
+                },
+                "evidence": [
+                    {"reference": "PMID:1", "supports": "SUPPORT", "snippet": "s"}
+                ],
             },
         )
         assert edge.predicate == "biolink:similar_to"
@@ -1556,7 +1652,9 @@ class TestDifferentialAndDiagnosisEdges:
 
         assert differential_diagnosis_to_edge("MONDO:1", {"name": "Free text"}) is None
         assert (
-            differential_diagnosis_to_edge("MONDO:1", {"disease_term": {"term": {"id": "MONDO:1"}}})
+            differential_diagnosis_to_edge(
+                "MONDO:1", {"disease_term": {"term": {"id": "MONDO:1"}}}
+            )
             is None
         )
 
@@ -1565,7 +1663,12 @@ class TestDifferentialAndDiagnosisEdges:
 
         edge = diagnosis_to_edge(
             "MONDO:0018484",
-            {"name": "CT", "diagnosis_term": {"term": {"id": "NCIT:C17204", "label": "Computed Tomography"}}},
+            {
+                "name": "CT",
+                "diagnosis_term": {
+                    "term": {"id": "NCIT:C17204", "label": "Computed Tomography"}
+                },
+            },
         )
         assert edge.predicate == "biolink:is_diagnosed_by"
         assert edge.object == "NCIT:C17204"
@@ -1582,7 +1685,11 @@ class TestDatasetAndTrialEdges:
         edge = dataset_to_edge(
             "MONDO:1", {"accession": "geo:GSE1", "title": "T", "publication": "PMID:9"}
         )
-        assert (edge.subject, edge.predicate, edge.object) == ("geo:GSE1", "biolink:mentions", "MONDO:1")
+        assert (edge.subject, edge.predicate, edge.object) == (
+            "geo:GSE1",
+            "biolink:mentions",
+            "MONDO:1",
+        )
         assert edge.subject_category == "biolink:Dataset"
         assert edge.publications == ["PMID:9"]
 
@@ -1622,7 +1729,10 @@ class TestDatasetAndTrialEdges:
             ({"name": "NCT05813288 — extension"}, "clinicaltrials:NCT05813288"),
             ({"name": "clinicaltrials:NCT05813288"}, "clinicaltrials:NCT05813288"),
             (
-                {"name": "EMERALD", "evidence": [{"reference": "clinicaltrials:NCT01234567"}]},
+                {
+                    "name": "EMERALD",
+                    "evidence": [{"reference": "clinicaltrials:NCT01234567"}],
+                },
                 "clinicaltrials:NCT01234567",
             ),
             (
@@ -1635,7 +1745,13 @@ class TestDatasetAndTrialEdges:
                 },
                 "ICTRP:ISRCTN92192408",
             ),
-            ({"name": "TURING trial", "evidence": [{"reference": "ICTRP:KCT0004756"}]}, "ICTRP:KCT0004756"),
+            (
+                {
+                    "name": "TURING trial",
+                    "evidence": [{"reference": "ICTRP:KCT0004756"}],
+                },
+                "ICTRP:KCT0004756",
+            ),
             # No identifier is ever derived from free text.
             ({"name": "DRKS00003136", "evidence": [{"reference": "PMID:1"}]}, None),
             ({"name": "TURING trial"}, None),
@@ -1653,7 +1769,10 @@ class TestDatasetAndTrialEdges:
             "clinical_trials": [
                 {
                     "name": "NCT05813288",
-                    "target_phenotypes": [{"term": {"id": "HP:0030828", "label": "Wheezing"}}, {"preferred_term": "unbound"}],
+                    "target_phenotypes": [
+                        {"term": {"id": "HP:0030828", "label": "Wheezing"}},
+                        {"preferred_term": "unbound"},
+                    ],
                 },
                 {"name": "acronym only"},
             ],
@@ -1685,9 +1804,15 @@ class TestPathophysiologyLayer:
             {
                 "name": "Vertigo",
                 "phenotype_term": {"term": {"id": "HP:0002321"}},
-                "sequelae": [{"target": "Disequilibrium"}, {"target": "Nothing by this name"}],
+                "sequelae": [
+                    {"target": "Disequilibrium"},
+                    {"target": "Nothing by this name"},
+                ],
             },
-            {"name": "Disequilibrium", "phenotype_term": {"term": {"id": "HP:0002141"}}},
+            {
+                "name": "Disequilibrium",
+                "phenotype_term": {"term": {"id": "HP:0002141"}},
+            },
             {"name": "Unbound phenotype"},
         ],
         "pathophysiology": [
@@ -1707,8 +1832,16 @@ class TestPathophysiologyLayer:
 
     def test_nodes_hang_off_the_disease(self):
         edges = self._edges()
-        assert ("MONDO:0000001", "biolink:disease_has_basis_in", "dismech:Test_Disorder#Bony_Dehiscence") in edges
-        assert ("MONDO:0000001", "biolink:disease_has_basis_in", "dismech:Test_Disorder#Third_Window_Effect") in edges
+        assert (
+            "MONDO:0000001",
+            "biolink:disease_has_basis_in",
+            "dismech:Test_Disorder#Bony_Dehiscence",
+        ) in edges
+        assert (
+            "MONDO:0000001",
+            "biolink:disease_has_basis_in",
+            "dismech:Test_Disorder#Third_Window_Effect",
+        ) in edges
 
     def test_downstream_resolves_to_nodes_and_phenotype_terms(self):
         edges = self._edges()
@@ -1717,7 +1850,11 @@ class TestPathophysiologyLayer:
             "biolink:causes",
             "dismech:Test_Disorder#Third_Window_Effect",
         ) in edges
-        assert ("dismech:Test_Disorder#Third_Window_Effect", "biolink:causes", "HP:0002321") in edges
+        assert (
+            "dismech:Test_Disorder#Third_Window_Effect",
+            "biolink:causes",
+            "HP:0002321",
+        ) in edges
 
     def test_sequelae_carry_disease_context(self):
         sequelae = [e for e in transform(self.RECORD) if e.subject == "HP:0002321"]
@@ -1731,8 +1868,10 @@ class TestPathophysiologyLayer:
 
     def test_causal_link_type_is_a_qualifier(self):
         edge = next(
-            e for e in transform(self.RECORD)
-            if e.object == "dismech:Test_Disorder#Third_Window_Effect" and e.predicate == "biolink:causes"
+            e
+            for e in transform(self.RECORD)
+            if e.object == "dismech:Test_Disorder#Third_Window_Effect"
+            and e.predicate == "biolink:causes"
         )
         assert edge.qualifiers == ["dismech:CausalLinkTypeEnum#DIRECT"]
 
@@ -1744,15 +1883,21 @@ class TestPathophysiologyLayer:
             return [
                 e.id
                 for e in transform(self.RECORD)
-                if e.predicate == "biolink:disease_has_basis_in" or e.subject.startswith("dismech:")
+                if e.predicate == "biolink:disease_has_basis_in"
+                or e.subject.startswith("dismech:")
             ]
 
         assert mechanism_ids() == mechanism_ids()
-        assert pathophysiology_statement_id("Test Disorder", "Bony Dehiscence") in mechanism_ids()
+        assert (
+            pathophysiology_statement_id("Test Disorder", "Bony Dehiscence")
+            in mechanism_ids()
+        )
 
     def test_pathophysiology_nodes_are_pathological_processes(self):
         categories = {n.id: n.category for n in extract_nodes(self.RECORD)}
-        assert categories["dismech:Test_Disorder#Bony_Dehiscence"] == ["biolink:PathologicalProcess"]
+        assert categories["dismech:Test_Disorder#Bony_Dehiscence"] == [
+            "biolink:PathologicalProcess"
+        ]
 
     def test_sepio_sidecar_does_not_double_emit(self):
         """statements_for_edges leaves the mechanism layer to pathophysiology_statements."""
@@ -1763,7 +1908,11 @@ class TestPathophysiologyLayer:
             "name": "Test Disorder",
             "disease_term": {"term": {"id": "MONDO:0000001"}},
             "pathophysiology": [
-                {"name": "A", "evidence": evidence, "downstream": [{"target": "B", "evidence": evidence}]},
+                {
+                    "name": "A",
+                    "evidence": evidence,
+                    "downstream": [{"target": "B", "evidence": evidence}],
+                },
                 {"name": "B"},
             ],
         }
@@ -1778,13 +1927,21 @@ def test_semicircular_canal_dehiscence_reproductions():
     """The reproduction every one of #2100, #2101 and #2103 was filed against."""
     from dismech.yaml_io import safe_load_path
 
-    path = Path(__file__).resolve().parents[1] / "kb/disorders/Semicircular_Canal_Dehiscence_Syndrome.yaml"
+    path = (
+        Path(__file__).resolve().parents[1]
+        / "kb/disorders/Semicircular_Canal_Dehiscence_Syndrome.yaml"
+    )
     record = safe_load_path(path)
     edges = {(e.subject, e.predicate, e.object) for e in transform(record)}
     scds = "MONDO:0018484"
     node = "dismech:Semicircular_Canal_Dehiscence_Syndrome#{}".format
 
-    for differential in ("MONDO:0007972", "MONDO:0006530", "MONDO:0005349", "MONDO:8000018"):
+    for differential in (
+        "MONDO:0007972",
+        "MONDO:0006530",
+        "MONDO:0005349",
+        "MONDO:8000018",
+    ):
         assert (scds, "biolink:similar_to", differential) in edges
     for procedure in ("NCIT:C17204", "NCIT:C38036"):
         assert (scds, "biolink:is_diagnosed_by", procedure) in edges
@@ -1793,6 +1950,18 @@ def test_semicircular_canal_dehiscence_reproductions():
     # publication other edges cite).
     for dataset in ("PMID:16222184", "PMID:36742050"):
         assert (dataset, "biolink:mentions", scds) not in edges
-    assert (node("Developmental_Otic_Capsule_Bone_Deficiency"), "biolink:causes", node("Bony_Dehiscence_of_Semicircular_Canal")) in edges
-    assert (node("Bony_Dehiscence_of_Semicircular_Canal"), "biolink:causes", node("Third_Window_Effect")) in edges
-    assert ("HP:0002321", "biolink:causes", "HP:0002141") in edges  # Vertigo -> Chronic Disequilibrium
+    assert (
+        node("Developmental_Otic_Capsule_Bone_Deficiency"),
+        "biolink:causes",
+        node("Bony_Dehiscence_of_Semicircular_Canal"),
+    ) in edges
+    assert (
+        node("Bony_Dehiscence_of_Semicircular_Canal"),
+        "biolink:causes",
+        node("Third_Window_Effect"),
+    ) in edges
+    assert (
+        "HP:0002321",
+        "biolink:causes",
+        "HP:0002141",
+    ) in edges  # Vertigo -> Chronic Disequilibrium

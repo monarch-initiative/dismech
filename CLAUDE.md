@@ -2756,7 +2756,10 @@ copy that tier into `gene_disease_validity` as well; the two slots then say the
 same thing from two sources, and `just check-gene-validity` can see the second.
 Never write a `has_subtypes` row for such a locus: a subtype row asserts the
 subtype exists, and a `REFUTE` evidence item hanging off it does not undo
-that. `Hereditary_Spastic_Paraplegia` (ZFYVE27, `DISPUTED`, with the
+that. Neither grade reaches the knowledge graph: the KGX exporter emits no
+gene-to-disease edge for a `DISPUTED` or `REFUTED` row, since a
+`contributes_to` edge citing the refutation would assert the opposite of
+what the row says. `Hereditary_Spastic_Paraplegia` (ZFYVE27, `DISPUTED`, with the
 ClinGen Disputed record quoted) is the worked example for the open case.
 
 ```bash
