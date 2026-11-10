@@ -31,14 +31,28 @@ The remedy for a finding is a forced re-fetch, never a hand edit:
 
     just fetch-reference --force <ID>
 
-Some welds a re-fetch cannot fix. The upstream fixer works on the abstract
-text Crossref and PubMed return; text extracted from a full-text PDF or a web
-page keeps whatever spacing the extraction gave it, and a few of its "welds"
-are not headings at all (the journal title ``Methods Enzymol`` printed as
-``MethodsEnzymol`` in a reference list). Those files are grandfathered in
-``tests/welded_headings_baseline.txt``, keyed on the file and the number of
-welds it holds, so a new weld in a listed file still fails. The baseline only
-shrinks: ``--update-baseline`` drops entries that are fixed and never adds one.
+When this check landed, 308 files could not be regenerated safely, and they
+are grandfathered in ``tests/welded_headings_baseline.txt``. For most of them
+the re-fetch did separate the headings, but it changed something else, so it
+was discarded and the old file kept:
+
+- the re-fetch switched the file between full text and abstract-only, in
+  either direction (268 files). A later re-fetch that keeps the same
+  ``content_type`` will clear these;
+- PubMed returned different abstract text, sometimes much shorter (24 files);
+- the Crossref title came back with newlines and indentation around inline
+  markup (9 files; linkml/linkml-reference-validator#166).
+
+The rest are welds a re-fetch does not touch: text extracted from a full-text
+PDF or web page keeps whatever spacing the extraction gave it, and a few of
+those matches are not headings at all (the journal title ``Methods Enzymol``
+printed as ``MethodsEnzymol`` in a reference list).
+
+The baseline is keyed on the file and the number of welds it holds, so a new
+weld in a listed file still fails. It only shrinks: ``--update-baseline``
+drops entries that are fixed and never adds one. Before re-fetching a listed
+file, check that the new file keeps its ``content_type`` and its text, since
+those are the changes that kept it out of the first regeneration.
 
 Usage
 -----
@@ -58,10 +72,14 @@ BASELINE = ROOT / "tests" / "welded_headings_baseline.txt"
 BASELINE_HEADER = """\
 # Grandfathered welded abstract headings in references_cache/ (see
 # scripts/check_reference_cache_welded_headings.py, #16621). Each line is
-# `path<TAB>count`: the file and how many welds it held when listed. These are
-# welds a forced re-fetch does not separate (full-text PDF or web-page text),
-# or matches that are not headings. A file with more welds than listed fails.
-# Remove entries as they are fixed; do not add new ones.
+# `path<TAB>count`: the file and how many welds it held when listed. Most were
+# held back because a forced re-fetch, while separating the headings, also
+# switched the file between full text and abstract-only, changed its PubMed
+# text, or wrote a title with newlines (linkml/linkml-reference-validator#166).
+# The rest are welds in full-text or reference-list text that a re-fetch does
+# not touch, or matches that are not headings. Re-fetching is the fix where the
+# new file keeps its content_type and text. A file with more welds than listed
+# fails. Remove entries as they are fixed; do not add new ones.
 # Shrink with: just check-reference-cache-welded-headings --update-baseline
 """
 

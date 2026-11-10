@@ -3,6 +3,8 @@
 See scripts/check_reference_cache_welded_headings.py for why a weld such as
 ``AbstractCastleman`` makes an accurate quote fail whole-word matching.
 """
+import pytest
+
 from scripts.check_reference_cache_welded_headings import (
     CACHE_DIR,
     load_baseline,
@@ -20,16 +22,21 @@ def _write(tmp_path, name, body):
     return path
 
 
-def test_no_new_welded_headings_in_reference_cache():
-    found = new_findings(welded_headings(), load_baseline())
+@pytest.fixture(scope="module")
+def cache_welds():
+    """One scan of references_cache/ (~77k files) shared by the corpus tests."""
+    return welded_headings()
+
+
+def test_no_new_welded_headings_in_reference_cache(cache_welds):
+    found = new_findings(cache_welds, load_baseline())
     assert not found, "\n".join(
         f"{path.relative_to(CACHE_DIR.parent)}: {welds[:3]}" for path, welds in found.items()
     )
 
 
-def test_baseline_lists_only_files_that_still_have_welds():
-    found = welded_headings()
-    assert shrunk_baseline(found, load_baseline()) == load_baseline(), (
+def test_baseline_lists_only_files_that_still_have_welds(cache_welds):
+    assert shrunk_baseline(cache_welds, load_baseline()) == load_baseline(), (
         "baseline lists fixed files or overstated counts; run "
         "`just check-reference-cache-welded-headings --update-baseline`"
     )
