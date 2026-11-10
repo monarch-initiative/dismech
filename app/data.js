@@ -74952,8 +74952,12 @@ window.searchData = [
       "Embryonal Tumour with Neuroblastic Differentiation",
       "Supratentorial Hemispheric Mass"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "LHX6+/DLX+ medial ganglionic eminence derived interneuron lineage"
+    ],
+    "cell_type_ids": [
+      "CL:4023063"
+    ],
     "biological_processes": [],
     "phenotypes": [
       "Central Nervous System Neoplasm",
@@ -294660,7 +294664,11 @@ window.searchData = [
       "TERT Rearrangement",
       "ATRX Mutation",
       "PHOX2B",
-      "TP53"
+      "TP53",
+      "BARD1",
+      "CDKN1C",
+      "EZH2",
+      "HRAS"
     ],
     "treatments": [
       "Risk-Adapted Chemotherapy",
@@ -294688,9 +294696,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Neuroblastoma.html",
     "num_phenotypes": 16,
     "num_pathophysiology": 38,
-    "num_genes": 11,
+    "num_genes": 15,
     "num_treatments": 13,
-    "causal_graph_edges": "66",
+    "causal_graph_edges": "67",
     "causal_graph_longest_path": "7"
   },
   {
@@ -433188,8 +433196,8 @@ window.searchMetrics = {
   "total_disorder_pages": 4020,
   "total_subtypes": 5048,
   "total_disorders_and_subtypes": 9068,
-  "total_unique_evidence_sources": 59568,
-  "total_unique_publications": 55712,
+  "total_unique_evidence_sources": 59572,
+  "total_unique_publications": 55716,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4018,
