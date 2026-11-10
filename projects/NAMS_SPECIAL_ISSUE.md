@@ -8,6 +8,8 @@ description: >-
 tags: [NAM, FRAMEWORK_ALIGNMENT, ENVIRONMENTAL_EXPOSURE, EXTERNAL_COLLABORATION]
 modules:
   - epilepsy_excitation_inhibition_imbalance
+diseases:
+  - Fetal_Valproate_Syndrome
 ---
 
 # Toxicology NAMs Special Issue: Screening Log
@@ -35,7 +37,9 @@ registry.
 
 That question is live for papers kept by the screen too, not only for the five
 rejected ones: a kept paper can still turn out to support a registry entry and no
-dismech link. The first such decision is recorded below.
+dismech link. Both decisions recorded below went that way, for different reasons —
+one because the endpoint asserts no mechanism, the other because the mechanism it
+does assert has no disease entry to attach to.
 
 ## Screened in
 
@@ -162,6 +166,125 @@ The NFA's own gap — developmental neurotoxicity as an outcome, which dismech h
 no module for — is tracked separately as
 [#16880](https://github.com/monarch-initiative/dismech/issues/16880).
 
+### PMID:38029956 — the ReproTracker assay and its PBPK bridge go to the registry only
+
+Moreau et al. 2023, *Toxicology* 500:153684 ([#16871](https://github.com/monarch-initiative/dismech/issues/16871)).
+A commercial human iPSC biomarker assay for teratogenic potential (ReproTracker,
+Toxys), coupled to a pregnancy PBPK model that converts the assay's in vitro
+effect concentrations into human equivalent doses, run on two known human
+teratogens.
+
+| | ReproTracker hiPSC biomarker assay | Pregnancy PBPK model plus IVIVE |
+|---|---|---|
+| Measures | biomarker expression during directed differentiation | plasma and uterus concentration for an oral dose |
+| Output | a teratogen / non-teratogen classification | a human equivalent dose for an in vitro effect concentration |
+| Scope | "The ReproTracker assay focuses on the gastrulation phase." | five-week pregnancy, uterus compartment, no placenta or fetus |
+
+The assay runs three directed differentiations from one hiPSC line — "The assay is
+based on the differentiation of hiPSCs into functional cardiomyocytes, hepatocytes,
+and neural rosettes." — and reads a germ-layer and a cell-specific biomarker in each:
+
+| Differentiation | Germ-layer marker | Cell-specific marker |
+|---|---|---|
+| Cardiomyocyte | BMP4 (mesoderm) | MYH6 |
+| Hepatocyte | FOXA2 (endoderm) | AFP |
+| Neural rosette | PAX6 (neural ectoderm) | Nestin |
+
+OCT4 is carried as a pluripotency control. Classification is by loss of signal:
+"compound classification was primarily based on a significant reduction in the
+selected biomarker expression following exposure to the test substances", and a
+concentration-dependent drop below threshold across at least two consecutive
+non-cytotoxic concentrations "indicated disruption of the developmental program and, therefore,
+the compound was classified as a teratogen". Morphology and cardiomyocyte
+contraction are secondary: "a compound affecting only morphology/functionality of
+the differentiated cells without having any effect on the selected biomarker genes,
+was a non-developmental toxicant in ReproTracker".
+
+Both compounds were called teratogenic, by different profiles:
+
+| | Thalidomide | Carbamazepine |
+|---|---|---|
+| Cardiomyocyte | MYH6 down "in a dose-dependent manner starting at 0.4 μM"; contraction abolished at 2 μM | beating stopped from 15.6 μM; MYH6 down |
+| Hepatocyte | AFP and morphology disrupted "starting at 2 μM" | morphology at 31.2 μM; FOXA2 and AFP down |
+| Neural rosette | spared — "no effect on the morphology of neural rosettes, nor on expression pattern of the neural rosette-specific biomarker gene, NESTIN"; PAX6 *increased* | morphology at 15.6 μM; PAX6 down |
+
+**Both methods belong in the registry. Neither is being added to a dismech entry.**
+The reason is not the one that applies to the MEA assays above, and the difference
+is worth keeping.
+
+The paper names no mechanism at all. In the cached full text the words "mechanism"
+and "pathway" do not occur, and there is no cereblon, ubiquitin-ligase, SALL4,
+anti-angiogenesis, histone-deacetylase or folate claim anywhere in it. The
+cereblon-substrate-degradation anchor that
+[#16871](https://github.com/monarch-initiative/dismech/issues/16871) floated from
+the abstract has no
+support in this paper; thalidomide's mechanism would have to come from other
+literature.
+
+But the readout is **not** mechanism-agnostic in the way an activity screen is. It
+is lineage-resolved, directional and compound-specific, and thalidomide's profile
+is selective in a way that would be informative if it had anywhere to attach:
+cardiac and hepatic differentiation impaired, neural rosettes spared, and PAX6
+moving *up* rather than down. That is the shape of a cellular-scale mechanism
+claim, not an apical label.
+
+The obstacle is at the anchor end instead. Neither test compound has a disease
+entry whose pathograph could host the node:
+
+- There is no thalidomide embryopathy entry.
+- Fetal carbamazepine syndrome is in the knowledge base only as a term-bound
+  `differential_diagnoses` row inside Fetal_Valproate_Syndrome.
+
+A `modeled_mechanisms` target is a bare name resolved inside the entry that
+declares it, so there is nothing for either method to point at. Pointing the
+carbamazepine arm at Fetal_Valproate_Syndrome's `Altered Neural Progenitor
+Proliferation and Differentiation` would assert a valproate mechanism from
+carbamazepine data, which is the named-entity confusion the evidence rules forbid.
+That entry gap is [#16910](https://github.com/monarch-initiative/dismech/issues/16910).
+
+Two registry records are proposed, the assay and the dosimetry bridge separately,
+because they have different outputs and either could be reused without the other:
+
+| Proposed record id | Method | NAMO class |
+|---|---|---|
+| `multilineage-differentiation-two-d-culture-induced-pluripotent-stem-cell` | ReproTracker | `TwoDCellCulture` |
+| `pregnancy-thalidomide-carbamazepine-pbpk` | PBPK plus IVIVE | `PBPKModel` |
+
+Both are human (`NCBITaxon:9606`), which for thalidomide is the whole point:
+"Thalidomide is a strong human teratogenic agent where its developmental toxicity
+cannot be detected in mouse models or in murine-based in vitro assays."
+
+**Unlike the MEA records above, this typing has not been validated against the
+registry's schema** — no registry pull request has been opened for it, and the
+class names here were read off NAMO and `nam_records.yaml` rather than checked by a
+LinkML run. Treat the table as a proposal.
+
+Three things would need deciding in the registry, and none of them is a question
+for this screen:
+
+- **One record or three.** NAMO's `model` slot asks an id to name "the organ, the
+  format if it is not an organoid, and the cell source", which assumes one organ
+  per record. ReproTracker spans cardiac, hepatic and neural lineages. One record
+  matches how the assay is sold and how it classifies — a compound is a teratogen
+  if *any* lineage drops, so the three protocols are coupled by the decision rule —
+  while three records would match the id convention and let the lineage-specific
+  results above be recorded against the lineage they belong to.
+- **`source_resources`.** The same blocker the MEA draft hit, for the same reason:
+  the NAM was found in a primary research paper. Toxys is the vendor and would be
+  the plausible resource, with ReproTracker as its product.
+- **Whether a PBPK model is a NAM record here at all.** NAMO does type it —
+  `PBPKModel` sits under `InSilicoModel` under `NAMModel`, with compartment and
+  drug-property slots — so in the registry the bridge has a home. This does not
+  settle [#16887](https://github.com/monarch-initiative/dismech/issues/16887),
+  which asks where the bridge belongs in **dismech**: a model of the
+  exposure-to-concentration relationship still has no mechanism node to attach to,
+  and the dismech answer for this paper is the same whether or not the registry
+  takes the model.
+
+`references_cache/PMID_38029956.md` is committed and is cited only from this page,
+not from any `kb/` entry. It is kept deliberately, so the quoted sentences above
+stay checkable — do not read its absence from `kb/` as uncited and prune it.
+
 ## Gaps and questions the screen raised
 
 Mined out of the batch and filed separately, so they are not lost inside a
@@ -176,6 +299,7 @@ per-paper issue:
 | Node gap | Drug-induced phospholipidosis as distinct from steatosis | [#16881](https://github.com/monarch-initiative/dismech/issues/16881) |
 | Scope | A NAM can belong in the registry with no dismech home | [#16882](https://github.com/monarch-initiative/dismech/issues/16882) |
 | Convention | When is a molecular simulation a model of a mechanism? | [#16883](https://github.com/monarch-initiative/dismech/issues/16883) |
+| Convention | Where a PBPK or IVIVE dosimetry bridge belongs | [#16887](https://github.com/monarch-initiative/dismech/issues/16887) |
 | Schema gap | Toxicant susceptibility varying by host genotype | [#16884](https://github.com/monarch-initiative/dismech/issues/16884) |
 | Schema gap | Synergy between two exposures | [#16885](https://github.com/monarch-initiative/dismech/issues/16885) |
 | Schema gap | Reversibility of a toxic injury | [#16886](https://github.com/monarch-initiative/dismech/issues/16886) |
