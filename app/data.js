@@ -93965,28 +93965,28 @@ window.searchData = [
     "creation_date": "2026-07-31T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Charcot-Marie-Tooth disease X-linked recessive 4 (CMTX4), also known as Cowchock syndrome, is a rare, slowly progressive X-linked recessive axonal peripheral sensorimotor neuropathy caused by mutations in AIFM1, the gene encoding apoptosis-inducing factor mitochondrion-associated 1 (AIF). The originally described phenotype comprises the triad of axonal motor and sensory neuropathy, sensorineural deafness, and cognitive impairment, with onset from the neonatal period to early childhood. Distal muscle weakness and atrophy predominate in the peroneal (lower-limb) compartment, with pes cavus, areflexia, and a length-dependent stocking-glove sensory deficit. AIFM1 is a mitochondrial FAD-dependent NADH oxidoreductase imported into the intermembrane space, where it supports assembly of the oxidative phosphorylation (OXPHOS) complexes; it also has a distinct pro-apoptotic function when cleaved and released to the nucleus. Because AIFM1 is X-linked, affected individuals are hemizygous males and obligate female carriers are typically asymptomatic. The broader AIFM1 allelic spectrum ranges from this predominantly peripheral-nerve phenotype to severe infantile mitochondrial encephalomyopathy and a cerebellar-ataxia-predominant form (CMTX4 \"with cerebellar ataxia\").\n",
+    "description": "Charcot-Marie-Tooth disease X-linked recessive 4 (CMTX4), or Cowchock syndrome, is an AIFM1-related axonal peripheral neuropathy with variable sensorineural hearing loss and cognitive, cerebellar or pyramidal involvement. The original family had early-onset distal weakness, muscle wasting, sensory loss, areflexia and foot deformities; other families have isolated neuropathy or later onset. AIF is a mitochondrial FAD-dependent NADH oxidoreductase with roles in mitochondrial maintenance and caspase-independent cell death. Functional consequences differ by variant: p.Glu493Val alters redox kinetics and increases apoptotic susceptibility without measurable respiratory-chain deficiency in the tested fibroblasts and muscle, whereas p.Phe210Leu and p.Glu336Lys are associated with respiratory-complex assembly abnormalities in fibroblasts. Female carriers in the reported CMTX4 families were generally clinically unaffected. Infantile AIFM1 encephalomyopathy and isolated AIFM1 auditory neuropathy are related allelic disorders, not interchangeable with this neuropathy phenotype.",
     "pathophysiology": [
+      "AIFM1 Missense Variants",
       "Altered AIF Redox Function",
-      "Increased Caspase-Independent Neuronal Apoptosis",
+      "Reduced AIF Protein Stability",
+      "Reduced CHCHD4 Expression",
       "Impaired Mitochondrial OXPHOS Complex Assembly",
+      "Altered Caspase-Independent Apoptotic Susceptibility",
       "Mitochondrial Dysfunction in Peripheral Neurons",
       "Distal Axonal Degeneration"
     ],
     "cell_types": [
-      "Spiral ganglion (auditory) neuron",
-      "Sensory neuron",
-      "Motor neuron"
+      "Motor neuron",
+      "Sensory neuron"
     ],
     "cell_type_ids": [
-      "CL:0011113",
-      "CL:0000101",
-      "CL:0000100"
+      "CL:0000100",
+      "CL:0000101"
     ],
     "biological_processes": [
-      "Apoptotic process",
       "Mitochondrial respiratory chain complex I assembly",
-      "Protein import into mitochondrial intermembrane space"
+      "Apoptotic process"
     ],
     "phenotypes": [
       "Peripheral Axonal Neuropathy",
@@ -94001,7 +94001,8 @@ window.searchData = [
       "Cerebellar Ataxia",
       "Abnormal Pyramidal Sign",
       "Tremor",
-      "Color Vision Deficiency"
+      "Color Vision Deficiency",
+      "Cerebellar Atrophy"
     ],
     "phenotype_categories": [
       "Neurological",
@@ -94024,18 +94025,13 @@ window.searchData = [
       "HP:0001761",
       "HP:0001765",
       "HP:0001284",
-      "HP:0002073",
+      "HP:0001251",
       "HP:0007256",
       "HP:0001337",
-      "HP:0000551"
+      "HP:0000551",
+      "HP:0001272"
     ],
-    "frequencies": [
-      "OBLIGATE",
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL",
-      "VERY_RARE"
-    ],
+    "frequencies": [],
     "genes": [
       "AIFM1"
     ],
@@ -94046,18 +94042,20 @@ window.searchData = [
       "Cochlear Implantation",
       "Orthopedic Surgery for Foot Deformity",
       "Deep Brain Stimulation for AIFM1-Related Tremor",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "Riboflavin Supplementation",
+      "Avoid Neurotoxic Medication When Possible"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Charcot-Marie-Tooth_Disease_X-linked_Recessive_4.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_X-linked_Recessive_4.html",
-    "num_phenotypes": 13,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 14,
+    "num_pathophysiology": 8,
     "num_genes": 1,
-    "num_treatments": 7,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 9,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Charlevoix-Saguenay spastic ataxia",
@@ -132084,6 +132082,142 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Desbuquois Dysplasia 1",
+    "disease_id": "MONDO:0009629",
+    "category": "Mendelian",
+    "parents": [
+      "osteochondrodysplasia",
+      "dysplasia with multiple joint dislocations"
+    ],
+    "creation_date": "2026-11-09T19:45:19Z",
+    "updated_date": null,
+    "subtypes": [
+      "Kim variant",
+      "CANT1-related multiple epiphyseal dysplasia"
+    ],
+    "description": "Desbuquois dysplasia 1 (DBQD1) is an autosomal recessive osteochondrodysplasia of the multiple-dislocation group, caused by biallelic loss-of-function variants in CANT1, which encodes an ER/Golgi calcium-activated nucleotidase that hydrolyses UDP. Loss of this activity impairs glycosaminoglycan chain synthesis on cartilage proteoglycans, derailing the growth plate and producing severe prenatal-onset short stature with short limbs, generalized joint laxity with multiple dislocations, a \"monkey-wrench\" proximal femur, advanced carpal ossification, and characteristic hand anomalies.",
+    "pathophysiology": [
+      "CANT1 Loss-of-Function",
+      "Impaired Golgi UDP Hydrolysis",
+      "Impaired Glycosaminoglycan Chain Synthesis",
+      "Altered Proteoglycan Structure and Delayed Secretion",
+      "Growth Plate Chondrocyte Dysfunction and Loss of Zonal Organisation",
+      "Defective Endochondral Ossification",
+      "Tendon and Ligament Dermatan Sulfate Deficiency",
+      "Cardiac Valve and Aortic Wall Proteoglycan Defect"
+    ],
+    "cell_types": [
+      "chondrocyte",
+      "growth plate chondrocyte",
+      "hypertrophic chondrocyte",
+      "tendon cell",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:0000743",
+      "CL:0000388",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "glycosaminoglycan biosynthetic process",
+      "chondroitin sulfate proteoglycan biosynthetic process",
+      "proteoglycan biosynthetic process",
+      "protein secretion",
+      "growth plate cartilage development",
+      "chondrocyte differentiation",
+      "chondrocyte proliferation",
+      "endochondral ossification",
+      "collagen fibril organization"
+    ],
+    "phenotypes": [
+      "Short stature",
+      "Short long bones",
+      "Micromelia",
+      "Monkey-wrench proximal femur",
+      "Accelerated carpal and tarsal ossification",
+      "Delta phalanx of the thumb",
+      "Short metacarpals",
+      "Generalized joint laxity",
+      "Multiple joint dislocations",
+      "Progressive scoliosis",
+      "Round face",
+      "Pulmonary hypoplasia",
+      "Respiratory insufficiency",
+      "Hydrops fetalis",
+      "Mitral valve prolapse",
+      "Aortic root dilatation",
+      "Atrial septal defect",
+      "Developmental delay",
+      "Multiple epiphyseal dysplasia-like presentation"
+    ],
+    "phenotype_categories": [
+      "Growth",
+      "Skeletal",
+      "Musculoskeletal",
+      "Craniofacial",
+      "Respiratory",
+      "Prenatal",
+      "Cardiovascular",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0004322",
+      "HP:0003026",
+      "HP:0002983",
+      "HP:0033102",
+      "HP:0004233",
+      "HP:0009657",
+      "HP:0010049",
+      "HP:0001382",
+      "HP:0001373",
+      "HP:0002650",
+      "HP:0000311",
+      "HP:0002089",
+      "HP:0002093",
+      "HP:0001789",
+      "HP:0001634",
+      "HP:0002616",
+      "HP:0001631",
+      "HP:0001263",
+      "HP:0002654"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "CANT1"
+    ],
+    "treatments": [
+      "Orthopedic surgical management",
+      "Physical therapy and rehabilitation",
+      "Neonatal respiratory support",
+      "Cardiovascular surveillance",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Desbuquois_Dysplasia_1.yaml",
+    "page_url": "../pages/disorders/Desbuquois_Dysplasia_1.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Desmin-Related Myopathy",
@@ -433051,17 +433185,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4019,
-  "total_subtypes": 5046,
-  "total_disorders_and_subtypes": 9065,
-  "total_unique_evidence_sources": 59548,
-  "total_unique_publications": 55693,
+  "total_disorder_pages": 4020,
+  "total_subtypes": 5048,
+  "total_disorders_and_subtypes": 9068,
+  "total_unique_evidence_sources": 59568,
+  "total_unique_publications": 55712,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4017,
-  "total_unique_pathological_events": 26291,
+  "total_pathographs": 4018,
+  "total_unique_pathological_events": 26302,
   "total_modules": 228,
-  "total_research_reports": 4129,
+  "total_research_reports": 4130,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 131
