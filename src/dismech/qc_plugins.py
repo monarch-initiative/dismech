@@ -170,7 +170,7 @@ def gene_mechanism_wiring_coverage(
 
     Only *mechanism-relevant* genetic items are counted in the denominator:
     items whose relationship/association marks them as BIOMARKER, PROTECTIVE,
-    MODIFIER, DISPUTED, or UNKNOWN are intentionally not expected to explain a
+    MODIFIER, DISPUTED, REFUTED, or UNKNOWN are intentionally not expected to explain a
     mechanism (see :func:`dismech.graph._genetic_item_infers_mechanism_edges`),
     so they neither help nor hurt coverage. Variant-level nodes are excluded;
     this scores the gene-level assertion, the parallel of the phenotype
