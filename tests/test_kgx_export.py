@@ -340,6 +340,29 @@ class TestGeneToEdge:
         """Test with None gene."""
         assert gene_to_edge("MONDO:0004979", None) is None
 
+    def test_refuted_and_disputed_rows_emit_no_edge(self):
+        """A DISPUTED or REFUTED row records a claim the KB does not assert,
+        so no `contributes_to` edge may carry it into the graph (#16952)."""
+        for relationship in ("REFUTED", "DISPUTED"):
+            gene = {
+                "name": "GIGYF2",
+                "gene_term": {"term": {"id": "hgnc:11960", "label": "GIGYF2"}},
+                "relationship_type": relationship,
+                "evidence": [{"reference": "PMID:18923002", "supports": "SUPPORT"}],
+            }
+            assert gene_to_edge("MONDO:0005180", gene) is None, relationship
+
+    def test_other_relationship_types_still_emit_an_edge(self):
+        """The skip is only for the two unasserted grades."""
+        for relationship in ("CAUSATIVE", "RISK_FACTOR", "SUSCEPTIBILITY", "MODIFIER"):
+            gene = {
+                "name": "LRRK2",
+                "gene_term": {"term": {"id": "hgnc:18618", "label": "LRRK2"}},
+                "relationship_type": relationship,
+            }
+            edge = gene_to_edge("MONDO:0005180", gene)
+            assert edge is not None and edge.predicate == "biolink:contributes_to", relationship
+
 
 class TestModifierCurieMap:
     """The qualifier vocabulary is derived from the schema, not invented here."""
