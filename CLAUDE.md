@@ -4168,6 +4168,13 @@ Non-negotiable rules:
   on an HGNC identifier written beside the wrong gene (#9845).
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
+- Validation is read-only for committed caches. `just validate`,
+  `validate-kb-references` and `validate-disorders` may *create* a cache file
+  for a newly cited reference (commit it), but they never rewrite a tracked one:
+  the validator serves committed entries as-is (`trust_cached_entries`), and
+  `fix-references-cache` trims whitespace only on untracked files. A tracked
+  `references_cache/` file modified after a validation run is a bug to report
+  (#9963), not a change to commit.
 - A reference first cached as an abstract stays `abstract_only` on later plain
   fetches. To upgrade it, `just fetch-reference <ID> --force` (any `-`-prefixed
   argument is passed to the validator rather than read as an ID, #13185). Use it

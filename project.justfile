@@ -120,8 +120,11 @@ validate file:
 #    downloads PDFs nor writes `full_text_attempted` back into cached records.
 #    Cache normalization is a curator/CI step; an editor keystroke should not
 #    leave the curator's worktree dirty. Measured on kb/disorders/Asthma.yaml
-#    (193 snippets): `validate` takes ~8m25s and leaves 106 modified
-#    references_cache/ files behind; this takes ~22s and leaves none. Keep it
+#    (193 snippets) at the time: `validate` took ~8m25s and left 106 modified
+#    references_cache/ files behind; this took ~22s and left none. (`validate`
+#    no longer modifies tracked caches either -- `trust_cached_entries` in
+#    conf/reference_validator_config.yaml and #9963 -- but it still
+#    normalizes term caches and fetches newly cited references.) Keep it
 #    that way — a step added here must not modify tracked files. (Validating a
 #    newly cited reference still *creates* its cache record, which is wanted:
 #    that is a new untracked file the curator should commit, not churn.)
@@ -2310,6 +2313,9 @@ alias validate-references-all := validate-kb-references-all
 # With data-file arguments, only normalize caches cited by those files. Omit
 # arguments only for an explicit whole-cache maintenance pass (issues #7844,
 # #8203). The quoting predicate is intentionally a no-op on valid bare CURIEs.
+# Line-end whitespace is trimmed only on cache files git does not track yet
+# (fresh fetches); a committed record is never rewritten for whitespace, so the
+# validate recipes that run this first leave tracked caches alone (#9963).
 [group('QC')]
 fix-references-cache *files:
     #!/usr/bin/env bash
