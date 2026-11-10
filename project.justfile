@@ -1141,7 +1141,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-reference-cache-welded-headings check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1686,6 +1686,16 @@ check-case-collisions:
 [group('QC')]
 check-reference-cache-nul-bytes:
     uv run python scripts/check_reference_cache_nul_bytes.py
+
+# Ungated and whole-tree for the same reason as check-case-collisions. ~3s, offline.
+# Fails on a cache file whose abstract heading is welded onto the next word
+# ("AbstractCastleman"), which breaks whole-word quote matching; fix with
+# `just fetch-reference --force <ID>`. Pass --update-baseline to shrink the
+# grandfathered list, --strict to see every finding.
+# Guard against welded abstract headings in references_cache/ (#16621)
+[group('QC')]
+check-reference-cache-welded-headings *args:
+    uv run python scripts/check_reference_cache_welded_headings.py {{ args }}
 
 # Guard against KB values that are not permissible in their slot's enum (#10061).
 # The schema-narrowing twin of check-duplicate-keys: #10003 narrowed

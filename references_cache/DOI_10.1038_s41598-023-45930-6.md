@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41598-023-45930-6
+extractor_version: 1
 title: Genetic landscape and PD-L1 expression in Epstein–Barr virus-associated gastric cancer according to the histological pattern
 authors:
 - Ji Hyun Park
@@ -14,12 +15,14 @@ journal: Scientific Reports
 year: '2023'
 doi: 10.1038/s41598-023-45930-6
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41598-023-45930-6.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41598-023-45930-6.pdf
+full_text_access_type: open
 ---
 
 # Genetic landscape and PD-L1 expression in Epstein–Barr virus-associated gastric cancer according to the histological pattern
@@ -29,7 +32,9 @@ local_pdf_path: files/DOI_10.1038_s41598-023-45930-6.pdf
 
 ## Content
 
-AbstractEpstein–Barr virus (EBV)-associated gastric cancer (EBVaGC) is a distinct molecular subtype of gastric cancer. This study aims to investigate genomic and clinicopathological characteristics of EBVaGC according to the histological pattern. We retrospectively collected 18 specimens of surgically resected EBVaGCs. Whole-exome sequencing was performed for all cases. Moreover, PD-L1 expression and tumor-infiltrating lymphocyte (TIL) percentage were investigated. Among 18 EBVaGCs, 10 cases were of intestinal histology, 3 were of poorly cohesive histology, and the remaining 5 were of gastric carcinoma with lymphoid stroma histology. Whole-exome sequencing revealed that EBVaGCs with intestinal histology harbored pathogenic mutations known to frequently occur in tubular or papillary adenocarcinoma, including TP53, KRAS, FBXW7, MUC6, ERBB2, CTNNB1, and ERBB2 amplifications. One patient with poorly cohesive carcinoma histology harbored a CDH1 mutation. Patients with EBVaGCs with intestinal or poorly cohesive carcinoma histology frequently harbored driver mutations other than PIK3CA, whereas those with EBVaGCs with gastric carcinoma with lymphoid stroma histology lacked other driver mutations. Moreover, the histological pattern of EBVaGCs was significantly associated with the levels of TILs (P = 0.005) and combined positive score (P = 0.027). In conclusion, patients with EBVaGCs with different histological patterns exhibited distinct genetic alteration, PD-L1 expression, and degree of TILs.
+Abstract
+
+Epstein–Barr virus (EBV)-associated gastric cancer (EBVaGC) is a distinct molecular subtype of gastric cancer. This study aims to investigate genomic and clinicopathological characteristics of EBVaGC according to the histological pattern. We retrospectively collected 18 specimens of surgically resected EBVaGCs. Whole-exome sequencing was performed for all cases. Moreover, PD-L1 expression and tumor-infiltrating lymphocyte (TIL) percentage were investigated. Among 18 EBVaGCs, 10 cases were of intestinal histology, 3 were of poorly cohesive histology, and the remaining 5 were of gastric carcinoma with lymphoid stroma histology. Whole-exome sequencing revealed that EBVaGCs with intestinal histology harbored pathogenic mutations known to frequently occur in tubular or papillary adenocarcinoma, including TP53, KRAS, FBXW7, MUC6, ERBB2, CTNNB1, and ERBB2 amplifications. One patient with poorly cohesive carcinoma histology harbored a CDH1 mutation. Patients with EBVaGCs with intestinal or poorly cohesive carcinoma histology frequently harbored driver mutations other than PIK3CA, whereas those with EBVaGCs with gastric carcinoma with lymphoid stroma histology lacked other driver mutations. Moreover, the histological pattern of EBVaGCs was significantly associated with the levels of TILs (P = 0.005) and combined positive score (P = 0.027). In conclusion, patients with EBVaGCs with different histological patterns exhibited distinct genetic alteration, PD-L1 expression, and degree of TILs.
 
 1
 Vol.:(0123456789)Scientific Reports |        (2023) 13:19487  | https://doi.org/10.1038/s41598-023-45930-6

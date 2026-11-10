@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3389/fimmu.2024.1382728
+extractor_version: 1
 title: "Therapeutic efficacy and safety of JAK inhibitors in treating polymyositis/dermatomyositis: a single-arm systemic meta-analysis"
 authors:
 - Chenhang Ma
@@ -13,12 +14,14 @@ journal: Frontiers in Immunology
 year: '2024'
 doi: 10.3389/fimmu.2024.1382728
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.frontiersin.org/journals/immunology/articles/10.3389/fimmu.2024.1382728/pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.3389_fimmu.2024.1382728.pdf
+full_text_access_type: open
 ---
 
 # Therapeutic efficacy and safety of JAK inhibitors in treating polymyositis/dermatomyositis: a single-arm systemic meta-analysis
@@ -28,7 +31,25 @@ local_pdf_path: files/DOI_10.3389_fimmu.2024.1382728.pdf
 
 ## Content
 
-IntroductionWe performed a single-arm meta-analysis to evaluate the efficacy and safety of JAK inhibitors in the treatment of dermatomyositis (DM)/ polymyositis (PM).MethodsRelevant studies from four databases were systematically searched until April 25, 2023. The primary endpoint was Cutaneous Dermatomyositis Disease Area and Severity Index (CDASI) and other outcomes were Manual Muscle Testing (MMT) and Creatine Kinase (CK). According to the type of JAK and medication regimen, we conducted subgroup analyses. The registration number in PROSPERO was CRD42023416493.ResultsAccording to the selection criteria, we identified 7 publications with a total of 91 patients. Regarding skin lesions, the CDASI decreased by 17.67 (95% CI: -20.94 ~ -14.41). The CK increased by 8.64 U (95% CI: -28.25 ~ 45.53). About muscle lesions, MMT increased by 10.31 (95% CI: -2.83 ~ 23.46). Subgroup analysis revealed that different types of JAK inhibitors had various degrees of reduction. CDASI in patients treated with RUX had the lowest one [-20.00 (95% CI: -34.9 ~ -5.1)], followed by TOF [-18.29 (95% CI: -21.8 ~ -14.78)] and BAR [-11.2 (95% CI: -21.51 ~ -0.89)]. Additionally, the mean reduction in CDASI in patients treated with TOF alone was 16.16 (95% CI: -21.21 ~ -11.11), in combination with other immunosuppressants was 18.59 (95% CI: -22.74 ~ -14.45). For safety evaluation, one patient developed Orolabial HSV, and two patients developed thromboembolism events.DiscussionIn summary, this meta-analysis demonstrated that JAK inhibitors can potentially treat DM/PM without severe adverse reactions.Systematic review registrationhttps://www.crd.york.ac.uk/PROSPERO/display_record.php?ID=CRD42023416493, identifier CRD42023416493.
+Introduction
+
+We performed a single-arm meta-analysis to evaluate the efficacy and safety of JAK inhibitors in the treatment of dermatomyositis (DM)/ polymyositis (PM).
+
+Methods
+
+Relevant studies from four databases were systematically searched until April 25, 2023. The primary endpoint was Cutaneous Dermatomyositis Disease Area and Severity Index (CDASI) and other outcomes were Manual Muscle Testing (MMT) and Creatine Kinase (CK). According to the type of JAK and medication regimen, we conducted subgroup analyses. The registration number in PROSPERO was CRD42023416493.
+
+Results
+
+According to the selection criteria, we identified 7 publications with a total of 91 patients. Regarding skin lesions, the CDASI decreased by 17.67 (95% CI: -20.94 ~ -14.41). The CK increased by 8.64 U (95% CI: -28.25 ~ 45.53). About muscle lesions, MMT increased by 10.31 (95% CI: -2.83 ~ 23.46). Subgroup analysis revealed that different types of JAK inhibitors had various degrees of reduction. CDASI in patients treated with RUX had the lowest one [-20.00 (95% CI: -34.9 ~ -5.1)], followed by TOF [-18.29 (95% CI: -21.8 ~ -14.78)] and BAR [-11.2 (95% CI: -21.51 ~ -0.89)]. Additionally, the mean reduction in CDASI in patients treated with TOF alone was 16.16 (95% CI: -21.21 ~ -11.11), in combination with other immunosuppressants was 18.59 (95% CI: -22.74 ~ -14.45). For safety evaluation, one patient developed Orolabial HSV, and two patients developed thromboembolism events.
+
+Discussion
+
+In summary, this meta-analysis demonstrated that JAK inhibitors can potentially treat DM/PM without severe adverse reactions.
+
+Systematic review registration
+
+https://www.crd.york.ac.uk/PROSPERO/display_record.php?ID=CRD42023416493, identifier CRD42023416493.
 
 Therapeutic ef ﬁcacy and
 safety of JAK inhibitors in

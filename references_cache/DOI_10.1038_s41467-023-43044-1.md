@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41467-023-43044-1
+extractor_version: 1
 title: PAX3-FOXO1 dictates myogenic reprogramming and rhabdomyosarcoma identity in endothelial progenitors
 authors:
 - Madeline B. Searcy
@@ -27,12 +28,14 @@ journal: Nature Communications
 year: '2023'
 doi: 10.1038/s41467-023-43044-1
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41467-023-43044-1.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41467-023-43044-1.pdf
+full_text_access_type: open
 ---
 
 # PAX3-FOXO1 dictates myogenic reprogramming and rhabdomyosarcoma identity in endothelial progenitors
@@ -42,7 +45,9 @@ local_pdf_path: files/DOI_10.1038_s41467-023-43044-1.pdf
 
 ## Content
 
-AbstractFusion-positive rhabdomyosarcoma (FP-RMS) driven by the expression of the PAX3-FOXO1 (P3F) fusion oncoprotein is an aggressive subtype of pediatric rhabdomyosarcoma. FP-RMS histologically resembles developing muscle yet occurs throughout the body in areas devoid of skeletal muscle highlighting that FP-RMS is not derived from an exclusively myogenic cell of origin. Here we demonstrate that P3F reprograms mouse and human endothelial progenitors to FP-RMS. We show that P3F expression in aP2-Cre expressing cells reprograms endothelial progenitors to functional myogenic stem cells capable of regenerating injured muscle fibers. Further, we describe a FP-RMS mouse model driven by P3F expression and Cdkn2a loss in endothelial cells. Additionally, we show that P3F expression in TP53-null human iPSCs blocks endothelial-directed differentiation and guides cells to become myogenic cells that form FP-RMS tumors in immunocompromised mice. Together these findings demonstrate that FP-RMS can originate from aberrant development of non-myogenic cells driven by P3F.
+Abstract
+
+Fusion-positive rhabdomyosarcoma (FP-RMS) driven by the expression of the PAX3-FOXO1 (P3F) fusion oncoprotein is an aggressive subtype of pediatric rhabdomyosarcoma. FP-RMS histologically resembles developing muscle yet occurs throughout the body in areas devoid of skeletal muscle highlighting that FP-RMS is not derived from an exclusively myogenic cell of origin. Here we demonstrate that P3F reprograms mouse and human endothelial progenitors to FP-RMS. We show that P3F expression in aP2-Cre expressing cells reprograms endothelial progenitors to functional myogenic stem cells capable of regenerating injured muscle fibers. Further, we describe a FP-RMS mouse model driven by P3F expression and Cdkn2a loss in endothelial cells. Additionally, we show that P3F expression in TP53-null human iPSCs blocks endothelial-directed differentiation and guides cells to become myogenic cells that form FP-RMS tumors in immunocompromised mice. Together these findings demonstrate that FP-RMS can originate from aberrant development of non-myogenic cells driven by P3F.
 
 Article https://doi.org/10.1038/s41467-023-43044-1
 PAX3-FOXO1 dictates myogenic

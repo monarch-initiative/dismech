@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00592-024-02300-6
+extractor_version: 1
 title: "GLP1-GIP receptor co-agonists: a promising evolution in the treatment of type 2 diabetes"
 authors:
 - Stefano Ciardullo
@@ -18,12 +19,14 @@ journal: Acta Diabetologica
 year: '2024'
 doi: 10.1007/s00592-024-02300-6
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00592-024-02300-6.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s00592-024-02300-6.pdf
+full_text_access_type: open
 ---
 
 # GLP1-GIP receptor co-agonists: a promising evolution in the treatment of type 2 diabetes
@@ -33,7 +36,9 @@ local_pdf_path: files/DOI_10.1007_s00592-024-02300-6.pdf
 
 ## Content
 
-AbstractType 2 diabetes represents a growing challenge for global public health. Its prevalence is increasing worldwide, and, like obesity, it affects progressively younger populations compared to the past, with potentially greater impact on chronic complications. Dual glucagon like peptide 1 (GLP1) and glucose-dependent insulinotropic peptide (GIP) receptor agonists are among the new pharmacological strategies recently developed to address this challenge. Tirzepatide, characterized by its ability to selectively bind and activate receptors for the intestinal hormones GIP and GLP-1, has been tested in numerous clinical studies and is already currently authorized in several countries for the treatment of type 2 diabetes and obesity. In this context, the aim of the present document is to summarize, in the form of a narrative literature review, the currently available data on the main mechanisms of action of GIP/GLP-1 co-agonists and the clinical effects of tirzepatide evaluated in various clinical trials.
+Abstract
+
+Type 2 diabetes represents a growing challenge for global public health. Its prevalence is increasing worldwide, and, like obesity, it affects progressively younger populations compared to the past, with potentially greater impact on chronic complications. Dual glucagon like peptide 1 (GLP1) and glucose-dependent insulinotropic peptide (GIP) receptor agonists are among the new pharmacological strategies recently developed to address this challenge. Tirzepatide, characterized by its ability to selectively bind and activate receptors for the intestinal hormones GIP and GLP-1, has been tested in numerous clinical studies and is already currently authorized in several countries for the treatment of type 2 diabetes and obesity. In this context, the aim of the present document is to summarize, in the form of a narrative literature review, the currently available data on the main mechanisms of action of GIP/GLP-1 co-agonists and the clinical effects of tirzepatide evaluated in various clinical trials.
 
 Vol.:(0123456789)
 Acta Diabetologica (2024) 61:941–950 

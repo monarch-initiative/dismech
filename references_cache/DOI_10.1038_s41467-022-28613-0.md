@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41467-022-28613-0
+extractor_version: 1
 title: Kansl1 haploinsufficiency impairs autophagosome-lysosome fusion and links autophagic dysfunction with Koolen-de Vries syndrome in mice
 authors:
 - Ting Li
@@ -34,12 +35,14 @@ journal: Nature Communications
 year: '2022'
 doi: 10.1038/s41467-022-28613-0
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41467-022-28613-0.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41467-022-28613-0.pdf
+full_text_access_type: open
 ---
 
 # Kansl1 haploinsufficiency impairs autophagosome-lysosome fusion and links autophagic dysfunction with Koolen-de Vries syndrome in mice
@@ -49,7 +52,9 @@ local_pdf_path: files/DOI_10.1038_s41467-022-28613-0.pdf
 
 ## Content
 
-AbstractKoolen-de Vries syndrome (KdVS) is a rare disorder caused by haploinsufficiency of KAT8 regulatory NSL complex subunit 1 (KANSL1), which is characterized by intellectual disability, heart failure, hypotonia, and congenital malformations. To date, no effective treatment has been found for KdVS, largely due to its unknown pathogenesis. Using siRNA screening, we identified KANSL1 as an essential gene for autophagy. Mechanistic study shows that KANSL1 modulates autophagosome-lysosome fusion for cargo degradation via transcriptional regulation of autophagosomal gene, STX17. Kansl1+/− mice exhibit impairment in the autophagic clearance of damaged mitochondria and accumulation of reactive oxygen species, thereby resulting in defective neuronal and cardiac functions. Moreover, we discovered that the FDA-approved drug 13-cis retinoic acid can reverse these mitophagic defects and neurobehavioral abnormalities in Kansl1+/− mice by promoting autophagosome-lysosome fusion. Hence, these findings demonstrate a critical role for KANSL1 in autophagy and indicate a potentially viable therapeutic strategy for KdVS.
+Abstract
+
+Koolen-de Vries syndrome (KdVS) is a rare disorder caused by haploinsufficiency of KAT8 regulatory NSL complex subunit 1 (KANSL1), which is characterized by intellectual disability, heart failure, hypotonia, and congenital malformations. To date, no effective treatment has been found for KdVS, largely due to its unknown pathogenesis. Using siRNA screening, we identified KANSL1 as an essential gene for autophagy. Mechanistic study shows that KANSL1 modulates autophagosome-lysosome fusion for cargo degradation via transcriptional regulation of autophagosomal gene, STX17. Kansl1+/− mice exhibit impairment in the autophagic clearance of damaged mitochondria and accumulation of reactive oxygen species, thereby resulting in defective neuronal and cardiac functions. Moreover, we discovered that the FDA-approved drug 13-cis retinoic acid can reverse these mitophagic defects and neurobehavioral abnormalities in Kansl1+/− mice by promoting autophagosome-lysosome fusion. Hence, these findings demonstrate a critical role for KANSL1 in autophagy and indicate a potentially viable therapeutic strategy for KdVS.
 
 ARTICLE
 Kansl1 haploinsufﬁciency impairs autophagosome-

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41467-024-47322-4
+extractor_version: 1
 title: Structural basis for antiepileptic drugs and botulinum neurotoxin recognition of SV2A
 authors:
 - Atsushi Yamagata
@@ -12,12 +13,14 @@ journal: Nature Communications
 year: '2024'
 doi: 10.1038/s41467-024-47322-4
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41467-024-47322-4.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41467-024-47322-4.pdf
+full_text_access_type: open
 ---
 
 # Structural basis for antiepileptic drugs and botulinum neurotoxin recognition of SV2A
@@ -27,7 +30,9 @@ local_pdf_path: files/DOI_10.1038_s41467-024-47322-4.pdf
 
 ## Content
 
-AbstractMore than one percent of people have epilepsy worldwide. Levetiracetam (LEV) is a successful new-generation antiepileptic drug (AED), and its derivative, brivaracetam (BRV), shows improved efficacy. Synaptic vesicle glycoprotein 2a (SV2A), a putative membrane transporter in the synaptic vesicles (SVs), has been identified as a target of LEV and BRV. SV2A also serves as a receptor for botulinum neurotoxin (BoNT), which is the most toxic protein and has paradoxically emerged as a potent reagent for therapeutic and cosmetic applications. Nevertheless, no structural analysis on AEDs and BoNT recognition by full-length SV2A has been available. Here we describe the cryo-electron microscopy structures of the full-length SV2A in complex with the BoNT receptor-binding domain, BoNT/A2 HC, and either LEV or BRV. The large fourth luminal domain of SV2A binds to BoNT/A2 HC through protein-protein and protein-glycan interactions. LEV and BRV occupy the putative substrate-binding site in an outward-open conformation. A propyl group in BRV creates additional contacts with SV2A, explaining its higher binding affinity than that of LEV, which was further supported by label-free spectral shift assay. Numerous LEV derivatives have been developed as AEDs and positron emission tomography (PET) tracers for neuroimaging. Our work provides a structural framework for AEDs and BoNT recognition of SV2A and a blueprint for the rational design of additional AEDs and PET tracers.
+Abstract
+
+More than one percent of people have epilepsy worldwide. Levetiracetam (LEV) is a successful new-generation antiepileptic drug (AED), and its derivative, brivaracetam (BRV), shows improved efficacy. Synaptic vesicle glycoprotein 2a (SV2A), a putative membrane transporter in the synaptic vesicles (SVs), has been identified as a target of LEV and BRV. SV2A also serves as a receptor for botulinum neurotoxin (BoNT), which is the most toxic protein and has paradoxically emerged as a potent reagent for therapeutic and cosmetic applications. Nevertheless, no structural analysis on AEDs and BoNT recognition by full-length SV2A has been available. Here we describe the cryo-electron microscopy structures of the full-length SV2A in complex with the BoNT receptor-binding domain, BoNT/A2 H C, and either LEV or BRV. The large fourth luminal domain of SV2A binds to BoNT/A2 H C through protein-protein and protein-glycan interactions. LEV and BRV occupy the putative substrate-binding site in an outward-open conformation. A propyl group in BRV creates additional contacts with SV2A, explaining its higher binding affinity than that of LEV, which was further supported by label-free spectral shift assay. Numerous LEV derivatives have been developed as AEDs and positron emission tomography (PET) tracers for neuroimaging. Our work provides a structural framework for AEDs and BoNT recognition of SV2A and a blueprint for the rational design of additional AEDs and PET tracers.
 
 Article https://doi.org/10.1038/s41467-024-47322-4
 Structural basis for antiepileptic drugs and

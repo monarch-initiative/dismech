@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00415-020-10218-6
+extractor_version: 1
 title: "DRPLA: understanding the natural history and developing biomarkers to accelerate therapeutic trials in a globally rare repeat expansion disorder"
 authors:
 - Aiysha Chaudhry
@@ -9,12 +10,14 @@ journal: Journal of Neurology
 year: '2021'
 doi: 10.1007/s00415-020-10218-6
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00415-020-10218-6.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s00415-020-10218-6.pdf
+full_text_access_type: open
 ---
 
 # DRPLA: understanding the natural history and developing biomarkers to accelerate therapeutic trials in a globally rare repeat expansion disorder
@@ -24,7 +27,9 @@ local_pdf_path: files/DOI_10.1007_s00415-020-10218-6.pdf
 
 ## Content
 
-AbstractDentatorubral–pallidoluysian atrophy (DRPLA) is a rare neurodegenerative disorder caused by CAG repeat expansions in the atrophin-1 gene and is inherited in an autosomal dominant fashion. There are currently no disease-modifying treatments available. The broad development of therapies for DRPLA, as well as other similar rare diseases, has hit a roadblock due to the rarity of the condition and the wide global distribution of patients and families, consequently inhibiting biomarker development and therapeutic research. Considering the shifting focus towards diverse populations, widespread genetic testing, rapid advancements in the development of clinical and wet biomarkers for Huntington’s disease (HD), and the ongoing clinical trials for antisense oligonucleotide (ASO) therapies, the prospect of developing effective treatments in rare disorders has completely changed. The awareness of the HD ASO program has prompted global collaboration for rare disorders in natural history studies and the development of biomarkers, with the eventual goal of undergoing treatment trials. Here, we discuss DRPLA, which shares similarities with HD, and how in this and other repeat expansion disorders, neurogenetics groups like ours at UCL are gearing up for forthcoming natural history studies to accelerate future ASO treatment trials to hopefully emulate the progress seen in HD.
+Abstract
+
+Dentatorubral–pallidoluysian atrophy (DRPLA) is a rare neurodegenerative disorder caused by CAG repeat expansions in the atrophin-1 gene and is inherited in an autosomal dominant fashion. There are currently no disease-modifying treatments available. The broad development of therapies for DRPLA, as well as other similar rare diseases, has hit a roadblock due to the rarity of the condition and the wide global distribution of patients and families, consequently inhibiting biomarker development and therapeutic research. Considering the shifting focus towards diverse populations, widespread genetic testing, rapid advancements in the development of clinical and wet biomarkers for Huntington’s disease (HD), and the ongoing clinical trials for antisense oligonucleotide (ASO) therapies, the prospect of developing effective treatments in rare disorders has completely changed. The awareness of the HD ASO program has prompted global collaboration for rare disorders in natural history studies and the development of biomarkers, with the eventual goal of undergoing treatment trials. Here, we discuss DRPLA, which shares similarities with HD, and how in this and other repeat expansion disorders, neurogenetics groups like ours at UCL are gearing up for forthcoming natural history studies to accelerate future ASO treatment trials to hopefully emulate the progress seen in HD.
 
 Vol.:(0123456789)1 3
 Journal of Neurology (2021) 268:3031–3041 

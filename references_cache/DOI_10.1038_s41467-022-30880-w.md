@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41467-022-30880-w
+extractor_version: 1
 title: Neonatal gene therapy achieves sustained disease rescue of maple syrup urine disease in mice
 authors:
 - Clément Pontoizeau
@@ -22,12 +23,14 @@ journal: Nature Communications
 year: '2022'
 doi: 10.1038/s41467-022-30880-w
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41467-022-30880-w.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41467-022-30880-w.pdf
+full_text_access_type: open
 ---
 
 # Neonatal gene therapy achieves sustained disease rescue of maple syrup urine disease in mice
@@ -37,7 +40,9 @@ local_pdf_path: files/DOI_10.1038_s41467-022-30880-w.pdf
 
 ## Content
 
-AbstractMaple syrup urine disease (MSUD) is a rare recessively inherited metabolic disorder causing accumulation of branched chain amino acids leading to neonatal death, if untreated. Treatment for MSUD represents an unmet need because the current treatment with life-long low-protein diet is challenging to maintain, and despite treatment the risk of acute decompensations and neuropsychiatric symptoms remains. Here, based on significant liver contribution to the catabolism of the branched chain amino acid leucine, we develop a liver-directed adeno-associated virus (AAV8) gene therapy for MSUD. We establish and characterize the Bckdha (branched chain keto acid dehydrogenase a)−/− mouse that exhibits a lethal neonatal phenotype mimicking human MSUD. Animals were treated at P0 with intravenous human BCKDHA AAV8 vectors under the control of either a ubiquitous or a liver-specific promoter. BCKDHA gene transfer rescued the lethal phenotype. While the use of a ubiquitous promoter fully and sustainably rescued the disease (long-term survival, normal phenotype and correction of biochemical abnormalities), liver-specific expression of BCKDHA led to partial, though sustained rescue. Here we show efficacy of gene therapy for MSUD demonstrating its potential for clinical translation.
+Abstract
+
+Maple syrup urine disease (MSUD) is a rare recessively inherited metabolic disorder causing accumulation of branched chain amino acids leading to neonatal death, if untreated. Treatment for MSUD represents an unmet need because the current treatment with life-long low-protein diet is challenging to maintain, and despite treatment the risk of acute decompensations and neuropsychiatric symptoms remains. Here, based on significant liver contribution to the catabolism of the branched chain amino acid leucine, we develop a liver-directed adeno-associated virus (AAV8) gene therapy for MSUD. We establish and characterize the Bckdha (branched chain keto acid dehydrogenase a)−/− mouse that exhibits a lethal neonatal phenotype mimicking human MSUD. Animals were treated at P0 with intravenous human BCKDHA AAV8 vectors under the control of either a ubiquitous or a liver-specific promoter. BCKDHA gene transfer rescued the lethal phenotype. While the use of a ubiquitous promoter fully and sustainably rescued the disease (long-term survival, normal phenotype and correction of biochemical abnormalities), liver-specific expression of BCKDHA led to partial, though sustained rescue. Here we show efficacy of gene therapy for MSUD demonstrating its potential for clinical translation.
 
 ARTICLE
 Neonatal gene therapy achieves sustained disease

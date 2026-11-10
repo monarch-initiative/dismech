@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s42003-023-04856-5
+extractor_version: 1
 title: Spatial transcriptomics reveal topological immune landscapes of Asian head and neck angiosarcoma
 authors:
 - Jui Wan Loh
@@ -22,12 +23,14 @@ journal: Communications Biology
 year: '2023'
 doi: 10.1038/s42003-023-04856-5
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s42003-023-04856-5.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s42003-023-04856-5.pdf
+full_text_access_type: open
 ---
 
 # Spatial transcriptomics reveal topological immune landscapes of Asian head and neck angiosarcoma
@@ -37,7 +40,9 @@ local_pdf_path: files/DOI_10.1038_s42003-023-04856-5.pdf
 
 ## Content
 
-AbstractAngiosarcomas are rare malignant tumors of the endothelium, arising commonly from the head and neck region (AS-HN) and recently associated with ultraviolet (UV) exposure and human herpesvirus-7 infection. We examined 81 cases of angiosarcomas, including 47 cases of AS-HN, integrating information from whole genome sequencing, gene expression profiling and spatial transcriptomics (10X Visium). In the AS-HN cohort, we observed recurrent somatic mutations in CSMD3 (18%), LRP1B (18%), MUC16 (18%), POT1 (16%) and TP53 (16%). UV-positive AS-HN harbored significantly higher tumor mutation burden than UV-negative cases (p = 0.0294). NanoString profiling identified three clusters with distinct tumor inflammation signature scores (p < 0.001). Spatial transcriptomics revealed topological profiles of the tumor microenvironment, identifying dominant but tumor-excluded inflammatory signals in immune-hot cases and immune foci even in otherwise immune-cold cases. In conclusion, spatial transcriptomics reveal the tumor immune landscape of angiosarcoma, and in combination with multi-omic information, may improve implementation of treatment strategies.
+Abstract
+
+Angiosarcomas are rare malignant tumors of the endothelium, arising commonly from the head and neck region (AS-HN) and recently associated with ultraviolet (UV) exposure and human herpesvirus-7 infection. We examined 81 cases of angiosarcomas, including 47 cases of AS-HN, integrating information from whole genome sequencing, gene expression profiling and spatial transcriptomics (10X Visium). In the AS-HN cohort, we observed recurrent somatic mutations in CSMD3 (18%), LRP1B (18%), MUC16 (18%), POT1 (16%) and TP53 (16%). UV-positive AS-HN harbored significantly higher tumor mutation burden than UV-negative cases (p = 0.0294). NanoString profiling identified three clusters with distinct tumor inflammation signature scores (p < 0.001). Spatial transcriptomics revealed topological profiles of the tumor microenvironment, identifying dominant but tumor-excluded inflammatory signals in immune-hot cases and immune foci even in otherwise immune-cold cases. In conclusion, spatial transcriptomics reveal the tumor immune landscape of angiosarcoma, and in combination with multi-omic information, may improve implementation of treatment strategies.
 
 ARTICLE
 Spatial transcriptomics reveal topological immune

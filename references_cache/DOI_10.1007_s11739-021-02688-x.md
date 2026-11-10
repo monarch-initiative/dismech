@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s11739-021-02688-x
+extractor_version: 1
 title: Diagnosis and management of leukocytoclastic vasculitis
 authors:
 - Paolo Fraticelli
@@ -9,12 +10,14 @@ journal: Internal and Emergency Medicine
 year: '2021'
 doi: 10.1007/s11739-021-02688-x
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s11739-021-02688-x.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s11739-021-02688-x.pdf
+full_text_access_type: open
 ---
 
 # Diagnosis and management of leukocytoclastic vasculitis
@@ -24,7 +27,9 @@ local_pdf_path: files/DOI_10.1007_s11739-021-02688-x.pdf
 
 ## Content
 
-AbstractLeukocytoclastic vasculitis (LCV) is a histopathologic description of a common form of small vessel vasculitis (SVV), that can be found in various types of vasculitis affecting the skin and internal organs. The leading clinical presentation of LCV is palpable purpura and the diagnosis relies on histopathological examination, in which the inflammatory infiltrate is composed of neutrophils with fibrinoid necrosis and disintegration of nuclei into fragments (“leukocytoclasia”). Several medications can cause LCV, as well as infections, or malignancy. Among systemic diseases, the most frequently associated with LCV are ANCA-associated vasculitides, connective tissue diseases, cryoglobulinemic vasculitis, IgA vasculitis (formerly known as Henoch–Schonlein purpura) and hypocomplementemic urticarial vasculitis (HUV). When LCV is suspected, an extensive workout is usually necessary to determine whether the process is skin-limited, or expression of a systemic vasculitis or disease. A comprehensive history and detailed physical examination must be performed; platelet count, renal function and urinalysis, serological tests for hepatitis B and C viruses, autoantibodies (anti-nuclear antibodies and anti-neutrophil cytoplasmic antibodies), complement fractions and IgA staining in biopsy specimens are part of the usual workout of LCV. The treatment is mainly focused on symptom management, based on rest (avoiding standing or walking), low dose corticosteroids, colchicine or different unproven therapies, if skin-limited. When a medication is the cause, the prognosis is favorable and the discontinuation of the culprit drug is usually resolutive. Conversely, when a systemic vasculitis is the cause of LCV, higher doses of corticosteroids or immunosuppressive agents are required, according to the severity of organ involvement and the underlying associated disease.
+Abstract
+
+Leukocytoclastic vasculitis (LCV) is a histopathologic description of a common form of small vessel vasculitis (SVV), that can be found in various types of vasculitis affecting the skin and internal organs. The leading clinical presentation of LCV is palpable purpura and the diagnosis relies on histopathological examination, in which the inflammatory infiltrate is composed of neutrophils with fibrinoid necrosis and disintegration of nuclei into fragments (“leukocytoclasia”). Several medications can cause LCV, as well as infections, or malignancy. Among systemic diseases, the most frequently associated with LCV are ANCA-associated vasculitides, connective tissue diseases, cryoglobulinemic vasculitis, IgA vasculitis (formerly known as Henoch–Schonlein purpura) and hypocomplementemic urticarial vasculitis (HUV). When LCV is suspected, an extensive workout is usually necessary to determine whether the process is skin-limited, or expression of a systemic vasculitis or disease. A comprehensive history and detailed physical examination must be performed; platelet count, renal function and urinalysis, serological tests for hepatitis B and C viruses, autoantibodies (anti-nuclear antibodies and anti-neutrophil cytoplasmic antibodies), complement fractions and IgA staining in biopsy specimens are part of the usual workout of LCV. The treatment is mainly focused on symptom management, based on rest (avoiding standing or walking), low dose corticosteroids, colchicine or different unproven therapies, if skin-limited. When a medication is the cause, the prognosis is favorable and the discontinuation of the culprit drug is usually resolutive. Conversely, when a systemic vasculitis is the cause of LCV, higher doses of corticosteroids or immunosuppressive agents are required, according to the severity of organ involvement and the underlying associated disease.
 
 Vol.:(0123456789)1 3
 Internal and Emergency Medicine (2021) 16:831–841 

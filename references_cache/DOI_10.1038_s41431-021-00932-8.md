@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41431-021-00932-8
+extractor_version: 1
 title: Biallelic P4HTM variants associated with HIDEA syndrome and mitochondrial respiratory chain complex I deficiency
 authors:
 - Eleanor Hay
@@ -12,12 +13,14 @@ journal: European Journal of Human Genetics
 year: '2021'
 doi: 10.1038/s41431-021-00932-8
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41431-021-00932-8.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41431-021-00932-8.pdf
+full_text_access_type: open
 ---
 
 # Biallelic P4HTM variants associated with HIDEA syndrome and mitochondrial respiratory chain complex I deficiency
@@ -27,7 +30,9 @@ local_pdf_path: files/DOI_10.1038_s41431-021-00932-8.pdf
 
 ## Content
 
-AbstractWe report a patient with profound congenital hypotonia, central hypoventilation, poor visual behaviour with retinal hypopigmentation, and significantly decreased mitochondrial respiratory chain complex I activity in muscle, who died at 7 months of age having made minimal developmental progress. Biallelic predicted truncating P4HTM variants were identified following trio whole-genome sequencing, consistent with a diagnosis of hypotonia, hypoventilation, intellectual disability, dysautonomia, epilepsy and eye abnormalities (HIDEA) syndrome. Very few patients with HIDEA syndrome have been reported previously and mitochondrial abnormalities were observed in three of four previous cases who had a muscle biopsy, suggesting the possibility that HIDEA syndrome represents a primary mitochondrial disorder. P4HTM encodes a transmembrane prolyl 4-hydroxylase with putative targets including hypoxia inducible factors, RNA polymerase II and activating transcription factor 4, which has been implicated in the integrated stress response observed in cell and animal models of mitochondrial disease, and may explain the mitochondrial dysfunction observed in HIDEA syndrome.
+Abstract
+
+We report a patient with profound congenital hypotonia, central hypoventilation, poor visual behaviour with retinal hypopigmentation, and significantly decreased mitochondrial respiratory chain complex I activity in muscle, who died at 7 months of age having made minimal developmental progress. Biallelic predicted truncating P4HTM variants were identified following trio whole-genome sequencing, consistent with a diagnosis of hypotonia, hypoventilation, intellectual disability, dysautonomia, epilepsy and eye abnormalities (HIDEA) syndrome. Very few patients with HIDEA syndrome have been reported previously and mitochondrial abnormalities were observed in three of four previous cases who had a muscle biopsy, suggesting the possibility that HIDEA syndrome represents a primary mitochondrial disorder. P4HTM encodes a transmembrane prolyl 4-hydroxylase with putative targets including hypoxia inducible factors, RNA polymerase II and activating transcription factor 4, which has been implicated in the integrated stress response observed in cell and animal models of mitochondrial disease, and may explain the mitochondrial dysfunction observed in HIDEA syndrome.
 
 ARTICLE OPEN
 Biallelic P4HTM variants associated with HIDEA syndrome

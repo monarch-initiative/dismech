@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s12672-023-00754-8
+extractor_version: 1
 title: "Evolving therapeutic landscape of diffuse large B-cell lymphoma: challenges and aspirations"
 authors:
 - Jason Yongsheng Chan
@@ -17,12 +18,14 @@ journal: Discover Oncology
 year: '2023'
 doi: 10.1007/s12672-023-00754-8
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s12672-023-00754-8.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s12672-023-00754-8.pdf
+full_text_access_type: open
 ---
 
 # Evolving therapeutic landscape of diffuse large B-cell lymphoma: challenges and aspirations
@@ -32,7 +35,9 @@ local_pdf_path: files/DOI_10.1007_s12672-023-00754-8.pdf
 
 ## Content
 
-AbstractDiffuse large B-cell lymphoma (DLBCL) represents the commonest subtype of non-Hodgkin lymphoma and encompasses a group of diverse disease entities, each harboring unique molecular and clinico-pathological features. The understanding of the molecular landscape of DLBCL has improved significantly over the past decade, highlighting unique genomic subtypes with implications on targeted therapy. At the same time, several new treatment modalities have been recently approved both in the frontline and relapsed settings, ending a dearth of negative clinical trials that plagued the past decade. Despite that, in the real-world setting, issues like drug accessibility, reimbursement policies, physician and patient preference, as well as questions regarding optimal sequencing of treatment options present difficulties and challenges in day-to-day oncology practice. Here, we review the recent advances in the therapeutic armamentarium of DLBCL and discuss implications on the practice landscape, with a particular emphasis on the context of the healthcare system in Singapore.
+Abstract
+
+Diffuse large B-cell lymphoma (DLBCL) represents the commonest subtype of non-Hodgkin lymphoma and encompasses a group of diverse disease entities, each harboring unique molecular and clinico-pathological features. The understanding of the molecular landscape of DLBCL has improved significantly over the past decade, highlighting unique genomic subtypes with implications on targeted therapy. At the same time, several new treatment modalities have been recently approved both in the frontline and relapsed settings, ending a dearth of negative clinical trials that plagued the past decade. Despite that, in the real-world setting, issues like drug accessibility, reimbursement policies, physician and patient preference, as well as questions regarding optimal sequencing of treatment options present difficulties and challenges in day-to-day oncology practice. Here, we review the recent advances in the therapeutic armamentarium of DLBCL and discuss implications on the practice landscape, with a particular emphasis on the context of the healthcare system in Singapore.
 
 Vol.:(0123456789)
 Discover Oncology          (2023) 14:132  | https://doi.org/10.1007/s12672-023-00754-8
