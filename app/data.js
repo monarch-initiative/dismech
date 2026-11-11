@@ -95602,36 +95602,30 @@ window.searchData = [
     "creation_date": "2026-08-05T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "A self-limited focal epilepsy of childhood in which the seizures are made of vision. A child of school age suddenly sees small coloured circles drifting across one side of the visual field, or goes blind for a minute, and then it passes. The attacks are brief, they happen in daylight rather than in sleep, they come many times a week, and a headache often follows them closely enough to be mistaken for migraine. Between attacks the child is neurologically normal and the brain scan is normal; the only abnormal investigation is the electroencephalogram, which shows spikes over the occipital regions that characteristically appear the moment the eyes stop fixating on anything and disappear again as soon as fixation returns. That last property, called fixation-off sensitivity, is the mechanistic curiosity of the syndrome: the epileptic discharge is gated by whether the visual system is being used. Most children respond to a single antiseizure medication and about two-thirds have stopped having seizures by the age of sixteen, which is why the syndrome is classified as self-limited rather than as an encephalopathy.",
+    "description": "A self-limited focal epilepsy beginning in childhood, characterized by abrupt, brief visual seizures arising predominantly during wakefulness. Elementary multicolored visual hallucinations are typical; ictal blindness, eye or head deviation, impaired awareness and motor spread can also occur. Occipital epileptiform abnormalities may be restricted to sleep, and fixation-off sensitivity is variable rather than diagnostic by itself. Brain MRI is required to exclude a causal lesion. Most patients respond to antiseizure medication and remit during childhood or adolescence, although persistent seizures occur. Etiology is presumed complex genetic; no causal gene has been established for the syndrome.",
     "pathophysiology": [
       "Age-Dependent Hyperexcitability of the Occipital Cortex",
       "Fixation-Dependent Gating of Occipital Discharges",
-      "Occipital Interictal and Ictal Paroxysmal Discharges",
-      "Ictal Recruitment of Striate and Extrastriate Visual Cortex",
+      "Occipital Interictal Epileptiform Discharges",
+      "Occipital Ictal Discharge",
+      "Visual Cortical Recruitment",
       "Recurrent Brief Diurnal Visual Seizures",
       "Propagation Beyond the Occipital Lobe",
-      "Post-Ictal Headache",
+      "Postictal Headache Development",
       "Age-Dependent Remission of the Epileptogenic State"
     ],
-    "cell_types": [
-      "cortical pyramidal neuron",
-      "cortical neuron"
-    ],
-    "cell_type_ids": [
-      "CL:0000598",
-      "CL:0000540"
-    ],
-    "biological_processes": [
-      "neuronal action potential",
-      "visual perception",
-      "chemical synaptic transmission"
-    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
     "phenotypes": [
       "Elementary Visual Hallucinations",
       "Ictal Blindness",
       "Ictal Eye Deviation",
       "Post-Ictal Headache",
-      "Occipital Spikes with Fixation-Off Sensitivity"
+      "Occipital Epileptiform EEG Abnormalities",
+      "Focal Impaired Awareness Seizures",
+      "Focal Hemiclonic Seizures",
+      "Focal to Bilateral Tonic-Clonic Seizures"
     ],
     "phenotype_categories": [
       "Neurological"
@@ -95645,26 +95639,29 @@ window.searchData = [
       "HP:0000572",
       "HP:0011175",
       "HP:0002315",
-      "HP:0012016"
+      "HP:0012016",
+      "HP:0002384",
+      "HP:0006813",
+      "HP:0007334"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [],
     "treatments": [
       "Antiseizure Monotherapy",
-      "Prophylactic Treatment During the Active Phase"
+      "Levetiracetam Monotherapy"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Childhood_Occipital_Visual_Epilepsy.yaml",
     "page_url": "../pages/disorders/Childhood_Occipital_Visual_Epilepsy.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 8,
+    "num_phenotypes": 8,
+    "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "5"
   },
   {
@@ -147243,6 +147240,157 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "EFEMP2-Related Cutis Laxa",
+    "disease_id": "MONDO:0013754",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "autosomal recessive cutis laxa type 1"
+    ],
+    "creation_date": "2026-11-10T23:31:26Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "EFEMP2-related cutis laxa (autosomal recessive cutis laxa type 1B, ARCL1B) is a rare congenital connective tissue disorder caused by biallelic loss-of-function variants in EFEMP2, which encodes the short fibulin fibulin-4. Fibulin-4 binds tropoelastin and the propeptide of lysyl oxidase (LOX), is needed for copper loading and proteolytic maturation of LOX, and so supports both elastin and collagen cross-linking; in the aortic wall it is also needed for smooth muscle cell maturation and for the connections between elastic laminae and smooth muscle cells. The dominant clinical problem is a vasculopathy of the large elastic arteries: ascending aortic and aortic root aneurysm, elongation and tortuosity of the aorta, pulmonary arteries and their branches, and branch-vessel stenosis, with aortic isthmus hypoplasia in the most severe infants. Cutis laxa, emphysema, diaphragmatic and inguinal hernias, joint laxity, arachnodactyly, retrognathia and, in the severest cases, prenatal fractures are variable. Severity ranges from fetal or infantile death to isolated aortopathy found on family screening in adulthood. Mouse models show increased aortic TGF-beta signalling, an ACE and angiotensin II driven aneurysm pathway initiated by abnormal smooth muscle mechanosensing, and collagen fibril defects. Management is surveillance, angiotensin receptor or beta-blockade, and surgical replacement of the aneurysmal aorta.",
+    "pathophysiology": [
+      "Biallelic EFEMP2 Loss-of-Function Variants",
+      "Mutant Fibulin-4 Intracellular Retention and Reduced Secretion",
+      "Endoplasmic Reticulum Stress in Fibroblasts",
+      "Reduced Fibulin-4 in the Extracellular Matrix",
+      "Defective Copper Loading of Lysyl Oxidase",
+      "Impaired Proteolytic Maturation of Lysyl Oxidase",
+      "Impaired Lysyl Oxidase Recruitment onto Tropoelastin",
+      "Reduced Lysyl Oxidase Activity",
+      "Deficient Elastin Cross-Linking",
+      "Reduced Tropoelastin Expression",
+      "Impaired Tropoelastin Deposition onto LTBP-4L",
+      "Defective Elastic Fiber Assembly",
+      "Deficient Collagen Cross-Linking",
+      "Abnormal Collagen Fibril Assembly",
+      "Dermal Elastic Fiber Deficiency",
+      "Pulmonary Elastic Fiber Deficiency",
+      "Reduced Pulmonary Antiprotease Capacity",
+      "Diaphragm and Abdominal Wall Connective Tissue Weakness",
+      "Conduit Artery Elastic Lamina Fragmentation",
+      "Impaired Smooth Muscle Cell Contractile Maturation",
+      "Loss of Elastic Lamina-Smooth Muscle Cell Connections",
+      "PAR1 Activation in Aortic Smooth Muscle Cells",
+      "Increased TGF-beta Signaling in the Aortic Wall",
+      "Aortic Medial Degeneration",
+      "Ascending Aortic Dilation and Aneurysm",
+      "Aortic Dissection and Rupture"
+    ],
+    "cell_types": [
+      "dermal fibroblast",
+      "aortic smooth muscle cell",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002551",
+      "CL:0000359",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "protein secretion",
+      "response to endoplasmic reticulum stress",
+      "copper ion transport",
+      "elastic fiber assembly",
+      "collagen fibril organization",
+      "smooth muscle cell differentiation",
+      "transforming growth factor beta receptor signaling pathway",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Cutis laxa",
+      "Premature sagging cheeks",
+      "Emphysema",
+      "Arterial tortuosity",
+      "Arterial stenosis",
+      "Aortic isthmus hypoplasia",
+      "Pulmonary artery aneurysm",
+      "Congenital diaphragmatic hernia",
+      "Hiatus hernia",
+      "Inguinal hernia",
+      "Flexion contractures",
+      "Multiple prenatal fractures",
+      "Aortic aneurysm",
+      "Retrognathia",
+      "Joint laxity",
+      "Arachnodactyly",
+      "Long philtrum",
+      "Thin vermilion",
+      "Hypertelorism"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Craniofacial",
+      "Respiratory",
+      "Cardiovascular",
+      "Abdominal",
+      "Gastrointestinal",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000973",
+      "HP:0034273",
+      "HP:0002097",
+      "HP:0005116",
+      "HP:0100545",
+      "HP:0034227",
+      "HP:0004937",
+      "HP:0000776",
+      "HP:0002036",
+      "HP:0000023",
+      "HP:0001371",
+      "HP:0005855",
+      "HP:0004942",
+      "HP:0000278",
+      "HP:0001382",
+      "HP:0001166",
+      "HP:0000343",
+      "HP:0000233",
+      "HP:0000316"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "EFEMP2"
+    ],
+    "treatments": [
+      "Angiotensin Receptor Blockade for Aortic Root Dilatation",
+      "Beta-Blockade for Aortic Root Dilatation",
+      "Aortic Aneurysm Replacement Surgery",
+      "Routine Hernia Repair",
+      "Tracheostomy for Upper Airway Obstruction",
+      "Symptomatic Treatment of Pulmonary Emphysema",
+      "Muscle-Reinforcing Physical Therapy for Joint Hypermobility",
+      "Cardiovascular and Pulmonary Surveillance",
+      "Smoking and Sun-Tanning Avoidance",
+      "Genetic Counseling and Reproductive Options"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "EFEMP2-Related_Cutis_Laxa.yaml",
+    "page_url": "../pages/disorders/EFEMP2-Related_Cutis_Laxa.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 26,
+    "num_genes": 1,
+    "num_treatments": 10,
+    "causal_graph_edges": "96",
+    "causal_graph_longest_path": "12"
   },
   {
     "name": "EFL1-related Shwachman-Diamond syndrome",
@@ -287852,14 +288000,29 @@ window.searchData = [
     ],
     "description": "Mycetoma is a chronic infection of the skin and subcutaneous tissues caused by fungi or bacteria.",
     "pathophysiology": [
+      "Traumatic Implantation of Soil Organisms",
       "Cutaneous and subcutaneous infection by fungi or bacteria",
+      "Grain Formation",
+      "Chronic Granulomatous Inflammation",
+      "Fibrous Encasement of the Lesion",
+      "Sinus and Fistula Formation",
+      "Deep Extension to Muscle and Bone",
       "Madurella Lanosterol 14-alpha-Demethylation by CYP51 (ERG11)",
       "Madurella Ergosterol Production",
       "Madurella Ergosterol-Dependent Plasma-Membrane Organization"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "neutrophil",
+      "macrophage",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000235",
+      "CL:0000057"
+    ],
     "biological_processes": [
+      "inflammatory response",
       "Ergosterol Biosynthetic Process",
       "Ergosterol Metabolic Process",
       "Plasma Membrane Organization"
@@ -287907,16 +288070,18 @@ window.searchData = [
       "Trimethoprim-sulfamethoxazole plus amikacin for actinomycetoma",
       "Surgical debulking and excision/debridement for eumycetoma"
     ],
-    "environmental": [],
+    "environmental": [
+      "Soil and water contact through broken skin"
+    ],
     "biochemical": [],
     "source_file": "Mycetoma.yaml",
     "page_url": "../pages/disorders/Mycetoma.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 10,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Mycobacterium Xenopi Infection",
@@ -374699,8 +374864,8 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Scurvy",
@@ -404788,6 +404953,136 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "TULP1-Related Retinopathy",
+    "disease_id": "MONDO:0013457",
+    "category": "Mendelian",
+    "parents": [
+      "Leber Congenital Amaurosis",
+      "Retinitis Pigmentosa",
+      "Inherited Retinal Dystrophy"
+    ],
+    "creation_date": "2026-11-10T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "LCA15",
+      "RP14"
+    ],
+    "description": "TULP1-related retinopathy is an autosomal recessive, early-onset inherited retinal dystrophy caused by biallelic variants in TULP1, which encodes tubby-like protein 1, a membrane- and actin-associated cytoplasmic protein made by rod and cone photoreceptors. It is one disease spectrum with two named presentations: Leber congenital amaurosis 15 (LCA15), with nystagmus and severe visual impairment from infancy, and retinitis pigmentosa 14 (RP14), an early-onset rod-cone dystrophy; the same allele can give both labels within one family. TULP1 sits in the inner segment, the cell body and the synaptic terminal, and is excluded from the outer segment. In Tulp1-null mice, newly made rhodopsin and cone opsins are misrouted to the inner segment plasma membrane and shed as extracellular vesicles, the guanylate cyclase carrier pathway is mislocalized, and the photoreceptor ribbon synapse is malformed with loss of its endocytic machinery, all before the photoreceptors die. An endoplasmic reticulum unfolded protein response is active in null and missense-mutant retinas and drives photoreceptor apoptosis. Patients have nystagmus, acuity of 20/200 or worse, no measurable rod function at any age, and undetectable or microvolt-level electroretinograms, while the fundus can look nearly normal in infancy before a peripheral pigmentary retinopathy, arteriolar attenuation and a bull's eye or perifoveal maculopathy develop. A small central island of foveal cones survives into childhood but is less sensitive than its preserved structure predicts. No treatment exists; photoreceptor-targeted gene supplementation gave little benefit in the knockout mouse.",
+    "pathophysiology": [
+      "Biallelic Pathogenic TULP1 Variants",
+      "Loss of TULP1 Function in Photoreceptors",
+      "PRCD Outer Segment Mislocalization",
+      "Rod and Cone Opsin Mistrafficking",
+      "Extracellular Rhodopsin-Laden Vesicle Accumulation",
+      "Guanylate Cyclase Carrier Pathway Mislocalization",
+      "Failed Light-Driven Arrestin Translocation",
+      "Loss of Periactive Zone Endocytic Machinery",
+      "Photoreceptor Synaptic Ribbon Malformation",
+      "Stunted Bipolar Cell Dendrites",
+      "Misfolded Missense TULP1 Retained in the Endoplasmic Reticulum",
+      "Photoreceptor Endoplasmic Reticulum Unfolded Protein Response",
+      "Photoreceptor Dysfunction Preceding Structural Loss",
+      "Rod Photoreceptor Apoptosis",
+      "Cone Photoreceptor Degeneration",
+      "Progressive Outer Retinal Layer Loss",
+      "Progressive Loss of Visual Function",
+      "Inner Retinal Neuron Alterations"
+    ],
+    "cell_types": [
+      "retinal rod cell",
+      "retinal cone cell",
+      "retinal bipolar neuron",
+      "photoreceptor cell",
+      "amacrine cell",
+      "retinal ganglion cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573",
+      "CL:0000748",
+      "CL:0000210",
+      "CL:0000561",
+      "CL:0000740"
+    ],
+    "biological_processes": [
+      "photoreceptor cell maintenance",
+      "protein localization to photoreceptor outer segment",
+      "opsin transport",
+      "synaptic vesicle endocytosis",
+      "dendrite development",
+      "endoplasmic reticulum unfolded protein response",
+      "IRE1-mediated unfolded protein response",
+      "PERK-mediated unfolded protein response",
+      "phototransduction",
+      "retinal rod cell apoptotic process",
+      "visual perception"
+    ],
+    "phenotypes": [
+      "Congenital nystagmus",
+      "Severely reduced visual acuity",
+      "Undetectable light- and dark-adapted electroretinogram",
+      "Dyschromatopsia",
+      "Bull's eye maculopathy",
+      "Pigmentary retinopathy",
+      "Spicular pigmentation of the retina",
+      "Attenuation of retinal blood vessels",
+      "Perifoveal ring of hyperautofluorescence",
+      "Hyperautofluorescent retinal lesion",
+      "Retinal thinning on OCT",
+      "Photoreceptor layer loss on macular OCT",
+      "Progressive visual loss",
+      "Visual field defect",
+      "Nyctalopia",
+      "Hypermetropia",
+      "Myopia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0006934",
+      "HP:0001141",
+      "HP:0007688",
+      "HP:0007641",
+      "HP:0011504",
+      "HP:0000580",
+      "HP:0007737",
+      "HP:0007843",
+      "HP:0030629",
+      "HP:0025158",
+      "HP:0030329",
+      "HP:0030609",
+      "HP:0000529",
+      "HP:0001123",
+      "HP:0000662",
+      "HP:0000540",
+      "HP:0000545"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "TULP1"
+    ],
+    "treatments": [
+      "TULP1 Gene Supplementation (preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TULP1-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/TULP1-Related_Retinopathy.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 18,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "52",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Taeniasis/cysticercosis",
     "disease_id": "MONDO:0015484",
     "category": "Infectious Disease",
@@ -434779,17 +435074,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4034,
-  "total_subtypes": 5053,
-  "total_disorders_and_subtypes": 9087,
-  "total_unique_evidence_sources": 59883,
-  "total_unique_publications": 56017,
+  "total_disorder_pages": 4036,
+  "total_subtypes": 5055,
+  "total_disorders_and_subtypes": 9091,
+  "total_unique_evidence_sources": 59969,
+  "total_unique_publications": 56100,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4032,
-  "total_unique_pathological_events": 26398,
+  "total_pathographs": 4034,
+  "total_unique_pathological_events": 26441,
   "total_modules": 231,
-  "total_research_reports": 4144,
+  "total_research_reports": 4147,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 133
