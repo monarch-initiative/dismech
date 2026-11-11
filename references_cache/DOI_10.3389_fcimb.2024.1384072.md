@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3389/fcimb.2024.1384072
+extractor_version: 1
 title: "Neisseria meningitidis activates pyroptotic pathways in a mouse model of meningitis: role of a two-partner secretion system"
 authors:
 - Chiara Pagliuca
@@ -17,12 +18,14 @@ journal: Frontiers in Cellular and Infection Microbiology
 year: '2024'
 doi: 10.3389/fcimb.2024.1384072
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://public-pages-files-2025.frontiersin.org/journals/cellular-and-infection-microbiology/articles/10.3389/fcimb.2024.1384072/pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.3389_fcimb.2024.1384072.pdf
+full_text_access_type: open
 ---
 
 # Neisseria meningitidis activates pyroptotic pathways in a mouse model of meningitis: role of a two-partner secretion system
