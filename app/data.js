@@ -75405,6 +75405,81 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "CNS Tumor with BCOR Internal Tandem Duplication",
+    "disease_id": "MONDO:0858966",
+    "category": "",
+    "parents": [
+      "CNS embryonal tumour"
+    ],
+    "creation_date": "2026-11-11T03:46:38Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CNS tumor with BCOR internal tandem duplication is a rare malignant tumour of the brain in young children. It was separated in 2016 from the tumours then called primitive neuroectodermal tumours of the central nervous system, and the 2021 World Health Organization classification lists it among the embryonal tumours. It is defined by the duplication of a short stretch of the last exon of the BCOR gene, the same lesion that defines clear cell sarcoma of kidney and a soft tissue sarcoma of infancy. Sixty-nine cases had been reported by 2025. The median age at diagnosis is about three years, and boys and girls are affected equally. The tumour is a single large, sharply bounded mass, in the cerebellum in about two fifths of cases and in the cerebral hemispheres in most of the rest, and children present with raised pressure in the head.\nUnder the microscope the tumour is made of uniform oval or spindle cells arranged around vessels in the manner of an ependymoma, and the nuclei stain strongly for BCOR, a stain that is sensitive but not specific. The duplication lies in the part of the BCOR protein that binds PCGF1 to build the polycomb complex PRC1.1. In binding experiments it prevents that assembly, and in human neural stem cells it releases polycomb target genes from repression. Which cell the tumour starts in is not settled.\nThere is no standard treatment. Resection, radiotherapy and multi-agent chemotherapy are used. The tumour often comes back, and a review of the reported cases states that most patients die of it, although survivors of more than ten years are recorded.",
+    "pathophysiology": [
+      "BCOR Internal Tandem Duplication",
+      "Disrupted PRC1.1 Assembly",
+      "Derepression of Polycomb Target Genes",
+      "Neuroepithelial Tumour Growth",
+      "Local Recurrence and Late Dissemination"
+    ],
+    "cell_types": [
+      "primitive neuro-glial progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011020"
+    ],
+    "biological_processes": [
+      "assembly of the PRC1.1 complex",
+      "polycomb-mediated gene silencing",
+      "tumour cell proliferation"
+    ],
+    "phenotypes": [
+      "Brain Neoplasm",
+      "Increased Intracranial Pressure",
+      "Headache",
+      "Vomiting",
+      "Ataxia",
+      "Seizure"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Neurologic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0030692",
+      "HP:0002516",
+      "HP:0002315",
+      "HP:0002013",
+      "HP:0001251",
+      "HP:0001250"
+    ],
+    "frequencies": [],
+    "genes": [
+      "BCOR"
+    ],
+    "treatments": [
+      "Surgical Resection",
+      "Radiotherapy",
+      "Multi-Agent Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CNS_Tumor_with_BCOR_Internal_Tandem_Duplication.yaml",
+    "page_url": "../pages/disorders/CNS_Tumor_with_BCOR_Internal_Tandem_Duplication.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "CNS Vasculitis",
     "disease_id": "MONDO:0015374",
     "category": "Autoimmune",
@@ -224947,6 +225022,114 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Infantile Hemangioma",
+    "disease_id": "MONDO:0011191",
+    "category": "",
+    "parents": [
+      "capillary hemangioma"
+    ],
+    "creation_date": "2026-11-11T02:55:07Z",
+    "updated_date": null,
+    "subtypes": [
+      "Hepatic"
+    ],
+    "description": "Infantile hemangioma is a benign tumor of the cells that line blood vessels and the most common tumor of infancy. A study that followed 594 newborns found one in 4.5 per cent of them by the age of three months. The tumor is absent or barely visible at birth, grows fast in the first weeks of life, reaches most of its final size by about three months and then shrinks slowly, until about three and a half years of age, often leaving changed skin behind. Its endothelial cells stain for the glucose transporter GLUT1 at every stage, which separates it from congenital hemangioma, from other vascular tumors and from vascular malformations. Most lesions are small and need no treatment. A minority threaten the airway, the eye, the liver or the heart, ulcerate, or will disfigure, and for these oral propranolol is the first-line treatment, supported by a randomized trial of 456 infants. A large segmental hemangioma of the face can be part of PHACE syndrome, and one of the lower body part of LUMBAR syndrome. What starts the tumor is not known: stem cells isolated from it form GLUT1-positive vessels and later fat in mice, its endothelium shares markers and gene expression with the placenta, and prematurity, low birth weight and placental abnormalities go with a higher risk. Because the tumor is so common, rarer tumors of infancy that look like it have at first been diagnosed as hemangiomas, among them metastatic neuroblastoma and infantile fibrosarcoma.",
+    "pathophysiology": [
+      "Hemangioma Stem Cell Vasculogenesis",
+      "Suppressed NFAT-Dependent VEGFR1 Expression",
+      "Constitutive VEGFR2 Signaling",
+      "Proliferating GLUT1-Positive Endothelium",
+      "Involution with Fibrofatty Replacement",
+      "High-Flow Shunting Through Hepatic Hemangiomas",
+      "Type 3 Iodothyronine Deiodinase Activity in Tumor Tissue"
+    ],
+    "cell_types": [
+      "hemangioma stem cell",
+      "hemangioma endothelial cell",
+      "adipocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000048",
+      "CL:0000071",
+      "CL:0000136"
+    ],
+    "biological_processes": [
+      "vasculogenesis",
+      "calcineurin-NFAT signaling cascade",
+      "vascular endothelial growth factor receptor signaling pathway",
+      "endothelial cell proliferation",
+      "fat cell differentiation",
+      "thyroid hormone catabolic process"
+    ],
+    "phenotypes": [
+      "Cutaneous Hemangioma",
+      "Skin Ulcer",
+      "Amblyopia",
+      "Subglottic Hemangioma",
+      "Hepatic Hemangioma",
+      "Hepatomegaly",
+      "High-Output Heart Failure",
+      "Hypothyroidism",
+      "Residual Telangiectasia",
+      "Anetoderma"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Ophthalmologic",
+      "Respiratory",
+      "Hepatic",
+      "Cardiovascular",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Integument",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0005306",
+      "HP:0200042",
+      "HP:0000646",
+      "HP:0410264",
+      "HP:0031207",
+      "HP:0002240",
+      "HP:0001722",
+      "HP:0000821",
+      "HP:0001009",
+      "HP:0032026"
+    ],
+    "frequencies": [
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "KDR",
+      "ANTXR1"
+    ],
+    "treatments": [
+      "Active Observation",
+      "Oral Propranolol",
+      "Atenolol",
+      "Topical Timolol",
+      "Systemic Corticosteroids",
+      "Pulsed Dye Laser",
+      "Surgical Excision"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Infantile_Hemangioma.yaml",
+    "page_url": "../pages/disorders/Infantile_Hemangioma.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 7,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Infantile Hypercalcemia",
     "disease_id": "MONDO:0000212",
     "category": "Mendelian",
@@ -295167,6 +295350,7 @@ window.searchData = [
       "Muscarinic Receptor Overstimulation",
       "Nicotinic Receptor Overstimulation",
       "Central Cholinergic Overstimulation",
+      "Cholinergic Crisis and Respiratory Failure",
       "Glutamatergic Excitotoxicity",
       "Seizure-Driven Limbic Neurodegeneration"
     ],
@@ -295174,6 +295358,7 @@ window.searchData = [
     "cell_type_ids": [],
     "biological_processes": [
       "acetylcholine catabolic process",
+      "respiratory gaseous exchange by respiratory system",
       "glutamate secretion",
       "NMDA receptor-mediated glutamate signalling",
       "neuron death"
@@ -295237,10 +295422,10 @@ window.searchData = [
     "source_file": "Nerve_Agent_Poisoning.yaml",
     "page_url": "../pages/disorders/Nerve_Agent_Poisoning.html",
     "num_phenotypes": 14,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "31",
+    "causal_graph_edges": "33",
     "causal_graph_longest_path": "7"
   },
   {
@@ -435074,15 +435259,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4036,
-  "total_subtypes": 5055,
-  "total_disorders_and_subtypes": 9091,
-  "total_unique_evidence_sources": 59969,
-  "total_unique_publications": 56100,
+  "total_disorder_pages": 4038,
+  "total_subtypes": 5056,
+  "total_disorders_and_subtypes": 9094,
+  "total_unique_evidence_sources": 60037,
+  "total_unique_publications": 56167,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4034,
-  "total_unique_pathological_events": 26441,
+  "total_pathographs": 4036,
+  "total_unique_pathological_events": 26452,
   "total_modules": 231,
   "total_research_reports": 4147,
   "total_classifications": 21,
