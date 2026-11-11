@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1002/ajmg.a.62102
+extractor_version: 1
 title: "Phenotypic expansion of the <scp><i>BPTF</i></scp>‐related neurodevelopmental disorder with dysmorphic facies and distal limb anomalies"
 authors:
 - Kevin E. Glinton
@@ -55,6 +56,7 @@ year: '2021'
 doi: 10.1002/ajmg.a.62102
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Phenotypic expansion of the <scp><i>BPTF</i></scp>‐related neurodevelopmental disorder with dysmorphic facies and distal limb anomalies
@@ -64,4 +66,6 @@ is_preprint: false
 
 ## Content
 
-AbstractNeurodevelopmental disorder with dysmorphic facies and distal limb anomalies (NEDDFL), defined primarily by developmental delay/intellectual disability, speech delay, postnatal microcephaly, and dysmorphic features, is a syndrome resulting from heterozygous variants in the dosage‐sensitive bromodomain PHD finger chromatin remodeler transcription factor BPTF gene. To date, only 11 individuals with NEDDFL due to de novo BPTF variants have been described. To expand the NEDDFL phenotypic spectrum, we describe the clinical features in 25 novel individuals with 20 distinct, clinically relevant variants in BPTF, including four individuals with inherited changes in BPTF. In addition to the previously described features, individuals in this cohort exhibited mild brain abnormalities, seizures, scoliosis, and a variety of ophthalmologic complications. These results further support the broad and multi‐faceted complications due to haploinsufficiency of BPTF.
+Abstract
+
+Neurodevelopmental disorder with dysmorphic facies and distal limb anomalies (NEDDFL), defined primarily by developmental delay/intellectual disability, speech delay, postnatal microcephaly, and dysmorphic features, is a syndrome resulting from heterozygous variants in the dosage‐sensitive bromodomain PHD finger chromatin remodeler transcription factor BPTF gene. To date, only 11 individuals with NEDDFL due to de novo BPTF variants have been described. To expand the NEDDFL phenotypic spectrum, we describe the clinical features in 25 novel individuals with 20 distinct, clinically relevant variants in BPTF, including four individuals with inherited changes in BPTF. In addition to the previously described features, individuals in this cohort exhibited mild brain abnormalities, seizures, scoliosis, and a variety of ophthalmologic complications. These results further support the broad and multi‐faceted complications due to haploinsufficiency of BPTF.

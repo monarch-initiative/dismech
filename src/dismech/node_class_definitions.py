@@ -369,6 +369,43 @@ def go_ancestors() -> AncestorFn:
     return ancestors
 
 
+def obo_ancestors(path: str | Path) -> AncestorFn:
+    """``is_a`` closure read from an OBO file such as go-basic.obo (memoised).
+
+    The lighter alternative to :func:`go_ancestors`: the same closure from a
+    text file a curator can download, where the SQLite build may be absent or
+    unreachable. Only ``is_a`` lines are read, so a CURIE the file does not
+    define has no ancestors, as with :func:`go_ancestors`.
+    """
+    parents: dict[str, set[str]] = {}
+    current: str | None = None
+    in_term = False
+    with Path(path).open(encoding="utf-8") as fh:
+        for raw in fh:
+            line = raw.rstrip("\n")
+            if line.startswith("["):
+                in_term, current = line == "[Term]", None
+            elif in_term and line.startswith("id: "):
+                current = line[4:].strip()
+            elif in_term and current and line.startswith("is_a: "):
+                parents.setdefault(current, set()).add(line[6:].split(" ", 1)[0].strip())
+    memo: dict[str, set[str]] = {}
+
+    def ancestors(curie: str) -> set[str]:
+        if curie not in memo:
+            seen: set[str] = set()
+            stack = list(parents.get(curie, ()))
+            while stack:
+                parent = stack.pop()
+                if parent not in seen:
+                    seen.add(parent)
+                    stack.extend(parents.get(parent, ()))
+            memo[curie] = seen
+        return memo[curie]
+
+    return ancestors
+
+
 @dataclass
 class ClassEvaluation:
     """How one defined class fares against the KB."""
@@ -380,10 +417,18 @@ class ClassEvaluation:
     kb_matched: int
     #: examples of *other* classes the definition also captures, by class path
     cross_hits: dict[tuple[str, ...], int] = field(default_factory=dict)
+    #: the class's own examples plus every example beneath it. A tier's
+    #: examples sit on its leaves, so this is the only recall a tier has.
+    subtree_examples: int = 0
+    subtree_matched: int = 0
 
     @property
     def recall(self) -> float:
         return self.examples_matched / self.examples if self.examples else 0.0
+
+    @property
+    def subtree_recall(self) -> float:
+        return self.subtree_matched / self.subtree_examples if self.subtree_examples else 0.0
 
 
 def evaluate_tree(roots: list[Any], kb_dirs: Iterable[Any], ancestors: AncestorFn) -> list[ClassEvaluation]:
@@ -395,7 +440,7 @@ def evaluate_tree(roots: list[Any], kb_dirs: Iterable[Any], ancestors: AncestorF
     captures, which is where a definition is either too broad or the tree's
     own boundary is soft.
     """
-    from dismech.node_classes import iter_classes
+    from dismech.node_classes import iter_classes, iter_examples
     from dismech.yaml_io import safe_load
 
     kb: dict[tuple[str, str], dict[str, Any]] = {}
@@ -421,6 +466,10 @@ def evaluate_tree(roots: list[Any], kb_dirs: Iterable[Any], ancestors: AncestorF
         defn = parse_definition(cls.definition)
         own = [(ex.node, ex.disease) for ex in cls.examples]
         matched_own = sum(1 for key in own if key in kb and evaluate(defn, kb[key], ancestors))
+        subtree = [(ex.node, ex.disease) for _, ex in iter_examples([cls])]
+        matched_subtree = sum(
+            1 for key in subtree if key in kb and evaluate(defn, kb[key], ancestors)
+        )
         kb_matched = 0
         cross: dict[tuple[str, ...], int] = {}
         for key, node in kb.items():
@@ -430,5 +479,10 @@ def evaluate_tree(roots: list[Any], kb_dirs: Iterable[Any], ancestors: AncestorF
             owner = example_owner.get(key)
             if owner is not None and owner != trail and owner[: len(trail)] != trail:
                 cross[owner] = cross.get(owner, 0) + 1
-        reports.append(ClassEvaluation(trail, cls.definition, len(own), matched_own, kb_matched, cross))
+        reports.append(
+            ClassEvaluation(
+                trail, cls.definition, len(own), matched_own, kb_matched, cross,
+                len(subtree), matched_subtree,
+            )
+        )
     return reports

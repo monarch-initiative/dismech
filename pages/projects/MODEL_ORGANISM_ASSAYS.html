@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model-Organism Assays - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html" class="active" aria-current="true">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Model-Organism Assays</h1>
+            <div class="hero-meta">
+                <span class="badge status-PLANNED">Planned</span>
+                <span class="tag">models</span><span class="tag">animal-models</span><span class="tag">assays</span><span class="tag">impress</span><span class="tag">mammalian-phenotype</span><span class="tag">behavior</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Model-Organism Assays</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (9)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Trichotillomania.html">Trichotillomania</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Major_Depressive_Disorder.html">Major Depressive Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Generalized_Anxiety_Disorder.html">Generalized Anxiety Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Obsessive-Compulsive_Disorder.html">Obsessive-Compulsive Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Amyotrophic_Lateral_Sclerosis.html">Amyotrophic Lateral Sclerosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Dominant_Deafness-Onychodystrophy_Syndrome.html">Dominant Deafness-Onychodystrophy Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/SNF8-Related_Neurodevelopmental_Disorder.html">SNF8-Related Neurodevelopmental Disorder</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Alopecia-Intellectual_Disability_Syndrome_4.html">Alopecia-Intellectual Disability Syndrome 4</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Brain_Small_Vessel_Disease_2_COL4A2.html">Brain Small Vessel Disease 2</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/MODEL_ORGANISM_ASSAYS.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="model-organism-assays">Model-Organism Assays</h1>
+<h2 id="goal">Goal</h2>
+<p>An animal-model record links a model to the mechanism node it informs through
+<code>modeled_mechanisms</code>, and each link can carry <code>readouts</code>: the measurements that
+ground the claim. Today those readouts are almost entirely free text. Nothing
+says which test produced a measurement or which ontology term describes the
+result in the animal, so two entries that cite the same mouse open-field result
+cannot be recognised as citing the same thing.</p>
+<p>This project gives a readout two structured parts:</p>
+<table>
+<thead>
+<tr>
+<th>Part</th>
+<th>Question it answers</th>
+<th>Mouse source</th>
+<th>Analogue for human measurements</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>assay identity</td>
+<td>which test, run how</td>
+<td>an IMPReSS procedure and parameter</td>
+<td>a LOINC code (<code>projects/LOINC_DIAGNOSTICS.md</code>)</td>
+</tr>
+<tr>
+<td>result term</td>
+<td>what was observed, in the animal's own vocabulary</td>
+<td>a Mammalian Phenotype (MP) term</td>
+<td>an HPO term</td>
+</tr>
+</tbody>
+</table>
+<p>Mouse first, because IMPReSS already pairs the two: every measured parameter
+names the MP terms a significant result is annotated with. Other organisms
+follow once the mouse pattern works (Phase 4).</p>
+<h2 id="current-state">Current state</h2>
+<p>Counts are from a parse of every <code>animal_models:</code> block in <code>kb/disorders/</code>,
+<code>kb/modules/</code> and <code>kb/comorbidities/</code> on 2026-11-10. They drift with every
+merge; read them as a scoping snapshot.</p>
+<table>
+<thead>
+<tr>
+<th>Measure</th>
+<th style="text-align: right;">Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>animal-model records</td>
+<td style="text-align: right;">3,385 (in 1,731 files)</td>
+</tr>
+<tr>
+<td>records with <code>modeled_mechanisms</code></td>
+<td style="text-align: right;">2,941</td>
+</tr>
+<tr>
+<td>model-to-mechanism links</td>
+<td style="text-align: right;">4,546</td>
+</tr>
+<tr>
+<td>readouts on those links</td>
+<td style="text-align: right;">2,221</td>
+</tr>
+<tr>
+<td>readouts with an <code>assays</code> binding</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr>
+<td>readouts with a <code>phenotype_term</code></td>
+<td style="text-align: right;">7 (all HP)</td>
+</tr>
+<tr>
+<td>readouts with <code>biological_processes</code></td>
+<td style="text-align: right;">23</td>
+</tr>
+<tr>
+<td>records with free-text <code>associated_phenotypes</code></td>
+<td style="text-align: right;">327</td>
+</tr>
+<tr>
+<td>distinct <code>species</code> strings</td>
+<td style="text-align: right;">102</td>
+</tr>
+<tr>
+<td>records whose text mentions IMPC or KOMP</td>
+<td style="text-align: right;">17</td>
+</tr>
+</tbody>
+</table>
+<p>Three gaps follow from the schema rather than from curation effort:</p>
+<ul>
+<li><strong>The assay slot cannot be filled for an animal test.</strong>
+  <code>ExperimentalReadout.assays</code> is bound to <code>AssayTerm</code>, rooted at OBI
+  <code>OBI:0000070</code> (assay). OBI has no adapter in <code>conf/oak_config.yaml</code> and no
+  enum cache, so an OBI binding cannot be validated. OBI does not identify a
+  specific standardised mouse protocol either.</li>
+<li><strong>The result slot only accepts human terms.</strong> A readout's <code>phenotype_term</code>
+  is a <code>PhenotypeDescriptor</code> bound to <code>PhenotypeTerm</code>, rooted at HP
+  <code>HP:0000118</code> and MONDO. MP is not configured anywhere; MP IDs appear in the
+  KB only inside prose fields of three entries.</li>
+<li><strong>The organism is a free string.</strong> The laboratory mouse appears under six
+  spellings across 2,460 records, chiefly <code>Mouse</code> (1,995), <code>Mus musculus</code> (359)
+  and <code>Mouse (Mus musculus)</code> (77). An IMPReSS parameter is
+  only meaningful on a mouse, so a check that the two agree needs a bound
+  organism. That is issue #13768.</li>
+</ul>
+<h2 id="what-impress-provides">What IMPReSS provides</h2>
+<p>IMPReSS (International Mouse Phenotyping Resource of Standardised Screens) is
+the International Mouse Phenotyping Consortium's registry of phenotyping
+protocols, the successor to EMPReSS. It defines pipelines (the IMPC adult
+pipeline is the consortium-agreed core), procedures within them (mandatory or
+optional, versioned), and parameters within each procedure. Its REST API at
+<code>https://api.mousephenotype.org/impress/</code> serves each level by ID:
+<code>procedure/&lt;id&gt;</code>, <code>parameter/&lt;id&gt;</code>, <code>parammpterm/&lt;id&gt;</code> and <code>ontologyterm/&lt;id&gt;</code>.</p>
+<p>Behavioural and sensory procedures in the IMPC adult pipeline, as the API
+returns them:</p>
+<table>
+<thead>
+<tr>
+<th>Procedure</th>
+<th>Key</th>
+<th>Status</th>
+<th>Version</th>
+<th style="text-align: right;">Parameters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Open Field</td>
+<td><code>IMPC_OFD_001</code></td>
+<td>mandatory</td>
+<td>1.10</td>
+<td style="text-align: right;">52</td>
+</tr>
+<tr>
+<td>Acoustic Startle and Pre-pulse Inhibition (PPI)</td>
+<td><code>IMPC_ACS_003</code></td>
+<td>mandatory</td>
+<td>3.4</td>
+<td style="text-align: right;">39</td>
+</tr>
+<tr>
+<td>Combined SHIRPA and Dysmorphology</td>
+<td><code>IMPC_CSD_003</code></td>
+<td>mandatory</td>
+<td>3.9</td>
+<td style="text-align: right;">86</td>
+</tr>
+<tr>
+<td>Light-Dark Test</td>
+<td><code>IMPC_LDT_001</code></td>
+<td>optional</td>
+<td>1.1</td>
+<td style="text-align: right;">34</td>
+</tr>
+<tr>
+<td>Auditory Brain Stem Response</td>
+<td><code>IMPC_ABR_002</code></td>
+<td>mandatory</td>
+<td>2.5</td>
+<td style="text-align: right;">53</td>
+</tr>
+</tbody>
+</table>
+<p>The parameter count includes procedure metadata as well as measurements. Of
+Open Field's 52 parameters, 22 are metadata such as arena size, light
+intensity in the centre of the arena and wall height, and carry no MP term.
+Of the 30 measurements, 29 carry three MP terms, one for each
+<code>selectionOutcome</code> (<code>INCREASED</code>, <code>DECREASED</code>, <code>ABNORMAL</code>); the exception,
+Whole arena permanence (<code>IMPC_OFD_008_001</code>), carries none:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Key</th>
+<th>INCREASED</th>
+<th>DECREASED</th>
+<th>ABNORMAL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Center permanence time</td>
+<td><code>IMPC_OFD_016_001</code></td>
+<td>MP:0020870 decreased thigmotaxis</td>
+<td>MP:0002797 increased thigmotaxis</td>
+<td>MP:0001362 abnormal anxiety-related response</td>
+</tr>
+<tr>
+<td>Number of center entries</td>
+<td><code>IMPC_OFD_019_001</code></td>
+<td>MP:0001399 hyperactivity</td>
+<td>MP:0001402 hypoactivity</td>
+<td>MP:0003313 abnormal locomotor activation</td>
+</tr>
+<tr>
+<td>Percentage center time</td>
+<td><code>IMPC_OFD_022_001</code></td>
+<td>MP:0004924 abnormal behavior</td>
+<td>MP:0004924 abnormal behavior</td>
+<td>MP:0004924 abnormal behavior</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Standardising the test does not settle what it means.</strong> The Open Field
+procedure description says the test "is used to assess anxiety and exploratory
+behaviors", on the premise that a normal mouse spends more time in the
+periphery than in "the center (the most anxiogenic area)". But the
+direction-specific MP terms IMPReSS assigns describe the observed behaviour
+(thigmotaxis, activity), and the anxiety term appears only as the
+non-directional <code>ABNORMAL</code> call. The separation between what was measured and
+what it is taken to indicate already exists in IMPReSS and MP. dismech should
+keep it: an IMPReSS parameter and MP term record the observation, and the
+inference to a human construct stays in the link's <code>divergences</code>
+(<code>PROXY_QUANTITY</code>, and <code>CONTESTED_ASSUMPTION</code> where the field disputes the
+reading). <code>Major_Depressive_Disorder</code> (the daf-2 C. elegans foraging model) and
+<code>Trichotillomania</code> (the Sapap3 overgrooming model) show how that caveat is
+written today.</p>
+<h2 id="decisions-to-make">Decisions to make</h2>
+<p>These go through the <code>extend-schema</code> skill and, once settled, the decision
+register (<code>docs/explanation/design-decisions.md</code>).</p>
+<ol>
+<li><strong>Where the assay identity lives.</strong> IMPReSS is a protocol registry, not an
+   OBO ontology, so it does not fit <code>AssayTerm</code> and has no OAK adapter. The
+   closer precedent is a dataset accession: an identifier fetched once into
+   <code>references_cache/</code> (as <code>GEO_&lt;ID&gt;.md</code> is) and validated by the cache file's
+   presence. Options are a new prefix accepted by <code>assays</code>, or a separate
+   readout slot for a standardised protocol parameter. The parameter key
+   (<code>IMPC_OFD_016_001</code>) carries its procedure, so the procedure does not need
+   its own slot.</li>
+<li><strong>Where the result term lives.</strong> Widening <code>PhenotypeTerm</code> to MP would let
+   mouse terms into the human phenotype slots of every disease entry. A
+   readout-only slot for a model-organism phenotype term, bound to MP first,
+   keeps the two apart. MP is on OLS, so <code>ols:mp</code> in <code>conf/oak_config.yaml</code>
+   would give it cache-first validation like HP.</li>
+<li><strong>Direction.</strong> IMPReSS <code>INCREASED</code> and <code>DECREASED</code> map onto the readout
+   <code>direction</code> values of the same names. <code>ABNORMAL</code> has no direction and maps
+   to <code>ALTERED</code>.</li>
+<li><strong>Comparison with the human phenotype.</strong> Whether a readout's MP term
+   corresponds to one of the entry's HP phenotypes is a curator judgement.
+   MP-HP mappings, for example through uPheno, can propose candidates for that
+   judgement but should not decide it.</li>
+<li><strong>Organism binding.</strong> IMPReSS identifiers on a record whose organism is a
+   free string cannot be checked against it. Either this project waits for
+   #13768, or it checks against the normalised species strings in the interim.</li>
+</ol>
+<h2 id="phases">Phases</h2>
+<h3 id="phase-0-scope-and-decide">Phase 0: scope and decide</h3>
+<ul>
+<li>[ ] Add a report-only census recipe that reproduces the counts above.</li>
+<li>[ ] Settle decisions 1 to 5 and record them in the decision register.</li>
+<li>[ ] Confirm the IMPReSS API's terms of use and whether a bulk download
+      exists, so the cache can be built without one request per parameter.</li>
+</ul>
+<h3 id="phase-1-mp-terms-on-readouts">Phase 1: MP terms on readouts</h3>
+<ul>
+<li>[ ] Add MP to <code>conf/oak_config.yaml</code> and the readout slot from decision 2.</li>
+<li>[ ] Bind MP terms on the readouts of the worked examples below, reading each
+      term from OLS in the step it is written.</li>
+<li>[ ] Extend <code>just model-scale-audit</code> or a sibling recipe to report readouts
+      with and without a result term.</li>
+</ul>
+<h3 id="phase-2-impress-parameter-identifiers">Phase 2: IMPReSS parameter identifiers</h3>
+<ul>
+<li>[ ] Write the fetcher and cache format for IMPReSS parameters (key, name,
+      procedure, version, MP terms per outcome), following the GEO pattern.</li>
+<li>[ ] Add the slot from decision 1 and a gate that the cached MP terms for a
+      parameter include the readout's MP term when both are given.</li>
+<li>[ ] Pilot on the 17 records that mention IMPC or KOMP. First sort them into
+      records that cite IMPC phenotyping data, which can take an IMPReSS
+      parameter, and records that only use an IMPC-made allele, which cannot.</li>
+</ul>
+<h3 id="phase-3-impc-data">Phase 3: IMPC data</h3>
+<ul>
+<li>[ ] Coordinate with <code>projects/COMMONFUND/KOMP2.md</code>, whose plan is to pull
+      significant IMPC calls with their procedure, parameter, zygosity, sex
+      and MP term. With Phase 2 in place those calls can land as structured
+      readouts.</li>
+<li>[ ] Update the KOMP2 project's evidence wording, which still describes IMPC
+      evidence as <code>PARTIAL</code>, a <code>supports</code> value retired in #7439.</li>
+</ul>
+<h3 id="phase-4-other-organisms">Phase 4: other organisms</h3>
+<ul>
+<li>[ ] Assess, per organism, what plays the IMPReSS and MP roles. Candidates to
+      evaluate include ZP and ZECO for zebrafish, WormBase's phenotype
+      ontology for C. elegans, FlyBase's controlled vocabularies for
+      Drosophila, the RGD measurement and trait ontologies (MMO, CMO, VT) for
+      rat, and NBO for behaviour across species. Zebrafish (386 records under
+      six spellings of the species) and Drosophila (110 records under five)
+      are the next largest groups after mouse.</li>
+</ul>
+<h2 id="worked-examples">Worked examples</h2>
+<table>
+<thead>
+<tr>
+<th>Entry</th>
+<th>Model</th>
+<th>Readout today</th>
+<th>What the project adds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Dominant_Deafness-Onychodystrophy_Syndrome</code></td>
+<td>Atp6v1b2 p.Arg506* knock-in, one line phenotyped through the IMPC pipeline</td>
+<td>"auditory brainstem responses were normal at 14 weeks" in <code>limitations</code> prose</td>
+<td>an <code>IMPC_ABR_002</code> parameter with <code>direction: UNCHANGED</code>; a normal result has no MP term, which is why the assay identity matters on its own</td>
+</tr>
+<tr>
+<td><code>Generalized_Anxiety_Disorder</code></td>
+<td>larval and adult zebrafish anxiolytic assays</td>
+<td>named in free text ("Novel-tank bottom dwelling under diazepam")</td>
+<td>a Phase 4 zebrafish assay identity; the existing <code>PROXY_QUANTITY</code> caveat stays</td>
+</tr>
+<tr>
+<td><code>Trichotillomania</code></td>
+<td>Sapap3 knockout mouse</td>
+<td>"Facial hair loss and skin lesions from compulsive grooming"</td>
+<td>an MP grooming term; no IMPReSS parameter, since the result comes from a published study rather than the IMPC pipeline</td>
+</tr>
+<tr>
+<td><code>Major_Depressive_Disorder</code></td>
+<td>daf-2 C. elegans foraging immobility</td>
+<td>free-text readout plus typed divergences</td>
+<td>a Phase 4 worm phenotype term; the divergences stay as written</td>
+</tr>
+<tr>
+<td><code>Amyotrophic_Lateral_Sclerosis</code></td>
+<td>canine SOD1 E40K and equine motor neuron disease</td>
+<td>histology readouts in free text</td>
+<td>Phase 4; shows that dog and horse models have no IMPReSS equivalent</td>
+</tr>
+<tr>
+<td><code>SNF8-Related_Neurodevelopmental_Disorder</code>, <code>Alopecia-Intellectual_Disability_Syndrome_4</code>, <code>Brain_Small_Vessel_Disease_2</code></td>
+<td>mice carrying IMPC-produced alleles</td>
+<td>the IMPC origin is recorded only in the model's name, genotype or prose</td>
+<td>the Phase 2 sorting of IMPC phenotyping data from IMPC alleles</td>
+</tr>
+</tbody>
+</table>
+<h2 id="related">Related</h2>
+<ul>
+<li>
+<h1 id="13768-a-bound-organism-and-a-structured-non-genetic-perturbation-on">13768: a bound <code>organism</code> and a structured non-genetic perturbation on</h1>
+<code>AnimalModel</code>. Decision 5 depends on it.</li>
+<li>
+<h1 id="11743-a-divergence-type-for-a-model-that-reproduces-only-part-of-the">11743: a divergence type for a model that reproduces only part of the</h1>
+  phenotype.</li>
+<li>
+<h1 id="13754-and-14274-stress-paradigm-models-of-mood-disorders-where-the">13754 and #14274: stress-paradigm models of mood disorders, where the</h1>
+  assay-versus-construct separation matters most.</li>
+<li>
+<h1 id="16387-whole-model-organisms-from-a-developmental-neurotoxicity-paper">16387: whole model organisms from a developmental neurotoxicity paper.</h1>
+</li>
+<li><code>projects/LOINC_DIAGNOSTICS.md</code>: the same identity-of-a-measurement problem
+  for human tests, solved with LOINC.</li>
+<li><code>projects/COMMONFUND/KOMP2.md</code> and <code>projects/NAMO_RD_MODELS.md</code>: neighbouring
+  model-organism projects.</li>
+<li><code>docs/explanation/model-credibility.md</code>: what a model-to-mechanism link does
+  and does not claim.</li>
+</ul>
+        </article>
+    </div>
+</body>
+</html>

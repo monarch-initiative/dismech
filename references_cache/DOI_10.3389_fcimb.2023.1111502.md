@@ -1,5 +1,6 @@
 ---
-reference_id: "DOI:10.3389/fcimb.2023.1111502"
+reference_id: DOI:10.3389/fcimb.2023.1111502
+extractor_version: 1
 title: Bordetella spp. utilize the type 3 secretion system to manipulate the VIP/VPAC2 signaling and promote colonization and persistence of the three classical Bordetella in the lower respiratory tract
 authors:
 - Nicholas J. First
@@ -19,6 +20,7 @@ full_text_url: "https://www.frontiersin.org/articles/10.3389/fcimb.2023.1111502/
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.3389_fcimb.2023.1111502.pdf
+full_text_access_type: open
 ---
 
 # Bordetella spp. utilize the type 3 secretion system to manipulate the VIP/VPAC2 signaling and promote colonization and persistence of the three classical Bordetella in the lower respiratory tract
@@ -28,7 +30,21 @@ local_pdf_path: files/DOI_10.3389_fcimb.2023.1111502.pdf
 
 ## Content
 
-IntroductionBordetella are respiratory pathogens comprised of three classical Bordetella species: B. pertussis, B. parapertussis, and B. bronchiseptica. With recent surges in Bordetella spp. cases and antibiotics becoming less effective to combat infectious diseases, there is an imperative need for novel antimicrobial therapies. Our goal is to investigate the possible targets of host immunomodulatory mechanisms that can be exploited to promote clearance of Bordetella spp. infections. Vasoactive intestinal peptide (VIP) is a neuropeptide that promotes Th2 anti-inflammatory responses through VPAC1 and VPAC2 receptor binding and activation of downstream signaling cascades.MethodsWe used classical growth in vitro assays to evaluate the effects of VIP on Bordetella spp. growth and survival. Using the three classical Bordetella spp. in combination with different mouse strains we were able to evaluate the role of VIP/VPAC2 signaling in the infectious dose 50 and infection dynamics. Finally using the B. bronchiseptica murine model we determine the suitability of VPAC2 antagonists as possible therapy for Bordetella spp. infections.ResultsUnder the hypothesis that inhibition of VIP/VPAC2 signaling would promote clearance, we found that VPAC2-/- mice, lacking a functional VIP/VPAC2 axis, hinder the ability of the bacteria to colonize the lungs, resulting in decreased bacterial burden by all three classical Bordetella species. Moreover, treatment with VPAC2 antagonists decrease lung pathology, suggesting its potential use to prevent lung damage and dysfunction caused by infection. Our results indicate that the ability of Bordetella spp. to manipulate VIP/VPAC signaling pathway appears to be mediated by the type 3 secretion system (T3SS), suggesting that this might serve as a therapeutical target for other gram-negative bacteria.ConclusionTaken together, our findings uncover a novel mechanism of bacteria-host crosstalk that could provide a target for the future treatment for whooping cough as well as other infectious diseases caused primarily by persistent mucosal infections.
+Introduction
+
+Bordetella are respiratory pathogens comprised of three classical Bordetella species: B. pertussis, B. parapertussis, and B. bronchiseptica. With recent surges in Bordetella spp. cases and antibiotics becoming less effective to combat infectious diseases, there is an imperative need for novel antimicrobial therapies. Our goal is to investigate the possible targets of host immunomodulatory mechanisms that can be exploited to promote clearance of Bordetella spp. infections. Vasoactive intestinal peptide (VIP) is a neuropeptide that promotes Th2 anti-inflammatory responses through VPAC1 and VPAC2 receptor binding and activation of downstream signaling cascades.
+
+Methods
+
+We used classical growth in vitro assays to evaluate the effects of VIP on Bordetella spp. growth and survival. Using the three classical Bordetella spp. in combination with different mouse strains we were able to evaluate the role of VIP/VPAC2 signaling in the infectious dose 50 and infection dynamics. Finally using the B. bronchiseptica murine model we determine the suitability of VPAC2 antagonists as possible therapy for Bordetella spp. infections.
+
+Results
+
+Under the hypothesis that inhibition of VIP/VPAC2 signaling would promote clearance, we found that VPAC2-/- mice, lacking a functional VIP/VPAC2 axis, hinder the ability of the bacteria to colonize the lungs, resulting in decreased bacterial burden by all three classical Bordetella species. Moreover, treatment with VPAC2 antagonists decrease lung pathology, suggesting its potential use to prevent lung damage and dysfunction caused by infection. Our results indicate that the ability of Bordetella spp. to manipulate VIP/VPAC signaling pathway appears to be mediated by the type 3 secretion system (T3SS), suggesting that this might serve as a therapeutical target for other gram-negative bacteria.
+
+Conclusion
+
+Taken together, our findings uncover a novel mechanism of bacteria-host crosstalk that could provide a target for the future treatment for whooping cough as well as other infectious diseases caused primarily by persistent mucosal infections.
 
 Bordetella spp. utilize the type 3
 secretion system to manipulate

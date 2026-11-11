@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1186/s12967-024-05756-w
+extractor_version: 1
 title: "Human in vitro models for Fabry disease: new paths for unravelling disease mechanisms and therapies"
 authors:
 - Carla Borisch
@@ -10,12 +11,14 @@ journal: Journal of Translational Medicine
 year: '2024'
 doi: 10.1186/s12967-024-05756-w
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://translational-medicine.biomedcentral.com/counter/pdf/10.1186/s12967-024-05756-w"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1186_s12967-024-05756-w.pdf
+full_text_access_type: open
 ---
 
 # Human in vitro models for Fabry disease: new paths for unravelling disease mechanisms and therapies
@@ -25,7 +28,9 @@ local_pdf_path: files/DOI_10.1186_s12967-024-05756-w.pdf
 
 ## Content
 
-AbstractFabry disease is a multi-organ disease, caused by mutations in the GLA gene and leading to a progressive accumulation of glycosphingolipids due to enzymatic absence or malfunction of the encoded alpha-galactosidase A. Since pathomechanisms are not yet fully understood and available treatments are not efficient for all mutation types and tissues, further research is highly needed. This research involves many different model types, with significant effort towards the establishment of an in vivo model. However, these models did not replicate the variety of symptoms observed in patients. As an alternative strategy, patient-derived somatic cells as well as patient-independent cell lines were used to model specific aspects of the disease in vitro. Fabry disease patients present different phenotypes according to the mutation and the level of residual enzyme activity, pointing to the necessity of personalized disease modeling. With the advent of induced pluripotent stem cells, the derivation of a multitude of disease-affected cell types became possible, even in a patient-specific and mutation-specific manner. Only recently, three-dimensional Fabry disease models were established that even more closely resemble the native tissue of investigated organs and will bring research closer to the in vivo situation. This review provides an overview of human in vitro models and their achievements in unravelling the Fabry disease pathomechanism as well as in elucidating current and future treatment strategies.
+Abstract
+
+Fabry disease is a multi-organ disease, caused by mutations in the GLA gene and leading to a progressive accumulation of glycosphingolipids due to enzymatic absence or malfunction of the encoded alpha-galactosidase A. Since pathomechanisms are not yet fully understood and available treatments are not efficient for all mutation types and tissues, further research is highly needed. This research involves many different model types, with significant effort towards the establishment of an in vivo model. However, these models did not replicate the variety of symptoms observed in patients. As an alternative strategy, patient-derived somatic cells as well as patient-independent cell lines were used to model specific aspects of the disease in vitro. Fabry disease patients present different phenotypes according to the mutation and the level of residual enzyme activity, pointing to the necessity of personalized disease modeling. With the advent of induced pluripotent stem cells, the derivation of a multitude of disease-affected cell types became possible, even in a patient-specific and mutation-specific manner. Only recently, three-dimensional Fabry disease models were established that even more closely resemble the native tissue of investigated organs and will bring research closer to the in vivo situation. This review provides an overview of human in vitro models and their achievements in unravelling the Fabry disease pathomechanism as well as in elucidating current and future treatment strategies.
 
 Borisch et al. 
 Journal of Translational Medicine          (2024) 22:965  

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s12094-023-03206-5
+extractor_version: 1
 title: SEOM-GOTEL clinical guidelines on diffuse large B cell lymphoma (2022)
 authors:
 - Josep Gumà
@@ -16,12 +17,14 @@ journal: Clinical and Translational Oncology
 year: '2023'
 doi: 10.1007/s12094-023-03206-5
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s12094-023-03206-5.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s12094-023-03206-5.pdf
+full_text_access_type: open
 ---
 
 # SEOM-GOTEL clinical guidelines on diffuse large B cell lymphoma (2022)
@@ -31,7 +34,9 @@ local_pdf_path: files/DOI_10.1007_s12094-023-03206-5.pdf
 
 ## Content
 
-AbstractDiffuse large B-cell lymphoma is the most frequent histological subtype of NHL and the paradigm for the management of aggressive lymphoma. An excisional or incisional lymph node biopsy evaluated by an experienced hemopathologist is recommended to establish the diagnosis. Twenty years following its introduction, R-CHOP remains the standard first-line treatment. No modification of this scheme (increased chemotherapy dose intensity, new monoclonal antibodies, or the addition of immunomodulators or anti-target agents) has significatively improved the clinical outcomes, whereas therapy for recurrence or progression is evolving rapidly. The irruption of CART cells, polatuzumab vedotin, tafasitamab, and CD20/CD3 bispecific antibodies are changing the natural history of relapsed patients and will challenge R-CHOP as the benchmark for newly diagnosed patients.
+Abstract
+
+Diffuse large B-cell lymphoma is the most frequent histological subtype of NHL and the paradigm for the management of aggressive lymphoma. An excisional or incisional lymph node biopsy evaluated by an experienced hemopathologist is recommended to establish the diagnosis. Twenty years following its introduction, R-CHOP remains the standard first-line treatment. No modification of this scheme (increased chemotherapy dose intensity, new monoclonal antibodies, or the addition of immunomodulators or anti-target agents) has significatively improved the clinical outcomes, whereas therapy for recurrence or progression is evolving rapidly. The irruption of CART cells, polatuzumab vedotin, tafasitamab, and CD20/CD3 bispecific antibodies are changing the natural history of relapsed patients and will challenge R-CHOP as the benchmark for newly diagnosed patients.
 
 Vol.:(0123456789)1 3
 Clinical and Translational Oncology (2023) 25:2749–2758 

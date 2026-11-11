@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41431-024-01538-6
+extractor_version: 1
 title: "A new blood DNA methylation signature for Koolen-de Vries syndrome: Classification of missense KANSL1 variants and comparison to fibroblast cells"
 authors:
 - Zain Awamleh
@@ -23,12 +24,14 @@ journal: European Journal of Human Genetics
 year: '2024'
 doi: 10.1038/s41431-024-01538-6
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41431-024-01538-6.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41431-024-01538-6.pdf
+full_text_access_type: open
 ---
 
 # A new blood DNA methylation signature for Koolen-de Vries syndrome: Classification of missense KANSL1 variants and comparison to fibroblast cells
@@ -38,7 +41,9 @@ local_pdf_path: files/DOI_10.1038_s41431-024-01538-6.pdf
 
 ## Content
 
-AbstractPathogenic variants in KANSL1 and 17q21.31 microdeletions are causative of Koolen-de Vries syndrome (KdVS), a neurodevelopmental syndrome with characteristic facial dysmorphia. Our previous work has shown that syndromic conditions caused by pathogenic variants in epigenetic regulatory genes have identifiable patterns of DNA methylation (DNAm) change: DNAm signatures or episignatures. Given the role of KANSL1 in histone acetylation, we tested whether variants underlying KdVS are associated with a DNAm signature. We profiled whole-blood DNAm for 13 individuals with KANSL1 variants, four individuals with 17q21.31 microdeletions, and 21 typically developing individuals, using Illumina’s Infinium EPIC array. In this study, we identified a robust DNAm signature of 456 significant CpG sites in 8 individuals with KdVS, a pattern independently validated in an additional 7 individuals with KdVS. We also demonstrate the diagnostic utility of the signature and classify two KANSL1 VUS as well as four variants in individuals with atypical clinical presentation. Lastly, we investigated tissue-specific DNAm changes in fibroblast cells from individuals with KdVS. Collectively, our findings contribute to the understanding of the epigenetic landscape related to KdVS and aid in the diagnosis and classification of variants in this structurally complex genomic region.
+Abstract
+
+Pathogenic variants in KANSL1 and 17q21.31 microdeletions are causative of Koolen-de Vries syndrome (KdVS), a neurodevelopmental syndrome with characteristic facial dysmorphia. Our previous work has shown that syndromic conditions caused by pathogenic variants in epigenetic regulatory genes have identifiable patterns of DNA methylation (DNAm) change: DNAm signatures or episignatures. Given the role of KANSL1 in histone acetylation, we tested whether variants underlying KdVS are associated with a DNAm signature. We profiled whole-blood DNAm for 13 individuals with KANSL1 variants, four individuals with 17q21.31 microdeletions, and 21 typically developing individuals, using Illumina’s Infinium EPIC array. In this study, we identified a robust DNAm signature of 456 significant CpG sites in 8 individuals with KdVS, a pattern independently validated in an additional 7 individuals with KdVS. We also demonstrate the diagnostic utility of the signature and classify two KANSL1 VUS as well as four variants in individuals with atypical clinical presentation. Lastly, we investigated tissue-specific DNAm changes in fibroblast cells from individuals with KdVS. Collectively, our findings contribute to the understanding of the epigenetic landscape related to KdVS and aid in the diagnosis and classification of variants in this structurally complex genomic region.
 
 ARTICLE OPEN
 A new blood DNA methylation signature for Koolen-de Vries

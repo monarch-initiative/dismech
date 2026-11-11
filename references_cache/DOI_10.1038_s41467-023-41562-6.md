@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41467-023-41562-6
+extractor_version: 1
 title: Large T cell clones expressing immune checkpoints increase during multiple myeloma evolution and predict treatment resistance
 authors:
 - Cirino Botta
@@ -47,12 +48,14 @@ journal: Nature Communications
 year: '2023'
 doi: 10.1038/s41467-023-41562-6
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41467-023-41562-6.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41467-023-41562-6.pdf
+full_text_access_type: open
 ---
 
 # Large T cell clones expressing immune checkpoints increase during multiple myeloma evolution and predict treatment resistance
@@ -62,7 +65,9 @@ local_pdf_path: files/DOI_10.1038_s41467-023-41562-6.pdf
 
 ## Content
 
-AbstractTumor recognition by T cells is essential for antitumor immunity. A comprehensive characterization of T cell diversity may be key to understanding the success of immunomodulatory drugs and failure of PD-1 blockade in tumors such as multiple myeloma (MM). Here, we use single-cell RNA and T cell receptor sequencing to characterize bone marrow T cells from healthy adults (n = 4) and patients with precursor (n = 8) and full-blown MM (n = 10). Large T cell clones from patients with MM expressed multiple immune checkpoints, suggesting a potentially dysfunctional phenotype. Dual targeting of PD-1 + LAG3 or PD-1 + TIGIT partially restored their function in mice with MM. We identify phenotypic hallmarks of large intratumoral T cell clones, and demonstrate that the CD27− and CD27+ T cell ratio, measured by flow cytometry, may serve as a surrogate of clonal T cell expansions and an independent prognostic factor in 543 patients with MM treated with lenalidomide-based treatment combinations.
+Abstract
+
+Tumor recognition by T cells is essential for antitumor immunity. A comprehensive characterization of T cell diversity may be key to understanding the success of immunomodulatory drugs and failure of PD-1 blockade in tumors such as multiple myeloma (MM). Here, we use single-cell RNA and T cell receptor sequencing to characterize bone marrow T cells from healthy adults ( n = 4) and patients with precursor ( n = 8) and full-blown MM ( n = 10). Large T cell clones from patients with MM expressed multiple immune checkpoints, suggesting a potentially dysfunctional phenotype. Dual targeting of PD-1 + LAG3 or PD-1 + TIGIT partially restored their function in mice with MM. We identify phenotypic hallmarks of large intratumoral T cell clones, and demonstrate that the CD27 − and CD27 + T cell ratio, measured by flow cytometry, may serve as a surrogate of clonal T cell expansions and an independent prognostic factor in 543 patients with MM treated with lenalidomide-based treatment combinations.
 
 Article https://doi.org/10.1038/s41467-023-41562-6
 Large T cell clones expressing immune

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/ncomms10006
+extractor_version: 1
 title: ENPP1-Fc prevents mortality and vascular calcifications in rodent model of generalized arterial calcification of infancy
 authors:
 - Ronald A. Albright
@@ -28,12 +29,14 @@ journal: Nature Communications
 year: '2015'
 doi: 10.1038/ncomms10006
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/ncomms10006.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_ncomms10006.pdf
+full_text_access_type: open
 ---
 
 # ENPP1-Fc prevents mortality and vascular calcifications in rodent model of generalized arterial calcification of infancy
@@ -43,7 +46,9 @@ local_pdf_path: files/DOI_10.1038_ncomms10006.pdf
 
 ## Content
 
-AbstractDiseases of ectopic calcification of the vascular wall range from lethal orphan diseases such as generalized arterial calcification of infancy (GACI), to common diseases such as hardening of the arteries associated with aging and calciphylaxis of chronic kidney disease (CKD). GACI is a lethal orphan disease in which infants calcify the internal elastic lamina of their medium and large arteries and expire of cardiac failure as neonates, while calciphylaxis of CKD is a ubiquitous vascular calcification in patients with renal failure. Both disorders are characterized by vascular Mönckeburg’s sclerosis accompanied by decreased concentrations of plasma inorganic pyrophosphate (PPi). Here we demonstrate that subcutaneous administration of an ENPP1-Fc fusion protein prevents the mortality, vascular calcifications and sequela of disease in animal models of GACI, and is accompanied by a complete clinical and biomarker response. Our findings have implications for the treatment of rare and common diseases of ectopic vascular calcification.
+Abstract
+
+Diseases of ectopic calcification of the vascular wall range from lethal orphan diseases such as generalized arterial calcification of infancy (GACI), to common diseases such as hardening of the arteries associated with aging and calciphylaxis of chronic kidney disease (CKD). GACI is a lethal orphan disease in which infants calcify the internal elastic lamina of their medium and large arteries and expire of cardiac failure as neonates, while calciphylaxis of CKD is a ubiquitous vascular calcification in patients with renal failure. Both disorders are characterized by vascular Mönckeburg’s sclerosis accompanied by decreased concentrations of plasma inorganic pyrophosphate (PPi). Here we demonstrate that subcutaneous administration of an ENPP1-Fc fusion protein prevents the mortality, vascular calcifications and sequela of disease in animal models of GACI, and is accompanied by a complete clinical and biomarker response. Our findings have implications for the treatment of rare and common diseases of ectopic vascular calcification.
 
 ARTICLE
 Received 11 May 2015 | Accepted 23 Oct 2015 | Published 1 Dec 2015

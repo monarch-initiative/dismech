@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41525-017-0024-5
+extractor_version: 1
 title: A homozygous mutation in the stem II domain of RNU4ATAC causes typical Roifman syndrome
 authors:
 - Yael Dinur Schejter
@@ -15,12 +16,14 @@ journal: npj Genomic Medicine
 year: '2017'
 doi: 10.1038/s41525-017-0024-5
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41525-017-0024-5.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41525-017-0024-5.pdf
+full_text_access_type: open
 ---
 
 # A homozygous mutation in the stem II domain of RNU4ATAC causes typical Roifman syndrome
@@ -30,7 +33,9 @@ local_pdf_path: files/DOI_10.1038_s41525-017-0024-5.pdf
 
 ## Content
 
-AbstractRoifman syndrome (OMIM# 616651) is a complex syndrome encompassing skeletal dysplasia, immunodeficiency, retinal dystrophy and developmental delay, and is caused by compound heterozygous mutations involving the Stem II region and one of the other domains of the RNU4ATAC gene. This small nuclear RNA gene is essential for minor intron splicing. The Canadian Centre for Primary Immunodeficiency Registry and Repository were used to derive patient information as well as tissues. Utilising RNA sequencing methodologies, we analysed samples from patients with Roifman syndrome and assessed intron retention. We demonstrate that a homozygous mutation in Stem II is sufficient to cause the full spectrum of features associated with typical Roifman syndrome. Further, we demonstrate the same pattern of aberration in minor intron retention as found in cases with compound heterozygous mutations.
+Abstract
+
+Roifman syndrome (OMIM# 616651) is a complex syndrome encompassing skeletal dysplasia, immunodeficiency, retinal dystrophy and developmental delay, and is caused by compound heterozygous mutations involving the Stem II region and one of the other domains of the RNU4ATAC gene. This small nuclear RNA gene is essential for minor intron splicing. The Canadian Centre for Primary Immunodeficiency Registry and Repository were used to derive patient information as well as tissues. Utilising RNA sequencing methodologies, we analysed samples from patients with Roifman syndrome and assessed intron retention. We demonstrate that a homozygous mutation in Stem II is sufficient to cause the full spectrum of features associated with typical Roifman syndrome. Further, we demonstrate the same pattern of aberration in minor intron retention as found in cases with compound heterozygous mutations.
 
 CASE REPORT OPEN
 A homozygous mutation in the stem II domain of

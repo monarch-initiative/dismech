@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1186/s40364-024-00611-y
+extractor_version: 1
 title: The impact of integrated hepatitis B virus DNA on oncogenesis and antiviral therapy
 authors:
 - Mingming Zhang
@@ -10,12 +11,14 @@ journal: Biomarker Research
 year: '2024'
 doi: 10.1186/s40364-024-00611-y
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://biomarkerres.biomedcentral.com/counter/pdf/10.1186/s40364-024-00611-y"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1186_s40364-024-00611-y.pdf
+full_text_access_type: open
 ---
 
 # The impact of integrated hepatitis B virus DNA on oncogenesis and antiviral therapy
@@ -25,7 +28,9 @@ local_pdf_path: files/DOI_10.1186_s40364-024-00611-y.pdf
 
 ## Content
 
-AbstractThe global burden of hepatitis B virus (HBV) infection remains high, with chronic hepatitis B (CHB) patients facing a significantly increased risk of developing cirrhosis and hepatocellular carcinoma (HCC). The ultimate objective of antiviral therapy is to achieve a sterilizing cure for HBV. This necessitates the elimination of intrahepatic covalently closed circular DNA (cccDNA) and the complete eradication of integrated HBV DNA. This review aims to summarize the oncogenetic role of HBV integration and the significance of clearing HBV integration in sterilizing cure. It specifically focuses on the molecular mechanisms through which HBV integration leads to HCC, including modulation of the expression of proto-oncogenes and tumor suppressor genes, induction of chromosomal instability, and expression of truncated mutant HBV proteins. The review also highlights the impact of antiviral therapy in reducing HBV integration and preventing HBV-related HCC. Additionally, the review offers insights into future objectives for the treatment of CHB. Current strategies for HBV DNA integration inhibition and elimination include mainly antiviral therapies, RNA interference and gene editing technologies. Overall, HBV integration deserves further investigation and can potentially serve as a biomarker for CHB and HBV-related HCC.
+Abstract
+
+The global burden of hepatitis B virus (HBV) infection remains high, with chronic hepatitis B (CHB) patients facing a significantly increased risk of developing cirrhosis and hepatocellular carcinoma (HCC). The ultimate objective of antiviral therapy is to achieve a sterilizing cure for HBV. This necessitates the elimination of intrahepatic covalently closed circular DNA (cccDNA) and the complete eradication of integrated HBV DNA. This review aims to summarize the oncogenetic role of HBV integration and the significance of clearing HBV integration in sterilizing cure. It specifically focuses on the molecular mechanisms through which HBV integration leads to HCC, including modulation of the expression of proto-oncogenes and tumor suppressor genes, induction of chromosomal instability, and expression of truncated mutant HBV proteins. The review also highlights the impact of antiviral therapy in reducing HBV integration and preventing HBV-related HCC. Additionally, the review offers insights into future objectives for the treatment of CHB. Current strategies for HBV DNA integration inhibition and elimination include mainly antiviral therapies, RNA interference and gene editing technologies. Overall, HBV integration deserves further investigation and can potentially serve as a biomarker for CHB and HBV-related HCC.
 
 REVIEW Open Access
 © The Author(s) 2024. Open Access  This article is licensed under a Creative Commons Attribution 4.0 International License, which permits use, 

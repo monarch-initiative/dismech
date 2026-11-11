@@ -19,6 +19,7 @@ year: '2023'
 doi: 10.1111/pde.15309
 content_type: abstract_only
 is_preprint: false
+full_text_declined: "access_type:publisher_free"
 ---
 
 # Woolly hair in tricho‐dento‐osseous syndrome
@@ -28,4 +29,6 @@ is_preprint: false
 
 ## Content
 
-AbstractTricho‐dento‐osseous syndrome (TDOS) is a rare ectodermal dysplasia caused by mutations in the DLX3 gene and it is not usually included as a cause of syndromic woolly hair. We present a new case of TDOS with a novel DLX3 variant and woolly hair.
+Abstract
+
+Tricho‐dento‐osseous syndrome (TDOS) is a rare ectodermal dysplasia caused by mutations in the DLX3 gene and it is not usually included as a cause of syndromic woolly hair. We present a new case of TDOS with a novel DLX3 variant and woolly hair.

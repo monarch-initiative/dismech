@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00204-022-03271-9
+extractor_version: 1
 title: "Toxicology and pharmacology of botulinum and tetanus neurotoxins: an update"
 authors:
 - Marco Pirazzini
@@ -9,12 +10,14 @@ journal: Archives of Toxicology
 year: '2022'
 doi: 10.1007/s00204-022-03271-9
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00204-022-03271-9.pdf"
 oa_status: hybrid
-license: other-oa
+license: cc-by
 local_pdf_path: files/DOI_10.1007_s00204-022-03271-9.pdf
+full_text_access_type: open
 ---
 
 # Toxicology and pharmacology of botulinum and tetanus neurotoxins: an update
@@ -24,7 +27,9 @@ local_pdf_path: files/DOI_10.1007_s00204-022-03271-9.pdf
 
 ## Content
 
-AbstractTetanus and botulinum neurotoxins cause the neuroparalytic syndromes of tetanus and botulism, respectively, by delivering inside different types of neurons, metalloproteases specifically cleaving the SNARE proteins that are essential for the release of neurotransmitters. Research on their mechanism of action is intensively carried out in order to devise improved therapies based on antibodies and chemical drugs. Recently, major results have been obtained with human monoclonal antibodies and with single chain antibodies that have allowed one to neutralize the metalloprotease activity of botulinum neurotoxin type A1 inside neurons. In addition, a method has been devised to induce a rapid molecular evolution of the metalloprotease domain of botulinum neurotoxin followed by selection driven to re-target the metalloprotease activity versus novel targets with respect to the SNARE proteins. At the same time, an intense and wide spectrum clinical research on novel therapeutics based on botulinum neurotoxins is carried out, which are also reviewed here.
+Abstract
+
+Tetanus and botulinum neurotoxins cause the neuroparalytic syndromes of tetanus and botulism, respectively, by delivering inside different types of neurons, metalloproteases specifically cleaving the SNARE proteins that are essential for the release of neurotransmitters. Research on their mechanism of action is intensively carried out in order to devise improved therapies based on antibodies and chemical drugs. Recently, major results have been obtained with human monoclonal antibodies and with single chain antibodies that have allowed one to neutralize the metalloprotease activity of botulinum neurotoxin type A1 inside neurons. In addition, a method has been devised to induce a rapid molecular evolution of the metalloprotease domain of botulinum neurotoxin followed by selection driven to re-target the metalloprotease activity versus novel targets with respect to the SNARE proteins. At the same time, an intense and wide spectrum clinical research on novel therapeutics based on botulinum neurotoxins is carried out, which are also reviewed here.
 
 Vol.:(0123456789)1 3
 Archives of Toxicology (2022) 96:1521–1539 

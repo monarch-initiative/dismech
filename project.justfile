@@ -120,8 +120,11 @@ validate file:
 #    downloads PDFs nor writes `full_text_attempted` back into cached records.
 #    Cache normalization is a curator/CI step; an editor keystroke should not
 #    leave the curator's worktree dirty. Measured on kb/disorders/Asthma.yaml
-#    (193 snippets): `validate` takes ~8m25s and leaves 106 modified
-#    references_cache/ files behind; this takes ~22s and leaves none. Keep it
+#    (193 snippets) at the time: `validate` took ~8m25s and left 106 modified
+#    references_cache/ files behind; this took ~22s and left none. (`validate`
+#    no longer modifies tracked caches either -- `trust_cached_entries` in
+#    conf/reference_validator_config.yaml and #9963 -- but it still
+#    normalizes term caches and fetches newly cited references.) Keep it
 #    that way — a step added here must not modify tracked files. (Validating a
 #    newly cited reference still *creates* its cache record, which is wanted:
 #    that is a new untracked file the curator should commit, not churn.)
@@ -1141,7 +1144,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-reference-cache-welded-headings check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-gene-namespaces check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1590,9 +1593,10 @@ check-not4curation *args:
 # `conformance` compares every conforms_to edge's two sides, which is an
 # INDEPENDENT check on the classes because conforming pairs are curated as
 # "same kind of thing" by an unrelated process. Conformance is gated on both
-# sides being HIGH confidence by default -- letting the gene/CL/UBERON fallbacks
-# in multiplies the mismatch rate several times over; pass --include-low to see
-# the rest, or `--format conformance-gates` for the current rate under each gate.
+# sides being curated or HIGH confidence by default -- letting the GO MF, CHEBI
+# and gene/CL/UBERON rules in multiplies the mismatch rate several times over;
+# pass --include-low to see the rest, or `--format conformance-gates` for the
+# current rate at each confidence level.
 # Read-only: the tree and seed table under kb/node_classes/ are inputs.
 [group('QC')]
 node-class-scan *args:
@@ -1613,18 +1617,29 @@ node-role-audit *args:
 
 # Parse and check the compact pathograph node-class tree
 # (kb/node_classes/pathograph_node_classes.txt). The tree is curated content
-# with no schema slot yet; its leaves are real (node, disease) pairs, and a
-# tree whose leaves have drifted from the KB is worse than no tree because it
-# still looks grounded. Bare invocation checks the
-# grammar only (instant); --verify-kb also resolves every cited leaf against
-# kb/ (slow: parses the whole KB); --check-definitions verifies every `=`
-# line's term labels against the caches (--online: against OLS); --evaluate
-# runs each logical definition over its own examples and the whole KB (needs
-# the local OAK GO sqlite). --format yaml|json|text emits the tree, `text`
-# being a stable round-trip of the compact form.
+# whose classes are also the values of Pathophysiology.node_class; its leaves
+# are real (node, disease) pairs, and a tree whose leaves have drifted from the
+# KB is worse than no tree because it still looks grounded. Bare invocation
+# checks the grammar only (instant); --verify-kb also resolves every cited leaf
+# against kb/ and checks each :split_from (slow: parses the whole KB);
+# --check-definitions verifies every `=` line's term labels against the caches
+# (--online: against OLS); --evaluate runs each logical definition over its own
+# examples and the whole KB, taking the GO is_a closure from --go-obo <file> or
+# the local OAK GO sqlite (never downloaded implicitly). --format
+# yaml|json|text emits the tree, `text` being a stable round-trip of the
+# compact form; --format linkml-enum prints the generated node_class enum.
 [group('QC')]
 node-classes *args:
     uv run python -m dismech.node_classes {{args}}
+
+# Regenerate src/dismech/schema/pathograph_node_class.yaml, the enum behind
+# Pathophysiology.node_class, from the node-class tree. Run it after changing a
+# class or gloss in kb/node_classes/pathograph_node_classes.txt, bump the
+# tree's VERSION line by its VERSIONING rules, and commit both files together;
+# tests/test_node_classes.py fails while they disagree.
+[group('Schema')]
+gen-node-class-enum:
+    uv run python -m dismech.node_classes --write-enum
 
 # Validate the Claude Code skill files under .claude/skills/ (#11758). A skill
 # whose SKILL.md is missing or miscased is simply never loaded -- no error, and
@@ -1687,6 +1702,16 @@ check-case-collisions:
 check-reference-cache-nul-bytes:
     uv run python scripts/check_reference_cache_nul_bytes.py
 
+# Ungated and whole-tree for the same reason as check-case-collisions. ~3s, offline.
+# Fails on a cache file whose abstract heading is welded onto the next word
+# ("AbstractCastleman"), which breaks whole-word quote matching; fix with
+# `just fetch-reference --force <ID>`. Pass --update-baseline to shrink the
+# grandfathered list, --strict to see every finding.
+# Guard against welded abstract headings in references_cache/ (#16621)
+[group('QC')]
+check-reference-cache-welded-headings *args:
+    uv run python scripts/check_reference_cache_welded_headings.py {{ args }}
+
 # Guard against KB values that are not permissible in their slot's enum (#10061).
 # The schema-narrowing twin of check-duplicate-keys: #10003 narrowed
 # EvidenceItemSupportEnum while ~15 curation PRs carrying the retired PARTIAL
@@ -1711,6 +1736,33 @@ check-enum-values *files:
 [group('QC')]
 check-delivery-system *args:
     uv run python scripts/check_delivery_system.py {{args}}
+
+# Check the gene namespace of every model and dataset gene, and that its
+# identifier is real. Non-human genes (Alliance MODs: MGI, RGD, ZFIN, Xenbase,
+# FB, WB, SGD; then NCBIGene, UniProtKB) are admitted only on the genes of
+# animal_models, experimental_models and datasets; a model organism's gene must
+# use its MOD; a MOD or NCBIGene binding must be cached in cache/<prefix>/terms.csv
+# with the official symbol as its label. Offline, whole-KB. `--format list` also
+# prints the advisory rows (hgnc: genes on a MOD-organism record).
+#   just check-gene-namespaces
+#   just check-gene-namespaces kb/disorders/TMEM165-Congenital_Disorder_of_Glycosylation.yaml
+#   Gate model and dataset gene namespaces (MOD first, then NCBIGene/UniProtKB)
+[group('QC')]
+check-gene-namespaces *args:
+    uv run python scripts/check_gene_namespaces.py {{args}}
+
+# Like check-gene-namespaces, but first resolves every uncached MOD identifier
+# through the Alliance API and every uncached NCBIGene one through NCBI
+# E-utilities, writing their cache rows, and checks every UniProtKB accession's
+# species with UniProt. Rejects retired records, human genes (which are hgnc:),
+# and NCBIGene/UniProtKB records for a species that has a MOD. Run it after
+# adding a non-human gene binding, and commit the cache rows with it. The term
+# validator cannot check MOD or NCBIGene labels; this is the only check that
+# does. Set NCBI_API_KEY to lift the 3 requests/second limit.
+#   Resolve new MOD/NCBIGene identifiers, then run the gene-namespace gate
+[group('QC')]
+check-gene-namespaces-online *args:
+    uv run python scripts/check_gene_namespaces.py --online {{args}}
 
 # Resolve every `<kind>#<name>` entity reference in kb/ (#9473). The same rules
 # run in `check_entity_ref_foreign_keys`, but that test is selected by the
@@ -2310,6 +2362,9 @@ alias validate-references-all := validate-kb-references-all
 # With data-file arguments, only normalize caches cited by those files. Omit
 # arguments only for an explicit whole-cache maintenance pass (issues #7844,
 # #8203). The quoting predicate is intentionally a no-op on valid bare CURIEs.
+# Line-end whitespace is trimmed only on cache files git does not track yet
+# (fresh fetches); a committed record is never rewritten for whitespace, so the
+# validate recipes that run this first leave tracked caches alone (#9963).
 [group('QC')]
 fix-references-cache *files:
     #!/usr/bin/env bash

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41598-024-53661-5
+extractor_version: 1
 title: Anti-aquaporin-4 immune complex stimulates complement-dependent Th17 cytokine release in neuromyelitis optica spectrum disorders
 authors:
 - Shuhei Nishiyama
@@ -33,12 +34,14 @@ journal: Scientific Reports
 year: '2024'
 doi: 10.1038/s41598-024-53661-5
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41598-024-53661-5.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41598-024-53661-5.pdf
+full_text_access_type: open
 ---
 
 # Anti-aquaporin-4 immune complex stimulates complement-dependent Th17 cytokine release in neuromyelitis optica spectrum disorders
@@ -48,7 +51,9 @@ local_pdf_path: files/DOI_10.1038_s41598-024-53661-5.pdf
 
 ## Content
 
-AbstractProinflammatory cytokines, such as (IL: interleukin) IL-6 and IL-17A, and complement fixation are critical in the immunopathogenesis of neuromyelitis optica spectrum disorders (NMOSD). Blocking the IL-6 receptor or the C5 complement pathway reduces relapse risk. However, the role of interleukin (IL)-6 and complement in aquaporin-4 (AQP4) autoimmunity remains unclear. To investigate the role of the anti-AQP4 immunoglobulin (AQP4-IgG)/AQP4 immunocomplex on the induction and profile of ex vivo cytokine and surface marker expression in peripheral blood mononuclear cells (PBMC) culture. Isolated PBMCs obtained from 18 patients with AQP4-IgG-seropositive-NMOSD (8 treatment-naive, 10 rituximab-treated) or ten healthy controls were cultured with AQP4-immunocomplex with or without complement. Changes in PBMC surface markers and cytokine expression were profiled using flow cytometry and ELISA. PBMCs derived from treatment-naive NMOSD patients stimulated with a complex mixture of serum complement proteins produced significant elevations of IL-17A and IL-6. Rituximab-treated patients also exhibited higher IL-6 but not IL-17A release. IL-6 and IL-17A elevations are not observed without complement. Co-stimulation of PBMCs with AQP4-IgG/AQP4 immunocomplex and complement prompts a Th17-biased response consistent with the inflammatory paradigm observed in NMOSD. A possible inflammation model is proposed via antigen-specific autoreactive peripheral blood cells, including NK/NKT cells.
+Abstract
+
+Proinflammatory cytokines, such as (IL: interleukin) IL-6 and IL-17A, and complement fixation are critical in the immunopathogenesis of neuromyelitis optica spectrum disorders (NMOSD). Blocking the IL-6 receptor or the C5 complement pathway reduces relapse risk. However, the role of interleukin (IL)-6 and complement in aquaporin-4 (AQP4) autoimmunity remains unclear. To investigate the role of the anti-AQP4 immunoglobulin (AQP4-IgG)/AQP4 immunocomplex on the induction and profile of ex vivo cytokine and surface marker expression in peripheral blood mononuclear cells (PBMC) culture. Isolated PBMCs obtained from 18 patients with AQP4-IgG-seropositive-NMOSD (8 treatment-naive, 10 rituximab-treated) or ten healthy controls were cultured with AQP4-immunocomplex with or without complement. Changes in PBMC surface markers and cytokine expression were profiled using flow cytometry and ELISA. PBMCs derived from treatment-naive NMOSD patients stimulated with a complex mixture of serum complement proteins produced significant elevations of IL-17A and IL-6. Rituximab-treated patients also exhibited higher IL-6 but not IL-17A release. IL-6 and IL-17A elevations are not observed without complement. Co-stimulation of PBMCs with AQP4-IgG/AQP4 immunocomplex and complement prompts a Th17-biased response consistent with the inflammatory paradigm observed in NMOSD. A possible inflammation model is proposed via antigen-specific autoreactive peripheral blood cells, including NK/NKT cells.
 
 1
 Vol.:(0123456789)Scientific Reports |         (2024) 14:3146  | https://doi.org/10.1038/s41598-024-53661-5
