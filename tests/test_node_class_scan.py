@@ -7,16 +7,22 @@ from pathlib import Path
 import pytest
 
 from dismech.node_class_scan import (
+    CLASS_SCALES,
     CONFLICT,
+    TIER_LABELS,
+    TIER_SCALES,
     Assignment,
     ScanResult,
     classify_node,
+    conformance_gate_table,
     conformance_mismatches,
     conformance_pairs,
     load_seed,
+    scale_disagreements,
     scan,
     summarize,
 )
+from dismech.node_classes import node_class_tiers
 
 ROOT = Path(__file__).parent.parent
 SEED = ROOT / "kb" / "node_classes" / "pathograph_node_class_go_seed.tsv"
@@ -64,7 +70,7 @@ def test_two_go_bp_terms_of_the_same_class_are_not_a_conflict(seed):
 @pytest.mark.parametrize(
     "node, expected_class, expected_basis, expected_confidence",
     [
-        ({"molecular_functions": [{"term": {"id": "GO:0004672"}}]}, "ACTIVITY", "go_mf", "HIGH"),
+        ({"molecular_functions": [{"term": {"id": "GO:0004672"}}]}, "ACTIVITY", "go_mf", "MEDIUM"),
         ({"chemical_entities": [{"term": {"id": "CHEBI:15377"}}]}, "SUBSTANCE", "chebi", "MEDIUM"),
         ({"genes": [{"term": {"id": "hgnc:1"}}]}, "GENOMIC", "gene", "LOW"),
         ({"locations": [{"term": {"id": "UBERON:0002107"}}]}, "TISSUE", "uberon", "LOW"),
@@ -78,6 +84,50 @@ def test_fallback_rules_and_their_confidences(
     assert a.node_class == expected_class
     assert a.basis == expected_basis
     assert a.confidence == expected_confidence
+
+
+def test_curated_node_class_wins_and_reports_its_tier(seed):
+    a = classify_node(
+        {
+            "name": "N",
+            "node_class": "CELL_DEATH",
+            **bp(GENOME),
+            "molecular_functions": [{"term": {"id": "GO:0004672"}}],
+        },
+        seed,
+    )
+    assert (a.node_class, a.basis, a.confidence, a.detail) == (
+        "CELLULAR", "curated", "CURATED", "CELL_DEATH",
+    )
+
+
+def test_an_unknown_curated_value_falls_through_to_the_term_rules(seed):
+    """linkml-validate rejects such a value; the scanner must not crash on it."""
+    a = classify_node({"name": "N", "node_class": "NO_SUCH_CLASS", **bp(CELL)}, seed)
+    assert (a.node_class, a.basis) == ("CELLULAR", "go_bp")
+
+
+def test_every_enum_tier_has_a_scanner_label():
+    assert set(node_class_tiers().values()) == set(TIER_LABELS)
+    assert set(TIER_SCALES) <= set(TIER_LABELS.values())
+    assert set(CLASS_SCALES) <= set(node_class_tiers())
+
+
+def test_scale_check_reports_only_curated_disagreements():
+    def curated(value, tier, scale):
+        return Assignment("Dis", value, tier, "curated", "CURATED", value, scale)
+
+    rows = [
+        curated("CELL_DEATH", "CELLULAR", "TISSUE"),  # reported
+        curated("CELL_DEATH", "CELLULAR", "CELLULAR"),  # agrees
+        curated("ORGAN_FAILURE", "SYSTEMIC", "TISSUE"),  # class-level exception
+        curated("GENETIC_PREDISPOSITION", "DISPOSITION", "ORGANISM"),  # any scale
+        curated("SENESCENCE", "CELLULAR", ""),  # no scale recorded
+        Assignment("Dis", "seeded", "CELLULAR", "go_bp", "HIGH", "", "TISSUE"),  # a suggestion
+    ]
+    found = scale_disagreements(ScanResult(assignments=rows))
+    assert [(a.detail, a.scale) for a, _ in found] == [("CELL_DEATH", "TISSUE")]
+    assert found[0][1] == frozenset({"CELLULAR"})
 
 
 def test_go_bp_wins_over_every_fallback(seed):
@@ -157,6 +207,30 @@ def test_conformance_gate_excludes_low_confidence_sides():
     assert len(conformance_mismatches(r, high_only=False)) == 1
     assert len(conformance_pairs(r, high_only=False)) == 1
     assert conformance_pairs(r) == []
+
+
+def test_conformance_gate_excludes_a_go_mf_side():
+    """GO MF is MEDIUM: it describes the gene's normal activity, which on a
+    lesion node is not the kind of claim the node makes."""
+    r = _pair("ACTIVITY", "MEDIUM", "CELLULAR", "HIGH")
+    assert conformance_pairs(r) == []
+    assert len(conformance_pairs(r, high_only=False)) == 1
+
+
+def test_gate_table_files_each_pair_under_its_weaker_side():
+    def table(disorder_conf, module_conf):
+        r = _pair("ACTIVITY", disorder_conf, "CELLULAR", module_conf)
+        return {label: (bad, total) for label, bad, total in conformance_gate_table(r)}
+
+    rows = table("MEDIUM", "HIGH")
+    assert rows["weakest side MEDIUM (GO MF or CHEBI)"] == (1, 1)
+    assert rows["weakest side HIGH (seeded GO BP)"] == (0, 0)
+    assert rows["all pairs"] == (1, 1)
+    rows = table("LOW", "CURATED")
+    assert rows["weakest side LOW (gene, UBERON or CL)"] == (1, 1)
+    rows = table("CURATED", "CURATED")
+    assert rows["both sides curated (node_class)"] == (1, 1)
+    assert sum(total for _, total in rows.values()) == 2  # its row plus "all pairs"
 
 
 def test_conformance_skips_conflicts_and_unresolvable_targets():

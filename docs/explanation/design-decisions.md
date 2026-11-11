@@ -737,6 +737,7 @@ the table below mirrors it.
 | Anatomy | UBERON | `UBERON:` |
 | Chemicals / drugs | ChEBI | `CHEBI:` |
 | Genes | HGNC | `hgnc:` (canonical lowercase), `HGNC:` (legacy) |
+| Non-human genes, on model and dataset genes only (`animal_models[].genes`, `experimental_models[].genes`, `datasets[].genes`) | Alliance of Genome Resources MODs first; NCBI Gene for a species without one | `MGI:`, `RGD:`, `ZFIN:`, `Xenbase:`, `FB:`, `WB:`, `SGD:`; then `NCBIGene:` |
 | Inheritance / variant effects | Genotype Ontology | `GENO:` |
 | Physical variant classes / genomic sequence contexts | Sequence Ontology | `SO:` |
 | Treatments / clinical interventions | NCI Thesaurus | `NCIT:` |
@@ -765,6 +766,26 @@ of fake identifiers.
 
 - **HGNC casing**: gene CURIEs use **lowercase** `hgnc:` (e.g. `hgnc:746`). This is the
   canonical form that passes validation; do not flag it as an error.
+- **Non-human genes (2026-10-09, revised 2026-10-15, #13548)**: a model system or
+  dataset names its genes in its own species, so the `genes` of `AnimalModel`,
+  `ExperimentalModel` and `Dataset` accept non-human identifiers. Every other gene slot
+  stays HGNC-only, and a human gene is `hgnc:` even inside a model. The order of
+  preference, set by @cmungall's review: the species' **Alliance MOD** (MGI mouse, RGD
+  rat, ZFIN zebrafish, Xenbase Xenopus, FB fly, WB worm, SGD yeast) whenever one exists,
+  whether the model acts on the gene or its product; otherwise `NCBIGene:`.
+  This is the Monarch KG's convention (the MOD ID is the
+  gene node; NCBI Gene is ingested only for non-MOD taxa), and it **deliberately differs**
+  from Biolink's `id_prefixes` order and Translator node normalization, which both lead
+  with NCBIGene. Prefix spellings are Biolink's, shared by the Monarch KG and GO; GO's
+  `MGI:MGI:` local-ID form is rejected. None of the MOD prefixes or NCBIGene is routed in
+  `conf/oak_config.yaml`, so the term validator would pass any label on them; they are
+  checked by `scripts/check_gene_namespaces.py` (`just check-gene-namespaces`) against
+  committed `cache/<prefix>/terms.csv` files filled from the Alliance API and NCBI
+  E-utilities. The same script
+  gates any of these prefixes outside a model's or dataset's `genes`, and a fallback
+  prefix on a species that has a MOD. A gene-product (`UniProtKB:`) accession is not an
+  accepted namespace for now; a follow-up issue tracks adding it. Orthology to the human
+  gene is prose for now; a structured link is a planned follow-up.
 - **`preferred_term` vs `term.label`**: `term.label` must exactly match the canonical
   ontology label (OAK-verified); `preferred_term` may be more specific/clinical when the
   ontology term is too broad.
@@ -1927,16 +1948,17 @@ should work from this list:
    MPATH gap into a silent NCIt gap, and the register gains nothing on that axis. Decide
    alongside Q2.
 
-## 14. Pathograph node classes are curated content under `kb/`, not a schema slot and not a new ontology (2026-09-15)
+## 14. Pathograph node classes are curated content under `kb/`, not a new ontology (2026-09-15; slot added 2026-11-04)
 
 **Decision.** The pathograph node-class tree
 (`kb/node_classes/pathograph_node_classes.txt`, with its GO seed table alongside) is
-**curated content, edited by pull request like any other `kb/` entry**. It is **not** a
-schema slot: no `Disease` entry names a node class, no enum carries the vocabulary, and
-`node_class_scan` applies it read-only. It is also **not** a new ontology in the sense
-§1 forbids: it mints no CURIEs, and where a class *can* be stated in existing ontology
-terms it carries a `= ...` logical definition over the GO / CL / UBERON / CHEBI / ECTO
-slots a node already binds, checked against those ontologies.
+**curated content, edited by pull request like any other `kb/` entry**. Since tree
+v1.0 its classes under the cascade tiers and DISPOSITION are also the permissible values
+of an optional `Pathophysiology.node_class` slot, through an enum generated from the tree
+(see the revision below). It is **not** a new ontology in the sense §1 forbids: it mints
+no CURIEs, and where a class *can* be stated in existing ontology terms it carries a
+`= ...` logical definition over the GO / CL / UBERON / CHEBI / ECTO slots a node already
+binds, checked against those ontologies.
 
 **Why `kb/` and not `docs/`.** The tree began life as a design artifact under
 `docs/superpowers/`, and the argument for moving it is that its leaves are real
@@ -1958,14 +1980,41 @@ own, but the *leaves* are anchored to existing ontologies wherever a term exists
 the classes without a definition are the ones no ontology term can decide (a standing
 disposition, the body pushing back, "aetiology unresolved"). That is reuse, not minting.
 
-**What would change this.** Two things are deliberately deferred. (1) A `node_class`
-slot on `Pathophysiology`, which would also settle whether it supersedes
-`biological_scale` (it is close to a refinement of it; two slots saying nearly the same
-thing would be worse than either). (2) Deriving the seed table from the definitions and
-retiring the hand-labelled GO rows. Both wait on the leaf set stabilising. The design
-record is
+**What would change this.** As recorded on 2026-09-15, two things were deferred until
+the leaf set stabilised: (1) a `node_class` slot on `Pathophysiology`, which would also
+settle whether it supersedes `biological_scale`; (2) deriving the seed table from the
+definitions and retiring the hand-labelled GO rows. The design record is
 [`docs/superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md`](../superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md);
 the tree's own build notes record what each draw forced.
+
+**Revision (2026-11-04): the slot exists, beside `biological_scale`.** No draw was run
+after the seventh, so waiting for the leaf set to stabilise had no process behind it,
+while the slots the tree was meant to inform kept growing: `biological_scale` went from
+about 30% of nodes to about 68%, and the free-text `role` from 69 normalised values to
+over 150. So the tree was declared **v1.0** and given versioning rules in its header (a
+new class is a minor version; a rename, move or removal is a major one, because it
+changes or invalidates curated values), and (1) was settled:
+
+- `node_class` is optional and single-valued, ranged on `PathographNodeClassEnum`,
+  which `just gen-node-class-enum` generates from the tree into
+  `src/dismech/schema/pathograph_node_class.yaml`; a test fails while the two disagree.
+  Values are the classes under the nine cascade tiers and DISPOSITION, each carrying
+  the class it sits under as `is_a`. ALSO CLASSES are excluded because a compensating
+  or targeted node is also a cellular or tissue effect, which a single-valued slot
+  cannot say; DEBUNDLE TARGETS and STILL UNPLACED are worklists.
+- **It does not supersede `biological_scale`.** The two answer different questions
+  (what kind of claim, and at what scale its substrate sits), and scale cannot be
+  migrated into class mechanically: MOLECULAR alone covers four tiers. A report-only
+  check (`just node-class-scan --format scale`) flags a node whose class tier and scale
+  disagree. Whether the slot should later replace `biological_scale` is left to the
+  coverage the slot actually reaches.
+- No entry was backfilled. Nothing in `kb/` is required to carry the slot, and the
+  scanner's term-based suggestions are not written into entries: they are tier-level,
+  and on lesion nodes the GO molecular-function rule mostly disagrees with the module
+  side of `conforms_to` pairs (it is rated MEDIUM confidence for that reason).
+
+(2) stays deferred: as a classifier the definitions agree less with `conforms_to` pairs
+than the seed table does, so retiring the seed rows is not yet a free swap.
 
 ## 15. Affected genomic regions use names and qualitative landmarks (2026-09-21)
 

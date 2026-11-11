@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Occupational Asthma · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Occupational Asthma</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Occupational Asthma</h1>
+                
+                <p class="report-subtitle">Occupational Asthma (MONDO:0022742): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-11-09</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0022742" target="_blank" rel="noopener noreferrer">MONDO:0022742</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">41 citations</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Occupational Asthma (<a href="http://purl.obolibrary.org/obo/MONDO_0022742" target="_blank" rel="noopener noreferrer">MONDO:0022742</a>): A Comprehensive Disease Characteristics Report</h1>
+<p><strong><a href="http://purl.obolibrary.org/obo/MONDO_0022742" target="_blank" rel="noopener noreferrer">MONDO:0022742</a></strong> · ICD-11 CA23 (asthma, occupational) · ICD-10 J45 (+ external-cause codes; J68.3 for irritant/RADS) · MeSH "Asthma, Occupational" · no OMIM / no single Mendelian causal gene</p>
+<blockquote>
+<p><strong>Causal gene — stated up front, per instructions:</strong> Occupational asthma has <strong>no single Mendelian causal gene.</strong> It is a <strong>complex, polygenic, environmentally-caused disease</strong> in which an occupational inhalational exposure (sensitizer or irritant) is the <em>necessary</em> cause and host genetics act as <em>susceptibility modifiers</em>. The dominant susceptibility loci are the <strong>HLA class II genes on chromosome 6p21 — principally HLA-DQB1</strong> (with agent-specific haplotypes such as <em>HLA-DRB1*15–DPB1*05</em> for isocyanates and <em>HLA-DQ5/DQB1*0501 + DR1</em> for acid anhydrides), together with non-HLA modifiers in oxidative-stress and antigen-processing pathways (<em>GSTM1, GSTP1, CTNNA3, NAT1/2, TNF</em>). This is a disease defined by its environmental cause plus a polygenic HLA-centred susceptibility background — not by a causal gene.</p>
+</blockquote>
+<h2>Summary</h2>
+<p><strong>Occupational asthma (OA)</strong> is a complex, environmentally-caused, adult-onset form of asthma defined by variable airflow limitation and/or airway hyperresponsiveness attributable to causes in the working environment. The <em>necessary</em> cause of OA is <strong>workplace exposure</strong> — more than 400 agents are documented — acting upon a <strong>polygenic susceptibility background centred on the HLA class II region</strong> (principally <strong>HLA-DQB1</strong>, with agent-specific haplotypes), supplemented by non-HLA modifier genes in antigen-processing, lymphocyte-activation, cytokine-regulation, and oxidative-stress pathways (e.g., <em>GSTM1/GSTP1</em>, <em>CTNNA3</em>, <em>NAT</em>, <em>TNF</em>). OA is therefore categorized as a <strong>complex gene–environment disease</strong>, not a monogenic disorder.</p>
+<p>OA is epidemiologically substantial: pooled longitudinal data attribute <strong>~16–17% of adult-onset asthma</strong> to occupational exposures (population attributable fraction). It presents in two mechanistically distinct forms. <strong>Sensitizer-induced (allergic) OA</strong> follows a latency period of exposure and is driven either by <strong>high-molecular-weight (HMW, &gt;10 kDa)</strong> complete protein allergens (flour/grain glycoproteins, enzymes/α-amylase, latex, animal danders, molds) or by <strong>low-molecular-weight (LMW)</strong> chemical <strong>haptens</strong> (isocyanates, acid anhydrides, platinum salts, persulfates, quaternary ammonium compounds) that conjugate to airway proteins to form neoantigens; both converge on an <strong>HLA class II → CD4⁺ Th2 (IL-4/IL-5/IL-13) → IgE / eosinophilic airway inflammation</strong> axis. <strong>Irritant-induced asthma</strong>, including <strong>reactive airways dysfunction syndrome (RADS)</strong>, is a separate non-immunologic entity caused by direct epithelial injury after high-level irritant exposure (classically chlorine, ammonia, acid fumes), characteristically <strong>without a latency period or specific immune sensitization</strong>.</p>
+<p>Diagnosis is confirmed by <strong>specific inhalation challenge (SIC)</strong>, the reference standard, supported by spirometry, non-specific bronchial hyperresponsiveness testing, serial peak flow (OASYS), specific IgE, and the complementary inflammatory biomarkers <strong>FeNO</strong> and <strong>sputum eosinophils</strong>. Prognosis is frequently poor: only <strong>~32% symptomatic recovery</strong> after exposure cessation, with <strong>persistent non-specific bronchial hyperresponsiveness in ~73%</strong>. <strong>Complete removal from exposure gives the best clinical outcome but the worst socioeconomic outcome</strong> (income/job loss), the central management trade-off. <strong>Primary prevention by exposure elimination/reduction</strong> is the single most effective intervention, with powder-free low-protein latex gloves providing landmark proof-of-principle. This report synthesizes 12 confirmed findings and 53 reviewed papers across all 15 requested disease-characteristic domains.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — OA is a complex, environmentally-caused disease with three main phenotypes and no single causal gene</h3>
+<p>Occupational asthma is asthma caused by workplace conditions. It is subdivided into <strong>sensitizer-induced (allergic) OA</strong> and <strong>irritant-induced (non-allergic) OA</strong>; together with <strong>work-exacerbated asthma (WEA)</strong> — pre-existing asthma made worse but not initially caused by work — these constitute the umbrella category <strong>work-related asthma (WRA)</strong>. More than <strong>400 workplace agents</strong> are implicated. The recognized disease phenotypes are: OA caused by HMW agents, OA caused by LMW agents, irritant-induced asthma, and an OA–COPD overlap phenotype.</p>
+<p>As the review by Lemière and colleagues states: <em>"OA is asthma caused by workplace conditions, and is subdivided into sensitizer-induced (allergic) OA and irritant-induced (nonallergic) OA. WEA is asthma that is made worse, but was not initially caused, by workplace conditions"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/26024347/">PMID: 26024347</a>). The phenotypic subdivision is confirmed by Vandenplas et al.: <em>"The main phenotypes of occupational asthma are: occupational asthma caused by high-molecular-weight (HMW) or low-molecular-weight (LMW) agents, irritant-induced asthma and occupational asthma-chronic obstructive pulmonary disease overlap"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33141780/">PMID: 33141780</a>). <strong>Evidence source: human clinical / aggregated disease-level reviews.</strong></p>
+<h3>Finding 2 — Occupational exposures account for ~16–17% of adult-onset asthma</h3>
+<p>Pooled data from nine longitudinal studies yielded a <strong>population attributable fraction (PAF) of 16%</strong> for the occupational contribution to incident asthma: <em>"Data from nine longitudinal studies showed a population attributable fraction for the occupational contribution to incident asthma of 16%"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33141780/">PMID: 33141780</a>). This is independently corroborated by the population-based Telemark 5-year cohort (n=7120), in which new-onset asthma incidence was 7.5 per 1000 person-years, ever exposure to vapour/gas/dust/fumes (VGDF) carried an odds ratio of 1.49 (95% CI 1.15–1.94) with a clear exposure–response (daily exposure OR 2.46, 95% CI 1.39–4.35): <em>"The corresponding PAF for ever exposed to VGDF was 17% (95% CI 5.4% to 27.8%) and the risk of asthma onset increased with frequent VGDF exposure"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39277201/">PMID: 39277201</a>). GBD-2021 analysis separately attributed 13.9% of young-adult asthma DALYs to environmental/occupational risks (<a href="https://pubmed.ncbi.nlm.nih.gov/42323982/">PMID: 42323982</a>). <strong>Evidence source: human epidemiological cohorts.</strong></p>
+<h3>Finding 3 — Causative agents divide into HMW complete allergens and LMW haptens; genetic susceptibility modifies risk</h3>
+<p><strong>HMW proteins (&gt;10 kDa)</strong> — flour/grain glycoproteins, fungal α-amylase and other enzymes, natural rubber latex, animal danders, avian and insect proteins, molds — act as <strong>complete allergens</strong> driving IgE sensitization. <strong>LMW agents</strong> — isocyanates, acid anhydrides, metals/platinum salts, quaternary ammonium compounds, persulfates — act as <strong>haptens</strong> that bind airway proteins. Only a subset of exposed workers develop disease, implicating genetic susceptibility. As Cannon et al. summarize: <em>"OA can be triggered by high-molecular-weight (HMW) proteins that act as complete allergens or by low-molecular-weight (LMW) sensitizers that act as haptens"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31690384/">PMID: 31690384</a>). A systematic review/meta-analysis of diisocyanate asthma found: <em>"only a subset of workers exposed to diisocyanates develop diisocyanate-induced occupational asthma (diisocyanate asthma, DA), indicating that genetic susceptibility may play a role"</em>, with associated gene functions spanning <em>"antigen processing, lymphocyte activation, cytokine production regulation, and response to oxidative stress"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36276967/">PMID: 36276967</a>). <strong>Evidence source: human clinical + genetic meta-analysis.</strong></p>
+<h3>Finding 4 — Specific inhalation challenge is the diagnostic gold standard; prognosis is often poor</h3>
+<p>Diagnosis combines clinical history, spirometry/bronchodilator responsiveness, non-specific bronchial hyperresponsiveness testing, specific IgE, serial peak-flow analysis (OASYS), and <strong>SIC as the reference standard</strong>: <em>"specific inhalation challenge (SIC) is considered as the reference standard and represents the best way to confirm the specific cause of WRA"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33652998/">PMID: 33652998</a>). Specific IgE performance differs by agent class — for HMW agents sensitivity ~0.74/specificity ~0.71, for LMW agents sensitivity 0.28/specificity 0.89. A systematic review of 39 studies (1681 patients) quantified the poor prognosis: <em>"Reported rates of symptomatic recovery varied from 0% to 100%, with a pooled estimate of 32% (95% CI 26% to 38%)"</em> and <em>"The pooled prevalence of persistent NSBHR at follow-up was 73% (95% CI 66% to 79%)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/17040933/">PMID: 17040933</a>). Severity at diagnosis and airway inflammation predict persistence; early diagnosis and removal improve outcome. <strong>Evidence source: human clinical / systematic review.</strong></p>
+<h3>Finding 5 — HLA class II alleles are the principal susceptibility loci; specific haplotypes confer agent-specific risk</h3>
+<p><strong>HLA-DQB1 is the haplotype most associated with occupational asthma</strong>, in contrast to HLA-DRB1 in general allergic asthma and HLA-DPB1 in aspirin-sensitive asthma: <em>"The most common HLA haplotypes in the different asthma phenotypes are HLA-DRB1 in allergic asthma, HLA-DQB1 in occupational asthma and HLA-DPB1 in aspirin-sensitive asthma"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/24994462/">PMID: 24994462</a>). Agent-specific associations have been mapped:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Sensitizer</th>
+<th>HLA / genetic association</th>
+<th>Effect size</th>
+<th>PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Toluene diisocyanate (TDI)</td>
+<td>DRB1*15–DPB1*05 haplotype</td>
+<td>10.6% cases vs 0% exposed-asymptomatic, P=0.001</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16792590/">16792590</a></td>
+</tr>
+<tr>
+<td>Diisocyanates (MHC SNPs)</td>
+<td>HLA-E rs1573294</td>
+<td>OR 6.27 (2.37–16.6)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24709764/">24709764</a></td>
+</tr>
+<tr>
+<td>Diisocyanates</td>
+<td>HLA-DOA rs3128935</td>
+<td>OR 19.69</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24709764/">24709764</a></td>
+</tr>
+<tr>
+<td>Acid anhydrides (HHPA/MHHPA)</td>
+<td>HLA-DQ5 / DQB1*0501</td>
+<td>OR 4.3 (1.7–11)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15144476/">15144476</a></td>
+</tr>
+<tr>
+<td>Acid anhydrides</td>
+<td>HLA-DR1</td>
+<td>OR 3.0 (1.2–11)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15144476/">15144476</a></td>
+</tr>
+<tr>
+<td>Detergent enzyme (subtilisin)</td>
+<td>HLA-DQ8 (predisposing)</td>
+<td>transgenic mouse</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16185928/">16185928</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Notably, <strong>DQB1*0501 is protective for isocyanate/plicatic-acid asthma while predisposing for anhydride sensitization</strong>, illustrating agent-specific allele effects. Non-HLA modifiers include glutathione-S-transferase genes (<em>GSTM1/GSTP1</em>), <em>CTNNA3</em>, <em>NAT</em>, and <em>TNF</em>, acting in oxidative-stress and antigen-processing pathways. Direct quotes: <em>"the allelic frequency of HLA DRB1*15-DPB1*05 in group I (10.6%) was significantly higher than that of group II (0%, P = 0.001)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/16792590/">PMID: 16792590</a>); <em>"The linked alleles DQ5 (odds ratio [OR]=4.3; 95% confidence interval [95% CI]=1.7, 11) and DR1 (OR 3.0; 95% CI 1.2, 11) were more prevalent in cases than in referents"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/15144476/">PMID: 15144476</a>); <em>"The HLA-E rs1573294 and HLA-DPB1 rs928976 SNPs were associated with an increased risk of DA"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/24709764/">PMID: 24709764</a>). <strong>Evidence source: human genetic association studies.</strong></p>
+<h3>Finding 6 — Immunopathogenesis: hapten–protein conjugates drive CD4⁺ Th2 responses with eosinophilic airway inflammation</h3>
+<p>LMW agents such as diisocyanates react with biological nucleophiles to form <strong>diisocyanate-adducted (hapten–carrier) biomolecules that act as neoantigens</strong>: <em>"The importance of diisocyanate-adducted biomolecules will be emphasized and their potential contributions to pathogenesis discussed"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/11811926/">PMID: 11811926</a>). Sensitization is associated with recruitment of CD4⁺ T lymphocytes and Th2 cytokine production: <em>"The diisocyanate-induced sensitization, is associated with the recruitment of CD4 T lymphocytes to the lungs and the production of Th2-type cytokines, including IL-4, IL-5 and IL-13"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/22774468/">PMID: 22774468</a>). A Wistar rat TDI-vapor model confirmed eosinophilic Th2 inflammation: <em>"marked infiltration of eosinophils in the TDI-exposed rats. The cytokine assay showed that IL-4 and IL-5 were predominantly produced in the BAL fluid in vivo"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/24570807/">PMID: 24570807</a>). Prevalence of diisocyanate asthma among exposed workers is ~5–15%. <strong>Evidence source: human clinical mechanism + rodent model.</strong></p>
+<h3>Finding 7 — Primary prevention by exposure control is the most effective intervention</h3>
+<p>A systematic review of 29 studies concluded: <em>"Exposure elimination is the strongest and preferred primary preventive approach to reduce the burden of occupational asthma"</em> and <em>"There is strong evidence to recommend not using powdered allergen-rich natural rubber latex gloves"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/22654083/">PMID: 22654083</a>). Interventional proof-of-principle comes from a health-care-worker cohort: <em>"After the intervention, new latex sensitization rates declined 16-fold, and 25% of previously sensitized employees reverted to negative skin tests"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/21775898/">PMID: 21775898</a>); pre-intervention sensitization was dose-dependent on airborne latex antigen (low 2%, intermediate 8%, high 16%, P&lt;0.0001). Germany's nationwide switch to low-protein powder-free gloves produced a steady decline in reported occupational latex allergy cases after 1998 (<a href="https://pubmed.ncbi.nlm.nih.gov/12170275/">PMID: 12170275</a>). Management of established disease centres on complete cessation of exposure plus standard asthma pharmacotherapy (inhaled corticosteroids ± bronchodilators; type-2 biologics — omalizumab, mepolizumab, dupilumab, tezepelumab — by extrapolation from severe type-2 asthma). <strong>Evidence source: human clinical / interventional + ecological.</strong></p>
+<h3>Finding 8 — Animal and transgenic models recapitulate sensitizer-induced OA</h3>
+<p>Validated models include the Wistar rat exposed to TDI vapor (airway hyperresponsiveness, eosinophilic inflammation, IL-4/IL-5 in BAL); <strong>murine models of diisocyanate asthma</strong>, preferred for defined genome and reagent availability (<em>"Murine models of diisocyanate-induced asthma have proved to be the most useful"</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/22774468/">PMID: 22774468</a>); guinea pig and swine models of trimellitic anhydride (<em>"Animal models revealed sIgG, sIgE, sIgA, and sIgM along with pulmonary lesions, cellular infiltrates, alveolar hemorrhage, and pneumonitis associated with TMA exposure"</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/32594360/">PMID: 32594360</a>); and <strong>HLA-DQ8 / HLA class II transgenic mice</strong> reproducing detergent-enzyme hypersensitivity: <em>"The DQ8 mice also developed allergic eosinophilic inflammatory reactions in the airways following intranasal instillations of this enzyme"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/16185928/">PMID: 16185928</a>). <strong>Evidence source: model organism studies.</strong></p>
+<h3>Finding 9 — Dominant risk factors are exposure intensity/duration, atopy, and concomitant rhinitis/conjunctivitis</h3>
+<p>Risk of sensitizer-induced OA rises with exposure intensity and duration and with host atopy. A florist study (n=128) found work-related asthma-like symptoms in 14.1%, with <em>"The most prominent risk factors in florists were work intensity, work duration, and specific atopy"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/15189959/">PMID: 15189959</a>); specific odds ratios were high work intensity OR 7.3 (1.1–51.8), long duration OR 5.1 (1.2–21.6), specific flower atopy OR 5.9 (1.4–24.3), and notably <em>"excess risk for work-related asthma-like symptoms among those with allergic rhinitis (OR, 13.2; 95% CI, 3.1 to 56.4)"</em> and conjunctivitis OR 8.4 (2.4–29.2). A pooled laboratory-animal-worker study (n=650) demonstrated the exposure–response for sensitization: <em>"the likelihood of IgE-mediated sensitization increases with increasing exposure"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/10200019/">PMID: 10200019</a>). Rhinitis frequently precedes/accompanies OA. Smoking is a risk factor for IgE sensitization to some HMW agents (platinum salts, anhydrides). <strong>Evidence source: human epidemiological studies.</strong></p>
+<h3>Finding 10 — FeNO and sputum eosinophils are complementary biomarkers during SIC</h3>
+<p>A multicenter study (n=321 undergoing SIC, 156 positive) found post-challenge rises in <strong>FeNO</strong> and <strong>sputum eosinophils</strong> had similar diagnostic accuracy (AUC 0.78 and 0.81). Optimal thresholds were defined: <em>"Increases in FeNO level ≥ 13 ppb and sputum eosinophils ≥ 1.25% were identified as the optimal threshold values for differentiating positive from negative SICs"</em> — each ≥95% specific but of low sensitivity (55% and 62%) — and <em>"Combining either a rise in FeNO ≥ 13 ppb or an increase in sputum eosinophils ≥ 1.25% increased the sensitivity to 77%"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39726396/">PMID: 39726396</a>). Increases were discordant in 38% of positives, indicating complementary information. <strong>Evidence source: human clinical / diagnostic accuracy study.</strong></p>
+<h3>Finding 11 — Irritant-induced asthma / RADS is a distinct non-immunologic phenotype with rapid onset</h3>
+<p>Irritant-induced OA is a separate non-immunologic entity. <strong>RADS</strong> is an asthma-like syndrome persisting &gt;3 months, beginning within minutes to hours after a single high-concentration irritant exposure: <em>"RADS is defined as an asthma-like syndrome that persists for &gt;3 months and occurs within minutes to hours after a single exposure to a high concentration of a respiratory irritant"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31690384/">PMID: 31690384</a>). Chlorine is the most common cause: <em>"A variety of agents were implicated, with chlorine or chlorine-releasing molecules most frequently reported"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33063819/">PMID: 33063819</a>); other documented causes include ammonia, acid fumes, lithium hydroxide dust, and β-mercaptoethanol. Unlike sensitizer-induced OA, there is <strong>no latency period and no IgE/specific immune sensitization</strong>. Chronic moderate irritant exposure can also cause <strong>irritant-induced asthma "with latency"</strong>: <em>"there is epidemiological evidence for irritant-induced asthma with latency from chronic moderate exposure"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30661311/">PMID: 30661311</a>). Diagnosis uses Brooks (1985)/ACCP 2008 criteria with methacholine challenge (e.g., PC20 1.36–6.74 mg/mL). <strong>Evidence source: human clinical / case series + reviews.</strong></p>
+<h3>Finding 12 — Complete removal gives best clinical but worst socioeconomic outcome; OA imposes major burden</h3>
+<p>A Cochrane review of workplace interventions found: <em>"complete removal from exposure resulted in the best outcome in terms of symptoms, lung function, and airway hyper-responsiveness. Reduction of exposure appeared to be less effective in terms of improving asthma but was also less likely to result in loss of income or unemployment"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23407122/">PMID: 23407122</a>). A follow-up of 125 sensitizer-induced OA patients (median 18 months symptom duration before referral; 79% no longer exposed at 1 year) found unexposed patients had better symptoms (82% vs 53% improved, P=0.023) but <em>"poorer outcomes in terms of career, income and how they felt treated by their employer"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32307530/">PMID: 32307530</a>). Diagnostic delay worsens prognosis: <em>"In adult asthmatics, work-relatedness can account for 15%-33% of cases, but delays in diagnosis remain common and lead to worse outcomes"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30661311/">PMID: 30661311</a>). <strong>Evidence source: human clinical / systematic review + cohort.</strong></p>
+<hr />
+<h2>Full Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> Occupational asthma is adult-onset asthma — variable airflow obstruction, airway hyperresponsiveness, and airway inflammation — caused by agents or conditions in the workplace. It is the most common occupational lung disease in industrialized countries and belongs to the broader category of <strong>work-related asthma (WRA)</strong>, which comprises OA (caused by work) and work-exacerbated asthma (worsened by, but not caused by, work) (<a href="https://pubmed.ncbi.nlm.nih.gov/26024347/">PMID: 26024347</a>).</p>
+<p><strong>Key identifiers.</strong>
+- <strong>Mondo:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0022742" target="_blank" rel="noopener noreferrer">MONDO:0022742</a> (occupational asthma)
+- <strong>MeSH:</strong> "Asthma, Occupational"
+- <strong>ICD-10:</strong> J45 (asthma) with occupational specification; J68.3 (airway disease due to chemical fumes/vapors, for irritant/RADS)
+- <strong>ICD-11:</strong> CA23 (asthma) with external-cause coding for occupational origin
+- <strong>OMIM:</strong> Not applicable — no single Mendelian causal gene (complex trait)
+- <strong>Orphanet:</strong> Not a classic rare-disease entry; captured under occupational respiratory disorders</p>
+<p><strong>Synonyms:</strong> work-related asthma; occupational allergic asthma; sensitizer-induced occupational asthma; irritant-induced asthma; reactive airways dysfunction syndrome (RADS, for acute irritant form).</p>
+<p><strong>Data source type.</strong> Information is derived predominantly from <strong>aggregated disease-level resources</strong> — systematic reviews, occupational cohorts, registries (e.g., SHIELD, SWORD), and challenge-test case series — rather than from individual EHR records.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factors.</strong> The primary cause is <strong>environmental (occupational inhalational exposure)</strong>, acting on a genetic susceptibility background. There is no infectious etiology. More than 400 agents are implicated, divided into HMW complete allergens and LMW chemical haptens, plus irritant agents (<a href="https://pubmed.ncbi.nlm.nih.gov/34031758/">PMID: 34031758</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/31690384/">PMID: 31690384</a>).</p>
+<p><strong>Genetic risk factors.</strong> HLA class II alleles, principally <strong>HLA-DQB1</strong>, are the dominant susceptibility loci, with agent-specific haplotypes (Finding 5). Non-HLA modifiers: <em>GSTM1/GSTP1</em> (oxidative stress), <em>CTNNA3</em>, <em>NAT</em>, <em>TNF</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36276967/">PMID: 36276967</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24994462/">PMID: 24994462</a>).</p>
+<p><strong>Environmental/occupational risk factors.</strong> Exposure intensity and duration (exposure–response relationship), high-risk occupations (bakers, farmers, spray painters, isocyanate/plastics workers, health-care workers, cleaners, woodworkers, laboratory-animal workers), atopy, and smoking (for some HMW agents) (<a href="https://pubmed.ncbi.nlm.nih.gov/15189959/">PMID: 15189959</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/10200019/">PMID: 10200019</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/22794690/">PMID: 22794690</a>). Exposure–response thresholds exist for specific allergens (wheat flour 1–2.4 mg/m³, fungal α-amylase 0.25 ng/m³, latex 0.6 ng/m³, rat allergen 0.7 µg/m³) (<a href="https://pubmed.ncbi.nlm.nih.gov/9645589/">PMID: 9645589</a>).</p>
+<p><strong>Protective factors.</strong> Reduction/elimination of exposure; engineering controls; respiratory protection (limited evidence); powder-free low-protein latex gloves (<a href="https://pubmed.ncbi.nlm.nih.gov/22654083/">PMID: 22654083</a>). HLA-DQB1*0501 is protective for isocyanate/plicatic-acid asthma. No well-established dietary protective factor is specific to OA.</p>
+<p><strong>Gene–environment interactions.</strong> The defining feature of OA: identical exposures produce disease only in genetically susceptible (e.g., HLA-DQB1-defined) individuals, and only a subset of exposed workers (~5–15% for diisocyanates) develop disease (<a href="https://pubmed.ncbi.nlm.nih.gov/36276967/">PMID: 36276967</a>).</p>
+<h3>3. Phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO term</th>
+<th>Onset</th>
+<th>Course</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Wheezing</td>
+<td>Symptom/sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" rel="noopener noreferrer">HP:0030828</a></td>
+<td>Adult</td>
+<td>Episodic, worse at work</td>
+<td>Very common</td>
+</tr>
+<tr>
+<td>Dyspnea</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a></td>
+<td>Adult</td>
+<td>Episodic→persistent</td>
+<td>Very common</td>
+</tr>
+<tr>
+<td>Cough</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" rel="noopener noreferrer">HP:0012735</a></td>
+<td>Adult</td>
+<td>Episodic</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Chest tightness</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004760" target="_blank" rel="noopener noreferrer">HP:0004760</a></td>
+<td>Adult</td>
+<td>Episodic</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Airway hyperresponsiveness</td>
+<td>Functional/lab</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030830" target="_blank" rel="noopener noreferrer">HP:0030830</a></td>
+<td>Adult</td>
+<td>Often persistent (~73%)</td>
+<td>Majority</td>
+</tr>
+<tr>
+<td>Airflow obstruction (↓FEV1)</td>
+<td>Lab</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" rel="noopener noreferrer">HP:0002110</a></td>
+<td>Adult</td>
+<td>Variable/progressive</td>
+<td>Majority</td>
+</tr>
+<tr>
+<td>Sputum/blood eosinophilia</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" rel="noopener noreferrer">HP:0001880</a></td>
+<td>Adult</td>
+<td>Fluctuating</td>
+<td>HMW/Th2 disease</td>
+</tr>
+<tr>
+<td>Allergic rhinitis (often precedes OA)</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003193" target="_blank" rel="noopener noreferrer">HP:0003193</a></td>
+<td>Adult</td>
+<td>Episodic</td>
+<td>Frequent comorbid</td>
+</tr>
+<tr>
+<td>Conjunctivitis</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" rel="noopener noreferrer">HP:0000509</a></td>
+<td>Adult</td>
+<td>Episodic</td>
+<td>Frequent comorbid</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Characteristic feature: <strong>symptom improvement away from work (weekends/holidays) and worsening on return</strong> — the clinical hallmark of sensitizer-induced OA. <strong>Quality-of-life impact</strong> is substantial, with career disruption, income loss, and unemployment documented (<a href="https://pubmed.ncbi.nlm.nih.gov/32307530/">PMID: 32307530</a>).</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Causal genes:</strong> None (complex disease). <strong>Susceptibility genes:</strong> HLA-DQB1 (<a href="https://bioregistry.io/HGNC:4944" target="_blank" rel="noopener noreferrer">HGNC:4944</a>), HLA-DRB1 (<a href="https://bioregistry.io/HGNC:4948" target="_blank" rel="noopener noreferrer">HGNC:4948</a>), HLA-DPB1 (<a href="https://bioregistry.io/HGNC:4940" target="_blank" rel="noopener noreferrer">HGNC:4940</a>), HLA-E, HLA-DOA, HLA-DQA2; modifiers <em>GSTM1</em> (<a href="https://bioregistry.io/HGNC:4632" target="_blank" rel="noopener noreferrer">HGNC:4632</a>), <em>GSTP1</em> (<a href="https://bioregistry.io/HGNC:4638" target="_blank" rel="noopener noreferrer">HGNC:4638</a>), <em>CTNNA3</em>, <em>NAT1/NAT2</em>, <em>TNF</em>. Variants are germline common polymorphisms/SNPs and HLA haplotypes (not classic pathogenic Mendelian variants), classified as <strong>susceptibility alleles</strong>, not ACMG pathogenic variants. Allele frequencies are population-level HLA frequencies. Functional consequences relate to altered antigen presentation (HLA) and reduced detoxification capacity (GST null genotypes → oxidative stress). <strong>Epigenetic/chromosomal abnormalities:</strong> No recurrent chromosomal abnormality; epigenetic contributions are plausible but not yet firmly established (<a href="https://pubmed.ncbi.nlm.nih.gov/36276967/">PMID: 36276967</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24709764/">PMID: 24709764</a>).</p>
+<h3>5. Environmental Information</h3>
+<p><strong>Environmental/occupational factors.</strong> HMW: wheat/grain flour and glycoproteins, fungal/bacterial enzymes (α-amylase, subtilisin), natural rubber latex, animal danders/urinary proteins, avian proteins, molds. LMW haptens: diisocyanates (TDI, MDI, HDI; CHEBI toluene diisocyanate), acid anhydrides (trimellitic, phthalic, HHPA/MHHPA), platinum salts, persulfates (hairdressing), quaternary ammonium compounds, cleaning/disinfectant chemicals (chloramine, benzalkonium chloride). Irritants: chlorine (<a href="http://purl.obolibrary.org/obo/CHEBI_17997" target="_blank" rel="noopener noreferrer">CHEBI:17997</a>), ammonia (<a href="http://purl.obolibrary.org/obo/CHEBI_16134" target="_blank" rel="noopener noreferrer">CHEBI:16134</a>), acid fumes, lithium hydroxide dust, β-mercaptoethanol (<a href="https://pubmed.ncbi.nlm.nih.gov/34031758/">PMID: 34031758</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34247391/">PMID: 34247391</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42427009/">PMID: 42427009</a>).</p>
+<p><strong>Lifestyle factors.</strong> Smoking increases IgE sensitization to some HMW agents (platinum salts, anhydrides). <strong>Infectious agents:</strong> Not applicable — OA is non-infectious (molds and bacterial-derived enzymes act as allergens, not as infections).</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain — sensitizer-induced (allergic) OA:</strong></p>
+<ol>
+<li><strong>Workplace inhalation exposure</strong> to an HMW allergen or LMW chemical → deposition on the airway epithelium.</li>
+<li><strong>(LMW branch)</strong> The hapten reacts with biological nucleophiles (airway/serum proteins, e.g., albumin) → <strong>forms a hapten–carrier conjugate (neoantigen)</strong> [demonstrated for diisocyanates; <a href="https://pubmed.ncbi.nlm.nih.gov/11811926/">PMID: 11811926</a>]. <strong>(HMW branch)</strong> The intact protein is a complete allergen requiring no conjugation.</li>
+<li>Antigen uptake by dendritic/antigen-presenting cells and <strong>presentation on HLA class II molecules</strong> (principally HLA-DQ) → <strong>activates CD4⁺ T lymphocytes</strong> in genetically susceptible (HLA-DQB1-defined) hosts [inferred from HLA association + demonstrated CD4⁺ recruitment; <a href="https://pubmed.ncbi.nlm.nih.gov/24994462/">PMID: 24994462</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/22774468/">PMID: 22774468</a>].</li>
+<li>CD4⁺ T cells <strong>polarize to Th2</strong> → <strong>secrete IL-4, IL-5, IL-13</strong> → drive <strong>B-cell IgE class-switching</strong> and <strong>eosinophil recruitment/activation</strong> [demonstrated; <a href="https://pubmed.ncbi.nlm.nih.gov/22774468/">PMID: 22774468</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24570807/">PMID: 24570807</a>].</li>
+<li>Re-exposure → IgE-mediated mast-cell degranulation + eosinophilic inflammation → <strong>airway smooth-muscle contraction, mucosal edema, mucus hypersecretion</strong> → <strong>variable airflow obstruction and bronchial hyperresponsiveness</strong> (clinical asthma).</li>
+<li>Chronic inflammation → <strong>airway remodeling</strong> → <strong>persistent, often irreversible hyperresponsiveness</strong> even after exposure cessation [demonstrated; <a href="https://pubmed.ncbi.nlm.nih.gov/17040933/">PMID: 17040933</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/18394133/">PMID: 18394133</a>].</li>
+</ol>
+<p><strong>Ordered causal chain — irritant-induced asthma / RADS:</strong></p>
+<ol>
+<li><strong>Single high-concentration irritant exposure</strong> (e.g., chlorine, ammonia, LiOH dust) → <strong>direct toxic epithelial injury</strong> (no immune sensitization, no latency).</li>
+<li>Epithelial denudation → <strong>neurogenic inflammation, oxidative stress, innate immune activation</strong> → bronchial hyperresponsiveness.</li>
+<li>Airway injury/repair → <strong>persistent asthma-like syndrome (&gt;3 months)</strong> with bronchial hyperresponsiveness [demonstrated clinically; <a href="https://pubmed.ncbi.nlm.nih.gov/31690384/">PMID: 31690384</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42427009/">PMID: 42427009</a>].</li>
+</ol>
+<p><strong>Molecular pathways / GO terms:</strong> antigen processing and presentation via MHC class II (<a href="http://purl.obolibrary.org/obo/GO_0019886" target="_blank" rel="noopener noreferrer">GO:0019886</a>), T-helper 2 cell differentiation (<a href="http://purl.obolibrary.org/obo/GO_0045064" target="_blank" rel="noopener noreferrer">GO:0045064</a>), IL-4/IL-5/IL-13 cytokine signaling, immune response (<a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" rel="noopener noreferrer">GO:0006955</a>), eosinophil chemotaxis (<a href="http://purl.obolibrary.org/obo/GO_0048245" target="_blank" rel="noopener noreferrer">GO:0048245</a>), response to oxidative stress (<a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a>), inflammatory response (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>). <strong>Cell types / CL terms:</strong> CD4⁺ Th2 lymphocyte (<a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" rel="noopener noreferrer">CL:0000899</a>), eosinophil (<a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" rel="noopener noreferrer">CL:0000771</a>), mast cell (<a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" rel="noopener noreferrer">CL:0000097</a>), dendritic cell (<a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a>), bronchial epithelial cell (<a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" rel="noopener noreferrer">CL:0002328</a>), airway smooth muscle cell (<a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" rel="noopener noreferrer">CL:0000192</a>), B cell/plasma cell (<a href="http://purl.obolibrary.org/obo/CL_0000786" target="_blank" rel="noopener noreferrer">CL:0000786</a>). <strong>Upstream:</strong> exposure, hapten conjugation, HLA presentation. <strong>Downstream:</strong> Th2 cytokines, IgE, eosinophilia, remodeling.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Primary organ:</strong> lung / bronchi (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a> lung; <a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" rel="noopener noreferrer">UBERON:0002185</a> bronchus); <strong>body system:</strong> respiratory system (<a href="http://purl.obolibrary.org/obo/UBERON_0001004" target="_blank" rel="noopener noreferrer">UBERON:0001004</a>).</li>
+<li><strong>Secondary involvement:</strong> upper airway — nasal mucosa/nose (<a href="http://purl.obolibrary.org/obo/UBERON_0001707" target="_blank" rel="noopener noreferrer">UBERON:0001707</a>) with occupational rhinitis; conjunctiva (<a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" rel="noopener noreferrer">UBERON:0001811</a>) with conjunctivitis.</li>
+<li><strong>Tissue level:</strong> bronchial/airway epithelium, airway smooth muscle, lamina propria/submucosa.</li>
+<li><strong>Cell populations (CL):</strong> bronchial epithelial cell (<a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" rel="noopener noreferrer">CL:0002328</a>), airway smooth muscle cell (<a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" rel="noopener noreferrer">CL:0000192</a>), eosinophil (<a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" rel="noopener noreferrer">CL:0000771</a>), CD4⁺ Th2 cell (<a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" rel="noopener noreferrer">CL:0000899</a>), mast cell (<a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" rel="noopener noreferrer">CL:0000097</a>).</li>
+<li><strong>Subcellular (GO CC):</strong> MHC class II protein complex (<a href="http://purl.obolibrary.org/obo/GO_0042613" target="_blank" rel="noopener noreferrer">GO:0042613</a>); secretory granules of eosinophils/mast cells.</li>
+<li><strong>Localization/lateralization:</strong> bilateral, diffuse airway involvement (<a href="https://pubmed.ncbi.nlm.nih.gov/22794690/">PMID: 22794690</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/31690384/">PMID: 31690384</a>).</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> adult-onset, work-age. <strong>Sensitizer-induced OA</strong> requires a <strong>latency period</strong> (weeks to years) of exposure for sensitization (insidious/subacute). <strong>RADS</strong> is <strong>acute</strong>, within minutes–hours of a single exposure.</li>
+<li><strong>Progression:</strong> episodic initially (worse at work, better away), may become persistent/progressive with ongoing exposure and remodeling.</li>
+<li><strong>Course/duration:</strong> often chronic and lifelong; persistent bronchial hyperresponsiveness in ~73% after cessation (<a href="https://pubmed.ncbi.nlm.nih.gov/17040933/">PMID: 17040933</a>).</li>
+<li><strong>Patterns:</strong> partial remission possible after cessation (~32% symptomatic recovery); <strong>critical period</strong> — early diagnosis and prompt removal markedly improve prognosis (<a href="https://pubmed.ncbi.nlm.nih.gov/9383254/">PMID: 9383254</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/30661311/">PMID: 30661311</a>).</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology:</strong> OA accounts for ~16–17% of adult-onset asthma (PAF) (<a href="https://pubmed.ncbi.nlm.nih.gov/33141780/">PMID: 33141780</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39277201/">PMID: 39277201</a>); work-relatedness 15–33% of adult asthma (<a href="https://pubmed.ncbi.nlm.nih.gov/30661311/">PMID: 30661311</a>). New-onset asthma incidence ~7.5/1000 person-years in an exposed population cohort.</li>
+<li><strong>Inheritance pattern:</strong> <strong>multifactorial/polygenic</strong> (not Mendelian). No single-gene inheritance, penetrance, expressivity, anticipation, mosaicism, founder effect, consanguinity, or carrier-frequency metrics apply classically; "penetrance" of HLA risk alleles is low and exposure-dependent.</li>
+<li><strong>Demographics:</strong> occupation-determined rather than ethnicity-determined. Sex ratio reflects workforce composition of exposed industries; age distribution: working adults; geographic distribution follows industrial/agricultural activity (<a href="https://pubmed.ncbi.nlm.nih.gov/42323982/">PMID: 42323982</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39212906/">PMID: 39212906</a>).</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Functional tests:</strong> spirometry with bronchodilator responsiveness; <strong>non-specific bronchial hyperresponsiveness</strong> (methacholine/histamine, PC20); <strong>serial peak expiratory flow</strong> at/away from work (OASYS).</li>
+<li><strong>Immunologic tests:</strong> specific IgE / skin-prick tests (HMW sensitivity ~0.74, specificity ~0.71; LMW sensitivity 0.28, specificity 0.89).</li>
+<li><strong>Inflammatory biomarkers:</strong> FeNO rise ≥13 ppb and sputum eosinophils ≥1.25% during SIC (each ≥95% specific; combined sensitivity 77%) (<a href="https://pubmed.ncbi.nlm.nih.gov/39726396/">PMID: 39726396</a>).</li>
+<li><strong>Reference standard:</strong> <strong>specific inhalation challenge (SIC)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33652998/">PMID: 33652998</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/22191204/">PMID: 22191204</a>).</li>
+<li><strong>Genetic/omics testing:</strong> Not used diagnostically — HLA typing is a research tool.</li>
+<li><strong>Clinical criteria:</strong> work-relatedness by history + objective evidence; RADS by Brooks (1985)/ACCP 2008 criteria.</li>
+<li><strong>Differential diagnosis:</strong> work-exacerbated (pre-existing) asthma, hypersensitivity pneumonitis (CD4/CD8 &lt;1 on BAL), COPD, eosinophilic bronchitis, vocal cord dysfunction (<a href="https://pubmed.ncbi.nlm.nih.gov/22794690/">PMID: 22794690</a>).</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Mortality:</strong> low; OA is rarely directly fatal (though fatal asthma attacks and fatal anaphylaxis to occupational allergens occur).</li>
+<li><strong>Morbidity/function:</strong> substantial — persistent airflow obstruction, chronic bronchial hyperresponsiveness (~73%), long-term FEV1 decline (median ~79 mL/year in one diisocyanate cohort) (<a href="https://pubmed.ncbi.nlm.nih.gov/18394133/">PMID: 18394133</a>).</li>
+<li><strong>Recovery:</strong> only ~32% symptomatic recovery after exposure cessation (<a href="https://pubmed.ncbi.nlm.nih.gov/17040933/">PMID: 17040933</a>).</li>
+<li><strong>Prognostic factors:</strong> severity at diagnosis, degree of airway inflammation, duration of symptoms before diagnosis, and promptness of removal. Favourable prognosis is associated with short symptom duration, immediate cessation, and milder hyperresponsiveness at diagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/9383254/">PMID: 9383254</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/15764901/">PMID: 15764901</a>).</li>
+<li><strong>Socioeconomic burden:</strong> career disruption, income/job loss, especially after complete removal (<a href="https://pubmed.ncbi.nlm.nih.gov/32307530/">PMID: 32307530</a>).</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>Cornerstone:</strong> <strong>removal from / avoidance of the causative exposure</strong> (NCIT: avoidance). Complete removal gives best clinical outcome; reduction is a clinical–socioeconomic compromise (<a href="https://pubmed.ncbi.nlm.nih.gov/23407122/">PMID: 23407122</a>).</li>
+<li><strong>Pharmacotherapy</strong> (NCIT): <strong>inhaled corticosteroids</strong> (NCIT:C1130), <strong>short-/long-acting β2-agonists / bronchodilators</strong>, <strong>leukotriene receptor antagonists</strong>, antihistamines — standard asthma therapy extrapolated to OA.</li>
+<li><strong>Advanced/biologic therapy:</strong> type-2 biologics — <strong>omalizumab</strong> (anti-IgE), <strong>mepolizumab</strong> (anti-IL-5), <strong>dupilumab</strong> (anti-IL-4Rα), <strong>tezepelumab</strong> (anti-TSLP) — effective in severe type-2 asthma and applied by extrapolation to severe type-2 OA (<a href="https://pubmed.ncbi.nlm.nih.gov/32007172/">PMID: 32007172</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38878250/">PMID: 38878250</a>).</li>
+<li><strong>No gene/cell/RNA therapy</strong> applies (no monogenic target).</li>
+<li><strong>Treatment strategy:</strong> accurate diagnosis → exposure management → pharmacotherapy → monitoring; personalized by phenotype (type-2 vs non-type-2) (<a href="https://pubmed.ncbi.nlm.nih.gov/33141780/">PMID: 33141780</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34031758/">PMID: 34031758</a>).</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention (most effective):</strong> exposure <strong>elimination</strong> &gt; reduction; substitution of safer materials; engineering controls; <strong>powder-free low-protein latex gloves</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/22654083/">PMID: 22654083</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/21775898/">PMID: 21775898</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/12170275/">PMID: 12170275</a>); enforceable exposure thresholds (TLVs) for allergens (<a href="https://pubmed.ncbi.nlm.nih.gov/9645589/">PMID: 9645589</a>).</li>
+<li><strong>Secondary prevention:</strong> medical surveillance of exposed workers; early symptom/sensitization detection; prompt removal (<a href="https://pubmed.ncbi.nlm.nih.gov/40306950/">PMID: 40306950</a>).</li>
+<li><strong>Tertiary prevention:</strong> optimizing asthma control, preventing irreversible remodeling.</li>
+<li><strong>Respiratory protection (PPE):</strong> limited supporting evidence; HEPA-filtered helmets reduce latex symptoms (<a href="https://pubmed.ncbi.nlm.nih.gov/9847441/">PMID: 9847441</a>).</li>
+<li><strong>Immunization / genetic counseling:</strong> not applicable.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Species used as models/affected:</strong> rat (<em>Rattus norvegicus</em>, NCBITaxon:10116), mouse (<em>Mus musculus</em>, NCBITaxon:10090), guinea pig (<em>Cavia porcellus</em>, NCBITaxon:10141), swine (<em>Sus scrofa</em>, NCBITaxon:9823) — all as experimental models (<a href="https://pubmed.ncbi.nlm.nih.gov/24570807/">PMID: 24570807</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/32594360/">PMID: 32594360</a>).</li>
+<li><strong>Natural disease:</strong> OA is fundamentally a human occupational disease; no established naturally-occurring companion-animal equivalent. <strong>Orthologous susceptibility genes</strong> (HLA orthologs — murine H2/I-A/I-E; GST orthologs) exist. <strong>Zoonotic potential:</strong> none (non-infectious).</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Mammalian models:</strong> Wistar rat (TDI vapor) — airway hyperresponsiveness, eosinophilic inflammation, IL-4/IL-5 BAL (<a href="https://pubmed.ncbi.nlm.nih.gov/24570807/">PMID: 24570807</a>); <strong>murine diisocyanate models</strong> (preferred for defined genome/reagents) (<a href="https://pubmed.ncbi.nlm.nih.gov/22774468/">PMID: 22774468</a>); guinea pig/swine trimellitic-anhydride models (<a href="https://pubmed.ncbi.nlm.nih.gov/32594360/">PMID: 32594360</a>).</li>
+<li><strong>Genetic/humanized models:</strong> <strong>HLA-DQ8 and HLA class II transgenic mice</strong> reproducing detergent-enzyme (subtilisin BPN') hypersensitivity with antigen-specific T-cell responses, airway eosinophilia, and IgG1/IgE (<a href="https://pubmed.ncbi.nlm.nih.gov/16185928/">PMID: 16185928</a>).</li>
+<li><strong>Phenotype recapitulation:</strong> models reproduce Th2/eosinophilic airway inflammation, hyperresponsiveness, and HLA-dependent sensitization central to human OA.</li>
+<li><strong>Limitations:</strong> rodent airway anatomy/immunology differs from human; models capture sensitization/acute inflammation better than chronic remodeling and socioeconomic/persistence aspects.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code> WORKPLACE INHALATION EXPOSURE (&gt;400 agents)
+               │
+┌──────────────────────┼───────────────────────┐
+│                      │                        │
+   HMW ALLERGEN          LMW HAPTEN                HIGH-LEVEL IRRITANT
+   (flour, latex,        (isocyanate,             (chlorine, ammonia,
+    enzymes, dander)      anhydride, Pt)           LiOH, acid fumes)
+│                      │                        │
+│              conjugates to airway            │  direct toxic
+   complete            protein → HAPTEN–CARRIER         │  EPITHELIAL INJURY
+   allergen            NEOANTIGEN                       │  (no latency,
+│                      │                        │   no sensitization)
+└──────────┬───────────┘                        │
+   ▼                                     │
+      HLA CLASS II (DQB1) PRESENTATION ──► CD4⁺ T cell   │
+   │   [requires genetic susceptibility] │
+   ▼                                     │
+    Th2 POLARIZATION                             │
+ IL-4 / IL-5 / IL-13                             │
+   │                                     │
+ ┌─────────┴─────────┐                           │
+ ▼                   ▼                           │
+    IgE class-switch   EOSINOPHIL recruitment            │
+    (mast-cell arming)  + activation                     │
+ └─────────┬─────────┘                           │
+   ▼                                     ▼
+AIRWAY INFLAMMATION, SMOOTH-MUSCLE CONTRACTION,
+MUCUS, EDEMA ► VARIABLE AIRFLOW OBSTRUCTION + BHR
+   │
+   ▼
+CHRONIC INFLAMMATION ► AIRWAY REMODELING
+   │
+   ▼
+   PERSISTENT / OFTEN IRREVERSIBLE ASTHMA (~73% persistent BHR,
+     only ~32% recover after exposure cessation)
+</code></pre>
+<p>The unifying interpretation is that <strong>OA is the paradigmatic gene–environment respiratory disease</strong>: an environmental exposure is <em>necessary</em> but not <em>sufficient</em>, with HLA-class-II-centred genetic susceptibility determining which exposed workers progress to sensitization and disease. The two sensitizer branches (HMW complete allergen; LMW hapten–carrier neoantigen) converge on a shared HLA-II → Th2 → IgE/eosinophil effector axis, while the irritant branch bypasses immunity entirely via direct epithelial toxicity. The therapeutic and preventive corollary follows directly from the causal chain: because the initiating lesion is the exposure, <strong>removing the exposure is both the most effective treatment and the only true primary prevention</strong>, yet it generates a clinical–socioeconomic trade-off that dominates real-world management.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Supports finding(s)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26024347/">26024347</a></td>
+<td>Occupational asthma and work-exacerbated asthma</td>
+<td>F1 (definition, WRA)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33141780/">33141780</a></td>
+<td>Novel approaches in OA diagnosis/management</td>
+<td>F1, F2 (phenotypes, 16% PAF)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39277201/">39277201</a></td>
+<td>Telemark 5-year follow-up</td>
+<td>F2 (17% PAF, exposure-response)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31690384/">31690384</a></td>
+<td>Occupational immunologic lung disease</td>
+<td>F3, F11 (HMW/LMW, RADS)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36276967/">36276967</a></td>
+<td>Genetics of diisocyanate OA (meta-analysis)</td>
+<td>F3, F5 (genetic susceptibility)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33652998/">33652998</a></td>
+<td>PFT in work-related asthma / SIC</td>
+<td>F4 (SIC gold standard)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17040933/">17040933</a></td>
+<td>Outcome after cessation (systematic review)</td>
+<td>F4, F12 (32% recovery, 73% BHR)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24994462/">24994462</a></td>
+<td>HLA and asthma phenotypes</td>
+<td>F5 (HLA-DQB1 in OA)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16792590/">16792590</a></td>
+<td>DRB1*15-DPB1*05 in isocyanate OA</td>
+<td>F5 (TDI haplotype)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15144476/">15144476</a></td>
+<td>HLA-DQ5/DR1 and acid anhydrides</td>
+<td>F5 (anhydride HLA)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24709764/">24709764</a></td>
+<td>MHC class I/II SNPs in diisocyanate asthma</td>
+<td>F5 (MHC SNPs)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11811926/">11811926</a></td>
+<td>Diisocyanate asthma immunopathogenesis</td>
+<td>F6 (hapten–carrier adducts)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22774468/">22774468</a></td>
+<td>Pathogenetic aspects of diisocyanate asthma</td>
+<td>F6, F8 (CD4⁺ Th2, mouse model)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24570807/">24570807</a></td>
+<td>IL-4/IL-5 in TDI-exposed Wistar rats</td>
+<td>F6, F8 (eosinophilic Th2)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22654083/">22654083</a></td>
+<td>Primary prevention: exposure reduction</td>
+<td>F7 (prevention hierarchy)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21775898/">21775898</a></td>
+<td>Prevention of latex IgE sensitization</td>
+<td>F7 (16-fold reduction)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12170275/">12170275</a></td>
+<td>German latex prevention program</td>
+<td>F7 (national decline)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16185928/">16185928</a></td>
+<td>HLA-DQ8 subtilisin hypersensitivity</td>
+<td>F5, F8 (transgenic model)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32594360/">32594360</a></td>
+<td>Trimellitic anhydride animal models</td>
+<td>F8 (TMA models)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15189959/">15189959</a></td>
+<td>Work-related symptoms among florists</td>
+<td>F9 (risk factors)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10200019/">10200019</a></td>
+<td>Rat urinary allergen exposure-response</td>
+<td>F9 (exposure-response)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39726396/">39726396</a></td>
+<td>FeNO + sputum eosinophils for OA</td>
+<td>F10 (biomarkers)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33063819/">33063819</a></td>
+<td>Updated review of RADS cases</td>
+<td>F11 (chlorine common)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30661311/">30661311</a></td>
+<td>Management of OA/WEA update</td>
+<td>F11, F12 (latency, delay)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23407122/">23407122</a></td>
+<td>Avoidance vs reduction (Cochrane)</td>
+<td>F12 (trade-off)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32307530/">32307530</a></td>
+<td>Follow-up survey of OA patients</td>
+<td>F12 (socioeconomic burden)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9383254/">9383254</a></td>
+<td>Prognostic factors TDI-OA</td>
+<td>Prognosis (early removal)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18394133/">18394133</a></td>
+<td>Inflammation/outcome after cessation</td>
+<td>Prognosis (FEV1 decline)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42427009/">42427009</a></td>
+<td>RADS from lithium hydroxide dust</td>
+<td>F11 (LiOH RADS)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9645589/">9645589</a></td>
+<td>Exposure-response thresholds</td>
+<td>Prevention (TLVs)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32007172/">32007172</a></td>
+<td>Type-2 targeted therapeutics</td>
+<td>Treatment (biologics)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Concordance and tension.</strong> The evidence base is strongly concordant across human cohorts, systematic reviews, and animal/transgenic models. The principal internal tension is the <strong>clinical–socioeconomic trade-off</strong> (Finding 12): the intervention with the best biological outcome (complete removal) produces the worst livelihood outcome, which the literature resolves pragmatically rather than definitively. A second nuance is the <strong>agent-specific directionality of HLA alleles</strong> (DQB1*0501 protective for isocyanates yet predisposing for anhydrides), cautioning against treating "HLA susceptibility" as a single uniform risk factor.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No single causal gene / no Mendelian model.</strong> OA is polygenic; HLA and modifier-gene effects are modest, population-dependent, and not clinically actionable for prediction. Genetic testing has no current diagnostic role.</li>
+<li><strong>Mechanistic detail is richest for diisocyanates.</strong> The hapten–carrier → HLA-II → Th2 pathway is best demonstrated for isocyanates; mechanisms for many of the 400+ agents are inferred by analogy rather than directly demonstrated.</li>
+<li><strong>Irritant-induced asthma / RADS mechanisms</strong> (oxidative/neurogenic epithelial injury) are less molecularly resolved than the allergic pathway, and the boundary between acute RADS and "irritant-induced asthma with latency" is not sharply defined.</li>
+<li><strong>Biologic therapy evidence in OA specifically is extrapolated</strong> from severe type-2 asthma trials; no large OA-specific randomized trials of type-2 biologics exist.</li>
+<li><strong>Epigenetics, single-cell, and spatial transcriptomics</strong> of occupational airway tissue are largely unexplored — a genuine data gap.</li>
+<li><strong>Prognostic prediction</strong> remains imprecise; no validated molecular biomarker predicts who will recover versus develop persistent disease after cessation.</li>
+<li><strong>Health-equity dimension:</strong> occupational exposures and OA burden fall disproportionately on low-income and minority workers, and surveillance under-counts these risks (<a href="https://pubmed.ncbi.nlm.nih.gov/39212906/">PMID: 39212906</a>).</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Agent-stratified GWAS / HLA fine-mapping</strong> across multiple sensitizers (isocyanates, anhydrides, flour, enzymes, latex) in harmonized cohorts to resolve shared vs agent-specific susceptibility loci and formalize the HLA-DQB1 signal.</li>
+<li><strong>Single-cell and spatial transcriptomics of bronchial biopsies</strong> pre/post specific inhalation challenge to map the dendritic → CD4⁺ Th2 → eosinophil axis in situ and identify remodeling drivers that predict persistence.</li>
+<li><strong>Prospective biomarker validation</strong> combining FeNO, sputum eosinophils, periostin, and serum specific-IgE as a multivariate predictor of (a) SIC positivity and (b) post-cessation recovery, enabling risk-stratified removal decisions.</li>
+<li><strong>Randomized or pragmatic trials of type-2 biologics specifically in severe sensitizer-induced OA</strong>, including workers unable to fully avoid exposure, to replace current extrapolation with direct evidence.</li>
+<li><strong>Mechanistic dissection of RADS</strong> using LiOH/chlorine inhalation models to characterize the oxidative/neurogenic injury pathway and test epithelial-protective interventions.</li>
+<li><strong>Implementation research on exposure-elimination programs</strong> (following the latex-glove template) for high-burden agents (flour, cleaning chemicals, isocyanates), coupled with socioeconomic-support interventions that mitigate the income/job-loss penalty of removal.</li>
+<li><strong>Enforceable allergen exposure limits (TLVs)</strong> development and surveillance for agents lacking thresholds, extending the demonstrated exposure–response evidence base.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 12 confirmed findings and 53 reviewed papers across all 15 disease-characteristic domains. Evidence types span human epidemiological cohorts, human clinical/diagnostic studies, systematic reviews/meta-analyses, genetic association studies, and rodent/transgenic model-organism studies.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Occupational_Asthma-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Occupational_Asthma-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>41</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>41</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>41</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>41</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>35</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>11</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0030828</code> (1 mention) - the report calls it "Symptom/sign"; HP calls it <strong>Wheezing</strong></li>
+<li><code>HP:0002094</code> (1 mention) - the report calls it "Symptom"; HP calls it <strong>Dyspnea</strong></li>
+<li><code>HP:0012735</code> (1 mention) - the report calls it "Symptom"; HP calls it <strong>Cough</strong></li>
+<li><code>HP:0004760</code> (1 mention) - the report calls it "Symptom"; HP calls it <strong>obsolete Congenital septal defect</strong></li>
+<li><code>HP:0030830</code> (1 mention) - the report calls it "Functional/lab"; HP calls it <strong>Crackles</strong></li>
+<li><code>HP:0002110</code> (1 mention) - the report calls it "Lab"; HP calls it <strong>Bronchiectasis</strong></li>
+<li><code>HP:0001880</code> (1 mention) - the report calls it "Lab abnormality"; HP calls it <strong>Increased total eosinophil count</strong></li>
+<li><code>HP:0003193</code> (1 mention) - the report calls it "Symptom"; HP calls it <strong>Allergic rhinitis</strong></li>
+<li><code>HP:0000509</code> (1 mention) - the report calls it "Sign"; HP calls it <strong>Conjunctivitis</strong></li>
+<li><code>UBERON:0001707</code> (1 mention) - the report calls it "Secondary involvement:<strong> upper airway — nasal mucosa/nose"; UBERON calls it </strong>nasal cavity**</li>
+<li><code>NCIT:C1130</code> (1 mention) - the report calls it "inhaled corticosteroids"; NCIT calls it <strong>Hydroxyl Radical</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>HP:0004760</code> (obsolete Congenital septal defect) (1 mention)</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Obstructive_Sleep_Apnea-falcon.html">← Obstructive Sleep Apnea (Falcon)</a>
+                
+                
+                <a href="Ochoa_Syndrome-cyberian-codex.html">Ochoa syndrome (Cyberian Codex) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Occupational_Asthma.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Occupational_Asthma-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
