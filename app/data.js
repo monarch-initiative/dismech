@@ -13260,6 +13260,84 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Acquired Long QT Syndrome",
+    "disease_id": "MONDO:1060292",
+    "category": "Complex",
+    "parents": [
+      "Cardiac Arrhythmia"
+    ],
+    "creation_date": "2026-11-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Acquired (secondary) long QT syndrome is a reversible disorder of ventricular repolarization in which an external stressor -- most often a QT-prolonging drug, but also electrolyte disturbance (hypokalemia, hypomagnesemia, hypocalcemia), bradycardia, or metabolic derangement -- pathologically prolongs the QT interval and predisposes to torsades de pointes and sudden cardiac death. The QT prolongation reverts toward normal once the stressor is removed, distinguishing it from inherited long QT syndrome. The dominant molecular mechanism is reduction of the rapid delayed-rectifier potassium current IKr, carried by the hERG (KCNH2) channel, by direct pore blockade or by disruption of channel trafficking to the membrane. Susceptibility is modulated by \"reduced repolarization reserve,\" including latent (subclinical) congenital long QT variants and common modifier alleles unmasked by the stressor, making aLQTS a prototypical gene-environment interaction.",
+    "pathophysiology": [
+      "IKr Potassium Channel Blockade",
+      "hERG Trafficking Disruption",
+      "Prolonged Ventricular Repolarization",
+      "Early Afterdepolarizations",
+      "Torsades de Pointes Arrhythmia"
+    ],
+    "cell_types": [
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "ventricular cardiac muscle cell action potential repolarization",
+      "membrane depolarization during action potential"
+    ],
+    "phenotypes": [
+      "Prolonged QT interval",
+      "Torsades de Pointes",
+      "Syncope",
+      "Ventricular Fibrillation",
+      "Sudden Cardiac Death"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001657",
+      "HP:0001664",
+      "HP:0001279",
+      "HP:0001663",
+      "HP:0001645"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KCNH2",
+      "KCNQ1",
+      "SCN5A",
+      "KCNE1"
+    ],
+    "treatments": [
+      "Withdrawal of the offending agent",
+      "Intravenous magnesium sulfate",
+      "Correction of electrolyte abnormalities",
+      "Isoproterenol for pause-dependent torsades",
+      "Transvenous cardiac pacing",
+      "Electrical cardioversion / defibrillation"
+    ],
+    "environmental": [
+      "QT-prolonging drug exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Acquired_Long_QT_Syndrome.yaml",
+    "page_url": "../pages/disorders/Acquired_Long_QT_Syndrome.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 6,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Acquired Partial Lipodystrophy",
     "disease_id": "MONDO:0012104",
     "category": "Complex",
@@ -174707,7 +174785,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
   },
   {
@@ -434187,19 +434265,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4028,
+  "total_disorder_pages": 4029,
   "total_subtypes": 5053,
-  "total_disorders_and_subtypes": 9081,
-  "total_unique_evidence_sources": 59702,
-  "total_unique_publications": 55839,
+  "total_disorders_and_subtypes": 9082,
+  "total_unique_evidence_sources": 59719,
+  "total_unique_publications": 55856,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4026,
-  "total_unique_pathological_events": 26354,
+  "total_pathographs": 4027,
+  "total_unique_pathological_events": 26358,
   "total_modules": 231,
-  "total_research_reports": 4140,
+  "total_research_reports": 4141,
   "total_classifications": 21,
   "total_comorbidities": 55,
-  "total_groupings": 131
+  "total_groupings": 133
 };
 window.dispatchEvent(new Event('searchDataReady'));
