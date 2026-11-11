@@ -23,6 +23,7 @@ imports:
   - classifications/ilo_occupational_diseases
   - classifications/eu_occupational_schedule
   - classifications/exposure_classification
+  - pathograph_node_class
 
 prefixes:
   linkml: https://w3id.org/linkml/
@@ -49,6 +50,21 @@ prefixes:
   ENVO: http://purl.obolibrary.org/obo/ENVO_
   XCO: http://purl.obolibrary.org/obo/XCO_
   FOODON: http://purl.obolibrary.org/obo/FOODON_
+  # Non-human gene identifiers, admitted only on the genes of a
+  # model or dataset (AnimalModel, ExperimentalModel, Dataset) via
+  # GeneOrProductTerm. The Alliance of Genome Resources members come first; the
+  # spellings are Biolink's (biolink_model_prefix_map.json), which are also the
+  # forms the Monarch KG and GO use. The expansions are Biolink's too, except
+  # Xenbase: Biolink's is a query-string page URL, so we use identifiers.org
+  # like the other MODs (see biolink/biolink-model#1855).
+  MGI: http://identifiers.org/mgi/
+  RGD: http://identifiers.org/rgd/
+  ZFIN: http://identifiers.org/zfin/
+  Xenbase: http://identifiers.org/xenbase/
+  FB: http://identifiers.org/fb/
+  WB: http://identifiers.org/wb/
+  SGD: http://identifiers.org/sgd/
+  NCBIGene: http://identifiers.org/ncbigene/
   skos: http://www.w3.org/2004/02/skos/core#
   # Draft SEPIO LinkML model (sepio-framework/sepio-linkml). Its own
   # default_prefix is still the placeholder https://example.org/sepio-model/,
@@ -935,8 +951,24 @@ enums:
       DISPUTED:
         title: Disputed
         description: >-
-          Reported gene-disease association whose validity is contested
-          (corresponds to ClinGen "Disputed" or "Refuted").
+          A reported gene-disease relationship whose validity is contested:
+          the evidence for and against it conflicts, or the original report
+          has not been replicated, and the question is open (corresponds to
+          ClinGen/GenCC "Disputed"). Use this, not a subtype row, for a
+          locus whose claim to cause the disease is unsettled. When an
+          external body has graded the pair, copy its tier into
+          `gene_disease_validity` as well; `relationship_type` is the
+          curator's reading, `gene_disease_validity` is the source's.
+      REFUTED:
+        title: Refuted
+        description: >-
+          A reported gene-disease relationship that the evidence now
+          contradicts: the refuting evidence significantly outweighs the
+          original report, so the gene is recorded to stop the claim being
+          re-made, not because it contributes to the disease (corresponds to
+          ClinGen/GenCC "Refuted"). Distinct from DISPUTED, where the
+          question is still open. Requires `evidence` citing the refutation,
+          not only the original claim.
       UNKNOWN:
         title: Unknown
         description: >-
@@ -1463,6 +1495,35 @@ enums:
         - rdfs:subClassOf
   TriggerTerm:
     description: A trigger
+  GeneOrProductTerm:
+    description: >-
+      A gene or gene product in a model system or dataset, named in its own
+      species. In priority order: HGNC for a human gene; the species' Alliance
+      of Genome Resources member database where one exists (MGI mouse, RGD rat,
+      ZFIN zebrafish, Xenbase Xenopus, FB Drosophila, WB C. elegans, SGD
+      S. cerevisiae); otherwise NCBI Gene. No
+      hierarchy constraint. The schema does not restrict the prefix: where each
+      prefix may appear, and the priority, are enforced by
+      scripts/check_gene_namespaces.py.
+    comments:
+      - >-
+        HGNC uses the lowercase `hgnc:` prefix, as everywhere in this
+        repository, and is checked by the term validator.
+      - >-
+        A model-organism gene takes its MOD identifier, whether the model acts
+        on the gene or on its product: mouse Coch is MGI:1278313, zebrafish
+        tmem165 is ZFIN:ZDB-GENE-030131-3222. This follows the Monarch KG,
+        where the MOD identifier is the gene node and NCBI Gene is ingested
+        only for other species. It deliberately differs from Biolink's
+        id_prefixes order and Translator node normalization, which put NCBIGene
+        first. The label is the MOD's official symbol, checked against
+        cache/<prefix>/terms.csv, filled from the Alliance API.
+      - >-
+        NCBI Gene (`NCBIGene:`) is the fallback for a species with no MOD
+        (pig, dog, macaque). Its label is the official symbol, checked against
+        cache/ncbigene/terms.csv: OAK's NCBI Gene adapter returns no labels.
+        A gene-product (UniProtKB) accession is not accepted for now; a
+        follow-up issue tracks adding it.
   GeneTerm:
     description: A gene term from HGNC
     comments:
@@ -4220,11 +4281,15 @@ slots:
     description: >-
       Free-text role of this item within its section (e.g. a pathophysiology
       node's place in the cascade, or a host's role in a parasite life cycle).
-      Deliberately unconstrained: the KB carries ~90 distinct values on
-      pathophysiology nodes alone, many of them descriptive rather than
-      categorical, so narrowing this to an enum would retire legitimate content
-      and invalidate in-flight curation (cf. the retired-enum-value hazard,
-      dismech#10061).
+      Deliberately unconstrained: the KB carries well over a hundred distinct
+      values on pathophysiology nodes alone (`just node-role-audit` for the
+      current census), many of them descriptive rather than categorical, so
+      narrowing this to an enum would retire legitimate content and invalidate
+      in-flight curation (cf. the retired-enum-value hazard, dismech#10061). On
+      a pathophysiology node, a role saying what kind of thing the node is
+      (`mechanism`, `driver`, `organ_dysfunction`) belongs in node_class
+      instead, and a node's position in the cascade (`trigger`, `consequence`)
+      can be read from its downstream edges.
     comments:
       - >-
         `role` is never read as a claim. For neoplasms in particular, an
@@ -5767,6 +5832,35 @@ slots:
     examples:
       - value: MOLECULAR
       - value: TISSUE
+  node_class:
+    description: >-
+      The kind of causal claim this pathophysiology node makes: a genomic
+      lesion, an exposure, a broken molecular activity, a molecule in the wrong
+      amount or form, a pathway running wrongly, a cellular, tissue/organ or
+      systemic effect, an outcome, or a standing disposition. Optional. Values
+      come from the pathograph node-class tree
+      (kb/node_classes/pathograph_node_classes.txt), whose glosses and worked
+      examples are the guide to assigning one. Assign the most specific class
+      that fits the node's own claim; a tier is acceptable when no leaf fits.
+      Leave the slot absent when no class fits. Single-valued: a node that
+      needs two classes is making two claims and should be split instead.
+      Distinct from biological_scale, the scale of the node's substrate;
+      `just node-class-scan --format scale` reports nodes whose class tier and
+      scale disagree.
+    comments:
+      - >-
+        Classify the node's claim, not what its gene normally does. A lesion
+        node is often bound to the wild-type molecular function of the affected
+        gene (Germline PTEN Loss of Function carries the PTEN phosphatase
+        activity); its class follows what the node asserts, the allele (a
+        GENOMIC class such as PATHOGENIC_SEQUENCE_VARIANT) or the lost activity
+        (a MOLECULAR ACTIVITY class), not the term. `just node-class-scan`
+        suggests a class from a node's ontology terms; it is a hint, and it is
+        least reliable in exactly this case.
+    range: PathographNodeClassEnum
+    examples:
+      - value: CELL_DEATH
+      - value: METABOLITE_ACCUMULATION
   # Dataset-related slots
   accession:
     description: Dataset accession identifier as a CURIE (e.g., geo:GSE67472)
@@ -6735,6 +6829,23 @@ classes:
             range: ChemicalEntityTerm
             obligation_level: REQUIRED
 
+  GeneOrProductDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for a gene or gene product in a model system or dataset,
+      bindable to HGNC for a human gene, to the species' Alliance MOD (MGI,
+      RGD, ZFIN, Xenbase, FB, WB, SGD) for a model-organism gene, or to NCBI
+      Gene for a species with no MOD.
+    slot_usage:
+      term:
+        description: >-
+          hgnc:, an Alliance MOD prefix (MGI:, RGD:, ZFIN:, Xenbase:, FB:, WB:,
+          SGD:) or NCBIGene: term reference
+        bindings:
+          - binds_value_of: id
+            range: GeneOrProductTerm
+            obligation_level: REQUIRED
+
   GeneDescriptor:
     is_a: Descriptor
     description: A descriptor for genes, bindable to HGNC or other gene databases
@@ -7250,6 +7361,14 @@ classes:
           description is more human-readable and may be used to communicate nuances not captured by the
           rigid standardization of the title slot.
         recommended: true
+      genes:
+        description: >-
+          Genes perturbed or profiled in the dataset, named in the dataset's
+          organism: hgnc: for a human gene, the species' Alliance MOD
+          identifier (MGI: for a mouse knockout) where one exists, otherwise
+          NCBIGene:.
+        range: GeneOrProductDescriptor
+        inlined_as_list: true
 
   ExperimentalModel:
     description: >-
@@ -7274,6 +7393,7 @@ classes:
       - organism
       - tissue_term
       - cell_types
+      - genes
       - conditions
       - cell_source
       - culture_system
@@ -7282,6 +7402,17 @@ classes:
       - findings
       - evidence
       - notes
+    slot_usage:
+      genes:
+        description: >-
+          Genes or gene products perturbed, expressed, or carried as a variant
+          in this system, named in the organism the cells came from: hgnc: for
+          a human gene, the species' Alliance MOD identifier where one exists
+          (a mouse cell line's knockout is MGI:, not its human ortholog),
+          otherwise NCBIGene:. Orthology to the human disease
+          gene goes in description or notes.
+        range: GeneOrProductDescriptor
+        inlined_as_list: true
 
   Experiment:
     description: >-
@@ -8529,6 +8660,7 @@ classes:
       - pdb_structures
       - mechanism_confidence
       - biological_scale
+      - node_class
       - regulatory_category
     slot_usage:
       regulatory_category:
@@ -8862,6 +8994,16 @@ classes:
         description: >-
           Pathophysiology mechanism nodes this animal model recapitulates,
           perturbs, measures, rescues, or fails to recapitulate.
+      genes:
+        description: >-
+          Genes or gene products perturbed, expressed, or carried as a variant
+          in the model, named in the model's own species: the Alliance MOD
+          identifier for a model organism (a mouse knockout of Coch is
+          MGI:1278313, not hgnc:2180), NCBIGene: for a species
+          with no MOD, hgnc: for a human transgene. Orthology to the human
+          disease gene goes in description or notes.
+        range: GeneOrProductDescriptor
+        inlined_as_list: true
   Treatment:
     slots:
       - name

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3389/fmed.2023.1053466
+extractor_version: 1
 title: "Extracutaneous features and complications of the Ehlers-Danlos syndromes: A systematic review"
 authors:
 - Brent J. Doolan
@@ -14,12 +15,14 @@ journal: Frontiers in Medicine
 year: '2023'
 doi: 10.3389/fmed.2023.1053466
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.frontiersin.org/articles/10.3389/fmed.2023.1053466/pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.3389_fmed.2023.1053466.pdf
+full_text_access_type: open
 ---
 
 # Extracutaneous features and complications of the Ehlers-Danlos syndromes: A systematic review
@@ -29,7 +32,25 @@ local_pdf_path: files/DOI_10.3389_fmed.2023.1053466.pdf
 
 ## Content
 
-IntroductionThe Ehlers-Danlos syndromes (EDS) comprise a group of inherited connective tissue disorders presenting with variable fragility to skin, soft tissue, and certain internal organs, which can cause significant complications, particularly arterial rupture, bowel perforation and joint difficulties. Currently, there are 14 proposed subtypes of EDS, with all except one subtype (hypermobile EDS) having an identified genetic etiology. An understanding of the extracutaneous features and complications within each subtype is key to maximizing clinical care and reducing the risk of further complications.MethodsA systematic review of EDS-related extracutaneous features and complications was undertaken.ResultsWe identified 839 EDS cases that met the inclusion criteria. We noted a high prevalence of joint hypermobility amongst kyphoscoliotic (39/39, 100%), spondylodysplastic (24/25, 96.0%), and hypermobile (153/160, 95.6%) EDS subtypes. The most common musculoskeletal complications were decreased bone density (39/43, 90.7%), joint pain (217/270, 80.4%), and hypotonia/weakness (79/140, 56.4%). Vascular EDS presented with cerebrovascular events (25/153, 16.3%), aneurysm (77/245, 31.4%), arterial dissection/rupture (89/250, 35.5%), and pneumothorax/hemothorax. Chronic pain was the most common miscellaneous complication, disproportionately affecting hypermobile EDS patients (139/157, 88.5%). Hypermobile EDS cases also presented with chronic fatigue (61/63, 96.8%) and gastrointestinal complications (57/63, 90.5%). Neuropsychiatric complications were noted in almost all subtypes.DiscussionUnderstanding the extracutaneous features and complications of each EDS subtype may help diagnose and treat EDS prior to the development of substantial comorbidities and/or additional complications.Systematic review registrationhttps://www.crd.york.ac.uk/prospero/display_record.php?ID=CRD42022308151, identifier CRD42022308151.
+Introduction
+
+The Ehlers-Danlos syndromes (EDS) comprise a group of inherited connective tissue disorders presenting with variable fragility to skin, soft tissue, and certain internal organs, which can cause significant complications, particularly arterial rupture, bowel perforation and joint difficulties. Currently, there are 14 proposed subtypes of EDS, with all except one subtype (hypermobile EDS) having an identified genetic etiology. An understanding of the extracutaneous features and complications within each subtype is key to maximizing clinical care and reducing the risk of further complications.
+
+Methods
+
+A systematic review of EDS-related extracutaneous features and complications was undertaken.
+
+Results
+
+We identified 839 EDS cases that met the inclusion criteria. We noted a high prevalence of joint hypermobility amongst kyphoscoliotic (39/39, 100%), spondylodysplastic (24/25, 96.0%), and hypermobile (153/160, 95.6%) EDS subtypes. The most common musculoskeletal complications were decreased bone density (39/43, 90.7%), joint pain (217/270, 80.4%), and hypotonia/weakness (79/140, 56.4%). Vascular EDS presented with cerebrovascular events (25/153, 16.3%), aneurysm (77/245, 31.4%), arterial dissection/rupture (89/250, 35.5%), and pneumothorax/hemothorax. Chronic pain was the most common miscellaneous complication, disproportionately affecting hypermobile EDS patients (139/157, 88.5%). Hypermobile EDS cases also presented with chronic fatigue (61/63, 96.8%) and gastrointestinal complications (57/63, 90.5%). Neuropsychiatric complications were noted in almost all subtypes.
+
+Discussion
+
+Understanding the extracutaneous features and complications of each EDS subtype may help diagnose and treat EDS prior to the development of substantial comorbidities and/or additional complications.
+
+Systematic review registration
+
+https://www.crd.york.ac.uk/prospero/display_record.php?ID=CRD42022308151, identifier CRD42022308151.
 
 fmed-10-1053466 January 17, 2023 Time: 14:19 # 1
 TYPE Systematic Review

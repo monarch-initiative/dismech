@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACTL6A-related BAFopathy · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>ACTL6A-related BAFopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>ACTL6A-related BAFopathy</h1>
+                
+                <p class="report-subtitle">ACTL6A-related BAFopathy (MONDO:0700121): Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-11-07</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0700121" target="_blank" rel="noopener noreferrer">MONDO:0700121</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">21 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>ACTL6A-related BAFopathy (<a href="http://purl.obolibrary.org/obo/MONDO_0700121" target="_blank" rel="noopener noreferrer">MONDO:0700121</a>): Comprehensive Disease Characteristics Report</h1>
+<p><strong>Causal gene: <em>ACTL6A</em> (encoding BAF53a / Actin-like protein 6A; <a href="https://bioregistry.io/HGNC:24124" target="_blank" rel="noopener noreferrer">HGNC:24124</a>; NCBI Gene 86; UniProt O96019; chromosome 3q26.33).</strong> This report concerns the rare Mendelian neurodevelopmental disorder caused by germline heterozygous variants in <strong>ACTL6A</strong> — not the somatic 3q26 <em>ACTL6A</em> amplification seen in squamous cell carcinoma, and not the paralogous <em>ACTL6B</em> (BAF53b) disorder. Throughout, "BAF53a" and "ACTL6A" refer to the same product.</p>
+<hr />
+<h2>Summary</h2>
+<p><strong>ACTL6A-related BAFopathy</strong> is a rare, autosomal-dominant neurodevelopmental disorder caused by germline (usually de novo) heterozygous variants in <strong>ACTL6A</strong>, which encodes <strong>BAF53a</strong>, a dosage-sensitive actin-related subunit shared by the BAF/mSWI/SNF, NuA4/TIP60 histone-acetyltransferase, and INO80 chromatin-remodeling complexes. The disorder sits within the <strong>Coffin-Siris syndrome (CSS) / BAFopathy / SWI/SNF-related intellectual disability disorders (SSRIDD)</strong> spectrum, presenting with intellectual disability/developmental delay (with prominent speech and language involvement), facial dysmorphism, and variable acral/fifth-digit (nail and distal phalanx) anomalies. It was first established as a disease gene by Marom et al. (2017), with a recurrent, recognizable p.Arg377Trp phenotype reported by Pascolini et al. (2020) and independent cohort support from Chen et al. (2022).</p>
+<p>Mechanistically, BAF53a is the <strong>neural-progenitor</strong> actin-related BAF subunit. Its programmed replacement by BAF53b (ACTL6B) at mitotic exit — driven by miR-9*/miR-124 — gates the switch from proliferating neural progenitors to post-mitotic neurons. Pathogenic ACTL6A variants perturb this dosage-sensitive system: loss or impairment of BAF53a stalls the progenitor cell cycle, allows Polycomb accumulation, and reduces chromatin accessibility at pioneer-factor sites (SOX2, ASCL1), blocking normal neurogenesis. Population-genetic constraint data (gnomAD pLI = 0.997, LOEUF = 0.25) independently corroborate strong intolerance to loss-of-function, consistent with haploinsufficiency/dosage sensitivity.</p>
+<p>The disorder is ultra-rare and recently delineated: <a href="http://purl.obolibrary.org/obo/MONDO_0700121" target="_blank" rel="noopener noreferrer">MONDO:0700121</a> has <strong>no OMIM or Orphanet cross-references</strong>, and curated phenotype/gene-disease association counts remain near zero in aggregated resources. Diagnosis rests on trio exome/genome sequencing; a validated BAFopathy DNA-methylation episignature exists for several BAF subunits but <strong>does not yet include ACTL6A</strong>. There is no disease-specific therapy — management is supportive (early intervention, speech/physical/occupational therapy, surveillance for BAFopathy-associated complications). Much of the clinical granularity typical of established disorders (precise frequencies, natural history, prognosis) is not yet available because fewer than ~10 patients have been reported.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> ACTL6A-related BAFopathy is an autosomal-dominant neurodevelopmental/intellectual-disability disorder caused by heterozygous variants in <em>ACTL6A</em>, a gene encoding a core actin-related subunit (BAF53a) of the ATP-dependent BAF (mSWI/SNF) chromatin-remodeling complex. It belongs to the broader BAFopathy / Coffin-Siris syndrome spectrum. First described in three subjects by Marom et al. 2017 (<a href="https://pubmed.ncbi.nlm.nih.gov/28649782/">PMID: 28649782</a>): <em>"We identified heterozygous, novel variants in ACTL6A, a gene encoding a component of the BAF complex, in three subjects with varying degrees of intellectual disability."</em></p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/MONDO_0700121" target="_blank" rel="noopener noreferrer">MONDO:0700121</a></strong> — "ACTL6A-related BAFopathy" (<em>"Any BAFopathy in which the cause of the disease is a mutation in the ACTL6A gene"</em>)</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>Not recorded (no MONDO→OMIM xref)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>Not recorded (no MONDO→Orphanet xref)</td>
+</tr>
+<tr>
+<td>ICD-10/ICD-11</td>
+<td>No specific code; coded under broad neurodevelopmental/intellectual-disability categories</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>No dedicated descriptor</td>
+</tr>
+<tr>
+<td>Gene (HGNC)</td>
+<td><a href="https://bioregistry.io/HGNC:24124" target="_blank" rel="noopener noreferrer">HGNC:24124</a> (<em>ACTL6A</em>)</td>
+</tr>
+<tr>
+<td>Gene (NCBI)</td>
+<td>86</td>
+</tr>
+<tr>
+<td>Protein (UniProt)</td>
+<td>O96019 (BAF53a / Actin-like protein 6A)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Per Monarch Initiative (2026), the MONDO node has <strong>no external mappings</strong> to OMIM/Orphanet and holds 0 curated disease→phenotype and 0 causal gene→disease associations — a signature of the disorder's rarity and recency (Finding F010).</p>
+<p><strong>Synonyms / alternative names.</strong> ACTL6A-related neurodevelopmental disorder; BAF53A-related disorder; ACTL6A-related intellectual disability; (classified within) BAF-opathies / SSRIDDs (SWI/SNF-related intellectual disability disorders).</p>
+<p><strong>Information source.</strong> Derived from <strong>aggregated disease-level resources</strong> (MONDO, UniProt, gnomAD, ClinVar) plus <strong>individual patient reports</strong> (case reports and small exome cohorts) — not from a large EHR-derived or registry dataset.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause — genetic.</strong> Germline heterozygous variants in <em>ACTL6A</em>, typically <strong>de novo</strong>. Three independent lines of evidence establish causation:
+- Marom et al. 2017 (<a href="https://pubmed.ncbi.nlm.nih.gov/28649782/">PMID: 28649782</a>): three subjects with heterozygous novel variants — two missense in conserved actin-like-domain residues, one splice variant creating an in-frame deletion.
+- Pascolini et al. 2020 (<a href="https://pubmed.ncbi.nlm.nih.gov/31994175/">PMID: 31994175</a>): recurrent de novo <strong>p.Arg377Trp</strong> producing <em>"a phenotype reminiscent a disorder of the BRG1-associated factor (BAF) complex, including dysmorphic facies and acral malformations."</em>
+- Chen et al. 2022 (<a href="https://pubmed.ncbi.nlm.nih.gov/34906496/">PMID: 34906496</a>): <em>"de novo or predicted loss-of-function variants in 4 candidate BAFopathy genes, including ACTL6A"</em> in a 16,243-patient exome cohort.</p>
+<p><strong>Genetic risk factors.</strong> The causal variant itself is the risk factor; no separate susceptibility loci or modifier genes are established. <em>ACTL6A</em> is highly constrained (gnomAD pLI = 0.997, LOEUF = 0.25; Finding F008), indicating that loss-of-function is rarely tolerated in the general population.</p>
+<p><strong>Environmental risk factors.</strong> None identified. As a Mendelian single-gene disorder, there are no established environmental, lifestyle, occupational, or infectious contributors. Advanced paternal age is a theoretical contributor to de novo mutation rate generally but is not specifically documented for ACTL6A.</p>
+<p><strong>Protective factors.</strong> None identified (no protective alleles or environmental factors described).</p>
+<p><strong>Gene–environment interactions.</strong> None documented for this disorder.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Because fewer than ~10 patients are reported, phenotype frequencies are <strong>qualitative/approximate</strong>, extrapolated partly from the broader BAFopathy/CSS spectrum. Core features reported specifically in ACTL6A patients: intellectual disability, learning disability, developmental language disorder (Marom 2017); dysmorphic facies and acral malformations (Pascolini 2020).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Suggested HPO</th>
+<th>Onset</th>
+<th>Severity/Notes</th>
+<th>Frequency (ACTL6A, qualitative)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Intellectual disability</td>
+<td>Cognitive sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+<td>Childhood (evident early)</td>
+<td>Variable (mild→severe)</td>
+<td>Core / most</td>
+</tr>
+<tr>
+<td>Developmental delay</td>
+<td>Cognitive/motor sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a></td>
+<td>Infancy</td>
+<td>Variable</td>
+<td>Core / most</td>
+</tr>
+<tr>
+<td>Speech/language disorder</td>
+<td>Behavioral/cognitive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002463" target="_blank" rel="noopener noreferrer">HP:0002463</a></td>
+<td>Early childhood</td>
+<td>Prominent</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Facial dysmorphism (coarse facies)</td>
+<td>Physical</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" rel="noopener noreferrer">HP:0001999</a> / <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" rel="noopener noreferrer">HP:0000280</a></td>
+<td>Congenital</td>
+<td>Variable</td>
+<td>Frequent</td>
+</tr>
+<tr>
+<td>Acral/fifth-digit anomalies (nail/distal phalanx hypoplasia)</td>
+<td>Physical</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001829" target="_blank" rel="noopener noreferrer">HP:0001829</a> / <a href="http://purl.obolibrary.org/obo/HP_0001162" target="_blank" rel="noopener noreferrer">HP:0001162</a></td>
+<td>Congenital</td>
+<td>Variable</td>
+<td>Reported (p.Arg377Trp)</td>
+</tr>
+<tr>
+<td>Feeding difficulties</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" rel="noopener noreferrer">HP:0011968</a></td>
+<td>Neonatal/infancy</td>
+<td>—</td>
+<td>BAFopathy-associated</td>
+</tr>
+<tr>
+<td>Frequent infections</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" rel="noopener noreferrer">HP:0002719</a></td>
+<td>Childhood</td>
+<td>—</td>
+<td>BAFopathy-associated</td>
+</tr>
+<tr>
+<td>Hypotonia</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a></td>
+<td>Infancy</td>
+<td>—</td>
+<td>BAFopathy-associated</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The broader Coffin-Siris core (Kosho et al. 2014, <a href="https://pubmed.ncbi.nlm.nih.gov/25169878/">PMID: 25169878</a>) is: <em>"developmental delay or intellectual disability (ID), coarse facial appearance, feeding difficulties, frequent infections, and hypoplasia/aplasia of the fifth fingernails and fifth distal phalanges."</em> BAF-gene disorders are also associated with congenital diaphragmatic hernia (<a href="https://pubmed.ncbi.nlm.nih.gov/35796094/">PMID: 35796094</a>) and, for some subunits, pituitary hypoplasia/growth hormone deficiency (<a href="https://pubmed.ncbi.nlm.nih.gov/36176497/">PMID: 36176497</a>) — potential but not ACTL6A-confirmed associations.</p>
+<p><strong>Quality-of-life impact.</strong> Driven primarily by intellectual disability and language impairment, affecting education, communication, and independent living; formal QoL instrument data (EQ-5D/SF-36/PROMIS) are not available for this ultra-rare disorder.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <em>ACTL6A</em> (BAF53a), 3q26.33, ENSG00000136518; GRCh37 chr3:179,280,668–179,306,196. Encodes a 429-aa, ~47.5 kDa nuclear actin-related protein (UniProt O96019: <em>"Involved in transcriptional activation and repression of select genes by chromatin remodeling... Component of SWI/SNF chromatin remodeling complexes"</em>).</p>
+<p><strong>Pathogenic variants.</strong> Reported disease variants are predominantly <strong>missense</strong> affecting conserved actin-like-domain residues, plus a <strong>splice</strong> variant causing an in-frame deletion:
+- <strong>p.Arg377Trp</strong> — NM_004301.5:c.1129C&gt;T — recurrent; recognizable BAFopathy phenotype (Pascolini 2020).
+- <strong>p.His105Arg</strong> — c.314A&gt;G.
+- <strong>p.Glu227Gln</strong> — c.679G&gt;C.</p>
+<p><strong>ClinVar landscape (Finding F009; queried Nov 2026, 117 records, NM_004301.5):</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Classification</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Uncertain significance (VUS)</td>
+<td>52</td>
+</tr>
+<tr>
+<td>Pathogenic</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Likely pathogenic</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Conflicting</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Likely benign</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Benign</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Critical interpretation caveat:</strong> The three literature-recurrent missense variants (p.Arg377Trp, p.His105Arg, p.Glu227Gln) are currently <strong>Conflicting</strong> in ClinVar, and the large majority of single-nucleotide ACTL6A variants are VUS. Nearly all ClinVar "Pathogenic/Likely pathogenic" entries are <strong>large 3q chromosomal copy-number GAINS</strong> (e.g., 3q26.31–29 ×3; 3q25–29 duplications) that merely span ACTL6A — not ACTL6A-specific point mutations. This reflects both the disorder's recency and the difficulty of classifying single-gene missense variants without functional/episignature confirmation.</p>
+<p><strong>Allele frequency.</strong> Pathogenic variants are absent or vanishingly rare in gnomAD (de novo). The gene is strongly LoF-constrained: pLI = 0.997, oe_lof = 0.078 (90% CI 0.031–0.246), LoF Z = 4.32; missense Z = 2.94 (oe_mis = 0.46) — among the most intolerant genes (Finding F008).</p>
+<p><strong>Somatic vs germline.</strong> Disease variants are <strong>germline</strong> (de novo). This contrasts sharply with the well-documented <strong>somatic</strong> oncogenic role: <em>ACTL6A</em> is amplified early at 3q26 in squamous cell carcinomas (Finding F003; <a href="https://pubmed.ncbi.nlm.nih.gov/34687603/">PMID: 34687603</a>: <em>"The gene encoding the BAF subunit actin-like 6a (ACTL6A) is amplified early in the development of many squamous cell carcinomas (SCCs)"</em>; <a href="https://pubmed.ncbi.nlm.nih.gov/40950224/">PMID: 40950224</a>).</p>
+<p><strong>Functional consequences.</strong> Likely <strong>loss-of-function / haploinsufficiency or dominant-negative</strong> effects on BAF53a's role in chromatin remodeling. (Across CSS genes, SMARCB1/SMARCA4/SMARCE1 variants trend dominant-negative/gain-of-function while ARID1A/ARID1B trend loss-of-function — <a href="https://pubmed.ncbi.nlm.nih.gov/25168959/">PMID: 25168959</a>; the precise mode for ACTL6A missense variants is not yet experimentally resolved.)</p>
+<p><strong>Modifier genes / epigenetic info / chromosomal abnormalities.</strong> No specific modifier genes established. A validated BAFopathy DNA-methylation episignature exists but does not yet cover ACTL6A (Finding F011). Large 3q26 copy-number variants spanning ACTL6A appear in ClinVar but are distinct contiguous-gene events, not point-mutation disease.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No environmental, lifestyle, or infectious factors are implicated. ACTL6A-related BAFopathy is a monogenic disorder arising from de novo germline variants; there is no established toxin, radiation, dietary, or pathogen contribution.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li>A <strong>de novo heterozygous ACTL6A variant</strong> (missense in the actin-like domain, splice, or LoF) <strong>results in</strong> reduced or altered BAF53a function/dosage.</li>
+<li>Reduced functional BAF53a <strong>leads to</strong> impaired assembly/function of the <strong>neural-progenitor BAF (npBAF) complex</strong> (BAF53a is the progenitor-specific actin-related subunit).</li>
+<li>Impaired npBAF function <strong>stalls the neural-progenitor cell cycle</strong> (demonstrated for BAF53a loss; Braun et al. 2021).</li>
+<li>Cell-cycle stalling/loss of BAF53a <strong>permits Polycomb accumulation</strong>, which <strong>results in decreased chromatin accessibility at pioneer-factor sites SOX2 and ASCL1</strong> (demonstrated).</li>
+<li>Reduced accessibility at these sites <strong>blocks the normal progenitor-to-neuron transition / neurogenesis</strong> (the programmed npBAF→nBAF, BAF53a→BAF53b switch, driven by miR-9*/miR-124, is disrupted; Yoo et al. 2009).</li>
+<li>Impaired neurogenesis and cortical development <strong>lead to</strong> the clinical phenotype: <strong>intellectual disability, developmental/language delay</strong>, and — via BAF's broader developmental roles — <strong>facial dysmorphism and acral/limb malformations</strong> (<em>inferred</em> for dysmorphism; the mechanism-to-phenotype link for craniofacial/limb features is less directly demonstrated for ACTL6A specifically).</li>
+</ol>
+<pre><code>ACTL6A variant ──▶ ↓BAF53a function/dosage ──▶ defective npBAF complex
+      │                                              │
+      │                                    ┌─────────┴─────────┐
+      │                              cell-cycle stall     Polycomb ↑
+      │                                    │                 │
+      │                                    └────────┬────────┘
+      │                              ↓ chromatin accessibility
+      │                               at SOX2 / ASCL1 sites
+      ▼                                        │
+ (also: shared subunit of           impaired npBAF→nBAF switch
+  NuA4/TIP60 &amp; INO80)               (BAF53a→BAF53b; miR-9*/miR-124)
+      │                                        │
+      └────────────────────┬───────────────────┘
+                   ▼
+      impaired neurogenesis / cortical development
+                   ▼
+       Intellectual disability, language delay, dysmorphism, acral anomalies
+</code></pre>
+<h3>Supporting detail</h3>
+<p><strong>Molecular identity and complex membership (Finding F004).</strong> ACTL6A/BAF53a is a shared actin-related subunit of <strong>SWI/SNF (BAF), NuA4/TIP60 histone acetyltransferase, and INO80</strong> complexes (Xiao et al. 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/33408251/">PMID: 33408251</a>: <em>"Actin-like 6A (ACTL6A) is a component of several chromatin remodeling complexes, including SWI/SNF, NuA4/TIP60 histone acetylase, and INO80."</em>). Functional conservation is deep: the Drosophila ortholog <strong>Bap55</strong> functions in both BRM (SWI/SNF) and TIP60 complexes, and <em>"the Bap55 mutant phenotype can be rescued by postmitotic expression of Bap55, or its human homologs BAF53a and BAF53b"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/21284845/">PMID: 21284845</a>).</p>
+<p><strong>Developmental switch (Finding F002).</strong> Yoo et al. 2009 (<a href="https://pubmed.ncbi.nlm.nih.gov/19561591/">PMID: 19561591</a>) showed npBAF complexes containing BAF53a are <em>"essential for neural-progenitor proliferation, and mice with reduced dosage for the genes encoding its subunits have defects in neural-tube closure similar to those in human spina bifida."</em> At mitotic exit, miR-9<em>/miR-124 repress BAF53a to allow the switch to BAF53b-containing nBAF. Braun et al. 2021 (<a href="https://pubmed.ncbi.nlm.nih.gov/33602870/">PMID: 33602870</a>) showed </em>"early loss of the npBAF subunit BAF53a stalls the cell cycle to disrupt neurogenesis,"* mediated by Polycomb-driven loss of accessibility at SOX2/ASCL1 pioneer-factor sites.</p>
+<p><strong>Why BAF53a and BAF53b are not interchangeable in neurons.</strong> Though they rescue each other in ESC survival and in Drosophila dendrites, BAF53b has a neuron-specific role in dendritic outgrowth that BAF53a cannot replace, conferred by actin-fold subdomain 2 (<a href="https://pubmed.ncbi.nlm.nih.gov/17920018/">PMID: 17920018</a>). This paralog specialization underlies the developmental-stage specificity of the BAF switch.</p>
+<p><strong>Cellular processes / GO &amp; CL suggestions.</strong>
+- Biological processes (GO): <a href="http://purl.obolibrary.org/obo/GO_0006338" target="_blank" rel="noopener noreferrer">GO:0006338</a> chromatin remodeling; <a href="http://purl.obolibrary.org/obo/GO_0045944" target="_blank" rel="noopener noreferrer">GO:0045944</a> positive regulation of transcription by RNA Pol II; <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" rel="noopener noreferrer">GO:0007399</a> nervous system development; <a href="http://purl.obolibrary.org/obo/GO_0021895" target="_blank" rel="noopener noreferrer">GO:0021895</a> cerebral cortex neuron differentiation; <a href="http://purl.obolibrary.org/obo/GO_0007049" target="_blank" rel="noopener noreferrer">GO:0007049</a> cell cycle; <a href="http://purl.obolibrary.org/obo/GO_0045786" target="_blank" rel="noopener noreferrer">GO:0045786</a> negative regulation of cell cycle.
+- Subcellular (GO Cellular Component): <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> nucleus; <a href="http://purl.obolibrary.org/obo/GO_0071564" target="_blank" rel="noopener noreferrer">GO:0071564</a> npBAF complex; <a href="http://purl.obolibrary.org/obo/GO_0016514" target="_blank" rel="noopener noreferrer">GO:0016514</a> SWI/SNF complex; <a href="http://purl.obolibrary.org/obo/GO_0000812" target="_blank" rel="noopener noreferrer">GO:0000812</a> Swr1/NuA4-related; <a href="http://purl.obolibrary.org/obo/GO_0031011" target="_blank" rel="noopener noreferrer">GO:0031011</a> Ino80 complex.
+- Cell types (CL): <a href="http://purl.obolibrary.org/obo/CL_0000047" target="_blank" rel="noopener noreferrer">CL:0000047</a> neuronal stem cell / neural progenitor; <a href="http://purl.obolibrary.org/obo/CL_0000031" target="_blank" rel="noopener noreferrer">CL:0000031</a> neuroblast; <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a> neuron; <a href="http://purl.obolibrary.org/obo/CL_0002319" target="_blank" rel="noopener noreferrer">CL:0002319</a> neural cell.</p>
+<p><strong>Immune / metabolic / tissue-damage mechanisms.</strong> Not primary in the germline disorder. (ACTL6A's metabolic/Warburg role via AP-1 and HIF1α/HIF2α is a <strong>somatic cancer</strong> mechanism — <a href="https://pubmed.ncbi.nlm.nih.gov/40950224/">PMID: 40950224</a> — not germline BAFopathy.) "Frequent infections" in the BAFopathy spectrum is a clinical observation rather than a defined immunodeficiency mechanism.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ/system level — primary:</strong> Central nervous system, especially <strong>cerebral cortex</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" rel="noopener noreferrer">UBERON:0000956</a>) and <strong>developing brain</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>). Body system: nervous system.</li>
+<li><strong>Secondary/other involvement:</strong> Craniofacial structures (dysmorphism); distal limbs — <strong>digits/fingernails/distal phalanges</strong> (acral anomalies); potential diaphragm (BAFopathy-associated CDH).</li>
+<li><strong>Tissue/cell level:</strong> Neural tissue; principally <strong>neural progenitor/stem cells</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000047" target="_blank" rel="noopener noreferrer">CL:0000047</a>) and their neuronal progeny (<a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a>).</li>
+<li><strong>Subcellular:</strong> <strong>Nucleus</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>) — chromatin/BAF, NuA4/TIP60, INO80 complexes. UniProt O96019 subcellular location: Nucleus.</li>
+<li><strong>Localization / lateralization:</strong> CNS involvement is <strong>bilateral/diffuse</strong> (developmental). Acral anomalies are typically bilateral, with a fifth-digit predilection in the CSS spectrum.</li>
+<li><strong>UBERON suggestions:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a> brain; <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" rel="noopener noreferrer">UBERON:0000956</a> cerebral cortex; <a href="http://purl.obolibrary.org/obo/UBERON_0001466" target="_blank" rel="noopener noreferrer">UBERON:0001466</a> manual digit; <a href="http://purl.obolibrary.org/obo/UBERON_0001705" target="_blank" rel="noopener noreferrer">UBERON:0001705</a> nail.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> <strong>Congenital / pediatric.</strong> Developmental concerns typically emerge in infancy/early childhood (delayed milestones, language delay); dysmorphism and acral anomalies are present at birth.</li>
+<li><strong>Onset pattern:</strong> Insidious/chronic (developmental), not acute.</li>
+<li><strong>Progression:</strong> The underlying brain developmental lesion is <strong>static/non-progressive</strong> in the neurodegenerative sense; functional impairments are <strong>lifelong</strong>. The trajectory is one of delay rather than regression. (By analogy to CSS, some physical features such as digital hypoplasia may become less noticeable with age — <a href="https://pubmed.ncbi.nlm.nih.gov/33768696/">PMID: 33768696</a>.)</li>
+<li><strong>Disease course:</strong> Chronic, lifelong, stable-to-slowly-improving with intervention; not relapsing-remitting or episodic.</li>
+<li><strong>Critical periods:</strong> Prenatal/early postnatal neurogenesis is the mechanistic window of vulnerability (npBAF→nBAF switch). Early-childhood developmental intervention is the practical window of therapeutic opportunity.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> <strong>Autosomal dominant</strong>, overwhelmingly <strong>de novo</strong> heterozygous variants.</li>
+<li><strong>Epidemiology:</strong> <strong>Ultra-rare</strong>; no prevalence/incidence estimates available. Fewer than ~10 molecularly confirmed patients are described (Marom 2017: 3; Pascolini 2020: p.Arg377Trp; Chen 2022 cohort; Yuan 2021 case report <a href="https://pubmed.ncbi.nlm.nih.gov/34485408/">PMID: 34485408</a>). No MONDO→Orphanet mapping and 0 curated associations in Monarch (Finding F010).</li>
+<li><strong>Penetrance:</strong> Presumed high/complete for bona fide pathogenic variants (de novo in affected probands); formal estimates unavailable.</li>
+<li><strong>Expressivity:</strong> <strong>Variable</strong> (ranging across degrees of intellectual disability — Marom 2017).</li>
+<li><strong>Genetic anticipation:</strong> Not applicable (not a repeat-expansion disorder).</li>
+<li><strong>Germline mosaicism / founder effects / consanguinity / carrier frequency:</strong> Not established; de novo dominant inheritance means carrier screening and consanguinity are not relevant. gnomAD shows essentially no LoF carriers (high constraint).</li>
+<li><strong>Population demographics:</strong> No ethnic predilection, geographic clustering, or sex bias established. Reported patients are too few to define a sex ratio or age distribution.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Recommended approach:</strong> Molecular diagnosis via <strong>trio exome sequencing (WES)</strong> or <strong>genome sequencing (WGS)</strong>, identifying a de novo heterozygous ACTL6A variant. Given that most single-gene ACTL6A SNVs are currently VUS/conflicting in ClinVar (Finding F009), interpretation benefits from trio data (de novo status), phenotype concordance, and — in future — episignature confirmation.</p>
+<ul>
+<li><strong>Gene panels:</strong> BAFopathy / Coffin-Siris / intellectual-disability panels that include ACTL6A alongside ARID1A/ARID1B, SMARCA4, SMARCB1, SMARCE1, SMARCC2, DPF2, ARID2, SOX11, SOX4, SMARCA2.</li>
+<li><strong>Single-gene testing:</strong> Possible once ACTL6A suspected, but panel/exome is preferred given phenotypic overlap.</li>
+<li><strong>Chromosomal microarray (CMA):</strong> Useful to detect/contextualize large 3q26 copy-number variants spanning ACTL6A (which dominate ClinVar "pathogenic" CNV entries) — though these contiguous-gene events are mechanistically distinct from point-mutation BAFopathy.</li>
+<li><strong>Karyotyping/FISH:</strong> Generally lower yield; relevant only for large structural rearrangements.</li>
+<li><strong>Not applicable:</strong> Mitochondrial DNA testing; repeat-expansion testing.</li>
+</ul>
+<p><strong>Omics / episignature.</strong> A validated <strong>BAFopathy DNA-methylation episignature</strong> (EpiSign) exists and is used clinically to reclassify VUS for ARID1B, SMARCB1, SMARCA4, SMARCA2 (Aref-Eshghi 2018, <a href="https://pubmed.ncbi.nlm.nih.gov/30459321/">PMID: 30459321</a>: <em>"We report overlapping peripheral blood DNA methylation epi-signatures in individuals with various subtypes of CSS (ARID1B, SMARCB1, and SMARCA4) and NCBRS (SMARCA2)"</em>; Trajkova 2024, <a href="https://pubmed.ncbi.nlm.nih.gov/38751117/">PMID: 38751117</a>), but <strong>ACTL6A is not yet in the validated cohort</strong> (Finding F011). Because paralogous BAF subunits can share episignatures, it is biologically plausible — but unproven — that ACTL6A variants map to the BAFopathy signature.</p>
+<p><strong>Clinical/imaging tests:</strong> Brain MRI (structural brain anomalies, corpus-callosum abnormalities seen across CSS), developmental/neuropsychological assessment, dysmorphology exam, hand/foot radiographs for acral anomalies. No specific biomarker or laboratory abnormality is diagnostic.</p>
+<p><strong>Differential diagnosis:</strong> Other BAFopathies/Coffin-Siris subtypes (ARID1B, SMARCB1, SMARCA4, SMARCE1, ARID1A), Nicolaides-Baraitser syndrome (SMARCA2), ACTL6B-related disorder (BAF53b; distinct — intellectual disability with epilepsy), and other syndromic intellectual-disability disorders. Distinguishing feature: the specific ACTL6A variant on sequencing.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> No evidence of reduced life expectancy from the core neurodevelopmental phenotype; most BAFopathy patients survive into adulthood. Severe multi-organ involvement (as can occur in some CSS subtypes, e.g., SMARCB1/ARID1A) could affect prognosis, but ACTL6A-specific mortality data are unavailable.</li>
+<li><strong>Morbidity/function:</strong> Dominated by <strong>intellectual disability and language impairment</strong>, with lifelong functional/educational impact and variable support needs. Acral anomalies are generally non-disabling.</li>
+<li><strong>Disease course/complications:</strong> Potential BAFopathy-associated complications (feeding difficulties, recurrent infections, hypotonia, and — rarely — structural anomalies such as CDH or endocrine involvement) warrant surveillance, though their frequency in ACTL6A specifically is undefined.</li>
+<li><strong>Prognostic factors:</strong> Likely variant type/location and degree of intellectual disability; formal prognostic models do not exist for this ultra-rare disorder.</li>
+<li><strong>QoL measures:</strong> No disorder-specific instruments reported.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>There is no disease-specific or disease-modifying therapy.</strong> Management is <strong>supportive and multidisciplinary</strong>, mirroring Coffin-Siris/BAFopathy care:</p>
+<ul>
+<li><strong>Developmental/rehabilitative (NCIT suggestions):</strong> Early intervention; <strong>speech-language therapy</strong>, <strong>physical therapy</strong> (NCIT:C15402), <strong>occupational therapy</strong> (NCIT:C15214); special education.</li>
+<li><strong>Supportive care:</strong> Management of feeding difficulties (nutrition support), treatment of recurrent infections, orthopedic/surveillance management of anomalies, ophthalmologic/audiologic evaluation.</li>
+<li><strong>Pharmacotherapy:</strong> Symptom-directed only (e.g., anti-seizure medication if seizures occur; behavioral/ADHD management as needed). No pharmacogenomic guidance specific to ACTL6A.</li>
+<li><strong>Advanced therapeutics (gene/cell/RNA/targeted/immunotherapy):</strong> None approved or in trials for this disorder.</li>
+<li><strong>Surgical/interventional:</strong> Only for specific structural complications (e.g., CDH repair, if present).</li>
+<li><strong>Experimental/clinical trials:</strong> No disorder-specific trials (no NCT identifiers) identified.</li>
+<li><strong>Treatment strategy:</strong> Individualized supportive care guided by the specific phenotype; no algorithm or combination/precision regimen exists.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not applicable to a de novo dominant disorder; cannot be prevented through lifestyle or environmental measures.</li>
+<li><strong>Genetic counseling (key preventive/advisory service):</strong> For families, recurrence risk is low (de novo), but gonadal/germline mosaicism cannot be fully excluded, so empiric recurrence risk is quoted as low-but-nonzero. <strong>Prenatal/preimplantation genetic testing</strong> is possible for a known familial variant.</li>
+<li><strong>Secondary prevention:</strong> Early developmental screening and intervention to optimize functional outcomes; surveillance for BAFopathy-associated complications.</li>
+<li><strong>Immunization/public-health/environmental measures:</strong> Not applicable (routine childhood immunizations recommended as for any child; no disorder-specific vaccine).</li>
+<li><strong>Carrier/newborn screening:</strong> Not applicable (dominant, de novo; not on newborn screening panels).</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / orthologs (NCBI Gene suggestions):</strong> Human <em>ACTL6A</em> (Gene 86); mouse <em>Actl6a</em> (Gene 56456); Drosophila ortholog <strong>Bap55</strong>. Paralog: <em>ACTL6B</em> (BAF53b).</li>
+<li><strong>Evolutionary conservation:</strong> Deeply conserved actin-related chromatin-remodeling subunit. Cross-species functional conservation is demonstrated: the Drosophila <em>Bap55</em> mutant dendrite-targeting phenotype is rescued by human BAF53a or BAF53b (<a href="https://pubmed.ncbi.nlm.nih.gov/21284845/">PMID: 21284845</a>), and the yeast/mammalian SWI/SNF core is conserved (<a href="https://pubmed.ncbi.nlm.nih.gov/10078207/">PMID: 10078207</a>).</li>
+<li><strong>Natural disease in other species / veterinary relevance / zoonosis:</strong> None reported; no naturally occurring animal disease, no breed associations (no VBO entries), and no transmissibility (not applicable to a Mendelian disorder).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Key finding</th>
+<th>PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mouse ES cells (tet-inducible <em>Baf53a</em> cKO)</td>
+<td>Cellular/mammalian</td>
+<td><em>Baf53a</em> loss → p53/p21/cleaved-Caspase-3 ↑, ESC death; rescued by Baf53a <strong>or</strong> Baf53b (not M3 mutant)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29070872/">29070872</a></td>
+</tr>
+<tr>
+<td>Mouse ES cells</td>
+<td>Cellular/mammalian</td>
+<td>Actl6a protects ESCs from primitive-endoderm differentiation via Nanog/Sox2</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25802002/">25802002</a></td>
+</tr>
+<tr>
+<td>Mouse (npBAF-subunit dosage reduction)</td>
+<td>Mammalian, in vivo</td>
+<td>Reduced dosage → neural-tube-closure defects (spina bifida-like); BAF53a→BAF53b switch gates neurogenesis</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19561591/">19561591</a></td>
+</tr>
+<tr>
+<td>Mouse developing cortex (BAF53a loss)</td>
+<td>Mammalian, in vivo</td>
+<td>BAF53a loss stalls progenitor cell cycle; Polycomb ↑, ↓accessibility at SOX2/ASCL1</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33602870/">33602870</a></td>
+</tr>
+<tr>
+<td>Drosophila (<em>Bap55</em> mutant)</td>
+<td>Invertebrate</td>
+<td>Dendrite/olfactory-projection mistargeting via TIP60 complex; rescued by human BAF53a/BAF53b</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21284845/">21284845</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Genetic model types available:</strong> Conditional/inducible knockouts and rescue constructs in mouse ESCs; Drosophila loss-of-function mutants with human-gene rescue. <strong>No knock-in mouse carrying a patient ACTL6A missense variant (e.g., p.Arg377Trp) has been reported</strong> — a key gap.</p>
+<p><strong>Phenotype recapitulation:</strong> Models robustly recapitulate the <strong>core mechanistic axis</strong> (progenitor proliferation, cell-cycle control, neurogenesis switch, dosage sensitivity), strongly supporting the human mechanism — e.g., Zhu et al. 2017 (<a href="https://pubmed.ncbi.nlm.nih.gov/29070872/">PMID: 29070872</a>): <em>"Baf53a is involved in the survival of ES cells by regulating p53 and Caspase3, and that Baf53b is able to compensate for this functional aspect of Baf53a."</em> <strong>Limitations:</strong> Existing models test null/knockdown rather than the specific heterozygous missense alleles seen in patients; they do not reproduce the full human syndromic phenotype (dysmorphism, acral anomalies, cognition). Resources: MGI (<em>Actl6a</em>), FlyBase (<em>Bap55</em>), Alliance of Genome Resources.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation (Synthesis)</h2>
+<p>ACTL6A-related BAFopathy is best understood as a <strong>dosage-sensitive chromatin-remodeling disorder of neurodevelopment</strong>. BAF53a is the actin-related subunit that defines the <strong>neural-progenitor</strong> BAF complex; its tightly timed, microRNA-driven replacement by BAF53b converts proliferating progenitors into post-mitotic neurons. Germline perturbation of BAF53a dosage or function derails this switch at the point of cell-cycle exit — Polycomb accumulates, pioneer-factor (SOX2/ASCL1) sites lose accessibility, and neurogenesis is blocked — producing intellectual disability with prominent language involvement and, through BAF's broader developmental roles, the craniofacial and acral features that place the disorder within the Coffin-Siris/BAFopathy spectrum.</p>
+<p>Three independent evidence streams converge on this model: (1) <strong>human genetics</strong> (recurrent de novo variants; BAFopathy-recognizable phenotype), (2) <strong>population constraint</strong> (pLI 0.997 / LOEUF 0.25 — the gene cannot tolerate loss), and (3) <strong>developmental biology</strong> (mouse/fly models proving BAF53a's progenitor-specific, cell-cycle-gating, dosage-sensitive role). The same gene's <strong>somatic</strong> amplification drives squamous cell carcinoma via the opposite dosage direction — a biological mirror image that reinforces the centrality of <strong>BAF53a dosage</strong> to cell fate. Son &amp; Crabtree (2014, <a href="https://pubmed.ncbi.nlm.nih.gov/25195934/">PMID: 25195934</a>) frame the broader principle: <em>"The high frequency of BAF subunit mutations in neurological disorders underscores the rate-determining role of BAF complexes in neural development, homeostasis, and plasticity."</em></p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28649782/">28649782</a></td>
+<td>Heterozygous ACTL6A variants → intellectual disability</td>
+<td><strong>Establishes disease gene</strong> (first description, 3 subjects)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31994175/">31994175</a></td>
+<td>p.Arg377Trp recognizable BAF-opathy</td>
+<td>Recurrent variant; dysmorphism + acral malformations</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34906496/">34906496</a></td>
+<td>BAFopathy exome cohort (16,243)</td>
+<td>Independent de novo/pLoF support</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19561591/">19561591</a></td>
+<td>miRNA-mediated BAF switching</td>
+<td>Mechanism: npBAF→nBAF, dosage sensitivity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33602870/">33602870</a></td>
+<td>BAF subunit switching / cell-cycle exit</td>
+<td>Mechanism: cell-cycle stall, Polycomb, SOX2/ASCL1</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33408251/">33408251</a></td>
+<td>ACTL6A in DNA repair</td>
+<td>Multi-complex membership (SWI/SNF, TIP60, INO80)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21284845/">21284845</a></td>
+<td>Bap55 / TIP60 dendrite targeting</td>
+<td>Cross-species conservation; rescue by BAF53a/b</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25169878/">25169878</a></td>
+<td>CSS/BAFopathy review</td>
+<td>Defines BAFopathy/CSS core phenotype</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29070872/">29070872</a></td>
+<td>Baf53a ESC survival</td>
+<td>Model: p53-apoptosis, Baf53b compensation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25802002/">25802002</a></td>
+<td>Actl6a protects ESCs</td>
+<td>Model: pluripotency via Nanog/Sox2</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30459321/">30459321</a></td>
+<td>BAFopathy episignatures</td>
+<td>Diagnostic tool (excludes ACTL6A)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38751117/">38751117</a></td>
+<td>DNA-methylation in NDD</td>
+<td>Paralogous subunits share episignatures</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25195934/">25195934</a></td>
+<td>BAF in neural development</td>
+<td>Rate-determining role of BAF in neurodevelopment</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34687603/">34687603</a></td>
+<td>ACTL6A in SCC</td>
+<td>Contrasting somatic oncogenic role</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34485408/">34485408</a></td>
+<td>BAF-opathies/SSRIDD case report</td>
+<td>Additional ACTL6A patient; SSRIDD terminology</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Very small patient number</strong> (&lt;~10 reported) → no reliable phenotype frequencies, natural history, prognosis, penetrance, or genotype-phenotype correlation.</li>
+<li><strong>Variant classification is immature:</strong> the recurrent literature variants (p.Arg377Trp, p.His105Arg, p.Glu227Gln) are <strong>Conflicting</strong> in ClinVar; most single-gene SNVs are VUS. Many ClinVar "pathogenic" entries are large 3q CNVs spanning ACTL6A, not point mutations (Finding F009).</li>
+<li><strong>No ACTL6A-specific episignature</strong> yet validated (Finding F011), limiting a powerful variant-reclassification route available for other BAFopathies.</li>
+<li><strong>No OMIM/Orphanet entry</strong>, no ICD/MeSH code, and no curated phenotype associations in Monarch (Finding F010).</li>
+<li><strong>Mode of action (haploinsufficiency vs dominant-negative) unresolved</strong> for patient missense variants; existing models use null/knockdown, not knock-in patient alleles.</li>
+<li><strong>No disease-specific therapy or clinical trials.</strong></li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Build a patient registry / GeneMatcher cohort</strong> to aggregate additional ACTL6A cases and define phenotype frequencies, natural history, and genotype-phenotype correlations.</li>
+<li><strong>Derive an ACTL6A DNA-methylation episignature</strong> by including confirmed ACTL6A patients in EpiSign cohorts (leveraging paralog-sharing from <a href="https://pubmed.ncbi.nlm.nih.gov/38751117/">PMID: 38751117</a>) to reclassify the many VUS.</li>
+<li><strong>Functional assays for recurrent missense variants</strong> (p.Arg377Trp, p.His105Arg, p.Glu227Gln): BAF53a incorporation into BAF/TIP60/INO80 complexes, β-actin/BRG1 binding, and chromatin accessibility at SOX2/ASCL1 sites — to resolve LoF vs dominant-negative.</li>
+<li><strong>Generate knock-in mouse / patient-iPSC-derived cortical organoid models</strong> carrying p.Arg377Trp to test recapitulation of cell-cycle stalling and neurogenesis defects.</li>
+<li><strong>Submit structured variant curation to ClinVar/ClinGen</strong> and pursue MONDO→OMIM/Orphanet mapping to formalize the disease entity.</li>
+<li><strong>Define surveillance guidelines</strong> for BAFopathy-associated complications (feeding, infection, structural anomalies) adapted to ACTL6A.</li>
+</ol>
+<hr />
+<p><em>Evidence source types: human clinical genetics (Marom 2017, Pascolini 2020, Chen 2022, Yuan 2021); model organism (Yoo 2009, Braun 2021, Zhu 2017, Lu 2015, Tea &amp; Luo 2011); in vitro/biochemical (Xiao 2021, Phelan 1999); computational/database (gnomAD constraint, ClinVar, Monarch/MONDO, UniProt).</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/ACTL6A-related_BAFopathy-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/ACTL6A-related_BAFopathy-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>22</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0001249</code> (1 mention) - the report calls it "Cognitive sign"; HP calls it <strong>Intellectual disability</strong></li>
+<li><code>HP:0002463</code> (1 mention) - the report calls it "Behavioral/cognitive"; HP calls it <strong>Language impairment</strong></li>
+<li><code>HP:0011968</code> (1 mention) - the report calls it "Sign"; HP calls it <strong>Feeding difficulties</strong></li>
+<li><code>HP:0002719</code> (1 mention) - the report calls it "Sign"; HP calls it <strong>Recurrent infections</strong></li>
+<li><code>HP:0001252</code> (1 mention) - the report calls it "Sign"; HP calls it <strong>Hypotonia</strong></li>
+<li><code>NCIT:C15402</code> (1 mention) - the report calls it "physical therapy"; NCIT calls it <strong>Conization</strong></li>
+<li><code>NCIT:C15214</code> (1 mention) - the report calls it "occupational therapy"; NCIT calls it <strong>Craniotomy</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0001263</code> (1 mention) - the report calls it "Cognitive/motor sign"; HP calls it <strong>Global developmental delay</strong>, and lists "Cognitive delay" among its other names</li>
+<li><code>GO:0005634</code> (2 mentions) - the report calls it "Nucleus", "Subcellular:<strong> </strong>Nucleus"; GO calls it <strong>nucleus</strong>, and lists "cell nucleus" among its other names</li>
+<li><code>CL:0000047</code> (2 mentions) - the report calls it "neural progenitor/stem cells"; CL calls it <strong>neural stem cell</strong></li>
+<li><code>UBERON:0000955</code> (2 mentions) - the report calls it "developing brain"; UBERON calls it <strong>brain</strong>, and lists "the brain" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>GO:0005634</code> - called "Nucleus", "Subcellular:<strong> </strong>Nucleus"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Activated_PI3K-delta_Syndrome-asta.html">← Activated PI3K-delta syndrome (Asta)</a>
+                
+                
+                <a href="Acute_Ackee_Fruit_Intoxication-falcon.html">Acute Ackee Fruit Intoxication (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/ACTL6A-related_BAFopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/ACTL6A-related_BAFopathy-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s42003-024-06596-6
+extractor_version: 1
 title: A MYCN-driven de-differentiation profile identifies a subgroup of aggressive retinoblastoma
 authors:
 - Tatsiana Ryl
@@ -26,12 +27,14 @@ journal: Communications Biology
 year: '2024'
 doi: 10.1038/s42003-024-06596-6
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s42003-024-06596-6.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s42003-024-06596-6.pdf
+full_text_access_type: open
 ---
 
 # A MYCN-driven de-differentiation profile identifies a subgroup of aggressive retinoblastoma
@@ -41,7 +44,9 @@ local_pdf_path: files/DOI_10.1038_s42003-024-06596-6.pdf
 
 ## Content
 
-AbstractRetinoblastoma are childhood eye tumors arising from retinal precursor cells. Two distinct retinoblastoma subtypes with different clinical behavior have been described based on gene expression and methylation profiling. Using consensus clustering of DNA methylation analysis from 61 retinoblastomas, we identify a MYCN-driven cluster of subtype 2 retinoblastomas characterized by DNA hypomethylation and high expression of genes involved in protein synthesis. Subtype 2 retinoblastomas outside the MYCN-driven cluster are characterized by high expression of genes from mesodermal development, including NKX2-5. Knockdown of MYCN expression in retinoblastoma cell models causes growth arrest and reactivates a subtype 1-specific photoreceptor signature. These molecular changes suggest that removing the driving force of MYCN oncogenic activity rescues molecular circuitry driving subtype 1 biology. The MYCN-RB gene signature generated from the cell models better identifies MYCN-driven retinoblastoma than MYCN amplification and can identify cases that may benefit from MYCN-targeted therapy. MYCN drives tumor progression in a molecularly defined retinoblastoma subgroup, and inhibiting MYCN activity could restore a more differentiated and less aggressive tumor biology.
+Abstract
+
+Retinoblastoma are childhood eye tumors arising from retinal precursor cells. Two distinct retinoblastoma subtypes with different clinical behavior have been described based on gene expression and methylation profiling. Using consensus clustering of DNA methylation analysis from 61 retinoblastomas, we identify a MYCN-driven cluster of subtype 2 retinoblastomas characterized by DNA hypomethylation and high expression of genes involved in protein synthesis. Subtype 2 retinoblastomas outside the MYCN-driven cluster are characterized by high expression of genes from mesodermal development, including NKX2-5 . Knockdown of MYCN expression in retinoblastoma cell models causes growth arrest and reactivates a subtype 1-specific photoreceptor signature. These molecular changes suggest that removing the driving force of MYCN oncogenic activity rescues molecular circuitry driving subtype 1 biology. The MYCN-RB gene signature generated from the cell models better identifies MYCN-driven retinoblastoma than MYCN amplification and can identify cases that may benefit from MYCN-targeted therapy. MYCN drives tumor progression in a molecularly defined retinoblastoma subgroup, and inhibiting MYCN activity could restore a more differentiated and less aggressive tumor biology.
 
 communications biology Article
 https://doi.org/10.1038/s42003-024-06596-6

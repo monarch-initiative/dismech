@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41416-023-02186-1
+extractor_version: 1
 title: Preclinical models in head and neck squamous cell carcinoma
 authors:
 - Patricia Chaves
@@ -12,12 +13,14 @@ journal: British Journal of Cancer
 year: '2023'
 doi: 10.1038/s41416-023-02186-1
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41416-023-02186-1.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41416-023-02186-1.pdf
+full_text_access_type: open
 ---
 
 # Preclinical models in head and neck squamous cell carcinoma
@@ -27,7 +30,9 @@ local_pdf_path: files/DOI_10.1038_s41416-023-02186-1.pdf
 
 ## Content
 
-AbstractHead and neck cancer is the sixth most frequent cancer type. Drug resistance and toxicity are common challenges of the existing therapies, making the development of reliable preclinical models essential for the study of the involved molecular mechanisms as well as for eventual intervention approaches that improve the clinical outcome. Preclinical models of head and neck squamous cell carcinoma have been traditionally based on cell lines and murine models. In this review, we will go over the most frequently used preclinical models, from immortalised-cell and primary tumour cultures in monolayer or 3D, to the currently available animal models. We will scrutinise their efficiency in mimicking the molecular and cellular complexity of head and neck squamous cell carcinoma. Finally, the challenges and the opportunities of other envisaged putative approaches, as well as the potential of the preclinical models to further develop personalised therapies will be discussed.
+Abstract
+
+Head and neck cancer is the sixth most frequent cancer type. Drug resistance and toxicity are common challenges of the existing therapies, making the development of reliable preclinical models essential for the study of the involved molecular mechanisms as well as for eventual intervention approaches that improve the clinical outcome. Preclinical models of head and neck squamous cell carcinoma have been traditionally based on cell lines and murine models. In this review, we will go over the most frequently used preclinical models, from immortalised-cell and primary tumour cultures in monolayer or 3D, to the currently available animal models. We will scrutinise their efficiency in mimicking the molecular and cellular complexity of head and neck squamous cell carcinoma. Finally, the challenges and the opportunities of other envisaged putative approaches, as well as the potential of the preclinical models to further develop personalised therapies will be discussed.
 
 REVIEW ARTICLE OPEN
 Cellular and Molecular Biology

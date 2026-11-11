@@ -14,6 +14,7 @@ from dismech.classifier.base import ClassificationTask
 from dismech.classifier.claims import (
     ANNOTATIONS,
     class_at,
+    extract_claim,
     pointer,
     pointer_tokens,
     schema,
@@ -374,10 +375,63 @@ def edge_reading(claim: dict) -> dict[str, Any]:
         },
         "object": endpoint_identity(endpoint),
         "definitions": {
-            "subject": deepcopy(source["value"]), "object": deepcopy(endpoint["value"])
+            "subject": deepcopy(source["value"]),
+            "object": deepcopy(endpoint["value"]),
         },
         "selected_evidence": deepcopy(canonical["selected_evidence"]),
     }
+
+
+def extract_edge_claim(document: dict, evidence_path: str) -> dict:
+    """Extract an edge with exact endpoint and scope bindings from a Disease.
+
+    Returns the legacy extraction envelope so callers can retain citation and
+    origin metadata separately, then call canonical_edge_claim once. Missing or
+    ambiguous foreign keys fail closed; no semantic matching is performed.
+    """
+    claim = extract_claim(document, evidence_path)
+    if claim["assertion_type"] not in _KINDS:
+        raise ValueError("Expected CausalEdge or TreatmentMechanismTarget")
+    target = claim["assertion"].get("target")
+    if not isinstance(target, str) or not target.strip():
+        raise ValueError("An exact target name is required")
+
+    def matches(section, field, name):
+        values = document.get(section, [])
+        if not isinstance(values, list):
+            raise ValueError(f"{section} must be a list")
+        return [
+            {"path": f"/{section}/{i}", "value": value}
+            for i, value in enumerate(values)
+            if isinstance(value, dict) and value.get(field) == name
+        ]
+
+    endpoint = _one(
+        matches("pathophysiology", "name", target)
+        + matches("phenotypes", "name", target),
+        f"Target {target!r}",
+    )
+    bindings = claim["about"]["context"]
+    paths = [endpoint["path"]]
+    bound = {b["path"] for b in bindings}
+    scopes = [claim["assertion"], endpoint["value"]] + [
+        b["value"] for b in bindings if b["role"] == "ancestor"
+    ]
+    subtypes, hypotheses = set(), set()
+    for scope in scopes:
+        subtypes.update(_refs(scope, "subtype", singular=True))
+        subtypes.update(_refs(scope, "subtypes"))
+        hypotheses.update(_refs(scope, "hypothesis_groups"))
+    for names, section, field in (
+        (subtypes, "has_subtypes", "name"),
+        (hypotheses, "mechanistic_hypotheses", "hypothesis_group_id"),
+    ):
+        for name in sorted(names):
+            binding = _one(matches(section, field, name), f"{section} {name!r}")
+            if binding["path"] not in bound:
+                paths.append(binding["path"])
+                bound.add(binding["path"])
+    return extract_claim(document, evidence_path, context_paths=paths)
 
 
 def canonical_edge_claim(legacy_claim: dict) -> dict[str, Any]:
