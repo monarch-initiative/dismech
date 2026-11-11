@@ -84,7 +84,8 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                  'classifications/nih_research_priorities',
                  'classifications/ilo_occupational_diseases',
                  'classifications/eu_occupational_schedule',
-                 'classifications/exposure_classification'],
+                 'classifications/exposure_classification',
+                 'pathograph_node_class'],
      'license': 'BSD-3-Clause',
      'name': 'dismech',
      'prefixes': {'CHEBI': {'prefix_prefix': 'CHEBI',
@@ -3350,6 +3351,230 @@ Wild is explicit that the domains overlap and that some exposures are hard to pl
     INTERNAL = "INTERNAL"
     """
     The internal environment - internal biological processes reflecting and responding to exposure: metabolism, endogenous hormones, oxidative stress, inflammation, gut microbiome, epigenetic modification.
+    """
+
+
+class PathographNodeClassEnum(str, Enum):
+    """
+    Pathograph node classes, the range of Pathophysiology node_class. A value without is_a is a tier; every other value names the class it sits under.
+    """
+    GENOMIC_EFFECT = "GENOMIC_EFFECT"
+    """
+    the lesion at the level of DNA/chromatin
+    """
+    genome_instability = "GENOME_INSTABILITY"
+    """
+    an elevated RATE of new lesions rather than a lesion itself. From MeSH Genomic Instability (D042822).
+    """
+    pathogenic_sequence_variant = "PATHOGENIC_SEQUENCE_VARIANT"
+    """
+    the coding lesion itself, where the entry draws it as a node
+    """
+    dosage = "DOSAGE"
+    structural_variant = "STRUCTURAL_VARIANT"
+    cis_regulatory_variant = "CIS_REGULATORY_VARIANT"
+    """
+    a lesion in noncoding regulatory DNA: enhancer, promoter, or the 3D contacts between them. The gene is intact and the coding sequence is untouched; what changed is where and how much it is transcribed. Not `pathogenic sequence variant`, which reads as coding, and not `epigenetic`, which is a mark rather than a lesion.
+    """
+    epigenetic = "EPIGENETIC"
+    transcript_level = "TRANSCRIPT_LEVEL"
+    ENVIRONMENTAL_EFFECT = "ENVIRONMENTAL_EFFECT"
+    """
+    the insult from outside
+    """
+    infectious_agent = "INFECTIOUS_AGENT"
+    chemical_SOLIDUS_drug_SOLIDUS_toxin = "CHEMICAL_DRUG_TOXIN"
+    physical_exposure = "PHYSICAL_EXPOSURE"
+    hormonal_SOLIDUS_physiological_exposure = "HORMONAL_PHYSIOLOGICAL_EXPOSURE"
+    physiological_stressor = "PHYSIOLOGICAL_STRESSOR"
+    """
+    the intermittent trigger that unmasks a latent lesion
+    """
+    microbiome_state = "MICROBIOME_STATE"
+    """
+    the resident community as an exposure, not a single pathogen
+    """
+    MOLECULAR_ACTIVITY_EFFECT = "MOLECULAR_ACTIVITY_EFFECT"
+    """
+    what the gene product can no longer do; GO molecular_function territory. Not the allele (GENOMIC or `genetic:`), not the resulting pool (SUBSTANCE).
+    """
+    catalytic_activity = "CATALYTIC_ACTIVITY"
+    channel_conductance = "CHANNEL_CONDUCTANCE"
+    transport_activity = "TRANSPORT_ACTIVITY"
+    receptor_SOLIDUS_adaptor_activity = "RECEPTOR_ADAPTOR_ACTIVITY"
+    structural_protein_activity = "STRUCTURAL_PROTEIN_ACTIVITY"
+    """
+    a structural protein failing to assemble, not an enzyme failing to catalyse
+    """
+    MOLECULAR_SUBSTANCE_EFFECT = "MOLECULAR_SUBSTANCE_EFFECT"
+    """
+    which molecules are now present in the wrong amount or the wrong form; one causal step below activity.
+    """
+    metabolite_accumulation = "METABOLITE_ACCUMULATION"
+    metabolite_depletion = "METABOLITE_DEPLETION"
+    protein_misfolding_SOLIDUS_aggregation = "PROTEIN_MISFOLDING_AGGREGATION"
+    protein_abundance_loss = "PROTEIN_ABUNDANCE_LOSS"
+    """
+    the protein is not there, as distinct from being present but inactive (ACTIVITY) or present but misfolded
+    """
+    protein_abundance_excess = "PROTEIN_ABUNDANCE_EXCESS"
+    """
+    the protein is present above its normal level -- overexpression, escape from degradation, ectopic expression of a normally silent gene. The mirror of abundance loss; a gain-of-dosage claim at the protein level rather than the gene level, so distinct from GENOMIC/dosage
+    """
+    post_translational_modification_state = "POST_TRANSLATIONAL_MODIFICATION_STATE"
+    """
+    the molecule is present and correctly folded but chemically altered
+    """
+    PATHWAY_EFFECT = "PATHWAY_EFFECT"
+    """
+    signalling and flux through a pathway
+    """
+    signalling_reduced_SOLIDUS_failed = "SIGNALLING_REDUCED_FAILED"
+    signalling_increased = "SIGNALLING_INCREASED"
+    metabolic_flux_block = "METABOLIC_FLUX_BLOCK"
+    CELLULAR_EFFECT = "CELLULAR_EFFECT"
+    cell_death = "CELL_DEATH"
+    differentiation_SOLIDUS_identity = "DIFFERENTIATION_IDENTITY"
+    metaplasia = "METAPLASIA"
+    """
+    a differentiated tissue replaced by another differentiated type. From MeSH Metaplasia (D008679); conceptually sharp and distinct from a differentiation block.
+    """
+    haemolysis = "HAEMOLYSIS"
+    """
+    erythrocyte destruction as its own leaf; MeSH gives Hemolysis (D006461) top-level pathologic-process billing
+    """
+    proliferation_SOLIDUS_expansion = "PROLIFERATION_EXPANSION"
+    senescence = "SENESCENCE"
+    cell_activation = "CELL_ACTIVATION"
+    """
+    a cell type switching into an effector state
+    """
+    organelle_dysfunction = "ORGANELLE_DYSFUNCTION"
+    morphogenesis_migration_and_positioning = "MORPHOGENESIS_MIGRATION_AND_POSITIONING"
+    protein_trafficking_and_localization = "PROTEIN_TRAFFICKING_AND_LOCALIZATION"
+    """
+    the protein is made and folded but does not reach where it works. Distinct from ACTIVITY (it would work if it got there) and from SUBSTANCE (nothing is misfolded or depleted).
+    """
+    cellular_function_disturbance = "CELLULAR_FUNCTION_DISTURBANCE"
+    """
+    a single cell type's physiological output running wrongly -- excitability, repolarization, transmitter release, contractility, secretion, transduction -- with no structural lesion at the cell. The cell-level counterpart of TISSUE/functional disturbance (an organ working wrongly); split out of it after the sixth draw showed that leaf carrying two scales
+    """
+    TISSUE_SOLIDUS_ORGAN_EFFECT = "TISSUE_ORGAN_EFFECT"
+    inflammation = "INFLAMMATION"
+    fibrosis_SOLIDUS_remodelling = "FIBROSIS_REMODELLING"
+    pathological_structure_formed = "PATHOLOGICAL_STRUCTURE_FORMED"
+    degeneration_SOLIDUS_atrophy = "DEGENERATION_ATROPHY"
+    developmental_malformation = "DEVELOPMENTAL_MALFORMATION"
+    barrier_failure = "BARRIER_FAILURE"
+    injury = "INJURY"
+    """
+    generic tissue damage where the entry names no more specific process
+    """
+    circulatory_disturbance = "CIRCULATORY_DISTURBANCE"
+    """
+    haemorrhage, fluid shift and vessel/chamber dilatation. MPATH gives circulatory disorder TOP-LEVEL billing (MPATH:105).
+    """
+    mechanical_obstruction_and_stenosis = "MECHANICAL_OBSTRUCTION_AND_STENOSIS"
+    """
+    from SNOMED Mechanical abnormality (107658001).
+    """
+    abnormal_communication = "ABNORMAL_COMMUNICATION"
+    """
+    fistula, septal defect, shunt. From SNOMED Abnormal communication (783804002).
+    """
+    vascular_malformation = "VASCULAR_MALFORMATION"
+    """
+    from SNOMED Vascular malformation (783806000); mechanistically distinct from developmental malformation generally
+    """
+    material_deposition = "MATERIAL_DEPOSITION"
+    """
+    material laid down IN tissue, as opposed to a discrete structure being built. SNOMED makes Deposition (46595003) a top-level morphologic category.
+    """
+    ischemia_and_infarction = "ISCHEMIA_AND_INFARCTION"
+    """
+    perfusion failure and its tissue consequence
+    """
+    inflammatory_infiltration = "INFLAMMATORY_INFILTRATION"
+    """
+    cells or material entering tissue; distinct from the inflammatory response itself
+    """
+    functional_disturbance = "FUNCTIONAL_DISTURBANCE"
+    """
+    an organ working wrongly without a structural lesion: conduction, contractility, motility, secretion, absorption. Organ-level only -- a single cell type's output running wrongly is CELLULAR/cellular function disturbance, and a distributed circuit misbehaving as a circuit is neural circuit and network dysfunction
+    """
+    neoplastic_invasion_and_metastasis = "NEOPLASTIC_INVASION_AND_METASTASIS"
+    pathogen_spread_and_tissue_invasion = "PATHOGEN_SPREAD_AND_TISSUE_INVASION"
+    """
+    the host-side counterpart of the ENVIRONMENTAL agent node
+    """
+    immune_evasion_and_immunosuppressive_microenvironment = "IMMUNE_EVASION_AND_IMMUNOSUPPRESSIVE_MICROENVIRONMENT"
+    impaired_repair = "IMPAIRED_REPAIR"
+    neural_circuit_and_network_dysfunction = "NEURAL_CIRCUIT_AND_NETWORK_DYSFUNCTION"
+    """
+    a distributed multi-region circuit misbehaving as a circuit: hyperexcitability, hypersynchrony, dysconnectivity, oscillation. Distinct from functional disturbance, which is one organ working wrongly; here the lesion IS the network property, and no single region is at fault.
+    """
+    pathological_angiogenesis = "PATHOLOGICAL_ANGIOGENESIS"
+    """
+    the vessel-building program running where, when or as much as it should not, and occasionally failing where it should run. Not vascular malformation (that is congenital architecture), not fibrosis/remodelling (that is matrix), and not structure formed: the vessels themselves are ordinary, the program driving them is not.
+    """
+    compression_and_mass_effect = "COMPRESSION_AND_MASS_EFFECT"
+    """
+    one structure pressing on its neighbour. Not obstruction (no lumen is narrowed) and not invasion (nothing crosses a boundary); the damage is transmitted force, so the lesion and the injured tissue are different tissues.
+    """
+    SYSTEMIC_EFFECT = "SYSTEMIC_EFFECT"
+    metabolic_crisis = "METABOLIC_CRISIS"
+    organ_failure = "ORGAN_FAILURE"
+    endocrine_SOLIDUS_homeostatic_derangement = "ENDOCRINE_HOMEOSTATIC_DERANGEMENT"
+    systemic_inflammatory_state = "SYSTEMIC_INFLAMMATORY_STATE"
+    haematological_deficit = "HAEMATOLOGICAL_DEFICIT"
+    """
+    circulating cell-count failure. From SNOMED Abnormal cellular component of blood (89615005).
+    """
+    autoimmune_response = "AUTOIMMUNE_RESPONSE"
+    """
+    loss of self-tolerance and the autoreactive response itself. The tissue damage it causes still goes to TISSUE/inflammation or inflammatory infiltration; this leaf is the immune claim, not the lesion.
+    """
+    immune_deficiency = "IMMUNE_DEFICIENCY"
+    """
+    the defect in immune function itself, as opposed to the susceptibility it confers (DISPOSITION) or the infection that follows (ENVIRONMENTAL)
+    """
+    behavioural_and_cognitive_mechanism = "BEHAVIOURAL_AND_COGNITIVE_MECHANISM"
+    """
+    a psychological process doing mechanistic work. Small but unmistakable, and the psychiatric corpus has nowhere else to go: this is not tissue function, not a network lesion, and not an outcome.
+    """
+    nutritional_deficit = "NUTRITIONAL_DEFICIT"
+    """
+    whole-body undernutrition as a state, not renal salt or phosphate "wasting".
+    """
+    OUTCOME = "OUTCOME"
+    """
+    what happens to the patient
+    """
+    clinical_endpoint = "CLINICAL_ENDPOINT"
+    progression_and_transformation = "PROGRESSION_AND_TRANSFORMATION"
+    """
+    a transition to a DIFFERENT disease state. Not a cascade step: it asserts where the disease goes next, and is the shape that keeps OUTCOME from being nearly empty.
+    """
+    DISPOSITION = "DISPOSITION"
+    """
+    a standing susceptibility rather than an event. Not a cascade tier: a disposition can sit at any tier, and it is the one node kind that describes what COULD happen rather than what did.
+    """
+    genetic_predisposition = "GENETIC_PREDISPOSITION"
+    trigger_specific_susceptibility = "TRIGGER_SPECIFIC_SUSCEPTIBILITY"
+    """
+    latent until a named stimulus arrives; pairs with an ENVIRONMENTAL/physiological stressor node
+    """
+    tissue_vulnerability = "TISSUE_VULNERABILITY"
+    """
+    a tissue that will fail first, without yet having failed
+    """
+    outcome_risk = "OUTCOME_RISK"
+    """
+    a named adverse endpoint stated as a standing probability
+    """
+    penetrance_and_expressivity_modifier = "PENETRANCE_AND_EXPRESSIVITY_MODIFIER"
+    """
+    what decides whether a disposition is expressed at all, and how severely. Not the disposition and not the effect: a second locus, a background, or a residual activity level standing between them.
     """
 
 
@@ -9869,7 +10094,7 @@ class HostDescriptor(OrganismDescriptor):
                       'or paratenic host'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
-    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone, many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061).""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
+    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries well over a hundred distinct values on pathophysiology nodes alone (`just node-role-audit` for the current census), many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061). On a pathophysiology node, a role saying what kind of thing the node is (`mechanism`, `driver`, `organ_dysfunction`) belongs in node_class instead, and a node's position in the cascade (`trigger`, `consequence`) can be read from its downstream edges.""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
                       'an initiating-sounding role does NOT identify the cell of '
                       'origin: that derivation reads `genetic_context.variant_origin: '
                       'SOMATIC` on the lesion node, or an `environmental_effect: '
@@ -18810,7 +19035,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'Stage',
                        'Treatment'],
          'examples': [{'value': "['Kaposi Sarcoma']"}]} })
-    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone, many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061).""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
+    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries well over a hundred distinct values on pathophysiology nodes alone (`just node-role-audit` for the current census), many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061). On a pathophysiology node, a role saying what kind of thing the node is (`mechanism`, `driver`, `organ_dysfunction`) belongs in node_class instead, and a node's position in the cascade (`trigger`, `consequence`) can be read from its downstream edges.""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
                       'an initiating-sounding role does NOT identify the cell of '
                       'origin: that derivation reads `genetic_context.variant_origin: '
                       'SOMATIC` on the lesion node, or an `environmental_effect: '
@@ -18977,6 +19202,17 @@ A node may conform to more than one module node when it is a genuine instance of
     mechanism_confidence: Optional[MechanismConfidenceEnum] = Field(default=None, description="""Level of confidence in this pathophysiology mechanism. If not specified, the mechanism is assumed to be established.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology']} })
     biological_scale: Optional[BiologicalScaleEnum] = Field(default=None, description="""Biological scale of the substrate this pathophysiology node primarily describes — molecular, cellular, tissue/organ, or organism. Optional tag; each value covers both ongoing processes and persistent states at that scale. See BiologicalScaleEnum for scope of each value and projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md for the design rationale.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology'],
          'examples': [{'value': 'MOLECULAR'}, {'value': 'TISSUE'}]} })
+    node_class: Optional[PathographNodeClassEnum] = Field(default=None, description="""The kind of causal claim this pathophysiology node makes: a genomic lesion, an exposure, a broken molecular activity, a molecule in the wrong amount or form, a pathway running wrongly, a cellular, tissue/organ or systemic effect, an outcome, or a standing disposition. Optional. Values come from the pathograph node-class tree (kb/node_classes/pathograph_node_classes.txt), whose glosses and worked examples are the guide to assigning one. Assign the most specific class that fits the node's own claim; a tier is acceptable when no leaf fits. Leave the slot absent when no class fits. Single-valued: a node that needs two classes is making two claims and should be split instead. Distinct from biological_scale, the scale of the node's substrate; `just node-class-scan --format scale` reports nodes whose class tier and scale disagree.""", json_schema_extra = { "linkml_meta": {'comments': ["Classify the node's claim, not what its gene normally does. A "
+                      'lesion node is often bound to the wild-type molecular function '
+                      'of the affected gene (Germline PTEN Loss of Function carries '
+                      'the PTEN phosphatase activity); its class follows what the node '
+                      'asserts, the allele (a GENOMIC class such as '
+                      'PATHOGENIC_SEQUENCE_VARIANT) or the lost activity (a MOLECULAR '
+                      'ACTIVITY class), not the term. `just node-class-scan` suggests '
+                      "a class from a node's ontology terms; it is a hint, and it is "
+                      'least reliable in exactly this case.'],
+         'domain_of': ['Pathophysiology'],
+         'examples': [{'value': 'CELL_DEATH'}, {'value': 'METABOLITE_ACCUMULATION'}]} })
     regulatory_category: Optional[RegulatoryVariantCategoryEnum] = Field(default=None, description="""Controlled classification of the expression-effect claim represented by this node. Interpret together with mechanism_confidence: a HYPOTHETICAL node classifies a proposed effect, not an observed one. For regulatory SVs, annotate the target gene here rather than on the physical initiating lesion when its sequence is intact.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'Variant', 'FunctionalEffect']} })
 
 
@@ -21331,7 +21567,7 @@ class Stage(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'Treatment'],
          'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
-    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone, many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061).""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
+    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries well over a hundred distinct values on pathophysiology nodes alone (`just node-role-audit` for the current census), many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061). On a pathophysiology node, a role saying what kind of thing the node is (`mechanism`, `driver`, `organ_dysfunction`) belongs in node_class instead, and a node's position in the cascade (`trigger`, `consequence`) can be read from its downstream edges.""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
                       'an initiating-sounding role does NOT identify the cell of '
                       'origin: that derivation reads `genetic_context.variant_origin: '
                       'SOMATIC` on the lesion node, or an `environmental_effect: '
@@ -22445,7 +22681,7 @@ class Treatment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'Treatment'],
          'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
-    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone, many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061).""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
+    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries well over a hundred distinct values on pathophysiology nodes alone (`just node-role-audit` for the current census), many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061). On a pathophysiology node, a role saying what kind of thing the node is (`mechanism`, `driver`, `organ_dysfunction`) belongs in node_class instead, and a node's position in the cascade (`trigger`, `consequence`) can be read from its downstream edges.""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
                       'an initiating-sounding role does NOT identify the cell of '
                       'origin: that derivation reads `genetic_context.variant_origin: '
                       'SOMATIC` on the lesion node, or an `environmental_effect: '
