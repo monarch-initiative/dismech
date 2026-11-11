@@ -28567,6 +28567,8 @@ window.searchData = [
     ],
     "phenotypes": [
       "Abnormal Eating Behavior",
+      "Distorted Body Image",
+      "Lack of Recognition of Low Weight",
       "Low Body Weight and Weight Loss",
       "Bradycardia",
       "Arrhythmia",
@@ -28600,6 +28602,8 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0100738",
+      "HP:6001533",
+      "HP:0000757",
       "HP:0004325",
       "HP:0001662",
       "HP:0011675",
@@ -28632,7 +28636,7 @@ window.searchData = [
     ],
     "source_file": "Anorexia_Nervosa.yaml",
     "page_url": "../pages/disorders/Anorexia_Nervosa.html",
-    "num_phenotypes": 13,
+    "num_phenotypes": 15,
     "num_pathophysiology": 13,
     "num_genes": 1,
     "num_treatments": 6,
@@ -35643,7 +35647,9 @@ window.searchData = [
     "phenotypes": [
       "Short Attention Span",
       "Hyperactivity",
-      "Impulsivity"
+      "Impulsivity",
+      "Disorganization",
+      "Forgetfulness"
     ],
     "phenotype_categories": [
       "Behavioral"
@@ -35654,7 +35660,9 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0000736",
       "HP:0000752",
-      "HP:0100710"
+      "HP:0100710",
+      "HP:0033056",
+      "HP:0002354"
     ],
     "frequencies": [],
     "genes": [],
@@ -35673,7 +35681,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Attention_Deficit-Hyperactivity_Disorder.yaml",
     "page_url": "../pages/disorders/Attention_Deficit-Hyperactivity_Disorder.html",
-    "num_phenotypes": 3,
+    "num_phenotypes": 5,
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 5,
@@ -36640,6 +36648,9 @@ window.searchData = [
       "Reduced Ability to Form Peer Relationships",
       "Motor Stereotypy",
       "Inflexible Adherence to Routines",
+      "Deficits in Social-Emotional Reciprocity",
+      "Echolalia",
+      "Fixated Interests",
       "Delayed Speech and Language Development",
       "Sensory Behavioral Abnormality",
       "Intellectual Disability",
@@ -36663,6 +36674,9 @@ window.searchData = [
       "HP:0000728",
       "HP:0000733",
       "HP:0000732",
+      "HP:0012760",
+      "HP:0010529",
+      "HP:4000070",
       "HP:0000750",
       "HP:5200046",
       "HP:0001249",
@@ -36697,7 +36711,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Autism_Spectrum_Disorder.yaml",
     "page_url": "../pages/disorders/Autism_Spectrum_Disorder.html",
-    "num_phenotypes": 12,
+    "num_phenotypes": 15,
     "num_pathophysiology": 8,
     "num_genes": 5,
     "num_treatments": 4,
@@ -295463,7 +295477,8 @@ window.searchData = [
     ],
     "frequencies": [
       "OCCASIONAL",
-      "VERY_RARE"
+      "VERY_RARE",
+      "FREQUENT"
     ],
     "genes": [
       "MYCN Amplification",
@@ -295480,7 +295495,9 @@ window.searchData = [
       "BARD1",
       "CDKN1C",
       "EZH2",
-      "HRAS"
+      "HRAS",
+      "LMO1",
+      "HACE1"
     ],
     "treatments": [
       "Risk-Adapted Chemotherapy",
@@ -295508,7 +295525,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Neuroblastoma.html",
     "num_phenotypes": 16,
     "num_pathophysiology": 38,
-    "num_genes": 15,
+    "num_genes": 17,
     "num_treatments": 13,
     "causal_graph_edges": "67",
     "causal_graph_longest_path": "7"
@@ -307883,6 +307900,7 @@ window.searchData = [
     "phenotypes": [
       "Obsessions",
       "Compulsions",
+      "Excessive Checking",
       "Anxiety",
       "Cognitive dysfunction",
       "Impulsivity"
@@ -307897,8 +307915,9 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0008770",
       "HP:0000722",
+      "HP:5200050",
       "HP:0000739",
-      "HP:0100543",
+      "HP:0033051",
       "HP:0100710"
     ],
     "frequencies": [],
@@ -307927,7 +307946,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Obsessive-Compulsive_Disorder.yaml",
     "page_url": "../pages/disorders/Obsessive-Compulsive_Disorder.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 6,
     "num_pathophysiology": 5,
     "num_genes": 8,
     "num_treatments": 7,
@@ -338946,6 +338965,7 @@ window.searchData = [
       "Affective Lability",
       "Irritability",
       "Depressed Mood",
+      "Hopelessness",
       "Anhedonia",
       "Anxiety",
       "Difficulty Concentrating",
@@ -338974,9 +338994,10 @@ window.searchData = [
       "HP:0000712",
       "HP:0000737",
       "HP:0000716",
+      "HP:5200271",
       "HP:0012154",
       "HP:0000739",
-      "HP:0100543",
+      "HP:0031987",
       "HP:0012378",
       "HP:0002591",
       "HP:0002360",
@@ -339012,7 +339033,7 @@ window.searchData = [
     ],
     "source_file": "Premenstrual_Dysphoric_Disorder.yaml",
     "page_url": "../pages/disorders/Premenstrual_Dysphoric_Disorder.html",
-    "num_phenotypes": 13,
+    "num_phenotypes": 14,
     "num_pathophysiology": 5,
     "num_genes": 4,
     "num_treatments": 5,
@@ -351468,6 +351489,119 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "19",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "ROHHAD Syndrome",
+    "disease_id": "MONDO:0017408",
+    "category": "",
+    "parents": [
+      "endocrine system disorder"
+    ],
+    "creation_date": "2026-11-10T23:48:29Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rapid-onset obesity with hypothalamic dysfunction, hypoventilation and autonomic dysregulation (ROHHAD) is an ultra-rare syndrome that begins in previously healthy children. Its usual sequence is rapid weight gain in early childhood, then hypothalamic dysfunction, then autonomic dysregulation and alveolar hypoventilation, which can end in cardiorespiratory arrest. A neural crest tumour, most often a ganglioneuroma, was reported in 56 per cent of the patients of one systematic review, and the syndrome is then written ROHHAD(NET), ROHHADNET or ROHHAD-NET. The cause is unknown. No disease-defining gene has been found. Autoantibodies to the protein ZSCAN1 have been found in patients with and without a tumour, but the search for an autoimmune basis has not given a definitive answer. No diagnostic biomarker is established, so the diagnosis is clinical, and with no cure the care is supportive: assisted ventilation and hormone replacement.",
+    "pathophysiology": [
+      "Neural Crest Tumour",
+      "Anti-Neural Autoimmunity",
+      "Hypothalamic Dysfunction",
+      "Impaired Central Control of Breathing",
+      "Autonomic Dysregulation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "humoral immune response",
+      "response to carbon dioxide"
+    ],
+    "phenotypes": [
+      "Rapid-Onset Obesity",
+      "Hyperphagia",
+      "Central Hypoventilation",
+      "Obstructive Sleep Apnea",
+      "Cardiorespiratory Arrest",
+      "Hypernatremia",
+      "Hyperprolactinemia",
+      "Growth Hormone Deficiency",
+      "Central Hypothyroidism",
+      "Adrenal Insufficiency",
+      "Hypogonadotropic Hypogonadism",
+      "Precocious Puberty",
+      "Thermal Dysregulation",
+      "Strabismus",
+      "Bradycardia",
+      "Impaired Pain Sensation",
+      "Behavioural Change",
+      "Seizures",
+      "Ganglioneuroma",
+      "Ganglioneuroblastoma"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Respiratory",
+      "Cardiovascular",
+      "Endocrine",
+      "Autonomic",
+      "Ophthalmologic",
+      "Neurological",
+      "Behavioral",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001513",
+      "HP:0002591",
+      "HP:0007110",
+      "HP:0002870",
+      "HP:0006543",
+      "HP:0003228",
+      "HP:0000870",
+      "HP:0034323",
+      "HP:0011787",
+      "HP:0000846",
+      "HP:0000044",
+      "HP:0000826",
+      "HP:0004370",
+      "HP:0000486",
+      "HP:0001662",
+      "HP:0007328",
+      "HP:0000708",
+      "HP:0001250",
+      "HP:0003005",
+      "HP:0006747"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Assisted Ventilation",
+      "Hormone Replacement",
+      "Immunotherapy",
+      "Setmelanotide"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ROHHAD_Syndrome.yaml",
+    "page_url": "../pages/disorders/ROHHAD_Syndrome.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "ROS1-Rearranged Non-Small Cell Lung Cancer",
@@ -381240,6 +381374,73 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "15",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Simple Bone Cyst",
+    "disease_id": "MONDO:0019372",
+    "category": "",
+    "parents": [
+      "bone neoplasm"
+    ],
+    "creation_date": "2026-11-11T01:43:19Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A simple bone cyst is a benign, fluid-filled, usually single-chambered cavity inside a bone. It is found mostly in children and adolescents, more often in boys, and most often in the metaphysis of the proximal humerus or the proximal femur. Many cysts cause no symptoms until the weakened bone breaks. The cause is not known. The older account holds that blocked venous drainage raises the pressure inside the bone and that bone-resorbing factors in the cyst fluid enlarge the cavity. Since 2020, a FUS-NFATC2 or EWSR1-NFATC2 gene fusion, or a rearrangement of FUS or EWSR1, has been found in roughly half to two thirds of the cysts tested outside the jaw (4 of 9 at the lowest and 6 of 9 at the highest in five small series), which the authors of those studies read as showing that the cyst is a neoplasm. The cysts of the jaw tested so far lack the fusion, and the same fusions occur in a rare round cell sarcoma. Treatment is debated: the one randomised trial compared two kinds of injection, and a Cochrane review found no consensus on the best procedure.",
+    "pathophysiology": [
+      "NFATC2 Gene Fusion",
+      "Venous Outflow Obstruction and Raised Intracystic Pressure",
+      "Bone Resorption by Factors in the Cyst Fluid"
+    ],
+    "cell_types": [
+      "osteoclast"
+    ],
+    "cell_type_ids": [
+      "CL:0000092"
+    ],
+    "biological_processes": [
+      "bone resorption"
+    ],
+    "phenotypes": [
+      "Bone Cyst",
+      "Pathological Fracture",
+      "Bone Pain"
+    ],
+    "phenotype_categories": [
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0012062",
+      "HP:0002756",
+      "HP:0002653"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "NFATC2"
+    ],
+    "treatments": [
+      "Conservative Management",
+      "Corticosteroid Injection",
+      "Autologous Bone Marrow Injection",
+      "Curettage and Bone Grafting",
+      "Decompression by Drilling or Cannulated Screw",
+      "Elastic Intramedullary Nailing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Simple_Bone_Cyst.yaml",
+    "page_url": "../pages/disorders/Simple_Bone_Cyst.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Simpson-Golabi-Behmel Syndrome Type 1",
@@ -434578,15 +434779,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4032,
+  "total_disorder_pages": 4034,
   "total_subtypes": 5053,
-  "total_disorders_and_subtypes": 9085,
-  "total_unique_evidence_sources": 59803,
-  "total_unique_publications": 55938,
+  "total_disorders_and_subtypes": 9087,
+  "total_unique_evidence_sources": 59883,
+  "total_unique_publications": 56017,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4030,
-  "total_unique_pathological_events": 26391,
+  "total_pathographs": 4032,
+  "total_unique_pathological_events": 26398,
   "total_modules": 231,
   "total_research_reports": 4144,
   "total_classifications": 21,
