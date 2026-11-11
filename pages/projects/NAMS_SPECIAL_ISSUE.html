@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toxicology NAMs Special Issue: Screening Log - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html" class="active" aria-current="true">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Toxicology NAMs Special Issue: Screening Log</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                <span class="tag">NAM</span><span class="tag">FRAMEWORK_ALIGNMENT</span><span class="tag">ENVIRONMENTAL_EXPOSURE</span><span class="tag">EXTERNAL_COLLABORATION</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Toxicology NAMs Special Issue: Screening Log</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (1)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Fetal_Valproate_Syndrome.html">Fetal Valproate Syndrome</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (1)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/epilepsy_excitation_inhibition_imbalance.html">epilepsy excitation inhibition imbalance</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/NAMS_SPECIAL_ISSUE.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="toxicology-nams-special-issue-screening-log">Toxicology NAMs Special Issue: Screening Log</h1>
+<p>The <em>Toxicology</em> special issue on New Approach Methodologies was screened paper by
+paper for methods, mechanisms and gaps. Each paper kept by the screen has its own
+issue; this page is the index over them, and the place where a per-paper
+destination decision is recorded once it is made.</p>
+<h2 id="two-destinations-and-they-are-not-the-same-screen">Two destinations, and they are not the same screen</h2>
+<p>A paper from this issue can land in either of two places, and most land in only one:</p>
+<ul>
+<li>the <a href="https://github.com/monarch-initiative/nams-registry">nams-registry</a>, which
+  catalogues a method as a method; or</li>
+<li>a dismech entry, which needs the method to attach to a <strong>mechanism node</strong>.</li>
+</ul>
+<p>dismech links a model to a mechanism, so a method whose output is an apical
+toxicity label, a dose metric, or an undifferentiated activity call has no dismech
+anchor by construction — however well established the method is. Five papers were
+set aside on exactly that ground, and whether the registry takes them is
+<a href="https://github.com/monarch-initiative/dismech/issues/16882">#16882</a>, which also
+records that screening both destinations through one filter under-nominates for the
+registry.</p>
+<p>That question is live for papers kept by the screen too, not only for the five
+rejected ones: a kept paper can still turn out to support a registry entry and no
+dismech link. Both decisions recorded below went that way, for different reasons —
+one because the endpoint asserts no mechanism, the other because the mechanism it
+does assert has no disease entry to attach to.</p>
+<h2 id="screened-in">Screened in</h2>
+<p>Seventeen papers, one issue each. <strong>The method and mechanism descriptions in these
+issues were read off abstracts and are expectations, not verified content</strong> — each
+issue says so. Treat a row here as a pointer to the issue, not as a finding.</p>
+<table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Subject</th>
+<th>Issue</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>37863466</td>
+<td>1,3-dichloropropene nasal epithelium, repeated exposure</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16858">#16858</a></td>
+</tr>
+<tr>
+<td>38013136</td>
+<td>Calu-3 air-liquid-interface 3D lung model, aerosol exposure</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16859">#16859</a></td>
+</tr>
+<tr>
+<td>38740170</td>
+<td>3D quadruple co-culture liver spheroid for DILI prediction</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16861">#16861</a></td>
+</tr>
+<tr>
+<td>38341018</td>
+<td>3D Nrf2 reporter epidermis for skin sensitization</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16863">#16863</a></td>
+</tr>
+<tr>
+<td>38040083</td>
+<td>AOP-based combined pesticide neurotoxicity, with synergy</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16864">#16864</a></td>
+</tr>
+<tr>
+<td>38360295</td>
+<td>Respiratory sensitizer biomarkers in non-immune airway cells</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16865">#16865</a></td>
+</tr>
+<tr>
+<td>38369009</td>
+<td>3D tetraculture bronchial model for respiratory sensitization</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16866">#16866</a></td>
+</tr>
+<tr>
+<td>38428665</td>
+<td>Carboxylic acid hepatotoxicity, lipid accumulation patterns</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16867">#16867</a></td>
+</tr>
+<tr>
+<td>38211720</td>
+<td>BPA analogues in 2D vs 3D neuron models</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16868">#16868</a></td>
+</tr>
+<tr>
+<td>38788893</td>
+<td>Microelectrode array neural network assays, acute vs network formation</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16869">#16869</a></td>
+</tr>
+<tr>
+<td>38580097</td>
+<td>PFOS endocrine disruption via AOP network and NAMs</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16870">#16870</a></td>
+</tr>
+<tr>
+<td>38029956</td>
+<td>ReproTracker hiPSC developmental toxicity with PBPK extrapolation</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16871">#16871</a></td>
+</tr>
+<tr>
+<td>38029955</td>
+<td>Particulate matter on skin, ocular and lung co-culture systems</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16872">#16872</a></td>
+</tr>
+<tr>
+<td>38614204</td>
+<td>Heated tobacco product in vitro toxicology, EpiAirway tissues</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16873">#16873</a></td>
+</tr>
+<tr>
+<td>38036094</td>
+<td>Zearalenone estrogenicity and aromatase genetic variability</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16874">#16874</a></td>
+</tr>
+<tr>
+<td>38432407</td>
+<td>Ochratoxin A molecular targets, OGFOD1</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16875">#16875</a></td>
+</tr>
+<tr>
+<td>38272384</td>
+<td>P-glycoprotein (ABCB1) dynamics by molecular dynamics simulation</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16876">#16876</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="screened-out-as-having-no-dismech-anchor">Screened out as having no dismech anchor</h2>
+<p>PMID:37993082 (read-across mutagenicity classification), PMID:38043774 (in vitro
+transcriptomic points of departure), PMID:38056590 (nanoparticle toxicity by
+machine learning), PMID:38705560 (q-RASAR subchronic oral NOAEL) and
+PMID:38719068 (an in vitro true-dose workflow). Each predicts or conditions a
+toxicity endpoint without asserting a mechanism. Whether the registry takes them
+is <a href="https://github.com/monarch-initiative/dismech/issues/16882">#16882</a>.</p>
+<p>Three further papers were set aside for reasons other than a missing dismech
+anchor, and are listed here so the screen accounts for all twenty-five:
+PMID:37924932 (a QSAR case study for mercury) is aquatic ecotoxicology and
+reports a data gap rather than a working model; PMID:38104655 (a deep-learning
+framework that generates candidate hazardous structures) asserts no mechanism in
+a biological system; and PMID:38857863 (next generation risk assessment for
+occupational safety, sodium isethionate) is an exposure and
+bioactivity-ratio workflow across a NAM battery. The first is out of scope for
+both destinations. The other two raise the same registry question as the five
+above.</p>
+<p>The gaps and open questions this screen produced, including the ones that are
+not about any single paper, are kept in
+<a href="NAMS_SPECIAL_ISSUE/open-questions.md">open-questions.md</a>.</p>
+<h2 id="destination-decisions">Destination decisions</h2>
+<h3 id="pmid38788893-the-two-mea-neural-network-assays-go-to-the-registry-only">PMID:38788893 — the two MEA neural network assays go to the registry only</h3>
+<p>Martin et al. 2024, <em>Toxicology</em> 505:153842 (<a href="https://github.com/monarch-initiative/dismech/issues/16869">#16869</a>).
+Two US EPA microelectrode-array assays in dissociated rat cortical cultures,
+compared head to head across 243 chemicals.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>MEA acute network function assay (AcN)</th>
+<th>MEA network formation assay (NFA)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Exposure</td>
+<td>"a 40-minute chemical exposure on day in vitro (DIV)13 or 15"</td>
+<td>"a developmental exposure paradigm spanning DIV0 through DIV12"</td>
+</tr>
+<tr>
+<td>Sampling</td>
+<td>network activity during the exposure</td>
+<td>"Measures of network activity over time at DIV5, 7, 9, and 12 in the NFA are reduced to an estimated area under the curve"</td>
+</tr>
+<tr>
+<td>Informative for</td>
+<td>"identifying chemicals with a shared mode of action"</td>
+<td>"information relevant to developmental exposure"</td>
+</tr>
+</tbody>
+</table>
+<p>Across the 243 chemicals screened in both, the paper reports "70.3% concordance
+between the AcN and NFA after eliminating activity inferred to be cytotoxic
+(selective activity), with the majority of discordance explained by chemicals that
+altered selective activity in the AcN but not NFA." The NFA "detected more active
+chemicals when evaluating activity associated with cytotoxicity", and its median
+potencies were lower, "but within-chemical potency values were not uniformly lower
+in the NFA than the AcN." The authors' conclusion is that both are worth using
+depending on the context of use.</p>
+<p><strong>Both assays belong in the registry. Neither is being added to a dismech entry.</strong>
+The reason is not that the assays are weak — a functional, emergent endpoint
+measured across a 243-chemical screen is the strongest kind of NAM this issue
+produced. It is that the paper supplies no mechanism for a model link to attach
+to:</p>
+<ul>
+<li>The record is <strong>abstract-only</strong>; the full text was not retrievable, so the
+  chemical-level detail that would name a mode of action is not available to quote.</li>
+<li>The abstract <strong>names no chemical</strong>, so no link to a chemical-specific entry
+  (<code>Organophosphate_Poisoning</code> and the other exposure entries included) could cite
+  any text.</li>
+<li>The endpoint is <strong>mechanism-agnostic and non-directional</strong> by design. It records
+  that something perturbed network function, in either direction, without saying
+  what or why. <code>epilepsy_excitation_inhibition_imbalance</code> is the closest anchor,
+  and neither end of it fits. Its trigger node, <code>Ion Channel and Synaptic
+  Dysfunction</code>, <em>is</em> non-directional — it binds <code>GO:0042391 regulation of
+  membrane potential</code> and <code>GO:0007268 chemical synaptic transmission</code> with
+  <code>modifier: ABNORMAL</code>, which is the one annotation shape a bidirectional screen
+  readout could attach to — but it describes channel and synaptic transmission in
+  a neuron, where the MEA readout is emergent network function across a well, so
+  it is at the wrong level. The nodes that <em>are</em> at network level
+  (excitation-inhibition imbalance, then hyperexcitability and hypersynchrony) are
+  directional, and a screen hit that may be a decrease in activity is not evidence
+  for a node asserting an increase.</li>
+</ul>
+<p>This is the sharpest instance of the general problem #16882 raises, and the first
+case in this batch where a paper kept by the screen yields a registry entry and no
+dismech link.</p>
+<p>The registry record is drafted as <strong>two</strong> <code>NAMRecord</code>s, because the two assays are
+different model systems rather than one system run two ways — the acute assay
+records a matured network at DIV13 or 15, the network formation assay records one
+as it is being built:</p>
+<table>
+<thead>
+<tr>
+<th>Proposed record id</th>
+<th>Assay</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cortex-mea-acute-network-primary-cell-rat</code></td>
+<td>AcN</td>
+</tr>
+<tr>
+<td><code>cortex-mea-network-formation-primary-cell-rat</code></td>
+<td>NFA</td>
+</tr>
+</tbody>
+</table>
+<p>Both are typed <code>TwoDCellCulture</code>, <code>biological_organization_level:
+CELLULAR_NEIGHBORHOOD</code>, <code>species: NCBITaxon:10116</code>, with each assay's applications
+and limitations carrying the paper's own sentences. They are open as a draft in
+<a href="https://github.com/monarch-initiative/nams-registry/pull/57">nams-registry#57</a>,
+where both were validated as <code>NAMRecord</code>, and their models as <code>TwoDCellCulture</code>,
+against that repository's own <code>nam_records.yaml</code> and the NAMO commit it pins.</p>
+<p>One thing holds that PR as a draft, and it is a question for the registry rather
+than for this screen. <code>source_resources</code> is required and is defined as "A registry
+resource a NAM was found in", but this NAM was found in a primary research paper, and a
+primary research paper cannot be a registry resource: the registry's own
+<code>ResourceTypeEnum.Report</code> says "A primary research paper is not a report."
+Something still has to go in that slot, because the registry's
+<code>test_nam_source_resources_exist</code> requires every value there to name a file in its
+<code>resources/</code>. The draft carries ToxCast as a marked placeholder — the plausible
+home for the EPA MEA endpoints, which could not be confirmed against invitrodb —
+and records the paper and this special issue in free text instead. A separate
+nams-registry issue covers the general case.</p>
+<p><code>references_cache/PMID_38788893.md</code> is committed and is cited only from this page,
+not from any <code>kb/</code> entry. It is kept deliberately, so the quoted sentences above
+and in the registry draft stay checkable — do not read its absence from <code>kb/</code> as
+uncited and prune it.</p>
+<p>The NFA's own gap — developmental neurotoxicity as an outcome, which dismech has
+no module for — is tracked separately as
+<a href="https://github.com/monarch-initiative/dismech/issues/16880">#16880</a>.</p>
+<h3 id="pmid38029956-the-reprotracker-assay-and-its-pbpk-bridge-go-to-the-registry-only">PMID:38029956 — the ReproTracker assay and its PBPK bridge go to the registry only</h3>
+<p>Moreau et al. 2023, <em>Toxicology</em> 500:153684 (<a href="https://github.com/monarch-initiative/dismech/issues/16871">#16871</a>).
+A commercial human iPSC biomarker assay for teratogenic potential (ReproTracker,
+Toxys), coupled to a pregnancy PBPK model that converts the assay's in vitro
+effect concentrations into human equivalent doses, run on two known human
+teratogens.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>ReproTracker hiPSC biomarker assay</th>
+<th>Pregnancy PBPK model plus IVIVE</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Measures</td>
+<td>biomarker expression during directed differentiation</td>
+<td>plasma and uterus concentration for an oral dose</td>
+</tr>
+<tr>
+<td>Output</td>
+<td>a teratogen / non-teratogen classification</td>
+<td>a human equivalent dose for an in vitro effect concentration</td>
+</tr>
+<tr>
+<td>Scope</td>
+<td>"The ReproTracker assay focuses on the gastrulation phase."</td>
+<td>five-week pregnancy, uterus compartment, no placenta or fetus</td>
+</tr>
+</tbody>
+</table>
+<p>The assay runs three directed differentiations from one hiPSC line — "The assay is
+based on the differentiation of hiPSCs into functional cardiomyocytes, hepatocytes,
+and neural rosettes." — and reads a germ-layer and a cell-specific biomarker in each:</p>
+<table>
+<thead>
+<tr>
+<th>Differentiation</th>
+<th>Germ-layer marker</th>
+<th>Cell-specific marker</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cardiomyocyte</td>
+<td>BMP4 (mesoderm)</td>
+<td>MYH6</td>
+</tr>
+<tr>
+<td>Hepatocyte</td>
+<td>FOXA2 (endoderm)</td>
+<td>AFP</td>
+</tr>
+<tr>
+<td>Neural rosette</td>
+<td>PAX6 (neural ectoderm)</td>
+<td>Nestin</td>
+</tr>
+</tbody>
+</table>
+<p>OCT4 is carried as a pluripotency control. Classification is by loss of signal:
+"compound classification was primarily based on a significant reduction in the
+selected biomarker expression following exposure to the test substances", and a
+concentration-dependent drop below threshold across at least two consecutive
+non-cytotoxic concentrations "indicated disruption of the developmental program and, therefore,
+the compound was classified as a teratogen". Morphology and cardiomyocyte
+contraction are secondary: "a compound affecting only morphology/functionality of
+the differentiated cells without having any effect on the selected biomarker genes,
+was a non-developmental toxicant in ReproTracker".</p>
+<p>Both compounds were called teratogenic, by different profiles:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Thalidomide</th>
+<th>Carbamazepine</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cardiomyocyte</td>
+<td>MYH6 down "in a dose-dependent manner starting at 0.4 μM"; contraction abolished at 2 μM</td>
+<td>beating stopped from 15.6 μM; MYH6 down</td>
+</tr>
+<tr>
+<td>Hepatocyte</td>
+<td>AFP and morphology disrupted "starting at 2 μM"</td>
+<td>morphology at 31.2 μM; FOXA2 and AFP down</td>
+</tr>
+<tr>
+<td>Neural rosette</td>
+<td>spared — "no effect on the morphology of neural rosettes, nor on expression pattern of the neural rosette-specific biomarker gene, NESTIN"; PAX6 <em>increased</em></td>
+<td>morphology at 15.6 μM; PAX6 down</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Both methods belong in the registry. Neither is being added to a dismech entry.</strong>
+The reason is not the one that applies to the MEA assays above, and the difference
+is worth keeping.</p>
+<p>The paper names no mechanism at all. In the cached full text the words "mechanism"
+and "pathway" do not occur, and there is no cereblon, ubiquitin-ligase, SALL4,
+anti-angiogenesis, histone-deacetylase or folate claim anywhere in it. The
+cereblon-substrate-degradation anchor that
+<a href="https://github.com/monarch-initiative/dismech/issues/16871">#16871</a> floated from
+the abstract has no
+support in this paper; thalidomide's mechanism would have to come from other
+literature.</p>
+<p>But the readout is <strong>not</strong> mechanism-agnostic in the way an activity screen is. It
+is lineage-resolved, directional and compound-specific, and thalidomide's profile
+is selective in a way that would be informative if it had anywhere to attach:
+cardiac and hepatic differentiation impaired, neural rosettes spared, and PAX6
+moving <em>up</em> rather than down. That is the shape of a cellular-scale mechanism
+claim, not an apical label.</p>
+<p>The obstacle is at the anchor end instead. Neither test compound has a disease
+entry whose pathograph could host the node:</p>
+<ul>
+<li>There is no thalidomide embryopathy entry.</li>
+<li>Fetal carbamazepine syndrome is in the knowledge base only as a term-bound
+  <code>differential_diagnoses</code> row inside Fetal_Valproate_Syndrome.</li>
+</ul>
+<p>A <code>modeled_mechanisms</code> target is a bare name resolved inside the entry that
+declares it, so there is nothing for either method to point at. Pointing the
+carbamazepine arm at <a href="../disorders/Fetal_Valproate_Syndrome.html">Fetal Valproate Syndrome</a>'s <code>Altered Neural Progenitor
+Proliferation and Differentiation</code> would assert a valproate mechanism from
+carbamazepine data, which is the named-entity confusion the evidence rules forbid.
+That entry gap is <a href="https://github.com/monarch-initiative/dismech/issues/16910">#16910</a>.</p>
+<p>Two registry records are proposed, the assay and the dosimetry bridge separately,
+because they have different outputs and either could be reused without the other:</p>
+<table>
+<thead>
+<tr>
+<th>Proposed record id</th>
+<th>Method</th>
+<th>NAMO class</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>multilineage-differentiation-two-d-culture-induced-pluripotent-stem-cell</code></td>
+<td>ReproTracker</td>
+<td><code>TwoDCellCulture</code></td>
+</tr>
+<tr>
+<td><code>pregnancy-thalidomide-carbamazepine-pbpk</code></td>
+<td>PBPK plus IVIVE</td>
+<td><code>PBPKModel</code></td>
+</tr>
+</tbody>
+</table>
+<p>Both are human (<code>NCBITaxon:9606</code>), which for thalidomide is the whole point:
+"Thalidomide is a strong human teratogenic agent where its developmental toxicity
+cannot be detected in mouse models or in murine-based in vitro assays."</p>
+<p><strong>Unlike the MEA records above, this typing has not been validated against the
+registry's schema</strong> — no registry pull request has been opened for it, and the
+class names here were read off NAMO and <code>nam_records.yaml</code> rather than checked by a
+LinkML run. Treat the table as a proposal.</p>
+<p>Three things would need deciding in the registry, and none of them is a question
+for this screen:</p>
+<ul>
+<li><strong>One record or three.</strong> NAMO's <code>model</code> slot asks an id to name "the organ, the
+  format if it is not an organoid, and the cell source", which assumes one organ
+  per record. ReproTracker spans cardiac, hepatic and neural lineages. One record
+  matches how the assay is sold and how it classifies — a compound is a teratogen
+  if <em>any</em> lineage drops, so the three protocols are coupled by the decision rule —
+  while three records would match the id convention and let the lineage-specific
+  results above be recorded against the lineage they belong to.</li>
+<li><strong><code>source_resources</code>.</strong> The same blocker the MEA draft hit, for the same reason:
+  the NAM was found in a primary research paper. Toxys is the vendor and would be
+  the plausible resource, with ReproTracker as its product.</li>
+<li><strong>Whether a PBPK model is a NAM record here at all.</strong> NAMO does type it —
+  <code>PBPKModel</code> sits under <code>InSilicoModel</code> under <code>NAMModel</code>, with compartment and
+  drug-property slots — so in the registry the bridge has a home. This does not
+  settle <a href="https://github.com/monarch-initiative/dismech/issues/16887">#16887</a>,
+  which asks where the bridge belongs in <strong>dismech</strong>: a model of the
+  exposure-to-concentration relationship still has no mechanism node to attach to,
+  and the dismech answer for this paper is the same whether or not the registry
+  takes the model.</li>
+</ul>
+<p><code>references_cache/PMID_38029956.md</code> is committed and is cited only from this page,
+not from any <code>kb/</code> entry. It is kept deliberately, so the quoted sentences above
+stay checkable — do not read its absence from <code>kb/</code> as uncited and prune it.</p>
+<h3 id="pmid38740170-the-quadruple-co-culture-liver-spheroid-links-into-four-dismech-modules">PMID:38740170 — the quadruple co-culture liver spheroid links into four dismech modules</h3>
+<p>Sun et al. 2024, <em>Toxicology</em> 505:153829 (<a href="https://github.com/monarch-initiative/dismech/issues/16861">#16861</a>, merged in <a href="https://github.com/monarch-initiative/dismech/pull/16923">#16923</a>).
+A self-assembled 3D liver spheroid of four human cell types (HepG2, PUMC-HUVEC-T1
+endothelial, THP-1-derived macrophages, human hepatic stellate cells) for DILI
+prediction. The contrast with the MEA case above is the point of keeping both:
+this paper names the pathology each readout stands for, so each proof-of-concept
+arm has a mechanism node to attach to.</p>
+<p>The model is added as one <code>experimental_models</code> entry on each of four modules,
+with a <code>modeled_mechanisms</code> link scoped to that module's relevant node:</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Node</th>
+<th>relationship</th>
+<th>Readout</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>drug_induced_liver_injury</code></td>
+<td>Sterile and Immune-Mediated Inflammatory Amplification</td>
+<td><code>PARTIALLY_RECAPITULATES</code></td>
+<td>isoniazid cytotoxicity <code>INCREASED</code> by non-parenchymal cells</td>
+</tr>
+<tr>
+<td><code>cholestatic_liver_injury</code></td>
+<td>Impaired Bile Formation and Secretion</td>
+<td><code>RECAPITULATES</code></td>
+<td>bile acid efflux <code>DECREASED</code></td>
+</tr>
+<tr>
+<td><code>hepatic_steatosis_lipotoxicity</code></td>
+<td>Hepatocyte Lipid Overload</td>
+<td><code>RECAPITULATES</code></td>
+<td>lipid accumulation <code>INCREASED</code></td>
+</tr>
+<tr>
+<td><code>fibrotic_response</code></td>
+<td>Mesenchymal Cell Activation</td>
+<td><code>RECAPITULATES</code></td>
+<td>α-SMA <code>INCREASED</code></td>
+</tr>
+</tbody>
+</table>
+<p>Three decisions carried through the links:</p>
+<ul>
+<li>The <strong>immune arm is <code>PARTIALLY_RECAPITULATES</code>, not <code>RECAPITULATES</code>.</strong> The paper
+  shows the non-parenchymal cells amplify isoniazid toxicity, but reads a
+  mediating role in immune-mediated toxicity off that cytotoxicity difference
+  rather than measuring an immune effector. The link carries a <code>PROXY_QUANTITY</code>
+  divergence saying so.</li>
+<li>The <strong>cholestasis link carries a <code>BOUNDARY_OMISSION</code> divergence</strong> for the
+  absent biliary tree, canalicular network and bile flow: the spheroid captures
+  transporter-level efflux inhibition, not downstream bile stasis.</li>
+<li>The <strong>lipid link carries a <code>PROXY_QUANTITY</code> divergence</strong> because the bulk
+  lipid-dysregulation readout spans steatosis and phospholipidosis, which are
+  distinct. Drug-induced phospholipidosis as a node gap is tracked at
+  <a href="https://github.com/monarch-initiative/dismech/issues/16881">#16881</a>.</li>
+</ul>
+<p>The predictive-performance panel (22 DILI-positive, 5 DILI-negative compounds) is
+recorded as a <code>findings</code> entry on each model, not as a mechanism link — it is
+model validation, not a per-compound mechanism.</p>
+<p>The record is <strong>abstract-only</strong>; the full text was not retrievable in the curation
+environment, so every snippet is quoted from the abstract's summary statement and
+the links are not yet backed by per-compound or quantitative readout data. A <code>notes</code>
+line on each entry records that limit, and strengthening the links from the full
+text is tracked at
+<a href="https://github.com/monarch-initiative/dismech/issues/16977">#16977</a>.
+<code>references_cache/PMID_38740170.md</code> is committed with the modules.</p>
+<h2 id="gaps-and-questions-the-screen-raised">Gaps and questions the screen raised</h2>
+<p>Mined out of the batch and filed separately, so they are not lost inside a
+per-paper issue:</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Subject</th>
+<th>Issue</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Module gap</td>
+<td>Inhaled-irritant injury of the conducting airway</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16877">#16877</a></td>
+</tr>
+<tr>
+<td>Module gap</td>
+<td>Chemical respiratory allergy (low molecular weight sensitizers)</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16878">#16878</a></td>
+</tr>
+<tr>
+<td>Module gap</td>
+<td>Efflux-mediated multidrug resistance</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16879">#16879</a></td>
+</tr>
+<tr>
+<td>Module gap</td>
+<td>Developmental neurotoxicity as an outcome</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16880">#16880</a></td>
+</tr>
+<tr>
+<td>Node gap</td>
+<td>Drug-induced phospholipidosis as distinct from steatosis</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16881">#16881</a></td>
+</tr>
+<tr>
+<td>Scope</td>
+<td>A NAM can belong in the registry with no dismech home</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16882">#16882</a></td>
+</tr>
+<tr>
+<td>Convention</td>
+<td>When is a molecular simulation a model of a mechanism?</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16883">#16883</a></td>
+</tr>
+<tr>
+<td>Convention</td>
+<td>Where a PBPK or IVIVE dosimetry bridge belongs</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16887">#16887</a></td>
+</tr>
+<tr>
+<td>Schema gap</td>
+<td>Toxicant susceptibility varying by host genotype</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16884">#16884</a></td>
+</tr>
+<tr>
+<td>Schema gap</td>
+<td>Synergy between two exposures</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16885">#16885</a></td>
+</tr>
+<tr>
+<td>Schema gap</td>
+<td>Reversibility of a toxic injury</td>
+<td><a href="https://github.com/monarch-initiative/dismech/issues/16886">#16886</a></td>
+</tr>
+</tbody>
+</table>
+        </article>
+    </div>
+</body>
+</html>

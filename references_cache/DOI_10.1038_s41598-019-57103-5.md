@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41598-019-57103-5
+extractor_version: 1
 title: Human antibodies neutralizing diphtheria toxin in vitro and in vivo
 authors:
 - Esther Veronika Wenzel
@@ -23,6 +24,7 @@ full_text_url: "https://www.nature.com/articles/s41598-019-57103-5.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41598-019-57103-5.pdf
+full_text_access_type: open
 ---
 
 # Human antibodies neutralizing diphtheria toxin in vitro and in vivo
@@ -32,7 +34,9 @@ local_pdf_path: files/DOI_10.1038_s41598-019-57103-5.pdf
 
 ## Content
 
-AbstractDiphtheria is an infectious disease caused by Corynebacterium diphtheriae. The bacterium primarily infects the throat and upper airways and the produced diphtheria toxin (DT), which binds to the elongation factor 2 and blocks protein synthesis, can spread through the bloodstream and affect organs, such as the heart and kidneys. For more than 125 years, the therapy against diphtheria has been based on polyclonal horse sera directed against DT (diphtheria antitoxin; DAT). Animal sera have many disadvantages including serum sickness, batch-to-batch variation in quality and the use of animals for production. In this work, 400 human recombinant antibodies were generated against DT from two different phage display panning strategies using a human immune library. A panning in microtiter plates resulted in 22 unique in vitro neutralizing antibodies and a panning in solution combined with a functional neutralization screening resulted in 268 in vitro neutralizing antibodies. 61 unique antibodies were further characterized as scFv-Fc with 35 produced as fully human IgG1. The best in vitro neutralizing antibody showed an estimated relative potency of 454 IU/mg and minimal effective dose 50% (MED50%) of 3.0 pM at a constant amount of DT (4x minimal cytopathic dose) in the IgG format. The targeted domains of the 35 antibodies were analyzed by immunoblot and by epitope mapping using phage display. All three DT domains (enzymatic domain, translocation domain and receptor binding domain) are targets for neutralizing antibodies. When toxin neutralization assays were performed at higher toxin dose levels, the neutralizing capacity of individual antibodies was markedly reduced but this was largely compensated for by using two or more antibodies in combination, resulting in a potency of 79.4 IU/mg in the in vivo intradermal challenge assay. These recombinant antibody combinations are candidates for further clinical and regulatory development to replace equine DAT.
+Abstract
+
+Diphtheria is an infectious disease caused by Corynebacterium diphtheriae. The bacterium primarily infects the throat and upper airways and the produced diphtheria toxin (DT), which binds to the elongation factor 2 and blocks protein synthesis, can spread through the bloodstream and affect organs, such as the heart and kidneys. For more than 125 years, the therapy against diphtheria has been based on polyclonal horse sera directed against DT (diphtheria antitoxin; DAT). Animal sera have many disadvantages including serum sickness, batch-to-batch variation in quality and the use of animals for production. In this work, 400 human recombinant antibodies were generated against DT from two different phage display panning strategies using a human immune library. A panning in microtiter plates resulted in 22 unique in vitro neutralizing antibodies and a panning in solution combined with a functional neutralization screening resulted in 268 in vitro neutralizing antibodies. 61 unique antibodies were further characterized as scFv-Fc with 35 produced as fully human IgG1. The best in vitro neutralizing antibody showed an estimated relative potency of 454 IU/mg and minimal effective dose 50% (MED50%) of 3.0 pM at a constant amount of DT (4x minimal cytopathic dose) in the IgG format. The targeted domains of the 35 antibodies were analyzed by immunoblot and by epitope mapping using phage display. All three DT domains (enzymatic domain, translocation domain and receptor binding domain) are targets for neutralizing antibodies. When toxin neutralization assays were performed at higher toxin dose levels, the neutralizing capacity of individual antibodies was markedly reduced but this was largely compensated for by using two or more antibodies in combination, resulting in a potency of 79.4 IU/mg in the in vivo intradermal challenge assay. These recombinant antibody combinations are candidates for further clinical and regulatory development to replace equine DAT.
 
 1Scientific  RepoRtS  |          (2020) 10:571  | https://doi.org/10.1038/s41598-019-57103-5
 www.nature.com/scientificreports

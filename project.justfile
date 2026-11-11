@@ -120,8 +120,11 @@ validate file:
 #    downloads PDFs nor writes `full_text_attempted` back into cached records.
 #    Cache normalization is a curator/CI step; an editor keystroke should not
 #    leave the curator's worktree dirty. Measured on kb/disorders/Asthma.yaml
-#    (193 snippets): `validate` takes ~8m25s and leaves 106 modified
-#    references_cache/ files behind; this takes ~22s and leaves none. Keep it
+#    (193 snippets) at the time: `validate` took ~8m25s and left 106 modified
+#    references_cache/ files behind; this took ~22s and left none. (`validate`
+#    no longer modifies tracked caches either -- `trust_cached_entries` in
+#    conf/reference_validator_config.yaml and #9963 -- but it still
+#    normalizes term caches and fetches newly cited references.) Keep it
 #    that way — a step added here must not modify tracked files. (Validating a
 #    newly cited reference still *creates* its cache record, which is wanted:
 #    that is a new untracked file the curator should commit, not churn.)
@@ -1141,7 +1144,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-gene-namespaces check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-reference-cache-welded-headings check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-gene-namespaces check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1686,6 +1689,16 @@ check-case-collisions:
 [group('QC')]
 check-reference-cache-nul-bytes:
     uv run python scripts/check_reference_cache_nul_bytes.py
+
+# Ungated and whole-tree for the same reason as check-case-collisions. ~3s, offline.
+# Fails on a cache file whose abstract heading is welded onto the next word
+# ("AbstractCastleman"), which breaks whole-word quote matching; fix with
+# `just fetch-reference --force <ID>`. Pass --update-baseline to shrink the
+# grandfathered list, --strict to see every finding.
+# Guard against welded abstract headings in references_cache/ (#16621)
+[group('QC')]
+check-reference-cache-welded-headings *args:
+    uv run python scripts/check_reference_cache_welded_headings.py {{ args }}
 
 # Guard against KB values that are not permissible in their slot's enum (#10061).
 # The schema-narrowing twin of check-duplicate-keys: #10003 narrowed
@@ -2337,6 +2350,9 @@ alias validate-references-all := validate-kb-references-all
 # With data-file arguments, only normalize caches cited by those files. Omit
 # arguments only for an explicit whole-cache maintenance pass (issues #7844,
 # #8203). The quoting predicate is intentionally a no-op on valid bare CURIEs.
+# Line-end whitespace is trimmed only on cache files git does not track yet
+# (fresh fetches); a committed record is never rewritten for whitespace, so the
+# validate recipes that run this first leave tracked caches alone (#9963).
 [group('QC')]
 fix-references-cache *files:
     #!/usr/bin/env bash
@@ -4802,6 +4818,12 @@ list-research:
 [group('Research')]
 literature-scan days='7' max_records='100':
     uv run python scripts/literature_scan.py --days {{days}} --max-records {{max_records}}
+
+# Packet of papers indexed recently that cite references KB entries already use.
+# Pass entry stems to scan only those, e.g. `just citation-scan 7 Asthma Marfan_Syndrome`
+[group('Research')]
+citation-scan days='7' *entries:
+    uv run python scripts/citation_scan.py --days {{days}} {{entries}}
 
 # Generate a deterministic Europe PMC mechanistic knowledge-gap scan packet
 [group('Research')]

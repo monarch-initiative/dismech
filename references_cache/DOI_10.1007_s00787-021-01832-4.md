@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00787-021-01832-4
+extractor_version: 1
 title: "European clinical guidelines for Tourette syndrome and other tic disorders: summary statement"
 authors:
 - Kirsten R. Müller-Vahl
@@ -13,12 +14,14 @@ journal: "European Child &amp; Adolescent Psychiatry"
 year: '2022'
 doi: 10.1007/s00787-021-01832-4
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00787-021-01832-4.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s00787-021-01832-4.pdf
+full_text_access_type: open
 ---
 
 # European clinical guidelines for Tourette syndrome and other tic disorders: summary statement
@@ -28,7 +31,9 @@ local_pdf_path: files/DOI_10.1007_s00787-021-01832-4.pdf
 
 ## Content
 
-AbstractIn 2011 a working group of the European Society for the Study of Tourette syndrome (ESSTS) developed the first European Guidelines for Tourette syndrome (TS) published in the ECAP journal. After a decade ESSTS now presents updated guidelines, divided into four sections: Part I: assessment, Part II: psychological interventions, Part III: pharmacological treatment and Part IV: deep brain stimulation (DBS). In this paper, we summarise new developments described in the guidelines with respect to assessment and treatment of tics. Further, summary findings from a recent survey conducted amongst TS experts on these same topics are presented, as well as the first European patient representative statement on research. Finally, an updated decision tree is introduced providing a practical algorithm for the treatment of patients with TS. Interestingly, in the last decade there has been a significant shift in assessment and treatment of tics, with more emphasis on non-pharmacological treatments.
+Abstract
+
+In 2011 a working group of the European Society for the Study of Tourette syndrome (ESSTS) developed the first European Guidelines for Tourette syndrome (TS) published in the ECAP journal. After a decade ESSTS now presents updated guidelines, divided into four sections: Part I: assessment, Part II: psychological interventions, Part III: pharmacological treatment and Part IV: deep brain stimulation (DBS). In this paper, we summarise new developments described in the guidelines with respect to assessment and treatment of tics. Further, summary findings from a recent survey conducted amongst TS experts on these same topics are presented, as well as the first European patient representative statement on research. Finally, an updated decision tree is introduced providing a practical algorithm for the treatment of patients with TS. Interestingly, in the last decade there has been a significant shift in assessment and treatment of tics, with more emphasis on non-pharmacological treatments.
 
 Vol.:(0123456789)1 3
 European Child & Adolescent Psychiatry (2022) 31:377–382 

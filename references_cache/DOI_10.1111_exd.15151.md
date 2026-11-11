@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1111/exd.15151
+extractor_version: 1
 title: "Histone modification in psoriasis: Molecular mechanisms and potential therapeutic targets"
 authors:
 - Ruifeng Liu
@@ -9,7 +10,8 @@ journal: Experimental Dermatology
 year: '2024'
 doi: 10.1111/exd.15151
 content_type: abstract_only
-full_text_attempted: true
+is_preprint: false
+full_text_declined: "access_type:publisher_free"
 ---
 
 # Histone modification in psoriasis: Molecular mechanisms and potential therapeutic targets
@@ -19,4 +21,6 @@ full_text_attempted: true
 
 ## Content
 
-AbstractPsoriasis is an immune‐mediated, inflammatory disease. Genetic and environmental elements are involved in the nosogenesis of this illness. Epigenetic inheritance serves as the connection between genetic and environmental factors. Histone modification, an epigenetic regulatory mechanism, is implicated in the development of numerous diseases. The basic function of histone modification is to regulate cellular functions by modifying gene expression. Modulation of histone modification, such as regulation of enzymes pertinent to histone modification, can be an alternative approach for treating some diseases, including psoriasis. Herein, we reviewed the regulatory mechanisms and biological effects of histone modifications and their roles in the pathogenesis of psoriasis.
+Abstract
+
+Psoriasis is an immune‐mediated, inflammatory disease. Genetic and environmental elements are involved in the nosogenesis of this illness. Epigenetic inheritance serves as the connection between genetic and environmental factors. Histone modification, an epigenetic regulatory mechanism, is implicated in the development of numerous diseases. The basic function of histone modification is to regulate cellular functions by modifying gene expression. Modulation of histone modification, such as regulation of enzymes pertinent to histone modification, can be an alternative approach for treating some diseases, including psoriasis. Herein, we reviewed the regulatory mechanisms and biological effects of histone modifications and their roles in the pathogenesis of psoriasis.

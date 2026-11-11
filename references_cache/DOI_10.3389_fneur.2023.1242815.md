@@ -1,5 +1,6 @@
 ---
-reference_id: "DOI:10.3389/fneur.2023.1242815"
+reference_id: DOI:10.3389/fneur.2023.1242815
+extractor_version: 1
 title: "Hereditary transthyretin amyloidosis: a comprehensive review with a focus on peripheral neuropathy"
 authors:
 - Loris Poli
@@ -21,6 +22,7 @@ full_text_url: "https://www.frontiersin.org/articles/10.3389/fneur.2023.1242815/
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.3389_fneur.2023.1242815.pdf
+full_text_access_type: open
 ---
 
 # Hereditary transthyretin amyloidosis: a comprehensive review with a focus on peripheral neuropathy

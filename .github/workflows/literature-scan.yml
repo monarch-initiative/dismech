@@ -133,12 +133,14 @@ jobs:
             Do not create pull requests. Do not fetch or edit `references_cache/*.md`.
             Do not use the `@ai4c-agent please` phrase, or its `@dragon-ai-agent` alias.
 
-            For each candidate, first check for an existing open issue that already
-            mentions the PMID:
+            For each candidate, first check for an existing issue, open or closed,
+            that already mentions the PMID:
 
-            `gh issue list --repo "$REPO" --search "PMID:<ID> in:body is:open" --json number,title`
+            `gh issue list --repo "$REPO" --state all --search "PMID:<ID> in:body" --json number,title,state`
 
-            Skip candidates that already have an open issue.
+            Skip candidates that already have an issue in either state. A closed
+            issue means a curator has already looked at the paper, whether or not
+            anything was added, so proposing it again only repeats that work.
 
             Create at most MAX ISSUES total, prioritizing:
             - papers with a deterministic existing disease-file match
@@ -180,3 +182,148 @@ jobs:
         with:
           execution-file: ${{ steps.literature-scan.outputs.execution_file }}
           title: "📚 Literature Scan Run"
+
+  # Citation-forward scan: papers first indexed this week that cite references
+  # KB entries already rely on. Runs after the keyword scan so its ledger also
+  # sees the issues that job just filed. See docs/citation-scan.md.
+  citation-scan:
+    needs: literature-scan
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    env:
+      SCAN_DAYS: ${{ inputs.days || '7' }}
+      MAX_ISSUES: ${{ inputs.max_issues || '5' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Resolve agent config
+        uses: ./.github/actions/resolve-agent-config
+        with:
+          workflow: literature-scan
+          model-override: ${{ inputs.model }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install python tools
+        run: uv sync
+
+      # Every scanner issue, open or closed. Closed counts as decided, so a
+      # paper a curator already looked at is not proposed again.
+      - name: Fetch scanner issue ledger
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p output/citation_scan
+          gh issue list --repo "${{ github.repository }}" --label curation \
+            --state all --limit 10000 \
+            --json number,title,state,stateReason,body \
+            --jq '[.[] | select(.title | test("^\\[(lit-scan|preprint|citation-scan)"))]' \
+            > output/citation_scan/ledger.json
+          echo "Ledger issues: $(jq length output/citation_scan/ledger.json)"
+
+      - name: Generate deterministic citation packet
+        run: |
+          uv run python scripts/citation_scan.py \
+            --days "$SCAN_DAYS" \
+            --ledger output/citation_scan/ledger.json \
+            --output-json output/citation_scan/citation_scan.json \
+            --output-md output/citation_scan/citation_scan.md
+
+      - name: Upload citation packet
+        uses: actions/upload-artifact@v7
+        with:
+          name: citation-scan-packet
+          path: |
+            output/citation_scan/citation_scan.json
+            output/citation_scan/citation_scan.md
+
+      - name: Set up latest Claude Code
+        id: setup-claude-code
+        if: ${{ github.event_name == 'schedule' || inputs.create_issues }}
+        uses: ./.github/actions/setup-claude-code
+
+      - name: Create citation scan handoff issues
+        id: citation-scan
+        if: ${{ github.event_name == 'schedule' || inputs.create_issues }}
+        uses: anthropics/claude-code-action@v1
+        env:
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+          CC_LANGFUSE_TRACE_TAGS: >-
+            ["repo:${{ github.repository }}", "workflow:literature-scan",
+            "run:${{ github.run_id }}", "attempt:${{ github.run_attempt }}", "job:${{ github.job }}"]
+        with:
+          path_to_claude_code_executable: ${{ steps.setup-claude-code.outputs.executable }}
+          allowed_bots: "github-merge-queue"
+          plugin_marketplaces: |
+            https://github.com/langfuse/Claude-Observability-Plugin.git
+          plugins: |
+            langfuse-observability@langfuse-observability
+          # Same auth rule as the job above; rationale in claude-code-review.yml.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.ANTHROPIC_API_KEY == '' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          github_token: ${{ github.token }}
+          show_full_output: true
+          claude_args: |
+            --model ${{ env.AGENT_MODEL }}
+            --allowedTools "Bash(gh label list:*),Bash(gh issue list:*),Bash(gh issue create:*),Bash(cat:*),Bash(sed:*),Bash(rg:*),Bash(head:*)"
+          prompt: |
+            REPO: ${{ github.repository }}
+            MAX ISSUES: ${{ env.MAX_ISSUES }}
+            MODEL: ${{ env.AGENT_MODEL }}
+
+            You are running the low-effort citation-scan handoff for dismech.
+            Read `CLAUDE.md` and `output/citation_scan/citation_scan.md`.
+            You may inspect the `kb/disorders/*.yaml` files that the packet names.
+
+            Your only allowed write action is creating GitHub issues. Do not edit files.
+            Do not create pull requests. Do not fetch or edit `references_cache/*.md`.
+            Do not use the `@ai4c-agent please` phrase, or its `@dragon-ai-agent` alias.
+
+            Each packet candidate is a recent paper that cites several references an
+            existing entry already uses. The packet has already removed papers the
+            entry cites and (paper, entry) pairs that have an open or closed scanner
+            issue, so do not search for duplicates again.
+
+            Create at most MAX ISSUES total. Shared references make a paper likely to
+            be about the disease, not certain: skip a candidate whose abstract is about
+            a different disease, or that only mentions this one in passing. Prefer
+            primary research over reviews; a review earns an issue only if its abstract
+            reports something the entry may lack.
+
+            For each issue:
+            - labels: `curation,low_effort`
+            - title: `[citation-scan] <Disease name>: <short paper title>`
+            - body must include the publication details from the packet verbatim:
+              PMID, title, journal/date, DOI, Europe PMC/PubMed links, and abstract
+            - body must list the shared references from the packet, so a curator can
+              see which parts of the entry the paper builds on
+            - body must include a clearly separated `Low-Effort Assessment` section
+              explaining the potential update area, and why this may or may not add
+              information beyond the current entry
+            - body must include this instruction:
+              `Augment only the existing disease entry. If this requires creating
+              a new disease entry, stop and open a separate curation + high_effort
+              issue instead.`
+            - the body's last line must be the candidate's `Ledger marker` from the
+              packet, copied exactly. It is how later scans recognise this pair.
+
+            If no candidate is strong enough, create no issues and finish quietly.
+
+      - name: Write step summary
+        if: ${{ !cancelled() && steps.citation-scan.outputs.execution_file != '' }}
+        uses: ./.github/actions/agent-run-summary
+        with:
+          execution-file: ${{ steps.citation-scan.outputs.execution_file }}
+          title: "🔗 Citation Scan Run"

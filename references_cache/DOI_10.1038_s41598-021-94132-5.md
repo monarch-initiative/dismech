@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41598-021-94132-5
+extractor_version: 1
 title: VHL suppresses RAPTOR and inhibits mTORC1 signaling in clear cell renal cell carcinoma
 authors:
 - Athina Ganner
@@ -20,12 +21,14 @@ journal: Scientific Reports
 year: '2021'
 doi: 10.1038/s41598-021-94132-5
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41598-021-94132-5.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41598-021-94132-5.pdf
+full_text_access_type: open
 ---
 
 # VHL suppresses RAPTOR and inhibits mTORC1 signaling in clear cell renal cell carcinoma
@@ -35,7 +38,9 @@ local_pdf_path: files/DOI_10.1038_s41598-021-94132-5.pdf
 
 ## Content
 
-AbstractInactivation of the tumor suppressor von Hippel–Lindau (VHL) gene is a key event in hereditary and sporadic clear cell renal cell carcinomas (ccRCC). The mechanistic target of rapamycin (mTOR) signaling pathway is a fundamental regulator of cell growth and proliferation, and hyperactivation of mTOR signaling is a common finding in VHL-dependent ccRCC. Deregulation of mTOR signaling correlates with tumor progression and poor outcome in patients with ccRCC. Here, we report that the regulatory-associated protein of mTOR (RAPTOR) is strikingly repressed by VHL. VHL interacts with RAPTOR and increases RAPTOR degradation by ubiquitination, thereby inhibiting mTORC1 signaling. Consistent with hyperactivation of mTORC1 signaling in VHL-deficient ccRCC, we observed that loss of vhl-1 function in C. elegans increased mTORC1 activity, supporting an evolutionary conserved mechanism. Our work reveals important new mechanistic insight into deregulation of mTORC1 signaling in ccRCC and links VHL directly to the control of RAPTOR/mTORC1. This may represent a novel mechanism whereby loss of VHL affects organ integrity and tumor behavior.
+Abstract
+
+Inactivation of the tumor suppressor von Hippel–Lindau (VHL) gene is a key event in hereditary and sporadic clear cell renal cell carcinomas (ccRCC). The mechanistic target of rapamycin (mTOR) signaling pathway is a fundamental regulator of cell growth and proliferation, and hyperactivation of mTOR signaling is a common finding in VHL-dependent ccRCC. Deregulation of mTOR signaling correlates with tumor progression and poor outcome in patients with ccRCC. Here, we report that the regulatory-associated protein of mTOR (RAPTOR) is strikingly repressed by VHL. VHL interacts with RAPTOR and increases RAPTOR degradation by ubiquitination, thereby inhibiting mTORC1 signaling. Consistent with hyperactivation of mTORC1 signaling in VHL-deficient ccRCC, we observed that loss of vhl-1 function in C. elegans increased mTORC1 activity, supporting an evolutionary conserved mechanism. Our work reveals important new mechanistic insight into deregulation of mTORC1 signaling in ccRCC and links VHL directly to the control of RAPTOR/mTORC1. This may represent a novel mechanism whereby loss of VHL affects organ integrity and tumor behavior.
 
 1
 Vol.:(0123456789)Scientific Reports |        (2021) 11:14827  | https://doi.org/10.1038/s41598-021-94132-5

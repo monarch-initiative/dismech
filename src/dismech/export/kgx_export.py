@@ -483,19 +483,32 @@ def treatment_to_edge(disease_id: str, treatment: dict[str, Any]) -> ChemicalOrD
     )
 
 
+# `relationship_type` values that record a gene-disease claim the KB does NOT
+# assert: DISPUTED says the claim is contested, REFUTED says the evidence
+# contradicts it. Both rows exist so the locus is not re-nominated, and both
+# cite the studies *against* the claim. Emitting `gene contributes_to disease`
+# for them would put the refuted claim into the knowledge graph with the
+# refutation as its supporting publication, so no edge is emitted (#16952).
+_UNASSERTED_RELATIONSHIP_TYPES = frozenset({"DISPUTED", "REFUTED"})
+
+
 def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociation | None:
     """
     Convert a genetic association entry to a KGX edge.
 
     Requires a curated gene_term.term.id (proper HGNC CURIE). Entries
-    without one are skipped — see #2099.
+    without one are skipped — see #2099. Entries whose `relationship_type`
+    is DISPUTED or REFUTED are skipped too: the KB records those claims in
+    order to say they are not established, and a contributes_to edge would
+    assert the opposite.
 
     Args:
         disease_id: The disease term ID
         gene: A gene dict from genetic[]
 
     Returns:
-        GeneToDiseaseAssociation or None if gene_term.term.id is absent
+        GeneToDiseaseAssociation, or None if gene_term.term.id is absent or
+        the relationship is DISPUTED/REFUTED
     """
     if not gene:
         return None
@@ -505,6 +518,9 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
     # CURIEs for aneuploidies, disease classes, etc. — see #2099).
     gene_id = _get_term_id(gene, ["gene_term", "term", "id"])
     if not gene_id:
+        return None
+
+    if gene.get("relationship_type") in _UNASSERTED_RELATIONSHIP_TYPES:
         return None
 
     predicate = "biolink:contributes_to"

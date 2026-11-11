@@ -1771,7 +1771,8 @@ present a hypothetical as curated evidence.
 
 **A link has four homes, and `dismech.model_links.iter_model_links` is the single
 walk over them** — the three top-level model sections plus a proposed experiment's
-`model_systems` (and its `controls[].model_systems`). Route a new consumer through it
+model lists, which mirror them: `model_systems`, `animal_models` and
+`computational_models` (and `controls[].model_systems`). Route a new consumer through it
 rather than looping over the sections yourself. Both `tests/test_data.py` and
 `scripts/model_scale_audit.py` used to walk only the top-level three, so every check
 on this object — divergence typing, scale agreement, readout targets, the caveat
@@ -2828,6 +2829,30 @@ Rules for filling it:
   Definitive AR tier belongs on the causative one only. The audit attributes
   an assertion to the record whose own evidence cites it.
 - **Quote the source row as evidence**, as with any structured-source citation.
+
+**A locus that should not be a subtype is a `genetic:` row, graded `DISPUTED`
+or `REFUTED`.** `relationship_type` is the curator's own reading of the
+gene-disease claim, and it is where a contested or retracted locus is recorded
+so the concept is not re-nominated. The two values are different claims, and
+they mirror the ClinGen/GenCC split that `gene_disease_validity` already
+carries:
+
+| The literature says | `relationship_type` |
+|---|---|
+| The claim is open: conflicting evidence, or a single report nobody has replicated or contradicted | `DISPUTED` |
+| The claim is closed against: the refuting evidence significantly outweighs the original report | `REFUTED` |
+
+A `REFUTED` row must cite the refutation in its `evidence`, not only the paper
+that made the claim. Where ClinGen or a GenCC submitter has graded the pair,
+copy that tier into `gene_disease_validity` as well; the two slots then say the
+same thing from two sources, and `just check-gene-validity` can see the second.
+Never write a `has_subtypes` row for such a locus: a subtype row asserts the
+subtype exists, and a `REFUTE` evidence item hanging off it does not undo
+that. Neither grade reaches the knowledge graph: the KGX exporter emits no
+gene-to-disease edge for a `DISPUTED` or `REFUTED` row, since a
+`contributes_to` edge citing the refutation would assert the opposite of
+what the row says. `Hereditary_Spastic_Paraplegia` (ZFYVE27, `DISPUTED`, with the
+ClinGen Disputed record quoted) is the worked example for the open case.
 
 ```bash
 just check-gene-validity                              # gate: recorded ClinGen tier vs its CGGV: record
@@ -4235,6 +4260,13 @@ Non-negotiable rules:
   on an HGNC identifier written beside the wrong gene (#9845).
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
+- Validation is read-only for committed caches. `just validate`,
+  `validate-kb-references` and `validate-disorders` may *create* a cache file
+  for a newly cited reference (commit it), but they never rewrite a tracked one:
+  the validator serves committed entries as-is (`trust_cached_entries`), and
+  `fix-references-cache` trims whitespace only on untracked files. A tracked
+  `references_cache/` file modified after a validation run is a bug to report
+  (#9963), not a change to commit.
 - A reference first cached as an abstract stays `abstract_only` on later plain
   fetches. To upgrade it, `just fetch-reference <ID> --force` (any `-`-prefixed
   argument is passed to the validator rather than read as an ID, #13185). Use it

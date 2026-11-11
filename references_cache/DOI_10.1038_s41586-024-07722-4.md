@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41586-024-07722-4
+extractor_version: 1
 title: Molecular mimicry in multisystem inflammatory syndrome in children
 authors:
 - Aaron Bodansky
@@ -56,12 +57,14 @@ journal: Nature
 year: '2024'
 doi: 10.1038/s41586-024-07722-4
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41586-024-07722-4.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41586-024-07722-4.pdf
+full_text_access_type: open
 ---
 
 # Molecular mimicry in multisystem inflammatory syndrome in children
@@ -71,7 +74,9 @@ local_pdf_path: files/DOI_10.1038_s41586-024-07722-4.pdf
 
 ## Content
 
-AbstractMultisystem inflammatory syndrome in children (MIS-C) is a severe, post-infectious sequela of SARS-CoV-2 infection1,2, yet the pathophysiological mechanism connecting the infection to the broad inflammatory syndrome remains unknown. Here we leveraged a large set of samples from patients with MIS-C to identify a distinct set of host proteins targeted by patient autoantibodies including a particular autoreactive epitope within SNX8, a protein involved in regulating an antiviral pathway associated with MIS-C pathogenesis. In parallel, we also probed antibody responses from patients with MIS-C to the complete SARS-CoV-2 proteome and found enriched reactivity against a distinct domain of the SARS-CoV-2 nucleocapsid protein. The immunogenic regions of the viral nucleocapsid and host SNX8 proteins bear remarkable sequence similarity. Consequently, we found that many children with anti-SNX8 autoantibodies also have cross-reactive T cells engaging both the SNX8 and the SARS-CoV-2 nucleocapsid protein epitopes. Together, these findings suggest that patients with MIS-C develop a characteristic immune response to the SARS-CoV-2 nucleocapsid protein that is associated with cross-reactivity to the self-protein SNX8, demonstrating a mechanistic link between the infection and the inflammatory syndrome, with implications for better understanding a range of post-infectious autoinflammatory diseases.
+Abstract
+
+Multisystem inflammatory syndrome in children (MIS-C) is a severe, post-infectious sequela of SARS-CoV-2 infection 1,2 , yet the pathophysiological mechanism connecting the infection to the broad inflammatory syndrome remains unknown. Here we leveraged a large set of samples from patients with MIS-C to identify a distinct set of host proteins targeted by patient autoantibodies including a particular autoreactive epitope within SNX8, a protein involved in regulating an antiviral pathway associated with MIS-C pathogenesis. In parallel, we also probed antibody responses from patients with MIS-C to the complete SARS-CoV-2 proteome and found enriched reactivity against a distinct domain of the SARS-CoV-2 nucleocapsid protein. The immunogenic regions of the viral nucleocapsid and host SNX8 proteins bear remarkable sequence similarity. Consequently, we found that many children with anti-SNX8 autoantibodies also have cross-reactive T cells engaging both the SNX8 and the SARS-CoV-2 nucleocapsid protein epitopes. Together, these findings suggest that patients with MIS-C develop a characteristic immune response to the SARS-CoV-2 nucleocapsid protein that is associated with cross-reactivity to the self-protein SNX8, demonstrating a mechanistic link between the infection and the inflammatory syndrome, with implications for better understanding a range of post-infectious autoinflammatory diseases.
 
 622 | Nature | Vol 632 | 15 August 2024
 Article

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00787-021-01899-z
+extractor_version: 1
 title: "European clinical guidelines for Tourette syndrome and other tic disorders—version 2.0. Part III: pharmacological treatment"
 authors:
 - Veit Roessner
@@ -25,12 +26,14 @@ journal: "European Child &amp; Adolescent Psychiatry"
 year: '2022'
 doi: 10.1007/s00787-021-01899-z
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00787-021-01899-z.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s00787-021-01899-z.pdf
+full_text_access_type: open
 ---
 
 # European clinical guidelines for Tourette syndrome and other tic disorders—version 2.0. Part III: pharmacological treatment
@@ -40,7 +43,9 @@ local_pdf_path: files/DOI_10.1007_s00787-021-01899-z.pdf
 
 ## Content
 
-AbstractIn 2011, the European Society for the Study of Tourette Syndrome (ESSTS) published the first European guidelines for Tourette Syndrome (TS). We now present an update of the part on pharmacological treatment, based on a review of new literature with special attention to other evidence-based guidelines, meta-analyses, and randomized double-blinded studies. Moreover, our revision took into consideration results of a recent survey on treatment preferences conducted among ESSTS experts. The first preference should be given to psychoeducation and to behavioral approaches, as it strengthens the patients’ self-regulatory control and thus his/her autonomy. Because behavioral approaches are not effective, available, or feasible in all patients, in a substantial number of patients pharmacological treatment is indicated, alone or in combination with behavioral therapy. The largest amount of evidence supports the use of dopamine blocking agents, preferably aripiprazole because of a more favorable profile of adverse events than first- and second-generation antipsychotics. Other agents that can be considered include tiapride, risperidone, and especially in case of co-existing attention deficit hyperactivity disorder (ADHD), clonidine and guanfacine. This view is supported by the results of our survey on medication preference among members of ESSTS, in which aripiprazole was indicated as the drug of first choice both in children and adults. In treatment resistant cases, treatment with agents with either a limited evidence base or risk of extrapyramidal adverse effects might be considered, including pimozide, haloperidol, topiramate, cannabis-based agents, and botulinum toxin injections. Overall, treatment of TS should be individualized, and decisions based on the patient’s needs and preferences, presence of co-existing conditions, latest scientific findings as well as on the physician’s preferences, experience, and local regulatory requirements.
+Abstract
+
+In 2011, the European Society for the Study of Tourette Syndrome (ESSTS) published the first European guidelines for Tourette Syndrome (TS). We now present an update of the part on pharmacological treatment, based on a review of new literature with special attention to other evidence-based guidelines, meta-analyses, and randomized double-blinded studies. Moreover, our revision took into consideration results of a recent survey on treatment preferences conducted among ESSTS experts. The first preference should be given to psychoeducation and to behavioral approaches, as it strengthens the patients’ self-regulatory control and thus his/her autonomy. Because behavioral approaches are not effective, available, or feasible in all patients, in a substantial number of patients pharmacological treatment is indicated, alone or in combination with behavioral therapy. The largest amount of evidence supports the use of dopamine blocking agents, preferably aripiprazole because of a more favorable profile of adverse events than first- and second-generation antipsychotics. Other agents that can be considered include tiapride, risperidone, and especially in case of co-existing attention deficit hyperactivity disorder (ADHD), clonidine and guanfacine. This view is supported by the results of our survey on medication preference among members of ESSTS, in which aripiprazole was indicated as the drug of first choice both in children and adults. In treatment resistant cases, treatment with agents with either a limited evidence base or risk of extrapyramidal adverse effects might be considered, including pimozide, haloperidol, topiramate, cannabis-based agents, and botulinum toxin injections. Overall, treatment of TS should be individualized, and decisions based on the patient’s needs and preferences, presence of co-existing conditions, latest scientific findings as well as on the physician’s preferences, experience, and local regulatory requirements.
 
 Vol.:(0123456789)1 3
 European Child & Adolescent Psychiatry (2022) 31:425–441 

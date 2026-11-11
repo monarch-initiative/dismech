@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waisman Syndrome · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Waisman Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Waisman Syndrome</h1>
+                
+                <p class="report-subtitle">Key Findings</p>
+                
+                
+                <div class="report-date">2026-11-07</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0010709" target="_blank" rel="noopener noreferrer">MONDO:0010709</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">20 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>Key Findings</h2>
+<h3>Finding 1 — Waisman syndrome is caused by loss-of-function variants in RAB39B</h3>
+<p>Waisman syndrome results from loss of function of <strong>RAB39B</strong>, a neuronal-specific small Rab GTPase mapping to <strong>Xq28</strong> and localized to the Golgi apparatus. Two independent families established the LoF–disease link definitively: an Australian family carried a <strong>~45 kb deletion resulting in complete loss of RAB39B</strong>, while a second family carried a destabilizing missense variant <strong>c.503C&gt;A (p.Thr168Lys)</strong> — both producing early-onset parkinsonism plus intellectual disability (<a href="https://pubmed.ncbi.nlm.nih.gov/25434005/">PMID: 25434005</a>). The original X-linked mental retardation (XLMR) families carried a <strong>nonsense variant c.21C&gt;A (p.Y7X)</strong> introducing a stop codon seven amino acids after the start codon, and a splice variant <strong>c.215+1G&gt;A</strong> — neither of which produces functional protein (<a href="https://pubmed.ncbi.nlm.nih.gov/20159109/">PMID: 20159109</a>).</p>
+<blockquote>
+<p>"Genetic analysis of an Australian family with three males displaying clinical features of early-onset parkinsonism and intellectual disability identified a ∼45 kb deletion resulting in the complete loss of RAB39B." — <a href="https://pubmed.ncbi.nlm.nih.gov/25434005/">PMID: 25434005</a></p>
+</blockquote>
+<p>The convergence of nonsense, splice, whole-gene deletion, frameshift, nonstop, and destabilizing missense variants on the same phenotype establishes <strong>loss of function</strong> as the unifying disease mechanism.</p>
+<h3>Finding 2 — RAB39B loss acts through two mechanistic branches</h3>
+<p>Loss of RAB39B diverges into a <strong>developmental branch</strong> and a <strong>neurodegenerative branch</strong>:</p>
+<ul>
+<li><strong>Branch A — PI3K-AKT-mTOR hyperactivation (macrocephaly/ASD):</strong> In RAB39B-knockout neural progenitor cells, "the PI3K-AKT-mechanistic target of rapamycin signaling pathway in neural progenitor cells (NPCs) is hyperactivated, which promotes NPC proliferation, leading to macrocephaly and ASD" (<a href="https://pubmed.ncbi.nlm.nih.gov/32761840/">PMID: 32761840</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32115408/">PMID: 32115408</a>).</li>
+<li><strong>Branch B — Synaptic/AMPA-receptor dysfunction (ID/ASD):</strong> RAB39B regulates GluA2-AMPAR trafficking; its downregulation "led to increased GluA2 lacking Ca2+-permeable AMPAR composition at the hippocampal neuronal surface and increased dendritic spine density that remained in an immature filopodia-like state" (<a href="https://pubmed.ncbi.nlm.nih.gov/34761259/">PMID: 34761259</a>).</li>
+<li><strong>Branch C — Autophagy failure and α-synuclein accumulation (parkinsonism):</strong> The <strong>C9orf72-SMCR8-WDR41 complex is the guanine-nucleotide exchange factor (GEF) for RAB39B</strong>, linking it to ULK1-dependent autophagy (<a href="https://pubmed.ncbi.nlm.nih.gov/27617292/">PMID: 27617292</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/27494456/">PMID: 27494456</a>). "Absence of Rab39b-induced macroautophagy impairment increases neurotoxic α-synuclein and causes degeneration of substantia nigra dopaminergic neurons" (<a href="https://pubmed.ncbi.nlm.nih.gov/40473068/">PMID: 40473068</a>). Human post-mortem tissue confirms SNc dopaminergic loss with classic Lewy bodies, brain iron accumulation, tau, and axonal spheroids (<a href="https://pubmed.ncbi.nlm.nih.gov/25434005/">PMID: 25434005</a>).</li>
+</ul>
+<h3>Finding 3 — Parkinsonism is levodopa-responsive but prone to early motor complications</h3>
+<p>The parkinsonism of Waisman syndrome is young/early-onset and <strong>levodopa-responsive</strong>. A novel variant <strong>c.200G&gt;T</strong> was reported with levodopa-responsive young-onset parkinsonism (<a href="https://pubmed.ncbi.nlm.nih.gov/37844350/">PMID: 37844350</a>). However, "severe and debilitating Levodopa-induced complications can occur very early in the treatment course of X-linked parkinsonism" (<a href="https://pubmed.ncbi.nlm.nih.gov/39619277/">PMID: 39619277</a>). Advanced therapies have been deployed, including <strong>subthalamic deep brain stimulation and subcutaneous L-DOPA infusion</strong> in a patient with variant c.463C&gt;T (<a href="https://pubmed.ncbi.nlm.nih.gov/41074240/">PMID: 41074240</a>). Neuroimaging shows "paramagnetic substance deposition in the substantia nigra, globus pallidi, red nucleus, putamen and pulvinar" (<a href="https://pubmed.ncbi.nlm.nih.gov/28851564/">PMID: 28851564</a>).</p>
+<h3>Finding 4 — Disease history: from 1991 linkage to the RAB39B gene</h3>
+<p>The first linkage study (1991) mapped the X-linked early-onset parkinsonism + mental retardation disorder (McKusick 311510) to <strong>Xq27.3-qter</strong> — "This places the disease gene in chromosomal region Xq27.3-qter" (<a href="https://pubmed.ncbi.nlm.nih.gov/1674730/">PMID: 1674730</a>). RAB39B (Xq28) was later identified as causal (2010, <a href="https://pubmed.ncbi.nlm.nih.gov/20159109/">PMID: 20159109</a>; 2014, <a href="https://pubmed.ncbi.nlm.nih.gov/25434005/">PMID: 25434005</a>). Waisman syndrome is now classified among the X-linked parkinsonism syndromes alongside XDP/Lubag, FXTAS, BPAN/WDR45, Fabry disease, MeCP2 disorders, PGK1 deficiency, and XPDS (<a href="https://pubmed.ncbi.nlm.nih.gov/33960519/">PMID: 33960519</a>).</p>
+<h3>Finding 5 — RAB39B localizes to Golgi/recycling endosomes and is redistributed in Lewy body diseases</h3>
+<p>RAB39B "is localized to Golgi vesicles and recycling endosomes and is required for glutamatergic receptor maturation but also for alpha-Synuclein (aSyn) homeostasis and the inhibition of its aggregation" (<a href="https://pubmed.ncbi.nlm.nih.gov/32762091/">PMID: 32762091</a>). The affected cellular processes include "endosomal trafficking, neurite outgrowth, synaptic maturation, autophagy, as well as alpha-synuclein homeostasis" (<a href="https://pubmed.ncbi.nlm.nih.gov/33939203/">PMID: 33939203</a>). Notably, in <strong>dementia with Lewy bodies</strong> RAB39B is reduced in cortical gray matter, co-localizes with Aβ plaques, and is sequestered within a subpopulation of Lewy bodies (<a href="https://pubmed.ncbi.nlm.nih.gov/32762091/">PMID: 32762091</a>) — implicating RAB39B in common sporadic synucleinopathies beyond the Mendelian disease.</p>
+<h3>Finding 6 — Clinical phenotype spectrum</h3>
+<p>Core features comprise <strong>childhood-onset intellectual disability/developmental delay, absent or limited speech, and poor motor coordination/gait abnormality</strong>, with variable ASD, macrocephaly, and epilepsy/seizures (<a href="https://pubmed.ncbi.nlm.nih.gov/20159109/">PMID: 20159109</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/34761259/">PMID: 34761259</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32873259/">PMID: 32873259</a>). "intellectual disabilities were associated with autism spectrum disorder, epileptic seizures, and macrocephaly" (<a href="https://pubmed.ncbi.nlm.nih.gov/20159109/">PMID: 20159109</a>). Parkinsonism (rest tremor, bradykinesia, rigidity) is typically young-onset and often tremor-dominant: "Patients showed unilateral rest tremor and bradykinesia; one of them also displayed an early-onset postural tremor" (<a href="https://pubmed.ncbi.nlm.nih.gov/28851564/">PMID: 28851564</a>). A "childhood-onset encephalopathy with epilepsy and/or cognitive disability is the most common feature," with epilepsy sometimes predating parkinsonism by years (<a href="https://pubmed.ncbi.nlm.nih.gov/33960519/">PMID: 33960519</a>).</p>
+<h3>Finding 7 — Genetic reference and variant spectrum</h3>
+<p>RAB39B genetic coordinates (GRCh38): <strong>ENSG00000155961, chrX:155,258,235–155,264,491, Xq28; <a href="https://bioregistry.io/HGNC:16499" target="_blank" rel="noopener noreferrer">HGNC:16499</a>; NCBI Gene 116442; UniProt Q96DA2</strong>. gnomAD shows strong missense intolerance (<strong>missense Z = 3.37</strong>); LoF constraint metrics are not computed because the gene is small with few expected LoF events. All reported pathogenic variants are <strong>protein-abolishing or destabilizing</strong>, spanning multiple LoF classes:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant (cDNA)</th>
+<th>Protein effect</th>
+<th>Class</th>
+<th>PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c.21C&gt;A</td>
+<td>p.Y7X</td>
+<td>Nonsense</td>
+<td>20159109</td>
+</tr>
+<tr>
+<td>c.215+1G&gt;A</td>
+<td>splice</td>
+<td>Splice</td>
+<td>20159109</td>
+</tr>
+<tr>
+<td>~45 kb deletion</td>
+<td>whole-gene loss</td>
+<td>CNV deletion</td>
+<td>25434005</td>
+</tr>
+<tr>
+<td>c.503C&gt;A</td>
+<td>p.Thr168Lys</td>
+<td>Destabilizing missense</td>
+<td>25434005</td>
+</tr>
+<tr>
+<td>c.137dupT</td>
+<td>frameshift</td>
+<td>Frameshift</td>
+<td>28851564</td>
+</tr>
+<tr>
+<td>c.371delA</td>
+<td>frameshift (mosaic)</td>
+<td>Frameshift</td>
+<td>28851564</td>
+</tr>
+<tr>
+<td>c.640T&gt;C</td>
+<td>p.(<em>214Glnext</em>21)</td>
+<td>Nonstop</td>
+<td>34761259</td>
+</tr>
+<tr>
+<td>c.436_447del</td>
+<td>deletion</td>
+<td>Deletion</td>
+<td>32873259</td>
+</tr>
+<tr>
+<td>c.200G&gt;T</td>
+<td>—</td>
+<td>SNV</td>
+<td>37844350</td>
+</tr>
+<tr>
+<td>c.463C&gt;T</td>
+<td>—</td>
+<td>SNV</td>
+<td>41074240</td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p>"Two novel RAB39B frameshift variants were found to result in the absence of RAB39B protein (family 1: c.137dupT; family 2: c.371delA)." — <a href="https://pubmed.ncbi.nlm.nih.gov/28851564/">PMID: 28851564</a></p>
+</blockquote>
+<p>ClinVar lists 386 RAB39B-associated records.</p>
+<h3>Finding 8 — Model organisms recapitulate both disease branches</h3>
+<p><strong>Mouse</strong> (<em>Mus musculus</em>, NCBI Taxon 10090; ortholog <em>Rab39b</em>, NCBI Gene 67790): Rab39b-KO/KD mice show impaired social behavior, working/associative memory deficits, increased GluA2-lacking Ca²⁺-permeable AMPARs, and immature filopodia-like dendritic spines (<a href="https://pubmed.ncbi.nlm.nih.gov/34761259/">PMID: 34761259</a>); PI3K-AKT-mTOR hyperactivation with NPC over-proliferation and macrocephaly/ASD phenotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/32115408/">PMID: 32115408</a>); and macroautophagy impairment with α-synuclein accumulation and SNc dopaminergic degeneration (<a href="https://pubmed.ncbi.nlm.nih.gov/40473068/">PMID: 40473068</a>). <strong>Human cerebral organoids and iPSC-derived cortical neurons</strong> (exon-2 nonsense edit) reproduce cortical over-proliferation and pathway changes (<a href="https://pubmed.ncbi.nlm.nih.gov/32115408/">PMID: 32115408</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29152164/">PMID: 29152164</a>).</p>
+<blockquote>
+<p>"Cerebral organoid and mouse models reveal a RAB39b-PI3K-mTOR pathway-dependent dysregulation of cortical development leading to macrocephaly/autism phenotypes." — <a href="https://pubmed.ncbi.nlm.nih.gov/32115408/">PMID: 32115408</a></p>
+</blockquote>
+<h3>Finding 9 — Diagnosis, inheritance, and counseling</h3>
+<p>Diagnosis is <strong>molecular</strong> — most cases are ascertained by exome sequencing of Parkinson's disease or XLID cohorts; chromosomal microarray/WGS detects the ~45 kb whole-gene deletion, and sequencing detects point/indel variants (<a href="https://pubmed.ncbi.nlm.nih.gov/25434005/">PMID: 25434005</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28851564/">PMID: 28851564</a>). "RAB39B...has been mainly identified through exome sequencing in large Parkinson's disease cohorts" (<a href="https://pubmed.ncbi.nlm.nih.gov/28851564/">PMID: 28851564</a>). Inheritance is <strong>X-linked recessive</strong>: hemizygous males are fully affected; heterozygous carrier females are usually unaffected or mildly/late-affected — a reported carrier mother was "affected by late-onset PD" (<a href="https://pubmed.ncbi.nlm.nih.gov/41074240/">PMID: 41074240</a>). <strong>Somatic mosaicism</strong> is documented (<a href="https://pubmed.ncbi.nlm.nih.gov/28851564/">PMID: 28851564</a>). There is no curative therapy; prevention is limited to genetic counseling, cascade testing, and reproductive options. Imaging biomarkers (SWI/QSM iron, DAT-SPECT, CT calcification) aid diagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/35088096/">PMID: 35088096</a>).</p>
+<hr />
+<h2>Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p>Waisman syndrome (also <em>Waisman-Laxova syndrome</em>, <em>Laxova-Opitz syndrome</em>; <em>X-linked parkinsonism with intellectual disability</em>; <em>mental retardation, X-linked, with early-onset parkinsonism</em>) is a Mendelian X-linked recessive neurological disorder. <strong>Identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0010709" target="_blank" rel="noopener noreferrer">MONDO:0010709</a>; OMIM 311510; causal gene RAB39B. The knowledge base entry is derived from <strong>aggregated disease-level resources</strong> (OMIM, Orphanet, primary literature case reports/series) rather than individual EHR data; the entity is ultra-rare with only a few dozen reported families worldwide.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factor:</strong> Genetic — hemizygous loss-of-function of RAB39B (monogenic, fully penetrant in males). No environmental, infectious, or multifactorial cause is implicated. <strong>Genetic risk factors:</strong> being male and carrying a pathogenic RAB39B variant. <strong>No susceptibility loci or modifier genes</strong> are established, though α-synuclein pathology links the disorder to broader synucleinopathy biology. <strong>Protective factors:</strong> none established genetically or environmentally; in carrier females, skewed X-inactivation likely modulates expression (female penetrance is "high among males but more variable among females," <a href="https://pubmed.ncbi.nlm.nih.gov/29152164/">PMID: 29152164</a>). <strong>Gene-environment interactions:</strong> none documented. (Information not available for toxin/exposure contributions — the disease is considered purely genetic.)</p>
+<h3>3. Phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Onset</th>
+<th>Frequency</th>
+<th>Progression</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Intellectual disability / developmental delay</td>
+<td>Cognitive/behavioral</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a> / <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a></td>
+<td>Infancy/childhood</td>
+<td>~All males</td>
+<td>Stable baseline</td>
+</tr>
+<tr>
+<td>Absent/limited speech</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" rel="noopener noreferrer">HP:0001344</a></td>
+<td>Childhood</td>
+<td>Common</td>
+<td>Stable</td>
+</tr>
+<tr>
+<td>Impaired motor coordination / gait abnormality</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002194" target="_blank" rel="noopener noreferrer">HP:0002194</a> / <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" rel="noopener noreferrer">HP:0001288</a></td>
+<td>Childhood</td>
+<td>Common</td>
+<td>Stable then parkinsonian decline</td>
+</tr>
+<tr>
+<td>Autism spectrum disorder</td>
+<td>Behavioral</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" rel="noopener noreferrer">HP:0000729</a></td>
+<td>Childhood</td>
+<td>Variable</td>
+<td>Stable</td>
+</tr>
+<tr>
+<td>Macrocephaly</td>
+<td>Physical</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" rel="noopener noreferrer">HP:0000256</a></td>
+<td>Congenital/childhood</td>
+<td>Variable</td>
+<td>Stable</td>
+</tr>
+<tr>
+<td>Epilepsy/seizures</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></td>
+<td>Childhood</td>
+<td>Variable</td>
+<td>Variable</td>
+</tr>
+<tr>
+<td>Parkinsonism (rest tremor, bradykinesia, rigidity)</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" rel="noopener noreferrer">HP:0001300</a> / <a href="http://purl.obolibrary.org/obo/HP_0002067" target="_blank" rel="noopener noreferrer">HP:0002067</a> / <a href="http://purl.obolibrary.org/obo/HP_0002329" target="_blank" rel="noopener noreferrer">HP:0002329</a></td>
+<td>Adolescence/adulthood</td>
+<td>Characteristic</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Basal-ganglia iron/calcification</td>
+<td>Lab/imaging</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002518" target="_blank" rel="noopener noreferrer">HP:0002518</a> (basal ganglia calcification)</td>
+<td>Adulthood</td>
+<td>Reported</td>
+<td>Progressive</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Quality-of-life impact:</strong> Severe and lifelong. The developmental phase imposes major cognitive and communicative disability (dependence for daily functioning); the parkinsonian phase adds progressive motor disability, compounded by early levodopa-induced complications. Both phases together produce high care-dependency.</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Causal gene:</strong> RAB39B (OMIM 300774; <a href="https://bioregistry.io/HGNC:16499" target="_blank" rel="noopener noreferrer">HGNC:16499</a>; NCBI Gene 116442; Ensembl ENSG00000155961; UniProt Q96DA2), Xq28, chrX:155,258,235–155,264,491 (GRCh38). <strong>Variant classification:</strong> all reported disease variants are pathogenic/likely pathogenic by ACMG criteria and are loss-of-function (nonsense, splice, frameshift, nonstop, whole-gene deletion) or protein-destabilizing missense (p.Thr168Lys). <strong>Functional consequence:</strong> loss of function (not gain-of-function or dominant-negative). <strong>Allele frequency:</strong> pathogenic variants are absent/ultra-rare in gnomAD; the gene is strongly missense-constrained (missense Z = 3.37). <strong>Origin:</strong> germline (with documented somatic mosaicism, <a href="https://pubmed.ncbi.nlm.nih.gov/28851564/">PMID: 28851564</a>). <strong>Modifier genes:</strong> none established. <strong>Epigenetic information:</strong> X-inactivation skewing modulates female carrier expression; no disease-specific methylation/histone signature reported. <strong>Chromosomal abnormalities:</strong> the ~45 kb Xq28 whole-gene deletion is the principal structural lesion (<a href="https://pubmed.ncbi.nlm.nih.gov/25434005/">PMID: 25434005</a>).</p>
+<h3>5. Environmental Information</h3>
+<p><strong>Not applicable.</strong> No environmental, lifestyle, or infectious contributors are implicated. Waisman syndrome is a purely monogenic disorder.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<pre><code>1. Hemizygous LoF variant in RAB39B (Xq28)
+      → results in absent or destabilized RAB39B protein (brain-enriched Rab GTPase).
+2. Loss of RAB39B
+      → impairs Golgi/recycling-endosome vesicle trafficking and C9orf72-GEF-dependent macroautophagy.
+ ├── BRANCH A (developmental): disinhibits PI3K-AKT-mTOR signaling in neural progenitor cells
+ │       → promotes NPC over-proliferation
+ │       → leads to macrocephaly and ASD.
+ ├── BRANCH B (synaptic): dysregulates GluA2-AMPA-receptor trafficking
+ │       → increases GluA2-lacking Ca2+-permeable AMPARs + immature filopodia-like spines
+ │       → results in impaired synaptic maturation → intellectual disability / ASD.
+ └── BRANCH C (degenerative): C9orf72-SMCR8-WDR41 cannot activate RAB39B → autophagy failure
+ → neurotoxic α-synuclein accumulates (impaired homeostasis/clearance)
+ → Lewy body formation + substantia nigra dopaminergic neuron degeneration
+ → leads to early-onset parkinsonism (with basal-ganglia iron/calcification [inferred link]).
+</code></pre>
+<ul>
+<li><strong>Molecular pathways:</strong> PI3K-AKT-mTOR (hyperactivated, Branch A); Rab-GTPase vesicular trafficking cycle; ULK1-dependent autophagy initiation (C9orf72 GEF axis). GO suggestions: <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" rel="noopener noreferrer">GO:0006914</a> (autophagy), <a href="http://purl.obolibrary.org/obo/GO_0016192" target="_blank" rel="noopener noreferrer">GO:0016192</a> (vesicle-mediated transport), <a href="http://purl.obolibrary.org/obo/GO_0098693" target="_blank" rel="noopener noreferrer">GO:0098693</a> (regulation of synaptic vesicle cycle).</li>
+<li><strong>Cellular processes:</strong> NPC proliferation, synaptic maturation, dendritic spine morphogenesis, macroautophagy, α-synuclein proteostasis, dopaminergic neurodegeneration.</li>
+<li><strong>Protein dysfunction:</strong> loss of function via truncation/absence; p.Thr168Lys destabilizes the folded GTPase (<a href="https://pubmed.ncbi.nlm.nih.gov/25434005/">PMID: 25434005</a>).</li>
+<li><strong>Cell types (CL suggestions):</strong> neural progenitor cell (<a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" rel="noopener noreferrer">CL:0011020</a>), glutamatergic/hippocampal neuron (<a href="http://purl.obolibrary.org/obo/CL_0000679" target="_blank" rel="noopener noreferrer">CL:0000679</a>), midbrain dopaminergic neuron (<a href="http://purl.obolibrary.org/obo/CL_0000700" target="_blank" rel="noopener noreferrer">CL:0000700</a>).</li>
+<li><strong>Molecular profiling:</strong> iPSC/organoid transcriptomics show PI3K-mTOR pathway dysregulation (<a href="https://pubmed.ncbi.nlm.nih.gov/32115408/">PMID: 32115408</a>); RAB39B protein redistribution in DLB (<a href="https://pubmed.ncbi.nlm.nih.gov/32762091/">PMID: 32762091</a>).</li>
+</ul>
+<p>Upstream = RAB39B loss and trafficking/autophagy failure; downstream = PI3K-mTOR, AMPAR, and α-synuclein-mediated endpoints.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ/system:</strong> Central nervous system (<a href="http://purl.obolibrary.org/obo/UBERON_0001016" target="_blank" rel="noopener noreferrer">UBERON:0001016</a>). <strong>Primary:</strong> cerebral cortex (<a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" rel="noopener noreferrer">UBERON:0000956</a>), hippocampus (<a href="http://purl.obolibrary.org/obo/UBERON_0002421" target="_blank" rel="noopener noreferrer">UBERON:0002421</a>), substantia nigra pars compacta (<a href="http://purl.obolibrary.org/obo/UBERON_0002038" target="_blank" rel="noopener noreferrer">UBERON:0002038</a>). <strong>Secondary:</strong> basal ganglia (<a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" rel="noopener noreferrer">UBERON:0002420</a>) — globus pallidus, putamen, red nucleus, pulvinar — with iron deposition/calcification.</li>
+<li><strong>Tissue/cell:</strong> nervous tissue; neural progenitor cells, glutamatergic neurons, midbrain dopaminergic neurons.</li>
+<li><strong>Subcellular (GO Cellular Component):</strong> Golgi apparatus (<a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" rel="noopener noreferrer">GO:0005794</a>), recycling endosome (<a href="http://purl.obolibrary.org/obo/GO_0055037" target="_blank" rel="noopener noreferrer">GO:0055037</a>), autophagosome (<a href="http://purl.obolibrary.org/obo/GO_0005776" target="_blank" rel="noopener noreferrer">GO:0005776</a>), dendritic spine (<a href="http://purl.obolibrary.org/obo/GO_0043197" target="_blank" rel="noopener noreferrer">GO:0043197</a>), presynaptic membrane.</li>
+<li><strong>Localization/lateralization:</strong> bilateral brain involvement; parkinsonism may begin <strong>unilaterally</strong> at onset (<a href="https://pubmed.ncbi.nlm.nih.gov/28851564/">PMID: 28851564</a>).</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<p><strong>Onset:</strong> two-phase and age-dependent. Developmental features are <strong>congenital/pediatric</strong> (delay apparent in infancy/early childhood); parkinsonism is <strong>young/early-onset adulthood</strong> (adolescence to ~30s–40s). <strong>Pattern:</strong> insidious/chronic. <strong>Progression:</strong> developmental phase stable after childhood; parkinsonian phase <strong>progressive</strong>. <strong>Duration:</strong> chronic, lifelong. <strong>Critical period:</strong> the developmental window (NPC proliferation and synaptogenesis) for Branches A/B; the adult neurodegenerative window for Branch C. Epilepsy can predate parkinsonism by years (<a href="https://pubmed.ncbi.nlm.nih.gov/33960519/">PMID: 33960519</a>).</p>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Inheritance:</strong> X-linked recessive. <strong>Penetrance:</strong> essentially complete in hemizygous males; variable/incomplete in heterozygous females (skewed X-inactivation dependent) — carrier females may show late-onset PD (<a href="https://pubmed.ncbi.nlm.nih.gov/41074240/">PMID: 41074240</a>). <strong>Expressivity:</strong> variable (ASD/macrocephaly/epilepsy inconsistently present). <strong>Mosaicism:</strong> somatic mosaicism documented (<a href="https://pubmed.ncbi.nlm.nih.gov/28851564/">PMID: 28851564</a>). <strong>Sex ratio:</strong> strongly male-predominant. <strong>Epidemiology:</strong> ultra-rare — only a few dozen families reported; precise prevalence/incidence is <strong>not established</strong> (too rare for registry estimates). <strong>Founder effect/geographic clustering:</strong> none identified; families reported across Australian, European (Italian), and other populations. <strong>Carrier frequency:</strong> not established (variants are private/ultra-rare). <strong>Genetic anticipation:</strong> not applicable (not a repeat-expansion disorder).</p>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Genetic testing (definitive):</strong> whole-exome sequencing (WES) and whole-genome sequencing (WGS) are the primary diagnostic routes; <strong>chromosomal microarray (CMA)/WGS</strong> detects the ~45 kb whole-gene deletion; single-gene/panel sequencing detects point and indel variants; XLID and Parkinson's disease gene panels include RAB39B. ClinVar holds 386 RAB39B records.</li>
+<li><strong>Imaging biomarkers:</strong> brain MRI with SWI/QSM showing iron deposition in substantia nigra, globus pallidus, red nucleus, putamen, and pulvinar; CT showing basal-ganglia (globus pallidus) calcification; <strong>DAT-SPECT</strong> showing presynaptic dopaminergic deficit; transcranial ultrasound — multimodal imaging characterized in <a href="https://pubmed.ncbi.nlm.nih.gov/35088096/">PMID: 35088096</a> and <a href="https://pubmed.ncbi.nlm.nih.gov/28851564/">PMID: 28851564</a>.</li>
+<li><strong>Clinical criteria:</strong> no formal consensus criteria; diagnosis rests on the phenotypic dyad (ID/developmental disorder + early-onset parkinsonism) confirmed by RAB39B genotyping.</li>
+<li><strong>Differential diagnosis:</strong> other X-linked parkinsonism syndromes (XDP/Lubag, FXTAS, BPAN/WDR45, Fabry, MeCP2 disorders, PGK1 deficiency; <a href="https://pubmed.ncbi.nlm.nih.gov/33960519/">PMID: 33960519</a>); syndromic macrocephaly/ASD gene panels (<a href="https://pubmed.ncbi.nlm.nih.gov/40282429/">PMID: 40282429</a>); and co-occurring conditions (e.g., concurrent NF1, <a href="https://pubmed.ncbi.nlm.nih.gov/32873259/">PMID: 32873259</a>).</li>
+<li><strong>Screening:</strong> no population or newborn screening; cascade carrier testing in families.</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<p>Lifelong disability with no curative therapy. The developmental phase causes permanent cognitive/communicative impairment; the parkinsonian phase is progressive and complicated by <strong>early, severe levodopa-induced motor complications</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39619277/">PMID: 39619277</a>). Formal survival/mortality statistics are <strong>not established</strong> given rarity, but life-limiting features (epilepsy, aspiration, immobility) contribute to morbidity. <strong>Prognostic factors</strong> are not formally validated; imaging markers (DAT-SPECT, iron load) track degeneration. Quality of life is substantially reduced across both phases.</p>
+<h3>12. Treatment</h3>
+<p><strong>No disease-modifying therapy exists.</strong> Management is symptomatic:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>Intervention</th>
+<th>NCIT suggestion</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pharmacotherapy (motor)</td>
+<td>Levodopa/carbidopa (dopamine precursor) — responsive but titrate carefully</td>
+<td>NCIT:C29141 (Levodopa)</td>
+<td>37844350, 39619277</td>
+</tr>
+<tr>
+<td>Advanced therapy</td>
+<td>Subthalamic deep brain stimulation</td>
+<td>NCIT:C38013 (Deep Brain Stimulation)</td>
+<td>41074240</td>
+</tr>
+<tr>
+<td>Advanced therapy</td>
+<td>Subcutaneous/continuous L-DOPA infusion</td>
+<td>—</td>
+<td>41074240</td>
+</tr>
+<tr>
+<td>Anticonvulsant</td>
+<td>Antiepileptic drugs for seizures</td>
+<td>NCIT:C264 (Anticonvulsant Agent)</td>
+<td>20159109</td>
+</tr>
+<tr>
+<td>Supportive/rehabilitative</td>
+<td>Physical, occupational, speech therapy; developmental support</td>
+<td>NCIT:C15265 (Rehabilitation)</td>
+<td>clinical</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Pharmacogenomics:</strong> none disease-specific. <strong>Gene/cell/RNA therapies:</strong> none in clinical use; RAB39B's loss-of-function mechanism makes <strong>gene replacement</strong> a conceptually attractive future target. <strong>Experimental trials:</strong> no RAB39B-specific registered interventional trials identified.</p>
+<h3>13. Prevention</h3>
+<p><strong>Primary prevention:</strong> not possible (genetic). <strong>Genetic counseling</strong> is the principal preventive tool — risk assessment for carrier mothers (50% transmission to sons), cascade carrier testing, and reproductive options including <strong>prenatal diagnosis and preimplantation genetic testing (PGT)</strong>. <strong>Secondary prevention:</strong> early molecular diagnosis enables anticipatory management (monitoring for parkinsonism onset, careful levodopa initiation). <strong>Tertiary prevention:</strong> symptom management, seizure control, fall/aspiration prevention, and rehabilitation to limit complications. No immunization or public-health measures apply.</p>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Ortholog:</strong> mouse <em>Rab39b</em> (NCBI Gene 67790; <em>Mus musculus</em>, NCBI Taxon 10090); the gene is evolutionarily conserved across vertebrates. The GEF partner C9orf72 pathway is likewise conserved.</li>
+<li><strong>Natural disease:</strong> no naturally occurring RAB39B disorder is reported in companion animals or wildlife (OMIA search yields no established entry); veterinary relevance is limited to experimental models.</li>
+<li><strong>Comparative biology:</strong> the autophagy/α-synuclein and PI3K-mTOR mechanisms are conserved, underpinning the validity of mouse models.</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Branch recapitulated</th>
+<th>Key phenotype</th>
+<th>PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rab39b-KO/KD mouse</td>
+<td>Mammalian in vivo</td>
+<td>B (synaptic)</td>
+<td>Impaired social behavior, memory deficits, GluA2-lacking AMPARs, immature spines</td>
+<td>34761259</td>
+</tr>
+<tr>
+<td>Rab39b mouse</td>
+<td>Mammalian in vivo</td>
+<td>A (developmental)</td>
+<td>PI3K-AKT-mTOR hyperactivation, NPC over-proliferation, macrocephaly/ASD</td>
+<td>32115408</td>
+</tr>
+<tr>
+<td>Rab39b-KO mouse</td>
+<td>Mammalian in vivo</td>
+<td>C (degenerative)</td>
+<td>Macroautophagy impairment, α-synuclein accumulation, SNc dopaminergic loss</td>
+<td>40473068</td>
+</tr>
+<tr>
+<td>Human cerebral organoid</td>
+<td>3D in vitro</td>
+<td>A</td>
+<td>Cortical over-proliferation, PI3K-mTOR dysregulation</td>
+<td>32115408</td>
+</tr>
+<tr>
+<td>iPSC-derived cortical neurons (exon-2 nonsense)</td>
+<td>Cellular in vitro</td>
+<td>A/B</td>
+<td>Expression and pathway changes</td>
+<td>29152164</td>
+</tr>
+<tr>
+<td>shRNA knockdown (in vitro)</td>
+<td>Cellular</td>
+<td>C/B</td>
+<td>Reduced α-synuclein; altered neurite growth cones/presynaptic boutons</td>
+<td>25434005, 20159109</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Phenotype recapitulation:</strong> strong — mouse and organoid/iPSC systems reproduce <strong>both</strong> disease phases (developmental over-proliferation/synaptic immaturity and adult dopaminergic degeneration). <strong>Limitations:</strong> mouse lifespan and brain size limit modeling of late human parkinsonism; organoids lack a mature dopaminergic circuit; iron-accumulation/calcification features are incompletely modeled. <strong>Resources:</strong> MGI, IMPC, Alliance of Genome Resources.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Waisman syndrome is best understood as a <strong>single genetic lesion producing a temporally biphasic disease through one shared cell-biological defect</strong> — failure of RAB39B-dependent membrane trafficking and autophagy — that manifests differently in developing versus mature neurons.</p>
+<pre><code>         ┌──────────────────────────────────────┐
+   RAB39B LoF variant →  │  Absent/destabilized RAB39B GTPase    │
+         └──────────────────────────────────────┘
+                          │
+ impaired Golgi/endosome trafficking + autophagy
+                          │
+┌─────────────────────────┬───────────────────────────────┐
+   (developing brain)        (developing synapse)            (mature SNc neuron)
+   PI3K-AKT-mTOR ↑           GluA2-AMPAR mistrafficking        C9orf72-GEF autophagy fails
+│                         │                                 │
+   NPC over-proliferation    immature filopodia spines         α-synuclein accumulates
+│                         │                                 │
+   MACROCEPHALY / ASD        INTELLECTUAL DISABILITY / ASD      Lewy bodies + DA neuron death
+                                                    │
+                                          EARLY-ONSET PARKINSONISM
+                                          (+ basal-ganglia iron/Ca2+)
+   ──────────── CHILDHOOD PHASE ───────────────     ──────── ADULT PHASE ────────
+</code></pre>
+<p>The discovery that the <strong>C9orf72-SMCR8-WDR41 complex is the GEF for RAB39B</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/27617292/">PMID: 27617292</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/27494456/">PMID: 27494456</a>) elegantly unifies RAB39B biology with ALS-FTD autophagy pathways and positions RAB39B at a proteostasis hub whose failure allows α-synuclein to aggregate. The redistribution of RAB39B into Lewy bodies in sporadic DLB (<a href="https://pubmed.ncbi.nlm.nih.gov/32762091/">PMID: 32762091</a>) suggests RAB39B dysfunction is relevant to common synucleinopathies, making this ultra-rare Mendelian disorder a window into broader neurodegeneration.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25434005/">25434005</a></td>
+<td>LoF (deletion + p.Thr168Lys) causes ID + pathologically confirmed early-onset PD with α-synuclein pathology</td>
+<td>Human clinical + pathology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20159109/">20159109</a></td>
+<td>Original RAB39B identification in XLMR with ASD, epilepsy, macrocephaly</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32761840/">32761840</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/32115408/">32115408</a></td>
+<td>PI3K-AKT-mTOR branch; organoid + mouse models of macrocephaly/ASD</td>
+<td>Model organism + in vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34761259/">34761259</a></td>
+<td>GluA2-AMPAR synaptic mechanism; nonstop variant; KD mouse</td>
+<td>Human + model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27617292/">27617292</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/27494456/">27494456</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/27103069/">27103069</a></td>
+<td>C9orf72 complex is GEF for RAB39B; autophagy link</td>
+<td>In vitro/mechanistic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40473068/">40473068</a></td>
+<td>Autophagy impairment → α-synuclein → SNc degeneration in mouse</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28851564/">28851564</a></td>
+<td>Frameshift variants, mosaicism, exome ascertainment, imaging</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37844350/">37844350</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/39619277/">39619277</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/41074240/">41074240</a></td>
+<td>Levodopa responsiveness, early complications, DBS/infusion, carrier mother</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/1674730/">1674730</a></td>
+<td>Original Xq27.3-qter linkage (1991)</td>
+<td>Human genetic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33960519/">33960519</a></td>
+<td>X-linked parkinsonism nosology</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32762091/">32762091</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/33939203/">33939203</a></td>
+<td>RAB39B localization, function, redistribution in DLB</td>
+<td>Human/review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29152164/">29152164</a></td>
+<td>iPSC model; variable female penetrance</td>
+<td>In vitro + human</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35088096/">35088096</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/40616418/">40616418</a></td>
+<td>Multimodal imaging; basal-ganglia calcification</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32873259/">32873259</a></td>
+<td>Concurrent NF1 + RAB39B; differential diagnosis</td>
+<td>Human clinical</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Rarity limits epidemiology:</strong> no reliable prevalence/incidence, survival, or carrier-frequency estimates; most evidence is from small families/case reports.</li>
+<li><strong>Genotype–phenotype correlation is unresolved:</strong> whether specific variants predict macrocephaly, epilepsy, or parkinsonism severity is unknown given small numbers.</li>
+<li><strong>Female carrier phenotype</strong> is poorly characterized; the late-onset PD observation in a carrier mother needs systematic study.</li>
+<li><strong>Iron accumulation/calcification mechanism</strong> is not directly demonstrated — its causal link to RAB39B loss is <strong>inferred</strong>, not established.</li>
+<li><strong>No natural animal disease</strong> and incomplete modeling of the late neurodegenerative/iron phenotype in existing models.</li>
+<li><strong>No therapeutics target the root cause;</strong> no RAB39B-specific clinical trials exist.</li>
+<li>Several PMIDs in the literature pool (36502004, 12554860, 8277574) are tangential or historical and do not bear on current mechanism.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Establish a natural-history registry</strong> for RAB39B/Waisman patients to quantify onset ages, progression rates, survival, and genotype–phenotype correlations.</li>
+<li><strong>Systematically phenotype obligate carrier females</strong> (motor exam, DAT-SPECT, X-inactivation ratios) to define female risk of late-onset parkinsonism.</li>
+<li><strong>Test gene-replacement/AAV approaches</strong> in Rab39b-KO mice, given the clean loss-of-function mechanism, as a disease-modifying strategy.</li>
+<li><strong>Define the iron-deposition mechanism</strong> by correlating QSM/SWI iron load with autophagy and α-synuclein markers in models and post-mortem tissue.</li>
+<li><strong>Evaluate mTOR inhibitors (e.g., rapamycin analogs)</strong> in developmental models to test whether Branch A (macrocephaly/ASD) is pharmacologically reversible within a critical window.</li>
+<li><strong>Standardize levodopa initiation protocols</strong> to mitigate the characteristic early motor complications, and assess DBS outcomes across multiple cases.</li>
+<li><strong>Curate ClinVar/HGMD variants</strong> into a locus-specific database with functional annotations to refine ACMG classification of novel RAB39B variants.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 25 primary sources across 5 investigation iterations. Evidence types are distinguished as human clinical, model organism, in vitro, and computational throughout.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Waisman_Syndrome-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Waisman_Syndrome-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>22</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:32115408</code> <em>(abstract only)</em>: "the PI3K-AKT-mechanistic target of rapamycin signaling pathway in neural progenitor cells (NPCs) is hyperactivated, which promotes NPC proliferation, leading to macrocephaly and ASD"</li>
+<li>closest text in source: "Mechanistic studies reveal that RAB39b interacts with PI3K components and its deletion promotes PI3K-AKT-mTOR signaling in NPCs of mouse cortex and cerebral organoids"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0001344</code> (1 mention) - the report calls it "Clinical sign"; HP calls it <strong>Absent speech</strong></li>
+<li><code>HP:0000256</code> (1 mention) - the report calls it "Physical"; HP calls it <strong>Macrocephaly</strong></li>
+<li><code>HP:0001250</code> (1 mention) - the report calls it "Clinical sign"; HP calls it <strong>Seizure</strong></li>
+<li><code>HP:0002518</code> (1 mention) - the report calls it "basal ganglia calcification"; HP calls it <strong>Abnormal periventricular white matter morphology</strong></li>
+<li><code>NCIT:C29141</code> (1 mention) - the report calls it "Levodopa"; NCIT calls it <strong>KRAS CYS-12 Mutant Protein</strong></li>
+<li><code>NCIT:C38013</code> (1 mention) - the report calls it "Deep Brain Stimulation"; NCIT calls it <strong>Range</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0000729</code> (1 mention) - the report calls it "Behavioral"; HP calls it <strong>Autistic behavior</strong></li>
+<li><code>UBERON:0001016</code> (1 mention) - the report calls it "Organ/system:<strong> Central nervous system"; UBERON calls it </strong>nervous system**, and lists "systema nervosum" among its other names</li>
+<li><code>NCIT:C15265</code> (1 mention) - the report calls it "Rehabilitation"; NCIT calls it <strong>Kidney Transplantation</strong>, and lists "Renal Transplantation" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="WAGR_Syndrome-falcon.html">← WAGR Syndrome (Falcon)</a>
+                
+                
+                <a href="Waldenstrom_Macroglobulinemia-manual.html">Waldenstrom Macroglobulinemia (Manual) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Waisman_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Waisman_Syndrome-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
