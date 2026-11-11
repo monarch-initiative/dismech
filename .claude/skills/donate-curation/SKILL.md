@@ -91,7 +91,8 @@ Fetch the user's in-flight work and classify it with
 ```bash
 # reviews (per-author state, to tell a human reviewer from the bot) and files
 # (to tell a curation PR from a code one) feed reconcile's actionable/deferred
-# call. gh REST is used because GraphQL is blocked from cloud sessions.
+# call. `gh pr list --json` is a GraphQL call; if GraphQL is blocked in a
+# session, use the REST fallback below.
 gh pr list --author @me --state open \
   --json number,title,url,headRefName,reviewDecision,mergeable,statusCheckRollup,reviews,files \
   > /tmp/schedule_prs.json

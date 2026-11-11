@@ -205,6 +205,50 @@ def test_hand_off_able_defers_human_review_and_code_prs():
     assert curation.hand_off_able is True and curation.defer_reasons == ()
 
 
+def test_graphql_bot_login_without_suffix_is_still_a_bot():
+    # gh pr list/view --json reviews (GraphQL) reports the App login without
+    # "[bot]"; the automated reviewer must not be mistaken for a human.
+    c = classify_pr(
+        pr(
+            number=6,
+            review="CHANGES_REQUESTED",
+            reviews=[
+                {"state": "CHANGES_REQUESTED", "author": {"login": "ai4c-reviewer"}}
+            ],
+        )
+    )
+    assert c.hand_off_able is True and c.defer_reasons == ()
+
+
+def test_later_comment_does_not_withdraw_a_human_changes_request():
+    # On GitHub a COMMENTED review leaves an earlier CHANGES_REQUESTED in force.
+    c = classify_pr(
+        pr(
+            number=7,
+            review="CHANGES_REQUESTED",
+            reviews=[
+                {"state": "CHANGES_REQUESTED", "author": {"login": "cmungall"}},
+                {"state": "COMMENTED", "author": {"login": "cmungall"}},
+            ],
+        )
+    )
+    assert c.hand_off_able is False
+    assert any("cmungall" in r for r in c.defer_reasons)
+
+    # A later APPROVED from the same reviewer does replace it.
+    approved = classify_pr(
+        pr(
+            number=8,
+            review="APPROVED",
+            reviews=[
+                {"state": "CHANGES_REQUESTED", "author": {"login": "cmungall"}},
+                {"state": "APPROVED", "author": {"login": "cmungall"}},
+            ],
+        )
+    )
+    assert approved.hand_off_able is True
+
+
 def test_reconcile_deferred_pr_does_not_block_a_claim():
     # One deferred human-review PR, nothing else -> still claim; it is reported.
     human_review = [{"state": "CHANGES_REQUESTED", "login": "cmungall"}]

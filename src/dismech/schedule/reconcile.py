@@ -72,6 +72,20 @@ PRCategory = Literal["needs_my_work", "awaiting_review", "waiting_to_merge"]
 #: changes-requested the author owns.
 BOT_LOGIN_SUFFIX = "[bot]"
 
+#: Repository-owned machine identities. ``gh pr list/view --json reviews`` goes
+#: through GraphQL, which reports a GitHub App's login *without* the ``[bot]``
+#: suffix (``ai4c-reviewer``), so the suffix alone cannot recognize the automated
+#: reviewer there. Mirrors ``NON_HUMAN_ASSIGNEE_LOGINS`` in
+#: ``scripts/auto_merge_ready_prs.py``.
+KNOWN_BOT_LOGINS = frozenset(
+    {"ai4c-agent", "ai4c-reviewer", "claude", "dragon-ai-agent", "github-actions"}
+)
+
+#: Review states that record a verdict. A ``COMMENTED`` (or ``PENDING``) review
+#: after a ``CHANGES_REQUESTED`` does not withdraw it on GitHub, so it must not
+#: overwrite the reviewer's effective state either.
+VERDICT_STATES = frozenset({"APPROVED", "CHANGES_REQUESTED", "DISMISSED"})
+
 #: Repository paths that are NOT curation content. A PR touching any of these is
 #: a code / schema / tooling / docs change, out of scope for an unattended
 #: curation hand-off, so a needs-work PR that touches one is deferred to the
@@ -94,7 +108,8 @@ NON_CURATION_FILES = frozenset(
 
 
 def _is_bot(login: str) -> bool:
-    return login.lower().endswith(BOT_LOGIN_SUFFIX)
+    lowered = login.lower()
+    return lowered.endswith(BOT_LOGIN_SUFFIX) or lowered in KNOWN_BOT_LOGINS
 
 
 def _is_non_curation_path(path: str) -> bool:
@@ -127,8 +142,10 @@ def _latest_review_state_by_author(
 
     Accepts the ``{"state", "login"}`` shape the skill normalizes to, and the
     richer ``gh``/REST shapes that nest the login under ``user`` or ``author``.
-    Later entries win, so a reviewer who commented and then requested changes is
-    recorded as ``CHANGES_REQUESTED``.
+    Later verdicts win, so a reviewer who commented and then requested changes
+    is recorded as ``CHANGES_REQUESTED``. A later ``COMMENTED`` review does not
+    replace an earlier verdict, matching GitHub's own effective review state; it
+    is recorded only when the reviewer has given no verdict at all.
     """
     latest: dict[str, str] = {}
     for review in reviews or []:
@@ -138,7 +155,9 @@ def _latest_review_state_by_author(
             login = who.get("login")
         if not login:
             continue
-        latest[str(login)] = (review.get("state") or "").upper()
+        state = (review.get("state") or "").upper()
+        if state in VERDICT_STATES or str(login) not in latest:
+            latest[str(login)] = state
     return latest
 
 
