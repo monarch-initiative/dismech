@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import httpx
+import yaml
 
 ROOT = Path(__file__).parent.parent
 SCRIPT_PATH = ROOT / "scripts" / "citation_scan.py"
@@ -362,3 +363,35 @@ def test_a_failed_reference_list_skips_that_paper_not_the_run(tmp_path: Path) ->
     assert packet["reference_fetch_failures"] == ["901"]
     assert [row["pmid"] for row in packet["records"]] == ["900"]
     assert "901" not in known  # not cached, so a re-run of the window retries it
+
+
+def test_ledger_reads_pmids_written_in_markdown_bold() -> None:
+    # The forms older lit-scan issues actually use; none matched "PMID:\s*\d".
+    bodies = [
+        "**PMID:** 111",
+        "- **PMID**: 222",
+        "Publication Details: PMID 333, Title: X",
+    ]
+    issues = [
+        {"number": n, "title": "[lit-scan] X", "state": "CLOSED", "body": body}
+        for n, body in enumerate(bodies, start=1)
+    ]
+
+    pmids = {decision.pmid for decision in citation_scan.parse_ledger(issues)}
+
+    assert pmids == {"111", "222", "333"}
+
+
+def test_workflow_ledger_pages_the_rest_api() -> None:
+    """`gh issue list` returned 58 of ~440 scanner issues on the first run."""
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "literature-scan.yml").read_text()
+    )
+    [step] = [
+        step
+        for step in workflow["jobs"]["citation-scan"]["steps"]
+        if step.get("name") == "Fetch scanner issue ledger"
+    ]
+
+    assert "gh api --paginate" in step["run"]
+    assert "gh issue list" not in step["run"]
