@@ -13260,6 +13260,84 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Acquired Long QT Syndrome",
+    "disease_id": "MONDO:1060292",
+    "category": "Complex",
+    "parents": [
+      "Cardiac Arrhythmia"
+    ],
+    "creation_date": "2026-11-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Acquired (secondary) long QT syndrome is a reversible disorder of ventricular repolarization in which an external stressor -- most often a QT-prolonging drug, but also electrolyte disturbance (hypokalemia, hypomagnesemia, hypocalcemia), bradycardia, or metabolic derangement -- pathologically prolongs the QT interval and predisposes to torsades de pointes and sudden cardiac death. The QT prolongation reverts toward normal once the stressor is removed, distinguishing it from inherited long QT syndrome. The dominant molecular mechanism is reduction of the rapid delayed-rectifier potassium current IKr, carried by the hERG (KCNH2) channel, by direct pore blockade or by disruption of channel trafficking to the membrane. Susceptibility is modulated by \"reduced repolarization reserve,\" including latent (subclinical) congenital long QT variants and common modifier alleles unmasked by the stressor, making aLQTS a prototypical gene-environment interaction.",
+    "pathophysiology": [
+      "IKr Potassium Channel Blockade",
+      "hERG Trafficking Disruption",
+      "Prolonged Ventricular Repolarization",
+      "Early Afterdepolarizations",
+      "Torsades de Pointes Arrhythmia"
+    ],
+    "cell_types": [
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "ventricular cardiac muscle cell action potential repolarization",
+      "membrane depolarization during action potential"
+    ],
+    "phenotypes": [
+      "Prolonged QT interval",
+      "Torsades de Pointes",
+      "Syncope",
+      "Ventricular Fibrillation",
+      "Sudden Cardiac Death"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001657",
+      "HP:0001664",
+      "HP:0001279",
+      "HP:0001663",
+      "HP:0001645"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KCNH2",
+      "KCNQ1",
+      "SCN5A",
+      "KCNE1"
+    ],
+    "treatments": [
+      "Withdrawal of the offending agent",
+      "Intravenous magnesium sulfate",
+      "Correction of electrolyte abnormalities",
+      "Isoproterenol for pause-dependent torsades",
+      "Transvenous cardiac pacing",
+      "Electrical cardioversion / defibrillation"
+    ],
+    "environmental": [
+      "QT-prolonging drug exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Acquired_Long_QT_Syndrome.yaml",
+    "page_url": "../pages/disorders/Acquired_Long_QT_Syndrome.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 6,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Acquired Partial Lipodystrophy",
     "disease_id": "MONDO:0012104",
     "category": "Complex",
@@ -28489,6 +28567,8 @@ window.searchData = [
     ],
     "phenotypes": [
       "Abnormal Eating Behavior",
+      "Distorted Body Image",
+      "Lack of Recognition of Low Weight",
       "Low Body Weight and Weight Loss",
       "Bradycardia",
       "Arrhythmia",
@@ -28522,6 +28602,8 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0100738",
+      "HP:6001533",
+      "HP:0000757",
       "HP:0004325",
       "HP:0001662",
       "HP:0011675",
@@ -28554,7 +28636,7 @@ window.searchData = [
     ],
     "source_file": "Anorexia_Nervosa.yaml",
     "page_url": "../pages/disorders/Anorexia_Nervosa.html",
-    "num_phenotypes": 13,
+    "num_phenotypes": 15,
     "num_pathophysiology": 13,
     "num_genes": 1,
     "num_treatments": 6,
@@ -35565,7 +35647,9 @@ window.searchData = [
     "phenotypes": [
       "Short Attention Span",
       "Hyperactivity",
-      "Impulsivity"
+      "Impulsivity",
+      "Disorganization",
+      "Forgetfulness"
     ],
     "phenotype_categories": [
       "Behavioral"
@@ -35576,7 +35660,9 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0000736",
       "HP:0000752",
-      "HP:0100710"
+      "HP:0100710",
+      "HP:0033056",
+      "HP:0002354"
     ],
     "frequencies": [],
     "genes": [],
@@ -35595,7 +35681,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Attention_Deficit-Hyperactivity_Disorder.yaml",
     "page_url": "../pages/disorders/Attention_Deficit-Hyperactivity_Disorder.html",
-    "num_phenotypes": 3,
+    "num_phenotypes": 5,
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 5,
@@ -36562,6 +36648,9 @@ window.searchData = [
       "Reduced Ability to Form Peer Relationships",
       "Motor Stereotypy",
       "Inflexible Adherence to Routines",
+      "Deficits in Social-Emotional Reciprocity",
+      "Echolalia",
+      "Fixated Interests",
       "Delayed Speech and Language Development",
       "Sensory Behavioral Abnormality",
       "Intellectual Disability",
@@ -36585,6 +36674,9 @@ window.searchData = [
       "HP:0000728",
       "HP:0000733",
       "HP:0000732",
+      "HP:0012760",
+      "HP:0010529",
+      "HP:4000070",
       "HP:0000750",
       "HP:5200046",
       "HP:0001249",
@@ -36619,7 +36711,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Autism_Spectrum_Disorder.yaml",
     "page_url": "../pages/disorders/Autism_Spectrum_Disorder.html",
-    "num_phenotypes": 12,
+    "num_phenotypes": 15,
     "num_pathophysiology": 8,
     "num_genes": 5,
     "num_treatments": 4,
@@ -46624,6 +46716,88 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "37",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Autosomal Recessive Nonsyndromic Hearing Loss 7",
+    "disease_id": "MONDO:0010967",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Recessive Nonsyndromic Hearing Loss"
+    ],
+    "creation_date": "2026-11-10T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DFNB7/11 is congenital, bilateral, nonsyndromic sensorineural hearing loss caused by biallelic pathogenic variants in TMC1, the gene encoding the pore-forming subunit of the mechanoelectrical transduction (MET) channel at the tips of cochlear hair-cell stereocilia. The DFNB7 and DFNB11 loci on chromosome 9q were mapped independently and resolved to the same gene when TMC1 was positionally cloned in 2002. Loss of TMC1 removes the channel pore, so sound-evoked transduction current never develops in mature auditory hair cells; the hair cells then, in mouse models of the disease, fail to acquire their adult electrophysiological properties and degenerate; the cochlea produces no sound-evoked neural output. Reported recessive genotypes span nonsense, frameshift, splice-site, copy-number, missense and in-frame alleles, and the severity is not read off the allele class: truncating and splice genotypes usually give severe-to-profound loss from birth, hypomorphic missense and in-frame alleles that retain residual channel function are associated with moderate-to-severe or moderate-to-profound loss, and the recurrent nonsense allele p.Arg34Ter appears in families at both ends of that range. Vestibular function is usually described as spared, which mouse work attributes to persistent TMC2 expression in vestibular hair cells, but the human evidence is a single tested child who had peripheral vestibular loss, so sparing is not adopted here as a human phenotype. Management is auditory rehabilitation - hearing aids where residual hearing allows, and cochlear implantation for severe-to-profound loss, with good reported speech outcomes after early implantation. AAV TMC1 gene replacement restores auditory function in mouse models but has not entered human trials. The allelic dominant disease DFNA36 (MONDO:0011708), which is postlingual and progressive, is a separate entity and is out of scope for this entry.",
+    "pathophysiology": [
+      "TMC1 Biallelic Loss of Function",
+      "Loss of the TMC1 Pore Subunit from the Stereociliary MET Complex",
+      "Absent Hair Cell Mechanoelectrical Transduction Current",
+      "Failed Hair Cell Functional Maturation",
+      "Cochlear Hair Cell Degeneration",
+      "Loss of Sound-Evoked Cochlear Output",
+      "Residual MET Channel Function from Hypomorphic TMC1 Alleles"
+    ],
+    "cell_types": [
+      "cochlear inner hair cell",
+      "cochlear outer hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000589",
+      "CL:0000601"
+    ],
+    "biological_processes": [
+      "detection of mechanical stimulus involved in sensory perception of sound",
+      "sensory perception of sound",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Sensorineural hearing impairment",
+      "Congenital sensorineural hearing impairment",
+      "Bilateral sensorineural hearing impairment",
+      "Profound hearing impairment",
+      "Severe hearing impairment",
+      "Moderate hearing impairment"
+    ],
+    "phenotype_categories": [
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0000407",
+      "HP:0008527",
+      "HP:0008619",
+      "HP:0012715",
+      "HP:0012714",
+      "HP:0012713"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TMC1"
+    ],
+    "treatments": [
+      "Cochlear Implantation",
+      "Hearing Aids",
+      "Auditory and Speech Rehabilitation",
+      "Genetic Counseling and Carrier Testing",
+      "AAV-Mediated TMC1 Gene Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_7.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_7.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Autosomal Recessive Nonsyndromic Hearing Loss 70",
@@ -75231,6 +75405,81 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "CNS Tumor with BCOR Internal Tandem Duplication",
+    "disease_id": "MONDO:0858966",
+    "category": "",
+    "parents": [
+      "CNS embryonal tumour"
+    ],
+    "creation_date": "2026-11-11T03:46:38Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CNS tumor with BCOR internal tandem duplication is a rare malignant tumour of the brain in young children. It was separated in 2016 from the tumours then called primitive neuroectodermal tumours of the central nervous system, and the 2021 World Health Organization classification lists it among the embryonal tumours. It is defined by the duplication of a short stretch of the last exon of the BCOR gene, the same lesion that defines clear cell sarcoma of kidney and a soft tissue sarcoma of infancy. Sixty-nine cases had been reported by 2025. The median age at diagnosis is about three years, and boys and girls are affected equally. The tumour is a single large, sharply bounded mass, in the cerebellum in about two fifths of cases and in the cerebral hemispheres in most of the rest, and children present with raised pressure in the head.\nUnder the microscope the tumour is made of uniform oval or spindle cells arranged around vessels in the manner of an ependymoma, and the nuclei stain strongly for BCOR, a stain that is sensitive but not specific. The duplication lies in the part of the BCOR protein that binds PCGF1 to build the polycomb complex PRC1.1. In binding experiments it prevents that assembly, and in human neural stem cells it releases polycomb target genes from repression. Which cell the tumour starts in is not settled.\nThere is no standard treatment. Resection, radiotherapy and multi-agent chemotherapy are used. The tumour often comes back, and a review of the reported cases states that most patients die of it, although survivors of more than ten years are recorded.",
+    "pathophysiology": [
+      "BCOR Internal Tandem Duplication",
+      "Disrupted PRC1.1 Assembly",
+      "Derepression of Polycomb Target Genes",
+      "Neuroepithelial Tumour Growth",
+      "Local Recurrence and Late Dissemination"
+    ],
+    "cell_types": [
+      "primitive neuro-glial progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011020"
+    ],
+    "biological_processes": [
+      "assembly of the PRC1.1 complex",
+      "polycomb-mediated gene silencing",
+      "tumour cell proliferation"
+    ],
+    "phenotypes": [
+      "Brain Neoplasm",
+      "Increased Intracranial Pressure",
+      "Headache",
+      "Vomiting",
+      "Ataxia",
+      "Seizure"
+    ],
+    "phenotype_categories": [
+      "Neoplastic",
+      "Neurologic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0030692",
+      "HP:0002516",
+      "HP:0002315",
+      "HP:0002013",
+      "HP:0001251",
+      "HP:0001250"
+    ],
+    "frequencies": [],
+    "genes": [
+      "BCOR"
+    ],
+    "treatments": [
+      "Surgical Resection",
+      "Radiotherapy",
+      "Multi-Agent Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "CNS_Tumor_with_BCOR_Internal_Tandem_Duplication.yaml",
+    "page_url": "../pages/disorders/CNS_Tumor_with_BCOR_Internal_Tandem_Duplication.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "CNS Vasculitis",
     "disease_id": "MONDO:0015374",
     "category": "Autoimmune",
@@ -95428,36 +95677,30 @@ window.searchData = [
     "creation_date": "2026-08-05T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "A self-limited focal epilepsy of childhood in which the seizures are made of vision. A child of school age suddenly sees small coloured circles drifting across one side of the visual field, or goes blind for a minute, and then it passes. The attacks are brief, they happen in daylight rather than in sleep, they come many times a week, and a headache often follows them closely enough to be mistaken for migraine. Between attacks the child is neurologically normal and the brain scan is normal; the only abnormal investigation is the electroencephalogram, which shows spikes over the occipital regions that characteristically appear the moment the eyes stop fixating on anything and disappear again as soon as fixation returns. That last property, called fixation-off sensitivity, is the mechanistic curiosity of the syndrome: the epileptic discharge is gated by whether the visual system is being used. Most children respond to a single antiseizure medication and about two-thirds have stopped having seizures by the age of sixteen, which is why the syndrome is classified as self-limited rather than as an encephalopathy.",
+    "description": "A self-limited focal epilepsy beginning in childhood, characterized by abrupt, brief visual seizures arising predominantly during wakefulness. Elementary multicolored visual hallucinations are typical; ictal blindness, eye or head deviation, impaired awareness and motor spread can also occur. Occipital epileptiform abnormalities may be restricted to sleep, and fixation-off sensitivity is variable rather than diagnostic by itself. Brain MRI is required to exclude a causal lesion. Most patients respond to antiseizure medication and remit during childhood or adolescence, although persistent seizures occur. Etiology is presumed complex genetic; no causal gene has been established for the syndrome.",
     "pathophysiology": [
       "Age-Dependent Hyperexcitability of the Occipital Cortex",
       "Fixation-Dependent Gating of Occipital Discharges",
-      "Occipital Interictal and Ictal Paroxysmal Discharges",
-      "Ictal Recruitment of Striate and Extrastriate Visual Cortex",
+      "Occipital Interictal Epileptiform Discharges",
+      "Occipital Ictal Discharge",
+      "Visual Cortical Recruitment",
       "Recurrent Brief Diurnal Visual Seizures",
       "Propagation Beyond the Occipital Lobe",
-      "Post-Ictal Headache",
+      "Postictal Headache Development",
       "Age-Dependent Remission of the Epileptogenic State"
     ],
-    "cell_types": [
-      "cortical pyramidal neuron",
-      "cortical neuron"
-    ],
-    "cell_type_ids": [
-      "CL:0000598",
-      "CL:0000540"
-    ],
-    "biological_processes": [
-      "neuronal action potential",
-      "visual perception",
-      "chemical synaptic transmission"
-    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
     "phenotypes": [
       "Elementary Visual Hallucinations",
       "Ictal Blindness",
       "Ictal Eye Deviation",
       "Post-Ictal Headache",
-      "Occipital Spikes with Fixation-Off Sensitivity"
+      "Occipital Epileptiform EEG Abnormalities",
+      "Focal Impaired Awareness Seizures",
+      "Focal Hemiclonic Seizures",
+      "Focal to Bilateral Tonic-Clonic Seizures"
     ],
     "phenotype_categories": [
       "Neurological"
@@ -95471,26 +95714,29 @@ window.searchData = [
       "HP:0000572",
       "HP:0011175",
       "HP:0002315",
-      "HP:0012016"
+      "HP:0012016",
+      "HP:0002384",
+      "HP:0006813",
+      "HP:0007334"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [],
     "treatments": [
       "Antiseizure Monotherapy",
-      "Prophylactic Treatment During the Active Phase"
+      "Levetiracetam Monotherapy"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Childhood_Occipital_Visual_Epilepsy.yaml",
     "page_url": "../pages/disorders/Childhood_Occipital_Visual_Epilepsy.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 8,
+    "num_phenotypes": 8,
+    "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "5"
   },
   {
@@ -132699,10 +132945,15 @@ window.searchData = [
     "pathophysiology": [
       "EWSR1-WT1 Fusion Oncogene",
       "PDGFA Activation",
+      "Desmoplastic Stromal Reaction",
       "Multiphenotypic Differentiation"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
     "biological_processes": [
       "positive regulation of transcription by RNA polymerase II",
       "cell population proliferation",
@@ -132755,11 +133006,11 @@ window.searchData = [
     "source_file": "Desmoplastic_Small_Round_Cell_Tumor.yaml",
     "page_url": "../pages/disorders/Desmoplastic_Small_Round_Cell_Tumor.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Developmental and Epileptic Encephalopathy 116",
@@ -147064,6 +147315,157 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "EFEMP2-Related Cutis Laxa",
+    "disease_id": "MONDO:0013754",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "autosomal recessive cutis laxa type 1"
+    ],
+    "creation_date": "2026-11-10T23:31:26Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "EFEMP2-related cutis laxa (autosomal recessive cutis laxa type 1B, ARCL1B) is a rare congenital connective tissue disorder caused by biallelic loss-of-function variants in EFEMP2, which encodes the short fibulin fibulin-4. Fibulin-4 binds tropoelastin and the propeptide of lysyl oxidase (LOX), is needed for copper loading and proteolytic maturation of LOX, and so supports both elastin and collagen cross-linking; in the aortic wall it is also needed for smooth muscle cell maturation and for the connections between elastic laminae and smooth muscle cells. The dominant clinical problem is a vasculopathy of the large elastic arteries: ascending aortic and aortic root aneurysm, elongation and tortuosity of the aorta, pulmonary arteries and their branches, and branch-vessel stenosis, with aortic isthmus hypoplasia in the most severe infants. Cutis laxa, emphysema, diaphragmatic and inguinal hernias, joint laxity, arachnodactyly, retrognathia and, in the severest cases, prenatal fractures are variable. Severity ranges from fetal or infantile death to isolated aortopathy found on family screening in adulthood. Mouse models show increased aortic TGF-beta signalling, an ACE and angiotensin II driven aneurysm pathway initiated by abnormal smooth muscle mechanosensing, and collagen fibril defects. Management is surveillance, angiotensin receptor or beta-blockade, and surgical replacement of the aneurysmal aorta.",
+    "pathophysiology": [
+      "Biallelic EFEMP2 Loss-of-Function Variants",
+      "Mutant Fibulin-4 Intracellular Retention and Reduced Secretion",
+      "Endoplasmic Reticulum Stress in Fibroblasts",
+      "Reduced Fibulin-4 in the Extracellular Matrix",
+      "Defective Copper Loading of Lysyl Oxidase",
+      "Impaired Proteolytic Maturation of Lysyl Oxidase",
+      "Impaired Lysyl Oxidase Recruitment onto Tropoelastin",
+      "Reduced Lysyl Oxidase Activity",
+      "Deficient Elastin Cross-Linking",
+      "Reduced Tropoelastin Expression",
+      "Impaired Tropoelastin Deposition onto LTBP-4L",
+      "Defective Elastic Fiber Assembly",
+      "Deficient Collagen Cross-Linking",
+      "Abnormal Collagen Fibril Assembly",
+      "Dermal Elastic Fiber Deficiency",
+      "Pulmonary Elastic Fiber Deficiency",
+      "Reduced Pulmonary Antiprotease Capacity",
+      "Diaphragm and Abdominal Wall Connective Tissue Weakness",
+      "Conduit Artery Elastic Lamina Fragmentation",
+      "Impaired Smooth Muscle Cell Contractile Maturation",
+      "Loss of Elastic Lamina-Smooth Muscle Cell Connections",
+      "PAR1 Activation in Aortic Smooth Muscle Cells",
+      "Increased TGF-beta Signaling in the Aortic Wall",
+      "Aortic Medial Degeneration",
+      "Ascending Aortic Dilation and Aneurysm",
+      "Aortic Dissection and Rupture"
+    ],
+    "cell_types": [
+      "dermal fibroblast",
+      "aortic smooth muscle cell",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002551",
+      "CL:0000359",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "protein secretion",
+      "response to endoplasmic reticulum stress",
+      "copper ion transport",
+      "elastic fiber assembly",
+      "collagen fibril organization",
+      "smooth muscle cell differentiation",
+      "transforming growth factor beta receptor signaling pathway",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Cutis laxa",
+      "Premature sagging cheeks",
+      "Emphysema",
+      "Arterial tortuosity",
+      "Arterial stenosis",
+      "Aortic isthmus hypoplasia",
+      "Pulmonary artery aneurysm",
+      "Congenital diaphragmatic hernia",
+      "Hiatus hernia",
+      "Inguinal hernia",
+      "Flexion contractures",
+      "Multiple prenatal fractures",
+      "Aortic aneurysm",
+      "Retrognathia",
+      "Joint laxity",
+      "Arachnodactyly",
+      "Long philtrum",
+      "Thin vermilion",
+      "Hypertelorism"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Craniofacial",
+      "Respiratory",
+      "Cardiovascular",
+      "Abdominal",
+      "Gastrointestinal",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000973",
+      "HP:0034273",
+      "HP:0002097",
+      "HP:0005116",
+      "HP:0100545",
+      "HP:0034227",
+      "HP:0004937",
+      "HP:0000776",
+      "HP:0002036",
+      "HP:0000023",
+      "HP:0001371",
+      "HP:0005855",
+      "HP:0004942",
+      "HP:0000278",
+      "HP:0001382",
+      "HP:0001166",
+      "HP:0000343",
+      "HP:0000233",
+      "HP:0000316"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "EFEMP2"
+    ],
+    "treatments": [
+      "Angiotensin Receptor Blockade for Aortic Root Dilatation",
+      "Beta-Blockade for Aortic Root Dilatation",
+      "Aortic Aneurysm Replacement Surgery",
+      "Routine Hernia Repair",
+      "Tracheostomy for Upper Airway Obstruction",
+      "Symptomatic Treatment of Pulmonary Emphysema",
+      "Muscle-Reinforcing Physical Therapy for Joint Hypermobility",
+      "Cardiovascular and Pulmonary Surveillance",
+      "Smoking and Sun-Tanning Avoidance",
+      "Genetic Counseling and Reproductive Options"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "EFEMP2-Related_Cutis_Laxa.yaml",
+    "page_url": "../pages/disorders/EFEMP2-Related_Cutis_Laxa.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 26,
+    "num_genes": 1,
+    "num_treatments": 10,
+    "causal_graph_edges": "96",
+    "causal_graph_longest_path": "12"
   },
   {
     "name": "EFL1-related Shwachman-Diamond syndrome",
@@ -161474,6 +161876,113 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Familial Erythrocytosis 6",
+    "disease_id": "MONDO:0054801",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Erythrocytosis",
+      "Congenital Secondary Erythrocytosis"
+    ],
+    "creation_date": "2026-11-10T18:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Familial erythrocytosis 6 (ECYT6, OMIM 617980) is an autosomal dominant erythrocytosis caused by heterozygous germline missense variants in HBB that produce a beta-globin chain with abnormally high oxygen affinity (for example Hb Bethesda, Hb Malmo, Hb San Diego, Hb Olympia, Hb Hiroshima, Hb Crete and Hb Koln). Most of the substituted residues sit at the allosteric machinery of the tetramer rather than in the heme pocket: the alpha1-beta2 sliding interface, the C-terminal residues that anchor the salt bridges of the deoxy (T) state, and the central-cavity site that binds 2,3-bisphosphoglycerate. A minority act instead on the environment of the heme and the oxygen binding site itself; those are not modelled separately here. The common consequence is a shift of the allosteric equilibrium toward the oxygenated (R) state, so the oxygen dissociation curve is displaced to the left and the p50 falls. Hemoglobin loads oxygen normally in the lung but releases less of it in the tissues; the resulting tissue hypoxia is sensed in the kidney and erythropoietin output rises, expanding the erythroid compartment until the raised red cell mass compensates for the impaired unloading. Patients therefore present with a lifelong, usually isolated erythrocytosis, with a normal or only modestly raised serum erythropoietin, normal arterial oxygen saturation, no JAK2 mutation, and a family history that follows a dominant pattern. Most carriers are asymptomatic; some report headache, vertigo, tinnitus or paresthesia attributed to hyperviscosity, and thrombotic events have been recorded in a minority. How much of that burden belongs to the erythrocytosis is unsettled: across 665 reported individuals the hematocrit was the only independent correlate of hyperviscosity symptoms, while thrombosis tracked age and conventional cardiovascular risk and not the hematocrit, and an earlier single-centre series of 41 patients found no correlation with either. The erythrocytosis is best read as a compensation for the left-shifted dissociation curve, which is why phlebotomy is used for symptom control rather than to normalize the hematocrit, and why the series that looked for a benefit found little. Diagnosis rests on a low p50 with a normal arterial oxygen saturation plus beta-globin sequencing: a third of high-affinity variants are electrophoretically silent, so a normal hemoglobin separation does not exclude the diagnosis, and the commonest clinical error is a misdiagnosis of polycythemia vera followed by unnecessary cytoreduction. SCOPE NOTE: this entry covers the HBB (beta-globin) form, the gene MONDO asserts as causal for MONDO:0054801 and the gene ClinGen curates as Definitive against that identifier. The alpha-globin high-affinity variants are a separate concept (MONDO:0054802, erythrocytosis familial 7, OMIM 617981; ClinGen Moderate for HBA1 and Limited for HBA2) and are not curated here.",
+    "pathophysiology": [
+      "HBB High-Oxygen-Affinity Missense Variant",
+      "Disruption of the Alpha1-Beta2 Subunit Interface",
+      "Loss of C-Terminal Salt Bridges That Stabilise the T State",
+      "Impaired Binding of Allosteric Effectors",
+      "Loss of Cooperative Oxygen Binding",
+      "Stabilisation of the R (Oxy) Quaternary State",
+      "Increased Hemoglobin Oxygen Affinity with Reduced p50",
+      "Reduced Oxygen Unloading to Tissues",
+      "Hypoxia Sensing by Renal Erythropoietin-Producing Cells",
+      "Increased Erythropoietin Output",
+      "Erythroid Progenitor Expansion",
+      "Increased Red Cell Mass",
+      "Increased Whole Blood Viscosity"
+    ],
+    "cell_types": [
+      "EPO-producing kidney interstitial fibroblast",
+      "erythroid progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:1000692",
+      "CL:0000038"
+    ],
+    "biological_processes": [
+      "oxygen transport to tissues",
+      "cellular response to hypoxia driving EPO transcription",
+      "erythropoietin biosynthesis",
+      "erythrocyte differentiation",
+      "erythrocyte homeostasis set at an expanded red cell mass"
+    ],
+    "phenotypes": [
+      "Increased hemoglobin oxygen affinity",
+      "Polycythemia",
+      "Increased hematocrit",
+      "Increased circulating hemoglobin concentration",
+      "Headache",
+      "Vertigo",
+      "Paresthesia",
+      "Tinnitus",
+      "Splenomegaly",
+      "Abnormal thrombosis"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Hematological",
+      "Phenotype"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Immune",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0004825",
+      "HP:0001901",
+      "HP:0001899",
+      "HP:0001900",
+      "HP:0002315",
+      "HP:0002321",
+      "HP:0003401",
+      "HP:0000360",
+      "HP:0001744",
+      "HP:0001977"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HBB high oxygen affinity missense variants"
+    ],
+    "treatments": [
+      "Therapeutic phlebotomy for symptom control",
+      "Low-dose aspirin and cardiovascular risk reduction",
+      "Avoidance of cytoreductive therapy",
+      "Smoking cessation, physical activity and avoidance of blood donation",
+      "Genetic counseling and cascade testing"
+    ],
+    "environmental": [
+      "Tobacco smoking"
+    ],
+    "biochemical": [],
+    "source_file": "Familial_Erythrocytosis_6.yaml",
+    "page_url": "../pages/disorders/Familial_Erythrocytosis_6.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "12"
+  },
+  {
     "name": "Familial Expansile Osteolysis",
     "disease_id": "MONDO:0008275",
     "category": "Mendelian",
@@ -174707,7 +175216,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
   },
   {
@@ -224510,6 +225019,114 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 2,
     "causal_graph_edges": "19",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Infantile Hemangioma",
+    "disease_id": "MONDO:0011191",
+    "category": "",
+    "parents": [
+      "capillary hemangioma"
+    ],
+    "creation_date": "2026-11-11T02:55:07Z",
+    "updated_date": null,
+    "subtypes": [
+      "Hepatic"
+    ],
+    "description": "Infantile hemangioma is a benign tumor of the cells that line blood vessels and the most common tumor of infancy. A study that followed 594 newborns found one in 4.5 per cent of them by the age of three months. The tumor is absent or barely visible at birth, grows fast in the first weeks of life, reaches most of its final size by about three months and then shrinks slowly, until about three and a half years of age, often leaving changed skin behind. Its endothelial cells stain for the glucose transporter GLUT1 at every stage, which separates it from congenital hemangioma, from other vascular tumors and from vascular malformations. Most lesions are small and need no treatment. A minority threaten the airway, the eye, the liver or the heart, ulcerate, or will disfigure, and for these oral propranolol is the first-line treatment, supported by a randomized trial of 456 infants. A large segmental hemangioma of the face can be part of PHACE syndrome, and one of the lower body part of LUMBAR syndrome. What starts the tumor is not known: stem cells isolated from it form GLUT1-positive vessels and later fat in mice, its endothelium shares markers and gene expression with the placenta, and prematurity, low birth weight and placental abnormalities go with a higher risk. Because the tumor is so common, rarer tumors of infancy that look like it have at first been diagnosed as hemangiomas, among them metastatic neuroblastoma and infantile fibrosarcoma.",
+    "pathophysiology": [
+      "Hemangioma Stem Cell Vasculogenesis",
+      "Suppressed NFAT-Dependent VEGFR1 Expression",
+      "Constitutive VEGFR2 Signaling",
+      "Proliferating GLUT1-Positive Endothelium",
+      "Involution with Fibrofatty Replacement",
+      "High-Flow Shunting Through Hepatic Hemangiomas",
+      "Type 3 Iodothyronine Deiodinase Activity in Tumor Tissue"
+    ],
+    "cell_types": [
+      "hemangioma stem cell",
+      "hemangioma endothelial cell",
+      "adipocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000048",
+      "CL:0000071",
+      "CL:0000136"
+    ],
+    "biological_processes": [
+      "vasculogenesis",
+      "calcineurin-NFAT signaling cascade",
+      "vascular endothelial growth factor receptor signaling pathway",
+      "endothelial cell proliferation",
+      "fat cell differentiation",
+      "thyroid hormone catabolic process"
+    ],
+    "phenotypes": [
+      "Cutaneous Hemangioma",
+      "Skin Ulcer",
+      "Amblyopia",
+      "Subglottic Hemangioma",
+      "Hepatic Hemangioma",
+      "Hepatomegaly",
+      "High-Output Heart Failure",
+      "Hypothyroidism",
+      "Residual Telangiectasia",
+      "Anetoderma"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Ophthalmologic",
+      "Respiratory",
+      "Hepatic",
+      "Cardiovascular",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Integument",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0005306",
+      "HP:0200042",
+      "HP:0000646",
+      "HP:0410264",
+      "HP:0031207",
+      "HP:0002240",
+      "HP:0001722",
+      "HP:0000821",
+      "HP:0001009",
+      "HP:0032026"
+    ],
+    "frequencies": [
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "KDR",
+      "ANTXR1"
+    ],
+    "treatments": [
+      "Active Observation",
+      "Oral Propranolol",
+      "Atenolol",
+      "Topical Timolol",
+      "Systemic Corticosteroids",
+      "Pulsed Dye Laser",
+      "Surgical Excision"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Infantile_Hemangioma.yaml",
+    "page_url": "../pages/disorders/Infantile_Hemangioma.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 7,
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "4"
   },
   {
@@ -287566,14 +288183,29 @@ window.searchData = [
     ],
     "description": "Mycetoma is a chronic infection of the skin and subcutaneous tissues caused by fungi or bacteria.",
     "pathophysiology": [
+      "Traumatic Implantation of Soil Organisms",
       "Cutaneous and subcutaneous infection by fungi or bacteria",
+      "Grain Formation",
+      "Chronic Granulomatous Inflammation",
+      "Fibrous Encasement of the Lesion",
+      "Sinus and Fistula Formation",
+      "Deep Extension to Muscle and Bone",
       "Madurella Lanosterol 14-alpha-Demethylation by CYP51 (ERG11)",
       "Madurella Ergosterol Production",
       "Madurella Ergosterol-Dependent Plasma-Membrane Organization"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "neutrophil",
+      "macrophage",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000235",
+      "CL:0000057"
+    ],
     "biological_processes": [
+      "inflammatory response",
       "Ergosterol Biosynthetic Process",
       "Ergosterol Metabolic Process",
       "Plasma Membrane Organization"
@@ -287621,16 +288253,18 @@ window.searchData = [
       "Trimethoprim-sulfamethoxazole plus amikacin for actinomycetoma",
       "Surgical debulking and excision/debridement for eumycetoma"
     ],
-    "environmental": [],
+    "environmental": [
+      "Soil and water contact through broken skin"
+    ],
     "biochemical": [],
     "source_file": "Mycetoma.yaml",
     "page_url": "../pages/disorders/Mycetoma.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 10,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Mycobacterium Xenopi Infection",
@@ -294716,6 +295350,7 @@ window.searchData = [
       "Muscarinic Receptor Overstimulation",
       "Nicotinic Receptor Overstimulation",
       "Central Cholinergic Overstimulation",
+      "Cholinergic Crisis and Respiratory Failure",
       "Glutamatergic Excitotoxicity",
       "Seizure-Driven Limbic Neurodegeneration"
     ],
@@ -294723,6 +295358,7 @@ window.searchData = [
     "cell_type_ids": [],
     "biological_processes": [
       "acetylcholine catabolic process",
+      "respiratory gaseous exchange by respiratory system",
       "glutamate secretion",
       "NMDA receptor-mediated glutamate signalling",
       "neuron death"
@@ -294786,10 +295422,10 @@ window.searchData = [
     "source_file": "Nerve_Agent_Poisoning.yaml",
     "page_url": "../pages/disorders/Nerve_Agent_Poisoning.html",
     "num_phenotypes": 14,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "31",
+    "causal_graph_edges": "33",
     "causal_graph_longest_path": "7"
   },
   {
@@ -295191,7 +295827,8 @@ window.searchData = [
     ],
     "frequencies": [
       "OCCASIONAL",
-      "VERY_RARE"
+      "VERY_RARE",
+      "FREQUENT"
     ],
     "genes": [
       "MYCN Amplification",
@@ -295208,7 +295845,9 @@ window.searchData = [
       "BARD1",
       "CDKN1C",
       "EZH2",
-      "HRAS"
+      "HRAS",
+      "LMO1",
+      "HACE1"
     ],
     "treatments": [
       "Risk-Adapted Chemotherapy",
@@ -295236,7 +295875,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Neuroblastoma.html",
     "num_phenotypes": 16,
     "num_pathophysiology": 38,
-    "num_genes": 15,
+    "num_genes": 17,
     "num_treatments": 13,
     "causal_graph_edges": "67",
     "causal_graph_longest_path": "7"
@@ -307611,6 +308250,7 @@ window.searchData = [
     "phenotypes": [
       "Obsessions",
       "Compulsions",
+      "Excessive Checking",
       "Anxiety",
       "Cognitive dysfunction",
       "Impulsivity"
@@ -307625,8 +308265,9 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0008770",
       "HP:0000722",
+      "HP:5200050",
       "HP:0000739",
-      "HP:0100543",
+      "HP:0033051",
       "HP:0100710"
     ],
     "frequencies": [],
@@ -307655,7 +308296,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Obsessive-Compulsive_Disorder.yaml",
     "page_url": "../pages/disorders/Obsessive-Compulsive_Disorder.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 6,
     "num_pathophysiology": 5,
     "num_genes": 8,
     "num_treatments": 7,
@@ -338674,6 +339315,7 @@ window.searchData = [
       "Affective Lability",
       "Irritability",
       "Depressed Mood",
+      "Hopelessness",
       "Anhedonia",
       "Anxiety",
       "Difficulty Concentrating",
@@ -338702,9 +339344,10 @@ window.searchData = [
       "HP:0000712",
       "HP:0000737",
       "HP:0000716",
+      "HP:5200271",
       "HP:0012154",
       "HP:0000739",
-      "HP:0100543",
+      "HP:0031987",
       "HP:0012378",
       "HP:0002591",
       "HP:0002360",
@@ -338740,7 +339383,7 @@ window.searchData = [
     ],
     "source_file": "Premenstrual_Dysphoric_Disorder.yaml",
     "page_url": "../pages/disorders/Premenstrual_Dysphoric_Disorder.html",
-    "num_phenotypes": 13,
+    "num_phenotypes": 14,
     "num_pathophysiology": 5,
     "num_genes": 4,
     "num_treatments": 5,
@@ -351196,6 +351839,119 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "19",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "ROHHAD Syndrome",
+    "disease_id": "MONDO:0017408",
+    "category": "",
+    "parents": [
+      "endocrine system disorder"
+    ],
+    "creation_date": "2026-11-10T23:48:29Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Rapid-onset obesity with hypothalamic dysfunction, hypoventilation and autonomic dysregulation (ROHHAD) is an ultra-rare syndrome that begins in previously healthy children. Its usual sequence is rapid weight gain in early childhood, then hypothalamic dysfunction, then autonomic dysregulation and alveolar hypoventilation, which can end in cardiorespiratory arrest. A neural crest tumour, most often a ganglioneuroma, was reported in 56 per cent of the patients of one systematic review, and the syndrome is then written ROHHAD(NET), ROHHADNET or ROHHAD-NET. The cause is unknown. No disease-defining gene has been found. Autoantibodies to the protein ZSCAN1 have been found in patients with and without a tumour, but the search for an autoimmune basis has not given a definitive answer. No diagnostic biomarker is established, so the diagnosis is clinical, and with no cure the care is supportive: assisted ventilation and hormone replacement.",
+    "pathophysiology": [
+      "Neural Crest Tumour",
+      "Anti-Neural Autoimmunity",
+      "Hypothalamic Dysfunction",
+      "Impaired Central Control of Breathing",
+      "Autonomic Dysregulation"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "humoral immune response",
+      "response to carbon dioxide"
+    ],
+    "phenotypes": [
+      "Rapid-Onset Obesity",
+      "Hyperphagia",
+      "Central Hypoventilation",
+      "Obstructive Sleep Apnea",
+      "Cardiorespiratory Arrest",
+      "Hypernatremia",
+      "Hyperprolactinemia",
+      "Growth Hormone Deficiency",
+      "Central Hypothyroidism",
+      "Adrenal Insufficiency",
+      "Hypogonadotropic Hypogonadism",
+      "Precocious Puberty",
+      "Thermal Dysregulation",
+      "Strabismus",
+      "Bradycardia",
+      "Impaired Pain Sensation",
+      "Behavioural Change",
+      "Seizures",
+      "Ganglioneuroma",
+      "Ganglioneuroblastoma"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Respiratory",
+      "Cardiovascular",
+      "Endocrine",
+      "Autonomic",
+      "Ophthalmologic",
+      "Neurological",
+      "Behavioral",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001513",
+      "HP:0002591",
+      "HP:0007110",
+      "HP:0002870",
+      "HP:0006543",
+      "HP:0003228",
+      "HP:0000870",
+      "HP:0034323",
+      "HP:0011787",
+      "HP:0000846",
+      "HP:0000044",
+      "HP:0000826",
+      "HP:0004370",
+      "HP:0000486",
+      "HP:0001662",
+      "HP:0007328",
+      "HP:0000708",
+      "HP:0001250",
+      "HP:0003005",
+      "HP:0006747"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Assisted Ventilation",
+      "Hormone Replacement",
+      "Immunotherapy",
+      "Setmelanotide"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ROHHAD_Syndrome.yaml",
+    "page_url": "../pages/disorders/ROHHAD_Syndrome.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "ROS1-Rearranged Non-Small Cell Lung Cancer",
@@ -374293,8 +375049,8 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Scurvy",
@@ -380968,6 +381724,73 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "15",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Simple Bone Cyst",
+    "disease_id": "MONDO:0019372",
+    "category": "",
+    "parents": [
+      "bone neoplasm"
+    ],
+    "creation_date": "2026-11-11T01:43:19Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A simple bone cyst is a benign, fluid-filled, usually single-chambered cavity inside a bone. It is found mostly in children and adolescents, more often in boys, and most often in the metaphysis of the proximal humerus or the proximal femur. Many cysts cause no symptoms until the weakened bone breaks. The cause is not known. The older account holds that blocked venous drainage raises the pressure inside the bone and that bone-resorbing factors in the cyst fluid enlarge the cavity. Since 2020, a FUS-NFATC2 or EWSR1-NFATC2 gene fusion, or a rearrangement of FUS or EWSR1, has been found in roughly half to two thirds of the cysts tested outside the jaw (4 of 9 at the lowest and 6 of 9 at the highest in five small series), which the authors of those studies read as showing that the cyst is a neoplasm. The cysts of the jaw tested so far lack the fusion, and the same fusions occur in a rare round cell sarcoma. Treatment is debated: the one randomised trial compared two kinds of injection, and a Cochrane review found no consensus on the best procedure.",
+    "pathophysiology": [
+      "NFATC2 Gene Fusion",
+      "Venous Outflow Obstruction and Raised Intracystic Pressure",
+      "Bone Resorption by Factors in the Cyst Fluid"
+    ],
+    "cell_types": [
+      "osteoclast"
+    ],
+    "cell_type_ids": [
+      "CL:0000092"
+    ],
+    "biological_processes": [
+      "bone resorption"
+    ],
+    "phenotypes": [
+      "Bone Cyst",
+      "Pathological Fracture",
+      "Bone Pain"
+    ],
+    "phenotype_categories": [
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0012062",
+      "HP:0002756",
+      "HP:0002653"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "NFATC2"
+    ],
+    "treatments": [
+      "Conservative Management",
+      "Corticosteroid Injection",
+      "Autologous Bone Marrow Injection",
+      "Curettage and Bone Grafting",
+      "Decompression by Drilling or Cannulated Screw",
+      "Elastic Intramedullary Nailing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Simple_Bone_Cyst.yaml",
+    "page_url": "../pages/disorders/Simple_Bone_Cyst.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Simpson-Golabi-Behmel Syndrome Type 1",
@@ -400862,6 +401685,125 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "THPO-Related Thrombocythemia",
+    "disease_id": "MONDO:0008554",
+    "category": "Mendelian",
+    "parents": [
+      "familial thrombocytosis"
+    ],
+    "creation_date": "2026-11-10T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "THPO-related thrombocythemia (thrombocythemia 1, THCYT1, OMIM 187950) is an autosomal dominant hereditary thrombocythemia caused by germline gain-of-function variants in THPO, the gene for thrombopoietin. The variants lie in the 5' untranslated region or at the intron 3 splice donor and do not change the thrombopoietin protein. Each disables an inhibitory upstream open reading frame that normally keeps translation of THPO mRNA low, either directly or by skipping the exon that carries it, so the same amount of mRNA yields more thrombopoietin. Serum thrombopoietin is often raised, although in the largest series most affected members had only slightly raised or normal levels; the excess ligand overstimulates its receptor MPL on megakaryocyte progenitors, and the bone marrow shows megakaryocytic hyperplasia resembling essential thrombocythemia. Affected individuals have a lifelong raised platelet count from childhood. The best-characterized pedigree had mainly brief, aspirin-responsive microcirculatory episodes of fainting and dizziness, with thrombotic and hemorrhagic event rates similar to those in sporadic essential thrombocythemia. Congenital transverse limb defects have been reported in three families, and single family members have developed multiple myeloma, chronic myeloid leukemia or a cutaneous lymphoma.",
+    "pathophysiology": [
+      "THPO 5' Regulatory Gain-of-Function Variant",
+      "THPO Exon 3 Skipping",
+      "Loss of uORF-Mediated Translational Repression of THPO mRNA",
+      "Increased THPO mRNA Translation",
+      "Increased Thrombopoietin Production",
+      "Elevated Circulating Thrombopoietin",
+      "Excess Thrombopoietin Engagement of MPL",
+      "JAK2 Activation Downstream of MPL",
+      "STAT5 Activation Downstream of JAK2",
+      "Increased Megakaryocyte Progenitor Proliferation and Differentiation",
+      "Bone Marrow Megakaryocytic Hyperplasia",
+      "Increased Platelet Production",
+      "Reduced Platelet MPL Protein",
+      "Impaired Microcirculation",
+      "Proposed Hemangioblast Dysregulation",
+      "Embryonic Limb Vascular Disruption"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "megakaryocyte progenitor cell",
+      "hematopoietic stem cell",
+      "megakaryocyte",
+      "platelet",
+      "hemangioblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000553",
+      "CL:0000037",
+      "CL:0000556",
+      "CL:0000233",
+      "CL:0002418"
+    ],
+    "biological_processes": [
+      "mRNA splicing, via spliceosome",
+      "negative regulation of translation",
+      "translation",
+      "protein secretion",
+      "thrombopoietin-mediated signaling pathway",
+      "cytokine-mediated signaling pathway",
+      "cell surface receptor signaling pathway via STAT",
+      "megakaryocyte differentiation",
+      "platelet formation",
+      "hemangioblast cell differentiation",
+      "vasculogenesis"
+    ],
+    "phenotypes": [
+      "Thrombocytosis",
+      "Elevated circulating thrombopoietin concentration",
+      "Increased megakaryocyte count",
+      "Syncope",
+      "Dizziness",
+      "Abnormal thrombosis",
+      "Abnormal bleeding",
+      "Transverse terminal limb defect",
+      "Splenomegaly",
+      "Transient myeloproliferative syndrome"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Laboratory",
+      "Neurological",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Immune",
+      "Limbs",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001894",
+      "HP:0034600",
+      "HP:0005513",
+      "HP:0001279",
+      "HP:0002321",
+      "HP:0001977",
+      "HP:0001892",
+      "HP:6000818",
+      "HP:0001744",
+      "HP:0005534"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "THPO"
+    ],
+    "treatments": [
+      "Low-Dose Aspirin"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "THPO-Related_Thrombocythemia.yaml",
+    "page_url": "../pages/disorders/THPO-Related_Thrombocythemia.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 16,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "14"
+  },
+  {
     "name": "THUMPD1-Related Neurodevelopmental Disorder with Speech Delay and Variable Ocular Anomalies",
     "disease_id": "MONDO:0859272",
     "category": "Mendelian",
@@ -404194,6 +405136,136 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "20",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "TULP1-Related Retinopathy",
+    "disease_id": "MONDO:0013457",
+    "category": "Mendelian",
+    "parents": [
+      "Leber Congenital Amaurosis",
+      "Retinitis Pigmentosa",
+      "Inherited Retinal Dystrophy"
+    ],
+    "creation_date": "2026-11-10T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "LCA15",
+      "RP14"
+    ],
+    "description": "TULP1-related retinopathy is an autosomal recessive, early-onset inherited retinal dystrophy caused by biallelic variants in TULP1, which encodes tubby-like protein 1, a membrane- and actin-associated cytoplasmic protein made by rod and cone photoreceptors. It is one disease spectrum with two named presentations: Leber congenital amaurosis 15 (LCA15), with nystagmus and severe visual impairment from infancy, and retinitis pigmentosa 14 (RP14), an early-onset rod-cone dystrophy; the same allele can give both labels within one family. TULP1 sits in the inner segment, the cell body and the synaptic terminal, and is excluded from the outer segment. In Tulp1-null mice, newly made rhodopsin and cone opsins are misrouted to the inner segment plasma membrane and shed as extracellular vesicles, the guanylate cyclase carrier pathway is mislocalized, and the photoreceptor ribbon synapse is malformed with loss of its endocytic machinery, all before the photoreceptors die. An endoplasmic reticulum unfolded protein response is active in null and missense-mutant retinas and drives photoreceptor apoptosis. Patients have nystagmus, acuity of 20/200 or worse, no measurable rod function at any age, and undetectable or microvolt-level electroretinograms, while the fundus can look nearly normal in infancy before a peripheral pigmentary retinopathy, arteriolar attenuation and a bull's eye or perifoveal maculopathy develop. A small central island of foveal cones survives into childhood but is less sensitive than its preserved structure predicts. No treatment exists; photoreceptor-targeted gene supplementation gave little benefit in the knockout mouse.",
+    "pathophysiology": [
+      "Biallelic Pathogenic TULP1 Variants",
+      "Loss of TULP1 Function in Photoreceptors",
+      "PRCD Outer Segment Mislocalization",
+      "Rod and Cone Opsin Mistrafficking",
+      "Extracellular Rhodopsin-Laden Vesicle Accumulation",
+      "Guanylate Cyclase Carrier Pathway Mislocalization",
+      "Failed Light-Driven Arrestin Translocation",
+      "Loss of Periactive Zone Endocytic Machinery",
+      "Photoreceptor Synaptic Ribbon Malformation",
+      "Stunted Bipolar Cell Dendrites",
+      "Misfolded Missense TULP1 Retained in the Endoplasmic Reticulum",
+      "Photoreceptor Endoplasmic Reticulum Unfolded Protein Response",
+      "Photoreceptor Dysfunction Preceding Structural Loss",
+      "Rod Photoreceptor Apoptosis",
+      "Cone Photoreceptor Degeneration",
+      "Progressive Outer Retinal Layer Loss",
+      "Progressive Loss of Visual Function",
+      "Inner Retinal Neuron Alterations"
+    ],
+    "cell_types": [
+      "retinal rod cell",
+      "retinal cone cell",
+      "retinal bipolar neuron",
+      "photoreceptor cell",
+      "amacrine cell",
+      "retinal ganglion cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573",
+      "CL:0000748",
+      "CL:0000210",
+      "CL:0000561",
+      "CL:0000740"
+    ],
+    "biological_processes": [
+      "photoreceptor cell maintenance",
+      "protein localization to photoreceptor outer segment",
+      "opsin transport",
+      "synaptic vesicle endocytosis",
+      "dendrite development",
+      "endoplasmic reticulum unfolded protein response",
+      "IRE1-mediated unfolded protein response",
+      "PERK-mediated unfolded protein response",
+      "phototransduction",
+      "retinal rod cell apoptotic process",
+      "visual perception"
+    ],
+    "phenotypes": [
+      "Congenital nystagmus",
+      "Severely reduced visual acuity",
+      "Undetectable light- and dark-adapted electroretinogram",
+      "Dyschromatopsia",
+      "Bull's eye maculopathy",
+      "Pigmentary retinopathy",
+      "Spicular pigmentation of the retina",
+      "Attenuation of retinal blood vessels",
+      "Perifoveal ring of hyperautofluorescence",
+      "Hyperautofluorescent retinal lesion",
+      "Retinal thinning on OCT",
+      "Photoreceptor layer loss on macular OCT",
+      "Progressive visual loss",
+      "Visual field defect",
+      "Nyctalopia",
+      "Hypermetropia",
+      "Myopia"
+    ],
+    "phenotype_categories": [
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye"
+    ],
+    "phenotype_ids": [
+      "HP:0006934",
+      "HP:0001141",
+      "HP:0007688",
+      "HP:0007641",
+      "HP:0011504",
+      "HP:0000580",
+      "HP:0007737",
+      "HP:0007843",
+      "HP:0030629",
+      "HP:0025158",
+      "HP:0030329",
+      "HP:0030609",
+      "HP:0000529",
+      "HP:0001123",
+      "HP:0000662",
+      "HP:0000540",
+      "HP:0000545"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "TULP1"
+    ],
+    "treatments": [
+      "TULP1 Gene Supplementation (preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TULP1-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/TULP1-Related_Retinopathy.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 18,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "52",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Taeniasis/cysticercosis",
@@ -434187,19 +435259,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4028,
-  "total_subtypes": 5053,
-  "total_disorders_and_subtypes": 9081,
-  "total_unique_evidence_sources": 59702,
-  "total_unique_publications": 55839,
+  "total_disorder_pages": 4038,
+  "total_subtypes": 5056,
+  "total_disorders_and_subtypes": 9094,
+  "total_unique_evidence_sources": 60037,
+  "total_unique_publications": 56167,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4026,
-  "total_unique_pathological_events": 26354,
-  "total_modules": 231,
-  "total_research_reports": 4140,
+  "total_pathographs": 4036,
+  "total_unique_pathological_events": 26452,
+  "total_modules": 232,
+  "total_research_reports": 4147,
   "total_classifications": 21,
   "total_comorbidities": 55,
-  "total_groupings": 131
+  "total_groupings": 133
 };
 window.dispatchEvent(new Event('searchDataReady'));
