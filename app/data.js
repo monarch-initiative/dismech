@@ -46704,6 +46704,88 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Autosomal Recessive Nonsyndromic Hearing Loss 7",
+    "disease_id": "MONDO:0010967",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Recessive Nonsyndromic Hearing Loss"
+    ],
+    "creation_date": "2026-11-10T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DFNB7/11 is congenital, bilateral, nonsyndromic sensorineural hearing loss caused by biallelic pathogenic variants in TMC1, the gene encoding the pore-forming subunit of the mechanoelectrical transduction (MET) channel at the tips of cochlear hair-cell stereocilia. The DFNB7 and DFNB11 loci on chromosome 9q were mapped independently and resolved to the same gene when TMC1 was positionally cloned in 2002. Loss of TMC1 removes the channel pore, so sound-evoked transduction current never develops in mature auditory hair cells; the hair cells then, in mouse models of the disease, fail to acquire their adult electrophysiological properties and degenerate; the cochlea produces no sound-evoked neural output. Reported recessive genotypes span nonsense, frameshift, splice-site, copy-number, missense and in-frame alleles, and the severity is not read off the allele class: truncating and splice genotypes usually give severe-to-profound loss from birth, hypomorphic missense and in-frame alleles that retain residual channel function are associated with moderate-to-severe or moderate-to-profound loss, and the recurrent nonsense allele p.Arg34Ter appears in families at both ends of that range. Vestibular function is usually described as spared, which mouse work attributes to persistent TMC2 expression in vestibular hair cells, but the human evidence is a single tested child who had peripheral vestibular loss, so sparing is not adopted here as a human phenotype. Management is auditory rehabilitation - hearing aids where residual hearing allows, and cochlear implantation for severe-to-profound loss, with good reported speech outcomes after early implantation. AAV TMC1 gene replacement restores auditory function in mouse models but has not entered human trials. The allelic dominant disease DFNA36 (MONDO:0011708), which is postlingual and progressive, is a separate entity and is out of scope for this entry.",
+    "pathophysiology": [
+      "TMC1 Biallelic Loss of Function",
+      "Loss of the TMC1 Pore Subunit from the Stereociliary MET Complex",
+      "Absent Hair Cell Mechanoelectrical Transduction Current",
+      "Failed Hair Cell Functional Maturation",
+      "Cochlear Hair Cell Degeneration",
+      "Loss of Sound-Evoked Cochlear Output",
+      "Residual MET Channel Function from Hypomorphic TMC1 Alleles"
+    ],
+    "cell_types": [
+      "cochlear inner hair cell",
+      "cochlear outer hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000589",
+      "CL:0000601"
+    ],
+    "biological_processes": [
+      "detection of mechanical stimulus involved in sensory perception of sound",
+      "sensory perception of sound",
+      "apoptotic process"
+    ],
+    "phenotypes": [
+      "Sensorineural hearing impairment",
+      "Congenital sensorineural hearing impairment",
+      "Bilateral sensorineural hearing impairment",
+      "Profound hearing impairment",
+      "Severe hearing impairment",
+      "Moderate hearing impairment"
+    ],
+    "phenotype_categories": [
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0000407",
+      "HP:0008527",
+      "HP:0008619",
+      "HP:0012715",
+      "HP:0012714",
+      "HP:0012713"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TMC1"
+    ],
+    "treatments": [
+      "Cochlear Implantation",
+      "Hearing Aids",
+      "Auditory and Speech Rehabilitation",
+      "Genetic Counseling and Carrier Testing",
+      "AAV-Mediated TMC1 Gene Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_7.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_7.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Autosomal Recessive Nonsyndromic Hearing Loss 70",
     "disease_id": "MONDO:0013978",
     "category": "Mendelian",
@@ -132777,10 +132859,15 @@ window.searchData = [
     "pathophysiology": [
       "EWSR1-WT1 Fusion Oncogene",
       "PDGFA Activation",
+      "Desmoplastic Stromal Reaction",
       "Multiphenotypic Differentiation"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
     "biological_processes": [
       "positive regulation of transcription by RNA polymerase II",
       "cell population proliferation",
@@ -132833,11 +132920,11 @@ window.searchData = [
     "source_file": "Desmoplastic_Small_Round_Cell_Tumor.yaml",
     "page_url": "../pages/disorders/Desmoplastic_Small_Round_Cell_Tumor.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "3",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Developmental and Epileptic Encephalopathy 116",
@@ -161550,6 +161637,113 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "21",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Familial Erythrocytosis 6",
+    "disease_id": "MONDO:0054801",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Erythrocytosis",
+      "Congenital Secondary Erythrocytosis"
+    ],
+    "creation_date": "2026-11-10T18:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Familial erythrocytosis 6 (ECYT6, OMIM 617980) is an autosomal dominant erythrocytosis caused by heterozygous germline missense variants in HBB that produce a beta-globin chain with abnormally high oxygen affinity (for example Hb Bethesda, Hb Malmo, Hb San Diego, Hb Olympia, Hb Hiroshima, Hb Crete and Hb Koln). Most of the substituted residues sit at the allosteric machinery of the tetramer rather than in the heme pocket: the alpha1-beta2 sliding interface, the C-terminal residues that anchor the salt bridges of the deoxy (T) state, and the central-cavity site that binds 2,3-bisphosphoglycerate. A minority act instead on the environment of the heme and the oxygen binding site itself; those are not modelled separately here. The common consequence is a shift of the allosteric equilibrium toward the oxygenated (R) state, so the oxygen dissociation curve is displaced to the left and the p50 falls. Hemoglobin loads oxygen normally in the lung but releases less of it in the tissues; the resulting tissue hypoxia is sensed in the kidney and erythropoietin output rises, expanding the erythroid compartment until the raised red cell mass compensates for the impaired unloading. Patients therefore present with a lifelong, usually isolated erythrocytosis, with a normal or only modestly raised serum erythropoietin, normal arterial oxygen saturation, no JAK2 mutation, and a family history that follows a dominant pattern. Most carriers are asymptomatic; some report headache, vertigo, tinnitus or paresthesia attributed to hyperviscosity, and thrombotic events have been recorded in a minority. How much of that burden belongs to the erythrocytosis is unsettled: across 665 reported individuals the hematocrit was the only independent correlate of hyperviscosity symptoms, while thrombosis tracked age and conventional cardiovascular risk and not the hematocrit, and an earlier single-centre series of 41 patients found no correlation with either. The erythrocytosis is best read as a compensation for the left-shifted dissociation curve, which is why phlebotomy is used for symptom control rather than to normalize the hematocrit, and why the series that looked for a benefit found little. Diagnosis rests on a low p50 with a normal arterial oxygen saturation plus beta-globin sequencing: a third of high-affinity variants are electrophoretically silent, so a normal hemoglobin separation does not exclude the diagnosis, and the commonest clinical error is a misdiagnosis of polycythemia vera followed by unnecessary cytoreduction. SCOPE NOTE: this entry covers the HBB (beta-globin) form, the gene MONDO asserts as causal for MONDO:0054801 and the gene ClinGen curates as Definitive against that identifier. The alpha-globin high-affinity variants are a separate concept (MONDO:0054802, erythrocytosis familial 7, OMIM 617981; ClinGen Moderate for HBA1 and Limited for HBA2) and are not curated here.",
+    "pathophysiology": [
+      "HBB High-Oxygen-Affinity Missense Variant",
+      "Disruption of the Alpha1-Beta2 Subunit Interface",
+      "Loss of C-Terminal Salt Bridges That Stabilise the T State",
+      "Impaired Binding of Allosteric Effectors",
+      "Loss of Cooperative Oxygen Binding",
+      "Stabilisation of the R (Oxy) Quaternary State",
+      "Increased Hemoglobin Oxygen Affinity with Reduced p50",
+      "Reduced Oxygen Unloading to Tissues",
+      "Hypoxia Sensing by Renal Erythropoietin-Producing Cells",
+      "Increased Erythropoietin Output",
+      "Erythroid Progenitor Expansion",
+      "Increased Red Cell Mass",
+      "Increased Whole Blood Viscosity"
+    ],
+    "cell_types": [
+      "EPO-producing kidney interstitial fibroblast",
+      "erythroid progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:1000692",
+      "CL:0000038"
+    ],
+    "biological_processes": [
+      "oxygen transport to tissues",
+      "cellular response to hypoxia driving EPO transcription",
+      "erythropoietin biosynthesis",
+      "erythrocyte differentiation",
+      "erythrocyte homeostasis set at an expanded red cell mass"
+    ],
+    "phenotypes": [
+      "Increased hemoglobin oxygen affinity",
+      "Polycythemia",
+      "Increased hematocrit",
+      "Increased circulating hemoglobin concentration",
+      "Headache",
+      "Vertigo",
+      "Paresthesia",
+      "Tinnitus",
+      "Splenomegaly",
+      "Abnormal thrombosis"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Hematological",
+      "Phenotype"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Immune",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0004825",
+      "HP:0001901",
+      "HP:0001899",
+      "HP:0001900",
+      "HP:0002315",
+      "HP:0002321",
+      "HP:0003401",
+      "HP:0000360",
+      "HP:0001744",
+      "HP:0001977"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "HBB high oxygen affinity missense variants"
+    ],
+    "treatments": [
+      "Therapeutic phlebotomy for symptom control",
+      "Low-dose aspirin and cardiovascular risk reduction",
+      "Avoidance of cytoreductive therapy",
+      "Smoking cessation, physical activity and avoidance of blood donation",
+      "Genetic counseling and cascade testing"
+    ],
+    "environmental": [
+      "Tobacco smoking"
+    ],
+    "biochemical": [],
+    "source_file": "Familial_Erythrocytosis_6.yaml",
+    "page_url": "../pages/disorders/Familial_Erythrocytosis_6.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "12"
   },
   {
     "name": "Familial Expansile Osteolysis",
@@ -400940,6 +401134,125 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "THPO-Related Thrombocythemia",
+    "disease_id": "MONDO:0008554",
+    "category": "Mendelian",
+    "parents": [
+      "familial thrombocytosis"
+    ],
+    "creation_date": "2026-11-10T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "THPO-related thrombocythemia (thrombocythemia 1, THCYT1, OMIM 187950) is an autosomal dominant hereditary thrombocythemia caused by germline gain-of-function variants in THPO, the gene for thrombopoietin. The variants lie in the 5' untranslated region or at the intron 3 splice donor and do not change the thrombopoietin protein. Each disables an inhibitory upstream open reading frame that normally keeps translation of THPO mRNA low, either directly or by skipping the exon that carries it, so the same amount of mRNA yields more thrombopoietin. Serum thrombopoietin is often raised, although in the largest series most affected members had only slightly raised or normal levels; the excess ligand overstimulates its receptor MPL on megakaryocyte progenitors, and the bone marrow shows megakaryocytic hyperplasia resembling essential thrombocythemia. Affected individuals have a lifelong raised platelet count from childhood. The best-characterized pedigree had mainly brief, aspirin-responsive microcirculatory episodes of fainting and dizziness, with thrombotic and hemorrhagic event rates similar to those in sporadic essential thrombocythemia. Congenital transverse limb defects have been reported in three families, and single family members have developed multiple myeloma, chronic myeloid leukemia or a cutaneous lymphoma.",
+    "pathophysiology": [
+      "THPO 5' Regulatory Gain-of-Function Variant",
+      "THPO Exon 3 Skipping",
+      "Loss of uORF-Mediated Translational Repression of THPO mRNA",
+      "Increased THPO mRNA Translation",
+      "Increased Thrombopoietin Production",
+      "Elevated Circulating Thrombopoietin",
+      "Excess Thrombopoietin Engagement of MPL",
+      "JAK2 Activation Downstream of MPL",
+      "STAT5 Activation Downstream of JAK2",
+      "Increased Megakaryocyte Progenitor Proliferation and Differentiation",
+      "Bone Marrow Megakaryocytic Hyperplasia",
+      "Increased Platelet Production",
+      "Reduced Platelet MPL Protein",
+      "Impaired Microcirculation",
+      "Proposed Hemangioblast Dysregulation",
+      "Embryonic Limb Vascular Disruption"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "megakaryocyte progenitor cell",
+      "hematopoietic stem cell",
+      "megakaryocyte",
+      "platelet",
+      "hemangioblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000553",
+      "CL:0000037",
+      "CL:0000556",
+      "CL:0000233",
+      "CL:0002418"
+    ],
+    "biological_processes": [
+      "mRNA splicing, via spliceosome",
+      "negative regulation of translation",
+      "translation",
+      "protein secretion",
+      "thrombopoietin-mediated signaling pathway",
+      "cytokine-mediated signaling pathway",
+      "cell surface receptor signaling pathway via STAT",
+      "megakaryocyte differentiation",
+      "platelet formation",
+      "hemangioblast cell differentiation",
+      "vasculogenesis"
+    ],
+    "phenotypes": [
+      "Thrombocytosis",
+      "Elevated circulating thrombopoietin concentration",
+      "Increased megakaryocyte count",
+      "Syncope",
+      "Dizziness",
+      "Abnormal thrombosis",
+      "Abnormal bleeding",
+      "Transverse terminal limb defect",
+      "Splenomegaly",
+      "Transient myeloproliferative syndrome"
+    ],
+    "phenotype_categories": [
+      "Hematological",
+      "Laboratory",
+      "Neurological",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Immune",
+      "Limbs",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001894",
+      "HP:0034600",
+      "HP:0005513",
+      "HP:0001279",
+      "HP:0002321",
+      "HP:0001977",
+      "HP:0001892",
+      "HP:6000818",
+      "HP:0001744",
+      "HP:0005534"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "THPO"
+    ],
+    "treatments": [
+      "Low-Dose Aspirin"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "THPO-Related_Thrombocythemia.yaml",
+    "page_url": "../pages/disorders/THPO-Related_Thrombocythemia.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 16,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "14"
+  },
+  {
     "name": "THUMPD1-Related Neurodevelopmental Disorder with Speech Delay and Variable Ocular Anomalies",
     "disease_id": "MONDO:0859272",
     "category": "Mendelian",
@@ -434265,17 +434578,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4029,
+  "total_disorder_pages": 4032,
   "total_subtypes": 5053,
-  "total_disorders_and_subtypes": 9082,
-  "total_unique_evidence_sources": 59719,
-  "total_unique_publications": 55856,
+  "total_disorders_and_subtypes": 9085,
+  "total_unique_evidence_sources": 59803,
+  "total_unique_publications": 55938,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4027,
-  "total_unique_pathological_events": 26358,
+  "total_pathographs": 4030,
+  "total_unique_pathological_events": 26391,
   "total_modules": 231,
-  "total_research_reports": 4141,
+  "total_research_reports": 4144,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 133
