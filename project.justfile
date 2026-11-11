@@ -2959,21 +2959,25 @@ dr_validation := "--validate-references --validation-cache-dir references_cache"
 # Results are written into the report itself: a `## Term Validation` section at
 # the end of the body, and a `term_validation:` summary in the YAML frontmatter.
 #
-# Two choices worth knowing about, both settled by testing rather than taste:
+# Which ontologies, and how each is looked up, is set in conf/dr_ontologies.yaml
+# (needs deep-research-client >= 0.2.14). Passing it also appends a section to
+# the research prompt asking for terms from those ontologies only, and a CURIE
+# from any other ontology is reported as not configured rather than looked up.
+# Two choices in that file worth knowing about, both settled by testing rather
+# than taste:
 #
-#   * NO `--term-oak-config conf/oak_config.yaml`. Our config routes the prefixes
-#     reports actually cite (MONDO, HP, GO, CL, UBERON, CHEBI, NCIT) to OLS, which
-#     is what the upstream default `ols:` adapter does anyway -- but it also maps
+#   * NOT conf/oak_config.yaml. That config routes the prefixes reports
+#     actually cite (MONDO, HP, GO, CL, UBERON, CHEBI, NCIT) to OLS, which is
+#     what the default `ols:` adapter does anyway -- but it also maps
 #     HGNC/GENO/ECTO/XCO to `sqlite:obo:`, and passing it made a research run
-#     download a 380 MB hgnc.db mid-validation. Pass it yourself for a run where
-#     ECTO or GENO terms matter and you will take the local builds.
-#   * `--term-skip-prefix HGNC`, because gene CURIEs cannot be checked reliably
-#     either way. `sqlite:obo:hgnc` holds them under the lowercase `hgnc:` this
-#     repo uses, so the uppercase `HGNC:4283` a report writes resolves to nothing
-#     and is reported as invented; through `ols:` the same CURIE comes back as
-#     "mitochondrial chromosome". Both are false alarms on a real gene (GJB1).
-#     Skipping reports the prefix as unverifiable instead. Matching is
-#     case-insensitive, so this covers `hgnc:` too.
+#     download a 380 MB hgnc.db mid-validation.
+#   * HGNC is listed with `""`: named in the prompt, never checked, because
+#     gene CURIEs cannot be checked reliably either way. `sqlite:obo:hgnc` holds
+#     them under the lowercase `hgnc:` this repo uses, so the uppercase
+#     `HGNC:4283` a report writes resolves to nothing and is reported as
+#     invented; through `ols:` the same CURIE comes back as "mitochondrial
+#     chromosome". Both are false alarms on a real gene (GJB1). The prefix is
+#     reported as unverifiable instead.
 #
 # Like reference validation, this runs AFTER the report is written to disk, and
 # is deliberately not gated: a bad CURIE in a provider artifact is information,
@@ -2982,7 +2986,7 @@ dr_validation := "--validate-references --validation-cache-dir references_cache"
 #
 # To skip it (quick iteration, or no network):
 #   just dr_term_validation='' research-disorder falcon Marfan_Syndrome
-dr_term_validation := "--validate-terms --term-cache-dir terms_cache --term-skip-prefix HGNC"
+dr_term_validation := "--ontology-config conf/dr_ontologies.yaml --term-cache-dir terms_cache"
 
 # Provider fallback (`--fallback`, new in deep-research-client 0.2.11): let
 # another provider take the job when the one you asked for has no credentials or
@@ -3771,7 +3775,7 @@ validate-research-reference +args:
 validate-research-terms +args:
     {{dr_client}} validate-terms \
         --cache-dir terms_cache \
-        --skip-prefix HGNC \
+        --ontology-config conf/dr_ontologies.yaml \
         --in-place \
         {{args}}
 
