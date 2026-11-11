@@ -1923,6 +1923,7 @@ def _build_module_collection_context(
                 "name": name,
                 "display_name": data.get("display_name"),
                 "description": data.get("description"),
+                "graphical_abstract": data.get("graphical_abstract"),
                 "collection_type": data.get("collection_type"),
                 "creation_date": data.get("creation_date"),
                 "evidence": data.get("evidence") or [],
@@ -3045,6 +3046,8 @@ def render_module(
     for hypothesis in module.get("mechanistic_hypotheses") or []:
         if isinstance(hypothesis, dict):
             hypothesis["_evidence_tally"] = _hypothesis_evidence_tally(hypothesis)
+    _annotate_card_anchors(module)
+    semantic_ref_index = _build_semantic_ref_index(module)
     yaml_content = yaml_path.read_text()
 
     if template_path is None:
@@ -3056,6 +3059,9 @@ def render_module(
 
     env = _get_shared_env(str(template_dir))
     env.filters["curie_to_url"] = curie_to_url
+    env.filters["semantic_ref_href"] = lambda ref: (
+        semantic_ref_index.get(str(ref), "") if ref is not None else ""
+    )
     template = env.get_template(template_name)
 
     source_file = (
@@ -5697,6 +5703,7 @@ def _project_summary(
         "href": f"{md_path.stem}.html",
         "title": title,
         "description": metadata.get("description"),
+        "graphical_abstract": metadata.get("graphical_abstract"),
         "status": status,
         "status_label": _PROJECT_STATUS_LABELS.get(status, status.title() or None),
         "tags": [str(tag) for tag in (metadata.get("tags") or [])],
@@ -5749,6 +5756,15 @@ def _render_project_html(
 
     env = _get_shared_env(str(template_dir))
     env.filters["curie_to_url"] = curie_to_url
+    project_ref_index = {
+        f"{kind}#{entry['token']}": entry["href"]
+        for kind in _PROJECT_ENTITY_KINDS
+        for entry in entities.get(kind, [])
+        if entry.get("href")
+    }
+    env.filters["semantic_ref_href"] = lambda ref: (
+        project_ref_index.get(str(ref), "") if ref is not None else ""
+    )
     template = env.get_template(template_name)
 
     source_file = (

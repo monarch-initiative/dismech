@@ -1,0 +1,145 @@
+{# Shared graphical abstract card + checkable pathograph legend + lightbox partial.
+   Expects `ga_value` (string path or GraphicalAbstract mapping with `image_path`/`path`,
+   `archetype`, `caption`, `legend`), `ga_title` (string for alt text),
+   optional `ga_root` (default '../../'), and optional `ga_has_pathograph` (bool). #}
+{% if ga_value %}
+{% set ga_raw_path = (ga_value.get('image_path') or ga_value.get('path')) if ga_value is mapping else ga_value %}
+{% set ga_caption = ga_value.get('caption') if ga_value is mapping else none %}
+{% set ga_archetype = ga_value.get('archetype') if ga_value is mapping else none %}
+{% set ga_todo = ga_value.get('todo') if ga_value is mapping else none %}
+{% set ga_legend = ga_value.get('legend') if ga_value is mapping else none %}
+{% if ga_raw_path %}
+{% set ga_prefix = '' if (ga_raw_path.startswith('http://') or ga_raw_path.startswith('https://') or ga_raw_path.startswith('/') or ga_raw_path.startswith('../')) else (ga_root | default('../../')) %}
+{% set ga_src = ga_prefix ~ ga_raw_path %}
+{% set ga_icons = {
+    'pathophysiology': '⚙',
+    'treatments': '💊',
+    'treatment': '💊',
+    'experimental_models': '🧫',
+    'experimental_model': '🧫',
+    'animal_models': '🐁',
+    'phenotypes': '◉',
+    'phenotype': '◉',
+    'genetic': '🧬',
+    'variants': '🧬',
+    'modules': '📦',
+    'diseases': '🩺',
+    'groupings': '🗂'
+} %}
+<section class="graphical-abstract-card" id="graphical-abstract" aria-label="Graphical abstract">
+    <div class="graphical-abstract-header">
+        <div class="graphical-abstract-label-group">
+            <span class="graphical-abstract-label">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+                Graphical Abstract
+            </span>
+            {% if ga_archetype %}
+            <span class="graphical-abstract-archetype">{{ ga_archetype | replace('_', ' ') }}</span>
+            {% endif %}
+        </div>
+        <div class="graphical-abstract-actions">
+            {% if ga_has_pathograph %}
+            <a class="graphical-abstract-jump-btn" href="#pathograph">Compare with Pathograph &darr;</a>
+            {% endif %}
+            <button type="button" class="graphical-abstract-expand-btn" onclick="openGraphicalAbstractLightbox('{{ ga_src | e }}', '{{ (ga_title or 'Graphical abstract') | e }}')">
+                Expand full resolution ⤢
+            </button>
+        </div>
+    </div>
+    <figure class="graphical-abstract-figure" onclick="openGraphicalAbstractLightbox('{{ ga_src | e }}', '{{ (ga_title or 'Graphical abstract') | e }}')">
+        <img src="{{ ga_src }}" alt="Graphical abstract: {{ ga_title or 'Overview' }}" loading="eager">
+    </figure>
+    {% if ga_caption %}
+    <div class="graphical-abstract-caption">{{ ga_caption }}</div>
+    {% endif %}
+    {% if ga_todo %}
+    <div class="ga-todo-banner" role="status">
+        <strong>&#9888; Figure Redraw Pending (TODO):</strong> {{ ga_todo }}
+    </div>
+    {% endif %}
+    {% if ga_legend %}
+    {% set ref_count = namespace(n=0, todos=0) %}
+    {% for item in ga_legend %}
+        {% set ref_count.n = ref_count.n + ((item.attaches_to or []) | length) %}
+        {% if item.todo or ((item.panel or '') | upper).startswith('TODO') %}
+            {% set ref_count.todos = ref_count.todos + 1 %}
+        {% endif %}
+    {% endfor %}
+    <details class="ga-legend-details" open>
+        <summary class="ga-legend-summary">
+            <span>
+                Figure Legend &amp; Pathograph Node Alignment ({{ ga_legend | length }} panel{{ '' if (ga_legend | length) == 1 else 's' }})
+                {% if ref_count.todos > 0 %}
+                <span class="ga-todo-pill">&#9888; {{ ref_count.todos }} redraw TODO{{ '' if ref_count.todos == 1 else 's' }}</span>
+                {% endif %}
+            </span>
+            <span class="ga-legend-count">{{ ref_count.n }} linked node{{ '' if ref_count.n == 1 else 's' }}</span>
+        </summary>
+        <div class="ga-legend-table">
+            {% for item in ga_legend %}
+            {% set is_todo = (item.todo is defined and item.todo) or ((item.panel or '') | upper).startswith('TODO') %}
+            <div class="ga-legend-row{{ ' ga-legend-row-todo' if is_todo else '' }}">
+                <div>
+                    <span class="ga-panel-badge{{ ' ga-panel-badge-todo' if is_todo else '' }}">{{ item.panel }}</span>
+                    {% if is_todo and not ((item.panel or '') | upper).startswith('TODO') %}
+                    <span class="ga-todo-pill">&#9888; TODO</span>
+                    {% endif %}
+                </div>
+                <div class="ga-panel-depicts">
+                    {% if item.depicts %}<div>{{ item.depicts }}</div>{% endif %}
+                    {% if item.todo %}
+                    <div class="ga-panel-todo-note"><strong>&#9888; Redraw TODO:</strong> {{ item.todo }}</div>
+                    {% endif %}
+                </div>
+                <div class="ga-panel-refs">
+                    {% for ref in item.attaches_to or [] %}
+                    {% set ref_kind = ref.split('#')[0] if '#' in ref else 'pathophysiology' %}
+                    {% set ref_name = ref.split('#', 1)[1] if '#' in ref else ref %}
+                    {% set ref_icon = ga_icons.get(ref_kind, '⚙') %}
+                    {% set ref_href = (ref | semantic_ref_href) if 'semantic_ref_href' is filter else '' %}
+                    {% if ref_href %}
+                    <a class="ga-node-chip ga-chip-{{ ref_kind }}" href="{{ ref_href }}" title="Jump to {{ ref }}">
+                        <span>{{ ref_icon }}</span>
+                        <span>{{ ref_name }}</span>
+                    </a>
+                    {% else %}
+                    <span class="ga-node-chip ga-chip-{{ ref_kind }}" title="{{ ref }}">
+                        <span>{{ ref_icon }}</span>
+                        <span>{{ ref_name }}</span>
+                    </span>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </details>
+    {% endif %}
+</section>
+<div class="ga-lightbox" id="ga-lightbox" role="dialog" aria-modal="true" aria-label="Full-resolution graphical abstract" onclick="if (event.target === this) closeGraphicalAbstractLightbox()">
+    <button type="button" class="ga-lightbox-close" onclick="closeGraphicalAbstractLightbox()">✕ Close (Esc)</button>
+    <img id="ga-lightbox-img" src="" alt="">
+</div>
+<script>
+function openGraphicalAbstractLightbox(src, alt) {
+    var box = document.getElementById('ga-lightbox');
+    var img = document.getElementById('ga-lightbox-img');
+    if (!box || !img) return;
+    img.src = src;
+    img.alt = 'Graphical abstract: ' + (alt || '');
+    box.classList.add('open');
+}
+function closeGraphicalAbstractLightbox() {
+    var box = document.getElementById('ga-lightbox');
+    if (box) box.classList.remove('open');
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeGraphicalAbstractLightbox();
+});
+</script>
+{% endif %}
+{% endif %}

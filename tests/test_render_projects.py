@@ -233,3 +233,160 @@ def test_docs_exclusion_list_matches_mkdocs_config() -> None:
     # relative to docs/ ("issues/").
     expected = {entry.lstrip("/") for entry in block}
     assert set(_DOCS_EXCLUDED_FROM_SITE) == expected
+
+
+def test_render_graphical_abstract_on_project_and_module(tmp_path: Path) -> None:
+    """``graphical_abstract`` renders its image and checkable ``legend`` chips on project and module pages."""
+    from dismech.render import render_module
+
+    dirs = _fixture(tmp_path)
+    project_md = tmp_path / "projects" / "GA_DEMO.md"
+    _write(
+        project_md,
+        "---\n"
+        "title: GA Demo Project\n"
+        "diseases:\n"
+        "  - Test_Disease\n"
+        "modules:\n"
+        "  - test_module\n"
+        "graphical_abstract:\n"
+        "  image_path: assets/graphical_abstracts/MEMBRANE_CONTACT_SITES.png\n"
+        "  archetype: RADIAL_STRUCTURAL_HUB\n"
+        "  caption: Test project graphical abstract caption.\n"
+        "  legend:\n"
+        "    - panel: A. Hub\n"
+        "      depicts: Hub panel description\n"
+        "      attaches_to:\n"
+        "        - modules#test_module\n"
+        "        - diseases#Test_Disease\n"
+        "---\n\n"
+        "# GA Demo Project\n",
+    )
+    proj_out = tmp_path / "pages" / "projects" / "GA_DEMO.html"
+    render_project(
+        project_md,
+        proj_out,
+        disorders_dir=dirs["disorders"],
+        modules_dir=dirs["modules"],
+        groupings_dir=dirs["groupings"],
+    )
+    proj_html = proj_out.read_text()
+    assert 'id="graphical-abstract"' in proj_html
+    assert (
+        'src="../../assets/graphical_abstracts/MEMBRANE_CONTACT_SITES.png"' in proj_html
+    )
+    assert 'href="../modules/test_module.html"' in proj_html
+    assert 'href="../disorders/Test_Disease.html"' in proj_html
+
+    module_yaml = dirs["modules"] / "ga_module.yaml"
+    _write_yaml(
+        module_yaml,
+        {
+            "name": "GA Module",
+            "category": "Module",
+            "pathophysiology": [
+                {"name": "Trigger Node", "role": "trigger"},
+            ],
+            "graphical_abstract": {
+                "image_path": "assets/graphical_abstracts/cgas_sting_pathway_activation.png",
+                "archetype": "HYBRID_SUBCELLULAR_CUTAWAY",
+                "caption": "Test module graphical abstract caption.",
+                "legend": [
+                    {
+                        "panel": "1. Trigger",
+                        "depicts": "Trigger panel description",
+                        "attaches_to": ["pathophysiology#Trigger Node"],
+                    }
+                ],
+            },
+        },
+    )
+    mod_out = tmp_path / "pages" / "modules" / "ga_module.html"
+    render_module(module_yaml, mod_out, disorders_dir=dirs["disorders"])
+    mod_html = mod_out.read_text()
+    assert 'id="graphical-abstract"' in mod_html
+    assert 'href="#graphical-abstract">Graphical Abstract</a>' in mod_html
+    assert (
+        'src="../../assets/graphical_abstracts/cgas_sting_pathway_activation.png"'
+        in mod_html
+    )
+    assert 'href="#module-pathophysiology-trigger-node"' in mod_html
+
+
+def test_graphical_abstract_todo_escape_hatch(tmp_path: Path) -> None:
+    """A ``todo`` (or ``panel: TODO``) legend entry bypasses validation errors for that node and renders a TODO badge."""
+    from dismech.entity_refs import entity_ref_errors
+    from dismech.render import render_module
+    from scripts.check_graphical_abstracts import check_kb_entry
+
+    dirs = _fixture(tmp_path)
+    img_rel = "assets/graphical_abstracts/test_ga.png"
+    _write(tmp_path / img_rel, "fake-png")
+    mod_path = dirs["modules"] / "todo_module.yaml"
+
+    # 1. Without a TODO, an unmapped pathograph node fails check_kb_entry
+    inconsistent_data = {
+        "name": "Todo Module",
+        "category": "Module",
+        "pathophysiology": [
+            {"name": "Trigger Node", "role": "trigger"},
+            {"name": "Newly Added Node", "role": "effector"},
+        ],
+        "graphical_abstract": {
+            "image_path": img_rel,
+            "archetype": "HORIZONTAL_ROLE_CASCADE",
+            "legend": [
+                {
+                    "panel": "1. Trigger",
+                    "depicts": "Trigger panel description",
+                    "attaches_to": ["pathophysiology#Trigger Node"],
+                }
+            ],
+        },
+    }
+    errs = check_kb_entry(mod_path, inconsistent_data, root=tmp_path)
+    assert any("Newly Added Node" in e for e in errs)
+
+    # 2. Adding a TODO legend node (even without `depicts`, or with a renamed/deleted ref)
+    # bypasses validation errors in both entity_ref_errors and check_kb_entry
+    todo_data = {
+        "name": "Todo Module",
+        "category": "Module",
+        "pathophysiology": [
+            {"name": "Trigger Node", "role": "trigger"},
+            {"name": "Newly Added Node", "role": "effector"},
+        ],
+        "graphical_abstract": {
+            "image_path": img_rel,
+            "archetype": "HORIZONTAL_ROLE_CASCADE",
+            "legend": [
+                {
+                    "panel": "1. Trigger",
+                    "depicts": "Trigger panel description",
+                    "attaches_to": ["pathophysiology#Trigger Node"],
+                },
+                {
+                    "panel": "TODO",
+                    "todo": "Draw Newly Added Node in Panel 2 and remove Deleted Node",
+                    "attaches_to": [
+                        "pathophysiology#Newly Added Node",
+                        "pathophysiology#Deleted Node",
+                    ],
+                },
+            ],
+        },
+    }
+    todos: list[str] = []
+    assert entity_ref_errors(todo_data) == []
+    assert check_kb_entry(mod_path, todo_data, root=tmp_path, todos_out=todos) == []
+    assert len(todos) >= 1
+    assert any("Draw Newly Added Node" in t for t in todos)
+
+    # 3. Rendering the module displays the visible Redraw TODO badge in the HTML legend
+    _write_yaml(mod_path, todo_data)
+    mod_out = tmp_path / "pages" / "modules" / "todo_module.html"
+    render_module(mod_path, mod_out, disorders_dir=dirs["disorders"])
+    mod_html = mod_out.read_text()
+    assert "ga-legend-row-todo" in mod_html
+    assert "Redraw TODO:" in mod_html
+    assert "Draw Newly Added Node in Panel 2" in mod_html

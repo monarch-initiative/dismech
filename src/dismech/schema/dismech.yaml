@@ -3574,6 +3574,33 @@ enums:
           proteostasis and genome-maintenance decline) that drive late-onset
           disease.
 
+  GraphicalAbstractArchetypeEnum:
+    description: >-
+      Canonical layout archetype for a DisMech graphical abstract. Selecting an
+      explicit archetype constrains the spatial scene graph so organelles and
+      causal stages are not duplicated or inverted during generation.
+    permissible_values:
+      HYBRID_SUBCELLULAR_CUTAWAY:
+        title: Hybrid Subcellular Cutaway + Outcome Bifurcation
+        description: >-
+          Unified continuous subcellular cutaway on the left (subdivided by
+          subtle vertical tint bands so each organelle is drawn once) paired
+          with stacked outcome cards on the right. Preferred for intracellular
+          signaling and trafficking modules.
+      HORIZONTAL_ROLE_CASCADE:
+        title: Multi-Stage Horizontal Role Cascade
+        description: >-
+          Sequential role cards (Trigger -> Amplifier -> Central Effector ->
+          Effector -> Consequence) arranged left-to-right with optional lower
+          model/intervention panels. Preferred for tissue-scale or multi-cellular
+          cascades.
+      RADIAL_STRUCTURAL_HUB:
+        title: Radial Structural Hub + Pathophysiology Cascade
+        description: >-
+          Central anatomical or organelle hub on the left surrounded by partner
+          structures, connected to a vertical downstream pathophysiology cascade
+          on the right. Preferred for multi-organelle or multi-disease projects.
+
   ReferenceTagEnum:
     description: >-
       Controlled vocabulary for tagging top-level references by authoritative source type.
@@ -4829,6 +4856,58 @@ slots:
     range: ModuleCategoryEnum
     examples:
       - value: TOXICOLOGY
+  graphical_abstract:
+    description: >-
+      Structured graphical abstract specification for a mechanism module,
+      disease entry, grouping, or module collection: the repository-relative
+      image path, layout archetype, caption, and a checkable panel-by-panel
+      legend whose `attaches_to` references bind every visual panel to the
+      entry's pathograph nodes (`<kind>#<name>`).
+    range: GraphicalAbstract
+    inlined: true
+  image_path:
+    description: >-
+      Repository-relative path to a graphical abstract image file (for example,
+      `assets/graphical_abstracts/fibrotic_response.png`).
+    range: string
+    examples:
+      - value: assets/graphical_abstracts/cgas_sting_pathway_activation.png
+  archetype:
+    description: Layout archetype used to structure the graphical abstract.
+    range: GraphicalAbstractArchetypeEnum
+  caption:
+    description: >-
+      Overview caption summarizing the mechanism or scope depicted by the
+      graphical abstract.
+    range: string
+  legend:
+    description: >-
+      Ordered panel-by-panel legend entries mapping the visual regions of a
+      graphical abstract to the entry's pathograph nodes via checkable
+      `<kind>#<name>` entity references (`attaches_to`).
+    multivalued: true
+    inlined_as_list: true
+    range: GraphicalAbstractPanel
+  panel:
+    description: >-
+      Short badge or panel label matching a numbered stage or callout in the
+      graphical abstract (e.g., "1. Trigger", "3. Central Effector",
+      "Experimental Model", or "TODO" for a pending figure update).
+    range: string
+  depicts:
+    description: >-
+      Concise description of the visual elements, molecular actors, and causal
+      arrows depicted in this graphical abstract panel.
+    range: string
+  todo:
+    description: >-
+      Escape-hatch note recording a pending graphical abstract image update when
+      an entry's pathograph is edited by a curator or agent without access to an
+      image generation model. Setting `todo` (or `panel: "TODO"`) on a
+      `GraphicalAbstractPanel` or `GraphicalAbstract` bypasses validation errors
+      for that figure legend node and renders a visible redraw-pending badge in
+      the HTML page until the image is regenerated.
+    range: string
   infectious_agent:
     range: InfectiousAgent
     multivalued: true
@@ -8607,6 +8686,7 @@ classes:
       - creation_date
       - updated_date
       - description
+      - graphical_abstract
       - references
       - category
       - parents
@@ -9683,6 +9763,7 @@ classes:
       - display_name
       - creation_date
       - description
+      - graphical_abstract
       - grouping_basis
       - grouping_rationale
       - membership_criteria
@@ -9791,6 +9872,7 @@ classes:
       - display_name
       - creation_date
       - description
+      - graphical_abstract
       - collection_type
       - module_members
       - child_collections
@@ -9826,3 +9908,47 @@ classes:
           Foreign key to a mechanism module filename stem in kb/modules/. Node
           anchors are not used for collection membership.
         required: true
+
+  # --- Graphical abstracts ---
+  GraphicalAbstract:
+    description: >-
+      A structured graphical abstract paired with a checkable legend that maps
+      each visual panel to the entry's pathograph nodes via `attaches_to`
+      entity references (`<kind>#<name>`). Keeping the legend in the YAML
+      allows `just check-entity-refs` and `scripts/check_graphical_abstracts.py`
+      to verify that every pathograph node is accounted for and that no panel
+      points at a renamed or deleted node. When an entry is edited without
+      access to an image generation model, `todo` (on the whole block or on an
+      individual `GraphicalAbstractPanel`) provides an explicit escape hatch
+      that bypasses figure-sync validation for the affected legend node until
+      the image is redrawn.
+    slots:
+      - image_path
+      - archetype
+      - caption
+      - todo
+      - legend
+    slot_usage:
+      image_path:
+        required: true
+
+  GraphicalAbstractPanel:
+    description: >-
+      One numbered stage, zone, or callout panel in a graphical abstract,
+      linking its visual depiction to the pathograph nodes it represents via
+      `attaches_to` (`<kind>#<name>`). If the entry's pathograph has been
+      modified without access to an image generation model, setting `todo` (or
+      `panel: "TODO"`) marks this legend node as awaiting redraw and bypasses
+      strict validation for it.
+    slots:
+      - panel
+      - depicts
+      - todo
+      - attaches_to
+    slot_usage:
+      panel:
+        required: true
+      depicts:
+        recommended: true
+      attaches_to:
+        recommended: true

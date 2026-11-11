@@ -6,6 +6,79 @@ tags:
 - lipid transfer
 - neuroscience
 description: 'Tracks disorders caused by failed communication between organelles at membrane contact sites, conformed to the membrane_contact_site_dysfunction module, and the gaps in that coverage.'
+graphical_abstract:
+  image_path: assets/graphical_abstracts/MEMBRANE_CONTACT_SITES.png
+  archetype: RADIAL_STRUCTURAL_HUB
+  caption: >-
+    Radial organelle tethering hub centered on the Endoplasmic Reticulum/SR
+    network (10-30 nm non-fusing apposition across 6 partner organelles) paired
+    with the three-stage conserved pathophysiology cascade (2A. Disrupted Lipid
+    & Ca2+ Transfer -> 2B. Altered Organelle Signature -> 2C. Terminal Clinical
+    Outcomes in Neurons and Cardiomyocytes).
+  legend:
+  - panel: "1a. ER–Plasma Membrane (XK–VPS13A)"
+    depicts: >-
+      XK–VPS13A bulk lipid-transfer bridge driving ER-to-plasma membrane lipid
+      flux; loss causes McLeod Neuroacanthocytosis Syndrome.
+    attaches_to:
+    - modules#membrane_contact_site_dysfunction
+    - diseases#McLeod_Neuroacanthocytosis_Syndrome
+  - panel: "1b. ER–Mitochondria MAM (MFN2 / VAPB / WFS1)"
+    depicts: >-
+      ER–mitochondria tethering and Ca2+ / phospholipid flux via MFN2, VAPB, and
+      wolframin (WFS1/CISD2), implicated in CMT2A, Wolfram Syndrome, and ALS8.
+    attaches_to:
+    - modules#membrane_contact_site_dysfunction
+    - modules#mitochondrial_dysfunction
+    - diseases#Charcot-Marie-Tooth_Disease
+    - diseases#Wolfram_Syndrome
+    - diseases#WFS1-Related_Disorder
+    - diseases#Adult-Onset_Proximal_Spinal_Muscular_Atrophy_Autosomal_Dominant
+    - diseases#PACS2-Related_Developmental_and_Epileptic_Encephalopathy
+  - panel: "1c. ER–Peroxisome (ACBD5–VAPB)"
+    depicts: >-
+      ACBD5–VAPB tether linking peroxisomes to the ER for ether-phospholipid
+      (plasmalogen) synthesis; loss causes ACBD5 Deficiency.
+    attaches_to:
+    - modules#membrane_contact_site_dysfunction
+    - modules#peroxisomal_metabolic_failure
+    - diseases#ACBD5_Deficiency
+    - diseases#Peroxisome_Biogenesis_Disorder
+  - panel: "1d. ER–Lipid Droplet (VPS13A / SNX14)"
+    depicts: >-
+      VPS13A and SNX14 tethers mediating lipid homeostasis and droplet
+      biogenesis at ER–lipid droplet contacts; mutated in Chorea-acanthocytosis
+      and SCAR20.
+    attaches_to:
+    - modules#membrane_contact_site_dysfunction
+    - diseases#Chorea-acanthocytosis
+    - diseases#Autosomal_Recessive_Spinocerebellar_Ataxia_20
+  - panel: "1e. ER–Golgi (CERT1)"
+    depicts: >-
+      Non-vesicular ER-to-Golgi ceramide transfer by CERT1; gain-of-function
+      autoregulatory variants cause Autosomal Dominant Intellectual Disability 34 (ID34).
+    attaches_to:
+    - modules#membrane_contact_site_dysfunction
+    - diseases#Intellectual_Disability_Autosomal_Dominant_34
+    - diseases#Cohen_Syndrome
+  - panel: "1f. ER–Lysosome (PDZD8)"
+    depicts: >-
+      PDZD8 tether at ER–endolysosome contacts promoting autophagy and Ca2+
+      dynamics for activity-dependent synaptic growth; mutated in syndromic ID.
+    attaches_to:
+    - modules#membrane_contact_site_dysfunction
+    - diseases#Intellectual_Developmental_Disorder_With_Autism_And_Dysmorphic_Facies
+    - diseases#Parkinsons_Disease
+    - diseases#Optic_Atrophy_14
+  - panel: "2A–2C. Conserved Pathophysiology Cascade"
+    depicts: >-
+      (A) Disrupted non-vesicular lipid & Ca2+ transfer (plasmalogen deficit,
+      mitochondrial Ca2+ stress) -> (B) Altered 6-organelle spectral signature ->
+      (C) Terminal clinical outcomes in neurons (synapse dysfunction &
+      neurodegeneration) and cardiomyocytes (SR–mitochondria uncoupling).
+    attaches_to:
+    - modules#membrane_contact_site_dysfunction
+    - diseases#Hereditary_Spastic_Paraplegia
 modules:
 - membrane_contact_site_dysfunction
 - peroxisomal_metabolic_failure

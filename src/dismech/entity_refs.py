@@ -90,6 +90,7 @@ __all__ = [
     "canonical_kind",
     "entity_ref_errors",
     "entity_ref_index",
+    "is_graphical_abstract_todo",
     "iter_entity_refs",
     "parse_entity_ref",
     "resolve_entity_ref",
@@ -359,6 +360,28 @@ def entity_ref_index(data: dict) -> dict[str, list[Any]]:
     return index
 
 
+def is_graphical_abstract_todo(node: Any) -> bool:
+    """True when a GraphicalAbstract or GraphicalAbstractPanel carries a redraw TODO.
+
+    When a curator or agent edits an entry's pathograph without access to an
+    image generation model, setting ``todo`` (or ``panel: "TODO..."``) on a
+    legend panel or on ``graphical_abstract`` serves as an explicit escape hatch
+    that bypasses strict foreign-key validation for that legend node until the
+    figure is redrawn.
+    """
+    if not isinstance(node, dict):
+        return False
+    todo_val = node.get("todo")
+    if isinstance(todo_val, str) and todo_val.strip():
+        return True
+    if todo_val is True:
+        return True
+    panel_val = node.get("panel")
+    if isinstance(panel_val, str) and panel_val.strip().upper().startswith("TODO"):
+        return True
+    return False
+
+
 def iter_entity_refs(node: Any, path: str = "") -> Iterator[EntityRefSite]:
     """Walk a loaded entry, yielding an :class:`EntityRefSite` per reference slot.
 
@@ -368,6 +391,11 @@ def iter_entity_refs(node: Any, path: str = "") -> Iterator[EntityRefSite]:
     name, carried separately so callers never have to parse it back out.
     """
     if isinstance(node, dict):
+        if (
+            path == "graphical_abstract"
+            or path.startswith("graphical_abstract.legend[")
+        ) and is_graphical_abstract_todo(node):
+            return
         for key, value in node.items():
             child = f"{path}.{key}" if path else str(key)
             if key in REF_SLOTS:
