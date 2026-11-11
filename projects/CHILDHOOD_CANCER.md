@@ -71,6 +71,41 @@ the Rare Cancer Study target list once those targets are explicit.
 | Missing rare fusion-driven sarcomas | Infantile fibrosarcoma, CIC-rearranged sarcoma, BCOR-altered sarcoma, alveolar soft part sarcoma, NUT carcinoma | Rare tumors where dismech's fusion-to-mechanism modeling is especially valuable |
 | Missing direct rare-study alignment | Rare Cancer Study target entities once published | Needed for a direct bridge into upcoming CCDI rare cancer infrastructure |
 
+### Status of the candidate targets
+
+The gap list above dates from the project's creation on 2026-04-12. On
+2026-11-11, at commit `3516830dd8c`, seven of its 17 named targets have their
+own entry, nine have no entry of their own but appear as subtypes of other
+entries (two of them only in part), and one has neither. In the *Where* column,
+a name in parentheses is the `name` of a row in that entry's `has_subtypes`
+list.
+
+| Target | Status | Where |
+|--------|--------|-------|
+| Hepatoblastoma | Own entry | `Hepatoblastoma` |
+| Clear cell sarcoma of kidney | Own entry | `Clear_Cell_Sarcoma_of_Kidney` |
+| Rhabdoid tumor of kidney | Subtype only | `Rhabdoid_Tumor` (`RTK`) |
+| Pediatric adrenocortical carcinoma | No entry | See the note below the table |
+| Medulloblastoma Group 3 | Subtype only | `Medulloblastoma` (`Non-WNT/Non-SHH` and `Group 3`) |
+| Medulloblastoma Group 4 | Subtype only | `Medulloblastoma` (`Non-WNT/Non-SHH` and `Group 4`) |
+| Ependymoma molecular groups | Subtype only | `Ependymoma` (`ST-ZFTA`, `ST-YAP1`, `PFA`, `PFB`, `SP-EPN`, `SP-MYCN`, `Myxopapillary`, and `Subependymoma`) |
+| Atypical teratoid / rhabdoid tumor (ATRT) | Own entry | `Atypical_Teratoid_Rhabdoid_Tumor`; also `Rhabdoid_Tumor` (`AT/RT`) |
+| Ph-like ALL | Subtype only | `Acute_Lymphoblastic_Leukemia` (`Ph-like`); `B-Lymphoblastic_Leukemia_Lymphoma_With_Recurrent_Genetic_Abnormality` (`Ph-like`) |
+| KMT2A-rearranged infant leukemia | Subtype only, in part | `Acute_Lymphoblastic_Leukemia` (`KMT2A-rearranged`); `B-Lymphoblastic_Leukemia_Lymphoma_With_Recurrent_Genetic_Abnormality` (`KMT2A-rearranged`); `Acute_Megakaryoblastic_Leukemia` (`KMT2A-Rearranged AMKL`); `Mixed_Phenotype_Acute_Leukemia` (`MPAL KMT2A`). None of these rows is specific to infants. |
+| T-ALL | Subtype only | `Acute_Lymphoblastic_Leukemia` (`T-ALL` and `ETP-ALL`) |
+| JMML | Own entry | `Juvenile_Myelomonocytic_Leukemia` |
+| Infantile fibrosarcoma | Subtype only | `Fibrosarcoma` (`Infantile Fibrosarcoma`). The entry lists infantile and congenital fibrosarcoma among its synonyms, but its `disease_term` is fibrosarcoma. |
+| CIC-rearranged sarcoma | Own entry | `CIC-Rearranged_Sarcoma` |
+| BCOR-altered sarcoma | Own entry | `Sarcoma_with_BCOR_Genetic_Alterations` |
+| Alveolar soft part sarcoma | Own entry | `Alveolar_Soft_Part_Sarcoma` |
+| NUT carcinoma | Subtype only, in part | `Thymic_Carcinoma` (`NUT`): the thymic / mediastinal form only |
+
+Pediatric adrenocortical carcinoma has no entry of its own and no subtype row.
+No entry has adrenocortical, adrenal cortex, or adrenal cortical carcinoma
+(MONDO:0006639 *adrenal cortex carcinoma*) as its file name, `name`, a synonym,
+its `disease_term`, or the name or term of a `has_subtypes` row. Other entries
+refer to it; for example, `Adrenal_Cortex_Adenoma` lists it as a differential
+diagnosis, and `Li-Fraumeni_Syndrome` has it as a phenotype.
 ## MCI Integration Strategy
 
 | MCI / CCDI asset | Natural dismech landing zone | Notes |
@@ -128,6 +163,9 @@ subtypes that do not imply separate pages, and NCIT-first oncology treatment
 terms where they are more precise than the generic NCIT parent.
 
 ## Priority curation targets
+
+For the status of these targets on 2026-11-11, see
+[Status of the candidate targets](#status-of-the-candidate-targets).
 
 | Target | Why now | CCDI / MCI fit |
 |--------|---------|----------------|
