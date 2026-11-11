@@ -1,0 +1,342 @@
+---
+name: 00 · Weekly Report
+
+# One GitHub issue per week summarising repository activity, which replaces the
+# previous week's issue. The agent gathers and writes the report and may file up
+# to three lead issues; two shell steps handle the parts that must be exact
+# (finding last week's report, and publishing/closing). Design note:
+# docs/superpowers/specs/2026-11-12-weekly-report-design.md
+
+on:
+  schedule:
+    - cron: "0 14 * * 1"  # weekly Monday 14:00 UTC, after the Friday scans have settled
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "Start of the reporting window (YYYY-MM-DD). Blank = 7 days ago."
+        required: false
+        default: ""
+        type: string
+      dry_run:
+        description: "Write the report to the job summary and an artifact only; touch no issues."
+        required: false
+        default: false
+        type: boolean
+      model:
+        description: "Optional model ID override (blank = use the configured default in agent-config.yaml)"
+        required: false
+        default: ""
+        type: string
+
+concurrency:
+  group: weekly-report
+  cancel-in-progress: false
+
+jobs:
+  weekly-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+
+    steps:
+      # Issues write so the agent can file leads and the publish step can
+      # replace the summary; everything else read-only, so the agent cannot push.
+      - name: Generate ai4c-agent token
+        id: ai4c-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
+          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+          permission-issues: write
+          permission-contents: read
+          permission-pull-requests: read
+          permission-actions: read
+          permission-metadata: read
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve agent config
+        uses: ./.github/actions/resolve-agent-config
+        with:
+          workflow: weekly-report
+          model-override: ${{ inputs.model }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install python tools and just
+        run: |
+          uv sync
+          uv tool install rust-just
+
+      - name: Find previous report and set the window
+        id: prev
+        env:
+          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          SINCE_INPUT: ${{ inputs.since }}
+        run: |
+          set -euo pipefail
+          # Outside the checkout, so nothing the agent writes here is staged.
+          REPORT_DIR="$RUNNER_TEMP/weekly-report"
+          echo "REPORT_DIR=$REPORT_DIR" >> "$GITHUB_ENV"
+          mkdir -p "$REPORT_DIR"
+          if [ -n "$SINCE_INPUT" ]; then
+            SINCE="$(date -u -d "$SINCE_INPUT" +%F)"
+          else
+            SINCE="$(date -u -d '7 days ago' +%F)"
+          fi
+          UNTIL="$(date -u +%F)"
+          echo "since=$SINCE" >> "$GITHUB_OUTPUT"
+          echo "until=$UNTIL" >> "$GITHUB_OUTPUT"
+
+          # Newest open report is the comparison baseline. Every open report is
+          # closed at publish time, so normally there is at most one.
+          gh issue list --repo "$REPO" --label weekly-report --state open \
+            --limit 20 --json number,createdAt \
+            --jq 'sort_by(.createdAt) | reverse | map(.number) | join(" ")' \
+            > "$REPORT_DIR/open-reports.txt"
+          PREV="$(cut -d' ' -f1 "$REPORT_DIR/open-reports.txt")"
+          echo "number=$PREV" >> "$GITHUB_OUTPUT"
+          if [ -n "$PREV" ]; then
+            gh issue view "$PREV" --repo "$REPO" --json body --jq .body \
+              > "$REPORT_DIR/previous-report.md"
+          else
+            echo "No previous weekly report: this is the first one." \
+              > "$REPORT_DIR/previous-report.md"
+          fi
+
+          if [ "$DRY_RUN" != "true" ]; then
+            gh label create weekly-report --repo "$REPO" --force --color 0E8A16 \
+              --description "Weekly activity summary (one open at a time)"
+            gh label create weekly-report-lead --repo "$REPO" --force --color FBCA04 \
+              --description "Follow-up filed by the weekly report agent"
+          fi
+
+      - name: Set up latest Claude Code
+        id: setup-claude-code
+        uses: ./.github/actions/setup-claude-code
+
+      - name: Write weekly report
+        id: agent
+        uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1
+        env:
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+          CC_LANGFUSE_TRACE_TAGS: >-
+            ["repo:${{ github.repository }}", "workflow:weekly-report",
+            "run:${{ github.run_id }}", "attempt:${{ github.run_attempt }}", "job:${{ github.job }}"]
+          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+        with:
+          path_to_claude_code_executable: ${{ steps.setup-claude-code.outputs.executable }}
+          # GitHub can attribute cron runs to the merge-queue bot.
+          allowed_bots: "github-merge-queue"
+          plugin_marketplaces: |
+            https://github.com/langfuse/Claude-Observability-Plugin.git
+          plugins: |
+            langfuse-observability@langfuse-observability
+          # Auth: see claude-code-review.yml for why exactly one is non-empty.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.ANTHROPIC_API_KEY == '' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          github_token: ${{ steps.ai4c-token.outputs.token }}
+          show_full_output: true
+
+          claude_args: |
+            --dangerously-skip-permissions
+            --model ${{ env.AGENT_MODEL }}
+
+          prompt: |
+            You are writing the weekly activity report for ${{ github.repository }}.
+
+            REPORTING WINDOW: ${{ steps.prev.outputs.since }} to ${{ steps.prev.outputs.until }} (UTC)
+            DRY RUN: ${{ env.DRY_RUN }}
+            OUTPUT DIRECTORY: ${{ env.REPORT_DIR }}
+            LAST WEEK'S REPORT: ${{ env.REPORT_DIR }}/previous-report.md
+
+            You do not create, edit, comment on or close the weekly report issue
+            itself. A later step publishes the file you write and closes last
+            week's report. Do not push commits or open PRs.
+
+            ## What to produce
+
+            1. `${{ env.REPORT_DIR }}/weekly-report.md`: the issue body, laid out
+               as below.
+            2. `${{ env.REPORT_DIR }}/filed.json`: a JSON array of the issue
+               numbers of lead issues you filed this run, e.g. `[16801, 16802]`,
+               or `[]`.
+
+            ## Readers
+
+            Two audiences. The top of the report is for collaborators and funders:
+            plain language, no internal jargon, no tool names. Everything inside
+            the collapsed sections is for maintainers: dense, with links. Follow
+            the `github-communication` skill for the prose.
+
+            ## Layout of weekly-report.md
+
+            Always visible, in this order:
+
+            - `## Highlights`: 3 to 5 plain-language sentences on what happened
+              this week.
+            - `## Leads filed this week`: links to the lead issues you filed, or
+              "None". In a dry run, list the leads you would have filed, with
+              their titles and one line each, under "Would file (dry run)".
+            - `## Needs a human`: a short list of items only a maintainer can
+              act on (a stuck PR assigned to a person, expert feedback with no
+              reply, a decision issue waiting). "Nothing this week" is fine.
+
+            Then one collapsed block per section, in the order below:
+
+            ```
+            <details><summary><b>1. Domain coverage</b> — one-line gist</summary>
+
+            ...
+
+            </details>
+            ```
+
+            Each block holds a handful of figures with links and one sentence of
+            interpretation. Where last week's report carries the same figure,
+            show the change, e.g. `12 (−29 vs last week)`. If you could not
+            collect a section, keep the block and write `not collected: <reason>`.
+
+            Finish with a collapsed `How this was produced` block listing, for
+            each section, the commands you ran to get its figures. Be complete
+            and literal: this list is how maintainers decide which queries to
+            turn into a deterministic script.
+
+            Last, append one hidden HTML comment holding this week's headline
+            figures as flat JSON, so next week's run can compare against exact
+            numbers rather than reparsing prose:
+            `<!-- weekly-report-metrics {"new_disorders": 38, ...} -->`
+            Use the same keys as last week's comment when one exists, and add
+            new keys freely.
+
+            ## The sections
+
+            Suggested starting points are given; go further when it helps, and
+            stay within the reporting window.
+
+            1. **Domain coverage.** New and substantially revised entries in
+               `kb/disorders/`, `kb/modules/`, `kb/groupings/`, grouped by
+               therapeutic area or classification (e.g. "12 CMT subtypes, 9
+               IEIs"). Name a few notable pieces of biology. Start from
+               `git log --since=<since> --diff-filter=A --name-only -- kb/` and
+               the history records under `history/` dated in the window.
+            2. **Pipeline health.** For the evidence-claim-mismatch queue
+               (label `evidence-claim-mismatch`): opened, closed, closed with no
+               content PR, open now, median age of open issues. For
+               jev-recuration, literature-scan, preprint-scan, knowledge-gap-scan
+               and curation-scanner: what each produced this week (issues, PRs)
+               and how much of that was merged versus closed unmerged. Use
+               `gh issue list`/`gh pr list` with `--search` date qualifiers and
+               `gh run list --workflow <file>`.
+            3. **Schema changes.** `git log --since=<since> -p -- src/dismech/schema/`.
+               List classes, slots and enums added, narrowed or deprecated, each
+               with one line on what it means for curators. Say "none" if none.
+            4. **Contentious PRs.** PRs merged, closed or updated in the window
+               with more than 10 comments (issue comments plus review comments).
+               For each, read enough of the thread to say why in one line: review
+               loop, scope dispute, tooling failure, conflicting reviewers.
+            5. **Quality ratchets.** `just compliance-connectivity` (causal
+               inlink and gene outlink coverage) and the line counts of
+               `tests/*_baseline.txt`. Compare with last week's figures and say
+               which moved the wrong way.
+            6. **Automation health.** Scheduled workflow runs that failed or
+               produced nothing (`gh run list --created ">=<since>" --status failure`),
+               merge-queue ejections, PRs held by the PR shepherd's ejection
+               hold, review retries.
+            7. **Queue and claims.** Stubs removed versus added in `stubs/`,
+               claims opened and closed (label `claim`), stale claims
+               (`just fetch-claims && just check-claims`), PRs open more than 14
+               days.
+            8. **Human signal.** Issues and comments opened this week by people
+               rather than bots, especially labels `human-expert-feedback` and
+               `expert_feedback`. Note any with no reply.
+
+            ## Lead issues (only when DRY RUN is false)
+
+            You may file at most 3 new issues for patterns that need follow-up.
+            A lead must be:
+
+            - actionable: someone could open a PR or make a decision from it;
+            - evidenced: it links at least two concrete instances (PRs, runs,
+              files);
+            - new: search open issues first (`gh issue list --search "<terms>"
+              --state open`). If an open issue already covers it, add a comment
+              there with the new evidence instead of filing.
+
+            Do not file leads about the content of a single disease entry; the
+            curation scanners cover that. Label each lead `weekly-report-lead`,
+            start its body with "Filed by the weekly report for
+            ${{ steps.prev.outputs.since }} to ${{ steps.prev.outputs.until }}.",
+            and write it under the `github-communication` skill. Filing nothing
+            is a normal outcome.
+
+      - name: Publish report
+        if: ${{ success() }}
+        env:
+          GH_TOKEN: ${{ steps.ai4c-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          SINCE: ${{ steps.prev.outputs.since }}
+          UNTIL: ${{ steps.prev.outputs.until }}
+        run: |
+          set -euo pipefail
+          REPORT="$REPORT_DIR/weekly-report.md"
+          if [ ! -s "$REPORT" ]; then
+            echo "::error::Agent finished without writing $REPORT; previous report left open."
+            exit 1
+          fi
+          cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run: no issues created or closed."
+            exit 0
+          fi
+
+          NEW_URL="$(gh issue create --repo "$REPO" \
+            --title "Weekly report: $SINCE to $UNTIL" \
+            --label weekly-report --body-file "$REPORT")"
+          NEW="${NEW_URL##*/}"
+          echo "Published #$NEW"
+
+          for OLD in $(cat "$REPORT_DIR/open-reports.txt"); do
+            gh issue comment "$OLD" --repo "$REPO" --body "Superseded by #$NEW."
+            if [ "$(gh issue view "$OLD" --repo "$REPO" --json isPinned --jq .isPinned)" = "true" ]; then
+              gh issue unpin "$OLD" --repo "$REPO"
+            fi
+            gh issue close "$OLD" --repo "$REPO" --reason completed
+          done
+
+          if [ -s "$REPORT_DIR/filed.json" ]; then
+            for LEAD in $(jq -r '.[]' "$REPORT_DIR/filed.json"); do
+              gh issue comment "$LEAD" --repo "$REPO" \
+                --body "Summary for this week: #$NEW."
+            done
+          fi
+
+          gh issue pin "$NEW" --repo "$REPO"
+
+      - name: Upload report artifact
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: weekly-report
+          path: ${{ env.REPORT_DIR }}
+          if-no-files-found: ignore
+
+      - name: Write step summary
+        if: ${{ !cancelled() && steps.agent.outputs.execution_file != '' }}
+        uses: ./.github/actions/agent-run-summary
+        with:
+          execution-file: ${{ steps.agent.outputs.execution_file }}
+          title: "🗞️ Weekly Report Run"

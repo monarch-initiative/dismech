@@ -1,6 +1,6 @@
 # Weekly activity report: design note
 
-**Date:** 2026-11-12 · **Status:** design approved, not yet implemented
+**Date:** 2026-11-12 · **Status:** implemented (`.github/workflows/weekly-report.yml`), first runs to be dry runs
 
 ## The ask
 
@@ -102,6 +102,10 @@ collect says `not collected: <reason>` rather than disappearing.
 Collapsed at the end: **How this was produced**, the commands run for each
 section. This is what tells us, after a few weeks, which queries to make
 deterministic. The Langfuse trace for the run is the backup record.
+
+Last, a hidden HTML comment, `<!-- weekly-report-metrics {...} -->`, holds the
+week's headline figures as flat JSON. Next week's run reads exact numbers from
+it rather than reparsing last week's prose.
 
 ## Lead issues
 
