@@ -173506,8 +173506,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "21",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "GFI1B-related platelet-type bleeding disorder",
@@ -219488,6 +219488,112 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "8",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Immunodeficiency 27A",
+    "disease_id": "MONDO:0008856",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian Susceptibility to Mycobacterial Disease",
+      "Inborn Error of Immunity"
+    ],
+    "creation_date": "2026-10-23T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "AR complete",
+      "AR partial",
+      "AD partial"
+    ],
+    "description": "Immunodeficiency 27A is the autosomal recessive form of interferon-gamma receptor 1 (IFN-gammaR1) deficiency, the first genetic cause of Mendelian susceptibility to mycobacterial disease (MSMD) to be identified. IFN-gammaR1 is the ligand-binding chain of the IFN-gamma receptor. Biallelic IFNGR1 variants leave macrophages unable to respond to IFN-gamma, so weakly virulent mycobacteria - BCG vaccine strains and environmental (nontuberculous) mycobacteria - are not cleared and disseminate, while resistance to most other pathogens is preserved.\nThe recessive alleles form a series defined by how much IFN-gamma signalling is left. In complete deficiency there is none: most alleles truncate the receptor before its transmembrane domain so that no receptor reaches the cell surface, while a minority leave a normal amount of receptor at the surface that cannot bind IFN-gamma. Complete deficiency presents in early childhood with disseminated infection and poorly formed, lepromatous-like granulomas, is fully penetrant, and is fatal without haematopoietic stem cell transplantation. In partial recessive deficiency (founder alleles I87T and V63G, and the initiation-codon variant M1K) cells respond to high but not low IFN-gamma concentrations; onset is later and milder, granulomas are tuberculoid, and recombinant IFN-gamma together with antimycobacterial drugs controls infection. Because the two recessive forms share one mechanism and differ only in residual signalling, this entry carries both as subtypes; the autosomal dominant, dominant-negative form (immunodeficiency 27B) is curated separately.",
+    "pathophysiology": [
+      "Biallelic IFNGR1 Loss-of-Function Variants",
+      "Absent or Non-Ligand-Binding IFN-gamma Receptor 1",
+      "Loss of IFN-gamma-Induced STAT1 Signalling",
+      "Defective Macrophage Activation",
+      "Uncontrolled Intracellular Mycobacterial Replication",
+      "Lepromatous-like Granuloma Formation",
+      "Sustained IFN-gamma Production Without Receptor Response"
+    ],
+    "cell_types": [
+      "Macrophage",
+      "Monocyte",
+      "B cell",
+      "Fibroblast",
+      "T-helper 1 cell",
+      "Natural killer cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000576",
+      "CL:0000236",
+      "CL:0000057",
+      "CL:0000545",
+      "CL:0000623"
+    ],
+    "biological_processes": [
+      "type II interferon-mediated signaling pathway",
+      "macrophage activation",
+      "defense response to bacterium"
+    ],
+    "phenotypes": [
+      "Disseminated Mycobacterial Disease",
+      "BCG Vaccine Disease",
+      "Mycobacterial Osteomyelitis",
+      "Tuberculosis",
+      "Salmonella Infection",
+      "Lymphadenopathy",
+      "Hepatosplenomegaly",
+      "Fever",
+      "Elevated Plasma Interferon-Gamma"
+    ],
+    "phenotype_categories": [
+      "Infectious",
+      "Musculoskeletal",
+      "Hematologic",
+      "Constitutional",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0032283",
+      "HP:5210408",
+      "HP:5210276",
+      "HP:5210111",
+      "HP:5210093",
+      "HP:0002716",
+      "HP:0001433",
+      "HP:0001954",
+      "HP:0030356"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "IFNGR1"
+    ],
+    "treatments": [
+      "Haematopoietic Stem Cell Transplantation",
+      "Recombinant Interferon-Gamma",
+      "Interferon-Alpha Therapy",
+      "Prolonged Antimycobacterial Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Immunodeficiency_27A.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_27A.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Immunodeficiency 28",
@@ -435259,17 +435365,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4038,
-  "total_subtypes": 5056,
-  "total_disorders_and_subtypes": 9094,
-  "total_unique_evidence_sources": 60037,
-  "total_unique_publications": 56167,
+  "total_disorder_pages": 4039,
+  "total_subtypes": 5059,
+  "total_disorders_and_subtypes": 9098,
+  "total_unique_evidence_sources": 60050,
+  "total_unique_publications": 56180,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4036,
-  "total_unique_pathological_events": 26452,
+  "total_pathographs": 4037,
+  "total_unique_pathological_events": 26457,
   "total_modules": 232,
-  "total_research_reports": 4147,
+  "total_research_reports": 4148,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 133
