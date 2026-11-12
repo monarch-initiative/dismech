@@ -18,8 +18,8 @@ two of agents A, B and C name the same PMID and every one of those agents'
 quotes passes. Its discovery_date, date_precision and cutoff_date come from
 check_dating.py's record of that PMID, as for ACCEPTED. A case where all three
 disagree, or where the agreeing agents' quotes do not all pass, stays
-NOT_ACCEPTED. MAJORITY_VERIFIED cases have no mechanistic-readiness judgment
-yet (NA).
+NOT_ACCEPTED. MAJORITY_VERIFIED cases get a mechanistic-readiness judgment by
+the same method as ACCEPTED ones (below).
 
 dating_flags.tsv lists every case that needs a person: the agents disagree, a
 quote failed, or an earlier paper looks like the real discovery report. The
@@ -37,8 +37,8 @@ curator working only from pre-cutoff literature could have proposed the test;
 The script checks every cited PMID's PubMed date is on or before the cutoff.
 Bookshelf chapters (GeneReviews and similar) are never used: PubMed dates them
 1993, the start of the book series, whatever their real publication date.
-Readiness is given for ACCEPTED and ACCEPTED_FLAGGED cases; MAJORITY_VERIFIED
-cases are not yet judged.
+Readiness is given for ACCEPTED, ACCEPTED_FLAGGED and MAJORITY_VERIFIED cases;
+NOT_ACCEPTED cases have none (NA) until their cutoff is settled.
 
 dating_spotcheck.tsv is a seeded 20% sample (seed 20261111) of the unflagged
 ACCEPTED cases, drawn before the literature check so it does not move.
@@ -261,6 +261,14 @@ READINESS = {
     ("Smith-Lemli-Opitz syndrome", "serum 7-dehydrocholesterol"): "7684480",
     ("Stiff Person Syndrome", "anti-GAD65 antibodies"): "7271246",
     ("X-Linked Nephrogenic Diabetes Insipidus", "basal plasma copeptin"): "11091117",
+    # MAJORITY_VERIFIED cases (agent C), judged 2026-11-12 by the same method.
+    ("Acquired Thrombotic Thrombocytopenic Purpura", "ADAMTS13 activity"): "9129011",
+    ("Optic Neuritis", "MOG-IgG"): "11427318",
+    ("Paroxysmal Nocturnal Hemoglobinuria", "flow cytometry for GPI-anchored proteins"): "6576376",
+    ("Statin Toxicity", "anti-HMGCR antibodies"): "14609738",
+    # Only pre-1993 amphiphysin paper (PMID:1628617) describes the protein, not stiff person syndrome.
+    ("Stiff Person Syndrome", "anti-amphiphysin antibodies"): "no",
+    ("Transverse Myelitis", "AQP4-IgG"): "16087714",
 }
 
 
@@ -373,6 +381,9 @@ def main() -> None:
             d = dt.date.fromisoformat(rm["pubmed_date"])
             row.update(discovery_pmid=f"PMID:{pm}", discovery_date=rm["pubmed_date"],
                        date_precision=rm["date_precision"], cutoff_date=f"{d.year - 1}-12-31")
+            if k not in READINESS:
+                sys.exit(f"{k}: majority-verified but has no READINESS judgment")
+            row["mechanistic_readiness"] = "no" if READINESS[k] == "no" else f"yes PMID:{READINESS[k]}"
         rows.append(row)
         if note:
             flag_type, cand, source, assessment = note

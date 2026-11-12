@@ -9,6 +9,46 @@ for example. For each case, the disease is curated again using only literature
 published before the test's discovery, and an arm then proposes tests from that
 time-sliced entry. The question is how often the real test is among them.
 
+## Status and next session
+
+Status at 2026-11-12. The protocol below is a draft; nothing has been run on
+any arm.
+
+**Done today:**
+- Negative controls (`negatives.tsv`) and decoys from one fixed PubMed query
+  (`decoys.tsv`).
+- Coverage audit of the negatives and the frame entries without an accessible
+  test (`coverage_audit/`).
+- Literature-check alias fix; stratified dev/test split, with the dev set now
+  frozen at 5 cases.
+- Draft protocol, with every placeholder filled; deny rules for the curation
+  sessions.
+- Agent C dated the 10 cases A and B disagreed on. 6 became MAJORITY_VERIFIED
+  and received mechanistic-readiness judgments.
+- Literature aliases for C001 and C052, both of which then passed the
+  literature check.
+- Human review sheet for the 10 cases still unresolved.
+
+**Next, in order:**
+1. Human review of the 10 cases in `dating_review_sheet.md`, recorded in
+   `dating_human_review.tsv`.
+2. Apply the review: settle each cutoff in `build_dating.py`, rerun the
+   literature check, add readiness judgments, and rerun `make_split.py`. The
+   dev set stays frozen.
+3. Settle the open decisions:
+   - how an LLM arm's 3 runs become one outcome per case;
+   - which curation replicate feeds the arms;
+   - what cutoff the negatives are curated and prompted as of;
+   - whether to expand the negatives, since only 3 qualify for the primary
+     H3 analysis;
+   - Alzheimer disease, which is both a decoy (D009) and dev case C003;
+   - the second model family.
+4. Propagate the literature exclusion to `eligibility.tsv` and `cases.tsv`.
+5. Write the rubrics and, from them, the banned-term lists.
+6. Write `audit_transcript.py`, A1's node-type table and weights, the prompts,
+   the candidate schema, and `DEVIATIONS.md`.
+7. Tag prereg-v1 and register on OSF.
+
 ## Why retrodiction measures the KB without changing it
 
 A prospective test of the KB would mean adding a prediction and waiting years
@@ -241,15 +281,37 @@ excluded by an eligibility rule and 3 are KB gaps.
 - **Cutoff rule.** A PMID is accepted only when both agents give the same PMID
   and both quotes pass. The cutoff is 31 December of the year before the
   discovery date.
-  - Of the 57 cases: **41 ACCEPTED**, **6 ACCEPTED_FLAGGED** (an earlier paper
-    looks like the real discovery report), **10 NOT_ACCEPTED** (the agents
-    disagree).
+  - A and B gave **41 ACCEPTED**, **6 ACCEPTED_FLAGGED** (an earlier paper
+    looks like the real discovery report) and **10 NOT_ACCEPTED** (the
+    agents disagree).
   - The 16 flagged and not-accepted cases are listed with written assessments
     in `dating_flags.tsv`.
-  - `build_dating.py` writes `dating.tsv` and records a mechanistic-readiness
-    judgment for each case.
+- **Agent C majority.** A third agent dated the 10 NOT_ACCEPTED cases blind.
+  Its input (`dating_agentC_input.tsv`) held only case_id, disease, test and
+  subset, with no PMIDs, quotes or assessments. Its output is
+  `dating.agentC.tsv`, checked into `dating_checks/agentC.checked.tsv`.
+  - **Rule:** a PMID is MAJORITY_VERIFIED when at least two of A, B and C name
+    it and all their quotes pass. Its cutoff comes from the
+    `check_dating.py` record of that PMID.
+  - **Result:** 6 cases became MAJORITY_VERIFIED: C001, C039, C042, C052, C054
+    and C056. The other 4 remain NOT_ACCEPTED: C010, C018, C040 and C055.
+- **Human review.** `make_review_sheet.py` writes `dating_review_sheet.md` and
+  `dating_human_review.tsv` for the 10 cases still unresolved. They are the 4
+  NOT_ACCEPTED and the 6 ACCEPTED_FLAGGED cases. For each case the sheet
+  lists every candidate PMID with its PubMed title, date and implied cutoff,
+  and each agent's quote. The written assessment comes last.
+- **Current dating status (57 cases):** 41 ACCEPTED (7 of them dropped by
+  the literature check, below), 6 MAJORITY_VERIFIED, and 10 pending human
+  review.
+- **Mechanistic readiness.** `build_dating.py` writes `dating.tsv` and records
+  a mechanistic-readiness judgment for every ACCEPTED, ACCEPTED_FLAGGED and
+  MAJORITY_VERIFIED case. The judgment is "yes" with one PubMed paper dated on
+  or before the cutoff that links the test's molecule to the disease
+  mechanism, or "no" when the searches found none. The script checks each
+  cited paper's date against the cutoff.
 - **Literature sufficiency.** `check_pretest_era.py` counts PubMed records with
-  an abstract published on or before each ACCEPTED cutoff. The query ORs
+  an abstract published on or before each verified (ACCEPTED or
+  MAJORITY_VERIFIED) cutoff. The query ORs
   together:
   - the disease's MeSH heading;
   - its MONDO label and exact synonyms, read with `runoak` from the local
@@ -269,29 +331,41 @@ excluded by an eligibility rule and 3 are KB gaps.
     anti-NMDAR, Immunodeficiency 18 and 19, MOGAD.
   - On the rerun, 10 of the 17 passed. The rerun reproduces
     `literature_check.tsv` byte for byte.
+  - **C001 and C052.** Two MAJORITY_VERIFIED cases then failed on naming
+    alone:
+    - C001, acquired TTP: 0 records, because the query held only the
+      "acquired" subtype names. Alias "thrombotic thrombocytopenic purpura".
+    - C052, statin toxicity: 13 records. Aliases "statin myopathy" and
+      "statin-associated myopathy".
+
+    The experimenter specified both aliases after the check failed, and
+    `literature_recount.py` did not test them. Each one's `alias_source`
+    says so. With them, C001 counts 690 records and C052 counts 57, and both
+    pass.
 
 ### Case counts
 
 | test_class | Cases | Verified (PASS) | Dropped (insufficient) | Pending (unverified cutoff) |
 |---|---|---|---|---|
-| AUTOANTIBODY | 24 | 15 | 1 | 8 |
+| AUTOANTIBODY | 24 | 19 | 1 | 4 |
 | METABOLITE | 12 | 5 | 1 | 6 |
 | SECRETED_PROTEIN | 7 | 7 | 0 | 0 |
 | OTHER | 7 | 4 | 3 | 0 |
-| ENZYME_ACTIVITY | 5 | 2 | 2 | 1 |
-| CELL_SURFACE_MARKER | 1 | 0 | 0 | 1 |
+| ENZYME_ACTIVITY | 5 | 3 | 2 | 0 |
+| CELL_SURFACE_MARKER | 1 | 1 | 0 | 0 |
 | SOMATIC_VARIANT | 1 | 1 | 0 | 0 |
-| **Total** | **57** | **34** | **7** | **16** |
+| **Total** | **57** | **40** | **7** | **10** |
 
 - **Dropped (7):** anti-NMDAR encephalitis, congenital TTP, Immunodeficiency 18,
   Immunodeficiency 19, MNGIE ×2 and Revesz syndrome. They stay listed in
   `literature_check.tsv`.
 - **`dating.tsv`** holds the other 50, in 39 test groups.
-- **Verified (34):** in 29 test groups. 30 are FIRST and 4 IMPROVEMENT; 29
-  have mechanistic readiness "yes" and 5 "no".
-- **Pending (16):** listed in `pending_cases.txt`. They are the
-  ACCEPTED_FLAGGED and NOT_ACCEPTED cases, so their cutoff has not been
-  literature-checked.
+- **Verified (40):** 34 ACCEPTED and 6 MAJORITY_VERIFIED, in 33 test groups.
+  35 are FIRST and 5 IMPROVEMENT; 34 have mechanistic readiness "yes" and 6
+  "no".
+- **Pending (10):** listed in `pending_cases.txt`. They are the 6
+  ACCEPTED_FLAGGED and 4 NOT_ACCEPTED cases awaiting human review, so their
+  cutoff has not been literature-checked.
 
 ## Controls
 
@@ -329,14 +403,19 @@ excluded by an eligibility rule and 3 are KB gaps.
 
 ## Dev/test split
 
-`make_split.py`, seed 20261111, uses only the 34 verified cases.
+**The dev set is frozen.** It was drawn once, in commit `e76ffea9ec2`, from
+the 34 cases verified at the time, with seed 20261111. `make_split.py` now
+reads `dev_set.txt` and never redraws it. The script fails if a dev case is no
+longer verified, or if a dev case's test_group has gained other cases. Rerun
+after agent C, `dev_set.txt` is byte-identical to the committed version.
 
-**Dev set** (`dev_set.txt`): one case per test_class, chosen as follows:
-- **Candidates:** only cases that are alone in their test_group across all 50
+**Dev set** (`dev_set.txt`): one case per test_class, drawn as follows:
+- **Candidates:** only cases that are alone in their test_group across all
   dated cases. No dev case then shares a test with a test or pending case.
 - **Eligible classes:** a class contributes only if it keeps at least one
-  verified case for the test set. That leaves out SOMATIC_VARIANT (one
-  verified case) and CELL_SURFACE_MARKER (none).
+  verified case for the test set. That left out SOMATIC_VARIANT (one
+  verified case) and CELL_SURFACE_MARKER (none at the time; PNH, C042, has
+  since been verified and is in the test set).
 - **Draw:** one candidate per class.
 
 | Case | test_class | Test | Disease |
@@ -347,19 +426,22 @@ excluded by an eligibility rule and 3 are KB gaps.
 | C044 | METABOLITE | serum 7-alpha-hydroxy-4-cholesten-3-one | Primary Bile Acid Malabsorption |
 | C050 | OTHER | TREC newborn screening | Severe Combined Immunodeficiency |
 
-**Test set** (`test_set.txt`): the other 29 verified cases, in 24 test groups.
+**Test set** (`test_set.txt`): every other verified case, **35** in 28 test
+groups.
 
 | test_class | Test cases |
 |---|---|
-| AUTOANTIBODY | 14 |
+| AUTOANTIBODY | 18 |
 | SECRETED_PROTEIN | 6 |
 | METABOLITE | 4 |
 | OTHER | 3 |
-| ENZYME_ACTIVITY | 1 |
+| ENZYME_ACTIVITY | 2 |
+| CELL_SURFACE_MARKER | 1 |
 | SOMATIC_VARIANT | 1 |
 
-**Pending** (`pending_cases.txt`): the 16 unverified cases. Each joins the test
-set once its cutoff is verified.
+**Pending** (`pending_cases.txt`): the **10** cases awaiting human review. Each
+joins the test set once its cutoff is verified and passes the literature
+check.
 
 ## Coverage audit
 
@@ -509,8 +591,9 @@ judged against it:
   - a sensitivity analysis keeping one case per test_group: the case with the
     earliest cutoff, ties broken by case_id;
   - a cluster bootstrap over test groups.
-- **Sample size.** The test set holds 29 cases in 24 test groups now, and at
-  most 45 if all 16 pending cases are verified. Exact two-sided McNemar at
+- **Sample size.** The test set holds 35 cases in 28 test groups now, and at
+  most 45 if all 10 pending cases are verified and pass the literature
+  check. Exact two-sided McNemar at
   α = 0.05 reaches significance only with enough discordant pairs:
 
   | Discordant pairs | Split needed |
@@ -525,14 +608,17 @@ judged against it:
 
 ## Pending before prereg-v1
 
-- [ ] Verify the 16 unverified cutoffs: human review of `dating_flags.tsv`, then
-  rerun the literature check and `make_split.py`.
+- [ ] Verify the 10 unverified cutoffs: human review in
+  `dating_human_review.tsv`, then rerun the literature check and
+  `make_split.py`.
 - [ ] Propagate the literature exclusion into `eligibility.tsv` and
   `cases.tsv`, which still count the 7 dropped cases as INCLUDE.
 - [ ] Write the per-case rubrics and, from them, the banned-term lists.
 - [ ] Write `audit_transcript.py`, A1's node-type → `analyte_type` table and
   A1's weights, and freeze them before the dev set is run.
 - [ ] Finalise `RUN_CONFIG.yaml`: the second model family is TBD.
+- [ ] Decide whether to expand the negatives, and how to handle Alzheimer
+  disease as both a decoy and a dev case.
 - [ ] Decide how an LLM arm's 3 runs become one hit or miss per case for
   McNemar.
 - [ ] Decide which of the 2 curation replicates feeds the arms, or how both
@@ -559,8 +645,10 @@ judged against it:
 - **Abstracts-only counts undercount early literature.** `hasabstract` drops
   most PubMed records before about 1975, so the literature check and packets
   under-represent the oldest literature. The 17 aliases are hand-written.
-- **Dating uncertainty.** The discovery date is unverified for 16 cases. Even
+- **Dating uncertainty.** The discovery date is unverified for 10 cases. Even
   where both agents agree, 6 accepted PMIDs look later than the real report.
+  Six cutoffs rest on a 2-of-3 agent majority rather than agreement of the
+  first two.
 - **KB gaps.** The frame holds only tests dismech records: 3 of 22 known
   positives are missing.
 - **Sparse differentials.** Most entries list no differential diagnoses, and
@@ -625,9 +713,15 @@ judged against it:
 | `check_dating.py` | verifies a dating file against PubMed |
 | `dating_checks/agentA.checked.tsv` | `check_dating.py` output for agent A |
 | `dating_checks/agentB.checked.tsv` | `check_dating.py` output for agent B |
+| `dating_agentC_input.tsv` | agent C's blind input for the 10 NOT_ACCEPTED cases |
+| `dating.agentC.tsv` | agent C's discovery PMIDs and quotes |
+| `dating_checks/agentC.checked.tsv` | `check_dating.py` output for agent C |
 | `build_dating.py` | merges the agents into `dating.tsv`; writes flags and spot-check |
 | `dating.tsv` | the 50 dated cases not dropped by the literature check |
-| `dating_flags.tsv` | 16 cases needing review, with assessments |
+| `dating_flags.tsv` | the 16 cases A and B did not settle cleanly, with assessments and agent C's PMID |
+| `make_review_sheet.py` | writes the human review sheet and its TSV |
+| `dating_review_sheet.md` | the 10 unresolved cases, candidates first |
+| `dating_human_review.tsv` | one row per unresolved case, for the reviewer's decision |
 | `dating_spotcheck.tsv` | 8 unflagged accepted cases for spot-checking |
 | `check_pretest_era.py` | counts pre-cutoff literature per case |
 | `literature_check.tsv` | the literature check for all 57 cases, with aliases |
@@ -639,10 +733,10 @@ judged against it:
 | `decoy_candidates.tsv` | all 48 hits with MeSH, MONDO and kb matches |
 | `decoy_screen.tsv` | decision and reason for each hit |
 | `decoys.tsv` | the 11 decoy disease–biomarker pairs |
-| `make_split.py` | writes the dev, test and pending lists |
-| `dev_set.txt` | 5 dev cases |
-| `test_set.txt` | 29 test cases |
-| `pending_cases.txt` | 16 cases awaiting cutoff verification |
+| `make_split.py` | checks the frozen dev set; writes the test and pending lists |
+| `dev_set.txt` | 5 dev cases (frozen) |
+| `test_set.txt` | 35 test cases |
+| `pending_cases.txt` | 10 cases awaiting cutoff verification |
 | `coverage_audit/audit.py` | the pathograph coverage audit |
 | `coverage_audit/FINDINGS.md` | its definitions, results and review |
 | `coverage.tsv` | one row per audited disease |
