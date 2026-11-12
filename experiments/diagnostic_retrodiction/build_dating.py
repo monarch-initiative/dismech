@@ -198,6 +198,18 @@ LITERATURE_ALIAS = {
     "C045": "pyridoxine-dependent",
     "C046": "Revesz",
     "C057": "nephrogenic diabetes insipidus",
+    # Added after agent C's majority dating gave these two a cutoff and the
+    # MONDO-name check failed them (C001: 0 records, the query held only the
+    # "acquired" subtype names; C052: 13, "statin toxicity" alone, no MeSH).
+    "C001": "thrombotic thrombocytopenic purpura",
+    "C052": "statin myopathy; statin-associated myopathy",
+}
+# Source of each case's alias; cases absent here use ALIAS_SOURCE.
+ALIAS_SOURCE_BY_CASE = {
+    "C001": "plain literature name, specified by the experimenter after the MAJORITY_VERIFIED "
+            "literature check failed (not tested by literature_recount.py)",
+    "C052": "plain literature names, specified by the experimenter after the MAJORITY_VERIFIED "
+            "literature check failed (not tested by literature_recount.py)",
 }
 
 # (disease, test) -> "no" or a PMID (string) supporting "yes"
@@ -347,7 +359,8 @@ def main() -> None:
                "quote_ok": "TRUE" if (both_quotes or majority) else "FALSE", "dating_status": status,
                "case_id": c["case_id"],
                "literature_alias": LITERATURE_ALIAS.get(c["case_id"], "NA"),
-               "alias_source": ALIAS_SOURCE if c["case_id"] in LITERATURE_ALIAS else "NA"}
+               "alias_source": (ALIAS_SOURCE_BY_CASE.get(c["case_id"], ALIAS_SOURCE)
+                                if c["case_id"] in LITERATURE_ALIAS else "NA")}
         if accepted:
             d = dt.date.fromisoformat(ra["pubmed_date"])
             row.update(discovery_pmid=f"PMID:{pa}", discovery_date=ra["pubmed_date"],
