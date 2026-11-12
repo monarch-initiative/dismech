@@ -155,26 +155,26 @@ as it is being built:
 
 Both are typed `TwoDCellCulture`, `biological_organization_level:
 CELLULAR_NEIGHBORHOOD`, `species: NCBITaxon:10116`, with each assay's applications
-and limitations carrying the paper's own sentences. They are open as a draft in
+and limitations carrying the paper's own sentences. They were first drafted in
 [nams-registry#57](https://github.com/monarch-initiative/nams-registry/pull/57),
-where both were validated as `NAMRecord`, and their models as `TwoDCellCulture`,
-against that repository's own `nam_records.yaml` and the NAMO commit it pins.
+closed unmerged, and are being redone; the records are not in the registry yet.
 
-One thing holds that PR as a draft, and it is a question for the registry rather
-than for this screen. `source_resources` is required and is defined as "A registry
-resource a NAM was found in", but this NAM was found in a primary research paper, and a
-primary research paper cannot be a registry resource: the registry's own
-`ResourceTypeEnum.Report` says "A primary research paper is not a report."
-Something still has to go in that slot, because the registry's
-`test_nam_source_resources_exist` requires every value there to name a file in its
-`resources/`. The draft carries ToxCast as a marked placeholder — the plausible
-home for the EPA MEA endpoints, which could not be confirmed against invitrodb —
-and records the paper and this special issue in free text instead. A separate
-nams-registry issue covers the general case.
+That first draft ran into a question that was general rather than specific to this
+paper, and it has since been settled. `source_resources` is required and is defined
+as "A registry resource a NAM was found in", but a NAM found in a primary research
+paper had nothing to name: the registry's own `ResourceTypeEnum.Report` says "A
+primary research paper is not a report", while `test_nam_source_resources_exist`
+requires every value in that slot to name a file in `resources/`. The draft used
+ToxCast as a marked placeholder.
+[nams-registry#63](https://github.com/monarch-initiative/nams-registry/issues/63)
+answered it with a `scientific-literature` resource that carries the paper's DOI in
+`source_urls`, so no placeholder is needed now; the same round added `compared_with`
+for NAMs a study compared head to head, which is how these two assays should name
+each other.
 
 `references_cache/PMID_38788893.md` is committed and is cited only from this page,
 not from any `kb/` entry. It is kept deliberately, so the quoted sentences above
-and in the registry draft stay checkable — do not read its absence from `kb/` as
+and in the registry records stay checkable — do not read its absence from `kb/` as
 uncited and prune it.
 
 The NFA's own gap — developmental neurotoxicity as an outcome, which dismech has
