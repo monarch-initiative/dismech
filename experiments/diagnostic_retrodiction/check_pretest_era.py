@@ -1,45 +1,67 @@
-"""Test whether a disease had a literature before its diagnostic test existed.
+"""Count the PubMed literature on a disease up to its verified cutoff date.
 
-Rule 2 of eligibility_rules.md (version 2): a disease whose own name appears in
-fewer than 100 PubMed abstracts dated before 31 December of the year before
-the test's discovery has no pre-test era to retrodict, and the row is
-EXCLUDE / DISEASE_DEFINED_BY_TEST.
+This computes the INSUFFICIENT_PRE_CUTOFF_LITERATURE exclusion of
+eligibility_rules.md (version 3). A row is excluded when the disease has fewer
+PubMed records on or before its cutoff date than the packet minimum, because
+a time-sliced curation packet built from that literature would be too thin.
 
-Input TSV columns (required): disease, test, discovery_year. Other columns are
-passed through unchanged.
+Input: dating.tsv, one row per disease/test pair to check, with columns
+  disease      the frame's disease_name
+  test         the frame's row_name
+  row_type     optional; needed only when disease + test names two frame rows
+  cutoff_date  YYYY-MM-DD, the last date the packet may include
+  quote_ok     the dating check's verdict; only TRUE rows count as verified
+Any other columns are passed through.
 
-For each row the query is
+For each verified row, the disease is taken from its MONDO ID in frame.tsv and
+the query is the OR of:
+  - the disease's MeSH heading, from MONDO's MESH: cross-reference, as
+    "<heading>"[MeSH Terms] (or [Supplementary Concept] for a C-number);
+  - the MONDO label, as "<label>"[tiab];
+  - each MONDO exact synonym, as "<synonym>"[tiab];
+ANDed with ``hasabstract`` and limited to publication dates up to and including
+cutoff_date. MONDO is read with ``runoak`` against the local MONDO build,
+opened by file path (``sqlite:<path to mondo.db>``). That build is required:
+the configured ols:mondo adapter does not serve synonyms or MeSH mappings, and
+the script stops rather than download it. Fetch it with
+``just fetch-ontology-dbs mondo``. The path form matters: ``sqlite:obo:mondo``
+lets oaklib replace an existing build it considers stale, which silently changes
+the MONDO release under the counts; a path adapter never downloads. The build's
+date is recorded in ``mondo_build`` so the release behind each count is known.
 
-    "<disease>"[tiab] AND hasabstract
+Added columns:
+  frame_idx        position among flagged frame rows (what build_eligibility.py joins on)
+  mondo_id         from frame.tsv
+  mondo_build      modification date of the mondo.db that was read
+  mesh_id, mesh_heading
+  n_synonyms       MONDO exact synonyms included
+  lit_query        the PubMed query sent
+  lit_count        PubMed's hit count
+  packet_minimum   from RUN_CONFIG
+  lit_ruling       INSUFFICIENT_PRE_CUTOFF_LITERATURE if lit_count < packet_minimum,
+                   PASS otherwise; UNVERIFIED_CUTOFF when quote_ok is not TRUE or
+                   cutoff_date is unusable; NA when a lookup or search failed
 
-with publication date (``pdat``) from 1800/01/01 to 31 December of
-``discovery_year - 1``. "<disease>" is the disease column exactly as given,
-searched as a phrase in titles and abstracts; this script does not add
-synonyms, so a name that is a knowledge-base label rather than a literature
-term will return a low count. Added columns:
-
-  pretest_query    the query sent
-  pretest_maxdate  the upper date bound, YYYY/MM/DD
-  pretest_count    PubMed's hit count
-  pretest_ruling   DISEASE_DEFINED_BY_TEST if the count is below --threshold
-                   (default 100), PASS otherwise, NA if the search failed or
-                   the year was unusable
-
-Responses are cached under tmp/pretest_cache/ (gitignored). NCBI_API_KEY is
-required; it is sent only as a request parameter and is never printed, cached,
-or put in an error message.
+The packet minimum is read from ../diagnostic_retrodiction/RUN_CONFIG
+(``packet_minimum``). NCBI_API_KEY is required; it is sent only as a request
+parameter (by POST, so long synonym queries fit) and is never printed, cached,
+or put in an error message. Responses are cached under tmp/pretest_cache/.
 
 Usage:
     uv run python experiments/diagnostic_retrodiction/check_pretest_era.py \
-        input.tsv --out output.tsv [--threshold 100]
+        dating.tsv --out experiments/diagnostic_retrodiction/eligibility_work/pre_cutoff_literature.tsv
 """
 from __future__ import annotations
 
 import argparse
 import csv
+import datetime as dt
 import hashlib
+import io
 import json
 import os
+import re
+import subprocess
 import sys
 import time
 import urllib.error
@@ -47,88 +69,212 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-ESEARCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
-REQUIRED = ("disease", "test", "discovery_year")
-ADDED = ("pretest_query", "pretest_maxdate", "pretest_count", "pretest_ruling")
+import yaml
+
+HERE = Path(__file__).resolve().parent
+REPO = HERE.parents[1]
+EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+MONDO_ADAPTER = "sqlite:obo:mondo"  # named only to locate the build; never opened by name
+REQUIRED = ("disease", "test", "cutoff_date", "quote_ok")
+ADDED = ("frame_idx", "mondo_id", "mondo_build", "mesh_id", "mesh_heading", "n_synonyms", "lit_query",
+         "lit_count", "packet_minimum", "lit_ruling")
 
 
 def log(msg: str) -> None:
     print(msg, file=sys.stderr)
 
 
-def count(term: str, maxdate: str, api_key: str, cache: Path, email: str | None) -> int | None:
-    params = {"db": "pubmed", "term": term, "datetype": "pdat", "mindate": "1800/01/01",
-              "maxdate": maxdate, "rettype": "count", "retmode": "json"}
-    key = hashlib.sha256(json.dumps(params, sort_keys=True).encode()).hexdigest()[:20]
-    path = cache / f"count_{key}.json"
-    if path.exists():
-        return json.loads(path.read_text())["count"]
-    full = {**params, "tool": "dismech-retrodiction", "api_key": api_key}
-    if email:
-        full["email"] = email
-    url = f"{ESEARCH}?{urllib.parse.urlencode(full)}"
-    for attempt in range(4):
+class EUtils:
+    def __init__(self, api_key: str, cache: Path):
+        self.api_key, self.cache = api_key, cache
+        cache.mkdir(parents=True, exist_ok=True)
+
+    def call(self, endpoint: str, params: dict) -> dict | None:
+        key = hashlib.sha256(json.dumps([endpoint, params], sort_keys=True).encode()).hexdigest()[:24]
+        path = self.cache / f"{endpoint.split('.')[0]}_{key}.json"
+        if path.exists():
+            return json.loads(path.read_text())
+        body = urllib.parse.urlencode({**params, "retmode": "json", "tool": "dismech-retrodiction",
+                                       "api_key": self.api_key}).encode()
+        for attempt in range(4):
+            try:
+                with urllib.request.urlopen(urllib.request.Request(f"{EUTILS}/{endpoint}", data=body),
+                                            timeout=60) as r:
+                    data = json.load(r)
+                time.sleep(0.11)
+                path.write_text(json.dumps(data))
+                return data
+            except (urllib.error.URLError, TimeoutError, ValueError) as e:
+                if attempt == 3:
+                    # Type only: exception text can carry the request, which holds the key.
+                    log(f"{endpoint} failed ({type(e).__name__})")
+                    return None
+                time.sleep(2 * (attempt + 1))
+        return None
+
+    def mesh_heading(self, mesh_id: str) -> str | None:
+        """Heading for a MeSH descriptor (D...) or supplementary concept (C...)."""
+        m = re.fullmatch(r"([DC])(\d+)", mesh_id)
+        if not m:
+            return None
+        uid = ("68" if m.group(1) == "D" else "67") + m.group(2)
+        data = self.call("esummary.fcgi", {"db": "mesh", "id": uid})
         try:
-            with urllib.request.urlopen(url, timeout=60) as r:
-                n = int(json.load(r)["esearchresult"]["count"])
-            time.sleep(0.11)
-            path.write_text(json.dumps({"term": term, "maxdate": maxdate, "count": n}))
-            return n
-        except (urllib.error.URLError, TimeoutError, KeyError, ValueError) as e:
-            if attempt == 3:
-                # Type only: exception text can echo the URL, which carries the key.
-                log(f"esearch failed ({type(e).__name__}) for: {term}")
-                return None
-            time.sleep(2 * (attempt + 1))
-    return None
+            return data["result"][uid]["ds_meshterms"][0]
+        except (TypeError, KeyError, IndexError):
+            return None
+
+    def count(self, term: str, maxdate: str) -> int | None:
+        data = self.call("esearch.fcgi", {"db": "pubmed", "term": term, "datetype": "pdat",
+                                          "mindate": "1800/01/01", "maxdate": maxdate,
+                                          "rettype": "count"})
+        try:
+            return int(data["esearchresult"]["count"])
+        except (TypeError, KeyError, ValueError):
+            return None
+
+
+MONDO_PATH_ADAPTER = ""  # set in main(): sqlite:<absolute path to the local mondo.db>
+
+
+def runoak(*args: str) -> str | None:
+    proc = subprocess.run(["runoak", "-i", MONDO_PATH_ADAPTER, *args], cwd=REPO,
+                          capture_output=True, text=True)
+    if proc.returncode != 0:
+        log(f"runoak {' '.join(args[:2])} failed: {(proc.stderr.strip().splitlines() or ['?'])[-1]}")
+        return None
+    return proc.stdout
+
+
+def tsv_rows(text: str) -> list[dict]:
+    lines = [l for l in text.splitlines() if l.strip() and not l.startswith("#")]
+    return list(csv.DictReader(io.StringIO("\n".join(lines)), delimiter="\t"))
+
+
+def mondo_terms(mondo_id: str) -> tuple[str | None, list[str], str | None]:
+    """Return (label, exact synonyms, MeSH ID) for a MONDO term via runoak."""
+    out = runoak("labels", mondo_id)
+    rows = tsv_rows(out) if out else []
+    label = (rows[0].get("label") or None) if rows else None
+
+    synonyms: list[str] = []
+    out = runoak("aliases", "--obo-model", mondo_id)
+    for r in tsv_rows(out) if out else []:
+        pred = next((v for k, v in r.items() if k and "pred" in k.lower()), "") or ""
+        value = next((v for k, v in r.items() if k and k.lower() in ("alias", "synonym", "value")), "") or ""
+        if pred.endswith("hasExactSynonym") and value and value != label:
+            synonyms.append(value)
+
+    mesh = None
+    out = runoak("mappings", "-O", "sssom", mondo_id)
+    found = []
+    for r in tsv_rows(out) if out else []:
+        obj = r.get("object_id") or ""
+        if obj.upper().startswith(("MESH:", "MSH:")):
+            found.append((r.get("predicate_id") or "", obj.split(":", 1)[1]))
+    if found:
+        exact = [m for p, m in found if p.endswith("exactMatch")]
+        mesh = (exact or [m for _, m in found])[0]
+    return label, sorted(set(synonyms)), mesh
+
+
+def quote(s: str) -> str:
+    return " ".join(s.replace('"', "").split())
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("input", type=Path)
-    ap.add_argument("--out", type=Path, help="output TSV (default: stdout)")
-    ap.add_argument("--threshold", type=int, default=100)
-    ap.add_argument("--cache", type=Path,
-                    default=Path(__file__).resolve().parents[2] / "tmp" / "pretest_cache")
-    ap.add_argument("--email", default=None, help="optional contact email sent to NCBI")
+    ap.add_argument("dating", type=Path, help="dating.tsv with verified cutoff dates")
+    ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--run-config", type=Path, default=HERE / "RUN_CONFIG")
+    ap.add_argument("--cache", type=Path, default=REPO / "tmp" / "pretest_cache")
     a = ap.parse_args()
 
     api_key = os.environ.get("NCBI_API_KEY", "").strip()
     if not api_key:
         sys.exit("NCBI_API_KEY is not set; it is required for E-utilities requests.")
-    a.cache.mkdir(parents=True, exist_ok=True)
+    config = yaml.safe_load(a.run_config.read_text()) or {}
+    if not isinstance(config.get("packet_minimum"), int):
+        sys.exit(f"{a.run_config} has no integer packet_minimum")
+    minimum = config["packet_minimum"]
 
-    with open(a.input, newline="", encoding="utf-8") as f:
+    sys.path.insert(0, str(REPO / "src"))
+    from dismech.oak_db import adapter_build_name, local_build_path
+    db = local_build_path(adapter_build_name(MONDO_ADAPTER))
+    if not db.is_file():
+        sys.exit("The local MONDO build is required (exact synonyms and MeSH mappings are not served "
+                 "by ols:mondo). Run: just fetch-ontology-dbs mondo")
+    global MONDO_PATH_ADAPTER
+    MONDO_PATH_ADAPTER = f"sqlite:{db.resolve()}"
+    mondo_build = dt.date.fromtimestamp(db.stat().st_mtime).isoformat()
+
+    with open(HERE / "frame.tsv", newline="", encoding="utf-8") as f:
+        frame = [r for r in csv.DictReader(f, delimiter="\t") if r["flag_nongenetic_specimen"] == "TRUE"]
+    with open(a.dating, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f, delimiter="\t")
         fields = list(reader.fieldnames or [])
         rows = list(reader)
     missing = [c for c in REQUIRED if c not in fields]
     if missing:
-        sys.exit(f"input is missing required column(s): {', '.join(missing)}")
+        sys.exit(f"dating input is missing required column(s): {', '.join(missing)}")
 
+    eu = EUtils(api_key, a.cache)
+    terms_cache: dict[str, tuple] = {}
     for row in rows:
         row.update({c: "NA" for c in ADDED})
-        disease = " ".join((row["disease"] or "").split()).replace('"', "")
-        year = (row["discovery_year"] or "").strip()
-        if not disease or not (year.isdigit() and len(year) == 4):
-            log(f"{row['disease']} / {row['test']}: unusable disease or discovery_year {year!r}")
+        row["packet_minimum"] = str(minimum)
+        row["mondo_build"] = mondo_build
+        hits = [i for i, fr in enumerate(frame)
+                if fr["disease_name"] == row["disease"] and fr["row_name"] == row["test"]
+                and (not row.get("row_type") or fr["row_type"] == row["row_type"])]
+        if len(hits) != 1:
+            log(f"{row['disease']} / {row['test']}: matches {len(hits)} frame rows; add row_type")
             continue
-        term = f'"{disease}"[tiab] AND hasabstract'
-        maxdate = f"{int(year) - 1}/12/31"
-        row["pretest_query"], row["pretest_maxdate"] = term, maxdate
-        n = count(term, maxdate, api_key, a.cache, a.email)
+        i = hits[0]
+        row["frame_idx"], row["mondo_id"] = str(i), frame[i]["mondo_id"]
+
+        try:
+            cutoff = dt.date.fromisoformat((row["cutoff_date"] or "").strip())
+        except ValueError:
+            cutoff = None
+        if cutoff is None or (row["quote_ok"] or "").strip().upper() != "TRUE":
+            row["lit_ruling"] = "UNVERIFIED_CUTOFF"
+            continue
+        mondo_id = frame[i]["mondo_id"]
+        if not mondo_id.startswith("MONDO:"):
+            log(f"{row['disease']}: no MONDO ID in frame.tsv")
+            continue
+
+        if mondo_id not in terms_cache:
+            terms_cache[mondo_id] = mondo_terms(mondo_id)
+        label, synonyms, mesh_id = terms_cache[mondo_id]
+        heading = eu.mesh_heading(mesh_id) if mesh_id else None
+        row["mesh_id"] = f"MESH:{mesh_id}" if mesh_id else "NA"
+        row["mesh_heading"] = heading or "NA"
+        row["n_synonyms"] = str(len(synonyms))
+
+        parts = []
+        if heading:
+            field = "MeSH Terms" if mesh_id.startswith("D") else "Supplementary Concept"
+            parts.append(f'"{quote(heading)}"[{field}]')
+        parts += [f'"{quote(t)}"[tiab]' for t in ([label] if label else []) + synonyms]
+        if not parts:
+            log(f"{mondo_id}: no MeSH heading, label or synonyms found")
+            continue
+        term = f"({' OR '.join(parts)}) AND hasabstract"
+        row["lit_query"] = term
+        n = eu.count(term, cutoff.strftime("%Y/%m/%d"))
         if n is None:
             continue
-        row["pretest_count"] = str(n)
-        row["pretest_ruling"] = "DISEASE_DEFINED_BY_TEST" if n < a.threshold else "PASS"
+        row["lit_count"] = str(n)
+        row["lit_ruling"] = "INSUFFICIENT_PRE_CUTOFF_LITERATURE" if n < minimum else "PASS"
 
-    dest = open(a.out, "w", newline="", encoding="utf-8") if a.out else sys.stdout
-    w = csv.DictWriter(dest, fieldnames=fields + [c for c in ADDED if c not in fields],
-                       delimiter="\t", lineterminator="\n")
-    w.writeheader()
-    w.writerows(rows)
-    if a.out:
-        dest.close()
+    a.out.parent.mkdir(parents=True, exist_ok=True)
+    with open(a.out, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fields + [c for c in ADDED if c not in fields],
+                           delimiter="\t", lineterminator="\n")
+        w.writeheader()
+        w.writerows(rows)
 
 
 if __name__ == "__main__":

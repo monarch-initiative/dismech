@@ -1,18 +1,20 @@
 """Resolve the FACTS disagreements between screeners A and B by majority with C.
 
 For every row of ../eligibility_disagreements.tsv with cause FACTS:
-  A  screener A's decision in eligibility.tsv as built under rules version 2
-     (read from --base-ref, the commit that published version 2)
+  A  screener A's decision under the current rules: build_eligibility.py's
+     build with the resolution itself left out
   B  ../eligibility.screenerB.tsv
   C  ../eligibility.screenerC.tsv
 The majority of the three decisions is final. Where it differs from A, the row
 is overridden in ov9_resolution.txt with the reason of a screener in the
-majority (C when C is in it, otherwise B), marked ``(screener majority)``.
-Rows where A is already in the majority are left exactly as they are.
+majority, marked ``(screener majority)``. C's reason is used when C is in the
+majority, unless it rests on version 2's computed pre-test-era count (removed
+in version 3), in which case B's reason is used. Rows where A is already in the
+majority are left exactly as they are.
 
-The script then rebuilds eligibility.tsv and eligibility_review.tsv with
-build_eligibility.py and writes ../eligibility_resolution.tsv, listing every
-decision that differs from --base-ref.
+The script then rebuilds eligibility.tsv and eligibility_review.tsv and writes
+../eligibility_resolution.tsv, listing every decision the resolution changed
+relative to A.
 
 Usage:
     python experiments/diagnostic_retrodiction/eligibility_work/resolve_facts.py
@@ -21,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import io
 import re
 import subprocess
 import sys
@@ -38,21 +39,20 @@ def read_tsv(path: Path) -> list[dict]:
         return list(csv.DictReader(f, delimiter="\t"))
 
 
-def git_tsv(ref: str, path: Path) -> list[dict]:
-    text = subprocess.run(["git", "show", f"{ref}:{path.relative_to(REPO).as_posix()}"], cwd=REPO,
-                          check=True, capture_output=True, text=True).stdout
-    return list(csv.DictReader(io.StringIO(text), delimiter="\t"))
+def uses_removed_count(reason: str) -> bool:
+    return "(v2 rule 2)" in reason or "PubMed record" in reason
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--base-ref", default="70c47e11be0", help="commit holding the version 2 build")
-    a = ap.parse_args()
+    ap.parse_args()
+    sys.path.insert(0, str(HERE))
+    from build_eligibility import build
 
     key = lambda r: (r["disease_name"], r["row_type"], r["row_name"])
     frame = [r for r in read_tsv(EXP / "frame.tsv") if r["flag_nongenetic_specimen"] == "TRUE"]
     idx = {key(r): i for i, r in enumerate(frame)}
-    base = git_tsv(a.base_ref, EXP / "eligibility.tsv")
+    _, _, base = build(apply_resolution=False)
     facts = [r for r in read_tsv(EXP / "eligibility_disagreements.tsv") if r["cause"] == "FACTS"]
     b_rows = {key(r): r for r in read_tsv(EXP / "eligibility.screenerB.tsv")}
     c_rows = {key(r): r for r in read_tsv(EXP / "eligibility.screenerC.tsv")}
@@ -69,7 +69,11 @@ def main() -> None:
         resolved[i] = (votes, majority)
         if votes["A"] == majority:
             continue
-        src = "C" if votes["C"] == majority else "B"
+        candidates = [s for s in ("C", "B") if votes[s] == majority
+                      and not uses_removed_count((c_rows if s == "C" else b_rows)[k]["reason"])]
+        if not candidates:
+            sys.exit(f"no majority screener gives a usable reason for {k}")
+        src = candidates[0]
         reason = (c_rows if src == "C" else b_rows)[k]["reason"]
         m = re.match(r"([A-Z_0-9]+)( \(ambiguous\))?: (.*?)(?: \[[a-z-]+\])?$", reason, re.S)
         if not m:

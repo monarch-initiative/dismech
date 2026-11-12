@@ -5,16 +5,22 @@ Inputs (all committed):
   ../frame.tsv            the frozen sampling frame
   ov1.txt ... ov7.txt     version 1 per-row judgments,
                           ``idx|CODE|ambiguous(0/1)|FIRST/IMPROVEMENT/NA|detail``
-  ov8_v2.txt              version 2 judgments for rules 1, 3, 4 and 5 of
-                          eligibility_rules.md, same format, applied last
-  pretest_era.tsv         rule 2: check_pretest_era.py output for every row
-                          rule 2 could affect; a DISEASE_DEFINED_BY_TEST ruling
-                          there overrides the row's judgment
+  ov8_v2.txt              judgments for rules 1, 3, 4 and 5 of
+                          eligibility_rules.md (introduced in version 2, kept in
+                          version 3), same format, applied after ov1-ov7
   subset_v2.txt           rule 1: ``idx|subset`` for INCLUDE rows; an INCLUDE
                           row not listed records ALL
   ov9_resolution.txt      screener-majority decisions on the FACTS
                           disagreements (written by resolve_facts.py), same
-                          format; applied after rule 2, as the final judgment
+                          format; applied after the judgment tables
+  pre_cutoff_literature.tsv
+                          optional: check_pretest_era.py output. An INCLUDE row
+                          it rules INSUFFICIENT_PRE_CUTOFF_LITERATURE becomes
+                          EXCLUDE. Absent until verified cutoffs exist, in which
+                          case nothing is applied.
+
+Version 2's computed pre-test-era count (rule 2, pretest_era.tsv) is no longer
+read; version 3 removed it.
   wrong.txt               IMPLICIT rows judged WRONG_SPECIMEN, ``idx|what the assay is run on``
   infectious_names.txt    names of kb/disorders entries that declare an
                           ``infectious_agent`` (read from kb/ at the pinned
@@ -33,9 +39,10 @@ Each row's reason is assembled in this order:
      identity (name + bound term label)                        [rule]
   3. otherwise the profiling-platform pattern                  [rule]
   4. otherwise NOT_PRIMARY_ROUTE                               [scanned-default]
-Then a rule-2 DISEASE_DEFINED_BY_TEST ruling in pretest_era.tsv replaces the
-reason [rule], an ov9_resolution.txt entry replaces it again [judged], and an
-IMPLICIT-basis row listed in wrong.txt becomes WRONG_SPECIMEN regardless.
+Then an ov9_resolution.txt entry replaces the reason [judged]; an INCLUDE row
+ruled INSUFFICIENT_PRE_CUTOFF_LITERATURE in pre_cutoff_literature.tsv becomes
+EXCLUDE [rule]; and an IMPLICIT-basis row listed in wrong.txt becomes
+WRONG_SPECIMEN regardless.
 
 Usage:
     python experiments/diagnostic_retrodiction/eligibility_work/build_eligibility.py
@@ -105,7 +112,6 @@ DEFAULT = {
     "GERMLINE_SEQUENCING?": ("GERMLINE_SEQUENCING", "genetic test of constitutional DNA"),
 }
 COLS = ["disease", "test", "decision", "reason", "first_or_improvement", "subset", "specimen_check"]
-PRETEST_THRESHOLD = 100
 
 
 def provisional(r: dict, infectious: set[str]) -> str:
@@ -152,18 +158,23 @@ def load_tables() -> tuple:
         if line.strip() and not line.startswith("#"):
             i, text = line.split("|", 1)
             subset[int(i)] = text.strip()
-    with open(HERE / "pretest_era.tsv", newline="", encoding="utf-8") as f:
-        pretest = {int(r["frame_idx"]): r for r in csv.DictReader(f, delimiter="\t")}
-    return ov, wrong, infectious, subset, pretest, resolution
+    lit_path = HERE / "pre_cutoff_literature.tsv"
+    literature = {}
+    if lit_path.exists():
+        with open(lit_path, newline="", encoding="utf-8") as f:
+            literature = {int(r["frame_idx"]): r for r in csv.DictReader(f, delimiter="\t")}
+    return ov, wrong, infectious, subset, resolution, literature
 
 
-def build() -> tuple[str, str, list[dict]]:
+def build(apply_resolution: bool = True) -> tuple[str, str, list[dict]]:
     with open(EXP / "frame.tsv", newline="", encoding="utf-8") as f:
         flagged = [r for r in csv.DictReader(f, delimiter="\t") if r["flag_nongenetic_specimen"] == "TRUE"]
     if len(flagged) != FLAGGED_ROWS:
         sys.exit(f"frame.tsv has {len(flagged)} flagged rows, expected {FLAGGED_ROWS}; "
                  "the judgment indices no longer line up")
-    ov, wrong, infectious, subsets, pretest, resolution = load_tables()
+    ov, wrong, infectious, subsets, resolution, literature = load_tables()
+    if not apply_resolution:
+        resolution = {}
     out = []
     for i, r in enumerate(flagged):
         p = provisional(r, infectious)
@@ -180,22 +191,14 @@ def build() -> tuple[str, str, list[dict]]:
             code, amb, foi, tag = "NOT_PRIMARY_ROUTE", False, "NA", "scanned-default"
             detail = ("not identified as a post-1985 primary diagnostic route: a supportive, characterizing, "
                       "monitoring or research marker, or a long-established analyte")
-        if i in pretest:
-            pt = pretest[i]
-            if code not in ("INCLUDE", "DISEASE_DEFINED_BY_TEST"):
-                sys.exit(f"pretest_era.tsv lists row {i}, which is {code}; rule 2 applies only to "
-                         "INCLUDE and DISEASE_DEFINED_BY_TEST candidates")
-            if pt["pretest_ruling"] not in ("PASS", "DISEASE_DEFINED_BY_TEST"):
-                sys.exit(f"row {i}: rule-2 count missing in pretest_era.tsv")
-            if pt["pretest_ruling"] == "DISEASE_DEFINED_BY_TEST":
-                code, amb, foi, tag = "DISEASE_DEFINED_BY_TEST", False, "NA", "rule"
-                detail = (f'{pt["pretest_count"]} PubMed records for "{r["disease_name"]}" before '
-                          f'{pt["discovery_year"]} (threshold {PRETEST_THRESHOLD}) (v2 rule 2)')
-            elif code == "DISEASE_DEFINED_BY_TEST":
-                sys.exit(f"row {i} passes rule 2 but is still DISEASE_DEFINED_BY_TEST; judge it in ov8_v2.txt")
         if i in resolution:
             code, amb, foi, detail = resolution[i]
             tag = "judged"
+        lit = literature.get(i)
+        if code == "INCLUDE" and lit and lit.get("lit_ruling") == "INSUFFICIENT_PRE_CUTOFF_LITERATURE":
+            code, amb, foi, tag = "INSUFFICIENT_PRE_CUTOFF_LITERATURE", False, "NA", "rule"
+            detail = (f'{lit["lit_count"]} PubMed records on or before {lit["cutoff_date"]}, below the '
+                      f'packet minimum of {lit["packet_minimum"]}')
         spec = "NA"
         if r["specimen_basis"] == "IMPLICIT":
             spec = "WRONG_SPECIMEN" if i in wrong else "CONFIRMED"

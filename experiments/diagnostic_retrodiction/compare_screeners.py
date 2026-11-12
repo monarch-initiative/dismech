@@ -1,5 +1,11 @@
 """Compare screener A (eligibility.tsv) with screener B (eligibility.screenerB.tsv).
 
+This is the version-1 comparison. Both inputs are read with ``git show`` from
+commit 528cef7e51a, where the comparison was made and eligibility.tsv held
+screener A's version-1 decisions, so the script reproduces
+eligibility_disagreements.tsv exactly however eligibility.tsv has changed since.
+``--ref`` points it at another commit; its hand-written NOTES only fit 528cef7e51a.
+
 Rows are joined on (disease_name, row_type, row_name). eligibility.tsv has no
 row_type column, so its first 3,311 rows are matched to the flagged frame rows
 by position, which build_eligibility.py guarantees; the disease and test names
@@ -25,13 +31,18 @@ Usage:
 """
 from __future__ import annotations
 
+import argparse
 import collections
 import csv
+import io
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+REPO = HERE.parents[1]
+COMPARISON_REF = "528cef7e51a"
 
 W, F, X = "WORDING_AMBIGUITY", "FACTS", "A_DEPARTS_FROM_RULE"
 SUB = "Standing decisions: subtype antibody in a broader entry"
@@ -130,17 +141,25 @@ def code(reason: str) -> str:
     return re.match(r"([A-Z_0-9]+)", reason).group(1)
 
 
+def at_ref(ref: str, name: str) -> list[dict]:
+    rel = (HERE / name).relative_to(REPO).as_posix()
+    text = subprocess.run(["git", "show", f"{ref}:{rel}"], cwd=REPO, check=True,
+                          capture_output=True, text=True).stdout
+    return list(csv.DictReader(io.StringIO(text), delimiter="\t"))
+
+
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--ref", default=COMPARISON_REF, help="commit to read both screeners' files from")
+    args = ap.parse_args()
     with open(HERE / "frame.tsv", newline="", encoding="utf-8") as f:
         frame = [r for r in csv.DictReader(f, delimiter="\t") if r["flag_nongenetic_specimen"] == "TRUE"]
-    with open(HERE / "eligibility.tsv", newline="", encoding="utf-8") as f:
-        a_rows = list(csv.DictReader(f, delimiter="\t"))[:len(frame)]
+    a_rows = at_ref(args.ref, "eligibility.tsv")[:len(frame)]
     for fr, a in zip(frame, a_rows):
         if (fr["disease_name"], fr["row_name"]) != (a["disease"], a["test"]):
             sys.exit("eligibility.tsv rows no longer line up with the flagged frame rows")
     a_by_key = {(fr["disease_name"], fr["row_type"], fr["row_name"]): a for fr, a in zip(frame, a_rows)}
-    with open(HERE / "eligibility.screenerB.tsv", newline="", encoding="utf-8") as f:
-        b_rows = list(csv.DictReader(f, delimiter="\t"))
+    b_rows = at_ref(args.ref, "eligibility.screenerB.tsv")
 
     table = collections.Counter()
     dis = []

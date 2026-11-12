@@ -1,11 +1,22 @@
-# Eligibility rules for the diagnostic-retrodiction frame — version 2
+# Eligibility rules for the diagnostic-retrodiction frame — version 3
 
-Version 2 adds five rulings to version 1 (kept as `eligibility_rules.v1.md`):
-subset tests (rule 1), a computed pre-test-era check (rule 2), a narrower
-IMPROVEMENT (rule 3), combined rows (rule 4) and dating (rule 5). They are
-marked **[v2 rule N]** where they appear below, and a reason changed by one ends
-in `(v2 rule N)`. `eligibility_v2_changes.tsv` lists every row whose decision
-changed between versions.
+Version 2 (kept as `eligibility_rules.v2.md`) added five rulings to version 1
+(`eligibility_rules.v1.md`): subset tests (rule 1), a computed pre-test-era
+count (rule 2), a narrower IMPROVEMENT (rule 3), combined rows (rule 4) and
+dating (rule 5). They are marked **[v2 rule N]** where they appear below, and a
+reason changed by one ends in `(v2 rule N)`.
+
+Version 3 changes two things:
+- **Rule 2's count is removed.** DISEASE_DEFINED_BY_TEST is again a judged
+  decision, as in version 1. Rows rule 2 had excluded are back to the decision
+  the other rules give them.
+- **A computed literature check replaces it**: INSUFFICIENT_PRE_CUTOFF_LITERATURE,
+  applied after dating (see that section). It needs verified cutoff dates and
+  has not been run, so it has not excluded any row yet.
+
+Rules 1, 3, 4 and 5 and the screener resolution are unchanged.
+`eligibility_v2_changes.tsv` and `eligibility_v3_changes.tsv` list every row
+whose decision changed at each version.
 
 These rules decide which rows of `frame.tsv` are eligible disease/test pairs for
 the retrodiction study. A pair is eligible when a dismech entry records a test,
@@ -47,7 +58,10 @@ EXCLUDE, and exactly one reason. An INCLUDE row also records a `subset`
    not that it is merely supportive.
 5. Its entry into practice can be dated to **one primary research report** from
    1985 or later (rule 5).
-6. The disease had a literature before the test (rule 2).
+6. The disease was not first described together with the test
+   (DISEASE_DEFINED_BY_TEST).
+7. Once the test is dated, the disease has enough PubMed literature up to the
+   cutoff date to build a packet (INSUFFICIENT_PRE_CUTOFF_LITERATURE, computed).
 
 The reason for an INCLUDE row starts with `PRIMARY_ROUTE:`. It then says what
 the test replaced, and gives the publication year (with first author where
@@ -171,6 +185,17 @@ the route combines markers from separate reports and was fixed by consensus
 criteria. Type 2 diabetes, *HbA1c*, is NOT_DATABLE because its diagnostic use is
 dated by an expert-committee report.
 
+## Screener resolution
+
+Where screeners A and B disagreed on the facts of a case (the FACTS rows of
+`eligibility_disagreements.tsv`), the decision is the majority of A, B and a
+third screener C. `eligibility_work/resolve_facts.py` computes it, using A's
+decision under the current rules, and writes the rows where A was outvoted to
+`eligibility_work/ov9_resolution.txt`. The reason is the majority screener's
+own, marked `(screener majority)`. A reason resting on version 2's removed count
+is never used: B's reason is used instead. `eligibility_resolution.tsv` lists
+every decision the resolution changed.
+
 ## Exclusion reasons
 
 Assign the **first** reason in this list that applies. Each reason has a
@@ -207,29 +232,16 @@ one-line definition and an example from the frame.
    the later reasons. Example: Idiopathic hypereosinophilic syndrome, *absolute
    eosinophil count*. Counter-example: Immune thrombocytopenia, *platelet
    count*, is the defining test and was judged PRE_1985.
-7. **DISEASE_DEFINED_BY_TEST** [v2 rule 2]: the disease has too little literature
-   before the test to retrodict from. This is decided by a count, not a
-   judgment: `check_pretest_era.py` counts PubMed records matching
-   `"<disease_name>"[tiab] AND hasabstract`, published up to 31 December of the
-   year before the test's discovery. A count **below 100** is
-   DISEASE_DEFINED_BY_TEST. `<disease_name>` is the dismech entry's own name,
-   exactly as given, with no synonyms. Example: Brunner syndrome, *urinary
-   monoamine metabolite analysis*: 0 records before 1993.
+7. **DISEASE_DEFINED_BY_TEST**: the disease was first described together with
+   the test, so there was never a pre-test way of diagnosing it to retrodict.
+   This is a **judgment**, as in version 1; version 2's computed count (rule 2)
+   is removed. Example: Brunner syndrome, *urinary monoamine metabolite
+   analysis*, since the syndrome was described with its urinary pattern in 1993.
 
-   Three properties of the count affect who fails it:
-   - **The entry name is searched, not the name the literature used.** An entry
-     named after a later or qualified term fails even when the disease had a
-     large literature. "Acquired Thrombotic Thrombocytopenic Purpura" has 0
-     records before 1998; "thrombotic thrombocytopenic purpura" has 690.
-     "Stiff Person Syndrome" has 1 before 1988; "stiff-man syndrome" has 35.
-   - **Rare diseases fall below 100 under any name.** "Canavan" anywhere in the
-     title or abstract has 24 records before 1988.
-   - **`hasabstract` drops most records before about 1975**, which PubMed holds
-     without abstracts: "Canavan disease" has 8 records before 1988 with the
-     filter and 13 without.
-
-   The discovery year used is screener A's, from the INCLUDE reason, and has not
-   been checked against PubMed.
+   The judgment is about the entry's disease. A subset found by the test (rule
+   1) is not judged this way: GLUT1 deficiency is DISEASE_DEFINED_BY_TEST in its
+   own entry, while the GLUT1-deficiency subset of childhood absence epilepsy is
+   INCLUDE, because absence epilepsy had a literature before 1991.
 8. **PRE_1985**: the test was already the primary route before 1985. Example:
    Congenital hypothyroidism, *elevated TSH*.
 9. **NOT_DATABLE**: the route cannot be traced to a first primary research report (rule 5). This
@@ -244,6 +256,31 @@ one-line definition and an example from the frame.
     tests. Example: Acute disseminated encephalomyelitis, *serum MOG-IgG
     cell-based assay*, which reassigns cases to MOGAD rather than diagnosing
     ADEM.
+
+One more reason is computed, and is applied last, after dating and the
+screener resolution:
+
+- **INSUFFICIENT_PRE_CUTOFF_LITERATURE**: an INCLUDE row whose disease has fewer
+  PubMed records on or before its verified cutoff date than the **packet
+  minimum** in `RUN_CONFIG` (`packet_minimum`, currently 30). A packet built
+  from that little literature cannot support a time-sliced curation.
+
+  `check_pretest_era.py` computes it. The disease is taken from the row's MONDO
+  ID in `frame.tsv`, and the query is the OR of the disease's MeSH heading (from
+  MONDO's MeSH cross-reference, searched as `[MeSH Terms]`), its MONDO label and
+  each MONDO exact synonym (both searched as `[tiab]`). The query is ANDed with
+  `hasabstract` and limited to publication dates up to and including the cutoff
+  date. Only cutoffs the dating check has verified (`quote_ok` TRUE in
+  `dating.tsv`) are used; any other row is reported as `UNVERIFIED_CUTOFF` and
+  is not excluded. The output goes to
+  `eligibility_work/pre_cutoff_literature.tsv`, which `build_eligibility.py`
+  applies when present.
+
+  `hasabstract` still drops most records before about 1975, so a disease whose
+  literature is mainly older than that will undercount.
+
+  Status: defined but **not yet run**. No verified cutoffs exist, so no row has
+  been excluded for this reason.
 
 One more reason applies only to rows that are not in the frame:
 
@@ -261,9 +298,10 @@ One more reason applies only to rows that are not in the frame:
 - **A subset test** is decided by rule 1. Version 1's NOT_PRIMARY_ROUTE ruling
   for a subtype antibody in a broader entry no longer applies.
 - **The same test in a syndromic entry** is judged on what it diagnoses there.
-  Plasma metanephrines are INCLUDE wherever the entry has a pheochromocytoma
-  component (MEN2, VHL, EGLN1, Pacak-Zhuang), because there they are the route
-  to that component.
+  (Version 1 used plasma metanephrines in MEN2, VHL, EGLN1 and Pacak-Zhuang
+  entries as the example. Under rule 3 those rows are PRE_1985 everywhere,
+  because urinary metanephrines measured the same analytes before 1985. Version
+  2 left the old example in place; version 3 corrects it.)
 - **A test recorded twice in one entry**, as a diagnosis row and as a biochemical
   row, gets the same decision on both rows. INCLUDE counts are therefore per row,
   not per disease/test pair.
@@ -282,8 +320,7 @@ Typical triggers:
 - Guidelines differ on whether a biopsy is still needed.
 - The publication year is close to the 1985 cutoff.
 - The test came out of research and its clinical uptake is uneven.
-- (Version 1 only: whether the disease existed as a diagnosis before the test.
-  Rule 2 now decides this by count, so these rows are no longer marked.)
+- It is unclear whether the disease existed as a diagnosis before the test.
 - The KB row combines a qualifying and a non-qualifying test.
 
 INCLUDE rows are never marked ambiguous. They are checked through a random
@@ -299,7 +336,8 @@ The reason text ends with a tag recording how the decision was made:
 - **`[judged]`**: decided individually for that row.
 - **`[rule]`**: assigned mechanically: by a pattern on the test's name and bound
   term label, after the row had been seen in a scan (the patterns are in
-  `eligibility_work/build_eligibility.py`), or by the rule-2 count.
+  `eligibility_work/build_eligibility.py`), or by the
+  INSUFFICIENT_PRE_CUTOFF_LITERATURE count.
 - **`[scanned-default]`**: the row was read in a full scan and not identified as
   meeting the inclusion rule, so it was assigned NOT_PRIMARY_ROUTE without an
   individual reason. This bucket mixes supportive markers with long-established
