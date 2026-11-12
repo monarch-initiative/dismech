@@ -49,12 +49,12 @@ Added columns:
   n_synonyms       MONDO exact synonyms included
   lit_query        the PubMed query sent
   lit_count        PubMed's hit count
-  packet_minimum   from RUN_CONFIG
+  packet_minimum   from RUN_CONFIG.yaml
   lit_ruling       INSUFFICIENT_PRE_CUTOFF_LITERATURE if lit_count < packet_minimum,
                    PASS otherwise; UNVERIFIED_CUTOFF when quote_ok is not TRUE or
                    cutoff_date is unusable; NA when a lookup or search failed
 
-The packet minimum is read from ../diagnostic_retrodiction/RUN_CONFIG
+The packet minimum is read from ../diagnostic_retrodiction/RUN_CONFIG.yaml
 (``packet_minimum``). NCBI_API_KEY is required; it is sent only as a request
 parameter (by POST, so long synonym queries fit) and is never printed, cached,
 or put in an error message. Responses are cached under tmp/pretest_cache/.
@@ -198,7 +198,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("dating", type=Path, help="dating.tsv with verified cutoff dates")
     ap.add_argument("--out", type=Path, required=True)
-    ap.add_argument("--run-config", type=Path, default=HERE / "RUN_CONFIG")
+    ap.add_argument("--run-config", type=Path, default=HERE / "RUN_CONFIG.yaml")
     ap.add_argument("--cache", type=Path, default=REPO / "tmp" / "pretest_cache")
     a = ap.parse_args()
 

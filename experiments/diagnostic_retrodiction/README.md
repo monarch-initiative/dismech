@@ -23,9 +23,9 @@ date, and checks the proposals against what happened. Nothing is written to
 - **Guard.** `git diff --stat origin/main -- kb/ src/ references_cache/` is
   empty at every commit on this branch.
 
-Everything below describes what has been done, with numbers from the committed
-files. Items marked **[PLACEHOLDER]** are design decisions no committed file
-records yet.
+Sections headed "as done" describe work already carried out, with numbers from
+the committed files. The remaining sections state the protocol as decided but
+not yet run. Run parameters are in `RUN_CONFIG.yaml`.
 
 ## Hypotheses
 
@@ -42,30 +42,78 @@ paired per-case outcomes. A case is a hit when the real test is among an arm's
 top 10 proposals at tier T2 or better (see *Scoring*).
 
 **Secondary.** Each is reported separately and none is used to rescue the
-primary:
-- **H2:** top-10 tier-2 hit rate for A1 vs A5, A2 vs A5 and A2 vs A6.
-  **[PLACEHOLDER: which are confirmatory; multiplicity correction.]**
-- **H3:** separation of confidence between positives and the controls in
-  `negatives.tsv` and `decoys.tsv`. **[PLACEHOLDER: the metric (for example
-  AUROC) and each arm's confidence scale.]**
-- **Other cut-offs:** hit rates at each tier T1–T4, and at top-1 and top-5.
-  **[PLACEHOLDER: which cut-offs are reported.]**
-- **Primed arms:** A2′ vs A3′. **[PLACEHOLDER: depends on the definition of
-  the primed arms.]**
+primary.
+- **H2, confirmatory:** top-10 tier-2 hit rate, A2 vs A5, exact McNemar. This
+  is the one confirmatory secondary test.
+- **H2, exploratory** (labelled so wherever reported): A1 vs A5 and A2 vs A6,
+  same metric and test. No multiplicity correction is applied to
+  exploratory tests.
+- **H3, confidence:** every arm gives each candidate a confidence from 0 to 1.
+  - A case's confidence is the maximum over its candidates.
+  - The metric is the AUROC of case confidence, positives vs negatives, with
+    a 95% CI from a bootstrap over test groups. Each negative is its own
+    cluster.
+  - The primary H3 analysis uses only positive cases and negatives whose graph
+    has at least one node passing the coverage audit's measurable-node rule
+    (see *Coverage audit*). AUROC over all cases and negatives, and the
+    results stratified by coverage, are also reported.
+- **H3, decoys:** scored separately. For each arm, the fraction of decoy
+  diseases (`decoys.tsv`) where the decoy biomarker appears in the arm's top
+  10.
+- **Cut-offs:**
+  - hit rates for each of T1–T4 at top-10;
+  - T2 hit rates at top-1, top-3, top-5 and top-10;
+  - mean reciprocal rank of the first T2 hit (0 when there is none in the
+    top 10).
+- **A2′ vs A3′:** a robustness check reported with the same exact McNemar
+  test. Not confirmatory.
 
 ## Arms
 
-| Arm | Description |
-|---|---|
-| A1 | Structured-graph arm. It scores each candidate node's specificity twice: against the pathographs of the case's own differential diagnoses, and against all pathographs in the KB. **[PLACEHOLDER: how candidates are generated and the two scores combined.]** |
-| A2 | Time-sliced graph + LLM |
-| A3 | Literature only: the same packet, no graph |
-| A4 | **[PLACEHOLDER]** |
-| A5 | A2 with the graph scrambled **[PLACEHOLDER: the scrambling procedure]** |
-| A6 | A2 with a path ablation **[PLACEHOLDER: which paths are removed]** |
-| A7 | **[PLACEHOLDER]** |
-| A2′ | **[PLACEHOLDER]**, a variant of A2 |
-| A3′ | **[PLACEHOLDER]**, a variant of A3 |
+| Arm | Input | Method |
+|---|---|---|
+| A1 | Time-sliced entry | Graph only, no LLM (below) |
+| A2 | Time-sliced entry + packet | LLM proposes tests from the graph |
+| A3 | Packet only | LLM proposes tests from the literature, no graph |
+| A4 | Disease name and cutoff year only | LLM prompted "It is <cutoff year>…", same candidate schema |
+| A5 | A2 with the causal edges scrambled | As A2 |
+| A6 | A2 with a path ablated | As A2 |
+| A7 | The entry at `PINNED_COMMIT`, with the test's own `diagnosis`/`biochemical` rows and every node or evidence item containing a banned term removed | As A2 |
+| A2′ | A2's inputs and prompts | Run on a second model family |
+| A3′ | A3's inputs and prompts | Run on a second model family |
+
+The second model family is named in `RUN_CONFIG.yaml`.
+
+**A1, the graph-only arm.**
+- **Candidates:** every node of the time-sliced entry that passes
+  `coverage_audit/audit.py`'s measurable-node rule.
+- **Specificity:** 1 minus the fraction of comparison pathographs containing
+  the node's term or a direct parent or child of it (OAK). It is computed
+  twice: against the pathographs of the case's resolved differential
+  diagnoses, and against all pathographs.
+- **Score:** the mean of the two specificities, or the all-pathograph
+  specificity alone when no differential resolves. That is multiplied by
+  1 / (1 + causal distance from the root-cause node).
+- **Mapping:** the top-scoring nodes are mapped to test candidates through a
+  fixed table from node type to `analyte_type`.
+- **Weights:** fixed before the dev set is run and never tuned on the test
+  set.
+
+**A5, scrambled graph.**
+- **Scramble:** degree-preserving double-edge swaps of the causal edges, 10 ×
+  the edge count, with node content unchanged.
+- **Repeats:** three seeded scrambles per case, results averaged.
+
+**A6, path ablation.**
+- **Path:** the nodes on causal paths from the root cause to the node that
+  matches the rubric's T1 mechanism.
+- **Levels:** 25%, 50%, 75% and 100% of those nodes are removed, seeded,
+  nearest to the target first.
+- **No match:** if no node matches T1, A6 is NA for that case.
+
+**LLM arms (A2–A7, A2′, A3′).** Each runs 3 times per case at temperature 0
+where the model supports it (`RUN_CONFIG.yaml`). Each proposes up to k = 10
+candidates, each with a confidence from 0 to 1.
 
 ## Case selection, as done
 
@@ -208,7 +256,7 @@ excluded by an eligibility rule and 3 are KB gaps.
     MONDO build;
   - its `literature_alias`, where one is set.
 
-  A count below `RUN_CONFIG`'s `packet_minimum` (30) is
+  A count below `RUN_CONFIG.yaml`'s `packet_minimum` (30) is
   INSUFFICIENT_PRE_CUTOFF_LITERATURE (`literature_check.tsv`).
 - **Aliases.** MONDO labels for subtype entries are often catalogue forms no
   abstract uses, such as "diabetes insipidus, nephrogenic, X-linked". So the
@@ -347,9 +395,11 @@ of the 2,548 entries list any.
 
 **What this implies for H3.** A negative can receive low confidence because its
 graph has nothing measurable to propose, which is not the same as the arm
-recognising there is no test. H3 should be read on positives and decoys whose
-graphs carry measurable nodes. **[PLACEHOLDER: whether H3 is stratified or
-restricted on graph coverage.]**
+recognising there is no test. So the primary H3 analysis is restricted to
+cases and negatives whose graph has at least one measurable node. Only the
+three negatives with measurable nodes qualify: Kawasaki disease, sarcoidosis
+and Takayasu arteritis. Unrestricted and stratified results are reported
+alongside (see *Endpoints*).
 
 The audit has not been run on the positive cases or on time-sliced entries.
 
@@ -368,18 +418,38 @@ time-sliced entry is committed.
   - contains a banned post-cutoff term;
   - keeps present-day `has_subtypes`;
   - has a pathophysiology node with no evidence.
-- **Replicates.** Two independent curation replicates per case, each in an
-  isolated git worktree:
-  - web tools denied;
-  - the packet pre-loaded into the worktree;
-  - ad-hoc reference fetching (`just fetch-reference`, E-utilities) denied.
-- **Answer-bearing files excluded** from each worktree: at least the disease's
-  own `kb/` entry and this directory's eligibility, case, dating, control and
-  split files. **[PLACEHOLDER: the exact exclusion list, and how denial is
-  enforced.]**
-- **Audit.** Every replicate's transcript is audited for network calls,
-  reads of excluded files and post-cutoff material before its entry is
-  scored. **[PLACEHOLDER: the audit procedure and pass criteria.]**
+- **Replicates.** Two independent curation replicates per case. Each runs in
+  an isolated git worktree with the packet pre-loaded, and web tools and
+  ad-hoc fetching denied (see *Enforcement*).
+- **Answer-bearing files excluded** from each worktree:
+  - every repository file outside `experiments/` that matches the case's
+    banned terms;
+  - all of `references_cache/` except the packet's PMIDs, which are
+    pre-fetched before the session;
+  - everything in `experiments/diagnostic_retrodiction/` except the case's
+    run folder, `check_cutoff.py` and the packet.
+- **Enforcement.** Excluded files are absent, by sparse checkout, and the
+  session runs with these deny rules (kept in the local, git-excluded
+  `.claude/curation-deny.json`):
+
+  ```
+  WebSearch, WebFetch, Bash(curl:*), Bash(wget:*), Bash(python -c:*),
+  Bash(uv run python -c:*), Bash(just fetch-reference:*),
+  Bash(just research-disorder:*), mcp__codex__codex, mcp__codex__codex-reply
+  ```
+
+  Prefix deny rules can be sidestepped (for example `python3 -c`), which is
+  why the transcript audit below decides whether a replicate counts.
+- **Transcript audit.** `audit_transcript.py` scans each session's JSONL
+  transcript. It records an event for each of:
+  - any web-tool call;
+  - any command containing `http://`, `https://`, `curl`, `wget`, `urllib`,
+    `requests` or `eutils`;
+  - any read of an excluded path;
+  - any PMID outside the packet.
+
+  A replicate passes only with zero events. A failed replicate is discarded,
+  rerun once, and logged in `DEVIATIONS.md`.
 
 ## Leakage measures
 
@@ -397,23 +467,37 @@ Known and not yet closed:
 - **Bookshelf dates.** PubMed dates Bookshelf chapters (GeneReviews) 1993, the
   start of the series, so they can pass a date filter they should fail. They
   appeared as false earlier hits in `check_dating.py` output.
-- **Banned terms.** The banned-term lists are not written.
-  **[PLACEHOLDER]**
+- **Banned terms.** The lists are not written yet. Each will be generated per
+  case, then checked by a human, from:
+  - the rubric's T4 analyte: its term label and synonyms via OAK;
+  - the analyte's gene symbol;
+  - the names of subtypes defined by the analyte.
+
+  `check_cutoff.py --banned` reads the list, one term per line.
 - **Training data.** The LLM arms' training data post-dates every cutoff (see
   *Limitations*).
 
 ## Scoring and adjudication
 
-| Tier | Meaning |
-|---|---|
-| T1 | **[PLACEHOLDER]** |
-| T2 | **[PLACEHOLDER]**: the primary endpoint's threshold |
-| T3 | **[PLACEHOLDER]** |
-| T4 | **[PLACEHOLDER]** |
+Each case gets a rubric in `rubrics/`. None is written yet. The tiers are
+judged against it:
 
-Adjudicators blind to arm identity assign each proposed test a tier.
-**[PLACEHOLDER: the rubric (`rubrics/` is empty), the number of adjudicators,
-and the disagreement procedure.]**
+| Tier | A candidate reaches it when |
+|---|---|
+| T1 | its mechanism class matches the rubric's, by ontology subsumption |
+| T2 | its `analyte_type` equals the rubric's, its specimen is in the rubric's allowed set, and its target term is subsumed by the rubric's target class. This is the primary endpoint's threshold. |
+| T3 | the discovery experiment it proposes matches the rubric's description (adjudicated) |
+| T4 | it names the exact analyte, by ID or synonym. T4 on a case the rubric marks unreachable is a leakage alarm. |
+
+**Adjudication.**
+- **Automatic first.** Every candidate is first matched against the rubric by
+  ontology.
+- **LLM adjudicator.** Candidates that matching cannot resolve go to an LLM
+  adjudicator blind to arm identity, in a fresh session.
+- **Human check.** Two human adjudicators, blind to arm, score a seeded 20%
+  sample of candidates, or all of them if there are fewer than 50. A third
+  resolves their disagreements.
+- **Agreement.** Human–human and human–model kappa are reported.
 
 ## Analysis plan
 
@@ -422,10 +506,9 @@ and the disagreement procedure.]**
 - **Clustering.** Cases sharing a `test_group` are not independent: an arm
   that finds AQP4-IgG once will tend to find it for every entry carrying it.
   The primary McNemar test treats cases as independent. Two checks follow:
-  - a sensitivity analysis keeping one case per test_group;
+  - a sensitivity analysis keeping one case per test_group: the case with the
+    earliest cutoff, ties broken by case_id;
   - a cluster bootstrap over test groups.
-
-  **[PLACEHOLDER: the rule for choosing the representative case.]**
 - **Sample size.** The test set holds 29 cases in 24 test groups now, and at
   most 45 if all 16 pending cases are verified. Exact two-sided McNemar at
   α = 0.05 reaches significance only with enough discordant pairs:
@@ -446,11 +529,17 @@ and the disagreement procedure.]**
   rerun the literature check and `make_split.py`.
 - [ ] Propagate the literature exclusion into `eligibility.tsv` and
   `cases.tsv`, which still count the 7 dropped cases as INCLUDE.
-- [ ] Scoring rubrics (`rubrics/` is empty) and banned-term lists.
-- [ ] Finalise `RUN_CONFIG`. It holds only `packet_minimum: 30`, marked
-  provisional.
+- [ ] Write the per-case rubrics and, from them, the banned-term lists.
+- [ ] Write `audit_transcript.py`, A1's node-type → `analyte_type` table and
+  A1's weights, and freeze them before the dev set is run.
+- [ ] Finalise `RUN_CONFIG.yaml`: the second model family is TBD.
+- [ ] Decide how an LLM arm's 3 runs become one hit or miss per case for
+  McNemar.
+- [ ] Decide which of the 2 curation replicates feeds the arms, or how both
+  do.
+- [ ] Decide what the negatives are curated and prompted as of. They have no
+  test, so no cutoff date or cutoff year.
 - [ ] Register on OSF.
-- [ ] Define every **[PLACEHOLDER]** above.
 
 ## Limitations
 
@@ -490,7 +579,7 @@ and the disagreement procedure.]**
 |---|---|
 | `README.md` | this document |
 | `PINNED_COMMIT` | the `kb/` commit the frame was built from |
-| `RUN_CONFIG` | run parameters (YAML); currently `packet_minimum` only |
+| `RUN_CONFIG.yaml` | run parameters: packet minimum, models, temperature, runs per arm, k, MONDO build |
 | `census.py` | builds `frame.tsv` from `kb/disorders/` |
 | `frame.tsv` | the frozen sampling frame, one row per diagnosis/biochemical item |
 | `known_positives.tsv` | 22 disease/test pairs the frame should contain |

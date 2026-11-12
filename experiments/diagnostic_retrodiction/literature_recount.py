@@ -70,7 +70,7 @@ def main() -> None:
     key = os.environ.get("NCBI_API_KEY", "").strip()
     if not key:
         sys.exit("NCBI_API_KEY is not set")
-    minimum = yaml.safe_load((HERE / "RUN_CONFIG").read_text())["packet_minimum"]
+    minimum = yaml.safe_load((HERE / "RUN_CONFIG.yaml").read_text())["packet_minimum"]
     with open(HERE / "literature_check.tsv", newline="", encoding="utf-8") as f:
         lit = [r for r in csv.DictReader(f, delimiter="\t")
                if r["lit_ruling"] == "INSUFFICIENT_PRE_CUTOFF_LITERATURE"]
