@@ -12,6 +12,9 @@ Inputs (all committed):
                           there overrides the row's judgment
   subset_v2.txt           rule 1: ``idx|subset`` for INCLUDE rows; an INCLUDE
                           row not listed records ALL
+  ov9_resolution.txt      screener-majority decisions on the FACTS
+                          disagreements (written by resolve_facts.py), same
+                          format; applied after rule 2, as the final judgment
   wrong.txt               IMPLICIT rows judged WRONG_SPECIMEN, ``idx|what the assay is run on``
   infectious_names.txt    names of kb/disorders entries that declare an
                           ``infectious_agent`` (read from kb/ at the pinned
@@ -31,8 +34,8 @@ Each row's reason is assembled in this order:
   3. otherwise the profiling-platform pattern                  [rule]
   4. otherwise NOT_PRIMARY_ROUTE                               [scanned-default]
 Then a rule-2 DISEASE_DEFINED_BY_TEST ruling in pretest_era.tsv replaces the
-reason [rule], and an IMPLICIT-basis row listed in wrong.txt becomes
-WRONG_SPECIMEN regardless.
+reason [rule], an ov9_resolution.txt entry replaces it again [judged], and an
+IMPLICIT-basis row listed in wrong.txt becomes WRONG_SPECIMEN regardless.
 
 Usage:
     python experiments/diagnostic_retrodiction/eligibility_work/build_eligibility.py
@@ -124,14 +127,23 @@ def provisional(r: dict, infectious: set[str]) -> str:
     return "JUDGE"
 
 
-def load_tables() -> tuple[dict, dict, set]:
+def read_overrides(path: Path) -> dict:
+    out = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            i, code, amb, foi, detail = line.split("|", 4)
+            out[int(i)] = (code, amb == "1", foi, detail)
+    return out
+
+
+def load_tables() -> tuple:
     ov = {}
     for f in sorted(HERE.glob("ov*.txt")):
-        for line in f.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#"):
-                i, code, amb, foi, detail = line.split("|", 4)
-                ov[int(i)] = (code, amb == "1", foi, detail)
+        if f.name != "ov9_resolution.txt":
+            ov.update(read_overrides(f))
+    res_path = HERE / "ov9_resolution.txt"
+    resolution = read_overrides(res_path) if res_path.exists() else {}
     wrong = dict((int(i), d) for i, d in (l.split("|", 1) for l in
                  (HERE / "wrong.txt").read_text(encoding="utf-8").splitlines() if l.strip()))
     infectious = {l.strip() for l in (HERE / "infectious_names.txt").read_text(encoding="utf-8").splitlines() if l.strip()}
@@ -142,7 +154,7 @@ def load_tables() -> tuple[dict, dict, set]:
             subset[int(i)] = text.strip()
     with open(HERE / "pretest_era.tsv", newline="", encoding="utf-8") as f:
         pretest = {int(r["frame_idx"]): r for r in csv.DictReader(f, delimiter="\t")}
-    return ov, wrong, infectious, subset, pretest
+    return ov, wrong, infectious, subset, pretest, resolution
 
 
 def build() -> tuple[str, str, list[dict]]:
@@ -151,7 +163,7 @@ def build() -> tuple[str, str, list[dict]]:
     if len(flagged) != FLAGGED_ROWS:
         sys.exit(f"frame.tsv has {len(flagged)} flagged rows, expected {FLAGGED_ROWS}; "
                  "the judgment indices no longer line up")
-    ov, wrong, infectious, subsets, pretest = load_tables()
+    ov, wrong, infectious, subsets, pretest, resolution = load_tables()
     out = []
     for i, r in enumerate(flagged):
         p = provisional(r, infectious)
@@ -181,6 +193,9 @@ def build() -> tuple[str, str, list[dict]]:
                           f'{pt["discovery_year"]} (threshold {PRETEST_THRESHOLD}) (v2 rule 2)')
             elif code == "DISEASE_DEFINED_BY_TEST":
                 sys.exit(f"row {i} passes rule 2 but is still DISEASE_DEFINED_BY_TEST; judge it in ov8_v2.txt")
+        if i in resolution:
+            code, amb, foi, detail = resolution[i]
+            tag = "judged"
         spec = "NA"
         if r["specimen_basis"] == "IMPLICIT":
             spec = "WRONG_SPECIMEN" if i in wrong else "CONFIRMED"

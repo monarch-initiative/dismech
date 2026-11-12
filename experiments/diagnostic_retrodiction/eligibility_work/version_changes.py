@@ -1,7 +1,8 @@
 """List every row whose eligibility decision differs between two builds.
 
 Compares a version 1 eligibility.tsv (default: the copy committed before
-version 2, read with ``git show``) with the current ../eligibility.tsv, and
+version 2) with the version 2 build (default: the commit that published it),
+both read with ``git show``, and
 writes ../eligibility_v2_changes.tsv with one row per changed decision:
 
   disease_name, row_type, row_name, v1_decision, v1_reason,
@@ -16,6 +17,8 @@ build_eligibility.py checks); the appended KB_GAP rows by disease and test.
 Usage:
     python experiments/diagnostic_retrodiction/eligibility_work/version_changes.py \
         [--v1-ref <git ref>]   # default 638510c70fa, the commit that froze v1's tables
+        [--v2-ref <git ref>]   # default 70c47e11be0, the version 2 build; later
+                               # changes (the screener resolution) are not version 2
 """
 from __future__ import annotations
 
@@ -35,13 +38,15 @@ REPO = EXP.parents[1]
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--v1-ref", default="638510c70fa")
+    ap.add_argument("--v2-ref", default="70c47e11be0")
     a = ap.parse_args()
     rel = (EXP / "eligibility.tsv").relative_to(REPO).as_posix()
     v1_text = subprocess.run(["git", "show", f"{a.v1_ref}:{rel}"], cwd=REPO, check=True,
                              capture_output=True, text=True).stdout
     v1 = list(csv.DictReader(io.StringIO(v1_text), delimiter="\t"))
-    with open(EXP / "eligibility.tsv", newline="", encoding="utf-8") as f:
-        v2 = list(csv.DictReader(f, delimiter="\t"))
+    v2_text = subprocess.run(["git", "show", f"{a.v2_ref}:{rel}"], cwd=REPO, check=True,
+                             capture_output=True, text=True).stdout
+    v2 = list(csv.DictReader(io.StringIO(v2_text), delimiter="\t"))
     with open(EXP / "frame.tsv", newline="", encoding="utf-8") as f:
         frame = [r for r in csv.DictReader(f, delimiter="\t") if r["flag_nongenetic_specimen"] == "TRUE"]
     if len(v1) != len(v2) or len(v1) < len(frame):
