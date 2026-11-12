@@ -9,6 +9,11 @@ Input: dating.tsv, one row per disease/test pair to check, with columns
   disease      the frame's disease_name
   test         the frame's row_name
   row_type     optional; needed only when disease + test names two frame rows
+  literature_alias  optional, ';'-separated extra terms OR'd into the query: a
+               plain name is searched as "<name>"[tiab]; an item containing "["
+               is a PubMed fragment used verbatim (in parentheses). It exists
+               because a MONDO label can be a catalogue or subtype form that no
+               abstract uses. alias_source, if present, is passed through.
   mondo_id     optional. When present (dating.tsv from build_dating.py carries
                it), it is used directly and no frame.tsv match is attempted:
                dating.tsv names each case's test once, which is not a frame
@@ -272,6 +277,11 @@ def main() -> None:
             field = "MeSH Terms" if mesh_id.startswith("D") else "Supplementary Concept"
             parts.append(f'"{quote(heading)}"[{field}]')
         parts += [f'"{quote(t)}"[tiab]' for t in ([label] if label else []) + synonyms]
+        alias = (row.get("literature_alias") or "").strip()
+        if alias and alias != "NA":
+            for item in (x.strip() for x in alias.split(";")):
+                if item:
+                    parts.append(f"({item})" if "[" in item else f'"{quote(item)}"[tiab]')
         if not parts:
             log(f"{mondo_id}: no MeSH heading, label or synonyms found")
             continue

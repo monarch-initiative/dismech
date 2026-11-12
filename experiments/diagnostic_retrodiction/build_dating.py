@@ -160,6 +160,36 @@ FLAG_NOTES = {
         "1985 (4010717) is the likely discovery report."),
 }
 
+# case_id -> literature_alias: extra search terms for the pre-cutoff literature
+# check, ';'-separated. A plain name is searched as "<name>"[tiab]; an item
+# containing "[" is a PubMed fragment used verbatim. These are exactly the terms
+# literature_recount.py tested (its PLAIN_TERMS) for the 17 cases the MONDO-name
+# check failed, because their MONDO labels are catalogue or subtype forms that
+# abstracts do not use. Cases not listed carry no alias.
+ALIAS_SOURCE = ("plain literature name, hand-written; first tested by literature_recount.py "
+                "(PLAIN_TERMS, commit d3a6af35fcf)")
+LITERATURE_ALIAS = {
+    "C004": '"NMDA receptor"[tiab] AND encephalitis[tiab]',
+    "C008": "Canavan; spongy degeneration",
+    "C013": "Upshaw-Schulman; chronic relapsing thrombotic thrombocytopenic purpura; "
+            "familial thrombotic thrombocytopenic purpura; congenital thrombotic thrombocytopenic purpura",
+    "C015": "dyskeratosis congenita",
+    "C016": "dyskeratosis congenita",
+    "C019": '("CD3 deficiency"[tiab] OR "CD3epsilon"[tiab] OR "CD3 epsilon"[tiab]) AND immunodeficiency[tiab]',
+    "C020": '("CD3 deficiency"[tiab] OR "CD3delta"[tiab] OR "CD3 delta"[tiab]) AND immunodeficiency[tiab]',
+    "C022": "acid maltase deficiency; glycogen storage disease type II; glycogenosis type II; Pompe",
+    "C028": '"myelin oligodendrocyte glycoprotein"[tiab] AND antibod*[tiab] AND '
+            '(demyelinat*[tiab] OR encephalomyelitis[tiab] OR "optic neuritis"[tiab])',
+    "C031": "MNGIE; mitochondrial neurogastrointestinal; oculogastrointestinal",
+    "C032": "MNGIE; mitochondrial neurogastrointestinal; oculogastrointestinal",
+    "C034": "narcolepsy",
+    "C037": "neuromyelitis optica; Devic",
+    "C044": "bile acid malabsorption; bile salt malabsorption",
+    "C045": "pyridoxine-dependent",
+    "C046": "Revesz",
+    "C057": "nephrogenic diabetes insipidus",
+}
+
 # (disease, test) -> "no" or a PMID (string) supporting "yes"
 READINESS = {
     ("Alzheimer Disease", "plasma p-tau217"): "21342022",
@@ -287,7 +317,9 @@ def main() -> None:
                "test_class": c["test_class"], "test_group": c["test_group"], "analyte": ra["analyte"],
                "discovery_pmid": "NA", "discovery_date": "NA", "date_precision": "NA", "cutoff_date": "NA",
                "mechanistic_readiness": "NA", "first_or_improvement": c["first_or_improvement"],
-               "quote_ok": "TRUE" if both_quotes else "FALSE", "dating_status": status, "case_id": c["case_id"]}
+               "quote_ok": "TRUE" if both_quotes else "FALSE", "dating_status": status, "case_id": c["case_id"],
+               "literature_alias": LITERATURE_ALIAS.get(c["case_id"], "NA"),
+               "alias_source": ALIAS_SOURCE if c["case_id"] in LITERATURE_ALIAS else "NA"}
         if accepted:
             d = dt.date.fromisoformat(ra["pubmed_date"])
             row.update(discovery_pmid=f"PMID:{pa}", discovery_date=ra["pubmed_date"],
@@ -327,7 +359,7 @@ def main() -> None:
 
     cols = ["disease", "mondo_id", "test", "subset", "test_class", "test_group", "analyte", "discovery_pmid",
             "discovery_date", "date_precision", "cutoff_date", "mechanistic_readiness", "first_or_improvement",
-            "quote_ok", "dating_status", "case_id"]
+            "quote_ok", "dating_status", "case_id", "literature_alias", "alias_source"]
     if args.full_out:
         write_tsv(args.full_out, cols, rows)
         print(f"wrote {len(rows)} undropped rows to {args.full_out}")
