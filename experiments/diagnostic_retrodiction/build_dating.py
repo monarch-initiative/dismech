@@ -31,13 +31,23 @@ Readiness is given only for cases with a cutoff, i.e. ACCEPTED or
 ACCEPTED_FLAGGED.
 
 dating_spotcheck.tsv is a seeded 20% sample (seed 20261111) of the unflagged
-ACCEPTED cases.
+ACCEPTED cases, drawn before the literature check so it does not move.
+
+Literature check: when literature_check.tsv exists (check_pretest_era.py's
+output), cases it rules INSUFFICIENT_PRE_CUTOFF_LITERATURE are left out of
+dating.tsv; literature_check.tsv keeps them. The check must run on the
+undropped table, which ``--full-out`` writes:
+
+    python build_dating.py --full-out /tmp/dating_full.tsv
+    uv run python check_pretest_era.py /tmp/dating_full.tsv --out literature_check.tsv
+    python build_dating.py
 
 Usage:
-    python experiments/diagnostic_retrodiction/build_dating.py   # needs NCBI_API_KEY
+    python experiments/diagnostic_retrodiction/build_dating.py [--full-out PATH]   # needs NCBI_API_KEY
 """
 from __future__ import annotations
 
+import argparse
 import csv
 import datetime as dt
 import json
@@ -244,6 +254,10 @@ def earliest_date(summary: dict) -> dt.date | None:
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    ap.add_argument("--full-out", type=Path,
+                    help="write the undropped dating table here (input for the literature check) and stop")
+    args = ap.parse_args()
     key = lambda r: (r["disease"], r["test"])
     cases = read_tsv(HERE / "cases.tsv")
     a = {key(r): r for r in read_tsv(HERE / "dating_checks" / "agentA.checked.tsv")}
@@ -314,12 +328,31 @@ def main() -> None:
     cols = ["disease", "mondo_id", "test", "subset", "test_class", "test_group", "analyte", "discovery_pmid",
             "discovery_date", "date_precision", "cutoff_date", "mechanistic_readiness", "first_or_improvement",
             "quote_ok", "dating_status", "case_id"]
-    write_tsv(HERE / "dating.tsv", cols, rows)
-    write_tsv(HERE / "dating_flags.tsv", list(flags[0].keys()), flags)
+    if args.full_out:
+        write_tsv(args.full_out, cols, rows)
+        print(f"wrote {len(rows)} undropped rows to {args.full_out}")
+        return
+
     unflagged = [r for r in rows if r["dating_status"] == "ACCEPTED"]
     sample = random.Random(SEED).sample(unflagged, round(0.2 * len(unflagged)))
     sample_ids = {r["case_id"] for r in sample}
+
+    dropped: set[str] = set()
+    lit_path = HERE / "literature_check.tsv"
+    if lit_path.exists():
+        lit = {r["case_id"]: r for r in read_tsv(lit_path)}
+        if set(lit) != {r["case_id"] for r in rows}:
+            sys.exit("literature_check.tsv does not cover exactly the cases; rerun it on --full-out output")
+        dropped = {cid for cid, r in lit.items() if r["lit_ruling"] == "INSUFFICIENT_PRE_CUTOFF_LITERATURE"}
+    write_tsv(HERE / "dating.tsv", cols, [r for r in rows if r["case_id"] not in dropped])
+    write_tsv(HERE / "dating_flags.tsv", list(flags[0].keys()), flags)
     write_tsv(HERE / "dating_spotcheck.tsv", cols, [r for r in rows if r["case_id"] in sample_ids])
+    if dropped:
+        print(f"dropped {len(dropped)} INSUFFICIENT_PRE_CUTOFF_LITERATURE cases from dating.tsv: "
+              + ", ".join(sorted(dropped)))
+        gone = sorted(sample_ids & dropped)
+        if gone:
+            print(f"note: spot-check cases also dropped by the literature check: {gone}")
 
     from collections import Counter
     print("dating_status:", dict(Counter(r["dating_status"] for r in rows)))

@@ -9,6 +9,10 @@ Input: dating.tsv, one row per disease/test pair to check, with columns
   disease      the frame's disease_name
   test         the frame's row_name
   row_type     optional; needed only when disease + test names two frame rows
+  mondo_id     optional. When present (dating.tsv from build_dating.py carries
+               it), it is used directly and no frame.tsv match is attempted:
+               dating.tsv names each case's test once, which is not a frame
+               row_name, and frame_idx is then NA
   cutoff_date  YYYY-MM-DD, the last date the packet may include
   quote_ok     the dating check's verdict; only TRUE rows count as verified
   dating_status  optional (build_dating.py writes it); when present, only
@@ -224,17 +228,24 @@ def main() -> None:
     eu = EUtils(api_key, a.cache)
     terms_cache: dict[str, tuple] = {}
     for row in rows:
-        row.update({c: "NA" for c in ADDED})
+        given_mondo = (row.get("mondo_id") or "").strip()
+        row.update({c: "NA" for c in ADDED if c not in fields})
         row["packet_minimum"] = str(minimum)
         row["mondo_build"] = mondo_build
-        hits = [i for i, fr in enumerate(frame)
-                if fr["disease_name"] == row["disease"] and fr["row_name"] == row["test"]
-                and (not row.get("row_type") or fr["row_type"] == row["row_type"])]
-        if len(hits) != 1:
-            log(f"{row['disease']} / {row['test']}: matches {len(hits)} frame rows; add row_type")
-            continue
-        i = hits[0]
-        row["frame_idx"], row["mondo_id"] = str(i), frame[i]["mondo_id"]
+        row["lit_ruling"] = row["lit_count"] = row["lit_query"] = "NA"
+        if given_mondo:
+            mondo_id = given_mondo
+            row["mondo_id"] = mondo_id
+        else:
+            hits = [i for i, fr in enumerate(frame)
+                    if fr["disease_name"] == row["disease"] and fr["row_name"] == row["test"]
+                    and (not row.get("row_type") or fr["row_type"] == row["row_type"])]
+            if len(hits) != 1:
+                log(f"{row['disease']} / {row['test']}: matches {len(hits)} frame rows; add row_type")
+                continue
+            i = hits[0]
+            mondo_id = frame[i]["mondo_id"]
+            row["frame_idx"], row["mondo_id"] = str(i), mondo_id
 
         try:
             cutoff = dt.date.fromisoformat((row["cutoff_date"] or "").strip())
@@ -244,9 +255,8 @@ def main() -> None:
         if cutoff is None or (row["quote_ok"] or "").strip().upper() != "TRUE" or not status_ok:
             row["lit_ruling"] = "UNVERIFIED_CUTOFF"
             continue
-        mondo_id = frame[i]["mondo_id"]
         if not mondo_id.startswith("MONDO:"):
-            log(f"{row['disease']}: no MONDO ID in frame.tsv")
+            log(f"{row['disease']}: no MONDO ID")
             continue
 
         if mondo_id not in terms_cache:
