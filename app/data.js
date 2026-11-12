@@ -45477,7 +45477,9 @@ window.searchData = [
       "Global Developmental Delay",
       "Impaired Literacy and Academic Attainment",
       "Seizures",
+      "Absence of Seizures",
       "Autistic Features",
+      "Absence of Autistic Features",
       "Secondary Microcephaly",
       "Obesity",
       "Cerebral White Matter Hypoplasia",
@@ -45507,6 +45509,7 @@ window.searchData = [
     ],
     "frequencies": [
       "OBLIGATE",
+      "EXCLUDED",
       "FREQUENT"
     ],
     "genes": [
@@ -45562,7 +45565,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Autosomal_Recessive_Non-Syndromic_Intellectual_Disability.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Non-Syndromic_Intellectual_Disability.html",
-    "num_phenotypes": 12,
+    "num_phenotypes": 14,
     "num_pathophysiology": 7,
     "num_genes": 39,
     "num_treatments": 6,
@@ -74506,12 +74509,19 @@ window.searchData = [
       "Loss of CIC Transcriptional Repression",
       "PEA3 Subfamily Transcription Factor Upregulation",
       "Aggressive Undifferentiated Round Cell Proliferation",
+      "MHC Class I Antigen Presentation Suppression",
+      "Immune-Cold Tumour Microenvironment",
       "Poor Response to Ewing Sarcoma Chemotherapy"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "tumour-infiltrating T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084"
+    ],
     "biological_processes": [
-      "positive regulation of cell population proliferation"
+      "positive regulation of cell population proliferation",
+      "MHC class I antigen presentation"
     ],
     "phenotypes": [
       "Deep Soft Tissue Sarcoma",
@@ -74540,10 +74550,10 @@ window.searchData = [
     "source_file": "CIC-Rearranged_Sarcoma.yaml",
     "page_url": "../pages/disorders/CIC-Rearranged_Sarcoma.html",
     "num_phenotypes": 2,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "5"
   },
   {
@@ -227827,18 +227837,25 @@ window.searchData = [
     "creation_date": "2026-11-06T18:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "MARK2 (PAR1b) is a serine/threonine kinase of the PAR1/MARK family. Most pathogenic variants are loss-of-function (truncating, splice, or destabilizing missense), and missense alleles tested in vitro also reduce MARK2 function, so the disorder is predominantly a haploinsufficiency / loss-of-function state.",
+    "description": "MARK2-related intellectual developmental disorder (intellectual developmental disorder, autosomal dominant 76; MRD76) is an autosomal dominant neurodevelopmental syndrome caused by heterozygous loss-of-function or destabilizing missense variants in MARK2, encoding the serine/threonine kinase PAR1b. Affected individuals present with near-universal autism spectrum disorder, intellectual disability or global developmental delay, speech-language impairment (with language regression in ~41% of evaluated cases), behavioral abnormalities, variable seizures and motor delay, and a recurrent facial gestalt. MARK2 haploinsufficiency downregulates canonical WNT/beta-catenin signaling in neural progenitor cells, impairing neuronal polarity, proliferation, differentiation, and cortical formation.",
     "pathophysiology": [
       "MARK2 Haploinsufficiency",
       "WNT/beta-catenin Signaling Downregulation",
       "Impaired Neuronal Development",
       "Abnormal Cortical Development"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "neural progenitor cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:0000540"
+    ],
     "biological_processes": [
       "canonical Wnt signaling pathway",
-      "neuron differentiation"
+      "neuron differentiation",
+      "cerebral cortex development"
     ],
     "phenotypes": [
       "Autism spectrum disorder",
@@ -257489,7 +257506,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 6,
     "num_treatments": 4,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "5"
   },
   {
@@ -266076,9 +266093,11 @@ window.searchData = [
     "creation_date": "2026-02-02T00:16:36Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Malnutrition-related diabetes mellitus is a form of diabetes occurring in chronically undernourished individuals, increasingly recognized as a distinct type (type 5 diabetes) seen predominantly in low-resource settings. Its core mechanism is insulin deficiency from impaired pancreatic beta-cell development and function in the setting of early-life and ongoing undernutrition, rather than the autoimmune or insulin-resistant mechanisms of classic type 1 and type 2 diabetes. Affected individuals are typically lean and present with marked hyperglycemia yet relative resistance to ketosis, distinguishing the condition from type 1 diabetes.",
+    "description": "Malnutrition-related diabetes mellitus (type 5 diabetes mellitus) is a distinct non-autoimmune form of severe insulin-deficient diabetes occurring in lean adolescents and young adults (typically body mass index below 18.5 kg/m2) with early-life and chronic protein-energy and micronutrient undernutrition, predominantly in low- and middle-income countries. Nutritional deprivation during prenatal and postnatal development impairs pancreatic beta-cell mass and secretory capacity while preserving peripheral and hepatic insulin sensitivity and maintaining low hepatic lipid content. Affected individuals present with marked fasting hyperglycemia, osmotic symptoms, and weight loss without diabetic ketoacidosis because residual endogenous insulin secretion remains sufficient to restrain ketogenesis.",
     "pathophysiology": [
+      "Undernutrition-Induced Pancreatic Developmental Impairment",
       "Insulin deficiency from beta-cell impairment in undernutrition",
+      "Residual Endogenous Insulin Restraining Ketogenesis",
       "Chronic hyperglycemia and vascular complication risk"
     ],
     "cell_types": [
@@ -266088,32 +266107,59 @@ window.searchData = [
       "CL:0000169"
     ],
     "biological_processes": [
+      "pancreas development",
       "insulin secretion",
+      "ketone body biosynthetic process",
       "glucose homeostasis"
     ],
     "phenotypes": [
-      "Hyperglycemia with ketosis resistance"
+      "Hyperglycemia with ketosis resistance",
+      "Decreased Body Mass Index",
+      "Weight Loss",
+      "Polyuria",
+      "Polydipsia"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Endocrine",
+      "Growth",
+      "Renal",
+      "Constitutional"
+    ],
     "phenotype_hpo_categories": [
-      "Metabolism"
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0003074"
+      "HP:0003074",
+      "HP:0045082",
+      "HP:0001824",
+      "HP:0000103",
+      "HP:0001959"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
     "genes": [],
-    "treatments": [],
-    "environmental": [],
+    "treatments": [
+      "Nutritional Rehabilitation",
+      "Insulin Replacement and Antihyperglycemic Therapy"
+    ],
+    "environmental": [
+      "Chronic Protein-Energy and Micronutrient Undernutrition"
+    ],
     "biochemical": [],
     "source_file": "Malnutrition-related_Diabetes_Mellitus.yaml",
     "page_url": "../pages/disorders/Malnutrition-Related_Diabetes_Mellitus.html",
-    "num_phenotypes": 1,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
     "num_genes": 0,
-    "num_treatments": 0,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Malonic Aciduria",
@@ -283098,7 +283144,8 @@ window.searchData = [
     "biological_processes": [
       "Response to ischemia",
       "Anterior horn microcirculation",
-      "Motor neuron death"
+      "Motor neuron death",
+      "neuromuscular synaptic transmission"
     ],
     "phenotypes": [
       "Anterior horn injury",
@@ -283137,7 +283184,8 @@ window.searchData = [
     "genes": [],
     "treatments": [
       "Cervical Collar Therapy",
-      "Surgical Decompression"
+      "Surgical Decompression",
+      "Physical Therapy"
     ],
     "environmental": [],
     "biochemical": [],
@@ -283146,9 +283194,9 @@ window.searchData = [
     "num_phenotypes": 10,
     "num_pathophysiology": 4,
     "num_genes": 0,
-    "num_treatments": 2,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 3,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Morgagni-Stewart-Morel Syndrome",
@@ -408628,7 +408676,8 @@ window.searchData = [
       "BEP Chemotherapy",
       "Surveillance",
       "Radiation Therapy",
-      "Retroperitoneal Lymph Node Dissection (RPLND)"
+      "Retroperitoneal Lymph Node Dissection (RPLND)",
+      "MEK Inhibition (Trametinib) in NF1-Mutant Metastatic GCT"
     ],
     "environmental": [
       "Cryptorchidism",
@@ -408645,7 +408694,7 @@ window.searchData = [
     "num_phenotypes": 4,
     "num_pathophysiology": 6,
     "num_genes": 4,
-    "num_treatments": 5,
+    "num_treatments": 6,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "2"
   },
@@ -436254,12 +436303,12 @@ window.searchMetrics = {
   "total_disorder_pages": 4044,
   "total_subtypes": 5069,
   "total_disorders_and_subtypes": 9113,
-  "total_unique_evidence_sources": 60142,
-  "total_unique_publications": 56261,
+  "total_unique_evidence_sources": 60147,
+  "total_unique_publications": 56266,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4042,
-  "total_unique_pathological_events": 26494,
+  "total_unique_pathological_events": 26498,
   "total_modules": 232,
   "total_research_reports": 4153,
   "total_classifications": 21,
