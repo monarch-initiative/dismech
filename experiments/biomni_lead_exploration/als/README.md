@@ -3,12 +3,13 @@
 The third disease run with the method used for Sjögren's and IPF (`../sjogren/README.md`,
 `../ipf/README.md`). ALS is a Biomni Target Atlas disease, our entry has 18 mechanism nodes,
 and the field has a long record of failed trials to check candidates against. Done
-2026-11-12.
+2026-11-11.
 
 ## Method
 
 1. `genes.tsv`: 24 genes. The entry's own node genes (SOD1, C9orf72, TARDBP, FUS, STMN2,
-   UNC13A, TBK1, ERBB4, TREM2, PIKFYVE, HK1), druggable genes for nodes that bind none
+   UNC13A, TBK1, ERBB4, TREM2, HK1), PIKFYVE (named in the trafficking node's description,
+   not bound there), druggable genes for nodes that bind none
    (glutamate excitotoxicity, neuroinflammation, senescence, axon degeneration), and
    SIGMAR1 from the Open Targets top hits.
 2. `../repurposing_candidates.py` with
@@ -50,7 +51,7 @@ now cached, and the quote the report uses matches it.
 
 | Candidate | Node in our entry | Verdict |
 |---|---|---|
-| NLRP3 inhibitor (dapansutrile) | Neuroinflammation | Mechanism active, treatment unproven. Inflammasome components are raised in ALS tissue, blood and CSF; misfolded SOD1 and TDP-43 both activate it; blocking its output extends survival in SOD1 mice. No NLRP3 inhibitor has been trialled in ALS, and anakinra (IL-1 receptor antagonist) did not slow progression in a 17-patient pilot (PMID:26444282). In some human studies the main NLRP3-expressing cell is the astrocyte. |
+| NLRP3 inhibitor (dapansutrile) | Neuroinflammation | Mechanism active, treatment unproven. Inflammasome components are raised in ALS tissue, blood and CSF; misfolded SOD1 and TDP-43 both activate it; blocking its output extends survival in SOD1 mice. No NLRP3 inhibitor has been trialled in ALS, and anakinra (IL-1 receptor antagonist) did not slow progression in a 17-patient pilot (PMID:26444282), though that was an open-label, single-arm safety study against a historical control and 16 of 17 patients developed anti-drug antibodies, so it is weak evidence against IL-1 blockade. In some human studies the main NLRP3-expressing cell is the astrocyte. |
 | SARM1 inhibitor | Axonal Transport Dysfunction (axon degeneration) | Moderately strong, and now being tested: NB-4746 is in a recruiting phase 1b/2 ALS trial (NCT07369076). Gain-of-function SARM1 variants are enriched more than fivefold in ALS (PMID:34991663). Sarm1 deletion protects axons and synapses in a TDP-43 model (PMID:31661035), but structural rescue has not translated into functional benefit in the models tested. |
 | CSF1R inhibitor (pexidartinib) | Neuroinflammation | Target legitimate, drug and strategy weak. CSF1R signalling drives microgliosis in ALS cord and nerve, but ablating proliferating microglia did not slow motor neuron loss in SOD1 mice (PMID:18842883), microglia can be protective, and CSF1R loss of function itself causes a neurodegenerative leukoencephalopathy. Pexidartinib carries a boxed warning for fatal liver injury. |
 | navitoclax | Cellular Senescence in Motor Cortex and Spinal Cord | Drug mismatched to the mechanism. Senescence is a real feature of ALS, but navitoclax inhibits BCL-2 and BCL-xL, which protect motor neurons: Bcl-2 overexpression attenuates degeneration in SOD1 mice (PMID:10582606). The only positive ALS senolytic result used dasatinib plus quercetin (PMID:40196013). |
