@@ -3,7 +3,15 @@ judgment tables in this directory.
 
 Inputs (all committed):
   ../frame.tsv            the frozen sampling frame
-  ov1.txt ... ov7.txt     per-row judgments, ``idx|CODE|ambiguous(0/1)|FIRST/IMPROVEMENT/NA|detail``
+  ov1.txt ... ov7.txt     version 1 per-row judgments,
+                          ``idx|CODE|ambiguous(0/1)|FIRST/IMPROVEMENT/NA|detail``
+  ov8_v2.txt              version 2 judgments for rules 1, 3, 4 and 5 of
+                          eligibility_rules.md, same format, applied last
+  pretest_era.tsv         rule 2: check_pretest_era.py output for every row
+                          rule 2 could affect; a DISEASE_DEFINED_BY_TEST ruling
+                          there overrides the row's judgment
+  subset_v2.txt           rule 1: ``idx|subset`` for INCLUDE rows; an INCLUDE
+                          row not listed records ALL
   wrong.txt               IMPLICIT rows judged WRONG_SPECIMEN, ``idx|what the assay is run on``
   infectious_names.txt    names of kb/disorders entries that declare an
                           ``infectious_agent`` (read from kb/ at the pinned
@@ -12,16 +20,19 @@ Inputs (all committed):
 ``idx`` is the 0-based position of a row among the frame rows with
 flag_nongenetic_specimen TRUE, in frame order. The frame is frozen, so the
 index is stable; this script checks the flagged-row count before using it.
-The judgment files are applied in filename order and a later file wins: only
-row 144 (PML-RARA) is judged differently in two files, and ov7 is the decision.
+The judgment files are applied in filename order and a later file wins. Within
+version 1 only row 144 (PML-RARA) is judged differently in two files, and ov7 is
+the decision; ov8_v2.txt then overrides version 1 wherever it lists a row.
 
 Each row's reason is assembled in this order:
-  1. a judgment-table entry                                    [judged]
+  1. a judgment-table entry (ov8_v2.txt last)                 [judged]
   2. otherwise a provisional rule category from the test's
      identity (name + bound term label)                        [rule]
   3. otherwise the profiling-platform pattern                  [rule]
   4. otherwise NOT_PRIMARY_ROUTE                               [scanned-default]
-An IMPLICIT-basis row listed in wrong.txt becomes WRONG_SPECIMEN regardless.
+Then a rule-2 DISEASE_DEFINED_BY_TEST ruling in pretest_era.tsv replaces the
+reason [rule], and an IMPLICIT-basis row listed in wrong.txt becomes
+WRONG_SPECIMEN regardless.
 
 Usage:
     python experiments/diagnostic_retrodiction/eligibility_work/build_eligibility.py
@@ -90,7 +101,8 @@ DEFAULT = {
     "CHECK_SOMATIC_OR_GERMLINE": ("GERMLINE_SEQUENCING", "genetic test of constitutional DNA"),
     "GERMLINE_SEQUENCING?": ("GERMLINE_SEQUENCING", "genetic test of constitutional DNA"),
 }
-COLS = ["disease", "test", "decision", "reason", "first_or_improvement", "specimen_check"]
+COLS = ["disease", "test", "decision", "reason", "first_or_improvement", "subset", "specimen_check"]
+PRETEST_THRESHOLD = 100
 
 
 def provisional(r: dict, infectious: set[str]) -> str:
@@ -123,7 +135,14 @@ def load_tables() -> tuple[dict, dict, set]:
     wrong = dict((int(i), d) for i, d in (l.split("|", 1) for l in
                  (HERE / "wrong.txt").read_text(encoding="utf-8").splitlines() if l.strip()))
     infectious = {l.strip() for l in (HERE / "infectious_names.txt").read_text(encoding="utf-8").splitlines() if l.strip()}
-    return ov, wrong, infectious
+    subset = {}
+    for line in (HERE / "subset_v2.txt").read_text(encoding="utf-8").splitlines():
+        if line.strip() and not line.startswith("#"):
+            i, text = line.split("|", 1)
+            subset[int(i)] = text.strip()
+    with open(HERE / "pretest_era.tsv", newline="", encoding="utf-8") as f:
+        pretest = {int(r["frame_idx"]): r for r in csv.DictReader(f, delimiter="\t")}
+    return ov, wrong, infectious, subset, pretest
 
 
 def build() -> tuple[str, str, list[dict]]:
@@ -132,7 +151,7 @@ def build() -> tuple[str, str, list[dict]]:
     if len(flagged) != FLAGGED_ROWS:
         sys.exit(f"frame.tsv has {len(flagged)} flagged rows, expected {FLAGGED_ROWS}; "
                  "the judgment indices no longer line up")
-    ov, wrong, infectious = load_tables()
+    ov, wrong, infectious, subsets, pretest = load_tables()
     out = []
     for i, r in enumerate(flagged):
         p = provisional(r, infectious)
@@ -149,6 +168,19 @@ def build() -> tuple[str, str, list[dict]]:
             code, amb, foi, tag = "NOT_PRIMARY_ROUTE", False, "NA", "scanned-default"
             detail = ("not identified as a post-1985 primary diagnostic route: a supportive, characterizing, "
                       "monitoring or research marker, or a long-established analyte")
+        if i in pretest:
+            pt = pretest[i]
+            if code not in ("INCLUDE", "DISEASE_DEFINED_BY_TEST"):
+                sys.exit(f"pretest_era.tsv lists row {i}, which is {code}; rule 2 applies only to "
+                         "INCLUDE and DISEASE_DEFINED_BY_TEST candidates")
+            if pt["pretest_ruling"] not in ("PASS", "DISEASE_DEFINED_BY_TEST"):
+                sys.exit(f"row {i}: rule-2 count missing in pretest_era.tsv")
+            if pt["pretest_ruling"] == "DISEASE_DEFINED_BY_TEST":
+                code, amb, foi, tag = "DISEASE_DEFINED_BY_TEST", False, "NA", "rule"
+                detail = (f'{pt["pretest_count"]} PubMed records for "{r["disease_name"]}" before '
+                          f'{pt["discovery_year"]} (threshold {PRETEST_THRESHOLD}) (v2 rule 2)')
+            elif code == "DISEASE_DEFINED_BY_TEST":
+                sys.exit(f"row {i} passes rule 2 but is still DISEASE_DEFINED_BY_TEST; judge it in ov8_v2.txt")
         spec = "NA"
         if r["specimen_basis"] == "IMPLICIT":
             spec = "WRONG_SPECIMEN" if i in wrong else "CONFIRMED"
@@ -161,10 +193,15 @@ def build() -> tuple[str, str, list[dict]]:
         out.append(dict(disease=r["disease_name"], test=r["row_name"], decision=decision,
                         reason=f"{label}{' (ambiguous)' if amb else ''}: {detail} [{tag}]",
                         first_or_improvement=foi if decision == "INCLUDE" else "NA",
+                        subset=subsets.get(i, "ALL") if decision == "INCLUDE" else "NA",
                         specimen_check=spec, _code=label, _amb=amb, _ic=r["implicit_class"]))
+    stray = [i for i in subsets if out[i]["decision"] != "INCLUDE"]
+    if stray:
+        print(f"note: subset_v2.txt rows not INCLUDE (subset not written): {stray}", file=sys.stderr)
     for d, t in KB_GAPS:
         out.append(dict(disease=d, test=t, decision="EXCLUDE", reason="KB_GAP: test not recorded in dismech",
-                        first_or_improvement="NA", specimen_check="NA", _code="KB_GAP", _amb=False, _ic=""))
+                        first_or_improvement="NA", subset="NA", specimen_check="NA",
+                        _code="KB_GAP", _amb=False, _ic=""))
 
     def tsv(rows: list[list[str]]) -> str:
         buf = io.StringIO()
