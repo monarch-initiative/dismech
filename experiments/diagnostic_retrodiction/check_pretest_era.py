@@ -11,6 +11,9 @@ Input: dating.tsv, one row per disease/test pair to check, with columns
   row_type     optional; needed only when disease + test names two frame rows
   cutoff_date  YYYY-MM-DD, the last date the packet may include
   quote_ok     the dating check's verdict; only TRUE rows count as verified
+  dating_status  optional (build_dating.py writes it); when present, only
+               ACCEPTED rows count as verified, so an ACCEPTED_FLAGGED cutoff
+               is not used until its flag is resolved
 Any other columns are passed through.
 
 For each verified row, the disease is taken from its MONDO ID in frame.tsv and
@@ -237,7 +240,8 @@ def main() -> None:
             cutoff = dt.date.fromisoformat((row["cutoff_date"] or "").strip())
         except ValueError:
             cutoff = None
-        if cutoff is None or (row["quote_ok"] or "").strip().upper() != "TRUE":
+        status_ok = "dating_status" not in row or (row["dating_status"] or "").strip() == "ACCEPTED"
+        if cutoff is None or (row["quote_ok"] or "").strip().upper() != "TRUE" or not status_ok:
             row["lit_ruling"] = "UNVERIFIED_CUTOFF"
             continue
         mondo_id = frame[i]["mondo_id"]
