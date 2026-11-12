@@ -196,6 +196,15 @@ own, marked `(screener majority)`. A reason resting on version 2's removed count
 is never used: B's reason is used instead. `eligibility_resolution.tsv` lists
 every decision the resolution changed.
 
+A second round followed a blinded re-screen of rule 1 by screener B2
+(`screenerB2_input.tsv`: every row INCLUDE because of rule 1, plus as many
+subset-type EXCLUDE rows). On the rows where B2 disagreed with A, screener C2
+decided again in a fresh session, from `prompts/screenerC2.md`, and the majority
+of A, B2 and C2 is final. `eligibility_work/resolve_rule1_rescreen.py` writes
+the rows where A was outvoted to `eligibility_work/ov10_rule1_rescreen.txt`,
+applied after ov9, and `eligibility_rule1_rescreen.tsv` lists every disputed row
+with the three votes.
+
 ## Exclusion reasons
 
 Assign the **first** reason in this list that applies. Each reason has a

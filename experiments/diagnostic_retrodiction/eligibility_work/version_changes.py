@@ -5,11 +5,12 @@ Two comparisons are defined, one per rules version:
   --version 2   v1 build (commit 638510c70fa) -> v2 build (commit 70c47e11be0)
                 writes ../eligibility_v2_changes.tsv
   --version 3   final v2 build, after the screener resolution (commit
-                ed61c89ef68) -> the current ../eligibility.tsv
+                ed61c89ef68) -> the v3 build (commit 03b1f051556)
                 writes ../eligibility_v3_changes.tsv
 
-Both sides of a version 2 comparison are read with ``git show``, so rerunning
-it reproduces the committed file whatever the working tree holds.
+Both sides of each comparison are read with ``git show``, so rerunning it
+reproduces the committed file whatever the working tree holds. Later
+resolution rounds (eligibility_rule1_rescreen.tsv) are recorded separately.
 
 Columns: disease_name, row_type, row_name, old_decision, old_reason,
 new_decision, new_reason, rule. ``rule`` says which change of rules made the
@@ -44,7 +45,7 @@ REPO = EXP.parents[1]
 REL = (EXP / "eligibility.tsv").relative_to(REPO).as_posix()
 COMPARISONS = {
     2: ("638510c70fa", "70c47e11be0", "eligibility_v2_changes.tsv"),
-    3: ("ed61c89ef68", None, "eligibility_v3_changes.tsv"),
+    3: ("ed61c89ef68", "03b1f051556", "eligibility_v3_changes.tsv"),
 }
 OLD_NEW_COLS = {2: ("v1", "v2"), 3: ("v2", "v3")}
 

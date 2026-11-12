@@ -13,6 +13,10 @@ Inputs (all committed):
   ov9_resolution.txt      screener-majority decisions on the FACTS
                           disagreements (written by resolve_facts.py), same
                           format; applied after the judgment tables
+  ov10_rule1_rescreen.txt screener-majority decisions on the rows where
+                          screener B2 disagreed with A in the rule-1 re-screen
+                          (written by resolve_rule1_rescreen.py), same format;
+                          applied after ov9
   pre_cutoff_literature.tsv
                           optional: check_pretest_era.py output. An INCLUDE row
                           it rules INSUFFICIENT_PRE_CUTOFF_LITERATURE becomes
@@ -39,7 +43,8 @@ Each row's reason is assembled in this order:
      identity (name + bound term label)                        [rule]
   3. otherwise the profiling-platform pattern                  [rule]
   4. otherwise NOT_PRIMARY_ROUTE                               [scanned-default]
-Then an ov9_resolution.txt entry replaces the reason [judged]; an INCLUDE row
+Then an ov9_resolution.txt entry, and after it an ov10_rule1_rescreen.txt
+entry, replaces the reason [judged]; an INCLUDE row
 ruled INSUFFICIENT_PRE_CUTOFF_LITERATURE in pre_cutoff_literature.tsv becomes
 EXCLUDE [rule]; and an IMPLICIT-basis row listed in wrong.txt becomes
 WRONG_SPECIMEN regardless.
@@ -143,13 +148,22 @@ def read_overrides(path: Path) -> dict:
     return out
 
 
+JUDGMENT_FILES = ["ov1.txt", "ov2.txt", "ov3.txt", "ov4.txt", "ov5.txt", "ov6.txt", "ov7.txt", "ov8_v2.txt"]
+RESOLUTION_FILES = ["ov9_resolution.txt", "ov10_rule1_rescreen.txt"]
+
+
 def load_tables() -> tuple:
+    known = set(JUDGMENT_FILES) | set(RESOLUTION_FILES)
+    stray = sorted(f.name for f in HERE.glob("ov*.txt") if f.name not in known)
+    if stray:
+        sys.exit(f"unlisted override file(s) {stray}: add them to JUDGMENT_FILES or RESOLUTION_FILES")
     ov = {}
-    for f in sorted(HERE.glob("ov*.txt")):
-        if f.name != "ov9_resolution.txt":
-            ov.update(read_overrides(f))
-    res_path = HERE / "ov9_resolution.txt"
-    resolution = read_overrides(res_path) if res_path.exists() else {}
+    for name in JUDGMENT_FILES:
+        ov.update(read_overrides(HERE / name))
+    resolution = {}
+    for name in RESOLUTION_FILES:  # in order: a later round wins
+        if (HERE / name).exists():
+            resolution.update(read_overrides(HERE / name))
     wrong = dict((int(i), d) for i, d in (l.split("|", 1) for l in
                  (HERE / "wrong.txt").read_text(encoding="utf-8").splitlines() if l.strip()))
     infectious = {l.strip() for l in (HERE / "infectious_names.txt").read_text(encoding="utf-8").splitlines() if l.strip()}
@@ -166,7 +180,9 @@ def load_tables() -> tuple:
     return ov, wrong, infectious, subset, resolution, literature
 
 
-def build(apply_resolution: bool = True) -> tuple[str, str, list[dict]]:
+def build(apply_resolution: bool = True, upto: str | None = None) -> tuple[str, str, list[dict]]:
+    """Build the files. ``apply_resolution=False`` leaves every resolution round
+    out; ``upto`` applies resolution rounds only up to and excluding that file."""
     with open(EXP / "frame.tsv", newline="", encoding="utf-8") as f:
         flagged = [r for r in csv.DictReader(f, delimiter="\t") if r["flag_nongenetic_specimen"] == "TRUE"]
     if len(flagged) != FLAGGED_ROWS:
@@ -175,6 +191,11 @@ def build(apply_resolution: bool = True) -> tuple[str, str, list[dict]]:
     ov, wrong, infectious, subsets, resolution, literature = load_tables()
     if not apply_resolution:
         resolution = {}
+    elif upto is not None:
+        resolution = {}
+        for name in RESOLUTION_FILES[:RESOLUTION_FILES.index(upto)]:
+            if (HERE / name).exists():
+                resolution.update(read_overrides(HERE / name))
     out = []
     for i, r in enumerate(flagged):
         p = provisional(r, infectious)
