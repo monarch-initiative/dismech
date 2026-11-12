@@ -5,11 +5,21 @@ Inputs:
   cases.tsv                             one row per case
   dating_checks/agentA.checked.tsv      check_dating.py run on dating.agentA.tsv
   dating_checks/agentB.checked.tsv      check_dating.py run on dating.agentB.tsv
+  dating_checks/agentC.checked.tsv      check_dating.py run on dating.agentC.tsv
+                                        (a third agent, only for the NOT_ACCEPTED cases)
 
 A case's discovery PMID is ACCEPTED only when both agents give the same PMID and
 both agents' quotes pass (quote_ok TRUE). Its discovery_date and date_precision
 are check_dating.py's, read from PubMed; cutoff_date is 31 December of the year
 before discovery_date.
+
+A NOT_ACCEPTED case that agent C also dated is MAJORITY_VERIFIED when at least
+two of agents A, B and C name the same PMID and every one of those agents'
+quotes passes. Its discovery_date, date_precision and cutoff_date come from
+check_dating.py's record of that PMID, as for ACCEPTED. A case where all three
+disagree, or where the agreeing agents' quotes do not all pass, stays
+NOT_ACCEPTED. MAJORITY_VERIFIED cases have no mechanistic-readiness judgment
+yet (NA).
 
 dating_flags.tsv lists every case that needs a person: the agents disagree, a
 quote failed, or an earlier paper looks like the real discovery report. The
@@ -27,8 +37,8 @@ curator working only from pre-cutoff literature could have proposed the test;
 The script checks every cited PMID's PubMed date is on or before the cutoff.
 Bookshelf chapters (GeneReviews and similar) are never used: PubMed dates them
 1993, the start of the book series, whatever their real publication date.
-Readiness is given only for cases with a cutoff, i.e. ACCEPTED or
-ACCEPTED_FLAGGED.
+Readiness is given for ACCEPTED and ACCEPTED_FLAGGED cases; MAJORITY_VERIFIED
+cases are not yet judged.
 
 dating_spotcheck.tsv is a seeded 20% sample (seed 20261111) of the unflagged
 ACCEPTED cases, drawn before the literature check so it does not move.
@@ -294,6 +304,8 @@ def main() -> None:
     b = {key(r): r for r in read_tsv(HERE / "dating_checks" / "agentB.checked.tsv")}
     if {key(c) for c in cases} != set(a) or set(a) != set(b):
         sys.exit("agent files do not cover exactly the cases in cases.tsv")
+    c_path = HERE / "dating_checks" / "agentC.checked.tsv"
+    agent_c = {r["case_id"]: r for r in read_tsv(c_path)} if c_path.exists() else {}
     unknown = set(FLAG_NOTES) - set(a)
     if unknown:
         sys.exit(f"FLAG_NOTES names unknown cases: {sorted(unknown)}")
@@ -312,12 +324,28 @@ def main() -> None:
             kind = "DISAGREE" if pa != pb else "QUOTE_FAIL"
             sys.exit(f"{k}: {kind} with no assessment in FLAG_NOTES")
         status = "NOT_ACCEPTED" if not accepted else ("ACCEPTED_FLAGGED" if note else "ACCEPTED")
+        rc = agent_c.get(c["case_id"])
+        majority = None  # (pmid, the checked row whose date is used)
+        if rc is not None:
+            if accepted:
+                sys.exit(f"{k}: agent C dated a case A and B already agree on")
+            if key(rc) != k:
+                sys.exit(f"{c['case_id']}: agent C row names a different disease/test")
+            named = {"A": (pa, ra), "B": (pb, rb), "C": (rc["discovery_pmid"].replace("PMID:", "").strip(), rc)}
+            for pmid in sorted({v[0] for v in named.values()}):
+                agree = [r for p, r in named.values() if p == pmid]
+                if len(agree) >= 2 and all(r["quote_ok"] == "TRUE" for r in agree) \
+                        and agree[0]["pubmed_date"] != "NA":
+                    majority = (pmid, agree[0])
+            if majority:
+                status = "MAJORITY_VERIFIED"
 
         row = {"disease": c["disease"], "mondo_id": c["mondo_id"], "test": c["test"], "subset": c["subset"],
                "test_class": c["test_class"], "test_group": c["test_group"], "analyte": ra["analyte"],
                "discovery_pmid": "NA", "discovery_date": "NA", "date_precision": "NA", "cutoff_date": "NA",
                "mechanistic_readiness": "NA", "first_or_improvement": c["first_or_improvement"],
-               "quote_ok": "TRUE" if both_quotes else "FALSE", "dating_status": status, "case_id": c["case_id"],
+               "quote_ok": "TRUE" if (both_quotes or majority) else "FALSE", "dating_status": status,
+               "case_id": c["case_id"],
                "literature_alias": LITERATURE_ALIAS.get(c["case_id"], "NA"),
                "alias_source": ALIAS_SOURCE if c["case_id"] in LITERATURE_ALIAS else "NA"}
         if accepted:
@@ -327,6 +355,11 @@ def main() -> None:
             if k not in READINESS:
                 sys.exit(f"{k}: accepted but has no READINESS judgment")
             row["mechanistic_readiness"] = "no" if READINESS[k] == "no" else f"yes PMID:{READINESS[k]}"
+        elif majority:
+            pm, rm = majority
+            d = dt.date.fromisoformat(rm["pubmed_date"])
+            row.update(discovery_pmid=f"PMID:{pm}", discovery_date=rm["pubmed_date"],
+                       date_precision=rm["date_precision"], cutoff_date=f"{d.year - 1}-12-31")
         rows.append(row)
         if note:
             flag_type, cand, source, assessment = note
@@ -334,6 +367,9 @@ def main() -> None:
                           "flag_type": flag_type, "dating_status": status,
                           "agentA_pmid": f"PMID:{pa}", "agentA_date": ra["pubmed_date"], "agentA_quote_ok": ra["quote_ok"],
                           "agentB_pmid": f"PMID:{pb}", "agentB_date": rb["pubmed_date"], "agentB_quote_ok": rb["quote_ok"],
+                          "agentC_pmid": f"PMID:{rc['discovery_pmid']}" if rc else "",
+                          "agentC_date": rc["pubmed_date"] if rc else "",
+                          "agentC_quote_ok": rc["quote_ok"] if rc else "",
                           "candidate_pmid": f"PMID:{cand}" if cand else "", "candidate_source": source,
                           "assessment": assessment})
 

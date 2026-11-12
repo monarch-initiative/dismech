@@ -21,8 +21,8 @@ Input: dating.tsv, one row per disease/test pair to check, with columns
   cutoff_date  YYYY-MM-DD, the last date the packet may include
   quote_ok     the dating check's verdict; only TRUE rows count as verified
   dating_status  optional (build_dating.py writes it); when present, only
-               ACCEPTED rows count as verified, so an ACCEPTED_FLAGGED cutoff
-               is not used until its flag is resolved
+               ACCEPTED and MAJORITY_VERIFIED rows count as verified, so an
+               ACCEPTED_FLAGGED cutoff is not used until its flag is resolved
 Any other columns are passed through.
 
 For each verified row, the disease is taken from its MONDO ID in frame.tsv and
@@ -87,6 +87,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 MONDO_ADAPTER = "sqlite:obo:mondo"  # named only to locate the build; never opened by name
+VERIFIED_STATUSES = ("ACCEPTED", "MAJORITY_VERIFIED")
 REQUIRED = ("disease", "test", "cutoff_date", "quote_ok")
 ADDED = ("frame_idx", "mondo_id", "mondo_build", "mesh_id", "mesh_heading", "n_synonyms", "lit_query",
          "lit_count", "packet_minimum", "lit_ruling")
@@ -256,7 +257,7 @@ def main() -> None:
             cutoff = dt.date.fromisoformat((row["cutoff_date"] or "").strip())
         except ValueError:
             cutoff = None
-        status_ok = "dating_status" not in row or (row["dating_status"] or "").strip() == "ACCEPTED"
+        status_ok = "dating_status" not in row or (row["dating_status"] or "").strip() in VERIFIED_STATUSES
         if cutoff is None or (row["quote_ok"] or "").strip().upper() != "TRUE" or not status_ok:
             row["lit_ruling"] = "UNVERIFIED_CUTOFF"
             continue
