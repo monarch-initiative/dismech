@@ -463,7 +463,7 @@ confound and the endpoint-dissociated recovery.
 not from any `kb/` entry. It is kept deliberately, so the abstract stays
 checkable — do not read its absence from `kb/` as uncited and prune it.
 
-### PMID:38614204 — glo heated-tobacco battery: registry only, and the verified Nrf2 anchor is deferred to full text
+### PMID:38614204 — glo heated-tobacco battery: registry only, and the Nrf2 anchor is deferred to full text
 
 Keyser et al. 2024, *Toxicology* 504:153801 ([#16873](https://github.com/monarch-initiative/dismech/issues/16873)).
 An in vitro battery applied to three menthol and one non-menthol variant of the glo
@@ -475,18 +475,25 @@ formaldehyde).
 
 **Funding and conflict of interest, recorded here because the registry rows must carry
 it.** All authors are employees of RAI Services Company (Reynolds American, a British
-American Tobacco subsidiary); the work was commissioned by RAI. The paper's headline is
+American Tobacco subsidiary) and the work was commissioned by RAI — per #16873 and the
+paper's own Declaration of Competing Interest; the committed cache holds only the
+abstract, where this does not appear (its indexed publication type is "Research Support,
+Non-U.S. Gov't"), so the affiliation and sponsorship are recorded from those sources
+rather than quoted from a cached file. The paper's headline is
 a comparative risk claim about the sponsor's own products ("substantially lower
 toxicity compared to cigarettes"). **That comparative claim appears in no dismech or
 registry content** — the assay-to-mechanism pairings are extracted independently of it.
 
-**The oxidative-stress arm does measure NRF2/ARE pathway activity — this was the
-issue's central open question, and it resolves yes.** The arm is not a generic ROS or
-GSH marker: it is the MatTek **EpiAirway Nrf2 ARE-luciferase bioreporter**, 3D airway
-tissue stably transfected so that NRF2/ARE transcriptional activity drives luciferase.
-PMID:38614204 is abstract-only in the curation environment (see below), so the assay's
-identity is confirmed from the same RAI group's open-access companion paper on the
-identical platform (Keyser et al. 2024, *Toxics* 12:129, PMID:38393224):
+**The oxidative-stress arm is almost certainly an NRF2/ARE pathway readout, not a
+generic ROS or GSH marker — this was the issue's central open question.** The RAI
+group's standard EpiAirway oxidative-stress method is the MatTek **EpiAirway Nrf2
+ARE-luciferase bioreporter**: 3D airway tissue stably transfected so that NRF2/ARE
+transcriptional activity drives luciferase. That this specific readout is the one used
+in PMID:38614204 is an **inference from the group's standard platform, not a statement
+quoted from PMID:38614204** — which is abstract-only here (see below) and reports only
+an "oxidative stress response in the EpiAirway tissues". The platform itself is
+confirmed from the same group's open-access companion paper on the identical model
+(Keyser et al. 2024, *Toxics* 12:129, PMID:38393224):
 
 > Briefly, EpiAirway™ tissues are stably transfected with a lentiviral vector
 > consisting of the antioxidant responsive element of the Nrf2 gene fused with the
@@ -497,9 +504,10 @@ identical platform (Keyser et al. 2024, *Toxics* 12:129, PMID:38393224):
 > to exposure to cigarette whole smoke at sub-cytotoxic doses, indicating the induction
 > of the oxidative stress response.
 
-So the mechanistically correct anchor is `keap1_nrf2_are_signaling`, specifically the
-`NRF2 Transcriptional Activation of ARE Genes` node — an ARE-luciferase readout reports
-exactly that transactivation — at `model_scale: TISSUE`. Acrolein and formaldehyde,
+On that reading the mechanistically correct anchor is `keap1_nrf2_are_signaling`,
+specifically the `NRF2 Transcriptional Activation of ARE Genes` node — an ARE-luciferase
+readout reports exactly that transactivation — at `model_scale: TISSUE`. Acrolein and
+formaldehyde,
 both measured in the aerosol, are electrophiles of the kind the upstream `KEAP1 Sensor
 Cysteine Modification` node describes, which is why this is the right module rather than
 a generic oxidative-stress label.
