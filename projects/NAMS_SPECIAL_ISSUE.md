@@ -38,9 +38,10 @@ registry.
 
 That question is live for papers kept by the screen too, not only for the five
 rejected ones: a kept paper can still turn out to support a registry entry and no
-dismech link. Both decisions recorded below went that way, for different reasons —
-one because the endpoint asserts no mechanism, the other because the mechanism it
-does assert has no disease entry to attach to.
+dismech link. Several decisions recorded below went that way, for different reasons —
+the endpoint asserts no mechanism, or the mechanism it does assert has no disease
+entry to attach to, or the model's prediction sits below the floor a model link
+asserts.
 
 ## Screened in
 
@@ -565,6 +566,91 @@ excludes.
 sentences above are quoted) are committed and are cited only from this page, not from any
 `kb/` entry. Both are kept deliberately so the quoted sentences stay checkable — do not
 read their absence from `kb/` as uncited and prune them.
+
+### PMID:38432407 — ochratoxin A target discovery (OGFOD1 prediction) goes to the registry only
+
+Perugino et al. 2024, *Toxicology* 503:153765
+([#16875](https://github.com/monarch-initiative/dismech/issues/16875)). The sibling
+of [#16874](https://github.com/monarch-initiative/dismech/issues/16874) above, from
+the same group and sharing its in silico pipeline; the issue asked to extract the
+two together. A purely virtual **target-discovery** study: a pipeline of molecular
+docking, molecular dynamics and umbrella-sampling simulations run to *display new
+OTA potential targets*. Its one output is a candidate target — OGFOD1, a prolyl
+hydroxylase acting in protein translation — predicted to be inhibited by OTA and
+its 2'R diastereomer. No biological system; no wet confirmation. The authors are
+explicit that this is a hypothesis, calling for "further dedicated analysis
+focusing their attention on the OTA-OGFOD1 interaction."
+
+| Model / method | Produces |
+|---|---|
+| Molecular docking | candidate targets |
+| Molecular dynamics | complex stability of the predicted OTA–target pose |
+| Umbrella-sampling simulations | binding free energy along a reaction coordinate |
+
+**The target-discovery pipeline belongs in the registry. Nothing is being added to
+a dismech entry** — not a `computational_models:` `ModelMechanismLink`, and *not* a
+`KNOWLEDGE_GAP` discussion. Three reasons, and the first is the same one that
+settles open question 2
+([#16883](https://github.com/monarch-initiative/dismech/issues/16883)) for the
+sibling paper.
+
+- **Below the model-link floor.** A `ModelMechanismLink` asserts the model
+  *recapitulates*, *perturbs*, or *measures* the node it points at. A docking /
+  MD / umbrella-sampling prediction with no wet confirmation does none of those: it
+  predicts a binding interaction. That is a hypothesis *about* a node, not an
+  observation *of* one, and sits below the floor a model link asserts — the exact
+  reading applied to the PMID:38036094 docking case above, and the molecular-
+  simulation instance of #16883. A `divergences` caveat (`PROXY_QUANTITY`: a
+  predicted binding free energy standing in for measured enzymatic inhibition;
+  `BOUNDARY_OMISSION`: no cellular context) could label how far below the floor the
+  prediction sits, but it cannot raise it across the floor. So: not a model link.
+
+- **There is no OTA disease entry to host a gap, and the two nearest entries would
+  misattach it.** No ochratoxin A poisoning or ochratoxicosis entry exists (the
+  only mycotoxin disease entries are `Aflatoxicosis` and `Aflatoxin_Related_HCC`,
+  both aflatoxin). The one entry carrying ochratoxin A,
+  `Karyomegalic_Interstitial_Nephritis`, frames it solely as a DNA
+  interstrand-crosslink genotoxin — a "second hit" on FAN1-deficient ICL repair in
+  a Mendelian disease — which is a different mechanism entirely from translation
+  inhibition. `Balkan_Endemic_Nephropathy`, the classic "ochratoxin nephropathy,"
+  is attributed in its entry to **aristolochic acid** and carries no OTA mechanism
+  at all. A `KNOWLEDGE_GAP` about OGFOD1 translation inhibition attached to either
+  would assert a connection the paper does not make: the paper offers OGFOD1 as a
+  general molecular target in OTA toxicology, situated against the established
+  nephrotoxicity, hepatotoxicity and possible carcinogenicity as *background*, not
+  as the mechanism of any one nephropathy. So deliverable 2's "if one exists" is
+  not met, and forcing a gap onto a mismatched entry is worse than recording none.
+
+- **No module to conform to, and none should be built.** No module covers OGFOD1 or
+  cytoplasmic translation-factor prolyl hydroxylation. `mitochondrial_translation_deficiency`
+  is mitochondrial; `bacterial_protein_synthesis_inhibition` is an antibiotic
+  target; `oncometabolite_dioxygenase_inhibition` is HIF-prolyl-hydroxylase / TET
+  biology driven by oncometabolite accumulation, a different enzyme family and
+  trigger. Building a module on an unconfirmed docking prediction is exactly the
+  error the issue warns against, so no module gap is filed.
+
+One record is proposed for the registry, the simulation pipeline as a single
+structure-based in silico target-discovery method:
+
+| Proposed record id | Method | NAMO class |
+|---|---|---|
+| `ota-ogfod1-target-discovery-in-silico-human` | docking / MD / umbrella-sampling pipeline displaying candidate OTA targets, output OGFOD1 | structure-based in silico model (NAMO class to confirm) |
+
+Human (`NCBITaxon:9606`). **This typing has not been validated against the
+registry's schema** — no registry pull request has been opened (the nams-registry
+is a separate repository), NAMO has no obvious single class for a structure-based
+docking screen, so the class above is a placeholder to resolve in the registry. It
+raises the same `source_resources` blocker the earlier drafts hit: the NAM was
+found in a primary research paper, which the registry's `ResourceTypeEnum.Report`
+says is not a report.
+
+The inventory row for "a predicted target with no wet confirmation" is the
+molecular-simulation convention #16883, already in the gaps table below — this
+paper is its hardest instance, recorded here rather than duplicated there.
+
+`references_cache/PMID_38432407.md` is committed and is cited only from this page,
+not from any `kb/` entry. It is kept deliberately, so the quoted abstract stays
+checkable — do not read its absence from `kb/` as uncited and prune it.
 
 ## Gaps and questions the screen raised
 
