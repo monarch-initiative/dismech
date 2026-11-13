@@ -45,9 +45,9 @@ def disease():
                 ],
                 "sequelae": [
                     {
-                        "target": "Seizures",
+                        "target": "Inflammation",
                         "evidence": [
-                            evidence("Fever causes seizures in Example disease.")
+                            evidence("Fever causes inflammation in Example disease.")
                         ],
                     }
                 ],
@@ -123,8 +123,8 @@ def test_every_evidence_pair_and_missing_evidence_is_inventoried(tmp_path):
         "/about/context/0/value",
     } <= paths
     edge = next(r for r in result if "sequelae/0/evidence" in r["evidence_path"])
-    assert edge["claim"]["assertion_type"] == "CausalEdge"
-    assert edge["claim"]["about"]["context"][0]["value"]["name"] == "Fever"
+    assert edge["claim"]["relationship"]["kind"] == "causal influence"
+    assert edge["claim"]["subject"]["name"] == "Fever"
 
 
 def test_invalid_direction_and_subtype_are_data_errors(tmp_path):

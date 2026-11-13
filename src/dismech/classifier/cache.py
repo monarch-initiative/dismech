@@ -12,7 +12,7 @@ from pathlib import Path
 import click
 import yaml
 
-from dismech.classifier.structured import structured_claim_task
+from dismech.classifier.tasks import claim_state
 from dismech.yaml_io import find_duplicate_keys, safe_load
 
 BENCHMARK = "evidence_claim_match"
@@ -35,7 +35,7 @@ def cache_key(model, tasks):
 
 def input_key(claim):
     """Identity of the judged claim/excerpt, independent of model and questions."""
-    return digest(structured_claim_task(claim).state)
+    return digest(claim_state(claim))
 
 
 def atomic_yaml(path, data):
@@ -148,7 +148,13 @@ class ResultCache:
                 "schema": Path(schema().schema.source_file).read_text(),
                 "code": {
                     name: (Path(__file__).parent / name).read_text()
-                    for name in ("claims.py", "structured.py", "audit.py")
+                    for name in (
+                        "claims.py",
+                        "structured.py",
+                        "edge_reading.py",
+                        "tasks.py",
+                        "audit.py",
+                    )
                 },
             }
         )
@@ -227,12 +233,17 @@ class ResultCache:
         inputs = document["inputs"]
         item = {
             "claim": deepcopy(tasks[0].state),
-            "origin": deepcopy(row["claim"].get("origin", {})),
-            "evidence_metadata": {
-                k: v
-                for k, v in row["claim"].get("selected_evidence", {}).items()
-                if k not in tasks[0].state["selected_evidence"]
-            },
+            "origin": deepcopy(row.get("claim_origin", row["claim"].get("origin", {}))),
+            "evidence_metadata": deepcopy(
+                row.get(
+                    "evidence_annotations",
+                    {
+                        k: v
+                        for k, v in row["claim"].get("selected_evidence", {}).items()
+                        if k not in tasks[0].state["selected_evidence"]
+                    },
+                )
+            ),
             "first_seen_at": outcome["assessed_at"],
             "first_seen_revision": revision,
             "last_seen_at": outcome["assessed_at"],

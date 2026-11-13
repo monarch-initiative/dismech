@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/ncomms9718
+extractor_version: 1
 title: Compound heterozygous mutations in the noncoding RNU4ATAC cause Roifman Syndrome by disrupting minor intron splicing
 authors:
 - Daniele Merico
@@ -27,12 +28,14 @@ journal: Nature Communications
 year: '2015'
 doi: 10.1038/ncomms9718
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/ncomms9718.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_ncomms9718.pdf
+full_text_access_type: open
 ---
 
 # Compound heterozygous mutations in the noncoding RNU4ATAC cause Roifman Syndrome by disrupting minor intron splicing
@@ -42,7 +45,9 @@ local_pdf_path: files/DOI_10.1038_ncomms9718.pdf
 
 ## Content
 
-AbstractRoifman Syndrome is a rare congenital disorder characterized by growth retardation, cognitive delay, spondyloepiphyseal dysplasia and antibody deficiency. Here we utilize whole-genome sequencing of Roifman Syndrome patients to reveal compound heterozygous rare variants that disrupt highly conserved positions of the RNU4ATAC small nuclear RNA gene, a minor spliceosome component that is essential for minor intron splicing. Targeted sequencing confirms allele segregation in six cases from four unrelated families. RNU4ATAC rare variants have been recently reported to cause microcephalic osteodysplastic primordial dwarfism, type I (MOPD1), whose phenotype is distinct from Roifman Syndrome. Strikingly, all six of the Roifman Syndrome cases have one variant that overlaps MOPD1-implicated structural elements, while the other variant overlaps a highly conserved structural element not previously implicated in disease. RNA-seq analysis confirms extensive and specific defects of minor intron splicing. Available allele frequency data suggest that recessive genetic disorders caused by RNU4ATAC rare variants may be more prevalent than previously reported.
+Abstract
+
+Roifman Syndrome is a rare congenital disorder characterized by growth retardation, cognitive delay, spondyloepiphyseal dysplasia and antibody deficiency. Here we utilize whole-genome sequencing of Roifman Syndrome patients to reveal compound heterozygous rare variants that disrupt highly conserved positions of the RNU4ATAC small nuclear RNA gene, a minor spliceosome component that is essential for minor intron splicing. Targeted sequencing confirms allele segregation in six cases from four unrelated families. RNU4ATAC rare variants have been recently reported to cause microcephalic osteodysplastic primordial dwarfism, type I (MOPD1), whose phenotype is distinct from Roifman Syndrome. Strikingly, all six of the Roifman Syndrome cases have one variant that overlaps MOPD1-implicated structural elements, while the other variant overlaps a highly conserved structural element not previously implicated in disease. RNA-seq analysis confirms extensive and specific defects of minor intron splicing. Available allele frequency data suggest that recessive genetic disorders caused by RNU4ATAC rare variants may be more prevalent than previously reported.
 
 ARTICLE
 Received 2 Feb 2015 | Accepted 25 Sep 2015 | Published 2 Nov 2015

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1002/ajmg.a.61173
+extractor_version: 1
 title: "Genetic variants in the <i>KDM6B</i> gene are associated with neurodevelopmental delays and dysmorphic features"
 authors:
 - Elliot S. Stolerman
@@ -38,6 +39,7 @@ year: '2019'
 doi: 10.1002/ajmg.a.61173
 content_type: abstract_only
 is_preprint: false
+full_text_declined: landing_page_only
 ---
 
 # Genetic variants in the <i>KDM6B</i> gene are associated with neurodevelopmental delays and dysmorphic features
@@ -47,4 +49,6 @@ is_preprint: false
 
 ## Content
 
-AbstractLysine‐specific demethylase 6B (KDM6B) demethylates trimethylated lysine‐27 on histone H3. The methylation and demethylation of histone proteins affects gene expression during development. Pathogenic alterations in histone lysine methylation and demethylation genes have been associated with multiple neurodevelopmental disorders. We have identified a number of de novo alterations in the KDM6B gene via whole exome sequencing (WES) in a cohort of 12 unrelated patients with developmental delay, intellectual disability, dysmorphic facial features, and other clinical findings. Our findings will allow for further investigation in to the role of the KDM6B gene in human neurodevelopmental disorders.
+Abstract
+
+Lysine‐specific demethylase 6B (KDM6B) demethylates trimethylated lysine‐27 on histone H3. The methylation and demethylation of histone proteins affects gene expression during development. Pathogenic alterations in histone lysine methylation and demethylation genes have been associated with multiple neurodevelopmental disorders. We have identified a number of de novo alterations in the KDM6B gene via whole exome sequencing (WES) in a cohort of 12 unrelated patients with developmental delay, intellectual disability, dysmorphic facial features, and other clinical findings. Our findings will allow for further investigation in to the role of the KDM6B gene in human neurodevelopmental disorders.

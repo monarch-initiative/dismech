@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41431-023-01507-5
+extractor_version: 1
 title: EMQN best practice guidelines for genetic testing in hereditary breast and ovarian cancer
 authors:
 - Trudi McDevitt
@@ -19,12 +20,14 @@ journal: European Journal of Human Genetics
 year: '2024'
 doi: 10.1038/s41431-023-01507-5
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41431-023-01507-5.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41431-023-01507-5.pdf
+full_text_access_type: open
 ---
 
 # EMQN best practice guidelines for genetic testing in hereditary breast and ovarian cancer
@@ -34,7 +37,9 @@ local_pdf_path: files/DOI_10.1038_s41431-023-01507-5.pdf
 
 ## Content
 
-AbstractHereditary Breast and Ovarian Cancer (HBOC) is a genetic condition associated with increased risk of cancers. The past decade has brought about significant changes to hereditary breast and ovarian cancer (HBOC) diagnostic testing with new treatments, testing methods and strategies, and evolving information on genetic associations. These best practice guidelines have been produced to assist clinical laboratories in effectively addressing the complexities of HBOC testing, while taking into account advancements since the last guidelines were published in 2007. These guidelines summarise cancer risk data from recent studies for the most commonly tested high and moderate risk HBOC genes for laboratories to refer to as a guide. Furthermore, recommendations are provided for somatic and germline testing services with regards to clinical referral, laboratory analyses, variant interpretation, and reporting. The guidelines present recommendations where ‘must’ is assigned to advocate that the recommendation is essential; and ‘should’ is assigned to advocate that the recommendation is highly advised but may not be universally applicable. Recommendations are presented in the form of shaded italicised statements throughout the document, and in the form of a table in supplementary materials (Table S4). Finally, for the purposes of encouraging standardisation and aiding implementation of recommendations, example report wording covering the essential points to be included is provided for the most common HBOC referral and reporting scenarios. These guidelines are aimed primarily at genomic scientists working in diagnostic testing laboratories.
+Abstract
+
+Hereditary Breast and Ovarian Cancer (HBOC) is a genetic condition associated with increased risk of cancers. The past decade has brought about significant changes to hereditary breast and ovarian cancer (HBOC) diagnostic testing with new treatments, testing methods and strategies, and evolving information on genetic associations. These best practice guidelines have been produced to assist clinical laboratories in effectively addressing the complexities of HBOC testing, while taking into account advancements since the last guidelines were published in 2007. These guidelines summarise cancer risk data from recent studies for the most commonly tested high and moderate risk HBOC genes for laboratories to refer to as a guide. Furthermore, recommendations are provided for somatic and germline testing services with regards to clinical referral, laboratory analyses, variant interpretation, and reporting. The guidelines present recommendations where ‘must’ is assigned to advocate that the recommendation is essential; and ‘should’ is assigned to advocate that the recommendation is highly advised but may not be universally applicable. Recommendations are presented in the form of shaded italicised statements throughout the document, and in the form of a table in supplementary materials (Table S4). Finally, for the purposes of encouraging standardisation and aiding implementation of recommendations, example report wording covering the essential points to be included is provided for the most common HBOC referral and reporting scenarios. These guidelines are aimed primarily at genomic scientists working in diagnostic testing laboratories.
 
 REVIEW ARTICLE OPEN
 EMQN best practice guidelines for genetic testing in hereditary

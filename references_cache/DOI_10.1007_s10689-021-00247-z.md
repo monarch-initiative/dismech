@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s10689-021-00247-z
+extractor_version: 1
 title: "Current recommendations for cancer surveillance in Gorlin syndrome: a report from the SIOPE host genome working group (SIOPE HGWG)"
 authors:
 - L. Guerrini-Rousseau
@@ -23,12 +24,14 @@ journal: Familial Cancer
 year: '2021'
 doi: 10.1007/s10689-021-00247-z
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s10689-021-00247-z.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s10689-021-00247-z.pdf
+full_text_access_type: open
 ---
 
 # Current recommendations for cancer surveillance in Gorlin syndrome: a report from the SIOPE host genome working group (SIOPE HGWG)
@@ -38,7 +41,9 @@ local_pdf_path: files/DOI_10.1007_s10689-021-00247-z.pdf
 
 ## Content
 
-AbstractGorlin syndrome (MIM 109,400), a cancer predisposition syndrome related to a constitutional pathogenic variation (PV) of a gene in the Sonic Hedgehog pathway (PTCH1 or SUFU), is associated with a broad spectrum of benign and malignant tumors. Basal cell carcinomas (BCC), odontogenic keratocysts and medulloblastomas are the main tumor types encountered, but meningiomas, ovarian or cardiac fibromas and sarcomas have also been described. The clinical features and tumor risks are different depending on the causative gene. Due to the rarity of this condition, there is little data on phenotype-genotype correlations. This report summarizes genotype-based recommendations for screening patients with PTCH1 and SUFU-related Gorlin syndrome, discussed during a workshop of the Host Genome Working Group of the European branch of the International Society of Pediatric Oncology (SIOPE HGWG) held in January 2020. In order to allow early detection of BCC, dermatologic examination should start at age 10 in PTCH1, and at age 20 in SUFU PV carriers. Odontogenic keratocyst screening, based on odontologic examination, should begin at age 2 with annual orthopantogram beginning around age 8 for PTCH1 PV carriers only. For medulloblastomas, repeated brain MRI from birth to 5 years should be proposed for SUFU PV carriers only. Brain MRI for meningiomas and pelvic ultrasound for ovarian fibromas should be offered to both PTCH1 and SUFU PV carriers. Follow-up of patients treated with radiotherapy should be prolonged and thorough because of the risk of secondary malignancies. Prospective evaluation of evidence of the effectiveness of these surveillance recommendations is required.
+Abstract
+
+Gorlin syndrome (MIM 109,400), a cancer predisposition syndrome related to a constitutional pathogenic variation (PV) of a gene in the Sonic Hedgehog pathway ( PTCH1 or SUFU) , is associated with a broad spectrum of benign and malignant tumors. Basal cell carcinomas (BCC), odontogenic keratocysts and medulloblastomas are the main tumor types encountered, but meningiomas, ovarian or cardiac fibromas and sarcomas have also been described. The clinical features and tumor risks are different depending on the causative gene. Due to the rarity of this condition, there is little data on phenotype-genotype correlations. This report summarizes genotype-based recommendations for screening patients with PTCH1 and SUFU -related Gorlin syndrome, discussed during a workshop of the Host Genome Working Group of the European branch of the International Society of Pediatric Oncology (SIOPE HGWG) held in January 2020. In order to allow early detection of BCC, dermatologic examination should start at age 10 in PTCH1 , and at age 20 in SUFU PV carriers. Odontogenic keratocyst screening, based on odontologic examination, should begin at age 2 with annual orthopantogram beginning around age 8 for PTCH1 PV carriers only. For medulloblastomas, repeated brain MRI from birth to 5 years should be proposed for SUFU PV carriers only. Brain MRI for meningiomas and pelvic ultrasound for ovarian fibromas should be offered to both PTCH1 and SUFU PV carriers. Follow-up of patients treated with radiotherapy should be prolonged and thorough because of the risk of secondary malignancies. Prospective evaluation of evidence of the effectiveness of these surveillance recommendations is required.
 
 Vol.:(0123456789)1 3
 Familial Cancer (2021) 20:317–325 

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s42003-024-05765-x
+extractor_version: 1
 title: Single-cell transcriptomic analyses of tumor microenvironment and molecular reprograming landscape of metastatic laryngeal squamous cell carcinoma
 authors:
 - Yuanyuan Sun
@@ -12,12 +13,14 @@ journal: Communications Biology
 year: '2024'
 doi: 10.1038/s42003-024-05765-x
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s42003-024-05765-x.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s42003-024-05765-x.pdf
+full_text_access_type: open
 ---
 
 # Single-cell transcriptomic analyses of tumor microenvironment and molecular reprograming landscape of metastatic laryngeal squamous cell carcinoma
@@ -27,7 +30,9 @@ local_pdf_path: files/DOI_10.1038_s42003-024-05765-x.pdf
 
 ## Content
 
-AbstractLaryngeal squamous cell carcinoma (LSCC) is a malignant tumor with a high probability of metastasis. The tumor microenvironment (TME) plays a critical role in cancer metastasis. To gain insights into the TME of LSCC, we conducted single-cell RNA-seq (scRNA-seq) on samples collected from LSCC patients with or without lymphatic metastasis. The stem and immune cell signatures in LSCC suggest their roles in tumor invasion and metastasis. Infiltration of a large number of regulatory T cells, dysplastic plasma cells, and macrophages that are at the early development stage in the cancerous tissue indicates an immunosuppressive state. Abundant neutrophils detected at the cancer margins reflect the inflammatory microenvironment. In addition to dynamic ligand-receptor interactions between the stromal and myeloid cells, the enhanced autophagy in endothelial cells and fibroblasts implies a role in nutrient supply. Taken together, the comprehensive atlas of LSCC obtained allowed us to identify a complex yet unique TME of LSCC, which may help identify potential diagnostic biomarkers and therapeutic targets for LSCC.
+Abstract
+
+Laryngeal squamous cell carcinoma (LSCC) is a malignant tumor with a high probability of metastasis. The tumor microenvironment (TME) plays a critical role in cancer metastasis. To gain insights into the TME of LSCC, we conducted single-cell RNA-seq (scRNA-seq) on samples collected from LSCC patients with or without lymphatic metastasis. The stem and immune cell signatures in LSCC suggest their roles in tumor invasion and metastasis. Infiltration of a large number of regulatory T cells, dysplastic plasma cells, and macrophages that are at the early development stage in the cancerous tissue indicates an immunosuppressive state. Abundant neutrophils detected at the cancer margins reflect the inflammatory microenvironment. In addition to dynamic ligand-receptor interactions between the stromal and myeloid cells, the enhanced autophagy in endothelial cells and fibroblasts implies a role in nutrient supply. Taken together, the comprehensive atlas of LSCC obtained allowed us to identify a complex yet unique TME of LSCC, which may help identify potential diagnostic biomarkers and therapeutic targets for LSCC.
 
 ARTICLE
 Single-cell transcriptomic analyses of tumor

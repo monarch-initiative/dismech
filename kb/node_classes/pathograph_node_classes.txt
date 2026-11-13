@@ -1,16 +1,40 @@
 # Pathograph node classes -- worked representatives
 #
-# A hand-built tree of candidate node classes. Leaves are REAL pathophysiology
+# VERSION 1.0 (2026-11-04)
+#
+# A hand-built tree of node classes. Leaves are REAL pathophysiology
 # nodes from kb/disorders/ and kb/modules/, written as:  [Disease_Entry] Node name
 #
 # Representatives only, not a census. The point is to find out whether the
 # categories survive contact with actual curated nodes.
 #
-# Curated vocabulary, edited by pull request like any other kb/ content. There
-# is no schema slot for it yet, so no disorder entry references a class by name;
-# the scanner (src/dismech/node_class_scan.py) applies it read-only.
+# Curated vocabulary, edited by pull request like any other kb/ content. The
+# classes under the nine cascade tiers and DISPOSITION are the permissible
+# values of the optional Pathophysiology `node_class` slot
+# (PathographNodeClassEnum in src/dismech/schema/pathograph_node_class.yaml,
+# generated from this file by `just gen-node-class-enum`). ALSO CLASSES,
+# DEBUNDLE TARGETS and STILL UNPLACED are not values: the first answers a
+# different question than the slot does, and the other two are worklists.
+# The scanner (src/dismech/node_class_scan.py) uses a node's curated
+# node_class when it has one and otherwise suggests a class from its terms.
 # Companion: pathograph_node_class_go_seed.tsv (GO BP term -> class, 640 terms)
 # See docs/superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md
+#
+# ---- VERSIONING -------------------------------------------------------------
+#
+# The VERSION line above is read by the enum generator; keep its format.
+# Changing the class list changes the enum, so regenerate it in the same PR
+# (a test compares the two) and bump the version:
+#
+#   adding a class                    minor (1.0 -> 1.1); nothing breaks
+#   renaming, moving or removing one  major (1.x -> 2.0); a curated node_class
+#                                     that names it no longer means the same
+#                                     thing, and a removed or renamed value no
+#                                     longer validates (check-enum-values)
+#
+# Prefer adding a class to renaming one. A gloss is the enum value's
+# description, so editing one needs the enum regenerated but no bump. Examples,
+# attributes and comments are not in the enum and change freely.
 #
 # ---- GRAMMAR (parser: src/dismech/node_classes.py) -------------------------
 #
@@ -35,6 +59,13 @@
 #   CLASS NAME -- optional gloss   anything else is a CLASS; the gloss follows a
 #                                  spaced double dash
 #
+# One attribute key is checked. `:split_from <old node name>` on an example says
+# curators split a bundled node this tree used to cite and this node is one of
+# its halves; --verify-kb fails if the old node still exists in the entry. When
+# a cited node is split, file each half under its own class with :split_from
+# instead of deleting the example: the record is how DEBUNDLE TARGETS shows it
+# predicted the split.
+#
 # Sibling class names must be unique, depth may increase by at most one level per
 # line, and an example may carry attributes but not class children. Class ids are
 # derived as upper-snake (`MOLECULAR ACTIVITY EFFECT` -> MOLECULAR_ACTIVITY_EFFECT).
@@ -49,7 +80,8 @@
 # debundle candidate, not a contradiction. Leaves that are curatorial judgements
 # (DISPOSITION, COMPENSATION, OUTCOME, STILL UNPLACED ...) carry none on purpose.
 GENOMIC EFFECT -- the lesion at the level of DNA/chromatin
-  genome instability -- an elevated RATE of new lesions rather than a lesion itself. From MeSH Genomic Instability (D042822); 41 nodes had no home.
+  genome instability -- an elevated RATE of new lesions rather than a lesion itself. From MeSH Genomic Instability (D042822).
+    # v1.0 build: 41 nodes had no other home when this class was added.
     = biological_processes some GO:0006281 'DNA repair' modifier DECREASED or biological_processes some GO:0000723 'telomere maintenance' modifier DECREASED
     [Fanconi_Anemia] Genomic Instability
     [Li-Fraumeni_Syndrome] Genomic Instability
@@ -196,6 +228,7 @@ GENOMIC EFFECT -- the lesion at the level of DNA/chromatin
     [2q37_Microdeletion_Syndrome] Variable breakpoint-dependent 2q37 deletion
     [Adult-Onset_Autosomal_Dominant_Demyelinating_Leukodystrophy] Upstream LMNB1 Regulatory Deletion
     [ZRS-Related_Limb_Malformation] ZRS-Encompassing Duplication
+      :split_from ZRS or pZRS Regulatory Gain of Ectopic Expression
     [Mucoepidermoid_Carcinoma] CRTC1-MAML2 Fusion Oncogene Formation
     [Glomus_Tumor] MIR143-NOTCH Gene Fusion
     [Testicular_Seminoma] Isochromosome 12p and Copy-Number-Driven Genome
@@ -212,8 +245,10 @@ GENOMIC EFFECT -- the lesion at the level of DNA/chromatin
     [Primary_Tonsillar_Lymphoma] IRF4-rearranged Large B-cell Lymphoma
     [Embryonal_Carcinoma] Isochromosome 12p Formation and 12p Gain
     [Jacobsen_Syndrome] Distal 11q Terminal Deletion
-  cis-regulatory variant -- a lesion in noncoding regulatory DNA: enhancer, promoter, or the 3D contacts between them. The gene is intact and the coding sequence is untouched; what changed is where and how much it is transcribed. ~25 nodes, and they had been split between `pathogenic sequence variant` (which reads as coding) and `epigenetic` (which is a mark, not a lesion).
+  cis-regulatory variant -- a lesion in noncoding regulatory DNA: enhancer, promoter, or the 3D contacts between them. The gene is intact and the coding sequence is untouched; what changed is where and how much it is transcribed. Not `pathogenic sequence variant`, which reads as coding, and not `epigenetic`, which is a mark rather than a lesion.
+    # v1.0 build: ~25 nodes, which had been split between `pathogenic sequence variant` and `epigenetic`.
     [ZRS-Related_Limb_Malformation] Pre-ZRS Single Nucleotide Variant
+      :split_from ZRS or pZRS Regulatory Gain of Ectopic Expression
     [Van_Buchem_Disease] ECR5 Enhancer Deletion Causing SOST Downregulation
     [Glioblastoma_IDH_Wildtype] TERT Promoter Activation
     [Microphthalmia_with_Coloboma] Non-coding regulatory variant pathogenesis
@@ -430,7 +465,9 @@ MOLECULAR ACTIVITY EFFECT -- what the gene product can no longer do; GO molecula
     [Osteogenesis_Imperfecta_Type_XIII] BMP1/mTLD Loss Abolishes Procollagen C-Proteinase Activity
     [Werner_Syndrome] WRN Helicase-Exonuclease Loss of Function
     [Galactosialidosis] Protective Protein/Cathepsin A (PPCA) Deficiency
+      :split_from Cathepsin A (PPCA) Deficiency and Secondary Combined NEU1/GLB1 Deficiency
     [Galactosialidosis] Secondary Combined NEU1 and GLB1 Deficiency
+      :split_from Cathepsin A (PPCA) Deficiency and Secondary Combined NEU1/GLB1 Deficiency
     [Sly_syndrome] Beta-glucuronidase deficiency
     [Spondylometaphyseal_Dysplasia_with_Corneal_Dystrophy] Destabilised Phospholipase C Beta 3 with Reduced Activity
     [Dihydropyrimidine_Dehydrogenase_Deficiency] Biallelic DPYD Loss of Function
@@ -635,6 +672,8 @@ MOLECULAR SUBSTANCE EFFECT -- which molecules are now present in the wrong amoun
     [Trehalase_Deficiency] Unhydrolyzed trehalose reaches the colon
     [Leber_Congenital_Amaurosis_13] Retinoic Acid Overproduction
     [Snyder-Robinson_Syndrome] Elevated Spermidine to Spermine Ratio
+    [Mucolipidosis_Type_IV] Polymorphic Lysosomal Substrate Storage
+      :split_from Lysosomal Storage and Neurodegeneration
   metabolite depletion
     = chemical_entities some CHEBI modifier DECREASED
     [3-Phosphoglycerate_Dehydrogenase_Deficiency] Low L-Serine and Downstream Metabolites
@@ -915,6 +954,8 @@ CELLULAR EFFECT
     [Acute_Lichenoid_Pityriasis] Keratinocyte death and epidermal necrosis
     [er_protein_storage_disease] Hepatocyte Injury
     [myelosuppression] Cytotoxic Insult to Proliferating Hematopoietic Progenitors
+    [CYCS-Related_Thrombocytopenia] Altered Apoptosome Activation
+      :split_from Reduced Respiration and Increased Apoptotic Activity
   differentiation / identity
     = biological_processes some GO:0030154 'cell differentiation'
     [APL_PML_RARA] Granulocytic Differentiation Arrest
@@ -933,7 +974,8 @@ CELLULAR EFFECT
     [Hereditary_Gingival_Fibromatosis] Oxidative Stress and Epithelial-Mesenchymal Transition
     [Appendiceal_Neoplasm] Goblet Cell Amphicrine Differentiation
     [Bone_Giant_Cell_Tumor] Arrested Osteogenic Differentiation of the Neoplastic Stroma
-    [IDH_Mutant_Cholangiocarcinoma] Differentiation Block and Tumor Growth
+    [IDH_Mutant_Cholangiocarcinoma] Hepatocyte Differentiation Block and Biliary Progenitor Expansion
+      :split_from Differentiation Block and Tumor Growth
     [IRX5-related_Craniofacial_Dysostosis_with_Osteopenia_Intellectual_Disability_and_Dental_Anomalies] Impaired osteoblast maturation and cranial mineralization
     [Keratosis_Follicularis_Spinulosa_Decalvans] Follicular Keratinization Defect
     [Osteogenesis_Imperfecta_Type_XII] Impaired Osteoblast Differentiation and Bone Matrix Deposition
@@ -965,6 +1007,8 @@ CELLULAR EFFECT
     [Spondyloepimetaphyseal_Dysplasia_Guo-Campeau_Type] Impaired Chondrogenesis
     [Enhanced_S-Cone_Syndrome] Rod Photoreceptor Deficiency and Scotopic Dysfunction
     [Immunodeficiency_Centromeric_Instability_Facial_Anomalies_Syndrome] Memory B-Cell Differentiation and Antibody Production Failure
+    [Grange_syndrome] Impaired TGF-Beta-Driven Smooth Muscle Differentiation
+      :split_from Vascular Smooth Muscle Cell Dysfunction and Arterial Stenosis
   metaplasia -- a differentiated tissue replaced by another differentiated type. From MeSH Metaplasia (D008679); conceptually sharp and distinct from a differentiation block.
     [Gastric_Adenocarcinoma] Gastric Intestinal Metaplasia
     [Gastric_Cancer_H_pylori_Associated] Intestinal Metaplasia
@@ -1023,6 +1067,11 @@ CELLULAR EFFECT
     [Psoriasis] Keratinocyte Hyperproliferation
     [Medulloblastoma] Cerebellar Progenitor Proliferation
     [hedgehog_pathway_activation] Hedgehog-Driven Proliferation and Tumorigenesis
+    [Cardiomyopathy_Dilated_100] Reduced Cardiomyocyte Growth
+      :split_from Impaired Cardiomyocyte Contractile Function and Compensatory Growth
+      :note the bundle's :split line filed this half as COMPENSATION (compensatory growth); the node curated from it is reduced growth, so that half of the proposal had the wrong class
+    [Grange_syndrome] Vascular Smooth Muscle p21 Upregulation and Cell-Cycle Arrest
+      :split_from Vascular Smooth Muscle Cell Dysfunction and Arterial Stenosis
   senescence
     = biological_processes some GO:0090398 'cellular senescence'
     [Arts_syndrome] Neural Stem Cell Senescence-Like State
@@ -1031,7 +1080,8 @@ CELLULAR EFFECT
     [Hutchinson-Gilford_Progeria_Syndrome] Cellular senescence
     [BRAF_V600_Mutant_Melanoma] Oncogene-Induced Melanocytic Growth-Arrest Barrier
     [Pilocytic_Astrocytoma] Senescence-Constrained Low-Grade Progression Barrier
-  cell activation -- a cell type switching into an effector state; the single most common CELLULAR node kind in immune and neuro entries
+  cell activation -- a cell type switching into an effector state
+    # v1.0 build: the single most common CELLULAR node kind in immune and neuro entries.
     = biological_processes some GO:0001775 'cell activation' modifier INCREASED
     [Early-Onset_Autosomal_Dominant_Alzheimer_Disease] Microglial Activation and Neuroinflammation
     [ADan_amyloidosis] Reactive Microglial and Macrophage Activation
@@ -1145,6 +1195,8 @@ CELLULAR EFFECT
     [Mitochondrial_Complex_I_Deficiency_Nuclear_Type_6] Isolated Complex I Deficiency and Bioenergetic Failure
     [Charcot-Marie-Tooth_Disease_X-linked_Recessive_4] Impaired Mitochondrial OXPHOS Complex Assembly
     [Alstrom_Syndrome] ALMS1 Basal Body Dysfunction
+    [CYCS-Related_Thrombocytopenia] Altered Respiratory Electron Transfer
+      :split_from Reduced Respiration and Increased Apoptotic Activity
   morphogenesis, migration and positioning
     = biological_processes some GO:0016477 'cell migration' modifier DECREASED|ABNORMAL|DYSREGULATED or biological_processes some GO:0000902 'cell morphogenesis' or biological_processes some GO:0048858 'cell projection morphogenesis' or biological_processes some GO:0007411 'axon guidance'
     [TRIO-Related_Neurodevelopmental_Disorder] Impaired Dendritic and Synaptic Morphogenesis
@@ -1174,7 +1226,8 @@ CELLULAR EFFECT
     [neural_crest_melanocyte_deficiency] Melanoblast Migration and Survival Defect
     [Peroxisome_Biogenesis_Disorder_4A_Zellweger] Defective Neuronal Migration in the Developing Cortex
     [Rh_Deficiency_Syndrome] Reduced Erythrocyte Deformability and Stomatocytic Morphology
-  protein trafficking and localization -- the protein is made and folded but does not reach where it works. 69 nodes; distinct from ACTIVITY (it would work if it got there) and from SUBSTANCE (nothing is misfolded or depleted).
+  protein trafficking and localization -- the protein is made and folded but does not reach where it works. Distinct from ACTIVITY (it would work if it got there) and from SUBSTANCE (nothing is misfolded or depleted).
+    # v1.0 build: 69 nodes.
     = biological_processes some GO:0008104 'intracellular protein localization' or biological_processes some GO:0042073 'intraciliary transport'
     [Leber_Congenital_Amaurosis_10] Impaired Outer Segment Protein Trafficking and Opsin Mislocalization
     [Bardet-Biedl_Syndrome] Ciliary membrane protein trafficking defect
@@ -1221,6 +1274,7 @@ CELLULAR EFFECT
     [PRKAG2_Cardiac_Syndrome] Glycogen-Independent Early Electrophysiological Abnormality
     [UNC13A_NDD_with_Seizures_and_Movement_Disorder] Gain-of-Function Neurotransmission
     [CACNA1E-Related_Developmental_and_Epileptic_Encephalopathy] Altered Neuronal Excitability
+      :split_from Altered Neuronal Excitability and Neurotransmitter Release
     [Claes-Jensen_Type_X-Linked_Intellectual_Disability] Neuronal Hyperexcitability and Seizure Substrate
     [VAMP2-Related_Disorder] Disrupted Neurotransmission and Impaired Neurodevelopment
     [Dilated_Cardiomyopathy_1Z] Impaired Cardiomyocyte Contractile Performance
@@ -1233,7 +1287,9 @@ CELLULAR EFFECT
     [CACNA1F-Related_Retinopathy] Defective Photoreceptor-to-Bipolar Cell Glutamatergic Transmission
     [Dilated_Cardiomyopathy_1FF] Reduced Cardiomyocyte Contractility and Systolic Calcium Transient
     [CAPRIN1_Related_Neurodevelopmental_Disorder] Impaired Homeostatic AMPA-Receptor Scaling
+      :split_from Attenuated Homeostatic AMPAR Scaling and Reduced Synaptic Strength
     [CAPRIN1_Related_Neurodevelopmental_Disorder] Reduced Excitatory Synaptic Strength
+      :split_from Attenuated Homeostatic AMPAR Scaling and Reduced Synaptic Strength
     [SYN1-Related_Disorder] Disturbed Neurotransmitter Release and Synaptic Homeostasis
     [Progressive_Myoclonic_Epilepsy_Type_7] Impaired Fast-Spiking Neuronal Repolarization
     [Proximal_Tubulopathy-Diabetes_Mellitus-Cerebellar_Ataxia_Syndrome] Endocrine Pancreatic Beta-Cell Dysfunction
@@ -1248,6 +1304,8 @@ CELLULAR EFFECT
     [Familial_Episodic_Pain_Syndrome_With_Predominantly_Lower_Limb_Involvement] Myenteric Neuron Hyperexcitability
     [SYT1_Baker-Gordon_Syndrome] Impaired Calcium-Triggered Synchronous Vesicle Fusion
     [Vitamin_D-Dependent_Rickets_Type_2A] Reduced VDR-Dependent Enterocyte Calcium and Phosphate Transport
+    [Cardiomyopathy_Dilated_100] Impaired Cardiomyocyte Contractile Function
+      :split_from Impaired Cardiomyocyte Contractile Function and Compensatory Growth
 
 TISSUE / ORGAN EFFECT
   inflammation
@@ -1354,6 +1412,8 @@ TISSUE / ORGAN EFFECT
     [nephrolithiasis_crystal_nucleation] Symptomatic Kidney Stones
     [cholelithiasis_biliary_supersaturation] Gallstone Aggregation and Growth
     [Hypoplasminogenemia] Ligneous Mucosal Pseudomembrane Formation
+    [IDH_Mutant_Cholangiocarcinoma] Intrahepatic Tumor Mass Growth
+      :split_from Differentiation Block and Tumor Growth
   degeneration / atrophy
     [COX4I2-Related_Pancreatic_Insufficiency-Anemia-Hyperostosis_Syndrome] Pancreatic Parenchymal Loss
     [ADCA-DN] Cerebellar Degeneration
@@ -1417,6 +1477,8 @@ TISSUE / ORGAN EFFECT
     [STAG3-related_gametogenic_failure] Ovarian follicle depletion and primary ovarian insufficiency
     [Spondylometaphyseal_Dysplasia_with_Cone-Rod_Dystrophy] Cone-Rod Photoreceptor Degeneration
     [Primary_Lateral_Sclerosis] Corticospinal Tract Degeneration
+    [Mucolipidosis_Type_IV] Corticospinal and Cerebellar Neurodegeneration
+      :split_from Lysosomal Storage and Neurodegeneration
   developmental malformation
     [Bannayan-Riley-Ruvalcaba_Syndrome] Brain Enlargement
     [SHH_Holoprosencephaly_Spectrum] Impaired Forebrain Midline Separation
@@ -1507,6 +1569,7 @@ TISSUE / ORGAN EFFECT
     [Metaphyseal_Chondrodysplasia_Schmid_Type] Hypertrophic Zone Expansion
     [Hand-Foot-Genital_Syndrome] Mullerian Duct Fusion Defect
     [Acromesomelic_Dysplasia_Demirhan_Type] Impaired Uterine Development
+      :split_from Ovarian Dysfunction and Uterine Hypoplasia
     [Reelin_Pathway_Lissencephaly] Hippocampal and Cerebellar Organization Defect
     [Chondrodysplasia_Punctata_Tibial-metacarpal_Type] Abnormal Cartilage Calcification and Endochondral Ossification
     [Pallister-Hall_Syndrome] Posterior Limb Patterning Disruption
@@ -1555,7 +1618,8 @@ TISSUE / ORGAN EFFECT
     [Galloway-Mowat_Syndrome] Podocyte Structural Failure
     [Scurvy] Vascular Integrity Failure
     [Sclerosing_Cholangitis] Gut-Liver Axis Barrier Disruption and Dysbiosis
-  injury -- generic tissue damage where the entry names no more specific process; "injury" is the 8th commonest head noun in the KB
+  injury -- generic tissue damage where the entry names no more specific process
+    # v1.0 build: "injury" was the 8th commonest head noun in the KB.
     [Alpers-Huttenlocher_Syndrome] Valproate-Associated Hepatocellular Injury
     [ABCC9-Related_Intellectual_Disability_and_Myopathy_Syndrome] Cerebral White Matter Injury
     [Bardet-Biedl_Syndrome] Renal tubulointerstitial injury
@@ -1590,7 +1654,8 @@ TISSUE / ORGAN EFFECT
     [Chronic_Pancreatitis] Recurrent Acinar Cell Injury
     [Autoimmune_Retinopathy] Photoreceptor and Bipolar Cell Injury by Autoantibodies
     [Buruli_Ulcer] Mycolactone-mediated tissue destruction
-  circulatory disturbance -- haemorrhage, fluid shift and vessel/chamber dilatation. Added because MPATH gives circulatory disorder TOP-LEVEL billing (MPATH:105) while we had scattered it: thrombus under structure-formed, ischemia in its own leaf, and ~70 haemorrhage/oedema/dilatation nodes nowhere at all.
+  circulatory disturbance -- haemorrhage, fluid shift and vessel/chamber dilatation. MPATH gives circulatory disorder TOP-LEVEL billing (MPATH:105).
+    # v1.0 build: added because the tree had scattered circulatory disorder: thrombus under structure-formed, ischemia in its own leaf, and ~70 haemorrhage/oedema/dilatation nodes nowhere at all.
     = biological_processes some GO:0042310 'vasoconstriction' or biological_processes some GO:0042311 'vasodilation' or biological_processes some GO:0008015 'blood circulation' modifier ABNORMAL|DECREASED|DYSREGULATED or biological_processes some GO:0007599 'hemostasis' modifier DECREASED
     [Sneddon_syndrome] Cutaneous livedo
     [Spaceflight_Associated_Neuro-Ocular_Syndrome] Choroidal Engorgement and Vascular Congestion
@@ -1608,14 +1673,16 @@ TISSUE / ORGAN EFFECT
     [primary_hemostatic_plug_failure] Failure of Primary Hemostatic Plug Formation
     [Normal_Pressure_Hydrocephalus] Ventriculomegaly at Normal Mean CSF Pressure
     [Dextro_Transposition_of_the_Great_Arteries] Mixing-dependent neonatal cyanosis
-  mechanical obstruction and stenosis -- from SNOMED Mechanical abnormality (107658001). 75 nodes; the single largest gap any external source found.
+  mechanical obstruction and stenosis -- from SNOMED Mechanical abnormality (107658001).
+    # v1.0 build: 75 nodes; the single largest gap any external source found.
     [Benign_Prostatic_Hyperplasia] Bladder Outlet Obstruction
     [Hypertrophic_Cardiomyopathy] Left Ventricular Outflow Tract Obstruction
     [Central_Nervous_System_Germ_Cell_Tumor] Intracranial Tumor Mass Effect and Cerebrospinal Fluid Obstruction
     [Juvenile_Open_Angle_Glaucoma] Trabecular Meshwork Immaturity and Outflow Obstruction
     [IgG4-Related_Sclerosing_Cholangitis] Bile Duct Fibrostenosis
     [Carotid_Stenosis] Flow-limiting carotid lumen narrowing
-    [Grange_syndrome] Vascular Smooth Muscle Cell Dysfunction and Arterial Stenosis
+    [Grange_syndrome] Fibromuscular Dysplasia-Like Multifocal Arterial Stenosis
+      :split_from Vascular Smooth Muscle Cell Dysfunction and Arterial Stenosis
     [Dacryocystitis-Osteopoikilosis_Syndrome] Lacrimal Canal Stenosis
     [Bells_Palsy] Facial nerve compression
     [Syphilis] Obliterative Endarteritis
@@ -1633,7 +1700,8 @@ TISSUE / ORGAN EFFECT
     [Lymphatic_Filariasis] Lymphatic vessel blockage and dysfunction
     [glaucoma_optic_neuropathy] Trabecular Meshwork Outflow Dysfunction
     [Takayasu_Arteritis] Vascular Remodeling and Stenosis
-  abnormal communication -- fistula, septal defect, shunt. From SNOMED Abnormal communication (783804002). These are the cardiac-shunt nodes an earlier regex sweep mistook for metabolic flux blocks and discarded.
+  abnormal communication -- fistula, septal defect, shunt. From SNOMED Abnormal communication (783804002).
+    # v1.0 build: these are the cardiac-shunt nodes an earlier regex sweep mistook for metabolic flux blocks and discarded.
     [Tetralogy_of_Fallot] Malalignment ventricular septal defect with overriding aorta
     [Ventricular_Septal_Defect] Left-to-Right Shunt and Pulmonary Overcirculation
     [Ebstein_Anomaly] Right-to-left shunting through an interatrial communication
@@ -1647,14 +1715,16 @@ TISSUE / ORGAN EFFECT
     [Semicircular_Canal_Dehiscence_Syndrome] Bony Dehiscence of Semicircular Canal
     [Laryngotracheoesophageal_Cleft] Posterior communication between larynx/trachea and esophagus
     [Vein_of_Galen_Aneurysm] Persistent Embryonic Arteriovenous Shunt
-  vascular malformation -- from SNOMED Vascular malformation (783806000); small but mechanistically distinct from developmental malformation generally
+  vascular malformation -- from SNOMED Vascular malformation (783806000); mechanistically distinct from developmental malformation generally
+    # v1.0 build: a small class, kept for its distinct mechanism.
     [Capillary_Malformation-Arteriovenous_Malformation_Syndrome] RAS-MAPK/ERK-driven arteriovenous malformation formation
     [Hereditary_Hemorrhagic_Telangiectasia] VEGF-Triggered AVM Formation
     [Cerebral_Proliferative_Angiopathy] Diffuse proliferative cerebral arteriovenous malformation
     [Hereditary_Hemorrhagic_Telangiectasia] Vascular Shunting Through Visceral AVMs
     [Incontinentia_Pigmenti] Retinal Vascular Dysgenesis and Neovascularization
     [NDP_Related_Vitreoretinopathy] Cochlear Vascular Pathology Underlying Sensorineural Hearing Loss
-  material deposition -- material laid down IN tissue, as opposed to a discrete structure being built. SNOMED makes Deposition (46595003) a top-level morphologic category; we had split these between structure-formed and substance-accumulation.
+  material deposition -- material laid down IN tissue, as opposed to a discrete structure being built. SNOMED makes Deposition (46595003) a top-level morphologic category.
+    # v1.0 build: these nodes had been split between structure-formed and substance-accumulation.
     [CADASIL_Type_1] Microvascular Fragility and Iron Deposition
     [Bilateral_Striopallidodentate_Calcinosis] Neurovascular calcium-phosphate deposition
     [Fabry_Disease] Ocular glycosphingolipid deposition
@@ -1664,10 +1734,12 @@ TISSUE / ORGAN EFFECT
     [Lipoid_Proteinosis] Hyaline Material Deposition
     [Early-Onset_Autosomal_Dominant_Alzheimer_Disease] Vessel Wall Fragility and Intracerebral Haemorrhage
     [Brain_Small_Vessel_Disease_1_With_Or_Without_Ocular_Anomalies] Cerebral Hemorrhagic Injury
+      :split_from Cerebral Small-Vessel Fragility and Hemorrhage
     [Lane_Hamilton_Syndrome] Alveolar hemorrhage and hemosiderin accumulation
     [Placenta_Accreta_Spectrum] Massive Obstetric Haemorrhage
     [Hantavirus_Hemorrhagic_Fever_with_Renal_Syndrome] Haemorrhagic manifestations
     [Acute_Respiratory_Distress_Syndrome] Protein-Rich Alveolar Edema
+      :split_from Protein-Rich Alveolar Edema and Loss of Aerated Lung
     [Hantavirus_Pulmonary_Syndrome] Noncardiogenic pulmonary edema
     [Marchiafava_Bignami_Disease] Cytotoxic edema in callosal white matter
     [Keratoconus] Stromal Imbibition and Acute Corneal Oedema
@@ -1689,6 +1761,7 @@ TISSUE / ORGAN EFFECT
     [CADASIL_Type_1] Small Vessel Arteriopathy and Hypoperfusion
     [Osteonecrosis] Ischemic osteocyte and marrow cell death
     [Sagittal_Sinus_Thrombosis] Venous infarction
+      :split_from Venous infarction and intracranial hypertension
     [Placental_Abruption] Fetal Hypoxic-Ischemic Injury
     [Vertebral_Artery_Insufficiency] Atherosclerotic vertebral artery occlusion
     [Raynaud_Disease] Oxidative Stress and Ischemia-Reperfusion Injury
@@ -1829,7 +1902,8 @@ TISSUE / ORGAN EFFECT
     [Junctional_Epidermolysis_Bullosa] Exuberant Granulation Tissue Formation
     [Ainhum] Epidermal and Dermal Wound-Repair Response
     [dermal_epidermal_junction_adhesion_failure] Chronic Erosion, Impaired Healing and Dermal Scarring
-  neural circuit and network dysfunction -- a distributed multi-region circuit misbehaving as a circuit: hyperexcitability, hypersynchrony, dysconnectivity, oscillation. 137 nodes, the second-largest gap any method has found. Distinct from functional disturbance, which is one organ working wrongly; here the lesion IS the network property, and no single region is at fault.
+  neural circuit and network dysfunction -- a distributed multi-region circuit misbehaving as a circuit: hyperexcitability, hypersynchrony, dysconnectivity, oscillation. Distinct from functional disturbance, which is one organ working wrongly; here the lesion IS the network property, and no single region is at fault.
+    # v1.0 build: 137 nodes, the second-largest gap any method found.
     [Epilepsy_with_Myoclonic_Absences] Hypersynchronous Three-Hertz Thalamocortical Spike-Wave Oscillation
     [Obsessive-Compulsive_Disorder] Cortico-Striato-Thalamo-Cortical Circuit Dysfunction
     [CHD8-Related_Neurodevelopmental_Disorder_with_Overgrowth] Aberrant Long-Range Functional Connectivity
@@ -1868,7 +1942,8 @@ TISSUE / ORGAN EFFECT
     [corticospinal_tract_axonopathy] Loss of Supraspinal Inhibitory Control of the Stretch Reflex
     [Obesity] Hypothalamic Dysregulation
     [fame_pentanucleotide_repeat_rna_toxicity] Cerebellocortical Circuit Dysfunction
-  pathological angiogenesis -- the vessel-building program running where, when or as much as it should not, and occasionally failing where it should run. 36 nodes and the tree held none of them. Not vascular malformation (that is congenital architecture), not fibrosis/remodelling (that is matrix), and not structure formed: the vessels themselves are ordinary, the program driving them is not.
+  pathological angiogenesis -- the vessel-building program running where, when or as much as it should not, and occasionally failing where it should run. Not vascular malformation (that is congenital architecture), not fibrosis/remodelling (that is matrix), and not structure formed: the vessels themselves are ordinary, the program driving them is not.
+    # v1.0 build: 36 nodes, none of which the tree held before.
     = biological_processes some GO:0001525 'angiogenesis' modifier INCREASED
     [Age_Related_Macular_Degeneration] VEGF-Driven Macular Neovascularization
     [Gastric_Adenocarcinoma] Angiogenic Switch and VEGF-Driven Neovascularization
@@ -2002,7 +2077,8 @@ SYSTEMIC EFFECT
     [Chediak-Higashi_Syndrome] Platelet Dense-Granule Deficiency and Bleeding
     [Congestive_Splenomegaly] Hypersplenism
     [Revesz_Syndrome] Hematopoietic Stem Cell Exhaustion
-  autoimmune response -- loss of self-tolerance and the autoreactive response itself. 122 nodes, the largest gap found by any method so far. The tissue damage it causes still goes to TISSUE/inflammation or inflammatory infiltration; this leaf is the immune claim, not the lesion.
+  autoimmune response -- loss of self-tolerance and the autoreactive response itself. The tissue damage it causes still goes to TISSUE/inflammation or inflammatory infiltration; this leaf is the immune claim, not the lesion.
+    # v1.0 build: 122 nodes, the largest gap any method found.
     = biological_processes some GO:0002507 'tolerance induction' modifier DECREASED or biological_processes some GO:0002377 'immunoglobulin production' modifier INCREASED|ABNORMAL
     [Bullous_Pemphigoid] Anti-Hemidesmosomal Autoantibody Formation
     [Acquired_Angioedema] Anti-C1-INH Autoantibody-Mediated Inactivation
@@ -2058,7 +2134,8 @@ SYSTEMIC EFFECT
     [Social_Anxiety_Disorder] Cognitive-Behavioral Maintenance Processes
     [Catatonia] Hypokinetic Psychomotor Output
     [Body_Dysmorphic_Disorder] Negative Appearance Appraisal and Rumination
-  nutritional deficit -- whole-body undernutrition as a state. Rejected on an earlier pass because the search for it collided with renal salt and phosphate "wasting"; with those separated, the real nodes are few but unambiguous.
+  nutritional deficit -- whole-body undernutrition as a state, not renal salt or phosphate "wasting".
+    # v1.0 build: rejected on an earlier pass because the search for it collided with renal salt and phosphate "wasting"; with those separated, the real nodes are few but unambiguous.
     [Anorexia_Nervosa] Low Weight and Malnutrition
     [Cystic_Fibrosis] Protein-Calorie Malnutrition
     [Dystrophic_Epidermolysis_Bullosa] Malnutrition and Growth Failure
@@ -2290,7 +2367,7 @@ ALSO CLASSES -- answer a different question than the tiers; a node here is also 
       [Isolated_Growth_Hormone_Deficiency_Type_IA] Failure of Immune Tolerance to Growth Hormone
 
 DEBUNDLE TARGETS -- the payoff, not a failure of the tree: a node needing two classes is making two claims, and naming which two makes the split obvious
-  found by name -- the node name itself says "and", or "or". The "and" case bundles two claims that both hold; the "or" case bundles two ALTERNATIVE routes to the same effect, which is a different shape and just as splittable.
+  found by name -- the node name itself says "and", or "or". The "and" case bundles two claims that both hold; the "or" case bundles two ALTERNATIVE routes to the same effect, which is a different shape and just as splittable. When curators split one, its halves move to their own classes with :split_from (see the header).
     [AL_Amyloidosis] Amyloid Fibril Formation and Extracellular Deposition
       :split SUBSTANCE = Amyloid Fibril Formation
       :split TISSUE = Extracellular Amyloid Deposition
@@ -2372,15 +2449,9 @@ DEBUNDLE TARGETS -- the payoff, not a failure of the tree: a node needing two cl
     [ATRX_Syndrome] Sertoli Cell Survival and Androgen-Signaling Impairment
       :split CELLULAR = Sertoli cell survival
       :split PATHWAY = androgen signalling impairment
-    [Mucolipidosis_Type_IV] Lysosomal Storage and Neurodegeneration
-      :split SUBSTANCE = lysosomal storage
-      :split TISSUE = neurodegeneration
     [Hypomyelinating_Leukodystrophy_10] Mitochondrial Dysfunction and Oxidative Stress Susceptibility
       :split CELLULAR = mitochondrial dysfunction
       :split DISPOSITION = oxidative stress susceptibility
-    [Charcot-Marie-Tooth_Disease_Type_X] Oligodendrocyte Connexin-32 Loss and Transient CNS Dysfunction
-      :split SUBSTANCE = oligodendrocyte connexin-32 loss
-      :split TISSUE = transient CNS dysfunction
     [Parainfluenza_Virus_Infection] Respiratory Epithelial Infection and Innate Immune Response
       :split ENVIRONMENTAL = respiratory epithelial infection
       :split TISSUE = innate immune response
@@ -2903,6 +2974,25 @@ STILL UNPLACED -- genuine scope questions, not bundles
 #    Damage", which is all twelve hallmarks of ageing in one node -- was filed
 #    under genome instability on its own GO grounding, and is worth knowing
 #    about as the extreme case of bundling that "and" cannot detect.
+#
+# 3w. VERSION 1.0 (2026-11-04). No draw has been run since the seventh. v1.0
+#    declares the class list as it stands so that the node_class slot can use
+#    it, and the VERSIONING rules in the header replace waiting for the draws
+#    to saturate: a later draw that forces a leaf adds it as a minor version.
+#    New leaves per draw were 9, 4, 0, 2, 5, 0, 1.
+#
+#    Between 2026-09-16 and 2026-11-04 curators split ten bundled nodes that
+#    this tree cited, and the tree's examples were re-pointed to one half or
+#    deleted. They are now recorded with :split_from on the halves the tree
+#    cites. Three of the ten had been filed under DEBUNDLE TARGETS / found by
+#    name with :split lines, and all three were split along the proposed line:
+#    the ZRS duplication and the pZRS point variant, cardiomyocyte contractility
+#    and cardiomyocyte growth, cytochrome c respiration and apoptosome
+#    activation. One proposed class was wrong: the growth half was filed as
+#    COMPENSATION and was curated as reduced growth. The other seven were filed
+#    under a tier rather than under DEBUNDLE. Other cited bundles were
+#    re-pointed in the same period to a narrower node that is not one clean
+#    half; those read as recuration rather than splits and are not recorded.
 #
 # 4. Ontology grounding predicts the class well enough to seed it, but only
 #    from the RIGHT slot. GO MF present -> 91% MOLECULAR. Gene present -> 81%.

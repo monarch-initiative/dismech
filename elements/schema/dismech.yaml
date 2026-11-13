@@ -21,6 +21,7 @@ imports:
 - classifications/ilo_occupational_diseases
 - classifications/eu_occupational_schedule
 - classifications/exposure_classification
+- pathograph_node_class
 license: BSD-3-Clause
 prefixes:
   linkml:
@@ -95,6 +96,30 @@ prefixes:
   FOODON:
     prefix_prefix: FOODON
     prefix_reference: http://purl.obolibrary.org/obo/FOODON_
+  MGI:
+    prefix_prefix: MGI
+    prefix_reference: http://identifiers.org/mgi/
+  RGD:
+    prefix_prefix: RGD
+    prefix_reference: http://identifiers.org/rgd/
+  ZFIN:
+    prefix_prefix: ZFIN
+    prefix_reference: http://identifiers.org/zfin/
+  Xenbase:
+    prefix_prefix: Xenbase
+    prefix_reference: http://identifiers.org/xenbase/
+  FB:
+    prefix_prefix: FB
+    prefix_reference: http://identifiers.org/fb/
+  WB:
+    prefix_prefix: WB
+    prefix_reference: http://identifiers.org/wb/
+  SGD:
+    prefix_prefix: SGD
+    prefix_reference: http://identifiers.org/sgd/
+  NCBIGene:
+    prefix_prefix: NCBIGene
+    prefix_reference: http://identifiers.org/ncbigene/
   skos:
     prefix_prefix: skos
     prefix_reference: http://www.w3.org/2004/02/skos/core#
@@ -1419,9 +1444,23 @@ enums:
         title: Biomarker
       DISPUTED:
         text: DISPUTED
-        description: Reported gene-disease association whose validity is contested
-          (corresponds to ClinGen "Disputed" or "Refuted").
+        description: 'A reported gene-disease relationship whose validity is contested:
+          the evidence for and against it conflicts, or the original report has not
+          been replicated, and the question is open (corresponds to ClinGen/GenCC
+          "Disputed"). Use this, not a subtype row, for a locus whose claim to cause
+          the disease is unsettled. When an external body has graded the pair, copy
+          its tier into `gene_disease_validity` as well; `relationship_type` is the
+          curator''s reading, `gene_disease_validity` is the source''s.'
         title: Disputed
+      REFUTED:
+        text: REFUTED
+        description: 'A reported gene-disease relationship that the evidence now contradicts:
+          the refuting evidence significantly outweighs the original report, so the
+          gene is recorded to stop the claim being re-made, not because it contributes
+          to the disease (corresponds to ClinGen/GenCC "Refuted"). Distinct from DISPUTED,
+          where the question is still open. Requires `evidence` citing the refutation,
+          not only the original claim.'
+        title: Refuted
       UNKNOWN:
         text: UNKNOWN
         description: The relationship between the gene and the disease is unclear
@@ -2085,6 +2124,30 @@ enums:
     name: TriggerTerm
     definition_uri: https://w3id.org/monarch-initiative/dismech/TriggerTerm
     description: A trigger
+    from_schema: https://w3id.org/monarch-initiative/dismech
+  GeneOrProductTerm:
+    name: GeneOrProductTerm
+    definition_uri: https://w3id.org/monarch-initiative/dismech/GeneOrProductTerm
+    description: 'A gene or gene product in a model system or dataset, named in its
+      own species. In priority order: HGNC for a human gene; the species'' Alliance
+      of Genome Resources member database where one exists (MGI mouse, RGD rat, ZFIN
+      zebrafish, Xenbase Xenopus, FB Drosophila, WB C. elegans, SGD S. cerevisiae);
+      otherwise NCBI Gene. No hierarchy constraint. The schema does not restrict the
+      prefix: where each prefix may appear, and the priority, are enforced by scripts/check_gene_namespaces.py.'
+    comments:
+    - HGNC uses the lowercase `hgnc:` prefix, as everywhere in this repository, and
+      is checked by the term validator.
+    - 'A model-organism gene takes its MOD identifier, whether the model acts on the
+      gene or on its product: mouse Coch is MGI:1278313, zebrafish tmem165 is ZFIN:ZDB-GENE-030131-3222.
+      This follows the Monarch KG, where the MOD identifier is the gene node and NCBI
+      Gene is ingested only for other species. It deliberately differs from Biolink''s
+      id_prefixes order and Translator node normalization, which put NCBIGene first.
+      The label is the MOD''s official symbol, checked against cache/<prefix>/terms.csv,
+      filled from the Alliance API.'
+    - 'NCBI Gene (`NCBIGene:`) is the fallback for a species with no MOD (pig, dog,
+      macaque). Its label is the official symbol, checked against cache/ncbigene/terms.csv:
+      OAK''s NCBI Gene adapter returns no labels. A gene-product (UniProtKB) accession
+      is not accepted for now; a follow-up issue tracks adding it.'
     from_schema: https://w3id.org/monarch-initiative/dismech
   GeneTerm:
     name: GeneTerm
@@ -2830,6 +2893,90 @@ enums:
       OTHER:
         text: OTHER
         description: Other experimental model type not covered above
+  ExperimentDesignEnum:
+    name: ExperimentDesignEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ExperimentDesignEnum
+    description: Broad design family of an experiment, proposed or carried out. This
+      is the coarse, always-fillable classification of *how* a question is addressed,
+      and is deliberately small and closed so it can be populated on every experiment;
+      finer detail belongs in `experiment_type`, which takes an ontology-backed Descriptor.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      PERTURBATION_SCREEN:
+        text: PERTURBATION_SCREEN
+        description: A systematic screen applying a compound, genetic, or degrader
+          library across one or more model systems with a common readout, typically
+          triaged against a counter-screen.
+        title: Perturbation screen
+      TARGETED_PERTURBATION:
+        text: TARGETED_PERTURBATION
+        description: A hypothesis-directed perturbation of one or a few named targets,
+          including isogenic knock-in or knockout comparisons and rescue arms, rather
+          than an unbiased library screen.
+        title: Targeted perturbation
+      HUMAN_OBSERVATIONAL:
+        text: HUMAN_OBSERVATIONAL
+        description: A cohort, registry, case-control, or natural-history study in
+          humans with no intervention assigned by the investigator.
+        title: Human observational study
+      INTERVENTIONAL_TRIAL:
+        text: INTERVENTIONAL_TRIAL
+        description: A trial assigning an intervention to human participants, randomized
+          or otherwise.
+        title: Interventional trial
+      DESCRIPTIVE_PROFILING:
+        text: DESCRIPTIVE_PROFILING
+        description: Measurement or mapping without a deliberate perturbation, such
+          as single-cell atlasing, spatial profiling, or postmortem tissue characterization.
+        title: Descriptive profiling
+      IN_SILICO:
+        text: IN_SILICO
+        description: A computational study whose primary object is a model or dataset
+          rather than a bench or clinical measurement, including simulation, structural
+          modeling, and machine-learning prediction.
+        title: In-silico study
+      METHOD_DEVELOPMENT:
+        text: METHOD_DEVELOPMENT
+        description: Work whose primary aim is to establish or validate an assay,
+          model system, or measurement, rather than to test a disease-mechanism claim
+          directly.
+        title: Method or assay development
+      MIXED:
+        text: MIXED
+        description: An experiment with arms spanning more than one design family,
+          where no single value is the primary design. Prefer a specific value where
+          one dominates.
+        title: Mixed design
+  ExperimentExecutabilityEnum:
+    name: ExperimentExecutabilityEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ExperimentExecutabilityEnum
+    description: 'How far an experiment has been specified, independent of whether
+      anyone intends to run it. This records the honest state of a proposal rather
+      than implying readiness: a `CONCEPTUAL` proposal may still be an excellent experiment,
+      and most curated proposals are `CONCEPTUAL`.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      CONCEPTUAL:
+        text: CONCEPTUAL
+        description: A design sketch in prose. The result would be interpretable,
+          but the experiment is not specified in enough detail to hand to anyone.
+        title: Conceptual
+      SPECIFIED:
+        text: SPECIFIED
+        description: Model system, perturbation, readout, and comparator are named
+          as structured objects, so a domain expert could write the protocol.
+        title: Specified
+      PARAMETERIZED:
+        text: PARAMETERIZED
+        description: Bound to a named external protocol, with the scientific parameters
+          supplied. Mechanical parameters still come from the protocol itself.
+        title: Parameterized
+      EXECUTABLE:
+        text: EXECUTABLE
+        description: The bound protocol is machine-runnable and its parameters are
+          complete, so it could be submitted to an automation core or cloud lab subject
+          to the usual review and biosafety gates.
+        title: Executable
   ModelMechanismRelationshipEnum:
     name: ModelMechanismRelationshipEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/ModelMechanismRelationshipEnum
@@ -9168,6 +9315,448 @@ enums:
         description: 'The internal environment - internal biological processes reflecting
           and responding to exposure: metabolism, endogenous hormones, oxidative stress,
           inflammation, gut microbiome, epigenetic modification.'
+  PathographNodeClassEnum:
+    name: PathographNodeClassEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/PathographNodeClassEnum
+    description: Pathograph node classes, the range of Pathophysiology node_class.
+      A value without is_a is a tier; every other value names the class it sits under.
+    from_schema: https://w3id.org/monarch-initiative/dismech/pathograph_node_class
+    permissible_values:
+      GENOMIC_EFFECT:
+        text: GENOMIC_EFFECT
+        description: the lesion at the level of DNA/chromatin
+        title: GENOMIC EFFECT
+      GENOME_INSTABILITY:
+        text: GENOME_INSTABILITY
+        description: an elevated RATE of new lesions rather than a lesion itself.
+          From MeSH Genomic Instability (D042822).
+        is_a: GENOMIC_EFFECT
+        title: genome instability
+      PATHOGENIC_SEQUENCE_VARIANT:
+        text: PATHOGENIC_SEQUENCE_VARIANT
+        description: the coding lesion itself, where the entry draws it as a node
+        is_a: GENOMIC_EFFECT
+        title: pathogenic sequence variant
+      DOSAGE:
+        text: DOSAGE
+        is_a: GENOMIC_EFFECT
+        title: dosage
+      STRUCTURAL_VARIANT:
+        text: STRUCTURAL_VARIANT
+        is_a: GENOMIC_EFFECT
+        title: structural variant
+      CIS_REGULATORY_VARIANT:
+        text: CIS_REGULATORY_VARIANT
+        description: 'a lesion in noncoding regulatory DNA: enhancer, promoter, or
+          the 3D contacts between them. The gene is intact and the coding sequence
+          is untouched; what changed is where and how much it is transcribed. Not
+          `pathogenic sequence variant`, which reads as coding, and not `epigenetic`,
+          which is a mark rather than a lesion.'
+        is_a: GENOMIC_EFFECT
+        title: cis-regulatory variant
+      EPIGENETIC:
+        text: EPIGENETIC
+        is_a: GENOMIC_EFFECT
+        title: epigenetic
+      TRANSCRIPT_LEVEL:
+        text: TRANSCRIPT_LEVEL
+        is_a: GENOMIC_EFFECT
+        title: transcript-level
+      ENVIRONMENTAL_EFFECT:
+        text: ENVIRONMENTAL_EFFECT
+        description: the insult from outside
+        title: ENVIRONMENTAL EFFECT
+      INFECTIOUS_AGENT:
+        text: INFECTIOUS_AGENT
+        is_a: ENVIRONMENTAL_EFFECT
+        title: infectious agent
+      CHEMICAL_DRUG_TOXIN:
+        text: CHEMICAL_DRUG_TOXIN
+        is_a: ENVIRONMENTAL_EFFECT
+        title: chemical / drug / toxin
+      PHYSICAL_EXPOSURE:
+        text: PHYSICAL_EXPOSURE
+        is_a: ENVIRONMENTAL_EFFECT
+        title: physical exposure
+      HORMONAL_PHYSIOLOGICAL_EXPOSURE:
+        text: HORMONAL_PHYSIOLOGICAL_EXPOSURE
+        is_a: ENVIRONMENTAL_EFFECT
+        title: hormonal / physiological exposure
+      PHYSIOLOGICAL_STRESSOR:
+        text: PHYSIOLOGICAL_STRESSOR
+        description: the intermittent trigger that unmasks a latent lesion
+        is_a: ENVIRONMENTAL_EFFECT
+        title: physiological stressor
+      MICROBIOME_STATE:
+        text: MICROBIOME_STATE
+        description: the resident community as an exposure, not a single pathogen
+        is_a: ENVIRONMENTAL_EFFECT
+        title: microbiome state
+      MOLECULAR_ACTIVITY_EFFECT:
+        text: MOLECULAR_ACTIVITY_EFFECT
+        description: what the gene product can no longer do; GO molecular_function
+          territory. Not the allele (GENOMIC or `genetic:`), not the resulting pool
+          (SUBSTANCE).
+        title: MOLECULAR ACTIVITY EFFECT
+      CATALYTIC_ACTIVITY:
+        text: CATALYTIC_ACTIVITY
+        is_a: MOLECULAR_ACTIVITY_EFFECT
+        title: catalytic activity
+      CHANNEL_CONDUCTANCE:
+        text: CHANNEL_CONDUCTANCE
+        is_a: MOLECULAR_ACTIVITY_EFFECT
+        title: channel conductance
+      TRANSPORT_ACTIVITY:
+        text: TRANSPORT_ACTIVITY
+        is_a: MOLECULAR_ACTIVITY_EFFECT
+        title: transport activity
+      RECEPTOR_ADAPTOR_ACTIVITY:
+        text: RECEPTOR_ADAPTOR_ACTIVITY
+        is_a: MOLECULAR_ACTIVITY_EFFECT
+        title: receptor / adaptor activity
+      STRUCTURAL_PROTEIN_ACTIVITY:
+        text: STRUCTURAL_PROTEIN_ACTIVITY
+        description: a structural protein failing to assemble, not an enzyme failing
+          to catalyse
+        is_a: MOLECULAR_ACTIVITY_EFFECT
+        title: structural-protein activity
+      MOLECULAR_SUBSTANCE_EFFECT:
+        text: MOLECULAR_SUBSTANCE_EFFECT
+        description: which molecules are now present in the wrong amount or the wrong
+          form; one causal step below activity.
+        title: MOLECULAR SUBSTANCE EFFECT
+      METABOLITE_ACCUMULATION:
+        text: METABOLITE_ACCUMULATION
+        is_a: MOLECULAR_SUBSTANCE_EFFECT
+        title: metabolite accumulation
+      METABOLITE_DEPLETION:
+        text: METABOLITE_DEPLETION
+        is_a: MOLECULAR_SUBSTANCE_EFFECT
+        title: metabolite depletion
+      PROTEIN_MISFOLDING_AGGREGATION:
+        text: PROTEIN_MISFOLDING_AGGREGATION
+        is_a: MOLECULAR_SUBSTANCE_EFFECT
+        title: protein misfolding / aggregation
+      PROTEIN_ABUNDANCE_LOSS:
+        text: PROTEIN_ABUNDANCE_LOSS
+        description: the protein is not there, as distinct from being present but
+          inactive (ACTIVITY) or present but misfolded
+        is_a: MOLECULAR_SUBSTANCE_EFFECT
+        title: protein abundance loss
+      PROTEIN_ABUNDANCE_EXCESS:
+        text: PROTEIN_ABUNDANCE_EXCESS
+        description: the protein is present above its normal level -- overexpression,
+          escape from degradation, ectopic expression of a normally silent gene. The
+          mirror of abundance loss; a gain-of-dosage claim at the protein level rather
+          than the gene level, so distinct from GENOMIC/dosage
+        is_a: MOLECULAR_SUBSTANCE_EFFECT
+        title: protein abundance excess
+      POST_TRANSLATIONAL_MODIFICATION_STATE:
+        text: POST_TRANSLATIONAL_MODIFICATION_STATE
+        description: the molecule is present and correctly folded but chemically altered
+        is_a: MOLECULAR_SUBSTANCE_EFFECT
+        title: post-translational modification state
+      PATHWAY_EFFECT:
+        text: PATHWAY_EFFECT
+        description: signalling and flux through a pathway
+        title: PATHWAY EFFECT
+      SIGNALLING_REDUCED_FAILED:
+        text: SIGNALLING_REDUCED_FAILED
+        is_a: PATHWAY_EFFECT
+        title: signalling reduced / failed
+      SIGNALLING_INCREASED:
+        text: SIGNALLING_INCREASED
+        is_a: PATHWAY_EFFECT
+        title: signalling increased
+      METABOLIC_FLUX_BLOCK:
+        text: METABOLIC_FLUX_BLOCK
+        is_a: PATHWAY_EFFECT
+        title: metabolic flux block
+      CELLULAR_EFFECT:
+        text: CELLULAR_EFFECT
+        title: CELLULAR EFFECT
+      CELL_DEATH:
+        text: CELL_DEATH
+        is_a: CELLULAR_EFFECT
+        title: cell death
+      DIFFERENTIATION_IDENTITY:
+        text: DIFFERENTIATION_IDENTITY
+        is_a: CELLULAR_EFFECT
+        title: differentiation / identity
+      METAPLASIA:
+        text: METAPLASIA
+        description: a differentiated tissue replaced by another differentiated type.
+          From MeSH Metaplasia (D008679); conceptually sharp and distinct from a differentiation
+          block.
+        is_a: CELLULAR_EFFECT
+        title: metaplasia
+      HAEMOLYSIS:
+        text: HAEMOLYSIS
+        description: erythrocyte destruction as its own leaf; MeSH gives Hemolysis
+          (D006461) top-level pathologic-process billing
+        is_a: CELLULAR_EFFECT
+        title: haemolysis
+      PROLIFERATION_EXPANSION:
+        text: PROLIFERATION_EXPANSION
+        is_a: CELLULAR_EFFECT
+        title: proliferation / expansion
+      SENESCENCE:
+        text: SENESCENCE
+        is_a: CELLULAR_EFFECT
+        title: senescence
+      CELL_ACTIVATION:
+        text: CELL_ACTIVATION
+        description: a cell type switching into an effector state
+        is_a: CELLULAR_EFFECT
+        title: cell activation
+      ORGANELLE_DYSFUNCTION:
+        text: ORGANELLE_DYSFUNCTION
+        is_a: CELLULAR_EFFECT
+        title: organelle dysfunction
+      MORPHOGENESIS_MIGRATION_AND_POSITIONING:
+        text: MORPHOGENESIS_MIGRATION_AND_POSITIONING
+        is_a: CELLULAR_EFFECT
+        title: morphogenesis, migration and positioning
+      PROTEIN_TRAFFICKING_AND_LOCALIZATION:
+        text: PROTEIN_TRAFFICKING_AND_LOCALIZATION
+        description: the protein is made and folded but does not reach where it works.
+          Distinct from ACTIVITY (it would work if it got there) and from SUBSTANCE
+          (nothing is misfolded or depleted).
+        is_a: CELLULAR_EFFECT
+        title: protein trafficking and localization
+      CELLULAR_FUNCTION_DISTURBANCE:
+        text: CELLULAR_FUNCTION_DISTURBANCE
+        description: a single cell type's physiological output running wrongly --
+          excitability, repolarization, transmitter release, contractility, secretion,
+          transduction -- with no structural lesion at the cell. The cell-level counterpart
+          of TISSUE/functional disturbance (an organ working wrongly); split out of
+          it after the sixth draw showed that leaf carrying two scales
+        is_a: CELLULAR_EFFECT
+        title: cellular function disturbance
+      TISSUE_ORGAN_EFFECT:
+        text: TISSUE_ORGAN_EFFECT
+        title: TISSUE / ORGAN EFFECT
+      INFLAMMATION:
+        text: INFLAMMATION
+        is_a: TISSUE_ORGAN_EFFECT
+        title: inflammation
+      FIBROSIS_REMODELLING:
+        text: FIBROSIS_REMODELLING
+        is_a: TISSUE_ORGAN_EFFECT
+        title: fibrosis / remodelling
+      PATHOLOGICAL_STRUCTURE_FORMED:
+        text: PATHOLOGICAL_STRUCTURE_FORMED
+        is_a: TISSUE_ORGAN_EFFECT
+        title: pathological structure formed
+      DEGENERATION_ATROPHY:
+        text: DEGENERATION_ATROPHY
+        is_a: TISSUE_ORGAN_EFFECT
+        title: degeneration / atrophy
+      DEVELOPMENTAL_MALFORMATION:
+        text: DEVELOPMENTAL_MALFORMATION
+        is_a: TISSUE_ORGAN_EFFECT
+        title: developmental malformation
+      BARRIER_FAILURE:
+        text: BARRIER_FAILURE
+        is_a: TISSUE_ORGAN_EFFECT
+        title: barrier failure
+      INJURY:
+        text: INJURY
+        description: generic tissue damage where the entry names no more specific
+          process
+        is_a: TISSUE_ORGAN_EFFECT
+        title: injury
+      CIRCULATORY_DISTURBANCE:
+        text: CIRCULATORY_DISTURBANCE
+        description: haemorrhage, fluid shift and vessel/chamber dilatation. MPATH
+          gives circulatory disorder TOP-LEVEL billing (MPATH:105).
+        is_a: TISSUE_ORGAN_EFFECT
+        title: circulatory disturbance
+      MECHANICAL_OBSTRUCTION_AND_STENOSIS:
+        text: MECHANICAL_OBSTRUCTION_AND_STENOSIS
+        description: from SNOMED Mechanical abnormality (107658001).
+        is_a: TISSUE_ORGAN_EFFECT
+        title: mechanical obstruction and stenosis
+      ABNORMAL_COMMUNICATION:
+        text: ABNORMAL_COMMUNICATION
+        description: fistula, septal defect, shunt. From SNOMED Abnormal communication
+          (783804002).
+        is_a: TISSUE_ORGAN_EFFECT
+        title: abnormal communication
+      VASCULAR_MALFORMATION:
+        text: VASCULAR_MALFORMATION
+        description: from SNOMED Vascular malformation (783806000); mechanistically
+          distinct from developmental malformation generally
+        is_a: TISSUE_ORGAN_EFFECT
+        title: vascular malformation
+      MATERIAL_DEPOSITION:
+        text: MATERIAL_DEPOSITION
+        description: material laid down IN tissue, as opposed to a discrete structure
+          being built. SNOMED makes Deposition (46595003) a top-level morphologic
+          category.
+        is_a: TISSUE_ORGAN_EFFECT
+        title: material deposition
+      ISCHEMIA_AND_INFARCTION:
+        text: ISCHEMIA_AND_INFARCTION
+        description: perfusion failure and its tissue consequence
+        is_a: TISSUE_ORGAN_EFFECT
+        title: ischemia and infarction
+      INFLAMMATORY_INFILTRATION:
+        text: INFLAMMATORY_INFILTRATION
+        description: cells or material entering tissue; distinct from the inflammatory
+          response itself
+        is_a: TISSUE_ORGAN_EFFECT
+        title: inflammatory infiltration
+      FUNCTIONAL_DISTURBANCE:
+        text: FUNCTIONAL_DISTURBANCE
+        description: 'an organ working wrongly without a structural lesion: conduction,
+          contractility, motility, secretion, absorption. Organ-level only -- a single
+          cell type''s output running wrongly is CELLULAR/cellular function disturbance,
+          and a distributed circuit misbehaving as a circuit is neural circuit and
+          network dysfunction'
+        is_a: TISSUE_ORGAN_EFFECT
+        title: functional disturbance
+      NEOPLASTIC_INVASION_AND_METASTASIS:
+        text: NEOPLASTIC_INVASION_AND_METASTASIS
+        is_a: TISSUE_ORGAN_EFFECT
+        title: neoplastic invasion and metastasis
+      PATHOGEN_SPREAD_AND_TISSUE_INVASION:
+        text: PATHOGEN_SPREAD_AND_TISSUE_INVASION
+        description: the host-side counterpart of the ENVIRONMENTAL agent node
+        is_a: TISSUE_ORGAN_EFFECT
+        title: pathogen spread and tissue invasion
+      IMMUNE_EVASION_AND_IMMUNOSUPPRESSIVE_MICROENVIRONMENT:
+        text: IMMUNE_EVASION_AND_IMMUNOSUPPRESSIVE_MICROENVIRONMENT
+        is_a: TISSUE_ORGAN_EFFECT
+        title: immune evasion and immunosuppressive microenvironment
+      IMPAIRED_REPAIR:
+        text: IMPAIRED_REPAIR
+        is_a: TISSUE_ORGAN_EFFECT
+        title: impaired repair
+      NEURAL_CIRCUIT_AND_NETWORK_DYSFUNCTION:
+        text: NEURAL_CIRCUIT_AND_NETWORK_DYSFUNCTION
+        description: 'a distributed multi-region circuit misbehaving as a circuit:
+          hyperexcitability, hypersynchrony, dysconnectivity, oscillation. Distinct
+          from functional disturbance, which is one organ working wrongly; here the
+          lesion IS the network property, and no single region is at fault.'
+        is_a: TISSUE_ORGAN_EFFECT
+        title: neural circuit and network dysfunction
+      PATHOLOGICAL_ANGIOGENESIS:
+        text: PATHOLOGICAL_ANGIOGENESIS
+        description: 'the vessel-building program running where, when or as much as
+          it should not, and occasionally failing where it should run. Not vascular
+          malformation (that is congenital architecture), not fibrosis/remodelling
+          (that is matrix), and not structure formed: the vessels themselves are ordinary,
+          the program driving them is not.'
+        is_a: TISSUE_ORGAN_EFFECT
+        title: pathological angiogenesis
+      COMPRESSION_AND_MASS_EFFECT:
+        text: COMPRESSION_AND_MASS_EFFECT
+        description: one structure pressing on its neighbour. Not obstruction (no
+          lumen is narrowed) and not invasion (nothing crosses a boundary); the damage
+          is transmitted force, so the lesion and the injured tissue are different
+          tissues.
+        is_a: TISSUE_ORGAN_EFFECT
+        title: compression and mass effect
+      SYSTEMIC_EFFECT:
+        text: SYSTEMIC_EFFECT
+        title: SYSTEMIC EFFECT
+      METABOLIC_CRISIS:
+        text: METABOLIC_CRISIS
+        is_a: SYSTEMIC_EFFECT
+        title: metabolic crisis
+      ORGAN_FAILURE:
+        text: ORGAN_FAILURE
+        is_a: SYSTEMIC_EFFECT
+        title: organ failure
+      ENDOCRINE_HOMEOSTATIC_DERANGEMENT:
+        text: ENDOCRINE_HOMEOSTATIC_DERANGEMENT
+        is_a: SYSTEMIC_EFFECT
+        title: endocrine / homeostatic derangement
+      SYSTEMIC_INFLAMMATORY_STATE:
+        text: SYSTEMIC_INFLAMMATORY_STATE
+        is_a: SYSTEMIC_EFFECT
+        title: systemic inflammatory state
+      HAEMATOLOGICAL_DEFICIT:
+        text: HAEMATOLOGICAL_DEFICIT
+        description: circulating cell-count failure. From SNOMED Abnormal cellular
+          component of blood (89615005).
+        is_a: SYSTEMIC_EFFECT
+        title: haematological deficit
+      AUTOIMMUNE_RESPONSE:
+        text: AUTOIMMUNE_RESPONSE
+        description: loss of self-tolerance and the autoreactive response itself.
+          The tissue damage it causes still goes to TISSUE/inflammation or inflammatory
+          infiltration; this leaf is the immune claim, not the lesion.
+        is_a: SYSTEMIC_EFFECT
+        title: autoimmune response
+      IMMUNE_DEFICIENCY:
+        text: IMMUNE_DEFICIENCY
+        description: the defect in immune function itself, as opposed to the susceptibility
+          it confers (DISPOSITION) or the infection that follows (ENVIRONMENTAL)
+        is_a: SYSTEMIC_EFFECT
+        title: immune deficiency
+      BEHAVIOURAL_AND_COGNITIVE_MECHANISM:
+        text: BEHAVIOURAL_AND_COGNITIVE_MECHANISM
+        description: 'a psychological process doing mechanistic work. Small but unmistakable,
+          and the psychiatric corpus has nowhere else to go: this is not tissue function,
+          not a network lesion, and not an outcome.'
+        is_a: SYSTEMIC_EFFECT
+        title: behavioural and cognitive mechanism
+      NUTRITIONAL_DEFICIT:
+        text: NUTRITIONAL_DEFICIT
+        description: whole-body undernutrition as a state, not renal salt or phosphate
+          "wasting".
+        is_a: SYSTEMIC_EFFECT
+        title: nutritional deficit
+      OUTCOME:
+        text: OUTCOME
+        description: what happens to the patient
+        title: OUTCOME
+      CLINICAL_ENDPOINT:
+        text: CLINICAL_ENDPOINT
+        is_a: OUTCOME
+        title: clinical endpoint
+      PROGRESSION_AND_TRANSFORMATION:
+        text: PROGRESSION_AND_TRANSFORMATION
+        description: 'a transition to a DIFFERENT disease state. Not a cascade step:
+          it asserts where the disease goes next, and is the shape that keeps OUTCOME
+          from being nearly empty.'
+        is_a: OUTCOME
+        title: progression and transformation
+      DISPOSITION:
+        text: DISPOSITION
+        description: 'a standing susceptibility rather than an event. Not a cascade
+          tier: a disposition can sit at any tier, and it is the one node kind that
+          describes what COULD happen rather than what did.'
+        title: DISPOSITION
+      GENETIC_PREDISPOSITION:
+        text: GENETIC_PREDISPOSITION
+        is_a: DISPOSITION
+        title: genetic predisposition
+      TRIGGER_SPECIFIC_SUSCEPTIBILITY:
+        text: TRIGGER_SPECIFIC_SUSCEPTIBILITY
+        description: latent until a named stimulus arrives; pairs with an ENVIRONMENTAL/physiological
+          stressor node
+        is_a: DISPOSITION
+        title: trigger-specific susceptibility
+      TISSUE_VULNERABILITY:
+        text: TISSUE_VULNERABILITY
+        description: a tissue that will fail first, without yet having failed
+        is_a: DISPOSITION
+        title: tissue vulnerability
+      OUTCOME_RISK:
+        text: OUTCOME_RISK
+        description: a named adverse endpoint stated as a standing probability
+        is_a: DISPOSITION
+        title: outcome risk
+      PENETRANCE_AND_EXPRESSIVITY_MODIFIER:
+        text: PENETRANCE_AND_EXPRESSIVITY_MODIFIER
+        description: 'what decides whether a disposition is expressed at all, and
+          how severely. Not the disposition and not the effect: a second locus, a
+          background, or a residual activity level standing between them.'
+        is_a: DISPOSITION
+        title: penetrance and expressivity modifier
 slots:
   gene_sets:
     name: gene_sets
@@ -10503,10 +11092,14 @@ slots:
     definition_uri: https://w3id.org/monarch-initiative/dismech/role
     description: 'Free-text role of this item within its section (e.g. a pathophysiology
       node''s place in the cascade, or a host''s role in a parasite life cycle). Deliberately
-      unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone,
-      many of them descriptive rather than categorical, so narrowing this to an enum
-      would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value
-      hazard, dismech#10061).'
+      unconstrained: the KB carries well over a hundred distinct values on pathophysiology
+      nodes alone (`just node-role-audit` for the current census), many of them descriptive
+      rather than categorical, so narrowing this to an enum would retire legitimate
+      content and invalidate in-flight curation (cf. the retired-enum-value hazard,
+      dismech#10061). On a pathophysiology node, a role saying what kind of thing
+      the node is (`mechanism`, `driver`, `organ_dysfunction`) belongs in node_class
+      instead, and a node''s position in the cascade (`trigger`, `consequence`) can
+      be read from its downstream edges.'
     comments:
     - '`role` is never read as a claim. For neoplasms in particular, an initiating-sounding
       role does NOT identify the cell of origin: that derivation reads `genetic_context.variant_origin:
@@ -10634,6 +11227,7 @@ slots:
     domain_of:
     - GeneticContext
     - Dataset
+    - ExperimentalModel
     - ExperimentalPerturbation
     - Subtype
     - Pathophysiology
@@ -12343,6 +12937,7 @@ slots:
     slot_uri: dismech:animal_models
     owner: Disease
     domain_of:
+    - Experiment
     - Disease
     range: AnimalModel
     multivalued: true
@@ -13112,11 +13707,38 @@ slots:
     range: Descriptor
     inlined: true
     inlined_as_list: true
+  experiment_design:
+    name: experiment_design
+    definition_uri: https://w3id.org/monarch-initiative/dismech/experiment_design
+    description: Broad design family of the experiment. Small, closed, and intended
+      to be fillable on every experiment, in contrast to `experiment_type`, which
+      takes an ontology-backed Descriptor for finer detail.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:experiment_design
+    owner: Experiment
+    domain_of:
+    - Experiment
+    range: ExperimentDesignEnum
+  executability:
+    name: executability
+    definition_uri: https://w3id.org/monarch-initiative/dismech/executability
+    description: How far this experiment has been specified, from a prose sketch through
+      to a machine-runnable protocol. Records the state of the proposal; it is not
+      a quality or priority judgement.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:executability
+    owner: Experiment
+    domain_of:
+    - Experiment
+    range: ExperimentExecutabilityEnum
   model_systems:
     name: model_systems
     definition_uri: https://w3id.org/monarch-initiative/dismech/model_systems
-    description: Experimental model systems used or proposed for an experiment, using
-      the ExperimentalModel pattern and optional NAMO alignment.
+    description: 'Non-animal experimental model systems used or proposed for an experiment,
+      using the ExperimentalModel pattern and optional NAMO alignment. A whole-organism
+      animal model belongs in the sibling `animal_models` slot and an in-silico model
+      in `computational_models`; do not route either here via `experimental_model_type:
+      OTHER`.'
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:model_systems
     owner: ExperimentalControl
@@ -13967,6 +14589,37 @@ slots:
     domain_of:
     - Pathophysiology
     range: BiologicalScaleEnum
+  node_class:
+    name: node_class
+    definition_uri: https://w3id.org/monarch-initiative/dismech/node_class
+    description: 'The kind of causal claim this pathophysiology node makes: a genomic
+      lesion, an exposure, a broken molecular activity, a molecule in the wrong amount
+      or form, a pathway running wrongly, a cellular, tissue/organ or systemic effect,
+      an outcome, or a standing disposition. Optional. Values come from the pathograph
+      node-class tree (kb/node_classes/pathograph_node_classes.txt), whose glosses
+      and worked examples are the guide to assigning one. Assign the most specific
+      class that fits the node''s own claim; a tier is acceptable when no leaf fits.
+      Leave the slot absent when no class fits. Single-valued: a node that needs two
+      classes is making two claims and should be split instead. Distinct from biological_scale,
+      the scale of the node''s substrate; `just node-class-scan --format scale` reports
+      nodes whose class tier and scale disagree.'
+    comments:
+    - Classify the node's claim, not what its gene normally does. A lesion node is
+      often bound to the wild-type molecular function of the affected gene (Germline
+      PTEN Loss of Function carries the PTEN phosphatase activity); its class follows
+      what the node asserts, the allele (a GENOMIC class such as PATHOGENIC_SEQUENCE_VARIANT)
+      or the lost activity (a MOLECULAR ACTIVITY class), not the term. `just node-class-scan`
+      suggests a class from a node's ontology terms; it is a hint, and it is least
+      reliable in exactly this case.
+    examples:
+    - value: CELL_DEATH
+    - value: METABOLITE_ACCUMULATION
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:node_class
+    owner: Pathophysiology
+    domain_of:
+    - Pathophysiology
+    range: PathographNodeClassEnum
   accession:
     name: accession
     definition_uri: https://w3id.org/monarch-initiative/dismech/accession
@@ -14384,6 +15037,7 @@ slots:
     slot_uri: dismech:computational_models
     owner: Disease
     domain_of:
+    - Experiment
     - Disease
     range: ComputationalModel
     multivalued: true
@@ -16316,6 +16970,31 @@ slots:
     recommended: true
     inlined: true
     inlined_as_list: false
+  GeneOrProductDescriptor_term:
+    name: GeneOrProductDescriptor_term
+    definition_uri: https://w3id.org/monarch-initiative/dismech/term
+    description: 'hgnc:, an Alliance MOD prefix (MGI:, RGD:, ZFIN:, Xenbase:, FB:,
+      WB:, SGD:) or NCBIGene: term reference'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: term
+    domain: GeneOrProductDescriptor
+    slot_uri: dismech:term
+    alias: term
+    owner: GeneOrProductDescriptor
+    domain_of:
+    - GeneOrProductDescriptor
+    is_usage_slot: true
+    usage_slot_name: term
+    range: Term
+    bindings:
+    - range: GeneOrProductTerm
+      obligation_level:
+        text: REQUIRED
+        description: The metadata element is required to be present in the model
+      binds_value_of: id
+    recommended: true
+    inlined: true
+    inlined_as_list: false
   GeneDescriptor_term:
     name: GeneDescriptor_term
     definition_uri: https://w3id.org/monarch-initiative/dismech/term
@@ -16986,6 +17665,52 @@ slots:
     usage_slot_name: description
     range: string
     recommended: true
+  Dataset_genes:
+    name: Dataset_genes
+    definition_uri: https://w3id.org/monarch-initiative/dismech/genes
+    description: 'Genes perturbed or profiled in the dataset, named in the dataset''s
+      organism: hgnc: for a human gene, the species'' Alliance MOD identifier (MGI:
+      for a mouse knockout) where one exists, otherwise NCBIGene:.'
+    examples:
+    - value: '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: genes
+    domain: Dataset
+    slot_uri: dismech:genes
+    alias: genes
+    owner: Dataset
+    domain_of:
+    - Dataset
+    is_usage_slot: true
+    usage_slot_name: genes
+    range: GeneOrProductDescriptor
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  ExperimentalModel_genes:
+    name: ExperimentalModel_genes
+    definition_uri: https://w3id.org/monarch-initiative/dismech/genes
+    description: 'Genes or gene products perturbed, expressed, or carried as a variant
+      in this system, named in the organism the cells came from: hgnc: for a human
+      gene, the species'' Alliance MOD identifier where one exists (a mouse cell line''s
+      knockout is MGI:, not its human ortholog), otherwise NCBIGene:. Orthology to
+      the human disease gene goes in description or notes.'
+    examples:
+    - value: '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: genes
+    domain: ExperimentalModel
+    slot_uri: dismech:genes
+    alias: genes
+    owner: ExperimentalModel
+    domain_of:
+    - ExperimentalModel
+    is_usage_slot: true
+    usage_slot_name: genes
+    range: GeneOrProductDescriptor
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   Experiment_experiment_id:
     name: Experiment_experiment_id
     definition_uri: https://w3id.org/monarch-initiative/dismech/experiment_id
@@ -19293,6 +20018,30 @@ slots:
     multivalued: true
     inlined: true
     inlined_as_list: true
+  AnimalModel_genes:
+    name: AnimalModel_genes
+    definition_uri: https://w3id.org/monarch-initiative/dismech/genes
+    description: 'Genes or gene products perturbed, expressed, or carried as a variant
+      in the model, named in the model''s own species: the Alliance MOD identifier
+      for a model organism (a mouse knockout of Coch is MGI:1278313, not hgnc:2180),
+      NCBIGene: for a species with no MOD, hgnc: for a human transgene. Orthology
+      to the human disease gene goes in description or notes.'
+    examples:
+    - value: '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: genes
+    domain: AnimalModel
+    slot_uri: dismech:genes
+    alias: genes
+    owner: AnimalModel
+    domain_of:
+    - AnimalModel
+    is_usage_slot: true
+    usage_slot_name: genes
+    range: GeneOrProductDescriptor
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   TreatmentEffectModifier_effect_modifier_type:
     name: TreatmentEffectModifier_effect_modifier_type
     definition_uri: https://w3id.org/monarch-initiative/dismech/effect_modifier_type
@@ -20826,6 +21575,40 @@ classes:
             description: The metadata element is required to be present in the model
           binds_value_of: id
     class_uri: dismech:ChemicalEntityDescriptor
+  GeneOrProductDescriptor:
+    name: GeneOrProductDescriptor
+    definition_uri: https://w3id.org/monarch-initiative/dismech/GeneOrProductDescriptor
+    description: A descriptor for a gene or gene product in a model system or dataset,
+      bindable to HGNC for a human gene, to the species' Alliance MOD (MGI, RGD, ZFIN,
+      Xenbase, FB, WB, SGD) for a model-organism gene, or to NCBI Gene for a species
+      with no MOD.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: Descriptor
+    slots:
+    - preferred_term
+    - Descriptor_description
+    - modifier
+    - located_in
+    - laterality
+    - spatial_extent
+    - onset
+    - temporality
+    - clinical_course
+    - severity
+    - qualifiers
+    - GeneOrProductDescriptor_term
+    slot_usage:
+      term:
+        name: term
+        description: 'hgnc:, an Alliance MOD prefix (MGI:, RGD:, ZFIN:, Xenbase:,
+          FB:, WB:, SGD:) or NCBIGene: term reference'
+        bindings:
+        - range: GeneOrProductTerm
+          obligation_level:
+            text: REQUIRED
+            description: The metadata element is required to be present in the model
+          binds_value_of: id
+    class_uri: dismech:GeneOrProductDescriptor
   GeneDescriptor:
     name: GeneDescriptor
     definition_uri: https://w3id.org/monarch-initiative/dismech/GeneDescriptor
@@ -21829,7 +22612,7 @@ classes:
     - sample_count
     - conditions
     - exposures
-    - genes
+    - Dataset_genes
     - platform
     - publication
     - findings
@@ -21843,6 +22626,13 @@ classes:
           be used to communicate nuances not captured by the rigid standardization
           of the title slot.
         recommended: true
+      genes:
+        name: genes
+        description: 'Genes perturbed or profiled in the dataset, named in the dataset''s
+          organism: hgnc: for a human gene, the species'' Alliance MOD identifier
+          (MGI: for a mouse knockout) where one exists, otherwise NCBIGene:.'
+        range: GeneOrProductDescriptor
+        inlined_as_list: true
     class_uri: dismech:Dataset
   ExperimentalModel:
     name: ExperimentalModel
@@ -21870,6 +22660,7 @@ classes:
     - organism
     - tissue_term
     - cell_types
+    - ExperimentalModel_genes
     - conditions
     - cell_source
     - culture_system
@@ -21878,6 +22669,16 @@ classes:
     - findings
     - evidence
     - notes
+    slot_usage:
+      genes:
+        name: genes
+        description: 'Genes or gene products perturbed, expressed, or carried as a
+          variant in this system, named in the organism the cells came from: hgnc:
+          for a human gene, the species'' Alliance MOD identifier where one exists
+          (a mouse cell line''s knockout is MGI:, not its human ortholog), otherwise
+          NCBIGene:. Orthology to the human disease gene goes in description or notes.'
+        range: GeneOrProductDescriptor
+        inlined_as_list: true
     class_uri: dismech:ExperimentalModel
   Experiment:
     name: Experiment
@@ -21892,13 +22693,28 @@ classes:
       is proposed as a response to an open question or knowledge gap.
     - Use `model_systems` for NAMO-aligned models, `perturbations` for pathograph/gene/chemical/exposure
       manipulations, and `readouts` for ontology-backed outcome or mechanism measurements.
+    - 'Model systems are split three ways, mirroring the disease-level `experimental_models`
+      / `animal_models` / `computational_models` sections and reusing the same classes:
+      `model_systems` takes non-animal ExperimentalModel entries, `animal_models`
+      whole-organism AnimalModel entries, and `computational_models` in-silico ComputationalModel
+      entries. Before this split, an animal or in-silico proposal could only reach
+      the pathograph through `experimental_model_type: OTHER`, which ExperimentalModel''s
+      own comment forbids.'
+    - '`experiment_design` is the coarse, always-fillable design family and `executability`
+      records how far the proposal has been specified. Both are optional so that existing
+      prose-level proposals validate unchanged, but a new experiment should carry
+      at least `experiment_design`.'
     from_schema: https://w3id.org/monarch-initiative/dismech
     slots:
     - Experiment_experiment_id
     - name
     - description
+    - experiment_design
     - experiment_type
+    - executability
     - model_systems
+    - animal_models
+    - computational_models
     - Experiment_perturbations
     - Experiment_assays
     - Experiment_readouts
@@ -23319,6 +24135,7 @@ classes:
     - pdb_structures
     - mechanism_confidence
     - biological_scale
+    - node_class
     - Pathophysiology_regulatory_category
     slot_usage:
       regulatory_category:
@@ -23676,7 +24493,7 @@ classes:
     - species
     - genotype
     - background
-    - genes
+    - AnimalModel_genes
     - category
     - alleles
     - description
@@ -23695,6 +24512,15 @@ classes:
         name: modeled_mechanisms
         description: Pathophysiology mechanism nodes this animal model recapitulates,
           perturbs, measures, rescues, or fails to recapitulate.
+      genes:
+        name: genes
+        description: 'Genes or gene products perturbed, expressed, or carried as a
+          variant in the model, named in the model''s own species: the Alliance MOD
+          identifier for a model organism (a mouse knockout of Coch is MGI:1278313,
+          not hgnc:2180), NCBIGene: for a species with no MOD, hgnc: for a human transgene.
+          Orthology to the human disease gene goes in description or notes.'
+        range: GeneOrProductDescriptor
+        inlined_as_list: true
     attributes:
       name:
         name: name
@@ -25131,6 +25957,6 @@ classes:
 metamodel_version: 1.7.0
 source_file: dismech.yaml
 source_file_date: '2025-01-01T00:00:00'
-source_file_size: 402614
+source_file_size: 415797
 generation_date: '2025-01-01T00:00:00'
 

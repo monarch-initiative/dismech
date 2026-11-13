@@ -33,7 +33,17 @@ full_text_access_type: open
 
 ## Content
 
-ObjectivesTo present recommendations for the coordinated evaluation and management of the hearing and reconstructive needs of patients with microtia and aural atresia.MethodsA national working group of 9 experts on microtia and atresia evaluated a working document on the evaluation and treatment of patients. Treatment options for auricular reconstruction and hearing habilitation were reviewed and integrated into a coordinated care timeline.ResultsRecommendations were created for children with microtia and atresia, including diagnostic considerations, surgical and non-surgical options for hearing management and auricular reconstruction, and the treatment timeline for each option. These recommendations are based on the collective opinion of the group and are intended for otolaryngologists, audiologists, plastic surgeons, anaplastologists, and any provider caring for a patient with microtia and ear canal atresia. Close communication between atresia/hearing reconstruction surgeon and microtia repair surgeon is strongly recommended.
+Objectives
+
+To present recommendations for the coordinated evaluation and management of the hearing and reconstructive needs of patients with microtia and aural atresia.
+
+Methods
+
+A national working group of 9 experts on microtia and atresia evaluated a working document on the evaluation and treatment of patients. Treatment options for auricular reconstruction and hearing habilitation were reviewed and integrated into a coordinated care timeline.
+
+Results
+
+Recommendations were created for children with microtia and atresia, including diagnostic considerations, surgical and non-surgical options for hearing management and auricular reconstruction, and the treatment timeline for each option. These recommendations are based on the collective opinion of the group and are intended for otolaryngologists, audiologists, plastic surgeons, anaplastologists, and any provider caring for a patient with microtia and ear canal atresia. Close communication between atresia/hearing reconstruction surgeon and microtia repair surgeon is strongly recommended.
 
 EDITED BY
 Sharon L. Cushing,

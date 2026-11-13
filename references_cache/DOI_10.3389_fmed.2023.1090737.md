@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3389/fmed.2023.1090737
+extractor_version: 1
 title: "Objective response to immune checkpoint inhibitor therapy in NRAS-mutant melanoma: A systematic review and meta-analysis"
 authors:
 - Zachary J. Jaeger
@@ -13,12 +14,14 @@ journal: Frontiers in Medicine
 year: '2023'
 doi: 10.3389/fmed.2023.1090737
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.frontiersin.org/articles/10.3389/fmed.2023.1090737/pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.3389_fmed.2023.1090737.pdf
+full_text_access_type: open
 ---
 
 # Objective response to immune checkpoint inhibitor therapy in NRAS-mutant melanoma: A systematic review and meta-analysis
@@ -28,7 +31,21 @@ local_pdf_path: files/DOI_10.3389_fmed.2023.1090737.pdf
 
 ## Content
 
-IntroductionNRAS mutations are common in melanoma and confer a worse prognosis. Although most patients with metastatic melanoma receive immune checkpoint inhibitors (ICIs), the impact of NRAS mutational status on their efficacy remains under debate.MethodsWe performed a comprehensive literature search across several large databases. Inclusion criteria were trials, cohorts, and large case series that analyzed the primary outcome of objective response rate by NRAS mutational status in patients with melanoma treated with any line of ICI. At least two reviewers independently screened studies using Covidence software, extracted data, and assessed risk of bias. Standard meta-analysis was performed in R with sensitivity analysis and tests for bias.ResultsData on 1770 patients from ten articles were pooled for meta-analysis, and the objective response rate to ICIs was calculated to compare NRAS-mutant and NRAS-wildtype melanoma. The objective response rate was 1.28 (95% confidence interval: 1.01–1.64). Sensitivity analysis identified the study by Dupuis et al. with influential impact on the pooled effect size and heterogeneity, favoring NRAS-mutant melanoma.DiscussionIn this meta-analysis evaluating the impact of NRAS mutational status on objective response to ICIs in metastatic melanoma, NRAS-mutant cutaneous melanoma demonstrated an increased likelihood of partial or complete tumor response, relative to NRAS-wildtype cutaneous melanoma. Genomic screening for NRAS mutations in patients with metastatic melanoma may improve predictive ability when initiating ICIs.
+Introduction
+
+NRAS mutations are common in melanoma and confer a worse prognosis. Although most patients with metastatic melanoma receive immune checkpoint inhibitors (ICIs), the impact of NRAS mutational status on their efficacy remains under debate.
+
+Methods
+
+We performed a comprehensive literature search across several large databases. Inclusion criteria were trials, cohorts, and large case series that analyzed the primary outcome of objective response rate by NRAS mutational status in patients with melanoma treated with any line of ICI. At least two reviewers independently screened studies using Covidence software, extracted data, and assessed risk of bias. Standard meta-analysis was performed in R with sensitivity analysis and tests for bias.
+
+Results
+
+Data on 1770 patients from ten articles were pooled for meta-analysis, and the objective response rate to ICIs was calculated to compare NRAS-mutant and NRAS-wildtype melanoma. The objective response rate was 1.28 (95% confidence interval: 1.01–1.64). Sensitivity analysis identified the study by Dupuis et al. with influential impact on the pooled effect size and heterogeneity, favoring NRAS-mutant melanoma.
+
+Discussion
+
+In this meta-analysis evaluating the impact of NRAS mutational status on objective response to ICIs in metastatic melanoma, NRAS-mutant cutaneous melanoma demonstrated an increased likelihood of partial or complete tumor response, relative to NRAS-wildtype cutaneous melanoma. Genomic screening for NRAS mutations in patients with metastatic melanoma may improve predictive ability when initiating ICIs.
 
 Frontiers in Medicine 01 frontiersin.org
 TYPE Systematic Review

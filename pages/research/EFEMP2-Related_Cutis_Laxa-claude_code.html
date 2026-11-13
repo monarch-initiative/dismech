@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EFEMP2-Related Cutis Laxa · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>EFEMP2-Related Cutis Laxa</span>
+            </div>
+
+            <header class="report-header">
+                <h1>EFEMP2-Related Cutis Laxa</h1>
+                
+                <p class="report-subtitle">EFEMP2-Related Cutis Laxa (ARCL1B): research report</p>
+                
+                
+                <div class="report-date">2026-11-10</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0013754" target="_blank" rel="noopener noreferrer">MONDO:0013754</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">6 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>EFEMP2-Related Cutis Laxa (ARCL1B): research report</h1>
+<p><strong>Target:</strong> EFEMP2-Related Cutis Laxa · <a href="http://purl.obolibrary.org/obo/MONDO_0013754" target="_blank" rel="noopener noreferrer">MONDO:0013754</a> · <a href="https://bioregistry.io/OMIM:614437" target="_blank" rel="noopener noreferrer">OMIM:614437</a> · causal gene <strong>EFEMP2</strong> (fibulin-4, alias FBLN4; <a href="https://bioregistry.io/HGNC:3219" target="_blank" rel="noopener noreferrer">HGNC:3219</a>; chromosome 11q13)
+<strong>Retrieved:</strong> 2026-11-10. Quotes come from PubMed abstracts fetched with NCBI E-utilities, from the GeneReviews abstract served by Europe PMC, and from the local ClinGen export <code>cache/clingen/gene_validity.csv</code>.</p>
+<hr />
+<h2>1. Disease information</h2>
+<p><strong>Overview.</strong> EFEMP2-related cutis laxa is an autosomal recessive connective tissue disorder caused by biallelic loss-of-function variants in <strong>EFEMP2</strong>, which encodes the extracellular matrix glycoprotein fibulin-4. Fibulin-4 is needed to build elastic fibers and cross-link them. The main problem is in the large elastic arteries: aortic aneurysm, arterial elongation, tortuosity and stenosis. Lax skin, emphysema, hernias and skeletal fragility vary from patient to patient. Disease ranges from death before or shortly after birth to isolated aortopathy with no skin signs at all.</p>
+<ul>
+<li>GeneReviews (Loeys, De Paepe, Urban; <a href="https://pubmed.ncbi.nlm.nih.gov/21563328/" target="_blank" rel="noopener noreferrer">PMID:21563328</a>; Europe PMC lists first publication and last revision both as 2023-06-15): <em>"EFEMP2-related cutis laxa, or autosomal recessive cutis laxa type 1B (ARCL1B), is characterized by cutis laxa and systemic involvement, most commonly arterial tortuosity, aneurysms, and stenosis; retrognathia; joint laxity; and arachnodactyly. Severity ranges from perinatal lethality as a result of cardiopulmonary failure to manifestations limited to the vascular and craniofacial systems."</em></li>
+<li>MONDO definition (OLS4): <em>"An autosomal recessive cutis laxa type I characterized by disturbed elastic fiber formation resulting in severe systemic connective tissue abnormalities that has material basis in homozygous or compound heterozygous mutation in the EFEMP2 gene on chromosome 11q13."</em></li>
+</ul>
+<p><strong>Identifiers</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>ID</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0013754" target="_blank" rel="noopener noreferrer">MONDO:0013754</a> "cutis laxa, autosomal recessive, type 1B"</td>
+<td>verified (OLS4)</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td><a href="https://bioregistry.io/OMIM:614437" target="_blank" rel="noopener noreferrer">OMIM:614437</a></td>
+<td>verified (MONDO xref)</td>
+</tr>
+<tr>
+<td>DOID</td>
+<td><a href="http://purl.obolibrary.org/obo/DOID_0070133" target="_blank" rel="noopener noreferrer">DOID:0070133</a></td>
+<td>verified (MONDO xref)</td>
+</tr>
+<tr>
+<td>GARD</td>
+<td><a href="https://bioregistry.io/GARD:0015804" target="_blank" rel="noopener noreferrer">GARD:0015804</a></td>
+<td>verified (MONDO xref)</td>
+</tr>
+<tr>
+<td>MedGen / UMLS</td>
+<td><a href="https://bioregistry.io/MEDGEN:482428" target="_blank" rel="noopener noreferrer">MEDGEN:482428</a> / UMLS:C3280798</td>
+<td>verified (MONDO xref)</td>
+</tr>
+<tr>
+<td>GeneReviews</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21563328/" target="_blank" rel="noopener noreferrer">PMID:21563328</a> (NBK54469)</td>
+<td>PMID verified; the NBK URL returned a browser-check page, so I haven't confirmed it</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>Probably filed under <em>Autosomal recessive cutis laxa type 1</em> (<a href="https://bioregistry.io/ORPHA:90350" target="_blank" rel="noopener noreferrer">ORPHA:90350</a>)</td>
+<td><strong>not verified</strong>: search returned no Orphanet page</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>Q82.8 (other specified congenital malformations of skin) is the usual code for congenital cutis laxa</td>
+<td><strong>not verified</strong></td>
+</tr>
+<tr>
+<td>ClinGen</td>
+<td>EFEMP2 / <a href="http://purl.obolibrary.org/obo/MONDO_0013754" target="_blank" rel="noopener noreferrer">MONDO:0013754</a>, AR, <strong>Definitive</strong>, Hereditary Cardiovascular Disease GCEP, 2024-08-23, <code>CGGV:assertion_8911130f-a1fc-4404-8905-5632a49a95fe-2024-08-23T160000.000Z</code></td>
+<td>verified (local ClinGen CSV)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms:</strong> ARCL1B; cutis laxa, autosomal recessive, type IB; fibulin-4 deficiency; FBLN4-related cutis laxa. A recessive aortopathy is also described with no skin signs, sometimes called "recessively inherited aortic aneurysm" (<a href="https://pubmed.ncbi.nlm.nih.gov/22440127/" target="_blank" rel="noopener noreferrer">PMID:22440127</a>). The Kerala cohort was described as a "lethal arteriopathy syndrome" (<a href="https://pubmed.ncbi.nlm.nih.gov/22943132/" target="_blank" rel="noopener noreferrer">PMID:22943132</a>).</p>
+<p><strong>Source type.</strong> The evidence is aggregated case reports and case series, roughly 60–80 published individuals by 2024. The 22-infant Kerala series and the 9-patient Saudi family series are the largest. There is no EHR-derived or registry data.</p>
+<hr />
+<h2>2. Etiology</h2>
+<ul>
+<li><strong>Cause.</strong> Biallelic (homozygous or compound heterozygous) pathogenic EFEMP2 variants. The condition is monogenic and fully genetic.</li>
+<li><strong>Genetic risk factors.</strong> Consanguinity is the main risk factor. Founder alleles drive local clusters: p.Asp203Ala in South India (<a href="https://pubmed.ncbi.nlm.nih.gov/22943132/" target="_blank" rel="noopener noreferrer">PMID:22943132</a>) and p.Glu161Lys in Saudi Arabia (<a href="https://pubmed.ncbi.nlm.nih.gov/22440127/" target="_blank" rel="noopener noreferrer">PMID:22440127</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39489349/" target="_blank" rel="noopener noreferrer">PMID:39489349</a>).</li>
+<li><strong>Modifier genes.</strong> EFEMP2 itself has been proposed as a modifier. A heterozygous fibulin-4 variant was suggested to modify the phenotype in a family with recessive <em>ELN</em> cutis laxa (<a href="https://pubmed.ncbi.nlm.nih.gov/19194475/" target="_blank" rel="noopener noreferrer">PMID:19194475</a>; this is a title-level claim and I have not read the abstract). No modifier of ARCL1B itself is established.</li>
+<li><strong>Environmental risk and protective factors.</strong> None is documented. GeneReviews recommends avoiding sun tanning (skin) and cigarette smoking (emphysema). These are tertiary-prevention measures, not etiologic factors.</li>
+<li><strong>Gene-environment interaction.</strong> Not studied in humans. Mouse work shows that mechanical stretch and angiotensin II drive aneurysm signaling, and fibulin-4 loss makes smooth muscle cells more sensitive to both (<a href="https://pubmed.ncbi.nlm.nih.gov/30355232/" target="_blank" rel="noopener noreferrer">PMID:30355232</a>). That makes hemodynamic load a plausible but unproven modifier.</li>
+</ul>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Frequencies come from the Kerala p.Asp203Ala cohort (n=22; <a href="https://pubmed.ncbi.nlm.nih.gov/22943132/" target="_blank" rel="noopener noreferrer">PMID:22943132</a>) unless stated otherwise. Other cohorts differ, and in some, such as the Saudi p.Glu161Lys families, skin laxity is absent. The HPO IDs below are <strong>suggestions recalled from memory and must be looked up before binding.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Suggested HPO</th>
+<th>Onset / course</th>
+<th>Frequency / notes</th>
+<th>Key PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ascending aortic aneurysm / aortic root dilatation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004970" target="_blank" rel="noopener noreferrer">HP:0004970</a> Ascending tortuous aorta?; <a href="http://purl.obolibrary.org/obo/HP_0002616" target="_blank" rel="noopener noreferrer">HP:0002616</a> Aortic root aneurysm; <a href="http://purl.obolibrary.org/obo/HP_0004942" target="_blank" rel="noopener noreferrer">HP:0004942</a> Aortic aneurysm</td>
+<td>congenital to infancy, progressive</td>
+<td>near-universal; Z-scores 5–33 (<a href="https://pubmed.ncbi.nlm.nih.gov/22440127/" target="_blank" rel="noopener noreferrer">PMID:22440127</a>)</td>
+<td>16685658, 20389311, 22440127</td>
+</tr>
+<tr>
+<td>Arterial tortuosity / elongation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005116" target="_blank" rel="noopener noreferrer">HP:0005116</a> Arterial tortuosity</td>
+<td>congenital</td>
+<td>very frequent</td>
+<td>22943132, 22070778, 23212998</td>
+</tr>
+<tr>
+<td>Arterial / pulmonary artery stenosis or occlusion</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100545" target="_blank" rel="noopener noreferrer">HP:0100545</a> Arterial stenosis; <a href="http://purl.obolibrary.org/obo/HP_0004415" target="_blank" rel="noopener noreferrer">HP:0004415</a> Pulmonary artery stenosis</td>
+<td>neonatal</td>
+<td>frequent; occlusion was fatal at 27 days (<a href="https://pubmed.ncbi.nlm.nih.gov/17937443/" target="_blank" rel="noopener noreferrer">PMID:17937443</a>)</td>
+<td>17937443, 20389311</td>
+</tr>
+<tr>
+<td>Aortic isthmus hypoplasia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012304" target="_blank" rel="noopener noreferrer">HP:0012304</a> Hypoplastic aortic arch?</td>
+<td>congenital</td>
+<td>9/22; "correlated with early death (≤4 months)"</td>
+<td>22943132</td>
+</tr>
+<tr>
+<td>Cutis laxa</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000973" target="_blank" rel="noopener noreferrer">HP:0000973</a> Cutis laxa</td>
+<td>congenital</td>
+<td>52% (Kerala); absent in all 9 Saudi patients</td>
+<td>22943132, 22440127</td>
+</tr>
+<tr>
+<td>Pulmonary emphysema</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002097" target="_blank" rel="noopener noreferrer">HP:0002097</a> Emphysema</td>
+<td>infancy ("developmental emphysema")</td>
+<td>variable</td>
+<td>16685658</td>
+</tr>
+<tr>
+<td>Long philtrum / thin vermilion</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" rel="noopener noreferrer">HP:0000343</a> / <a href="http://purl.obolibrary.org/obo/HP_0000233" target="_blank" rel="noopener noreferrer">HP:0000233</a></td>
+<td>congenital</td>
+<td>90%</td>
+<td>22943132</td>
+</tr>
+<tr>
+<td>Retrognathia / micrognathia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000278" target="_blank" rel="noopener noreferrer">HP:0000278</a> / <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" rel="noopener noreferrer">HP:0000347</a></td>
+<td>congenital</td>
+<td>43%; can obstruct the airway, sometimes needing tracheostomy</td>
+<td>22943132, 21563328</td>
+</tr>
+<tr>
+<td>Hypertelorism</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" rel="noopener noreferrer">HP:0000316</a></td>
+<td>congenital</td>
+<td>57%</td>
+<td>22943132</td>
+</tr>
+<tr>
+<td>Prominent eyes; sagging cheeks</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" rel="noopener noreferrer">HP:0000520</a> / <a href="http://purl.obolibrary.org/obo/HP_0100678" target="_blank" rel="noopener noreferrer">HP:0100678</a>?</td>
+<td>congenital</td>
+<td>43% each</td>
+<td>22943132</td>
+</tr>
+<tr>
+<td>Arachnodactyly / long slender digits</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001166" target="_blank" rel="noopener noreferrer">HP:0001166</a></td>
+<td>congenital</td>
+<td>48%</td>
+<td>22943132, 19664000</td>
+</tr>
+<tr>
+<td>Visible arterial pulsations</td>
+<td>none known</td>
+<td>infancy</td>
+<td>38%</td>
+<td>22943132</td>
+</tr>
+<tr>
+<td>Joint laxity</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001388" target="_blank" rel="noopener noreferrer">HP:0001388</a></td>
+<td>childhood</td>
+<td>common</td>
+<td>16685658</td>
+</tr>
+<tr>
+<td>Bone fractures at birth / OI-like fragility</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002757" target="_blank" rel="noopener noreferrer">HP:0002757</a> Recurrent fractures; <a href="http://purl.obolibrary.org/obo/HP_0011398" target="_blank" rel="noopener noreferrer">HP:0011398</a>?</td>
+<td>prenatal / neonatal</td>
+<td>subset; prenatal fractures in twins</td>
+<td>16685658, 22070778, 30140196</td>
+</tr>
+<tr>
+<td>Inguinal / diaphragmatic / hiatal hernia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000023" target="_blank" rel="noopener noreferrer">HP:0000023</a> / <a href="http://purl.obolibrary.org/obo/HP_0000776" target="_blank" rel="noopener noreferrer">HP:0000776</a> / <a href="http://purl.obolibrary.org/obo/HP_0002036" target="_blank" rel="noopener noreferrer">HP:0002036</a></td>
+<td>neonatal</td>
+<td>subset</td>
+<td>16685658, 30140196, 19664000</td>
+</tr>
+<tr>
+<td>Pectus excavatum</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000767" target="_blank" rel="noopener noreferrer">HP:0000767</a></td>
+<td>childhood</td>
+<td>subset</td>
+<td>16685658</td>
+</tr>
+<tr>
+<td>Contractures, clubfoot, wormian bones, bowed long bones</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" rel="noopener noreferrer">HP:0001371</a>, <a href="http://purl.obolibrary.org/obo/HP_0001762" target="_blank" rel="noopener noreferrer">HP:0001762</a>, <a href="http://purl.obolibrary.org/obo/HP_0002645" target="_blank" rel="noopener noreferrer">HP:0002645</a>, <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank" rel="noopener noreferrer">HP:0006487</a></td>
+<td>prenatal</td>
+<td>severe/fetal cases</td>
+<td>30140196, 19664000</td>
+</tr>
+<tr>
+<td>Soft-tissue / vascular bleeding (vessel fragility)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001892" target="_blank" rel="noopener noreferrer">HP:0001892</a>?</td>
+<td>perinatal</td>
+<td>lethal case</td>
+<td>19664000</td>
+</tr>
+<tr>
+<td>Overgrowth, microcephaly</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001548" target="_blank" rel="noopener noreferrer">HP:0001548</a> / <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" rel="noopener noreferrer">HP:0000252</a></td>
+<td>prenatal</td>
+<td>single case</td>
+<td>19664000</td>
+</tr>
+<tr>
+<td>Keratoglobus / corneal rupture</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011490" target="_blank" rel="noopener noreferrer">HP:0011490</a>?</td>
+<td>adult (38 y)</td>
+<td>single case</td>
+<td>31194159</td>
+</tr>
+<tr>
+<td>Baroreflex failure, thunderclap headache, cerebral vasospasm</td>
+<td>none known</td>
+<td>childhood</td>
+<td>single case</td>
+<td>24733866</td>
+</tr>
+<tr>
+<td>Upper airway obstruction from aneurysm compression</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002781" target="_blank" rel="noopener noreferrer">HP:0002781</a>?</td>
+<td>infancy</td>
+<td>case</td>
+<td>24276535</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Key quotes:
+- <a href="https://pubmed.ncbi.nlm.nih.gov/16685658/" target="_blank" rel="noopener noreferrer">PMID:16685658</a>: <em>"She had multiple bone fractures at birth and was diagnosed with cutis laxa, vascular tortuosity, ascending aortic aneurysm, developmental emphysema, inguinal and diaphragmatic hernia, joint laxity, and pectus excavatum by age 2 years."</em>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/22943132/" target="_blank" rel="noopener noreferrer">PMID:22943132</a>: <em>"The phenotype included a variable combination of cutis laxa (52%), long philtrum-thin vermillion (90%), micrognathia (43%), hypertelorism (57%), prominent eyes (43%), sagging cheeks (43%), long slender digits (48%), and visible arterial pulsations (38%)."</em>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/20389311/" target="_blank" rel="noopener noreferrer">PMID:20389311</a>: <em>"patients with recessive FBLN4 mutations are predominantly characterized by aortic aneurysms, arterial tortuosity and stenosis."</em>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/22440127/" target="_blank" rel="noopener noreferrer">PMID:22440127</a>: <em>"The skin manifestations of cutis laxa were not found in any patient."</em>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/30140196/" target="_blank" rel="noopener noreferrer">PMID:30140196</a> (fetal): <em>"Anomalies included cutis laxa, arachnodactyly, clubfoot, wormian bones, moderate bowing of long bones with slender bone trabeculae, rib fractures, undermuscularized diaphragm, hiatal hernia, and arterial tortuosity with thick vascular walls and disorganized elastic fibers."</em></p>
+<p><strong>Laboratory and histological findings.</strong> Skin elastic fibers are underdeveloped, sparse or fragmented (<a href="https://pubmed.ncbi.nlm.nih.gov/16685658/" target="_blank" rel="noopener noreferrer">PMID:16685658</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/17937443/" target="_blank" rel="noopener noreferrer">PMID:17937443</a>). The aortic media shows cystic medial degeneration and elastic fiber fragmentation (<a href="https://pubmed.ncbi.nlm.nih.gov/19664000/" target="_blank" rel="noopener noreferrer">PMID:19664000</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42404516/" target="_blank" rel="noopener noreferrer">PMID:42404516</a>). Patient fibroblasts and aortic wall carry less fibulin-4, and pSmad2/CTGF staining is increased (<a href="https://pubmed.ncbi.nlm.nih.gov/20389311/" target="_blank" rel="noopener noreferrer">PMID:20389311</a>).</p>
+<p><strong>Quality of life.</strong> No formal QoL studies exist (EQ-5D, SF-36 and similar). The burden comes from repeated cardiovascular surgery, airway compromise and lifelong imaging surveillance.</p>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<ul>
+<li><strong>Gene.</strong> EFEMP2 (fibulin-4; <a href="https://bioregistry.io/HGNC:3219" target="_blank" rel="noopener noreferrer">HGNC:3219</a>; NCBI Gene 30008, not verified). 11q13. It is a short fibulin with tandem calcium-binding EGF-like (cbEGF) domains and a C-terminal fibulin domain.</li>
+<li><strong>Inheritance.</strong> Autosomal recessive. ClinGen rates the gene-disease pair AR Definitive (2024-08-23).</li>
+<li><strong>Variant classes</strong> (all germline):</li>
+<li>Missense, the most common class. Examples: p.Glu57Lys (c.169G&gt;A), the first and a recurrent allele (<a href="https://pubmed.ncbi.nlm.nih.gov/16685658/" target="_blank" rel="noopener noreferrer">PMID:16685658</a>). p.Glu126Lys, p.Ala397Thr, p.Glu126Val (<a href="https://pubmed.ncbi.nlm.nih.gov/20389311/" target="_blank" rel="noopener noreferrer">PMID:20389311</a>). p.Cys267Tyr (<a href="https://pubmed.ncbi.nlm.nih.gov/19664000/" target="_blank" rel="noopener noreferrer">PMID:19664000</a>). p.Arg279Cys (<a href="https://pubmed.ncbi.nlm.nih.gov/17937443/" target="_blank" rel="noopener noreferrer">PMID:17937443</a>). p.Glu161Lys, the Saudi founder (<a href="https://pubmed.ncbi.nlm.nih.gov/22440127/" target="_blank" rel="noopener noreferrer">PMID:22440127</a>). p.Asp203Ala (c.608A&gt;C), the South Indian founder (<a href="https://pubmed.ncbi.nlm.nih.gov/22943132/" target="_blank" rel="noopener noreferrer">PMID:22943132</a>). p.Arg227Cys. p.Tyr155Ser (c.464A&gt;C) (<a href="https://pubmed.ncbi.nlm.nih.gov/39764439/" target="_blank" rel="noopener noreferrer">PMID:39764439</a>).</li>
+<li>Frameshift: c.1070_1073dupCCGC, subject to NMD (<a href="https://pubmed.ncbi.nlm.nih.gov/17937443/" target="_blank" rel="noopener noreferrer">PMID:17937443</a>); c.577delC (<a href="https://pubmed.ncbi.nlm.nih.gov/20389311/" target="_blank" rel="noopener noreferrer">PMID:20389311</a>).</li>
+<li>Nonsense: c.639C&gt;A p.Cys213* (<a href="https://pubmed.ncbi.nlm.nih.gov/30140196/" target="_blank" rel="noopener noreferrer">PMID:30140196</a>); a homozygous premature stop codon in MZ twins (<a href="https://pubmed.ncbi.nlm.nih.gov/22070778/" target="_blank" rel="noopener noreferrer">PMID:22070778</a>).</li>
+<li><strong>Functional consequence: loss of function</strong>, by several routes:</li>
+<li>Impaired secretion or ER retention: E57K dimerizes, is inefficiently secreted and triggers ER stress (<a href="https://pubmed.ncbi.nlm.nih.gov/26178373/" target="_blank" rel="noopener noreferrer">PMID:26178373</a>). E126K and C267Y also impair secretion (<a href="https://pubmed.ncbi.nlm.nih.gov/27339457/" target="_blank" rel="noopener noreferrer">PMID:27339457</a>).</li>
+<li>Disrupted binding to partners: E126K binds collagen IV, fibrillin-1, LTBP1 and LTBP4 less well. A397T loses LTBP1 binding. E57K reduces binding to the LOX propeptide (<a href="https://pubmed.ncbi.nlm.nih.gov/27339457/" target="_blank" rel="noopener noreferrer">PMID:27339457</a>).</li>
+<li>Null alleles through NMD (<a href="https://pubmed.ncbi.nlm.nih.gov/17937443/" target="_blank" rel="noopener noreferrer">PMID:17937443</a>).</li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/27339457/" target="_blank" rel="noopener noreferrer">PMID:27339457</a>: <em>"different mutations in the fibulin-4 gene result in different molecular defects affecting secretion rates, protein stability, LOX-induced cross-linking, or binding to other ECM components and molecules of the TGF-β pathway"</em>.</li>
+<li><strong>Genotype-phenotype.</strong> Truncating alleles tend toward fetal or perinatal lethality (<a href="https://pubmed.ncbi.nlm.nih.gov/30140196/" target="_blank" rel="noopener noreferrer">PMID:30140196</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/22070778/" target="_blank" rel="noopener noreferrer">PMID:22070778</a>). p.Asp203Ala homozygosity is usually lethal (17/21 died, median age 4 months). p.Glu161Lys gives aortopathy without skin laxity and has survivors into adulthood. These are cohort-level observations; no formal correlation study has been done.</li>
+<li><strong>Heterozygous / dominant claims (disputed).</strong> A heterozygous p.Arg83Cys was reported in a family with dominant nonsyndromic thoracic aortic aneurysm, based on in-silico evidence only (<a href="https://pubmed.ncbi.nlm.nih.gov/38113391/" target="_blank" rel="noopener noreferrer">PMID:38113391</a>). Treat this as unconfirmed. ClinGen's Definitive call is for AR only. In mouse, a modest dose reduction (Fibulin-4+/R) "occasionally resulted in small aneurysm formation" (<a href="https://pubmed.ncbi.nlm.nih.gov/17293478/" target="_blank" rel="noopener noreferrer">PMID:17293478</a>).</li>
+<li><strong>Allele frequency.</strong> Not retrieved from gnomAD (<strong>not checked</strong>). The founder alleles are expected to be enriched in Kerala and Saudi populations.</li>
+<li><strong>Epigenetics and chromosomal abnormalities.</strong> None reported.</li>
+</ul>
+<hr />
+<h2>5. Environmental information</h2>
+<p>Not applicable as a cause: there are no known toxins, infectious agents or lifestyle triggers. Advice to avoid smoking and sun tanning is for managing complications (GeneReviews).</p>
+<hr />
+<h2>6. Mechanism / pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Biallelic EFEMP2 loss-of-function variants</strong> reduce or remove functional extracellular fibulin-4, through NMD, ER retention or secretion failure, or loss of binding (<a href="https://pubmed.ncbi.nlm.nih.gov/17937443/" target="_blank" rel="noopener noreferrer">PMID:17937443</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26178373/" target="_blank" rel="noopener noreferrer">PMID:26178373</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/27339457/" target="_blank" rel="noopener noreferrer">PMID:27339457</a>). <em>Demonstrated in patient fibroblasts and recombinant protein.</em></li>
+<li><strong>Lysyl oxidase (LOX) is not recruited or activated properly.</strong> Fibulin-4 binds the LOX propeptide and tethers LOX to tropoelastin (<a href="https://pubmed.ncbi.nlm.nih.gov/19855011/" target="_blank" rel="noopener noreferrer">PMID:19855011</a>). It is also needed to transfer copper from ATP7A to LOX in the trans-Golgi network, and without that transfer the LTQ cofactor does not form (<a href="https://pubmed.ncbi.nlm.nih.gov/33239290/" target="_blank" rel="noopener noreferrer">PMID:33239290</a>). LOX processing is impaired in E57K skin and in Fbln4−/− bone (<a href="https://pubmed.ncbi.nlm.nih.gov/26178373/" target="_blank" rel="noopener noreferrer">PMID:26178373</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26690653/" target="_blank" rel="noopener noreferrer">PMID:26690653</a>). <em>Demonstrated in mouse and in vitro.</em></li>
+<li><strong>Elastin and collagen cross-linking falls, and elastic fiber assembly is defective.</strong> Null mice "do not develop intact elastic fibers but contain irregular elastin aggregates" and "elastin cross-links in fibulin-4-/- tissues were largely diminished" (<a href="https://pubmed.ncbi.nlm.nih.gov/16478991/" target="_blank" rel="noopener noreferrer">PMID:16478991</a>). Collagen fibrils become abnormal in aorta, skin, tendon and bone (<a href="https://pubmed.ncbi.nlm.nih.gov/26220971/" target="_blank" rel="noopener noreferrer">PMID:26220971</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26178373/" target="_blank" rel="noopener noreferrer">PMID:26178373</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26690653/" target="_blank" rel="noopener noreferrer">PMID:26690653</a>).</li>
+<li><em>Caveat:</em> in Fbln4 E57K mice, elastin cross-linking was normal in arteries (<a href="https://pubmed.ncbi.nlm.nih.gov/28508064/" target="_blank" rel="noopener noreferrer">PMID:28508064</a>), and in SMKO aorta elastin cross-linking was unaffected (<a href="https://pubmed.ncbi.nlm.nih.gov/26220971/" target="_blank" rel="noopener noreferrer">PMID:26220971</a>). So reduced LOX-mediated cross-linking is not the whole vascular mechanism.</li>
+<li><strong>Branch A (connective tissues):</strong> fragmented, sparse elastic fibers lead to <strong>cutis laxa</strong> (dermis), <strong>emphysema</strong> (lung parenchyma), hernias and joint laxity. Defective collagen cross-linking leads to <strong>bone fragility, fractures and tendon contractures</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/26690653/" target="_blank" rel="noopener noreferrer">PMID:26690653</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26711913/" target="_blank" rel="noopener noreferrer">PMID:26711913</a>).</li>
+<li><strong>Branch B (aortic wall).</strong> Smooth muscle cells lose their connections to the elastic laminae, and the elastin-contractile unit breaks down (<a href="https://pubmed.ncbi.nlm.nih.gov/26486174/" target="_blank" rel="noopener noreferrer">PMID:26486174</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/30355232/" target="_blank" rel="noopener noreferrer">PMID:30355232</a>).</li>
+<li>The <strong>smooth muscle cells then fail to differentiate fully.</strong> Contractile gene expression falls, they proliferate, and ERK1/2 signaling rises (<a href="https://pubmed.ncbi.nlm.nih.gov/20019329/" target="_blank" rel="noopener noreferrer">PMID:20019329</a>). <em>Mouse.</em></li>
+<li><strong>Abnormal mechanosensing sets off a signaling cascade.</strong> Thrombin, MMP-9 and stretch activate PAR1, which induces Egr1 (<a href="https://pubmed.ncbi.nlm.nih.gov/32580633/" target="_blank" rel="noopener noreferrer">PMID:32580633</a>). Egr1 induces ACE, which drives local angiotensin II signaling (<a href="https://pubmed.ncbi.nlm.nih.gov/23636094/" target="_blank" rel="noopener noreferrer">PMID:23636094</a>) and induces Thbs1 (<a href="https://pubmed.ncbi.nlm.nih.gov/30355232/" target="_blank" rel="noopener noreferrer">PMID:30355232</a>). AngII acts through PI3K to raise SSH1, which activates cofilin and remodels the actin cytoskeleton (<a href="https://pubmed.ncbi.nlm.nih.gov/26486174/" target="_blank" rel="noopener noreferrer">PMID:26486174</a>). <em>Mouse, with PAR1/Egr1/thrombin and Thbs1 confirmed in human TAA tissue.</em></li>
+<li><strong>TGF-β signaling rises</strong> (pSmad2, CTGF; TGF-β2 especially). This is shown in patient aortic and lung tissue (<a href="https://pubmed.ncbi.nlm.nih.gov/20389311/" target="_blank" rel="noopener noreferrer">PMID:20389311</a>) and in mouse smooth muscle cells (<a href="https://pubmed.ncbi.nlm.nih.gov/26607280/" target="_blank" rel="noopener noreferrer">PMID:26607280</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/17293478/" target="_blank" rel="noopener noreferrer">PMID:17293478</a>). Downstream effects include lower PGC1α, reduced mitochondrial respiration and more ROS (<a href="https://pubmed.ncbi.nlm.nih.gov/29931197/" target="_blank" rel="noopener noreferrer">PMID:29931197</a>), and smooth muscle senescence with a SASP (<a href="https://pubmed.ncbi.nlm.nih.gov/38902222/" target="_blank" rel="noopener noreferrer">PMID:38902222</a>). <em>Whether TGF-β is a driver or a compensatory change is unresolved.</em></li>
+<li><strong>Medial degeneration and aneurysm follow.</strong> Cystic medial degeneration, elastic fiber fragmentation and smooth muscle loss (<a href="https://pubmed.ncbi.nlm.nih.gov/21858106/" target="_blank" rel="noopener noreferrer">PMID:21858106</a>) produce <strong>ascending aortic aneurysm, arterial elongation and tortuosity, and stenosis</strong>. Ultimately rupture, dissection or cardiopulmonary failure can occur. Hypertension and aortic valve disease add to the load (<a href="https://pubmed.ncbi.nlm.nih.gov/28508064/" target="_blank" rel="noopener noreferrer">PMID:28508064</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/17293478/" target="_blank" rel="noopener noreferrer">PMID:17293478</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36565192/" target="_blank" rel="noopener noreferrer">PMID:36565192</a>).</li>
+<li><strong>The conduit-artery selectivity</strong> is explained by FBLN4 being required mainly in large elastic arteries, while vessel wall structure in muscular arteries is normal (<a href="https://pubmed.ncbi.nlm.nih.gov/28508064/" target="_blank" rel="noopener noreferrer">PMID:28508064</a>).</li>
+</ol>
+<p>Key quotes:
+- <a href="https://pubmed.ncbi.nlm.nih.gov/19855011/" target="_blank" rel="noopener noreferrer">PMID:19855011</a>: <em>"These data suggest a mechanism of elastogenesis, in which a sufficient amount of FBLN4 is essential for tethering LOX to tropoelastin to facilitate cross-linking."</em>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/33239290/" target="_blank" rel="noopener noreferrer">PMID:33239290</a>: <em>"Our studies showed that fibulin-4 is required for copper ion transfer from the copper transporter ATP7A to LOX in the trans-Golgi network (TGN), which is a necessary step for LTQ formation."</em>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/20389311/" target="_blank" rel="noopener noreferrer">PMID:20389311</a>: <em>"pSmad2 and CTGF immunostaining of aortic and lung tissue revealed an increase in transforming growth factor (TGF)beta signaling."</em>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/26486174/" target="_blank" rel="noopener noreferrer">PMID:26486174</a>: <em>"These results suggest that aneurysm formation arises from abnormal mechanosensing of SMCs resulting from the loss of elastic lamina-SMC connections and from increased SSH1 and cofilin activity"</em></p>
+<h3>Suggested ontology terms (all <strong>unverified</strong>; look each up before binding)</h3>
+<ul>
+<li><strong>GO BP:</strong> elastic fiber assembly (<a href="http://purl.obolibrary.org/obo/GO_0048251" target="_blank" rel="noopener noreferrer">GO:0048251</a>); collagen fibril organization (<a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" rel="noopener noreferrer">GO:0030199</a>); peptidyl-lysine oxidation / protein-lysine 6-oxidase activity of LOX (<a href="http://purl.obolibrary.org/obo/GO_0004720" target="_blank" rel="noopener noreferrer">GO:0004720</a>, MF); transforming growth factor beta receptor signaling pathway (<a href="http://purl.obolibrary.org/obo/GO_0007179" target="_blank" rel="noopener noreferrer">GO:0007179</a>); ERK1 and ERK2 cascade (<a href="http://purl.obolibrary.org/obo/GO_0070371" target="_blank" rel="noopener noreferrer">GO:0070371</a>); angiotensin-activated signaling pathway (<a href="http://purl.obolibrary.org/obo/GO_0038166" target="_blank" rel="noopener noreferrer">GO:0038166</a>); smooth muscle cell differentiation (<a href="http://purl.obolibrary.org/obo/GO_0051145" target="_blank" rel="noopener noreferrer">GO:0051145</a>); response to endoplasmic reticulum stress (<a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" rel="noopener noreferrer">GO:0034976</a>); cellular senescence (<a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" rel="noopener noreferrer">GO:0090398</a>); actin cytoskeleton organization (<a href="http://purl.obolibrary.org/obo/GO_0030036" target="_blank" rel="noopener noreferrer">GO:0030036</a>); copper ion transport (<a href="http://purl.obolibrary.org/obo/GO_0006825" target="_blank" rel="noopener noreferrer">GO:0006825</a>).</li>
+<li><strong>GO CC:</strong> elastic fiber (<a href="http://purl.obolibrary.org/obo/GO_0071953" target="_blank" rel="noopener noreferrer">GO:0071953</a>); extracellular matrix (<a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" rel="noopener noreferrer">GO:0031012</a>); trans-Golgi network (<a href="http://purl.obolibrary.org/obo/GO_0005802" target="_blank" rel="noopener noreferrer">GO:0005802</a>).</li>
+<li><strong>CL:</strong> aortic smooth muscle cell (<a href="http://purl.obolibrary.org/obo/CL_0002539" target="_blank" rel="noopener noreferrer">CL:0002539</a>); vascular smooth muscle cell (<a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" rel="noopener noreferrer">CL:0000359</a>); fibroblast of dermis (<a href="http://purl.obolibrary.org/obo/CL_0002551" target="_blank" rel="noopener noreferrer">CL:0002551</a>); endothelial cell of aorta?; osteoblast (<a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a>); chondrocyte.</li>
+<li><strong>CHEBI:</strong> desmosine; copper(2+); angiotensin II; losartan (<a href="http://purl.obolibrary.org/obo/CHEBI_6541" target="_blank" rel="noopener noreferrer">CHEBI:6541</a>?).</li>
+</ul>
+<h3>Molecular profiling</h3>
+<p>Aortic transcriptomes and proteomes are published for Fibulin-4+/R and R/R mice (<a href="https://pubmed.ncbi.nlm.nih.gov/17293478/" target="_blank" rel="noopener noreferrer">PMID:17293478</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/29931197/" target="_blank" rel="noopener noreferrer">PMID:29931197</a>), SMKO aortas from P1 to P30 (<a href="https://pubmed.ncbi.nlm.nih.gov/26486174/" target="_blank" rel="noopener noreferrer">PMID:26486174</a>), late-embryonic and newborn aorta arrays (<a href="https://pubmed.ncbi.nlm.nih.gov/30312140/" target="_blank" rel="noopener noreferrer">PMID:30312140</a>) and DKO valve RNA-seq (<a href="https://pubmed.ncbi.nlm.nih.gov/36565192/" target="_blank" rel="noopener noreferrer">PMID:36565192</a>). No human omics, single-cell or CRISPR-screen data were found. I did not search GEO accessions.</p>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<ul>
+<li><strong>Primary:</strong> ascending aorta and aortic root (<a href="http://purl.obolibrary.org/obo/UBERON_0001496" target="_blank" rel="noopener noreferrer">UBERON:0001496</a> ascending aorta), aortic arch and isthmus, pulmonary trunk and arteries, carotid, iliac and other elastic conduit arteries; dermis (<a href="http://purl.obolibrary.org/obo/UBERON_0002067" target="_blank" rel="noopener noreferrer">UBERON:0002067</a>); lung parenchyma and alveoli.</li>
+<li><strong>Secondary:</strong> heart (left ventricular dilation and aortic regurgitation in mice; valve thickening), diaphragm (hernia, undermuscularized), skeleton (long bones, ribs, skull fractures), tendons and joints, inguinal canal, cornea (one case), upper airway (compression, retrognathia).</li>
+<li><strong>Systems:</strong> cardiovascular (dominant), integumentary, respiratory, musculoskeletal, craniofacial.</li>
+<li><strong>Subcellular:</strong> extracellular matrix and elastic fiber; ER (retention of mutant protein); trans-Golgi network (copper loading of LOX).</li>
+<li><strong>Laterality:</strong> systemic and bilateral.</li>
+</ul>
+<hr />
+<h2>8. Temporal development</h2>
+<ul>
+<li><strong>Onset:</strong> congenital, often detectable prenatally from the second trimester, with tortuous dilated aorta, pulmonary atresia, fractures and clubfoot (<a href="https://pubmed.ncbi.nlm.nih.gov/30140196/" target="_blank" rel="noopener noreferrer">PMID:30140196</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38923535/" target="_blank" rel="noopener noreferrer">PMID:38923535</a>). In the Kerala cohort, median age at presentation was 1.5 months. A milder group comes to attention in childhood or is found as an asymptomatic adult on family screening (<a href="https://pubmed.ncbi.nlm.nih.gov/22440127/" target="_blank" rel="noopener noreferrer">PMID:22440127</a>; median age of onset of thoracic aortic dilatation 4.5 years in the Saudi pediatric cohort, <a href="https://pubmed.ncbi.nlm.nih.gov/39489349/" target="_blank" rel="noopener noreferrer">PMID:39489349</a>).</li>
+<li><strong>Course:</strong> lifelong. The aortic aneurysm progresses, and redo surgery is often needed (<a href="https://pubmed.ncbi.nlm.nih.gov/36518920/" target="_blank" rel="noopener noreferrer">PMID:36518920</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24276535/" target="_blank" rel="noopener noreferrer">PMID:24276535</a>).</li>
+<li><strong>Critical window:</strong> in mice, angiotensin blockade works only <em>"within a narrow therapeutic window during the first month of life"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23636094/" target="_blank" rel="noopener noreferrer">PMID:23636094</a>). Prenatal losartan prevented elastic fiber fragmentation, while postnatal losartan improved survival without fixing wall structure (<a href="https://pubmed.ncbi.nlm.nih.gov/21858106/" target="_blank" rel="noopener noreferrer">PMID:21858106</a>). Whether a similar window exists in humans is unknown.</li>
+<li><strong>Remission:</strong> none.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and population</h2>
+<ul>
+<li><strong>Pattern:</strong> autosomal recessive (<a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a>). Penetrance appears complete for biallelic genotypes, but expressivity varies widely, including within families (<a href="https://pubmed.ncbi.nlm.nih.gov/22440127/" target="_blank" rel="noopener noreferrer">PMID:22440127</a>: <em>"Intrafamilial variability was also evident"</em>). Heterozygous carriers are asymptomatic according to GeneReviews. The dominant claim in <a href="https://pubmed.ncbi.nlm.nih.gov/38113391/" target="_blank" rel="noopener noreferrer">PMID:38113391</a> is unconfirmed.</li>
+<li><strong>Prevalence:</strong> not established; ultra-rare. Literature cases number in the dozens, likely fewer than 100 (my estimate from the case literature, not a sourced figure). Orphanet prevalence was not retrieved.</li>
+<li><strong>Founder effects:</strong> p.Asp203Ala in South India (Kerala): <em>"Genetic studies revealed an identical c.608A &gt; C (p. Asp203Ala) mutation in exon 7 of the FBLN4 gene in all 22 patients, homozygous in 21"</em>. p.Glu161Lys in Saudi Arabia: a homozygous EFEMP2 variant was found in 6 of 13 genetically solved childhood TAD families (46.2%; <a href="https://pubmed.ncbi.nlm.nih.gov/39489349/" target="_blank" rel="noopener noreferrer">PMID:39489349</a>).</li>
+<li><strong>Consanguinity:</strong> common. 8 of 22 Kerala families; all 4 Saudi families in <a href="https://pubmed.ncbi.nlm.nih.gov/22440127/" target="_blank" rel="noopener noreferrer">PMID:22440127</a>.</li>
+<li><strong>Sex ratio:</strong> 11 males and 11 females in the Kerala cohort; no sex bias is expected.</li>
+<li><strong>Carrier frequency:</strong> not established (gnomAD not checked).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Clinical criteria:</strong> none formalized. GeneReviews: <em>"The diagnosis of EFEMP2-related cutis laxa is established in a proband with suggestive findings and biallelic pathogenic variants in EFEMP2 identified by molecular genetic testing."</em></li>
+<li><strong>Imaging:</strong> echocardiography (aortic root and ascending aorta Z-scores), CT or MR angiography head to pelvis to map tortuosity, stenosis and aneurysms (radiologic phenotype described in <a href="https://pubmed.ncbi.nlm.nih.gov/24838734/" target="_blank" rel="noopener noreferrer">PMID:24838734</a>), and prenatal ultrasound (<a href="https://pubmed.ncbi.nlm.nih.gov/30140196/" target="_blank" rel="noopener noreferrer">PMID:30140196</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38923535/" target="_blank" rel="noopener noreferrer">PMID:38923535</a>).</li>
+<li><strong>Histology:</strong> skin biopsy shows reduced or fragmented elastic fibers. Aortic specimens show medial degeneration and elastic fiber fragmentation.</li>
+<li><strong>Fibroblast studies (research use):</strong> reduced fibulin-4 in the medium or ECM and increased pSmad2 (<a href="https://pubmed.ncbi.nlm.nih.gov/20389311/" target="_blank" rel="noopener noreferrer">PMID:20389311</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/17937443/" target="_blank" rel="noopener noreferrer">PMID:17937443</a>).</li>
+<li><strong>Genetic testing:</strong> multigene panels for cutis laxa or heritable thoracic aortic disease (EFEMP2, FBLN5, LTBP4, ELN, ATP6V0A2, PYCR1, ALDH18A1, ATP7A, FBN1, TGFBR1/2, SMAD3, SLC2A10 and others), or exome/genome sequencing. Exome sequencing solved delayed or misdiagnosed cases (<a href="https://pubmed.ncbi.nlm.nih.gov/39764439/" target="_blank" rel="noopener noreferrer">PMID:39764439</a>, where the child was first misdiagnosed with Takayasu arteritis) and prenatal cases (<a href="https://pubmed.ncbi.nlm.nih.gov/38923535/" target="_blank" rel="noopener noreferrer">PMID:38923535</a>). Targeted founder-variant testing makes sense in Kerala and Saudi populations. CMA, karyotype, mtDNA and repeat testing have no role.</li>
+<li><strong>Differential diagnosis:</strong></li>
+<li>Arterial tortuosity syndrome (SLC2A10): tortuosity without emphysema, normal elastogenesis genes.</li>
+<li>FBLN5-related ARCL1A and LTBP4-related ARCL1C: <em>"FBLN5 and LTBP4 mutations cause a very similar phenotype associated with severe pulmonary emphysema, in the absence of vascular tortuosity or aneurysms"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/22829427/" target="_blank" rel="noopener noreferrer">PMID:22829427</a>).</li>
+<li>ELN-related cutis laxa (AD and AR).</li>
+<li>Loeys-Dietz syndrome (TGFBR1/2, SMAD3, TGFB2/3).</li>
+<li>Marfan syndrome (FBN1).</li>
+<li>EMILIN1 arterial tortuosity-bone fragility syndrome (<a href="https://pubmed.ncbi.nlm.nih.gov/36351433/" target="_blank" rel="noopener noreferrer">PMID:36351433</a>).</li>
+<li>Osteogenesis imperfecta, for the fracture-predominant fetal presentation (<a href="https://pubmed.ncbi.nlm.nih.gov/22070778/" target="_blank" rel="noopener noreferrer">PMID:22070778</a>).</li>
+<li>ARCL2 / ATP6V0A2, PYCR1, ALDH18A1 forms; occipital horn syndrome / ATP7A; LTBP1-related cutis laxa (<a href="https://pubmed.ncbi.nlm.nih.gov/33991472/" target="_blank" rel="noopener noreferrer">PMID:33991472</a>).</li>
+<li>Takayasu arteritis, as an acquired mimic (<a href="https://pubmed.ncbi.nlm.nih.gov/39764439/" target="_blank" rel="noopener noreferrer">PMID:39764439</a>).</li>
+<li><strong>Screening:</strong> cascade carrier testing; prenatal diagnosis and PGT when familial variants are known; echocardiographic screening of siblings (<a href="https://pubmed.ncbi.nlm.nih.gov/22440127/" target="_blank" rel="noopener noreferrer">PMID:22440127</a> found affected sibs aged 17 and 20 this way). No newborn screening exists.</li>
+</ul>
+<hr />
+<h2>11. Outcome / prognosis</h2>
+<ul>
+<li><strong>Mortality:</strong> high in early-onset and founder-lethal forms. Kerala: <em>"Homozygosity was lethal (17/21 died, median age 4 months). Isthmic hypoplasia (n = 9) correlated with early death (≤4 months)."</em> Perinatal deaths and terminations are reported for truncating alleles (<a href="https://pubmed.ncbi.nlm.nih.gov/19664000/" target="_blank" rel="noopener noreferrer">PMID:19664000</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/22070778/" target="_blank" rel="noopener noreferrer">PMID:22070778</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/30140196/" target="_blank" rel="noopener noreferrer">PMID:30140196</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/17937443/" target="_blank" rel="noopener noreferrer">PMID:17937443</a>).</li>
+<li><strong>Survivors:</strong> longer-term survival after surgery is reported (<a href="https://pubmed.ncbi.nlm.nih.gov/23532871/" target="_blank" rel="noopener noreferrer">PMID:23532871</a>). In the Saudi childhood-TAD cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/39489349/" target="_blank" rel="noopener noreferrer">PMID:39489349</a>) all patients were alive at 3–31 years. That cohort mixes genes and is a high-intervention setting.</li>
+<li><strong>Complications:</strong> aneurysm rupture or dissection, airway compression, respiratory failure from emphysema, need for redo aortic surgery, baroreflex failure (<a href="https://pubmed.ncbi.nlm.nih.gov/24733866/" target="_blank" rel="noopener noreferrer">PMID:24733866</a>), cerebral vasospasm.</li>
+<li><strong>Prognostic factors:</strong> isthmic hypoplasia; genotype (truncating or p.Asp203Ala more severe than p.Glu161Lys); prenatal presentation. No biomarkers have been validated.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p>No disease-specific therapy exists, and no trials were found on ClinicalTrials.gov (I didn't run a separate search, but none turned up in the literature).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention</th>
+<th>Evidence</th>
+<th>Suggested NCIT</th>
+<th><code>therapeutic_modality</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Angiotensin II receptor blocker (losartan) for aortic dilatation</td>
+<td>GeneReviews; case use (<a href="https://pubmed.ncbi.nlm.nih.gov/24276535/" target="_blank" rel="noopener noreferrer">PMID:24276535</a>); mouse: prevents aneurysm in an early window (<a href="https://pubmed.ncbi.nlm.nih.gov/23636094/" target="_blank" rel="noopener noreferrer">PMID:23636094</a>), improves survival (<a href="https://pubmed.ncbi.nlm.nih.gov/21858106/" target="_blank" rel="noopener noreferrer">PMID:21858106</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26828783/" target="_blank" rel="noopener noreferrer">PMID:26828783</a>)</td>
+<td>NCIT:C15986 Pharmacotherapy; agent losartan (CHEBI)</td>
+<td>SMALL_MOLECULE</td>
+</tr>
+<tr>
+<td>Beta-blocker</td>
+<td>GeneReviews; case use (<a href="https://pubmed.ncbi.nlm.nih.gov/24276535/" target="_blank" rel="noopener noreferrer">PMID:24276535</a>); propranolol had no effect in Fibulin-4R/R mice (<a href="https://pubmed.ncbi.nlm.nih.gov/26828783/" target="_blank" rel="noopener noreferrer">PMID:26828783</a>)</td>
+<td>NCIT:C15986</td>
+<td>SMALL_MOLECULE</td>
+</tr>
+<tr>
+<td>ACE inhibitor (captopril)</td>
+<td>mouse only (<a href="https://pubmed.ncbi.nlm.nih.gov/23636094/" target="_blank" rel="noopener noreferrer">PMID:23636094</a>)</td>
+<td>NCIT:C15986</td>
+<td>SMALL_MOLECULE</td>
+</tr>
+<tr>
+<td>Ascending aorta, root or arch replacement; valve-sparing root and total arch; two-stage elephant trunk</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24276535/" target="_blank" rel="noopener noreferrer">PMID:24276535</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/28673110/" target="_blank" rel="noopener noreferrer">PMID:28673110</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36518920/" target="_blank" rel="noopener noreferrer">PMID:36518920</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42404516/" target="_blank" rel="noopener noreferrer">PMID:42404516</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/29362193/" target="_blank" rel="noopener noreferrer">PMID:29362193</a></td>
+<td>NCIT:C15329 Surgical Procedure</td>
+<td>SURGERY</td>
+</tr>
+<tr>
+<td>Hernia repair</td>
+<td>GeneReviews</td>
+<td>NCIT:C15329</td>
+<td>SURGERY</td>
+</tr>
+<tr>
+<td>Tracheostomy for retrognathia-related airway obstruction</td>
+<td>GeneReviews</td>
+<td>needs lookup</td>
+<td>SURGERY</td>
+</tr>
+<tr>
+<td>Symptomatic emphysema management</td>
+<td>GeneReviews</td>
+<td>NCIT:C15747 Supportive Care</td>
+<td>OTHER</td>
+</tr>
+<tr>
+<td>Muscle-reinforcing physical therapy for joint hypermobility</td>
+<td>GeneReviews</td>
+<td>NCIT:C15302 Physical Therapy</td>
+<td>BEHAVIORAL</td>
+</tr>
+<tr>
+<td>Genetic counseling</td>
+<td>GeneReviews</td>
+<td>NCIT:C15240 Genetic Counseling</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>GeneReviews management (verbatim): <em>"Treatment of aortic root dilatation with beta-blockers or angiotensin receptor inhibitors can be considered. Aortic aneurysm replacement has been performed successfully. Symptomatic treatment of pulmonary emphysema; muscle-reinforcing physical therapy for joint hypermobility; routine repair of hernias. Tracheostomy may be necessary when retrognathia leads to upper-airway obstruction."</em></p>
+<p><strong>Experimental and preclinical targets (mouse only):</strong> PI3K inhibitors (<a href="https://pubmed.ncbi.nlm.nih.gov/26486174/" target="_blank" rel="noopener noreferrer">PMID:26486174</a>), Thbs1 deletion (<a href="https://pubmed.ncbi.nlm.nih.gov/30355232/" target="_blank" rel="noopener noreferrer">PMID:30355232</a>), Egr1/PAR1 (<a href="https://pubmed.ncbi.nlm.nih.gov/32580633/" target="_blank" rel="noopener noreferrer">PMID:32580633</a>), PGC1α activation (<a href="https://pubmed.ncbi.nlm.nih.gov/29931197/" target="_blank" rel="noopener noreferrer">PMID:29931197</a>), JAK/STAT or TGF-β inhibition and senolytics in vitro (<a href="https://pubmed.ncbi.nlm.nih.gov/38902222/" target="_blank" rel="noopener noreferrer">PMID:38902222</a>). No gene therapy exists.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary:</strong> carrier testing, prenatal diagnosis and PGT in at-risk families (GeneReviews). Founder-variant awareness in Kerala and Saudi populations.</li>
+<li><strong>Secondary:</strong> echocardiographic screening of siblings.</li>
+<li><strong>Tertiary</strong> (GeneReviews): <em>"Follow-up evaluations with a cardiologist and pulmonologist at least annually starting from the time of diagnosis. Annual MR angiography from head to pelvis. Agents/circumstances to avoid: Sun tanning to avoid damaging the skin; cigarette smoking to avoid worsening of emphysema."</em></li>
+<li><strong>Counseling:</strong> <em>"each sib of an affected individual has at conception a 25% chance of being affected, a 50% chance of being an asymptomatic carrier, and a 25% chance of being unaffected and not a carrier."</em></li>
+<li>No vaccines or public-health measures apply.</li>
+</ul>
+<hr />
+<h2>14. Other species / natural disease</h2>
+<p>No naturally occurring animal EFEMP2 disease was found (I didn't search OMIA directly). EFEMP2 is conserved across vertebrates. The mouse ortholog is <em>Efemp2</em> (Fbln4); I haven't confirmed the MGI or NCBI Gene IDs. No zoonotic relevance.</p>
+<hr />
+<h2>15. Model organisms (all <em>Mus musculus</em>, NCBITaxon:10090)</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Recapitulates</th>
+<th>Limitations</th>
+<th>PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Fbln4−/− (germline null)</strong></td>
+<td>no intact elastic fibers, emphysema, arterial tortuosity, aneurysm, rupture; forelimb contractures; abnormal collagen and LOX activation in bone</td>
+<td>perinatal lethal, so postnatal course can't be studied; more severe than most human missense genotypes</td>
+<td>16478991, 26690653, 26711913, 33239290</td>
+</tr>
+<tr>
+<td><strong>Fibulin-4 R/R hypomorph (4-fold reduced) and +/R (2-fold)</strong></td>
+<td>ascending aortic dilatation, tortuous stiff aorta, valve stenosis/insufficiency, cystic medial degeneration, raised TGF-β, death around 3 months; emphysema</td>
+<td>the hypomorph came from targeting <em>Mus81</em>, so it is a dosage model, not a patient allele</td>
+<td>17293478, 21858106, 25255451, 29931197, 38902222</td>
+</tr>
+<tr>
+<td><strong>Fbln4 SMKO (SM22-Cre)</strong></td>
+<td>postnatal ascending aortic aneurysm; smooth muscle immaturity; ACE/AngII, Egr1, Thbs1 and cofilin pathways; losartan/captopril prevention</td>
+<td>smooth muscle–restricted, so no skin, lung or bone phenotype</td>
+<td>20019329, 23636094, 26486174, 30355232, 32580633</td>
+</tr>
+<tr>
+<td><strong>Fbln4 E57K knock-in</strong> (human allele)</td>
+<td>survives to adulthood with loose skin, bent forelimb, aortic aneurysm, tortuosity, emphysema, hypertension; ER stress; abnormal collagen fibrils; conduit-artery selectivity</td>
+<td>arterial elastin cross-linking normal, which conflicts with the LOX model</td>
+<td>26178373, 28508064, 37267118</td>
+</tr>
+<tr>
+<td><strong>Fbln4 EC + SMC double KO</strong></td>
+<td>worse aneurysm, aortic valve thickening, EndMT</td>
+<td>genetic overlay with no direct patient counterpart</td>
+<td>36565192</td>
+</tr>
+<tr>
+<td><strong>Fbln4 dose series (SM-Cre graded)</strong></td>
+<td>dose-dependent stiffness, then aneurysm</td>
+<td>—</td>
+<td>19855011</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><a href="https://pubmed.ncbi.nlm.nih.gov/26178373/" target="_blank" rel="noopener noreferrer">PMID:26178373</a>: <em>"The mutant mice survived into adulthood and displayed abnormalities in multiple organ systems, including loose skin, bent forelimb, aortic aneurysm, tortuous artery, and pulmonary emphysema."</em></p>
+<p>The E57K knock-in is the best model of a patient allele. The SMKO line is the workhorse for aneurysm mechanism and drug work. No zebrafish, iPSC or organoid models were found. Human aortic endothelial knockdown (<a href="https://pubmed.ncbi.nlm.nih.gov/36565192/" target="_blank" rel="noopener noreferrer">PMID:36565192</a>) and HEK293 recombinant mutant studies (<a href="https://pubmed.ncbi.nlm.nih.gov/27339457/" target="_blank" rel="noopener noreferrer">PMID:27339457</a>) are the in-vitro systems.</p>
+<hr />
+<h2>Gaps and cautions for curation</h2>
+<ol>
+<li><strong>The LOX cross-linking model conflicts across studies.</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/16478991/" target="_blank" rel="noopener noreferrer">PMID:16478991</a> reports elastin cross-links "largely diminished" in null mice. <a href="https://pubmed.ncbi.nlm.nih.gov/28508064/" target="_blank" rel="noopener noreferrer">PMID:28508064</a> and <a href="https://pubmed.ncbi.nlm.nih.gov/26220971/" target="_blank" rel="noopener noreferrer">PMID:26220971</a> found arterial elastin cross-linking normal. Worth a <code>KNOWLEDGE_GAP</code> or two-sided evidence on the LOX node.</li>
+<li><strong>TGF-β: driver or marker?</strong> The rise is documented in humans and mice, but a causal role isn't shown. Avoid TRIGGERS-style predicates.</li>
+<li><strong>Nearly all mechanism evidence downstream of the elastic fiber defect is mouse</strong> (<code>MODEL_ORGANISM</code>). Human support covers only the elastic fiber defect, reduced fibulin-4 and pSmad2/CTGF.</li>
+<li><strong>The dominant-TAA report (<a href="https://pubmed.ncbi.nlm.nih.gov/38113391/" target="_blank" rel="noopener noreferrer">PMID:38113391</a>) rests on in-silico evidence.</strong> If it is included, a <code>DISPUTED</code> genetic row fits better than a subtype.</li>
+<li><strong>Not verified, so don't bind as written:</strong> the Orphanet code, ICD codes, every HPO/GO/CL/CHEBI ID in the tables above, NCBI Gene and MGI IDs, gnomAD frequencies, and the NBK accession.</li>
+<li><strong>Next steps:</strong> the draft <code>kb/disorders/EFEMP2-Related_Cutis_Laxa.yaml</code> is a stub (23 lines). Its <code>association: Causative</code> field is not a schema slot; the schema uses <code>relationship_type: CAUSATIVE</code>. Cited PMIDs need <code>just fetch-reference</code>. Only <a href="https://pubmed.ncbi.nlm.nih.gov/22829427/" target="_blank" rel="noopener noreferrer">PMID:22829427</a> and <a href="https://pubmed.ncbi.nlm.nih.gov/23954411/" target="_blank" rel="noopener noreferrer">PMID:23954411</a> are already in <code>references_cache/</code>.</li>
+</ol>
+<hr />
+<h3>Sources</h3>
+<ul>
+<li>PubMed abstracts via NCBI E-utilities: PMIDs 16685658, 16478991, 17937443, 19664000, 20389311, 22943132, 22829427, 24276535, 20019329, 19855011, 17293478, 23636094, 26178373, 26220971, 26690653, 33239290, 27339457, 21858106, 26828783, 22070778, 23212998, 22440127, 30140196, 39764439, 38113391, 24733866, 31194159, 42404516, 38923535, 30355232, 26486174, 32580633, 29931197, 38902222, 26607280, 28508064, 24613575, 36565192, 39489349</li>
+<li>GeneReviews abstract (<a href="https://pubmed.ncbi.nlm.nih.gov/21563328/" target="_blank" rel="noopener noreferrer">PMID:21563328</a>) via <a href="https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=EXT_ID:21563328&amp;resultType=core&amp;format=json">Europe PMC REST</a></li>
+<li>MONDO record via <a href="https://www.ebi.ac.uk/ols4/api/ontologies/mondo/terms?obo_id=MONDO:0013754">OLS4</a></li>
+<li>ClinGen gene-disease validity: local <code>cache/clingen/gene_validity.csv</code></li>
+<li>Web search leads (secondary): <a href="https://https.ncbi.nlm.nih.gov/books/n/gene/efemp2-cutis-laxa/">GeneReviews clinical description</a>, <a href="https://medlineplus.gov/genetics/gene/efemp2">MedlinePlus EFEMP2</a>, <a href="https://rarediseases.info.nih.gov/assets/singles/15804.json">GARD 15804</a>, <a href="https://drugmap.idrblab.net/data/disease/details/DISRVQS9">DrugMap DISRVQS9</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>48</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>48</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>2</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>48</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:22440127</code> <em>(abstract only)</em>: "recessively inherited aortic aneurysm"</li>
+<li>Text part not found as substring: 'recessively inherited aortic aneurysm' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/22440127/" target="_blank" rel="noopener noreferrer">PMID:22440127</a>, full text may contain this excerpt)</li>
+<li><code>PMID:22943132</code> <em>(abstract only)</em>: "lethal arteriopathy syndrome"</li>
+<li>Text part not found as substring: 'lethal arteriopathy syndrome' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/22943132/" target="_blank" rel="noopener noreferrer">PMID:22943132</a>, full text may contain this excerpt)</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="EDN3_EDNRB_Waardenburg_Shah-falcon.html">← EDN3/EDNRB Waardenburg-Shah (Falcon)</a>
+                
+                
+                <a href="EFL1-related_Shwachman-Diamond_syndrome-asta.html">EFL1-related Shwachman-Diamond syndrome (Asta) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/EFEMP2-Related_Cutis_Laxa.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/EFEMP2-Related_Cutis_Laxa-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

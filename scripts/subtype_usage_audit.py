@@ -29,7 +29,7 @@ Per subtype-gene verdicts (most- to least-wired):
   auto-inferred edge into a pathophysiology node.
 * ``GENETIC_NONCAUSAL`` — a matching ``genetic:`` node exists but its
   ``relationship_type``/``association`` marks it non-contributing (MODIFIER,
-  BIOMARKER, PROTECTIVE, DISPUTED, UNKNOWN), so ``dismech.graph`` deliberately
+  BIOMARKER, PROTECTIVE, DISPUTED, REFUTED, UNKNOWN), so ``dismech.graph`` deliberately
   draws no mechanism edge. Usually correct as-is; listed for completeness.
 * ``GENETIC_UNWIRED``   — a contributing ``genetic:`` node exists but no
   pathophysiology node carries the gene, so the genetic node floats
