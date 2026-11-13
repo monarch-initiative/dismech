@@ -488,7 +488,8 @@ viability is an apical toxicity label, not a directional mechanism node, so it i
 same obstacle the MEA assays (PMID:38788893) hit: the method is real but asserts no
 mechanism. The paper is explicit that its mechanistic content is a proposal rather
 than a measurement — its stated aim is to "propose the possible cellular interactions
-that lead the cytotoxic response", and it proposes interactions it does not assay.
+that lead the cytotoxic response", and the abstract reports no assay of those
+interactions.
 
 Its three findings are properties of the test systems, not of a disease:
 
@@ -505,9 +506,10 @@ is a property of how the construct is assembled; it is registry content, and the
 question it raises is already filed.
 
 The anchor end is empty as well. There is no ambient-PM or air-pollution exposure
-entry in `kb/` — bisphenol-style, PM appears only inside disease entries
-(`Asthma`, `Chronic_Obstructive_Pulmonary_Disease`, the pneumoconioses) that are not
-this cytotoxicity screen. The airway-irritant module gap this paper's lung arm
+entry in `kb/` — as with Bisphenol A in the PMID:38211720 section above, PM appears
+only inside disease entries (`Asthma`, `Chronic_Obstructive_Pulmonary_Disease`, the
+pneumoconioses, and others such as `Contact_Dermatitis`, `Parkinsons_Disease` and
+`Cystic_Fibrosis`) that are not this cytotoxicity screen. The airway-irritant module gap this paper's lung arm
 contributed to ([#16877](https://github.com/monarch-initiative/dismech/issues/16877))
 is now closed — `inhaled_irritant_airway_injury` exists — but a module existing does
 not create a link: the module models oxidative and electrophilic epithelial injury,
@@ -543,6 +545,7 @@ per-paper issue:
 | Scope | A NAM can belong in the registry with no dismech home | [#16882](https://github.com/monarch-initiative/dismech/issues/16882) |
 | Convention | When is a molecular simulation a model of a mechanism? | [#16883](https://github.com/monarch-initiative/dismech/issues/16883) |
 | Convention | Where a PBPK or IVIVE dosimetry bridge belongs | [#16887](https://github.com/monarch-initiative/dismech/issues/16887) |
+| Schema gap | Per-layer species scale in a multi-tissue co-culture | [#16889](https://github.com/monarch-initiative/dismech/issues/16889) |
 | Schema gap | Toxicant susceptibility varying by host genotype | [#16884](https://github.com/monarch-initiative/dismech/issues/16884) |
 | Schema gap | Synergy between two exposures | [#16885](https://github.com/monarch-initiative/dismech/issues/16885) |
 | Schema gap | Reversibility of a toxic injury; PMID:38211720 shows recovery can be endpoint-dissociated, so it has to be per-endpoint | [#16886](https://github.com/monarch-initiative/dismech/issues/16886) |
