@@ -251,6 +251,15 @@ Every `has_subtypes[]` row with a bound `subtype_term` becomes a
 against the subtype's term rather than the parent's. An item keyed to a subtype
 with no bound term, or carrying no `subtype:` key, stays on the parent.
 
+The `subclass_of` edge carries the `has_subtypes[]` row's own `evidence:` as its
+publications and supporting text; two subtypes bound to one term are written as
+one edge with both rows' evidence.
+
+This applies to the disease-level `has_subtypes` only. The taxonomic
+`infectious_agents[].has_subtypes` (organism strata, bound to `NCBITaxon:`) is
+not read, so no organism taxon becomes a `biolink:Disease` node or a
+`subclass_of` child of a disease.
+
 ## What is not exported
 
 - `cellular_components[].modifier` — `cellular_component_to_edge` never reads

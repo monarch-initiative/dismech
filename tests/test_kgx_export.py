@@ -1967,3 +1967,58 @@ class TestSubtypeRouting:
         }
         edges = [e.association for e in iter_edges_with_evidence(record)]
         assert len([e for e in edges if e.predicate == "biolink:subclass_of"]) == 1
+
+    def test_subclass_edge_carries_the_subtypes_evidence(self):
+        def ev(pmid):
+            return {"reference": pmid, "supports": "SUPPORT", "snippet": f"quote {pmid}"}
+
+        record = {
+            "disease_term": {"term": {"id": self.PARENT, "label": "x"}},
+            "has_subtypes": [
+                {
+                    "name": "One",
+                    "subtype_term": {"term": {"id": self.SUB_A, "label": "a"}},
+                    "evidence": [ev("PMID:1")],
+                },
+                {
+                    "name": "Two",
+                    "subtype_term": {"term": {"id": self.SUB_A, "label": "a"}},
+                    "evidence": [ev("PMID:2")],
+                },
+            ],
+        }
+        (link,) = [
+            e for e in iter_edges_with_evidence(record)
+            if e.association.predicate == "biolink:subclass_of"
+        ]
+        assert link.association.publications == ["PMID:1", "PMID:2"]
+        assert [e["reference"] for e in link.evidence] == ["PMID:1", "PMID:2"]
+
+    def test_subclass_edge_without_evidence_has_no_publications(self):
+        (link,) = [
+            e for e in iter_edges_with_evidence(self.RECORD)
+            if e.association.predicate == "biolink:subclass_of"
+        ]
+        assert link.association.publications is None
+        assert link.evidence is None
+
+    def test_infectious_agent_subtypes_are_not_diseases(self):
+        record = {
+            "disease_term": {"term": {"id": self.PARENT, "label": "x"}},
+            "infectious_agents": [
+                {
+                    "name": "Agent",
+                    "has_subtypes": [
+                        {
+                            "name": "Strain",
+                            "subtype_term": {
+                                "term": {"id": "NCBITaxon:1", "label": "root"}
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+        assert subtype_disease_ids(record) == {}
+        edges = [e.association for e in iter_edges_with_evidence(record)]
+        assert not [e for e in edges if e.predicate == "biolink:subclass_of"]

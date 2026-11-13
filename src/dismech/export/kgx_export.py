@@ -1486,15 +1486,39 @@ def _edge_disease_id(
     return disease_id
 
 
-def subtype_to_edge(subtype_id: str, disease_id: str) -> Association | None:
+def subtype_evidence(record: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """Evidence for each bound subtype term, keyed on the term id.
+
+    Two subtypes bound to one term pool their `evidence:` lists, because they
+    are exported as a single `subclass_of` edge.
+    """
+    out: dict[str, list[dict[str, Any]]] = {}
+    for subtype in record.get("has_subtypes") or []:
+        if not isinstance(subtype, dict):
+            continue
+        term_id = _get_term_id(subtype, ["subtype_term", "term", "id"])
+        if subtype.get("name") and term_id:
+            out.setdefault(term_id, []).extend(
+                e for e in subtype.get("evidence") or [] if isinstance(e, dict)
+            )
+    return out
+
+
+def subtype_to_edge(
+    subtype_id: str,
+    disease_id: str,
+    evidence: list[dict[str, Any]] | None = None,
+) -> Association | None:
     """`subtype subclass_of disease`, linking a subtype node to its parent.
 
     Without it a subtype node reached only by its own gene or phenotype edges
     would sit apart from the disease entry it belongs to. Self-loops (a
-    subtype bound to the parent's own term) are not emitted.
+    subtype bound to the parent's own term) are not emitted. `evidence` is the
+    `has_subtypes[].evidence` list, carried as the edge's publications.
     """
     if not subtype_id or subtype_id == disease_id:
         return None
+    publications, supporting_text = _format_evidence(evidence, indirect=False)
     return Association(
         id=_make_edge_id(),
         subject=subtype_id,
@@ -1502,6 +1526,8 @@ def subtype_to_edge(subtype_id: str, disease_id: str) -> Association | None:
         object=disease_id,
         subject_category="biolink:Disease",
         object_category="biolink:Disease",
+        publications=publications if publications else None,
+        supporting_text=supporting_text if supporting_text else None,
         primary_knowledge_source=KNOWLEDGE_SOURCE,
         knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
         agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
@@ -1949,11 +1975,12 @@ def iter_edges_with_evidence(record: dict[str, Any]) -> Iterator[EdgeWithEvidenc
     # Subtypes (#12316). Each bound subtype is linked to the parent, and any item
     # whose `subtype:` key names one is exported against the subtype's term.
     subtypes = subtype_disease_ids(record)
-    # Two subtypes may share one term; link each term to the parent once.
-    for subtype_id in dict.fromkeys(term_id for term_id, _ in subtypes.values()):
-        edge = subtype_to_edge(subtype_id, disease_id)
+    # Two subtypes may share one term; link each term to the parent once,
+    # carrying the subtypes' own `evidence:` as the edge's provenance.
+    for subtype_id, evidence in subtype_evidence(record).items():
+        edge = subtype_to_edge(subtype_id, disease_id, evidence)
         if edge:
-            yield EdgeWithEvidence(edge, None, "has_subtypes")
+            yield EdgeWithEvidence(edge, evidence or None, "has_subtypes")
 
     # Extract phenotype edges. MONDO-typed "phenotypes" are actually comorbid
     # diseases and produce a disease-to-disease association instead. Upstream
