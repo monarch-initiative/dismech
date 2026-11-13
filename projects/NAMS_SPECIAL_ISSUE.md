@@ -8,6 +8,7 @@ description: >-
 tags: [NAM, FRAMEWORK_ALIGNMENT, ENVIRONMENTAL_EXPOSURE, EXTERNAL_COLLABORATION]
 modules:
   - epilepsy_excitation_inhibition_imbalance
+  - drug_induced_phospholipidosis
 diseases:
   - Fetal_Valproate_Syndrome
 ---
@@ -331,8 +332,11 @@ Three decisions carried through the links:
   transporter-level efflux inhibition, not downstream bile stasis.
 - The **lipid link carries a `PROXY_QUANTITY` divergence** because the bulk
   lipid-dysregulation readout spans steatosis and phospholipidosis, which are
-  distinct. Drug-induced phospholipidosis as a node gap is tracked at
-  [#16881](https://github.com/monarch-initiative/dismech/issues/16881).
+  distinct. That node gap ([#16881](https://github.com/monarch-initiative/dismech/issues/16881))
+  is now closed by the `drug_induced_phospholipidosis` module, created from
+  [#16867](https://github.com/monarch-initiative/dismech/issues/16867), which
+  homes phospholipidosis as a lysosomal lipid-storage lesion separate from the
+  triglyceride lipotoxicity of `hepatic_steatosis_lipotoxicity`.
 
 The predictive-performance panel (22 DILI-positive, 5 DILI-negative compounds) is
 recorded as a `findings` entry on each model, not as a mechanism link — it is
@@ -474,7 +478,7 @@ per-paper issue:
 | Module gap | Chemical respiratory allergy (low molecular weight sensitizers) | [#16878](https://github.com/monarch-initiative/dismech/issues/16878) |
 | Module gap | Efflux-mediated multidrug resistance | [#16879](https://github.com/monarch-initiative/dismech/issues/16879) |
 | Module gap | Developmental neurotoxicity as an outcome | [#16880](https://github.com/monarch-initiative/dismech/issues/16880) |
-| Node gap | Drug-induced phospholipidosis as distinct from steatosis | [#16881](https://github.com/monarch-initiative/dismech/issues/16881) |
+| Node gap | Drug-induced phospholipidosis as distinct from steatosis — **closed** by the `drug_induced_phospholipidosis` module | [#16881](https://github.com/monarch-initiative/dismech/issues/16881) |
 | Scope | A NAM can belong in the registry with no dismech home | [#16882](https://github.com/monarch-initiative/dismech/issues/16882) |
 | Convention | When is a molecular simulation a model of a mechanism? | [#16883](https://github.com/monarch-initiative/dismech/issues/16883) |
 | Convention | Where a PBPK or IVIVE dosimetry bridge belongs | [#16887](https://github.com/monarch-initiative/dismech/issues/16887) |
