@@ -144,34 +144,34 @@ This is the sharpest instance of the general problem #16882 raises, and the firs
 case in this batch where a paper kept by the screen yields a registry entry and no
 dismech link.
 
-The registry record is drafted as **two** `NAMRecord`s, because the two assays are
+The paper yields **two** `NAMRecord`s, because the two assays are
 different model systems rather than one system run two ways — the acute assay
 records a matured network at DIV13 or 15, the network formation assay records one
 as it is being built:
 
-| Proposed record id | Assay |
+| Record id | Assay |
 |---|---|
 | `cortex-mea-acute-network-primary-cell-rat` | AcN |
 | `cortex-mea-network-formation-primary-cell-rat` | NFA |
 
 Both are typed `TwoDCellCulture`, `biological_organization_level:
 CELLULAR_NEIGHBORHOOD`, `species: NCBITaxon:10116`, with each assay's applications
-and limitations carrying the paper's own sentences. They were first drafted in
-[nams-registry#57](https://github.com/monarch-initiative/nams-registry/pull/57),
-closed unmerged, and are being redone; the records are not in the registry yet.
+and limitations carrying the paper's own sentences. They live under `nams/` in
+[monarch-initiative/nams-registry](https://github.com/monarch-initiative/nams-registry),
+and each carries a `dismech_status` with `present_in_dismech: false` — the registry's
+way of recording that a NAM came through dismech curation and deliberately got no
+`kb/` entry.
 
-That first draft ran into a question that was general rather than specific to this
+Drafting them raised a question that was general rather than specific to this
 paper, and it has since been settled. `source_resources` is required and is defined
 as "A registry resource a NAM was found in", but a NAM found in a primary research
 paper had nothing to name: the registry's own `ResourceTypeEnum.Report` says "A
 primary research paper is not a report", while `test_nam_source_resources_exist`
-requires every value in that slot to name a file in `resources/`. The draft used
-ToxCast as a marked placeholder.
+requires every value in that slot to name a file in `resources/`.
 [nams-registry#63](https://github.com/monarch-initiative/nams-registry/issues/63)
 answered it with a `scientific-literature` resource that carries the paper's DOI in
-`source_urls`, so no placeholder is needed now; the same round added `compared_with`
-for NAMs a study compared head to head, which is how these two assays should name
-each other.
+`source_urls`; the same round added `compared_with` for NAMs a study compared head
+to head, which is how these two assays name each other.
 
 `references_cache/PMID_38788893.md` is committed and is cited only from this page,
 not from any `kb/` entry. It is kept deliberately, so the quoted sentences above
