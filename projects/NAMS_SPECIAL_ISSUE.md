@@ -649,6 +649,90 @@ molecular-simulation convention #16883, already in the gaps table below — this
 paper is its hardest instance, recorded here rather than duplicated there.
 
 `references_cache/PMID_38432407.md` is committed and is cited only from this page,
+
+### PMID:38036094 — zearalenone inhibition of aromatase goes to the registry only
+
+Perugino et al. 2024, *Toxicology* 501:153686 ([#16874](https://github.com/monarch-initiative/dismech/issues/16874)).
+A purely in silico study: 3D molecular modelling of human aromatase (CYP19A1)
+screening whether any of 434 reported single nucleotide variants changes the
+inhibitory potential of zearalenone (ZEN), repeated for α-zearalenol, ZEN's most
+estrogenically potent phase I metabolite. No biological system; no wet
+confirmation.
+
+| Model / method | Measures |
+|---|---|
+| 3D molecular modelling of human aromatase | inhibitory potential of ZEN against the enzyme |
+| Screen across 434 reported CYP19A1 SNVs | which variants differ in predicted susceptibility to inhibition |
+| Same for α-zearalenol | predicted metabolite potency against the prioritised variants |
+
+**The modelling pipeline belongs in the registry. Nothing is being added to a
+dismech entry** — not a `computational_models:` link and not an `environmental:`
+evidence edge. Three reasons, and the first settles open question 2
+([#16883](https://github.com/monarch-initiative/dismech/issues/16883)) for this
+paper.
+
+- **Below the model-link floor.** A `computational_models:` `ModelMechanismLink`
+  asserts the model *recapitulates*, *perturbs*, or *measures* the mechanism node
+  it points at. A structure-based docking prediction with no wet confirmation does
+  none of those: it predicts a binding interaction. That is a hypothesis *about*
+  the node, not an observation *of* it, and sits below the floor a model link
+  asserts. The `divergences` taxonomy (`PROXY_QUANTITY`: a predicted pose standing
+  in for measured enzyme activity) could caveat such a link, but caveating does not
+  raise an unconfirmed prediction across the floor — it only labels how far below it
+  sits. So: not a model link. This is the molecular-simulation case of #16883, and
+  it reads the same way the OGFOD1 docking case (PMID:38432407) does.
+
+- **Evidence would attach to the wrong entity.** The only dismech node it could
+  cite is the `CYP19A1 Loss-of-Function and Aromatase Deficiency` molecular node in
+  `Aromatase_Deficiency` (`aromatase activity` `DECREASED`, `hgnc:2594`). But that
+  node is the *Mendelian* disease — biallelic CYP19A1 loss of function — and this
+  paper is about a *toxicant phenocopy modulated by common SNVs* in the general
+  population. An `environmental: … influences_mechanisms` edge marked `MODULATES`
+  there would assert that ZEN contributes to the aromatase-deficiency mechanism,
+  which overstates in both directions: in biallelic loss of function there is
+  little residual activity left for a competitive inhibitor to reduce, and the
+  paper studies common variants, not the disease. Citing it on that node would
+  misrepresent the paper and the entry at once.
+
+- **The paper's actual contribution has no dismech home.** Its novel claim is
+  *variant-dependent* toxicant susceptibility — T310S predicted more susceptible
+  to inhibition, D309G and S478F possibly inactive variants — which is exactly the
+  schema gap [#16884](https://github.com/monarch-initiative/dismech/issues/16884).
+  dismech cannot represent that today: `population_effects` covers a variant
+  differing across populations and `effect_modifiers` with `GENOTYPE` covers a
+  *treatment* differing by genotype, and neither covers a *toxicant* whose potency
+  depends on host genotype. A dismech record would therefore capture only the
+  uncontroversial generic "ZEN inhibits aromatase" and silently drop the whole
+  point of the paper — the under-representation
+  [#16882](https://github.com/monarch-initiative/dismech/issues/16882) warns about.
+  And the variant effects are computationally predicted, so even once a slot
+  exists, the source stays a simulation, not an observed cohort difference.
+
+One record is proposed for the registry, the modelling pipeline as a single
+structure-based in silico method, and it would be the registry's first in-silico
+`NAMRecord`:
+
+| Proposed record id | Method | NAMO class |
+|---|---|---|
+| `aromatase-cyp19a1-snv-inhibition-in-silico-human` | 3D molecular modelling of ZEN/α-zearalenol inhibition across 434 CYP19A1 SNVs | `MolecularModel` (proposed; see below) |
+
+Human (`NCBITaxon:9606`). **The typing needs a NAMO class that does not exist yet.**
+NAMO's `InSilicoModel` subclasses are `QSARModel`, `PBPKModel`, `DigitalTwin`,
+`MLModel` and `MetabolicModel`; none covers a structure-based model built from a
+3D molecular structure (homology modelling, docking, molecular dynamics), which is
+a different method from QSAR's descriptor-based activity regression. A
+`MolecularModel` class was added to NAMO for this
+([monarch-initiative/namo#48](https://github.com/monarch-initiative/namo/pull/48));
+the record above is written and validated once the registry bumps its NAMO pin to a
+commit carrying that class, so this is a two-repository change, not a single registry
+PR, tracked at
+[nams-registry#89](https://github.com/monarch-initiative/nams-registry/issues/89).
+The `source_resources` question the earlier drafts hit is **already settled** — the
+record names the `scientific-literature` resource with the paper's DOI in
+`source_urls` ([nams-registry#63](https://github.com/monarch-initiative/nams-registry/issues/63)),
+so no placeholder is needed.
+
+`references_cache/PMID_38036094.md` is committed and is cited only from this page,
 not from any `kb/` entry. It is kept deliberately, so the quoted abstract stays
 checkable — do not read its absence from `kb/` as uncited and prune it.
 
