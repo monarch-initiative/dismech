@@ -549,7 +549,7 @@ as for PMID:38029956:
 | `airway-epiairway-mtt-three-d-tissue-human` | MTT cytotoxicity, EpiAirway | `ThreeDTissueModel` | TISSUE |
 | `airway-epiairway-nrf2-are-luciferase-three-d-tissue-human` | Nrf2/ARE luciferase oxidative-stress reporter, EpiAirway | `ThreeDTissueModel` | TISSUE |
 | `airway-nru-two-d-culture-human` | NRU cytotoxicity, monolayer | `TwoDCellCulture` | CELLULAR |
-| `in-vitro-micronucleus-two-d-culture` | in vitro micronucleus (cell system not stated in abstract) | `TwoDCellCulture` | CELLULAR |
+| `in-vitro-micronucleus-system-tbd` | in vitro micronucleus (cell system not stated in abstract) | TBD | TBD (`CELLULAR` if a monolayer line) |
 | `bacterial-reverse-mutation-ames` | Ames (negative) | `BacterialAssay` | — |
 
 `source_resources` hits the same blocker the MEA and ReproTracker drafts did: the NAM
