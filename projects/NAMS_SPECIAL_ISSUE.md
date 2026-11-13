@@ -467,6 +467,34 @@ confound and the endpoint-dissociated recovery.
 not from any `kb/` entry. It is kept deliberately, so the abstract stays
 checkable — do not read its absence from `kb/` as uncited and prune it.
 
+### PMID:38369009 — the 3D tetraculture bronchial model links into the chemical respiratory allergy module
+
+da Silva et al. 2024, *Toxicology* 503:153756 ([#16866](https://github.com/monarch-initiative/dismech/issues/16866)),
+with its companion monoculture study ([#16865](https://github.com/monarch-initiative/dismech/issues/16865), PMID:38360295).
+A reconstructed three-dimensional bronchial tissue from four cell lines — bronchial
+epithelial, lung fibroblast, endothelial and monocytic — challenged with maleic
+anhydride aerosol.
+
+**dismech disposition: two model-to-mechanism links on
+[`chemical_respiratory_allergy`](../kb/modules/chemical_respiratory_allergy.yaml).**
+The module built in #16912 already cites both papers as node evidence; this adds the
+model-side half as an `experimental_models:` entry. The tetraculture is the
+tissue-scale anchor the issue called for: it links to *Airway Epithelial Danger
+Signal Release* as `RECAPITULATES` (IL-8/IL-6, ROS and epithelial apoptosis
+readouts) and to *Dendritic Cell Activation and Th2-Polarizing Antigen Presentation*
+as `PARTIALLY_RECAPITULATES` (monocytic IL-8 as an indirect dendritic-cell-activation
+surrogate). Both carry `model_scale: TISSUE`; against the module's cellular nodes that
+is a model-above-target scale, so it contains the node and needs no scale caveat. The
+dendritic-cell link carries a `BOUNDARY_OMISSION` divergence: the co-culture has no T
+lymphocyte compartment, so it reaches dendritic cell activation but not sensitization
+proper. The companion monoculture paper (#16865) is the cellular-scale counterpart and
+is left to its own issue.
+
+**Registry disposition: the method also belongs in the external
+[nams-registry](https://github.com/monarch-initiative/nams-registry)** as a catalogued
+NAM — a reconstructed four-cell airway tissue with a respiratory-sensitization
+application. That row is not created here; this page records the dismech links only.
+
 ### PMID:38614204 — glo heated-tobacco battery: registry only, and the Nrf2 anchor is deferred to full text
 
 Keyser et al. 2024, *Toxicology* 504:153801 ([#16873](https://github.com/monarch-initiative/dismech/issues/16873)).
