@@ -1,6 +1,7 @@
 # 4D Nucleome (4DN)
 
-Reviewed: 2026-05-29
+Reviewed: 2026-05-29. Exemplar tables checked against `kb/` and the 4DN
+portal on 2026-11-13.
 
 ## Why This Is Mechanistically Valuable
 
@@ -131,6 +132,28 @@ Example 4DN records worth inspecting for dismech pilots:
 - Chromatin tracing of single chromosomes:
   https://data.4dnucleome.org/publications/e6451832-8312-4e74-bd74-742801f726e1/
 
+Reference records matched to the boundary-disruption entries in the first
+exemplar table below. All are wild-type, so they can locate a boundary or a
+contact but cannot test a patient allele:
+
+- HFFc6 human foreskin fibroblast Micro-C (Tier 1 cell line):
+  https://data.4dnucleome.org/experiment-set-replicates/4DNESWST3UBH/
+- HFFc6 CTCF CUT&Tag:
+  https://data.4dnucleome.org/experiment-set-replicates/4DNES89MZOPI/
+- Mouse embryonic day 12.5 limb H3K4me3 PLAC-seq:
+  https://data.4dnucleome.org/experiment-set-replicates/4DNESBUE56SA/
+- Mouse embryonic day 12.5 limb CTCF ChIP-seq:
+  https://data.4dnucleome.org/experiment-set-replicates/4DNESEE5O6CB/
+- H3K4me3 HiChIP on sorted human cortical oligodendrocytes/OPCs (NeuN−
+  OLIG2+), one donor:
+  https://data.4dnucleome.org/experiment-set-replicates/4DNESC4J62CH/
+- The same HiChIP series across donors and cortical cell types (neurons,
+  astrocytes, microglia, oligodendrocytes), with matching ATAC-seq and RNA-seq
+  series:
+  https://data.4dnucleome.org/browse/?dataset_label=HiChIP+on+human+cortical+neural+cells&experimentset_type=replicate&type=ExperimentSetReplicate
+  https://data.4dnucleome.org/browse/?dataset_label=ATAC-seq+on+human+cortical+neural+cells&experimentset_type=replicate&type=ExperimentSetReplicate
+  https://data.4dnucleome.org/browse/?dataset_label=RNA-seq+on+human+cortical+neural+cells&experimentset_type=replicate&type=ExperimentSetReplicate
+
 CTCF-AID mouse ESC records are useful only as optional positive-control
 perturbation data, not as disease evidence:
 
@@ -241,14 +264,36 @@ Optional positive-control task:
 
 ## DisMech Disease and Mechanism Exemplars
 
+### Diseases caused by a disrupted chromatin boundary
+
+These entries already curate a boundary deletion, duplication or inversion as
+the cause of the disease. Each records the boundary as
+`regulatory_element_type: TAD_BOUNDARY` on a variant's `functional_effects` or
+on an `affected_regions` entry, so `rg -l TAD_BOUNDARY kb/disorders` finds them
+and any added later. 4DN data cannot test the patient alleles here. What it can
+supply is wild-type contacts, CTCF binding and promoter-anchored loops in the
+cell type or developmental stage that each entry's own evidence comes from. The
+reference records are listed under *Practical Data Access* above; mouse records
+apply at the orthologous locus.
+
+| Disease | Curated chain | What the entry's evidence measured | 4DN reference data to pair with it |
+|---------|---------------|------------------------------------|-------------------------------------|
+| `Cooks_Syndrome` | `Boundary-Crossing Duplication at 17q24.3` → `Neo-TAD Formation and Ectopic KCNJ2 Enhancer Contact` → `Ectopic KCNJ2 Expression in Developing Digits` → `Apical Digit Malformation with Anonychia` | Neo-TAD contacts and Kcnj2 misexpression in a mouse duplication model (limb, E12.5 and E17.5). No human contact data. | Mouse E12.5 limb CTCF ChIP-seq and H3K4me3 PLAC-seq at the Sox9–Kcnj2 boundary, the stage at which the model was assayed. |
+| `IHH-Related_Polysyndactyly` | `Large Tandem Duplication Encompassing IHH and Adjacent Regulatory Sequence` → `Ectopic IHH Contacts with the EPHA4 Regulatory Domain` → `Proposed Ectopic IHH Expression in Embryonic Limb Mesenchyme` → `Abnormal Embryonic Digit Patterning` | Patient fibroblast 4C-seq, which could not resolve the two duplicated copies. Ectopic expression is shown only in the Dbf mouse deletion model (E10.5–E11.5), so the human expression step is marked as proposed. | HFFc6 Micro-C and CTCF CUT&Tag as a human fibroblast reference for the 4C viewpoint; mouse E12.5 limb CTCF ChIP-seq and PLAC-seq for the limb stage. |
+| `Preaxial_Digit_Brachydactyly-Webbed_Fingers` | `Deletion of the EPHA4-PAX3 Regulatory Boundary` → `Ectopic PAX3 Contacts with EPHA4 Limb Enhancers` → `Ectopic PAX3 Expression in the Distal Anterior Limb` → `Abnormal Preaxial Digit Morphogenesis` | Human fibroblast 4C and mouse limb assays (DelB heterozygotes, E11.5). The downstream cellular mechanism is unresolved. | The same pair as the IHH entry. Both entries turn on the EPHA4 regulatory domain, so one analysis of that locus serves both. |
+| `Adult-Onset_Autosomal_Dominant_Demyelinating_Leukodystrophy` | `Upstream LMNB1 Regulatory Deletion` → `Forebrain Enhancer Adoption` and `Loss of Oligodendrocyte-Specific LMNB1 Silencer Control` → `LMNB1 Overexpression`; separately `LMNB1 Inverted Duplication` → `Predicted LMNB1 Promoter-Silencer Contact Disruption` | The silencer was characterized in CRISPR-edited cells and mouse models. For the inverted duplication, loss of the promoter–silencer contact is an Orca prediction, not a measurement. | H3K4me3 HiChIP, ATAC-seq and RNA-seq from sorted human cortical oligodendrocytes/OPCs, the cell type the silencer acts in. H3K4me3 HiChIP only captures the contact if the LMNB1 promoter carries that mark in these cells; check this before relying on it. |
+| `Mesomelic_Dysplasia_Savarirayan_Type` | `6p22.3 Deletion` or `6p22.3 Inversion` → `Enhancer Adoption by ID4 in the Limb Bud` → `Lower-Limb Mesomelic Shortening` | Nothing measured. Enhancer adoption is a hypothesis from genomic position and POSTRE prediction; ID4 expression and contacts were not assayed. | Mouse E12.5 limb CTCF ChIP-seq and PLAC-seq: do the deleted or inverted intervals hold limb CTCF boundaries, and does the Id4 promoter contact limb enhancers? This entry has no contact data of any kind. |
+
+### Chromatin-regulator diseases and cancers
+
 | Disease | Current or candidate mechanism | How 4DN helps |
 |---------|--------------------------------|---------------|
-| `CTCF-related_Neurodevelopmental_Disorder` | Curated nodes: `CTCF Haploinsufficiency`, `Chromatin Architecture Disruption`, `Neurodevelopmental Gene Dysregulation`, `Abnormal Neural Progenitor Cell Development` | This is the cleanest 4DN/dismech pilot. 4DN contacts and insulation data can turn the existing CTCF mechanism into a measurable boundary-disruption model. |
+| `CTCF-related_Neurodevelopmental_Disorder` | Curated nodes: `CTCF Haploinsufficiency`, `Chromatin Architecture Disruption`, `Neurodevelopmental Gene Dysregulation`, `Abnormal Neural Progenitor Cell Development` | The first 4DN/dismech pilot. 4DN contacts and insulation data can turn the existing CTCF mechanism into a measurable boundary-disruption model. The entry's knowledge gap `gap_ctcf_pcdh_tad_human_npc` proposes H3K27ac HiChIP at the PCDH cluster in patient iPSC-derived cortical neural progenitors. |
 | `Facioscapulohumeral_Muscular_Dystrophy` | Curated nodes: `D4Z4 Epigenetic Derepression`, `DUX4 Misexpression in Skeletal Muscle`, `Progressive Myofiber Loss and Fatty Replacement` | Add nuclear organization and chromatin accessibility context around D4Z4 derepression and permissive 4qA haplotypes. |
 | `H3_K27_Altered_Diffuse_Midline_Glioma` | Curated nodes: `H3 K27M Oncohistone Mutation`, `PRC2 Complex Inhibition and H3K27me3 Loss`, `Epigenetic Derepression and Aberrant Gene Activation`, `Loss of Glial Differentiation` | 4DN can provide enhancer/compartment context for how global H3K27me3 loss creates tumor subtype-specific transcriptional programs. |
 | `Atypical_Teratoid_Rhabdoid_Tumor` | Curated nodes: `SMARCB1 or SMARCA4 Inactivation`, `SWI/SNF Chromatin Remodeling Defect`, `Subtype-Specific Enhancer Dysregulation` | Strong pediatric cancer use case: map SWI/SNF loss to enhancer rewiring and subgroup identity. |
-| `APL_PML_RARA` | Curated nodes: `PML-RARA Fusion Oncogene Formation`, `Transcriptional Repression of Differentiation Genes`, `PML Nuclear Body Disruption` | 4DN can add nuclear body and chromatin-loop context to the existing transcriptional repression and PML nuclear body mechanisms. |
-| `Medulloblastoma_WNT_Activated` | Curated nodes: `WNT/Beta-Catenin Pathway Activation`, `Nuclear Beta-Catenin Accumulation`, `WNT Target Gene Activation` | Candidate addition: enhancer-promoter and chromatin-state signatures that distinguish WNT tumors from SHH, Group 3, and Group 4 medulloblastoma. |
+| `APL_PML_RARA` | Curated nodes: `Somatic PML-RARA Fusion`, `PML-RARA Corepressor Recruitment`, `Repression of the Granulocytic Differentiation Program`, `PML Nuclear-Body Disassembly` | 4DN can add nuclear body and chromatin-loop context to the existing corepressor-recruitment and PML nuclear-body mechanisms. |
+| `Medulloblastoma_WNT_Activated` | Curated nodes: `CTNNB1 Exon 3 Activating Mutation in Lower Rhombic Lip Progenitors`, `APC Inactivation in Lower Rhombic Lip Progenitors`, `Nuclear Beta-Catenin Accumulation` | Candidate addition: the entry has no target-gene node between `Nuclear Beta-Catenin Accumulation` and tumor growth. Enhancer-promoter and chromatin-state signatures that distinguish WNT tumors from SHH, Group 3, and Group 4 medulloblastoma would sit there. |
 | Yet to curate: enhancer hijacking cancers | Candidate mechanisms: structural variant -> oncogene enhancer adoption -> transcriptional activation -> lineage-inappropriate proliferation | 4DN is a natural evidence source for looping-driven oncogene activation in cancers not yet represented as specific dismech entries. |
 
 ## High-Value Curation Work
