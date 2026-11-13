@@ -220,6 +220,37 @@ the node file carries both. This is the same first-section-wins behaviour that
 already gives some CHEBI ids both `ChemicalEntity` and `MolecularEntity`, and is
 not specific to the new sections.
 
+## Gene edges follow `relationship_type` (#12320)
+
+A `genetic[]` record's predicate comes from its `relationship_type`, not from a
+single hardcoded value:
+
+| `relationship_type` | Association class | Predicate |
+|---|---|---|
+| `CAUSATIVE`, `SOMATIC_DRIVER`, `COOPERATING`, or absent | `GeneToDiseaseAssociation` | `biolink:contributes_to` |
+| `MODIFIER` | `GeneToDiseaseAssociation` | `biolink:affects` |
+| `UNKNOWN` | `GeneToDiseaseAssociation` | `biolink:associated_with` |
+| `RISK_FACTOR`, `SUSCEPTIBILITY` | `Association` | `biolink:associated_with_increased_likelihood_of` |
+| `PROTECTIVE` | `Association` | `biolink:associated_with_decreased_likelihood_of` |
+| `BIOMARKER` | `CorrelatedGeneToDiseaseAssociation` | `biolink:biomarker_for` |
+| `DISPUTED`, `REFUTED` | no edge (#16952) | |
+
+The class changes with the predicate because Biolink 4.4 limits
+`GeneToDiseaseAssociation` to `contributes_to`, `associated_with` and `affects`.
+The two likelihood predicates are the strings the exposure exporter already
+emits for a polarised exposure, so a protective gene and a protective exposure
+read the same way. `test_every_relationship_type_in_the_schema_is_handled` fails
+when a value is added to `GeneDiseaseRelationshipEnum` without a decision here.
+
+## Subtype-scoped items (#12316)
+
+Every `has_subtypes[]` row with a bound `subtype_term` becomes a
+`biolink:Disease` node, linked to the entry's own `disease_term` by
+`biolink:subclass_of`. A `genetic[]`, `phenotypes[]`, `biochemical[]` or
+`histopathology[]` item whose `subtype:` key names such a row is exported
+against the subtype's term rather than the parent's. An item keyed to a subtype
+with no bound term, or carrying no `subtype:` key, stays on the parent.
+
 ## What is not exported
 
 - `cellular_components[].modifier` — `cellular_component_to_edge` never reads
@@ -234,6 +265,11 @@ not specific to the new sections.
   HTML card only.
 - `diagnosis[].measurements` (LOINC). Only the NCIT `diagnosis_term` is exported.
 - `datasets[].findings`. A dataset exports as one node and one edge.
+- An entry with no `disease_term` exports no edges at all. Neither does a
+  `skos:exactMatch` term in `mappings.mondo_mappings`: edges are anchored on
+  `disease_term` and its subtypes only.
+- The `subtype:` key on `imaging_findings[]`, `prevalence[]` and `progression[]`.
+  Those sections have no KGX edges to route.
 - A causal `target` that resolves to nothing (`just check-causal-targets`), or
   to a phenotype with no bound term. The edge is skipped; it is never given an
   invented id. Its SEPIO statement is still written, so these are the sidecar
