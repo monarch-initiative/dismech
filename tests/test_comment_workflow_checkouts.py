@@ -3,8 +3,9 @@
 ``check-mention`` (dragon-ai.yml) and ``guard-comment``
 (untrusted-comment-guard.yml) start on every issue, PR, comment and review
 comment. Each reads a few files under ``.github/`` and decides in under a
-second, but a full checkout of this repository took about 3.7 minutes, which
-at ~1,500 runs a day held org-wide runner slots for ~98 hours a day.
+second. Before these checkouts were made sparse, each job did a full checkout
+of this repository that took about 3.7 minutes, which at ~1,500 runs a day
+held org-wide runner slots for ~98 hours a day.
 
 A sparse checkout is only safe while everything those jobs read lives under
 ``.github/``. These tests pin both halves: the checkout stays sparse, and the
