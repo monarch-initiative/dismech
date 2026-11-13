@@ -463,6 +463,71 @@ confound and the endpoint-dissociated recovery.
 not from any `kb/` entry. It is kept deliberately, so the abstract stays
 checkable — do not read its absence from `kb/` as uncited and prune it.
 
+### PMID:38029955 — particulate matter on three co-culture architectures: registry only, no dismech anchor
+
+Guerra-Flórez et al. 2023, *Toxicology* 500:153685
+([#16872](https://github.com/monarch-initiative/dismech/issues/16872)).
+Fine and coarse particulate matter captured over Medellín, Colombia, applied to
+monolayers of A549 (lung), HEK001 (skin) and SIRC (cornea), and to three two-layer
+co-cultures built on Transwell inserts over a BALB/3T3 fibroblast feeder, in
+in-contact and non-contact configurations.
+
+**No dismech record.** The full text was not retrievable in the curation
+environment — the paper is `cc by-nc-nd` but sits behind Elsevier, is not in PMC or
+Europe PMC, and the publisher's text-mining API is outside the session's allowed
+hosts — so every statement below is quoted from the abstract. The disposition does
+not depend on the full text, and the issue itself expected it: the paper carries no
+mechanism for a `modeled_mechanisms` link to attach to.
+
+The only cellular endpoint is apical death. The abstract measures the co-culture
+constructs with one assay — "Monolayer and co-culture models were exposed to coarse
+and fine PM (1, 2, and 5 mg/mL) and the cell viability was evaluated at 24 h using
+an MTT assay." The SEM-EDS and GC/LC-MS work characterises the particles (morphology,
+elemental composition, polycyclic aromatic hydrocarbon content), not the cells. MTT
+viability is an apical toxicity label, not a directional mechanism node, so it is the
+same obstacle the MEA assays (PMID:38788893) hit: the method is real but asserts no
+mechanism. The paper is explicit that its mechanistic content is a proposal rather
+than a measurement — its stated aim is to "propose the possible cellular interactions
+that lead the cytotoxic response", and it proposes interactions it does not assay.
+
+Its three findings are properties of the test systems, not of a disease:
+
+- a particle-size effect — "models exposed to fine PM exhibited a significant
+  reduction in cell viability compared to those exposed to coarse PM";
+- architecture as a determinant of resistance — "multilayer models are more resistant
+  to PM exposure than monolayer models";
+- a seeding-configuration effect — "the non-contact model showed higher resistance to
+  PM exposure than in-contact for SIRC and HEK001, but A549 monolayers showed the
+  highest viability response".
+
+None of these has a dismech expression. The in-contact-versus-non-contact difference
+is a property of how the construct is assembled; it is registry content, and the open
+question it raises is already filed.
+
+The anchor end is empty as well. There is no ambient-PM or air-pollution exposure
+entry in `kb/` — bisphenol-style, PM appears only inside disease entries
+(`Asthma`, `Chronic_Obstructive_Pulmonary_Disease`, the pneumoconioses) that are not
+this cytotoxicity screen. The airway-irritant module gap this paper's lung arm
+contributed to ([#16877](https://github.com/monarch-initiative/dismech/issues/16877))
+is now closed — `inhaled_irritant_airway_injury` exists — but a module existing does
+not create a link: the module models oxidative and electrophilic epithelial injury,
+and MTT death at 24 h measures none of its nodes. Linking A549 cytotoxicity to it
+would assert a mechanism the paper never read out.
+
+The registry disposition is per-construct rows recording each layer's species
+composition and the configuration effect, as the issue asks. That is
+[nams-registry](https://github.com/monarch-initiative/nams-registry) work, not
+dismech, and it is where the mixed-species construct lives: A549 and HEK001 are human,
+SIRC is a rabbit corneal line and BALB/3T3 a mouse feeder, so the ocular arm is not a
+human model and every arm's feeder is non-human. A single `fidelity` tier and
+`model_scale` cannot say which layer diverges, which is
+[#16889](https://github.com/monarch-initiative/dismech/issues/16889) — a registry
+concern here, since no dismech link is being written for it to apply to.
+
+`references_cache/PMID_38029955.md` is committed and is cited only from this page,
+not from any `kb/` entry. It is kept deliberately, so the quoted sentences above stay
+checkable — do not read its absence from `kb/` as uncited and prune it.
+
 ## Gaps and questions the screen raised
 
 Mined out of the batch and filed separately, so they are not lost inside a
