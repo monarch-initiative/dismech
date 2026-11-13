@@ -482,9 +482,10 @@ they fail the link at different ends.
 **1. The paper is a negative result for the mechanism-based approach.** Its
 conclusion, from the abstract, is that PFOS *"fulfils the criteria for ED
 classification in the standard ED assessment, but not in the mechanism-based
-assessment"*, and that the gap is quantitative information — the mechanism-based
-route needs quantitative AOPs, which do not exist. That is a finding about the
-method, not about PFOS. A dismech causal edge asserting a PFOS thyroid→DNT
+assessment"*, and that the gap is quantitative information: the abstract records
+that *"the need for quantitative information, such as quantitative AOPs, for the
+mechanism-based approach is discussed"*. That the mechanism-based assessment fell
+short is a finding about the method, not about PFOS. A dismech causal edge asserting a PFOS thyroid→DNT
 mechanism, cited to this paper, would assert exactly what the paper declined to
 conclude. The directly-neurotoxic alternative mode of action is weaker still —
 the authors raise it *"based on available in vitro data"* as an explicit
@@ -560,10 +561,10 @@ found in a primary research paper — and additionally the prior question of whe
 a WoE assessment methodology is a NAM the registry catalogues at all. Both are
 registry questions, not screen questions.
 
-**Quantitative AOPs, as an inventory-level limitation.** The paper's actual
-conclusion — mechanism-based ED identification needs quantitative AOPs and they do
-not exist — is recorded as a general caveat on AOP-derived dismech content in
-[open-questions.md §10](NAMS_SPECIAL_ISSUE/open-questions.md), next to the qAOP
+**Quantitative AOPs, as an inventory-level limitation.** The paper's point — that
+mechanism-based ED identification needs quantitative information such as
+quantitative AOPs — is recorded as a general caveat on AOP-derived dismech content
+in [open-questions.md §10](NAMS_SPECIAL_ISSUE/open-questions.md), next to the qAOP
 thread already open in [`AOP_EMOD_ALIGNMENT`](AOP_EMOD_ALIGNMENT.md). It is not
 specific to this paper.
 
@@ -589,6 +590,6 @@ per-paper issue:
 | Schema gap | Toxicant susceptibility varying by host genotype | [#16884](https://github.com/monarch-initiative/dismech/issues/16884) |
 | Schema gap | Synergy between two exposures | [#16885](https://github.com/monarch-initiative/dismech/issues/16885) |
 | Schema gap | Reversibility of a toxic injury; PMID:38211720 shows recovery can be endpoint-dissociated, so it has to be per-endpoint | [#16886](https://github.com/monarch-initiative/dismech/issues/16886) |
-| Convention | AOP-derived edges are qualitative; a mechanism-based call needs quantitative AOPs, which do not exist (raised by PMID:38580097) — [open-questions §10](NAMS_SPECIAL_ISSUE/open-questions.md) | Not filed |
+| Convention | AOP-derived edges are qualitative; a mechanism-based call needs quantitative AOP information the qualitative framework does not provide (raised by PMID:38580097) — [open-questions §10](NAMS_SPECIAL_ISSUE/open-questions.md) | Not filed |
 | Module gap | Bisphenol, or endocrine-disruptor, neurotoxicity (blocks every dismech record for PMID:38211720; a module would need a mechanism chain that paper does not supply) | Not filed |
 | Schema gap | An immortalised tumour line standing in for a primary cell type: `ModelDivergenceTypeEnum` has no value for a cell-identity substitution (raised by PMID:38211720) | Not filed |

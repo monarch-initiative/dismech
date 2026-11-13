@@ -176,18 +176,22 @@ lose the interaction, which is the paper's actual finding.
 
 Raised by the PFOS paper (PMID:38580097, dismech#16870), but not specific to it.
 
-That paper's conclusion is a negative result for the mechanism-based route: PFOS meets
-the ED criteria under the standard guidance-based assessment but **not** under the
-AOP/NAM mechanism-based assessment, and the reason is that the latter needs *quantitative*
-AOPs — key-event relationships described quantitatively enough to carry a hazard call —
-and they do not exist for this network. A qualitative AOP says A leads to B; it does not
-say how much of A produces how much of B, or whether a given exposure reaches the
-threshold.
+That paper's result is a negative one for the mechanism-based route: PFOS meets the ED
+criteria under the standard guidance-based assessment but **not** under the AOP/NAM
+mechanism-based assessment, and the authors discuss the need for *quantitative* AOPs —
+key-event relationships described quantitatively enough to carry a hazard call — for that
+route. Whether the qualitative thyroid→DNT KERs the paper used actually lack quantitative
+understanding is a checkable claim, not an asserted one: the AOP-Wiki KER
+`quantitative-understanding` fields answer it (the `aop-wiki` skill), and the full text
+that would name the exact AOP set the paper assembled was not reachable in this
+environment, so it is left unchecked here rather than stated. A qualitative AOP says A
+leads to B; it does not say how much of A produces how much of B, or whether a given
+exposure reaches the threshold.
 
 dismech's causal edges are qualitative by construction: a `downstream` or
 `influences_mechanisms` link asserts direction and, through `hypothesis_groups` and
 evidence grading, strength of belief — but not a dose-response. So any dismech content
-derived from an AOP inherits exactly the limitation this paper names. An edge mapped from
+derived from an AOP inherits exactly the limitation this paper raises. An edge mapped from
 a qualitative AOP is a statement that the path is *plausible and supported*, never that a
 particular exposure *does* traverse it at a relevant dose.
 
