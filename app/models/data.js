@@ -742,6 +742,88 @@ window.searchData = [
     "source_file": "kb/disorders/Osteoporosis.yaml"
   },
   {
+    "model_key": "Neuroblastoma--computational-model-boolean-implication-network-of-neuroblastoma-differentiation--3",
+    "name": "Boolean implication network of neuroblastoma differentiation",
+    "description": "A network built from asymmetric as well as symmetric gene-expression relationships across neuroblastoma datasets, yielding interconnected gene clusters whose combined signature tracks differentiation state.",
+    "model_type": "Boolean Network",
+    "model_type_raw": "BOOLEAN_NETWORK",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:36680522",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Neuroblastoma",
+    "disease_id": "MONDO:0005072",
+    "category": "",
+    "parents": [
+      "neuroblastic tumor"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Neural Crest Developmental Arrest"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "The paper's supporting expression data are not recorded in this entry's datasets section; that is a separate curation step.",
+    "creation_date": "2026-01-26T02:55:13Z",
+    "page_url": "../../pages/disorders/Neuroblastoma.html#computational-model-boolean-implication-network-of-neuroblastoma-differentiation",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Neuroblastoma.yaml"
+  },
+  {
+    "model_key": "Neuroblastoma--computational-model-boolean-model-of-the-aurka-regulatory-network-in-neuroblastoma--2",
+    "name": "Boolean model of the AURKA regulatory network in neuroblastoma",
+    "description": "A dynamic Boolean model of the gene regulatory network controlling Aurora A protein level and activation through mitosis, used to ask what could account for Aurora A overexpression in neuroblastoma. Simulated Greatwall/MASTL activation predicted Aurora A stabilisation, which the authors then checked against patient expression data.",
+    "model_type": "Boolean Network",
+    "model_type_raw": "BOOLEAN_NETWORK",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:26616283",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Neuroblastoma",
+    "disease_id": "MONDO:0005072",
+    "category": "",
+    "parents": [
+      "neuroblastic tumor"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Aurora A-Mediated N-Myc Protein Stabilization"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "Not deposited in BioModels under a searchable accession at the time this record was written, so no model_id is given. This model is the computational side of the open question recorded in this entry's HUMAN_MODEL_MISMATCH discussion on Aurora A: it predicts why Aurora A is high, not why inhibiting it helps MYCN-amplified tumours least.",
+    "creation_date": "2026-01-26T02:55:13Z",
+    "page_url": "../../pages/disorders/Neuroblastoma.html#computational-model-boolean-model-of-the-aurka-regulatory-network-in-neuroblastoma",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Neuroblastoma.yaml"
+  },
+  {
     "model_key": "Fanconi_Anemia--computational-model-boolean-network-model-of-fa-brca-pathway--0",
     "name": "Boolean Network Model of FA/BRCA Pathway",
     "description": "A Boolean network model incorporating the FA/BRCA DNA repair pathway, checkpoint proteins, and alternative DNA repair pathways. Simulates ICL repair, checkpoint activation, and predicts which alternative repair pathways become active when the FA/BRCA pathway is defective. The largest network model incorporating a DNA repair pathway at time of publication.",
@@ -1092,6 +1174,47 @@ window.searchData = [
     "page_url": "../../pages/disorders/Heart_Failure.html#computational-model-circadapt-virtual-pacing-crt-response-twin",
     "model_page_url": "",
     "source_file": "kb/disorders/Heart_Failure.yaml"
+  },
+  {
+    "model_key": "Neuroblastoma--computational-model-clonal-evolution-model-of-induction-chemotherapy-in-neuroblastoma--4",
+    "name": "Clonal-evolution model of induction chemotherapy in neuroblastoma",
+    "description": "Ordinary differential equations for clonal evolution inside a neuroblastoma tumour under vincristine and cyclophosphamide, carrying both genetically conferred and phenotypic resistance alongside the two agents' pharmacokinetics, with an optimiser over dosing schedules.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:37046647",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Neuroblastoma",
+    "disease_id": "MONDO:0005072",
+    "category": "",
+    "parents": [
+      "neuroblastic tumor"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Therapy-Resistant Relapse"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "Recorded for its resistance mechanism. The optimised schedules it proposes are not curated as a treatment in this entry.",
+    "creation_date": "2026-01-26T02:55:13Z",
+    "page_url": "../../pages/disorders/Neuroblastoma.html#computational-model-clonal-evolution-model-of-induction-chemotherapy-in-neuroblastoma",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Neuroblastoma.yaml"
   },
   {
     "model_key": "Atrial_Fibrillation--computational-model-courtemanche-ramirez-nattel-human-atrial-action-potential-model--0",
@@ -2415,6 +2538,47 @@ window.searchData = [
     "page_url": "../../pages/modules/inflammaging.html#computational-model-lewkiewicz2019-naive-t-cell-population-and-diversity-aging-model",
     "model_page_url": "",
     "source_file": "kb/modules/inflammaging.yaml"
+  },
+  {
+    "model_key": "Neuroblastoma--computational-model-lombardo2018-expression-of-pdl1-in-neuroblastoma-cancer-cell--0",
+    "name": "Lombardo2018 - Expression of PDL1 in Neuroblastoma Cancer Cell",
+    "description": "An ordinary-differential-equation network of intracellular protein kinase cascades in neuroblastoma, with Michaelis-Menten kinetics on each reaction, built to ask how signalling state sets tumour-cell PD-L1 expression. Recorded here for its network structure only.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "SBML",
+    "model_software": "COPASI",
+    "base_model": "",
+    "model_id": "MODEL1812070002",
+    "repository_url": "https://www.ebi.ac.uk/biomodels/MODEL1812070002",
+    "repository_host": "BioModels",
+    "publication": "PMID:31480495",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Neuroblastoma",
+    "disease_id": "MONDO:0005072",
+    "category": "",
+    "parents": [
+      "neuroblastic tumor"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "RAS-MAPK Pathway Hyperactivation"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "Curation status read from BioModels when this record was written: Non-curated, SBML. The paper's second arm, which simulates PD-L1 modulation under kinase inhibitors, is deliberately not recorded here; only the network structure and its parameterisation are. No treatment record in this entry cites this model.",
+    "creation_date": "2026-01-26T02:55:13Z",
+    "page_url": "../../pages/disorders/Neuroblastoma.html#computational-model-lombardo2018-expression-of-pdl1-in-neuroblastoma-cancer-cell",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Neuroblastoma.yaml"
   },
   {
     "model_key": "Sickle_Cell_Disease--computational-model-lu-stochastic-kinetic-model-of-hbs-polymerization-and-erythrocyte-sickling--1",
@@ -5281,6 +5445,47 @@ window.searchData = [
     "source_file": "kb/disorders/Noonan_Syndrome.yaml"
   },
   {
+    "model_key": "Neuroblastoma--computational-model-simon2025-neuroblastoma-energy-metabolism--1",
+    "name": "Simon2025 - Neuroblastoma energy metabolism",
+    "description": "An ordinary-differential-equation model of energy metabolism in neuroblastoma cells, built on the authors' own measurements, used to separate the contributions of individual MYCN target enzymes to glycolytic flux.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "SBML",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "MODEL2502190001",
+    "repository_url": "https://www.ebi.ac.uk/biomodels/MODEL2502190001",
+    "repository_host": "BioModels",
+    "publication": "PMID:40993267",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Neuroblastoma",
+    "disease_id": "MONDO:0005072",
+    "category": "",
+    "parents": [
+      "neuroblastic tumor"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "MYCN-Driven Proliferation"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "Curation status read from BioModels when this record was written: Non-curated, SBML, recorded there as an ordinary differential equation model.",
+    "creation_date": "2026-01-26T02:55:13Z",
+    "page_url": "../../pages/disorders/Neuroblastoma.html#computational-model-simon2025-neuroblastoma-energy-metabolism",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Neuroblastoma.yaml"
+  },
+  {
     "model_key": "Mitochondrial_Dysfunction_Module--computational-model-sizek2023-midas-boolean-model--2",
     "name": "Sizek2023 MiDAS Boolean Model",
     "description": "Boolean regulatory network model of mitochondrial dynamics coupled to cell-cycle control and apoptosis, capturing hyper-fusion at the G1/S boundary and fission in mitosis. It offers a mechanistic hypothesis, with testable predictions, for Mitochondrial Dysfunction-Associated Senescence (MiDAS) - the state in which reactive oxygen species and an energy deficit push a cell into senescence with an altered secretome and chronic oxidative stress, and examines NAD+ as an intervention point.",
@@ -6019,6 +6224,47 @@ window.searchData = [
     "page_url": "../../pages/disorders/Glioblastoma,_IDH-Wildtype.html#computational-model-tumortwin-high-grade-glioma-digital-twin",
     "model_page_url": "",
     "source_file": "kb/disorders/Glioblastoma_IDH_Wildtype.yaml"
+  },
+  {
+    "model_key": "Neuroblastoma--computational-model-two-time-point-kinetic-model-for-131i-mibg-dosimetry--5",
+    "name": "Two-time-point kinetic model for 131I-MIBG dosimetry",
+    "description": "A kinetic model that reconstructs tumour and organ time-activity curves, and from them time-integrated activity, using only two imaging time points instead of the three or more that conventional imaging-based dosimetry needs; validated against 124I-MIBG PET data.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:41854810",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Neuroblastoma",
+    "disease_id": "MONDO:0005072",
+    "category": "",
+    "parents": [
+      "neuroblastic tumor"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Norepinephrine Transporter (NET/SLC6A2) Expression"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "Recorded as a measurement method for MIBG handling. It is not evidence about any therapeutic effect of 131I-MIBG, and no treatment record in this entry cites it.",
+    "creation_date": "2026-01-26T02:55:13Z",
+    "page_url": "../../pages/disorders/Neuroblastoma.html#computational-model-two-time-point-kinetic-model-for-131i-mibg-dosimetry",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Neuroblastoma.yaml"
   },
   {
     "model_key": "COVID-19--computational-model-type-1-interferon-signalling-boolean-model--1",
@@ -7081,10 +7327,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 145,
-  "total_source_entries": 65,
+  "total_models": 151,
+  "total_source_entries": 66,
   "total_model_types": 11,
   "total_runnable": 4,
-  "total_with_repository": 56
+  "total_with_repository": 58
 };
 window.dispatchEvent(new Event('searchDataReady'));
