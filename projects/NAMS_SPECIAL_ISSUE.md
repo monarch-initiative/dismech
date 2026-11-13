@@ -468,6 +468,116 @@ confound and the endpoint-dissociated recovery.
 not from any `kb/` entry. It is kept deliberately, so the abstract stays
 checkable — do not read its absence from `kb/` as uncited and prune it.
 
+### PMID:38580097 — the PFOS thyroid–DNT AOP network: registry only, no dismech edges
+
+Wiklund, Pípal, Weiss and Beronius 2024, *Toxicology* 504:153794
+([#16870](https://github.com/monarch-initiative/dismech/issues/16870)). An AOP
+network for the thyroid modality, with the sub-paths leading to developmental
+neurotoxicity (DNT) identified within it; an AOPN-driven systematic-review and
+Weight-of-Evidence (WoE) assessment mapping existing in vitro and in vivo PFOS
+data back onto that network; and a comparison of this mechanism-based endocrine-
+disruptor (ED) identification against a standard guidance-based ED assessment.
+
+This is the one paper in the batch whose *product* is a mechanism map rather than
+an assay readout, which is why the issue hoped for two `mechanistic_hypotheses`
+groups — a thyroid-mediated path and a directly-neurotoxic alternative path — out
+of it. It yields neither, and the two reasons are worth keeping separate because
+they fail the link at different ends.
+
+**1. The paper is a negative result for the mechanism-based approach.** Its
+conclusion, from the abstract, is that PFOS *"fulfils the criteria for ED
+classification in the standard ED assessment, but not in the mechanism-based
+assessment"*, and that the authors discuss the need for quantitative information:
+the abstract records that *"the need for quantitative information, such as
+quantitative AOPs, for the mechanism-based approach is discussed"*. That the
+mechanism-based assessment fell short is a finding about the method, not about
+PFOS. A dismech causal edge asserting a PFOS thyroid→DNT
+mechanism, cited to this paper, would assert exactly what the paper declined to
+conclude. The directly-neurotoxic alternative mode of action is weaker still —
+the authors raise it *"based on available in vitro data"* as an explicit
+alternative, not a confirmed path. So even with an anchor, the strongest honest
+dismech content this paper supports is a `KNOWLEDGE_GAP` discussion, not a graded
+causal edge. **If any future dismech content cites this PMID, it must not be cited
+as establishing that PFOS is an endocrine disruptor or that the thyroid→DNT link
+is operative for PFOS.**
+
+**2. There is no anchor to attach to, in either arm.** Verified against `main`:
+
+- **No PFOS entry.** There is no perfluorooctane-sulfonate disease or exposure
+  entry anywhere in `kb/`. (The `perfluoro*` hits are `perfluorocarbon`, an
+  unrelated oxygen carrier in `High_Altitude_Pulmonary_Edema`; a PFAS→GDM exposure
+  *association* snippet in `Gestational_Diabetes_Mellitus`, which is not this
+  mechanism; and `pFAS` = partial fetal alcohol syndrome in
+  `Fetal_Alcohol_Spectrum_Disorder`, an acronym collision.) A `modeled_mechanisms`
+  or `influences_mechanisms` target is a bare name resolved inside the entry that
+  declares it, so there is no entry for either hypothesis group to live in.
+- **No DNT outcome module.** `kb/modules/` has no developmental-neurotoxicity
+  module; `epigenetic_machinery_neurodevelopmental_dysregulation` is a different
+  concept. The gap is tracked at
+  [#16880](https://github.com/monarch-initiative/dismech/issues/16880), and this
+  paper's thyroid arm is one of its consumers — the other being the MEA network
+  formation assay in [#16869](https://github.com/monarch-initiative/dismech/issues/16869).
+  Those two should agree on one DNT node name and scale before either builds it.
+- **The thyroid module stops short of the brain.**
+  `hypothyroidism_thyroid_hormone_deficiency` runs Impaired Thyroid Hormone
+  Synthesis → Thyroid Hormone Insufficiency → Reduced Thyroid Hormone Action at
+  Peripheral Sites → Decreased Metabolic Rate → Systemic Hypometabolic State. Its
+  terminal node is systemic hypometabolism; nothing in it reaches thyroid-hormone
+  action in the developing brain. The thyroid arm of this AOP network would need a
+  new downstream node (most naturally in a DNT module, not in the hypometabolism
+  module whose scope is adult peripheral hypothyroidism).
+
+A DNT module should be built from the broad, independently-established thyroid→
+brain-development AOP literature under #16880, not sourced from this single
+negative-result PFOS paper — building it here, citing this paper, is precisely the
+misuse reason 1 warns against. So the thyroid→DNT AOP network is left unmapped,
+and no thyroid→DNT AOP content exists elsewhere in the repo today
+(`AOP_EMOD_ALIGNMENT`, `TDAR_AOP` and the parkinsonism crosswalk cover lead,
+immunotoxicology and parkinsonism respectively; none touches the thyroid modality,
+so the issue's suggestion that this network may already be partly mapped is not
+borne out).
+
+**The record is abstract-only.** The full text carries the per-KER WoE grades the
+issue's deliverable 1 asked for, but it was not retrievable in the curation
+environment: the paper is Elsevier/ScienceDirect, is **not** in PMC and is marked
+non-open-access by Europe PMC, and `doi.org`/`sciencedirect.com` are outside the
+session's allowed network. So no path could have been graded here even if there
+were an anchor. A companion open-access methods paper from the same group
+(*Front. Toxicol.* 5:1183824, 2023, which describes the thyroid AOP-network generation
+and ships an R script) and the first author's doctoral thesis are the reachable
+sources for the network structure, should a DNT module under #16880 want them;
+they are not this PMID and do not carry its PFOS-specific WoE.
+
+**The method goes to the registry, but its shape is undecided.** The AOPN-driven
+systematic-review-plus-WoE assessment is a regulatory ED-identification
+*methodology*, not an assay or a model system, so it does not slot cleanly into a
+NAMO model class the way the MEA and ReproTracker records above do — this is the
+"registry shape still undecided" flagged in the issue's repo-check comment. It is
+proposed as a registry entry rather than drafted as a validated `NAMRecord`:
+
+| Proposed registry subject | Kind | Status |
+|---|---|---|
+| AOP-network-driven systematic review + WoE for mechanism-based ED identification | assessment methodology (not an assay/model) | proposal — shape undecided, see below |
+
+Opening the nams-registry PR is out of this screen's scope (that repository is not
+in this session's GitHub access, and the record needs validation against NAMO,
+which has no obvious class for an assessment workflow). It raises the same
+`source_resources` blocker the MEA and ReproTracker drafts hit — the method was
+found in a primary research paper — and additionally the prior question of whether
+a WoE assessment methodology is a NAM the registry catalogues at all. Both are
+registry questions, not screen questions.
+
+**Quantitative AOPs, as an inventory-level limitation.** The paper's point — that
+mechanism-based ED identification needs quantitative information such as
+quantitative AOPs — is recorded as a general caveat on AOP-derived dismech content
+in [open-questions.md §10](NAMS_SPECIAL_ISSUE/open-questions.md), next to the qAOP
+thread already open in [`AOP_EMOD_ALIGNMENT`](AOP_EMOD_ALIGNMENT.md). It is not
+specific to this paper.
+
+`references_cache/PMID_38580097.md` is committed and is cited only from this page,
+not from any `kb/` entry. It is kept deliberately, so the abstract stays
+checkable — do not read its absence from `kb/` as uncited and prune it.
+
 ### PMID:38614204 — glo heated-tobacco battery: registry only, and the Nrf2 anchor is deferred to full text
 
 Keyser et al. 2024, *Toxicology* 504:153801 ([#16873](https://github.com/monarch-initiative/dismech/issues/16873)).
@@ -670,5 +780,6 @@ per-paper issue:
 | Schema gap | Toxicant susceptibility varying by host genotype | [#16884](https://github.com/monarch-initiative/dismech/issues/16884) |
 | Schema gap | Synergy between two exposures | [#16885](https://github.com/monarch-initiative/dismech/issues/16885) |
 | Schema gap | Reversibility of a toxic injury; PMID:38211720 shows recovery can be endpoint-dissociated, so it has to be per-endpoint | [#16886](https://github.com/monarch-initiative/dismech/issues/16886) |
+| Convention | AOP-derived edges are qualitative; a mechanism-based call needs quantitative AOP information the qualitative framework does not provide (raised by PMID:38580097) — [open-questions §10](NAMS_SPECIAL_ISSUE/open-questions.md) | Not filed |
 | Module gap | Bisphenol, or endocrine-disruptor, neurotoxicity (blocks every dismech record for PMID:38211720; a module would need a mechanism chain that paper does not supply) | Not filed |
 | Schema gap | An immortalised tumour line standing in for a primary cell type: `ModelDivergenceTypeEnum` has no value for a cell-identity substitution (raised by PMID:38211720) | Not filed |
