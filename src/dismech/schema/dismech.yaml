@@ -2899,8 +2899,45 @@ enums:
         description: >-
           A co-intervention received alongside the treatment (for example protein
           supplementation alongside exercise, or a second drug).
+      DISEASE_SUBTYPE:
+        description: >-
+          A subtype of the disease declared in the entry's own has_subtypes list,
+          named in stratum_subtype. Use this when the stratum is a curated subtype
+          (including a data-driven cluster) rather than a raw patient
+          characteristic; a single-gene subtype may equally be recorded as GENOTYPE.
       OTHER:
         description: Any other characteristic; describe it in stratum and description.
+  SubtypeBoundaryEnum:
+    description: >-
+      How the boundary between a subtype and its sibling subtypes was drawn. Used on
+      SubtypeDerivation.boundary_type. The value says what kind of claim a subtype
+      row makes: a CATEGORICAL subtype is a discrete kind, a STATISTICAL_PARTITION
+      subtype is a region of a continuous phenotype space whose edges depend on the
+      cohort and the algorithm.
+    permissible_values:
+      CATEGORICAL:
+        description: >-
+          Membership follows from a discrete, independently observable property
+          (a causal gene or variant class, an infecting serotype, a histological
+          type). Two cohorts assign the same patient the same subtype.
+      CRITERIA_BASED:
+        description: >-
+          Membership is assigned by an expert-defined rule set combining several
+          features (a consensus classification or diagnostic criteria), not by
+          fitting a model to data.
+      THRESHOLD:
+        description: >-
+          Membership is set by a cut-off on one continuous measure (an age-of-onset
+          boundary, a biomarker level). The underlying measure is continuous; the
+          boundary is a convention.
+      STATISTICAL_PARTITION:
+        description: >-
+          Membership is assigned by an unsupervised or data-driven partition of a
+          multivariate feature space (k-means, hierarchical, latent-class or soft
+          clustering). The subtype is a region of a continuum rather than a natural
+          kind: boundaries, proportions and even the number of clusters can shift
+          between cohorts and algorithms, and patients near a boundary may be
+          reassigned on re-measurement.
   EffectModificationDirectionEnum:
     description: >-
       How the treatment's effect in the named stratum compares with its effect in the
@@ -5793,6 +5830,60 @@ slots:
       The subgroup the stratum is compared with (for example "men"). Omit only when
       the comparison is to the whole trial population.
     range: string
+  stratum_subtype:
+    description: >-
+      The has_subtypes[].name of the subtype this effect modifier's stratum is,
+      when the stratum is a curated subtype of this disease. A foreign key, checked
+      by check_subtype_foreign_keys. Keep the source's own wording in stratum;
+      this slot is what makes the modifier queryable by subtype.
+    range: string
+  comparator_subtype:
+    description: >-
+      The has_subtypes[].name of the comparator subtype, when the comparator is a
+      single curated subtype. Omit when the comparator is the remaining subtypes
+      together or the whole population, and say so in comparator_stratum.
+    range: string
+  derivation:
+    description: >-
+      How this subtype's boundary with its siblings was drawn, and from what data.
+      Recommended for any subtype that is not a discrete kind; required in practice
+      for a data-driven cluster, so that a reader does not take a statistical region
+      for a natural category.
+    range: SubtypeDerivation
+    inlined: true
+  boundary_type:
+    description: The kind of boundary that separates this subtype from its siblings.
+    range: SubtypeBoundaryEnum
+  partition_method:
+    description: >-
+      The algorithm that drew the boundary, as the source names it (for example
+      "k-means and hierarchical clustering, sex-stratified"). Applies to
+      STATISTICAL_PARTITION and THRESHOLD; omit for CATEGORICAL.
+    range: string
+  partition_features:
+    description: >-
+      The variables the partition was computed over, one per value, in the source's
+      terms (for example "BMI", "HOMA2-IR"). A cluster is only defined relative to
+      these; a different feature set gives different clusters.
+    multivalued: true
+    range: string
+  derivation_population:
+    description: >-
+      The cohort in which the partition was first derived, with size where reported
+      (for example "ANDIS, 8,980 newly diagnosed adults, Sweden"). Replication
+      cohorts belong in evidence, not here.
+    range: string
+  cluster_data:
+    description: >-
+      Entity references to the data the partition was computed from or can be
+      reproduced with, in the `<kind>#<name>` grammar: a `datasets#<accession>`
+      record in this entry (patient-level or summary data in a repository), or a
+      `computational_models#<name>` record (a published centroid set or assignment
+      model). Every value must resolve; gated by check-entity-refs. Leave absent,
+      and say why in notes, when no accessible record exists: a publication
+      describing the clusters belongs in evidence, not here.
+    multivalued: true
+    range: string
   modified_outcome:
     description: >-
       The outcome on which the effect differs (for example "handgrip strength",
@@ -7814,6 +7905,39 @@ classes:
       - genes
       - subtype_frequency
       - inheritance
+      - derivation
+  SubtypeDerivation:
+    description: >-
+      How a subtype's boundary with its sibling subtypes was drawn: whether the
+      subtype is a discrete kind or a region of a continuous phenotype space, and if
+      the latter, by what method, over which features, in which cohort, and from
+      which data. Exists so that a data-driven cluster (Ahlqvist's type 2 diabetes
+      clusters, a latent-class asthma phenotype) can sit in has_subtypes, and be
+      referenced by phenotypes and treatment effect modifiers, without being read
+      as a natural category.
+    comments:
+      - >-
+        The class records how the boundary was drawn, never a judgement of how good
+        the clustering is. Stability, replication and the case against the clusters'
+        added value are recorded as evidence items quoting the sources that report
+        them (SUPPORT for replication, REFUTE for a failure to replicate).
+      - >-
+        Do not record a subtype's membership rule as derived from data the entry does
+        not cite. Every partition_method, partition_features and
+        derivation_population value must be stated in a source cited in evidence.
+    slots:
+      - boundary_type
+      - partition_method
+      - partition_features
+      - derivation_population
+      - cluster_data
+      - evidence
+      - notes
+    slot_usage:
+      boundary_type:
+        required: true
+      evidence:
+        recommended: true
   AgentSubtype:
     is_a: Subtype
     description: >-
@@ -9077,8 +9201,10 @@ classes:
     slots:
       - effect_modifier_type
       - stratum
+      - stratum_subtype
       - mhc_term
       - comparator_stratum
+      - comparator_subtype
       - modified_outcome
       - effect_in_stratum
       - modification_analysis
