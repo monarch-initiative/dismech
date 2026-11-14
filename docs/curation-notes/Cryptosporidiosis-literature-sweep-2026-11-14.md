@@ -79,22 +79,54 @@ agonist CP-870,893.
   current entry captures the shared core intestinal and severe-immunodeficiency
   biliary mechanisms.
 
-## Reference Validation
+## Cached-source completeness pass
 
-Checked with `linkml-reference-validator` 0.5.1.
+After review, the eight PubMed references already cached for the pull request
+were re-read locally to check for missed mechanisms, phenotypes, host contexts,
+diagnostics, treatments, and bounded exclusions. No external deep-research
+provider was used for this pass.
 
-| Outcome | Count |
-| --- | --- |
-| References checked | 8 |
-| Resolved | 8 |
-| Unresolved (possible confabulation) | 0 |
-| Unverifiable | 0 |
-| References weighed for topical relevance | 8 |
-| On topic | 8 |
-| Off topic | 0 |
+- The entry stays deliberately lumped at the genus-level MONDO term and records
+  C. hominis and C. parvum as the predominant human etiologic species rather
+  than splitting by species.
+- The life-cycle and transmission sections capture environmentally resistant
+  oocysts, excystation in the mammalian small intestine, intracellular
+  epithelial infection, person-to-person spread, contaminated water and food,
+  and person-to-person or household exposure.
+- The pathophysiology graph separates ingestion/excystation, intracellular
+  epithelial infection, epithelial injury, lamina-propria inflammation and
+  cytokine signaling, barrier dysfunction with fluid-electrolyte imbalance,
+  excess fluid loss, nutrient malabsorption, and severe-immunodeficiency
+  biliary persistence.
+- Prolonged diarrhea, malnutrition, and growth delay are causally downstream of
+  excess intestinal fluid loss or nutrient malabsorption; dehydration is
+  downstream of fluid loss.
+- Severe host susceptibility is represented from HIV/AIDS, CD40LG deficiency,
+  IL21R deficiency, and MBL2 susceptibility evidence rather than as a generic
+  immunodeficiency bucket.
+- Nitazoxanide is kept as a small-molecule antiparasitic treatment with trial
+  support and response-context caveats; antiretroviral therapy targets the
+  HIV/AIDS host defect; supportive fluid/electrolyte care targets the
+  dehydration branch.
+- Diagnostics include stool microscopy, stool antigen detection, and
+  nucleic-acid amplification, with the PCR row carrying the precise NCIT
+  nucleic-acid amplification term.
 
-All extracted references resolved successfully.
+## Deferred or bounded items
 
-## Term Validation
-
-No ontology term identifiers were found in this report.
+- Transplant and oncology host settings were not modeled because they are not
+  supported by the cached pull-request source set at the same specificity as
+  the HIV/AIDS, IL21R, CD40LG, and MBL2 rows.
+- Calf or ruminant exposure was not forced into `agent_life_cycle.hosts`: the
+  cached broad review says many non-human species occur in mammals and that
+  C. parvum was described from mice and other mammals, but it also emphasizes
+  that most human infection is now due to C. hominis or person-to-person
+  C. parvum rather than classic zoonosis.
+- High-income-country outbreaks such as Milwaukee were left out of
+  `prevalence:` because the cached source uses them as waterborne-outbreak
+  examples, not as stable incidence or prevalence estimates.
+- Post-infectious sequelae such as reactive arthritis or persistent functional
+  gastrointestinal symptoms were not modeled because the cached sources used
+  here support acute/prolonged diarrhea, pediatric malnutrition and growth
+  effects, and biliary disease in severe immune deficiency, but not a
+  snippet-verified post-infectious mechanism.
