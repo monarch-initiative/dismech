@@ -9,9 +9,10 @@ ectopic, and fatal case reports before creating
 - **PMID:30963996** — 2019 open full-text Parasite report and retrospective
   review of 37 human dioctophymiasis cases. Used for the cases-in-literature
   count, kidney predominance, raw or undercooked fish/frog and unboiled-water
-  exposures, loin pain and hematuria frequencies, morphologic diagnosis, and the
-  statement that surgical removal is the only known means while standardized
-  anthelmintic therapy is not established.
+  exposures, loin pain and hematuria frequencies, occasional urinary frequency,
+  urgency, fever, and anemia, morphologic diagnosis, and the statement that
+  surgical removal is the only known means while standardized anthelmintic
+  therapy is not established.
 - **PMID:40867017** — 2025 open full-text Emerging Infectious Diseases report
   of a gastric-wall D. renale larva confirmed by morphology and sequencing.
   Used for the oligochaete, fish/amphibian, and mammalian life cycle; raw
@@ -48,6 +49,9 @@ leaf infectious disease entry rather than as a grouping.
   found scattered ivermectin and albendazole successes but states that no
   strictly defined therapeutic approach exists and that surgical removal of
   worms or damaged kidney tissue is the only known means.
+- **Fever and anemia** were added as reported human manifestations but were not
+  linked causally from the renal-injury node because the cached review reports
+  them clinically without tying them to a specific renal mechanism.
 - **The gastric submucosal mass** was left unbound after HPO search for “gastric
   submucosal tumor” returned no specific term. A generic neoplasm or stomach
   abnormality binding would be misleading because the cited Korean lesion was a
@@ -59,7 +63,11 @@ leaf infectious disease entry rather than as a grouping.
 
 ## Term Validation
 
-Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter during
+the initial curation. In the review pass, local OAK lookups resolved the newly
+added Pollakisuria, stomach-wall, abdominal-cavity, retroperitoneal-space,
+hypodermis, diagnostic-procedure, and surgical-procedure bindings before final
+term validation.
 
 | Outcome | Count |
 | --- | --- |
