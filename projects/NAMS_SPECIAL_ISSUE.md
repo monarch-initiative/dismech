@@ -594,7 +594,8 @@ species:
 applications:
 - description: >-
     MTT cytotoxicity screen of fine and coarse particulate matter (1, 2, 5 mg/mL,
-    24 h); the most PM-sensitive of the three monolayers.
+    24 h); the abstract reports A549 monolayers as showing the highest viability
+    response of the models tested.
   source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
 limitations:
 - description: >-
@@ -680,9 +681,9 @@ model:
   name: A549 / BALB-3T3 two-layer lung co-culture on Transwell
   description: >-
     A549 epithelium over a BALB/3T3 mouse fibroblast feeder on a porous Transwell
-    insert, run in both in-contact and non-contact seedings. A549 showed the
-    highest viability response and, unlike SIRC and HEK001, no non-contact
-    resistance advantage.
+    insert, run in both in-contact and non-contact seedings. The abstract reports
+    the non-contact-versus-in-contact seeding effect only for the SIRC and HEK001
+    constructs, not for A549.
   biological_organization_level: CELLULAR_NEIGHBORHOOD
   coculture_configuration: TRANSWELL
   cell_types:
@@ -696,8 +697,10 @@ species:
 - {id: NCBITaxon:10090, name: Mus musculus}
 applications:
 - description: >-
-    MTT cytotoxicity screen of fine and coarse PM; two-layer architecture more
-    PM-resistant than the A549 monolayer.
+    MTT cytotoxicity screen of fine and coarse PM. The paper reports multilayer
+    models as more PM-resistant than monolayers across the models tested; the
+    A549-specific monolayer-versus-co-culture comparison is not resolvable from the
+    abstract, since the A549 monolayer showed the highest viability of all models.
   source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
 limitations:
 - description: >-
@@ -733,7 +736,7 @@ species:
 - {id: NCBITaxon:9606, name: Homo sapiens}
 - {id: NCBITaxon:10090, name: Mus musculus}
 applications:
-- description: MTT cytotoxicity screen of fine and coarse PM; two-layer architecture more PM-resistant than the HEK001 monolayer.
+- description: MTT cytotoxicity screen of fine and coarse PM; the paper reports multilayer models as more PM-resistant than monolayers across the models tested, and non-contact seeding as more PM-resistant than in-contact for this construct.
   source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
 limitations:
 - description: Only endpoint is MTT viability at 24 h; identifies no mechanism. Mouse feeder makes the construct mixed-species (dismech #16889).
@@ -768,7 +771,7 @@ species:
 - {id: NCBITaxon:9986, name: Oryctolagus cuniculus}
 - {id: NCBITaxon:10090, name: Mus musculus}
 applications:
-- description: MTT cytotoxicity screen of fine and coarse PM; two-layer architecture more PM-resistant than the SIRC monolayer.
+- description: MTT cytotoxicity screen of fine and coarse PM; the paper reports multilayer models as more PM-resistant than monolayers across the models tested, and non-contact seeding as more PM-resistant than in-contact for this construct.
   source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
 limitations:
 - description: Only endpoint is MTT viability at 24 h; identifies no mechanism. Rabbit epithelium plus mouse feeder makes the construct doubly mixed-species (dismech #16889).
@@ -1094,10 +1097,10 @@ per-paper issue:
 | Scope | A NAM can belong in the registry with no dismech home | [#16882](https://github.com/monarch-initiative/dismech/issues/16882) |
 | Convention | When is a molecular simulation a model of a mechanism? | [#16883](https://github.com/monarch-initiative/dismech/issues/16883) |
 | Convention | Where a PBPK or IVIVE dosimetry bridge belongs | [#16887](https://github.com/monarch-initiative/dismech/issues/16887) |
-| Schema gap | Per-layer species scale in a multi-tissue co-culture | [#16889](https://github.com/monarch-initiative/dismech/issues/16889) |
 | Schema gap | Toxicant susceptibility varying by host genotype | [#16884](https://github.com/monarch-initiative/dismech/issues/16884) |
 | Schema gap | Synergy between two exposures | [#16885](https://github.com/monarch-initiative/dismech/issues/16885) |
 | Schema gap | Reversibility of a toxic injury; PMID:38211720 shows recovery can be endpoint-dissociated, so it has to be per-endpoint | [#16886](https://github.com/monarch-initiative/dismech/issues/16886) |
+| Schema gap | Per-layer species scale in a multi-tissue co-culture | [#16889](https://github.com/monarch-initiative/dismech/issues/16889) |
 | Convention | AOP-derived edges are qualitative; a mechanism-based call needs quantitative AOP information the qualitative framework does not provide (raised by PMID:38580097) — [open-questions §10](NAMS_SPECIAL_ISSUE/open-questions.md) | Not filed |
 | Module gap | Bisphenol, or endocrine-disruptor, neurotoxicity (blocks every dismech record for PMID:38211720; a module would need a mechanism chain that paper does not supply) | Not filed |
 | Schema gap | An immortalised tumour line standing in for a primary cell type: `ModelDivergenceTypeEnum` has no value for a cell-identity substitution (raised by PMID:38211720) | Not filed |
