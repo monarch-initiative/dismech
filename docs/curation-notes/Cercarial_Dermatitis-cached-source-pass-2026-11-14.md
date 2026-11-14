@@ -1,4 +1,4 @@
-# Cercarial Dermatitis: cached-source completeness pass
+# Cercarial Dermatitis cached-source completeness pass
 
 This is a local literature sweep produced from the PubMed references already cached for the pull request. No external deep-research provider was used.
 
