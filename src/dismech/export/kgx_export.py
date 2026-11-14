@@ -22,6 +22,7 @@ from biolink_model.datamodel.pydanticmodel_v2 import (
     ChemicalEntity,
     ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation,
     ClinicalTrial,
+    CorrelatedGeneToDiseaseAssociation,
     Dataset,
     Disease,
     DiseaseOrPhenotypicFeatureToGeneticInheritanceAssociation,
@@ -491,8 +492,34 @@ def treatment_to_edge(disease_id: str, treatment: dict[str, Any]) -> ChemicalOrD
 # refutation as its supporting publication, so no edge is emitted (#16952).
 _UNASSERTED_RELATIONSHIP_TYPES = frozenset({"DISPUTED", "REFUTED"})
 
+#: Biolink predicate and association class for each asserted `relationship_type`
+#: that is NOT a plain contribution claim (#12320). Values absent from this map
+#: (CAUSATIVE, SOMATIC_DRIVER, COOPERATING, or no `relationship_type` at all) keep
+#: the default `GeneToDiseaseAssociation` / `biolink:contributes_to`.
+#:
+#: The class matters because Biolink 4.4 constrains `GeneToDiseaseAssociation`'s
+#: predicate to `contributes_to`, `associated_with` or `affects`. The likelihood
+#: predicates are therefore carried on a generic `Association`, as the
+#: disease-comorbidity edges already are, using the same strings the exposure
+#: exporter emits for a polarised exposure (#2098). A biomarker gene uses
+#: `CorrelatedGeneToDiseaseAssociation`, whose predicate range includes
+#: `biomarker_for`.
+_RELATIONSHIP_TYPE_EDGES: dict[str, tuple[str, type[Association]]] = {
+    # Variants reduce risk or severity: the sign is the opposite of contributes_to.
+    "PROTECTIVE": ("biolink:associated_with_decreased_likelihood_of", Association),
+    # Raises risk without being necessary or sufficient.
+    "RISK_FACTOR": ("biolink:associated_with_increased_likelihood_of", Association),
+    "SUSCEPTIBILITY": ("biolink:associated_with_increased_likelihood_of", Association),
+    # Changes severity, onset or expressivity of a disease it does not drive.
+    "MODIFIER": ("biolink:affects", GeneToDiseaseAssociation),
+    # Diagnostic/prognostic/predictive marker with no required causal role.
+    "BIOMARKER": ("biolink:biomarker_for", CorrelatedGeneToDiseaseAssociation),
+    # Not yet classified: say only that the two are associated.
+    "UNKNOWN": ("biolink:associated_with", GeneToDiseaseAssociation),
+}
 
-def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociation | None:
+
+def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> Association | None:
     """
     Convert a genetic association entry to a KGX edge.
 
@@ -500,15 +527,17 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
     without one are skipped — see #2099. Entries whose `relationship_type`
     is DISPUTED or REFUTED are skipped too: the KB records those claims in
     order to say they are not established, and a contributes_to edge would
-    assert the opposite.
+    assert the opposite. Other non-causal grades get their own predicate from
+    `_RELATIONSHIP_TYPE_EDGES` (#12320).
 
     Args:
         disease_id: The disease term ID
         gene: A gene dict from genetic[]
 
     Returns:
-        GeneToDiseaseAssociation, or None if gene_term.term.id is absent or
-        the relationship is DISPUTED/REFUTED
+        A gene-to-disease association (class and predicate chosen by
+        `relationship_type`), or None if gene_term.term.id is absent or the
+        relationship is DISPUTED/REFUTED
     """
     if not gene:
         return None
@@ -523,12 +552,15 @@ def gene_to_edge(disease_id: str, gene: dict[str, Any]) -> GeneToDiseaseAssociat
     if gene.get("relationship_type") in _UNASSERTED_RELATIONSHIP_TYPES:
         return None
 
-    predicate = "biolink:contributes_to"
+    predicate, association_class = _RELATIONSHIP_TYPE_EDGES.get(
+        gene.get("relationship_type"),
+        ("biolink:contributes_to", GeneToDiseaseAssociation),
+    )
 
     # Format evidence (direct - attached to genetic entry)
     publications, supporting_text = _format_evidence(gene.get("evidence"), indirect=False)
 
-    return GeneToDiseaseAssociation(
+    return association_class(
         id=_make_edge_id(),
         subject=gene_id,
         predicate=predicate,
@@ -1420,6 +1452,88 @@ def _make_node(node_id: str, name: str | None, category: str) -> NamedThing:
     return cls(id=node_id, name=name, provided_by=[KNOWLEDGE_SOURCE])
 
 
+def subtype_disease_ids(record: dict[str, Any]) -> dict[str, tuple[str, str | None]]:
+    """Map each `has_subtypes[].name` to its bound `subtype_term` (#12316).
+
+    Only subtypes carrying a `subtype_term.term.id` appear; a subtype without
+    one has no identifier to anchor an edge to, so items pointing at it keep
+    the parent disease. The value is `(term id, term label)`.
+    """
+    out: dict[str, tuple[str, str | None]] = {}
+    for subtype in record.get("has_subtypes") or []:
+        if not isinstance(subtype, dict):
+            continue
+        name = subtype.get("name")
+        term_id = _get_term_id(subtype, ["subtype_term", "term", "id"])
+        if name and term_id:
+            out[name] = (term_id, _get_term_id(subtype, ["subtype_term", "term", "label"]))
+    return out
+
+
+def _edge_disease_id(
+    item: dict[str, Any], disease_id: str, subtypes: dict[str, tuple[str, str | None]]
+) -> str:
+    """The disease an item's edge should point at.
+
+    An item whose `subtype:` foreign key names a subtype with a bound term is
+    a claim about that subtype, so its edge goes to the subtype's term rather
+    than the parent's (#12316). Anything else, including a key naming a
+    subtype with no term, falls back to the parent `disease_term`.
+    """
+    key = item.get("subtype") if isinstance(item, dict) else None
+    if isinstance(key, str) and key in subtypes:
+        return subtypes[key][0]
+    return disease_id
+
+
+def subtype_evidence(record: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    """Evidence for each bound subtype term, keyed on the term id.
+
+    Two subtypes bound to one term pool their `evidence:` lists, because they
+    are exported as a single `subclass_of` edge.
+    """
+    out: dict[str, list[dict[str, Any]]] = {}
+    for subtype in record.get("has_subtypes") or []:
+        if not isinstance(subtype, dict):
+            continue
+        term_id = _get_term_id(subtype, ["subtype_term", "term", "id"])
+        if subtype.get("name") and term_id:
+            out.setdefault(term_id, []).extend(
+                e for e in subtype.get("evidence") or [] if isinstance(e, dict)
+            )
+    return out
+
+
+def subtype_to_edge(
+    subtype_id: str,
+    disease_id: str,
+    evidence: list[dict[str, Any]] | None = None,
+) -> Association | None:
+    """`subtype subclass_of disease`, linking a subtype node to its parent.
+
+    Without it a subtype node reached only by its own gene or phenotype edges
+    would sit apart from the disease entry it belongs to. Self-loops (a
+    subtype bound to the parent's own term) are not emitted. `evidence` is the
+    `has_subtypes[].evidence` list, carried as the edge's publications.
+    """
+    if not subtype_id or subtype_id == disease_id:
+        return None
+    publications, supporting_text = _format_evidence(evidence, indirect=False)
+    return Association(
+        id=_make_edge_id(),
+        subject=subtype_id,
+        predicate="biolink:subclass_of",
+        object=disease_id,
+        subject_category="biolink:Disease",
+        object_category="biolink:Disease",
+        publications=publications if publications else None,
+        supporting_text=supporting_text if supporting_text else None,
+        primary_knowledge_source=KNOWLEDGE_SOURCE,
+        knowledge_level=KnowledgeLevelEnum.knowledge_assertion,
+        agent_type=AgentTypeEnum.manual_validation_of_automated_agent,
+    )
+
+
 def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
     """
     Extract all unique KGX nodes from a disorder record.
@@ -1449,6 +1563,12 @@ def extract_nodes(record: dict[str, Any]) -> Iterator[NamedThing]:
     node = _emit(disease_id, record.get("name") or disease_label, "biolink:Disease")
     if node:
         yield node
+
+    # Subtype disease nodes (#12316): the targets of subtype-scoped edges.
+    for subtype_id, subtype_label in subtype_disease_ids(record).values():
+        node = _emit(subtype_id, subtype_label, "biolink:Disease")
+        if node:
+            yield node
 
     # Phenotype nodes. MONDO-typed entries describe a comorbid disease and
     # must be emitted with category biolink:Disease, not biolink:PhenotypicFeature.
@@ -1852,15 +1972,26 @@ def iter_edges_with_evidence(record: dict[str, Any]) -> Iterator[EdgeWithEvidenc
     if not disease_id:
         return
 
+    # Subtypes (#12316). Each bound subtype is linked to the parent, and any item
+    # whose `subtype:` key names one is exported against the subtype's term.
+    subtypes = subtype_disease_ids(record)
+    # Two subtypes may share one term; link each term to the parent once,
+    # carrying the subtypes' own `evidence:` as the edge's provenance.
+    for subtype_id, evidence in subtype_evidence(record).items():
+        edge = subtype_to_edge(subtype_id, disease_id, evidence)
+        if edge:
+            yield EdgeWithEvidence(edge, evidence or None, "has_subtypes")
+
     # Extract phenotype edges. MONDO-typed "phenotypes" are actually comorbid
     # diseases and produce a disease-to-disease association instead. Upstream
     # risk-state phenotypes (those driving a pathophysiology node) are routed to
     # a direction-neutral associated_with rather than has_phenotype.
     patho_names = pathophysiology_node_names(record)
     for phenotype in record.get("phenotypes") or []:
+        target_id = _edge_disease_id(phenotype, disease_id, subtypes)
         edge = phenotype_to_edge(
-            disease_id, phenotype, patho_names
-        ) or disease_comorbidity_to_edge(disease_id, phenotype)
+            target_id, phenotype, patho_names
+        ) or disease_comorbidity_to_edge(target_id, phenotype)
         if edge:
             yield EdgeWithEvidence(edge, phenotype.get("evidence"), "phenotypes")
 
@@ -1966,7 +2097,7 @@ def iter_edges_with_evidence(record: dict[str, Any]) -> Iterator[EdgeWithEvidenc
 
     # Extract gene association edges
     for gene in record.get("genetic") or []:
-        edge = gene_to_edge(disease_id, gene)
+        edge = gene_to_edge(_edge_disease_id(gene, disease_id, subtypes), gene)
         if edge:
             yield EdgeWithEvidence(edge, gene.get("evidence"), "genetic")
 
@@ -1990,13 +2121,13 @@ def iter_edges_with_evidence(record: dict[str, Any]) -> Iterator[EdgeWithEvidenc
 
     # Extract histopathology edges
     for finding in record.get("histopathology") or []:
-        edge = histopathology_to_edge(disease_id, finding)
+        edge = histopathology_to_edge(_edge_disease_id(finding, disease_id, subtypes), finding)
         if edge:
             yield EdgeWithEvidence(edge, finding.get("evidence"), "histopathology")
 
     # Extract biochemical/biomarker edges
     for biochemical in record.get("biochemical") or []:
-        edge = biomarker_to_edge(disease_id, biochemical)
+        edge = biomarker_to_edge(_edge_disease_id(biochemical, disease_id, subtypes), biochemical)
         if edge:
             yield EdgeWithEvidence(edge, biochemical.get("evidence"), "biochemical")
 
