@@ -20,8 +20,10 @@ pediatric cases, and neurology-focused reviews before creating
 - **PMID:40671903** — open full-text 2025 scoping review. Used to summarize 60
   published human infections, the counts of neurological versus ocular-only
   disease, neurological outcomes, ocular vision-loss outcomes, pica/geophagia
-  and raccoon-latrine risk, serologic test use, and limits of case-report
-  literature for estimating incidence.
+  and raccoon-latrine risk, first-reported neurologic sign frequencies,
+  peripheral and CSF eosinophilia frequencies, MRI white-matter abnormalities,
+  serologic test use, and limits of case-report literature for estimating
+  incidence.
 - **PMID:40742893** — open full-text 2025 MMWR report. Used for two recent
   pediatric Los Angeles County cases, the raccoon-feces exposure investigation,
   eosinophilic meningitis with peripheral and CSF eosinophilia, MRI
@@ -58,10 +60,14 @@ raccoon was bound to `NCBITaxon:9654`.
   rather than enumerated in `agent_life_cycle.hosts` because they are a broad
   ecological range rather than a clinically necessary list for the human disease
   entry.
-- **Diffuse unilateral subacute neuroretinitis** was kept in the ocular node
-  prose. The HPO term binding stays at `HP:0000505` visual impairment because
-  the phenotype record only needs to capture the vision-loss outcome rather
-  than create an unsupported retinal-diagnosis term.
+- **Diffuse unilateral subacute neuroretinitis** is modeled as its own node
+  downstream of retinal larva localization, while the phenotype record stays at
+  `HP:0000505` visual impairment because the phenotype only needs to capture the
+  vision-loss outcome rather than create an unsupported retinal-diagnosis term.
+- **Visceral larva migrans** remains outside the structured graph. The scoping
+  review found one eosinophilic cardiac pseudotumor among 60 published
+  infections, while the conserved, literature-rich branches are neural and
+  ocular larva migrans.
 
 ## Term Validation
 
