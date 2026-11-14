@@ -116,15 +116,21 @@ which is verified per member.
 
 ## What is tagged so far
 
-36 entries carry a value: 35 derived by the audit and one, `Wilms_Tumor`,
-assigned by hand (see below). They are the childhood tumors among the audit's
-proposals. Run over the whole knowledge base on 2026-11-14 the audit assessed
-329 neoplasm entries and proposed a value for 125. The other 90 are mostly
-adult-predominant entries that fall under a bound concept: hepatocellular
-carcinoma under `Liver Tumors`, small cell lung cancer under `Endocrine and
+108 entries carry a value: 107 derived by the audit and one, `Wilms_Tumor`,
+assigned by hand. Run over the whole knowledge base on 2026-11-14 the audit
+assessed 329 neoplasm entries and proposed a value for 125.
+
+Many of the tagged entries are adult-predominant: hepatocellular carcinoma is
+under `Liver Tumors`, small cell lung cancer under `Endocrine and
 Neuroendocrine Tumors`, clear cell renal cell carcinoma under `Renal Tumors`.
-They are correct by the rule and are left untagged pending a decision on
-whether a pediatric data standard should label adult entries.
+That is what the rule gives, and it is consistent with what the value claims,
+which is where a case would be filed and not who gets the disease.
+
+18 proposals are left untagged, because for them NCIt's hierarchy and the
+intent of the CDE part ways: the 12 entries proposed as `Lymphoproliferative
+Diseases`, the two neuroblastomas that are not peripheral neuroblastic tumors,
+and four predisposition syndromes. The audit reports them `MISSING`. The table
+gives the reasons, with the two entries that get no proposal at all.
 
 Read these proposals before accepting them, because NCIt's hierarchy and the
 intent of the CDE part ways:
@@ -133,11 +139,11 @@ intent of the CDE part ways:
 |---|---|---|
 | `Wilms_Tumor` | no value | NCIt's *Wilms Tumor* (`NCIT:C3267`) is independent of site, so it is not a *Kidney Neoplasm*. Assigned `Renal Tumors` by hand; the audit reports it `CURATED`. |
 | `Ganglioneuroblastoma` | no value | A sibling of *Neuroblastoma* in NCIt, not a descendant. |
-| `CNS_Neuroblastoma_FOXR2-Activated` | `Neuroblastoma` | A CNS embryonal tumor that NCIt also files under *Neuroblastoma*. |
+| `CNS_Neuroblastoma_FOXR2-Activated`, `Olfactory_Neuroblastoma` | `Neuroblastoma` | A CNS embryonal tumor and a nasal cavity tumor, which NCIt files under *Neuroblastoma*; the CDE value most likely means the peripheral tumor. |
 | `B-Lymphoblastic_Leukemia_Lymphoma_With_Recurrent_Genetic_Abnormality` | `Lymphoproliferative Diseases` | NCIt's B lymphoblastic leukemia/lymphoma is not under *Acute Lymphoblastic Leukemia*. |
-| `Chronic_Lymphocytic_Leukemia`, `Multiple_Myeloma`, `Lymphoma` | `Lymphoproliferative Diseases` | The concept is broad in NCIt; the CDE value probably means something narrower. |
+| `Chronic_Lymphocytic_Leukemia`, `Multiple_Myeloma`, `Lymphoma` and eight more | `Lymphoproliferative Diseases` | The concept is broad in NCIt; the CDE value probably means something narrower. |
 | `Clear_Cell_Sarcoma_of_Kidney`, `Kidney_Sarcoma` | `AMBIGUOUS` | Under both a sarcoma value and `Renal Tumors`. |
-| `RUNX1_Familial_Platelet_Disorder`, `Multiple_Endocrine_Neoplasia_Type_1` | a value | Predisposition syndromes whose MONDO term cross-references a neoplasm concept. |
+| `RUNX1_Familial_Platelet_Disorder`, `Multiple_Endocrine_Neoplasia_Type_1`, `Multiple_Endocrine_Neoplasia_Type_2`, `Hereditary_Leiomyomatosis_and_Renal_Cell_Cancer` | a value | Predisposition syndromes whose MONDO term cross-references a neoplasm concept. |
 
 ## Updating when caDSR revises the value domain
 

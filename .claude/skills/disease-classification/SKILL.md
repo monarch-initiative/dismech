@@ -299,7 +299,7 @@ just ccdi-pediatric-oncology-audit kb/disorders/<File>.yaml --format list
 
 | Status | What to do |
 |---|---|
-| `MISSING` | Add the proposed value if the entry is a childhood tumor (`--apply <file>` writes it). Adult-predominant entries are left untagged for now; see `docs/ccdi-pediatric-oncology-classification.md`. |
+| `MISSING` | Add the proposed value (`--apply <file>` writes it), adult-predominant entries included. First check the entry is not one of the kinds held back in `docs/ccdi-pediatric-oncology-classification.md`: a `Lymphoproliferative Diseases` proposal, a non-peripheral neuroblastoma, or a predisposition syndrome. |
 | `MATCH` | Nothing. |
 | `CONFLICT` | The recorded value is not the one the NCIt hierarchy gives. Fix it, or fix the entry's `disease_term`. |
 | `AMBIGUOUS` | Two values apply and neither is narrower (a rhabdoid tumor of the kidney is under both `Rhabdoid Tumors` and `Renal Tumors`). Leave the slot absent. |
