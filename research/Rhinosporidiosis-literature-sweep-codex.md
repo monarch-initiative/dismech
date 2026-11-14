@@ -56,10 +56,10 @@ leaf infectious disease rather than a grouping.
   `nasal polyp` returned only `HP:0100582` Nasal polyposis. That term would be
   too specific for the usual solitary unilateral polypoid mass described in
   rhinosporidiosis.
-- **Nasal obstruction** was kept in the nasal-polypoid-mass phenotype
-  description and not made a separate phenotype because epistaxis and the
-  polypoid mass already capture the two best-supported nasal manifestations
-  with exact or intentionally unbound local descriptors.
+- **Nasal obstruction** was added as a separate phenotype. OLS HPO search
+  `runoak -i ols:hp search 'nasal obstruction'` returned `HP:0001742` Nasal
+  congestion, so the phenotype preserves the source wording in `preferred_term`
+  and binds HPO's canonical nasal-congestion term.
 
 ## Term Validation
 
@@ -74,3 +74,19 @@ Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
 | Unverifiable | 0 |
 
 Every term resolved, and every label the report gave matched.
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.5.1.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 5 |
+| Resolved | 5 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 5 |
+| On topic | 5 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.
