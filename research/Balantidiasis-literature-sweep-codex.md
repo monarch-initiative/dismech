@@ -10,7 +10,8 @@ clinical reports before creating `kb/disorders/Balantidiasis.yaml`.
   of *Balantidium coli* biology, epidemiology, pathogenesis, diagnosis, and
   treatment. Used for the direct cyst-trophozoite life cycle, pig fecal cyst
   contamination of water, cecum/colon habitat, flask-shaped submucosal lesions,
-  uncertain hyaluronidase contribution to ulceration, stool microscopy, and
+  uncertain hyaluronidase contribution to ulceration, the chronic clinical
+  presentation with nonbloody diarrhea and abdominal pain, stool microscopy, and
   tetracycline/metronidazole treatment.
 - **PMID:35146143** — open full-text review on *Balantioides coli* cyst
   detection and viability assessment in environmental samples. Used for the
@@ -20,11 +21,12 @@ clinical reports before creating `kb/disorders/Balantidiasis.yaml`.
   colitis.
 - **PMID:34339668** — systematic review and meta-analysis of human
   balantidiasis through 2020. Used for the association between pig proximity and
-  B. coli positivity and for the `CASES_IN_LITERATURE` prevalence record.
+  B. coli positivity, the `CASES_IN_LITERATURE` prevalence record, and the
+  predominant dysentery symptom in the reviewed human literature.
 - **PMID:33183780** — recent Research in Veterinary Science review using the
   current genus name *Balantioides*. Used for the infectious-agent identity,
   main pig reservoir, epidemiologic risk factors, asymptomatic/chronic/acute
-  symptomatic spectrum, and iodoquinol treatment row.
+  symptomatic progression spectrum, and iodoquinol treatment row.
 - **PMID:31688855** — human fatal colonic balantidiasis case report and review.
   Used for colonoscopy/fresh-sample/biopsy diagnosis and the rare intestinal
   perforation phenotype.
