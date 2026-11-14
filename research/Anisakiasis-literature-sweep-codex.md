@@ -12,15 +12,18 @@ full-text case series before creating `kb/disorders/Anisakiasis.yaml`.
 - **PMID:30058531** — open full-text retrospective analysis of confirmed Italian
   human anisakiasis cases. Used for the marine-mammal → crustacean → fish/squid
   life cycle, humans as accidental hosts, raw-anchovy exposure in the Italian
-  cases, gastric/intestinal/ectopic site distribution, abdominal-pain frequency,
-  allergic-reaction details, surgical treatment frequencies, and the
+  cases, worldwide and Japanese incidence, gastric/intestinal/ectopic site
+  distribution, abdominal-pain frequency, eosinophilic granuloma histopathology,
+  allergic-reaction details, surgery and albendazole treatment details, and the
   confirmed-case prevalence row.
 - **PMID:24441579** — open full-text CT series of 20 gastric and 21 intestinal
-  anisakiasis cases. Used for the larval wall-invasion mechanism and
-  characteristic CT findings.
+  anisakiasis cases. Used for the larval wall-invasion mechanism,
+  eosinophilic-granuloma pathophysiology, ascites, and characteristic CT
+  findings.
 - **PMID:10629469** — 20 patients with gastroscopically confirmed acute
   parasitism by *Anisakis simplex* among emergency patients with allergic
-  reactions. Used for the gastro-allergic symptom spectrum.
+  reactions. Used for the gastro-allergic symptom spectrum, including
+  bronchospasm and anaphylaxis.
 - **PMID:31529811** — open full-text case report and review of gastro-allergic
   anisakiasis. Used for the two-mechanism framing of direct nematode injury plus
   immediate IgE-mediated hypersensitivity and for endoscopic extraction as the
@@ -56,9 +59,10 @@ curating pathotype-like pseudo-subtypes.
   for active anisakid larval infection after seafood ingestion; allergy after
   fish-handling exposure can occur without a live larva penetrating the
   gastrointestinal mucosa.
-- **Routine albendazole therapy** was not modeled. The CID review only says
-  albendazole has been used occasionally, while the endoscopic and surgical
-  source texts describe physical removal as the central therapy.
+- **Food-preparation prevention** was not modeled. Freezing and cooking fish are
+  documented by PMID:20804423 and the Italian review, but the pathograph
+  represents the disease state after viable-larva ingestion rather than public
+  health or kitchen controls that prevent the exposure.
 
 ## Term Validation
 
