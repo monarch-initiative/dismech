@@ -171,3 +171,39 @@ dismech's `environmental[].influences_mechanisms` links one exposure to one node
 **Question:** nothing expresses "these two exposures together produce an effect greater
 than either alone". Two separate `TRIGGERS` links state that both act on the node and
 lose the interaction, which is the paper's actual finding.
+
+## 10. AOP-derived content inherits the qualitative/quantitative gap
+
+Raised by the PFOS paper (PMID:38580097, dismech#16870), but not specific to it.
+
+That paper's result is a negative one for the mechanism-based route: PFOS meets the ED
+criteria under the standard guidance-based assessment but **not** under the AOP/NAM
+mechanism-based assessment, and the authors discuss the need for *quantitative* AOPs —
+key-event relationships described quantitatively enough to carry a hazard call — for that
+route. Whether the qualitative thyroid→DNT KERs the paper used actually lack quantitative
+understanding is a checkable claim, not an asserted one: the AOP-Wiki KER
+`quantitative-understanding` fields answer it (the `aop-wiki` skill), and the full text
+that would name the exact AOP set the paper assembled was not reachable in this
+environment, so it is left unchecked here rather than stated. A qualitative AOP says A
+leads to B; it does not say how much of A produces how much of B, or whether a given
+exposure reaches the threshold.
+
+dismech's causal edges are qualitative by construction: a `downstream` or
+`influences_mechanisms` link asserts direction and, through `hypothesis_groups` and
+evidence grading, strength of belief — but not a dose-response. So any dismech content
+derived from an AOP inherits exactly the limitation this paper raises. An edge mapped from
+a qualitative AOP is a statement that the path is *plausible and supported*, never that a
+particular exposure *does* traverse it at a relevant dose.
+
+This matters most for exposure-initiated chains (the `environmental[].influences_mechanisms`
+edges), where the regulatory question is quantitative by definition. It is the same
+observation already open in [`AOP_EMOD_ALIGNMENT`](../AOP_EMOD_ALIGNMENT.md)'s
+quantitative-AOP-development thread, recorded here so the screen's own instance of it is
+not lost.
+
+**Question:** should AOP-derived edges carry an explicit marker that they are qualitative
+— distinguishing "this path is established in the AOP framework" from "this exposure
+traverses it at a relevant internal dose" — or is that distinction already adequately
+carried by evidence grading plus the absence of a dose slot? Either way, AOP-derived
+dismech content should not be read as a quantitative hazard statement, and a note to that
+effect belongs wherever such content is first added.
