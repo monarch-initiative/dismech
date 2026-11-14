@@ -8,6 +8,7 @@ description: >-
 tags: [NAM, FRAMEWORK_ALIGNMENT, ENVIRONMENTAL_EXPOSURE, EXTERNAL_COLLABORATION]
 modules:
   - epilepsy_excitation_inhibition_imbalance
+  - drug_induced_phospholipidosis
 diseases:
   - Fetal_Valproate_Syndrome
 ---
@@ -37,9 +38,10 @@ registry.
 
 That question is live for papers kept by the screen too, not only for the five
 rejected ones: a kept paper can still turn out to support a registry entry and no
-dismech link. Both decisions recorded below went that way, for different reasons —
-one because the endpoint asserts no mechanism, the other because the mechanism it
-does assert has no disease entry to attach to.
+dismech link. Several decisions recorded below went that way, for different reasons —
+the endpoint asserts no mechanism, or the mechanism it does assert has no disease
+entry to attach to, or the model's prediction sits below the floor a model link
+asserts.
 
 ## Screened in
 
@@ -155,26 +157,26 @@ as it is being built:
 
 Both are typed `TwoDCellCulture`, `biological_organization_level:
 CELLULAR_NEIGHBORHOOD`, `species: NCBITaxon:10116`, with each assay's applications
-and limitations carrying the paper's own sentences. They are open as a draft in
+and limitations carrying the paper's own sentences. They were first drafted in
 [nams-registry#57](https://github.com/monarch-initiative/nams-registry/pull/57),
-where both were validated as `NAMRecord`, and their models as `TwoDCellCulture`,
-against that repository's own `nam_records.yaml` and the NAMO commit it pins.
+closed unmerged, and are being redone; the records are not in the registry yet.
 
-One thing holds that PR as a draft, and it is a question for the registry rather
-than for this screen. `source_resources` is required and is defined as "A registry
-resource a NAM was found in", but this NAM was found in a primary research paper, and a
-primary research paper cannot be a registry resource: the registry's own
-`ResourceTypeEnum.Report` says "A primary research paper is not a report."
-Something still has to go in that slot, because the registry's
-`test_nam_source_resources_exist` requires every value there to name a file in its
-`resources/`. The draft carries ToxCast as a marked placeholder — the plausible
-home for the EPA MEA endpoints, which could not be confirmed against invitrodb —
-and records the paper and this special issue in free text instead. A separate
-nams-registry issue covers the general case.
+That first draft ran into a question that was general rather than specific to this
+paper, and it has since been settled. `source_resources` is required and is defined
+as "A registry resource a NAM was found in", but a NAM found in a primary research
+paper had nothing to name: the registry's own `ResourceTypeEnum.Report` says "A
+primary research paper is not a report", while `test_nam_source_resources_exist`
+requires every value in that slot to name a file in `resources/`. The draft used
+ToxCast as a marked placeholder.
+[nams-registry#63](https://github.com/monarch-initiative/nams-registry/issues/63)
+answered it with a `scientific-literature` resource that carries the paper's DOI in
+`source_urls`, so no placeholder is needed now; the same round added `compared_with`
+for NAMs a study compared head to head, which is how these two assays should name
+each other.
 
 `references_cache/PMID_38788893.md` is committed and is cited only from this page,
 not from any `kb/` entry. It is kept deliberately, so the quoted sentences above
-and in the registry draft stay checkable — do not read its absence from `kb/` as
+and in the registry records stay checkable — do not read its absence from `kb/` as
 uncited and prune it.
 
 The NFA's own gap — developmental neurotoxicity as an outcome, which dismech has
@@ -331,8 +333,11 @@ Three decisions carried through the links:
   transporter-level efflux inhibition, not downstream bile stasis.
 - The **lipid link carries a `PROXY_QUANTITY` divergence** because the bulk
   lipid-dysregulation readout spans steatosis and phospholipidosis, which are
-  distinct. Drug-induced phospholipidosis as a node gap is tracked at
-  [#16881](https://github.com/monarch-initiative/dismech/issues/16881).
+  distinct. That node gap ([#16881](https://github.com/monarch-initiative/dismech/issues/16881))
+  is now closed by the `drug_induced_phospholipidosis` module, created from
+  [#16867](https://github.com/monarch-initiative/dismech/issues/16867), which
+  homes phospholipidosis as a lysosomal lipid-storage lesion separate from the
+  triglyceride lipotoxicity of `hepatic_steatosis_lipotoxicity`.
 
 The predictive-performance panel (22 DILI-positive, 5 DILI-negative compounds) is
 recorded as a `findings` entry on each model, not as a mechanism link — it is
@@ -463,6 +468,300 @@ confound and the endpoint-dissociated recovery.
 not from any `kb/` entry. It is kept deliberately, so the abstract stays
 checkable — do not read its absence from `kb/` as uncited and prune it.
 
+### PMID:38580097 — the PFOS thyroid–DNT AOP network: registry only, no dismech edges
+
+Wiklund, Pípal, Weiss and Beronius 2024, *Toxicology* 504:153794
+([#16870](https://github.com/monarch-initiative/dismech/issues/16870)). An AOP
+network for the thyroid modality, with the sub-paths leading to developmental
+neurotoxicity (DNT) identified within it; an AOPN-driven systematic-review and
+Weight-of-Evidence (WoE) assessment mapping existing in vitro and in vivo PFOS
+data back onto that network; and a comparison of this mechanism-based endocrine-
+disruptor (ED) identification against a standard guidance-based ED assessment.
+
+This is the one paper in the batch whose *product* is a mechanism map rather than
+an assay readout, which is why the issue hoped for two `mechanistic_hypotheses`
+groups — a thyroid-mediated path and a directly-neurotoxic alternative path — out
+of it. It yields neither, and the two reasons are worth keeping separate because
+they fail the link at different ends.
+
+**1. The paper is a negative result for the mechanism-based approach.** Its
+conclusion, from the abstract, is that PFOS *"fulfils the criteria for ED
+classification in the standard ED assessment, but not in the mechanism-based
+assessment"*, and that the authors discuss the need for quantitative information:
+the abstract records that *"the need for quantitative information, such as
+quantitative AOPs, for the mechanism-based approach is discussed"*. That the
+mechanism-based assessment fell short is a finding about the method, not about
+PFOS. A dismech causal edge asserting a PFOS thyroid→DNT
+mechanism, cited to this paper, would assert exactly what the paper declined to
+conclude. The directly-neurotoxic alternative mode of action is weaker still —
+the authors raise it *"based on available in vitro data"* as an explicit
+alternative, not a confirmed path. So even with an anchor, the strongest honest
+dismech content this paper supports is a `KNOWLEDGE_GAP` discussion, not a graded
+causal edge. **If any future dismech content cites this PMID, it must not be cited
+as establishing that PFOS is an endocrine disruptor or that the thyroid→DNT link
+is operative for PFOS.**
+
+**2. There is no anchor to attach to, in either arm.** Verified against `main`:
+
+- **No PFOS entry.** There is no perfluorooctane-sulfonate disease or exposure
+  entry anywhere in `kb/`. (The `perfluoro*` hits are `perfluorocarbon`, an
+  unrelated oxygen carrier in `High_Altitude_Pulmonary_Edema`; a PFAS→GDM exposure
+  *association* snippet in `Gestational_Diabetes_Mellitus`, which is not this
+  mechanism; and `pFAS` = partial fetal alcohol syndrome in
+  `Fetal_Alcohol_Spectrum_Disorder`, an acronym collision.) A `modeled_mechanisms`
+  or `influences_mechanisms` target is a bare name resolved inside the entry that
+  declares it, so there is no entry for either hypothesis group to live in.
+- **No DNT outcome module.** `kb/modules/` has no developmental-neurotoxicity
+  module; `epigenetic_machinery_neurodevelopmental_dysregulation` is a different
+  concept. The gap is tracked at
+  [#16880](https://github.com/monarch-initiative/dismech/issues/16880), and this
+  paper's thyroid arm is one of its consumers — the other being the MEA network
+  formation assay in [#16869](https://github.com/monarch-initiative/dismech/issues/16869).
+  Those two should agree on one DNT node name and scale before either builds it.
+- **The thyroid module stops short of the brain.**
+  `hypothyroidism_thyroid_hormone_deficiency` runs Impaired Thyroid Hormone
+  Synthesis → Thyroid Hormone Insufficiency → Reduced Thyroid Hormone Action at
+  Peripheral Sites → Decreased Metabolic Rate → Systemic Hypometabolic State. Its
+  terminal node is systemic hypometabolism; nothing in it reaches thyroid-hormone
+  action in the developing brain. The thyroid arm of this AOP network would need a
+  new downstream node (most naturally in a DNT module, not in the hypometabolism
+  module whose scope is adult peripheral hypothyroidism).
+
+A DNT module should be built from the broad, independently-established thyroid→
+brain-development AOP literature under #16880, not sourced from this single
+negative-result PFOS paper — building it here, citing this paper, is precisely the
+misuse reason 1 warns against. So the thyroid→DNT AOP network is left unmapped,
+and no thyroid→DNT AOP content exists elsewhere in the repo today
+(`AOP_EMOD_ALIGNMENT`, `TDAR_AOP` and the parkinsonism crosswalk cover lead,
+immunotoxicology and parkinsonism respectively; none touches the thyroid modality,
+so the issue's suggestion that this network may already be partly mapped is not
+borne out).
+
+**The record is abstract-only.** The full text carries the per-KER WoE grades the
+issue's deliverable 1 asked for, but it was not retrievable in the curation
+environment: the paper is Elsevier/ScienceDirect, is **not** in PMC and is marked
+non-open-access by Europe PMC, and `doi.org`/`sciencedirect.com` are outside the
+session's allowed network. So no path could have been graded here even if there
+were an anchor. A companion open-access methods paper from the same group
+(*Front. Toxicol.* 5:1183824, 2023, which describes the thyroid AOP-network generation
+and ships an R script) and the first author's doctoral thesis are the reachable
+sources for the network structure, should a DNT module under #16880 want them;
+they are not this PMID and do not carry its PFOS-specific WoE.
+
+**The method goes to the registry, but its shape is undecided.** The AOPN-driven
+systematic-review-plus-WoE assessment is a regulatory ED-identification
+*methodology*, not an assay or a model system, so it does not slot cleanly into a
+NAMO model class the way the MEA and ReproTracker records above do — this is the
+"registry shape still undecided" flagged in the issue's repo-check comment. It is
+proposed as a registry entry rather than drafted as a validated `NAMRecord`:
+
+| Proposed registry subject | Kind | Status |
+|---|---|---|
+| AOP-network-driven systematic review + WoE for mechanism-based ED identification | assessment methodology (not an assay/model) | proposal — shape undecided, see below |
+
+Opening the nams-registry PR is out of this screen's scope (that repository is not
+in this session's GitHub access, and the record needs validation against NAMO,
+which has no obvious class for an assessment workflow). It raises the same
+`source_resources` blocker the MEA and ReproTracker drafts hit — the method was
+found in a primary research paper — and additionally the prior question of whether
+a WoE assessment methodology is a NAM the registry catalogues at all. Both are
+registry questions, not screen questions.
+
+**Quantitative AOPs, as an inventory-level limitation.** The paper's point — that
+mechanism-based ED identification needs quantitative information such as
+quantitative AOPs — is recorded as a general caveat on AOP-derived dismech content
+in [open-questions.md §10](NAMS_SPECIAL_ISSUE/open-questions.md), next to the qAOP
+thread already open in [`AOP_EMOD_ALIGNMENT`](AOP_EMOD_ALIGNMENT.md). It is not
+specific to this paper.
+
+`references_cache/PMID_38580097.md` is committed and is cited only from this page,
+not from any `kb/` entry. It is kept deliberately, so the abstract stays
+checkable — do not read its absence from `kb/` as uncited and prune it.
+
+### PMID:38614204 — glo heated-tobacco battery: registry only, and the Nrf2 anchor is deferred to full text
+
+Keyser et al. 2024, *Toxicology* 504:153801 ([#16873](https://github.com/monarch-initiative/dismech/issues/16873)).
+An in vitro battery applied to three menthol and one non-menthol variant of the glo
+heated tobacco product (HTP), with market cigarette and HTP comparators: MTT in 3D
+EpiAirway™ tissue, neutral red uptake (NRU) in monolayer, an in vitro micronucleus
+assay, a bacterial reverse mutation (Ames) assay, an oxidative-stress readout in
+EpiAirway, and limited aerosol chemistry (acetaldehyde, acrolein, crotonaldehyde,
+formaldehyde).
+
+**Funding and conflict of interest, recorded here because the registry rows must carry
+it.** All authors are employees of RAI Services Company (Reynolds American, a British
+American Tobacco subsidiary) and the work was commissioned by RAI — per #16873 and the
+paper's own Declaration of Competing Interest; the committed cache holds only the
+abstract, where this does not appear (its indexed publication type is "Research Support,
+Non-U.S. Gov't"), so the affiliation and sponsorship are recorded from those sources
+rather than quoted from a cached file. The paper's headline is
+a comparative risk claim about the sponsor's own products ("substantially lower
+toxicity compared to cigarettes"). **That comparative claim appears in no dismech or
+registry content** — the assay-to-mechanism pairings are extracted independently of it.
+
+**The oxidative-stress arm is almost certainly an NRF2/ARE pathway readout, not a
+generic ROS or GSH marker — this was the issue's central open question.** The RAI
+group's standard EpiAirway oxidative-stress method is the MatTek **EpiAirway Nrf2
+ARE-luciferase bioreporter**: 3D airway tissue stably transfected so that NRF2/ARE
+transcriptional activity drives luciferase. That this specific readout is the one used
+in PMID:38614204 is an **inference from the group's standard platform, not a statement
+quoted from PMID:38614204** — which is abstract-only here (see below) and reports only
+an "oxidative stress response in the EpiAirway tissues". The platform itself is
+confirmed from the same group's open-access companion paper on the identical model
+(Keyser et al. 2024, *Toxics* 12:129, PMID:38393224):
+
+> Briefly, EpiAirway™ tissues are stably transfected with a lentiviral vector
+> consisting of the antioxidant responsive element of the Nrf2 gene fused with the
+> luciferase gene as a bioreporter. The EpiAirway™ Nrf2 tissue model was developed by
+> MatTek corporation and was described previously.
+
+> EpiAirway™ tissues transfected with the Nrf2 luciferase reporter responded robustly
+> to exposure to cigarette whole smoke at sub-cytotoxic doses, indicating the induction
+> of the oxidative stress response.
+
+On that reading the mechanistically correct anchor is `keap1_nrf2_are_signaling`,
+specifically the `NRF2 Transcriptional Activation of ARE Genes` node — an ARE-luciferase
+readout reports exactly that transactivation — at `model_scale: TISSUE`. Acrolein and
+formaldehyde,
+both measured in the aerosol, are electrophiles of the kind the upstream `KEAP1 Sensor
+Cysteine Modification` node describes, which is why this is the right module rather than
+a generic oxidative-stress label.
+
+**The dismech link is nonetheless deferred, and the reason is grounding, not the
+anchor.** PMID:38614204 is abstract-only: despite #16873's "open access" note, Europe
+PMC reports the paper as subscription-only (Elsevier *Toxicology*; not in PMC/EPMC), and
+doi.org / ScienceDirect are outside the session's allowed network. The abstract supports
+"oxidative stress responses ... in the EpiAirway tissues" but does **not** itself contain
+*Nrf2* or *ARE*. A model→mechanism link on `keap1_nrf2_are_signaling` has to be grounded
+in a snippet from the cited reference that names the Nrf2 reporter; binding the pathway
+node on the companion paper's wording alone would assert more than this reference's own
+available text says, which is the named-entity discipline the evidence rules impose.
+Adding the link once the full text is reachable is tracked at
+[#17314](https://github.com/monarch-initiative/dismech/issues/17314).
+
+**The other endpoints are registry assays, not dismech anchors.** The in vitro
+micronucleus result is an abstract-level genotoxicity hazard call ("the whole aerosol
+exposures of glo HTPs were classified as genotoxic in the in vitro micronucleus assay"),
+and the abstract names no cell system for it, so neither a `genome_instability_mutation`
+nor a `dna_damage_checkpoint_arrest` link can be grounded or correctly scaled yet —
+that too waits on the full text. Cytotoxicity (NRU, MTT) is apical. The negative Ames
+result ("The glo HTPs were non-mutagenic in the bacterial reverse mutagenesis assay") is
+a recordable negative: in the registry it is a method with a negative outcome, and if it
+ever reaches a model link the CLAUDE.md convention is a readout with `direction:
+UNCHANGED` rather than `supports: NO_EVIDENCE`, which records evidence *direction* on a
+claim rather than a measured null. There is no dismech entry for heated-tobacco or
+cigarette-aerosol exposure for any of these to attach to in the first place; EpiAirway
+here is the model this issue notes as the fourth pointing at the missing inhaled-irritant
+airway-injury module ([#16877](https://github.com/monarch-initiative/dismech/issues/16877)).
+
+Registry records proposed, one per model system, with the funding recorded on each and
+no comparative claim. **This typing has not been validated against the registry's
+schema** — no nams-registry pull request has been opened — so the table is a proposal,
+as for PMID:38029956:
+
+| Proposed record id | Assay / model | NAMO class | model_scale |
+|---|---|---|---|
+| `airway-epiairway-mtt-three-d-tissue-human` | MTT cytotoxicity, EpiAirway | `ThreeDTissueModel` | TISSUE |
+| `airway-epiairway-nrf2-are-luciferase-three-d-tissue-human` | Nrf2/ARE luciferase oxidative-stress reporter, EpiAirway | `ThreeDTissueModel` | TISSUE |
+| `airway-nru-two-d-culture-human` | NRU cytotoxicity, monolayer | `TwoDCellCulture` | CELLULAR |
+| `in-vitro-micronucleus-system-tbd` | in vitro micronucleus (cell system not stated in abstract) | TBD | TBD (`CELLULAR` if a monolayer line) |
+| `bacterial-reverse-mutation-ames` | Ames (negative) | `BacterialAssay` | — |
+
+`source_resources` hits the same blocker the MEA and ReproTracker drafts did: the NAM
+was found in a primary research paper, which the registry's own `ResourceTypeEnum.Report`
+excludes.
+
+`references_cache/PMID_38614204.md` (the glo abstract) and
+`references_cache/PMID_38393224.md` (the companion full text, from which the Nrf2-reporter
+sentences above are quoted) are committed and are cited only from this page, not from any
+`kb/` entry. Both are kept deliberately so the quoted sentences stay checkable — do not
+read their absence from `kb/` as uncited and prune them.
+
+### PMID:38432407 — ochratoxin A target discovery (OGFOD1 prediction) goes to the registry only
+
+Perugino et al. 2024, *Toxicology* 503:153765
+([#16875](https://github.com/monarch-initiative/dismech/issues/16875)). The sibling
+of [#16874](https://github.com/monarch-initiative/dismech/issues/16874) above, from
+the same group and sharing its in silico pipeline; the issue asked to extract the
+two together. A purely virtual **target-discovery** study: a pipeline of molecular
+docking, molecular dynamics and umbrella-sampling simulations run to *display new
+OTA potential targets*. Its one output is a candidate target — OGFOD1, a prolyl
+hydroxylase acting in protein translation — predicted to be inhibited by OTA and
+its 2'R diastereomer. No biological system; no wet confirmation. The authors are
+explicit that this is a hypothesis, calling for "further dedicated analysis
+focusing their attention on the OTA-OGFOD1 interaction."
+
+| Model / method | Produces |
+|---|---|
+| Molecular docking | candidate targets |
+| Molecular dynamics | complex stability of the predicted OTA–target pose |
+| Umbrella-sampling simulations | binding free energy along a reaction coordinate |
+
+**The target-discovery pipeline belongs in the registry. Nothing is being added to
+a dismech entry** — not a `computational_models:` `ModelMechanismLink`, and *not* a
+`KNOWLEDGE_GAP` discussion. Three reasons, and the first is the same one that
+settles open question 2
+([#16883](https://github.com/monarch-initiative/dismech/issues/16883)) for the
+sibling paper.
+
+- **Below the model-link floor.** A `ModelMechanismLink` asserts the model
+  *recapitulates*, *perturbs*, or *measures* the node it points at. A docking /
+  MD / umbrella-sampling prediction with no wet confirmation does none of those: it
+  predicts a binding interaction. That is a hypothesis *about* a node, not an
+  observation *of* one, and sits below the floor a model link asserts — the exact
+  reading applied to the PMID:38036094 docking case above, and the molecular-
+  simulation instance of #16883. A `divergences` caveat (`PROXY_QUANTITY`: a
+  predicted binding free energy standing in for measured enzymatic inhibition;
+  `BOUNDARY_OMISSION`: no cellular context) could label how far below the floor the
+  prediction sits, but it cannot raise it across the floor. So: not a model link.
+
+- **There is no OTA disease entry to host a gap, and the two nearest entries would
+  misattach it.** No ochratoxin A poisoning or ochratoxicosis entry exists (the
+  only mycotoxin disease entries are `Aflatoxicosis` and `Aflatoxin_Related_HCC`,
+  both aflatoxin). The one entry carrying ochratoxin A,
+  `Karyomegalic_Interstitial_Nephritis`, frames it solely as a DNA
+  interstrand-crosslink genotoxin — a "second hit" on FAN1-deficient ICL repair in
+  a Mendelian disease — which is a different mechanism entirely from translation
+  inhibition. `Balkan_Endemic_Nephropathy`, the classic "ochratoxin nephropathy,"
+  is attributed in its entry to **aristolochic acid** and carries no OTA mechanism
+  at all. A `KNOWLEDGE_GAP` about OGFOD1 translation inhibition attached to either
+  would assert a connection the paper does not make: the paper offers OGFOD1 as a
+  general molecular target in OTA toxicology, situated against the established
+  nephrotoxicity, hepatotoxicity and possible carcinogenicity as *background*, not
+  as the mechanism of any one nephropathy. So deliverable 2's "if one exists" is
+  not met, and forcing a gap onto a mismatched entry is worse than recording none.
+
+- **No module to conform to, and none should be built.** No module covers OGFOD1 or
+  cytoplasmic translation-factor prolyl hydroxylation. `mitochondrial_translation_deficiency`
+  is mitochondrial; `bacterial_protein_synthesis_inhibition` is an antibiotic
+  target; `oncometabolite_dioxygenase_inhibition` is HIF-prolyl-hydroxylase / TET
+  biology driven by oncometabolite accumulation, a different enzyme family and
+  trigger. Building a module on an unconfirmed docking prediction is exactly the
+  error the issue warns against, so no module gap is filed.
+
+One record is proposed for the registry, the simulation pipeline as a single
+structure-based in silico target-discovery method:
+
+| Proposed record id | Method | NAMO class |
+|---|---|---|
+| `ota-ogfod1-target-discovery-in-silico-human` | docking / MD / umbrella-sampling pipeline displaying candidate OTA targets, output OGFOD1 | structure-based in silico model (NAMO class to confirm) |
+
+Human (`NCBITaxon:9606`). **This typing has not been validated against the
+registry's schema** — no registry pull request has been opened (the nams-registry
+is a separate repository), NAMO has no obvious single class for a structure-based
+docking screen, so the class above is a placeholder to resolve in the registry. It
+raises the same `source_resources` blocker the earlier drafts hit: the NAM was
+found in a primary research paper, which the registry's `ResourceTypeEnum.Report`
+says is not a report.
+
+The inventory row for "a predicted target with no wet confirmation" is the
+molecular-simulation convention #16883, already in the gaps table below — this
+paper is its hardest instance, recorded here rather than duplicated there.
+
+`references_cache/PMID_38432407.md` is committed and is cited only from this page,
+not from any `kb/` entry. It is kept deliberately, so the quoted abstract stays
+checkable — do not read its absence from `kb/` as uncited and prune it.
+
 ## Gaps and questions the screen raised
 
 Mined out of the batch and filed separately, so they are not lost inside a
@@ -474,12 +773,13 @@ per-paper issue:
 | Module gap | Chemical respiratory allergy (low molecular weight sensitizers) | [#16878](https://github.com/monarch-initiative/dismech/issues/16878) |
 | Module gap | Efflux-mediated multidrug resistance | [#16879](https://github.com/monarch-initiative/dismech/issues/16879) |
 | Module gap | Developmental neurotoxicity as an outcome | [#16880](https://github.com/monarch-initiative/dismech/issues/16880) |
-| Node gap | Drug-induced phospholipidosis as distinct from steatosis | [#16881](https://github.com/monarch-initiative/dismech/issues/16881) |
+| Node gap | Drug-induced phospholipidosis as distinct from steatosis — **closed** by the `drug_induced_phospholipidosis` module | [#16881](https://github.com/monarch-initiative/dismech/issues/16881) |
 | Scope | A NAM can belong in the registry with no dismech home | [#16882](https://github.com/monarch-initiative/dismech/issues/16882) |
 | Convention | When is a molecular simulation a model of a mechanism? | [#16883](https://github.com/monarch-initiative/dismech/issues/16883) |
 | Convention | Where a PBPK or IVIVE dosimetry bridge belongs | [#16887](https://github.com/monarch-initiative/dismech/issues/16887) |
 | Schema gap | Toxicant susceptibility varying by host genotype | [#16884](https://github.com/monarch-initiative/dismech/issues/16884) |
 | Schema gap | Synergy between two exposures | [#16885](https://github.com/monarch-initiative/dismech/issues/16885) |
 | Schema gap | Reversibility of a toxic injury; PMID:38211720 shows recovery can be endpoint-dissociated, so it has to be per-endpoint | [#16886](https://github.com/monarch-initiative/dismech/issues/16886) |
+| Convention | AOP-derived edges are qualitative; a mechanism-based call needs quantitative AOP information the qualitative framework does not provide (raised by PMID:38580097) — [open-questions §10](NAMS_SPECIAL_ISSUE/open-questions.md) | Not filed |
 | Module gap | Bisphenol, or endocrine-disruptor, neurotoxicity (blocks every dismech record for PMID:38211720; a module would need a mechanism chain that paper does not supply) | Not filed |
 | Schema gap | An immortalised tumour line standing in for a primary cell type: `ModelDivergenceTypeEnum` has no value for a cell-identity substitution (raised by PMID:38211720) | Not filed |
