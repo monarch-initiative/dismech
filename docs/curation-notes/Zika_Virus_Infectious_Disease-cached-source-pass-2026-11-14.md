@@ -57,6 +57,14 @@ The same paper estimated 73% recent infection among Yap residents aged 3 years
 or older. This is best represented as an outbreak-period seroprevalence rather
 than as a global endemic prevalence.
 
+### Mild acquired-outbreak severity and symptomatic denominator
+
+The Yap outbreak abstract also reports no Zika-attributed hospitalization,
+hemorrhagic manifestations or death despite the high recent-infection estimate.
+PMID:39472938 supplies the complementary review estimate that only 20-25% of
+ZIKV-infected people develop noticeable symptoms, so the acute phenotype
+frequencies are read on a symptomatic-case denominator.
+
 ### ZIKV-specific immune evasion
 
 PMID:27212660 provides a compact molecular layer that differentiates this
