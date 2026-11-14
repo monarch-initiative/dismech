@@ -47,15 +47,16 @@ disease entry rather than as a grouping.
   bound to OPL because the local OPL cache contains reusable `egg stage` and
   `adult parasitic worm stage` terms but no acanthocephalan-specific larval
   stage terms.
-- **Pyrantel pamoate, levamisole, niclosamide, mebendazole, ivermectin,
-  thiabendazole, and piperazine citrate** were kept in prose because the human
-  treatment record is case-report based and explicitly unstandardized; only the
-  pyrantel pattern was structured as a treatment because it is the best
-  supported repeated regimen for mild cases.
-- **Nausea and anorexia** were left in the description and not modeled as
-  phenotype nodes to keep the new entry to the strongest recurrent findings.
-  HPO has exact terms for both, and they can be added later if a
-  phenotype-completeness pass needs them.
+- **Pyrantel pamoate** was bound after `runoak -i ols:chebi search pyrantel`
+  returned `CHEBI:8655` Pyrantel pamoate. Levamisole, niclosamide,
+  mebendazole, ivermectin, thiabendazole, and piperazine citrate were kept in
+  prose because the human treatment record is case-report based and explicitly
+  unstandardized; only the pyrantel pattern was structured as a treatment
+  because it is the best supported repeated regimen for mild cases.
+- **Nausea, anorexia, abdominal distension, ileus, and peripheral
+  eosinophilia** were added after review as separate phenotype nodes. HPO's
+  canonical label for `HP:0003270` is Abdominal distention, while the entry
+  keeps the source spelling in `preferred_term`.
 
 ## Term Validation
 
@@ -70,3 +71,19 @@ Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
 | Unverifiable | 0 |
 
 Every term resolved, and every label the report gave matched.
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.5.1.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 3 |
+| Resolved | 3 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 3 |
+| On topic | 3 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.
