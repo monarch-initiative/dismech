@@ -16,8 +16,9 @@ Disease
     ├── name                                          │  string, identifier; the NAM
     ├── experimental_model_type                       │  ExperimentalModelTypeEnum (optional)
     │                                                 │  ORGANOID | ORGAN_ON_CHIP | CELL_LINE |
-    │                                                 │  IPSC_DERIVED_MODEL | PRIMARY_CELL_CULTURE |
-    │                                                 │  CO_CULTURE | OTHER
+    │                                                 │  PSC_DERIVED_MODEL | PRIMARY_CELL_CULTURE |
+    │                                                 │  EX_VIVO_TISSUE | CO_CULTURE | CELL_FREE |
+    │                                                 │  OTHER; IPSC_DERIVED_MODEL is deprecated
     ├── description                                   │  string
     ├── namo_type                                     │  uriorcurie; the NAMO class, e.g. namo:Organoid
     ├── organism                                      │  OrganismDescriptor; the species the cells came from
