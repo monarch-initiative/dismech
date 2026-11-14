@@ -28,3 +28,19 @@ This is a local literature sweep produced from the full-text PubMed references a
 
 - Freezing or cooking prevention is quotable from PMID:20804423 and the −18 °C for 96 h domestic-freezing rule is present in PMID:30058531, but the disease entry models post-exposure infection and therapy rather than kitchen controls upstream of viable-larva ingestion.
 - Occupational sensitization was not modeled as transmission. The entry is for active anisakid larval infection after seafood ingestion; allergy after fish-handling exposure can occur without a live larva penetrating the gastrointestinal mucosa.
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.5.1.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 6 |
+| Resolved | 6 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 6 |
+| On topic | 4 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.
