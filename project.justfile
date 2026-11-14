@@ -2481,6 +2481,11 @@ ai-blame-annotate-all:
         echo "Completed without errors."
     fi
 
+# Lint Python with the pinned ruff -- the same command CI runs (#9964)
+[group('QC')]
+lint-python *args:
+    uv run ruff check . {{args}}
+
 # Lint the schema
 [group('QC')]
 lint-schema:

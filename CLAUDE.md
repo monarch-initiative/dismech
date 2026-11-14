@@ -109,6 +109,10 @@ just pytest-all
 # Run a single test
 uv run pytest tests/test_data.py -k "test_name" -v
 
+# Lint Python with the pinned ruff, exactly as CI does (version pinned in
+# pyproject.toml; bump it there, in uv.lock and in .pre-commit-config.yaml together)
+just lint-python
+
 # Generate HTML pages for all disorders
 uv run python -m dismech.render --all
 
