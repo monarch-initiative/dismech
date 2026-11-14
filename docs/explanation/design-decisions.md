@@ -2370,17 +2370,37 @@ bears on, through the slots in *Where a menopause fact goes* below.
   shared chain once and conforming entries substitute the tissue-specific receptor, cell
   type and effector.
 - **Vasomotor symptoms**, **genitourinary syndrome of menopause** and **postmenopausal
-  osteoporosis**, each a disorder of the transition rather than the transition. None is
-  curated as of 2026-11-14, and their anchoring is uneven, so §3 decides each one
-  separately. Postmenopausal osteoporosis has its own MONDO class (`MONDO:0008159`),
-  unbound anywhere in `kb/`, while the existing `Osteoporosis` entry binds the parent
-  `MONDO:0005298`. Genitourinary syndrome of menopause has no class under that name, and
-  `MONDO:0001410` *postmenopausal atrophic vaginitis* is the nearest and narrower anchor,
-  so §3a's convention for a stratum without its own class — anchor the parent with
-  `skos:broadMatch` — is the model. Vasomotor symptoms has no MONDO class at all (MONDO
-  searches for `vasomotor symptom` and `hot flash`, OLS, 2026-11-14), only `HP:0031217`
-  *Hot flashes*, bound today in one entry,
-  `Fragile_X-Associated_Primary_Ovarian_Insufficiency`.
+  osteoporosis**, each a disorder of the transition rather than the transition. All three
+  were curated under this decision on 2026-11-14, and their anchoring is uneven, so §3
+  decides each one separately.
+
+  **Which predicate an entry records follows the direction of the mismatch, and §3e
+  states the reading once** (*The predicate direction, stated once*): a SKOS mapping
+  reads subject to object with the dismech entry as the subject, so `skos:broadMatch`
+  asserts the mapped class is broader than the entry and `skos:narrowMatch` asserts it
+  is narrower. §3a's case is the first of those — a promoted stratum anchoring its
+  broader parent class, which records `broadMatch`.
+
+  Genitourinary syndrome of menopause is the second, and so is the **mirror image** of
+  §3a rather than an application of it. MONDO has no class under that name;
+  `MONDO:0001410` *postmenopausal atrophic vaginitis* is the nearest one and it is
+  narrower than the entry, because MONDO defines it as inflammation of the vagina while
+  the entry also covers the vulva, vestibule, urethra and bladder. The entry therefore
+  anchors `MONDO:0001410` as its `disease_term` and records it as `skos:narrowMatch` in
+  `mappings.mondo_mappings`. §3e's note that `narrowMatch` is a legacy spelling being
+  migrated away from is about the first case, where it was used for what `broadMatch`
+  now says; it does not reach this one, which is a different direction and not a
+  different spelling of the same one. What the two cases do share is the rest of the
+  convention: anchor the nearest available class, and say in `mappings.mondo_mappings`
+  how the entry differs from it rather than reusing the class silently.
+
+  Postmenopausal osteoporosis has its own MONDO class (`MONDO:0008159`), now bound as a
+  `has_subtypes` stratum of `Osteoporosis` (see *Settled by this decision's own
+  curation* below) while the parent entry keeps `MONDO:0005298`. Vasomotor symptoms has
+  no MONDO class at all (MONDO searches for `vasomotor symptom` and `hot flash`, OLS,
+  2026-11-14), only `HP:0031217` *Hot flashes*, so that entry carries no `disease_term`
+  and records the gap as a `KNOWLEDGE_GAP` discussion instead of anchoring a proxy
+  class.
 - The existing premature and primary ovarian insufficiency entries, which are diseases on
   any reading and need no special treatment here. MONDO files `MONDO:0001119` *premature
   menopause* as a descendant of `MONDO:0005387` *primary ovarian failure*, not as a
@@ -2446,8 +2466,8 @@ disorder class as a proxy for the stage, and would need §4 ontology sign-off.
 
 | The fact being recorded | Where it goes | Worked example |
 |---|---|---|
-| Oestrogen withdrawal drives a mechanism in this disease | An `environmental:` record whose `exposure_term` binds `ECTO:9000010` *exposure to estrogens* with `modifier: DECREASED`, linked by `influences_mechanisms`. Bind the hormonal state, not the stage: ECTO has no menopause term | `Osteoporosis` (*Estrogen Deficiency*, `TRIGGERS`), `Semicircular_Canal_Dehiscence_Syndrome` (*Post-Menopausal Estrogen Decline*, `PREDISPOSES`) |
-| The withdrawal is itself a step in the entry's causal chain | A root `pathophysiology` node at `ORGANISM` scale, with the receptor-level consequence as a separate `CELLULAR` node bound to `GO:0030520` *estrogen receptor signaling pathway* with `modifier: DECREASED` | `Heart_Failure` (*Postmenopausal Oestrogen Withdrawal* → *Loss of Myocardial Oestrogen Receptor Signalling*) |
+| Oestrogen withdrawal drives a mechanism in this disease | An `environmental:` record whose `exposure_term` binds `ECTO:9000010` *exposure to estrogens* with `modifier: DECREASED`, linked by `influences_mechanisms`. Bind the hormonal state, not the stage: ECTO has no menopause term. Where the entry also carries the receptor step as a node, point the link at that node rather than at the lesion below it, so the exposure is not asserted as the cause of a lesion that other drivers reach by other routes | `Osteoporosis` (*Estrogen Deficiency*, `TRIGGERS`, targeting *Loss of Bone-Cell Estrogen Receptor Signalling*, which is the node that conforms to the module), `Semicircular_Canal_Dehiscence_Syndrome` (*Post-Menopausal Estrogen Decline*, `PREDISPOSES`) |
+| The withdrawal is itself a step in the entry's causal chain | A root `pathophysiology` node at `ORGANISM` scale, with the receptor-level consequence as a separate `CELLULAR` node bound to `GO:0030520` *estrogen receptor signaling pathway* with `modifier: DECREASED`. The receptor node is also the right conformance target for the module, since that is the step the module holds once; the halves are separable, and an entry whose scope is not postmenopausal disease can take the receptor node without the systemic one | `Heart_Failure` (*Postmenopausal Oestrogen Withdrawal* → *Loss of Myocardial Oestrogen Receptor Signalling*); `Osteoporosis` takes the receptor node alone, with the systemic fall left as the exposure record above |
 | The disease behaves differently before and after the transition | `progression:` phases across the reproductive lifespan | `Uterine_Leiomyoma` (Premenarchal / Reproductive years / Postmenopausal) |
 | A treatment's effect differs by menopausal status | `treatments[].effect_modifiers` with `effect_modifier_type: REPRODUCTIVE_STATUS`, which exists for exactly this stratifier and is distinct from `SEX` | `Sarcopenia` (resistance training, `NO_DIFFERENCE`, `META_ANALYSIS_SUBGROUP`) |
 | A laboratory interval differs by menopausal status | Two `reference_ranges` on the same `loinc_term`, separated by `population` | `Gout` (serum urate, `LOINC:3084-1`) |
@@ -2470,14 +2490,40 @@ Therapy* is defined by NCIT as post-menopausal or post-ovariectomy oestrogen rep
 and is widely bound to growth-hormone, thyroid and adrenal replacement instead
 (dismech#11705, open, which carries the current count and the proposed sweep).
 
-**Current state.** Menopause is mentioned in 75 `kb/disorders/` entries. In 64 of them it
-appears only in prose — a `description`, `notes`, or an evidence `snippet` or
-`explanation` — and so is not queryable. Eleven carry it in a named slot, and those are
-the worked examples above. `Osteoporosis` is counted in the prose group, correctly: its
-exposure record is named *Estrogen Deficiency* and binds oestrogen, with menopause
-appearing only in the surrounding prose, which is what the first table row asks for.
+**Current state.** The census below was taken immediately before this decision's own
+curation landed, so it does not count the two new entries or the `Osteoporosis` changes
+described above. Menopause was mentioned in 75 `kb/disorders/` entries. In 64 of them it
+appeared only in prose — a `description`, `notes`, or an evidence `snippet` or
+`explanation` — and so was not queryable. Eleven carried it in a named slot, and those
+are the worked examples above. `Osteoporosis` was counted in the prose group, correctly
+at the time: its exposure record is named *Estrogen Deficiency* and binds oestrogen,
+with menopause appearing only in the surrounding prose, which is what the first table
+row asks for. It now also carries the stage in named slots — a `Postmenopausal`
+`has_subtypes` stratum and two `progression:` phases keyed to the final menstrual
+period — so it belongs in the named-slot group.
 
-**Still open.** Whether postmenopausal osteoporosis becomes its own entry on
-`MONDO:0008159` or a `has_subtypes` stratum of `Osteoporosis`; whether vasomotor symptoms
-warrants a MONDO term request; and whether the free-text status strings above should move
-to a bound vocabulary (§12).
+**Settled by this decision's own curation (2026-11-14).**
+
+- **Postmenopausal osteoporosis is a `has_subtypes` stratum of `Osteoporosis`, not its
+  own entry on `MONDO:0008159`.** It shares the parent's whole downstream chain — the
+  RANKL/OPG shift, the remodelling imbalance, the microarchitectural deterioration and
+  the fracture phenotypes — and the parent's first-line therapy. What is specific to it
+  is the driver (ovarian oestrogen withdrawal rather than ageing, hypogonadism or a
+  secondary cause) and the timing (bone loss anchored on the final menstrual period and
+  largely spent within three years of it, rather than accumulating with age). A driver
+  and a tempo are exactly what a `has_subtypes` row plus `progression:` phases carry,
+  and §3a's promotion test reads the same way: the stratum has no pathophysiology of its
+  own beyond its driver, so it does not earn an entry. `MONDO:0008159` is bound as the
+  stratum's `subtype_term`.
+- **Both new entries need a MONDO term request.** The vasomotor entry carries no
+  `disease_term` because MONDO has no class for the concept; the genitourinary entry
+  anchors a class narrower than itself. Each says so in its own `notes`, and the
+  vasomotor entry carries it as a `KNOWLEDGE_GAP` discussion. So the question is not
+  whether a request is warranted but that neither has been filed, which is the open item
+  below.
+
+**Still open.** Two MONDO term requests, neither filed: a class for the vasomotor
+syndrome of menopause, sibling to `MONDO:0001410`, and a class for genitourinary
+syndrome of menopause as a parent of `MONDO:0001410` and a sibling of the lower urinary
+tract classes. And whether the free-text status strings above should move to a bound
+vocabulary (§12).
