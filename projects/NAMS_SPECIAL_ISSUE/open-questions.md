@@ -165,12 +165,37 @@ species. Recording one divergence for the construct loses which layer is affecte
 Tracked as dismech#16885.
 
 The pesticide AOP paper (PMID:38040083) finds that pairs of pesticides from different
-classes act synergistically on shared key events, with combination indexes below 1.
+classes act synergistically, with combination indexes below 1.
 dismech's `environmental[].influences_mechanisms` links one exposure to one node.
+
+The headline finding, read off the abstract (the full text was not retrievable in the
+curation environment, so the cached reference is abstract-only), is two specific pairs:
+
+| Pair | Classes | Finding |
+|---|---|---|
+| permethrin + fipronil | type-I pyrethroid + phenylpyrazole | combination index < 1 |
+| deltamethrin + fipronil | type-II pyrethroid + phenylpyrazole | combination index < 1 |
+
+In the paper's words, "combined exposure to a type-I pyrethroid permethrin or a type-II
+pyrethroid deltamethrin and the phenylpyrazole fipronil decreased the cell viability and
+the benchmark doses much more than either single exposure, indicating that the pair
+exhibited synergistic effects, since the combination indexes were less than 1." The
+synergy is reported on the *apical* endpoints — cell viability and the benchmark dose —
+and both classes are among the pesticides the paper also shows share the mitochondrial
+and proteolytic key events (decreased mitochondrial membrane potential and proteasome
+activity), which is the AOP-grouping rationale for testing them together.
+
+This interaction is recorded here, in the inventory, and **deliberately not** as a
+dismech model link or a pair of `influences_mechanisms` edges: the surviving key-event
+links for this paper (`mitochondrial_dysfunction#Bioenergetic Decline and Oxidative
+Stress`, `loss_of_proteostasis#Proteostasis Network Decline`) are single-exposure,
+single-node `ModelMechanismLink`s and carry nothing about the pairwise interaction.
 
 **Question:** nothing expresses "these two exposures together produce an effect greater
 than either alone". Two separate `TRIGGERS` links state that both act on the node and
-lose the interaction, which is the paper's actual finding.
+lose the interaction, which is the paper's actual finding — and here the interaction is
+on cell viability and the benchmark dose, downstream of the shared key events rather than
+on any one of them, so a per-node combination slot would also not be the whole answer.
 
 ## 10. AOP-derived content inherits the qualitative/quantitative gap
 

@@ -676,6 +676,94 @@ excludes.
 sentences above are quoted) are committed and are cited only from this page, not from any
 `kb/` entry. Both are kept deliberately so the quoted sentences stay checkable — do not
 read their absence from `kb/` as uncited and prune them.
+### PMID:38040083 — AOP key-event assays, two dismech links, synergy to the inventory
+
+Hirano T, Ikenaka Y, Nomiyama K, Honda M, Suzuki N, Hoshi N, Tabuchi Y, *Toxicology*
+500:153687 ([#16864](https://github.com/monarch-initiative/dismech/issues/16864)). A
+mammalian neuronal cell model exposed to 10 current-use pesticides (4 neonicotinoids,
+4 pyrethroids, 2 phenylpyrazoles), singly and in pairs, read out against adverse-outcome-
+pathway key events for neurotoxicity. The paper is organised around AOP key events rather
+than apical endpoints, so the assay-to-key-event pairing is explicit in its own design.
+
+**The record is abstract-only.** The full text was not retrievable in the curation
+environment — the publisher host and Europe PMC were both outside the session's network
+allowlist, and the reference fetcher's open-access providers were blocked by the proxy —
+so `references_cache/PMID_38040083.md` is `abstract_only`, every snippet quotes the
+abstract, and **the abstract does not name the cell line or species.** The system is
+therefore recorded at the "mammalian neuronal cell model" level the abstract itself uses.
+Everything below was checked against the cached abstract, not the full text.
+
+**Registry rows, one per key-event assay.** There is one model system (the neuronal cell
+model); the registry rows catalogue its AOP key-event assays as methods. Each shares the
+one system, so each proposed record carries the model as `TwoDCellCulture` and differs in
+the endpoint it reads:
+
+| Proposed record id | Assay | Measures |
+|---|---|---|
+| `neuronal-mitochondrial-membrane-potential-two-d-culture-pesticide` | mitochondrial membrane potential | KE: mitochondrial dysfunction (depolarisation) |
+| `neuronal-proteasome-activity-two-d-culture-pesticide` | proteasome activity | KE: proteolytic dysfunction |
+| `neuronal-autophagy-activity-two-d-culture-pesticide` | autophagy activity | KE: autophagic flux (an *increase* here) |
+| `neuronal-viability-benchmark-dose-two-d-culture-pesticide` | cell viability with benchmark-dose modelling | potency / apical cell death |
+| `neuronal-combination-index-two-d-culture-pesticide` | combination index | synergy between two exposures |
+
+**This typing has not been validated against the registry's schema** — no nams-registry
+pull request has been opened for it, and the ids and `TwoDCellCulture` class were read off
+NAMO and `nam_records.yaml` rather than checked by a LinkML run. Treat the table as a
+proposal. It hits the same `source_resources` blocker the MEA and ReproTracker drafts hit,
+for the same reason: the NAM was found in a primary research paper, which the registry's
+own `ResourceTypeEnum.Report` says is not a report. And because the cell line is unnamed,
+the records cannot yet carry a specific `model` id below the "mammalian neuronal cell
+model" level.
+
+**dismech disposition — two arms link, three do not:**
+
+| Arm | KE / endpoint | dismech disposition |
+|---|---|---|
+| mitochondrial membrane potential ↓ | mitochondrial dysfunction | `ModelMechanismLink` on `mitochondrial_dysfunction#Bioenergetic Decline and Oxidative Stress`, `PARTIALLY_RECAPITULATES`, `model_scale: CELLULAR`, `PROXY_QUANTITY` divergence |
+| proteasome activity ↓ | proteolytic dysfunction | `ModelMechanismLink` on `loss_of_proteostasis#Proteostasis Network Decline`, `PARTIALLY_RECAPITULATES`, `model_scale: CELLULAR`, `BOUNDARY_OMISSION` divergence |
+| autophagy activity ↑ | autophagic flux | **no link** — opposite direction to the only candidate module (see below) |
+| cell viability / benchmark dose | potency | registry only — an apical endpoint with no mechanism node to attach to |
+| combination index | synergy | inventory only — [open question 9](NAMS_SPECIAL_ISSUE/open-questions.md), dismech#16885 |
+
+Both model links observe only the cellular key event and carry `limitations` saying the
+cell model cannot observe the nervous-system adverse outcome the AOP targets. Neither
+anchor node is organism-level, so neither link needs a `SCALE_EXTRAPOLATION` divergence;
+linking the cell model up to an organism-level outcome node (`Age-Related Tissue
+Dysfunction`, `Proteotoxic Cell Dysfunction and Neurodegeneration`) was rejected because
+the paper demonstrates the key events, not those downstream outcomes — that would be a
+claim overreach the scale caveat alone would not fix.
+
+**The autophagy arm survives neither candidate.** The issue floated
+`disabled_macroautophagy` for it. That module models autophagy being *disabled* — its
+chain is "machinery-decline → failed-clearance → accumulated-damage" and its nodes are
+`Autophagy Machinery Decline` and `Failure of Cytoplasmic Quality Control`. This paper's
+finding is an *increase* in autophagy activity, a stress-induced induction, which is the
+opposite claim; linking it would assert decline from a measurement of induction. So the
+autophagy key event has no module home here and is recorded as a gap rather than forced
+onto the wrong anchor. (`loss_of_proteostasis#Proteostasis Network Decline` does bind
+`GO:0016236 macroautophagy, DECREASED` as one arm, so it is excluded for the same
+direction reason; only its proteasome arm is used.)
+
+**The mitochondrial anchor is the general module, not the acute-poisoning one.**
+`xenobiotic_oxidative_phosphorylation_blockade` is scoped to acute histotoxic poisoning at
+a specific respiratory-chain step (cyanide/CO at cytochrome c oxidase, complex-II
+inhibition, mitochondrial-translation arrest). Pyrethroids and fipronil are not shown to
+block a specific oxidative-phosphorylation step; they produce a general decrease in
+mitochondrial membrane potential, a secondary mitochondrial injury that
+`mitochondrial_dysfunction#Bioenergetic Decline and Oxidative Stress` (the conserved
+effector node, which conformers reach via secondary injury) is the right anchor for. This
+is the inverse of the trifluralin precedent ([#15582](https://github.com/monarch-initiative/dismech/issues/15582)),
+where the mitochondrial effect *was* oxidative-phosphorylation blockade.
+
+**No home for pesticide neurotoxicity as an entry.** Nothing in `kb/` is clearly the
+right disease or module home; `acetylcholinesterase_inhibition` exists but is a different,
+cholinergic mechanism, and none of these three key events is cholinergic. The model
+therefore attaches to the two mechanism modules directly (as the liver spheroid in
+PMID:38740170 did), with no disease entry created.
+
+`references_cache/PMID_38040083.md` is committed and **is** cited from `kb/` — from the
+two `experimental_models` links above — so, unlike the registry-only papers on this page,
+its home is the modules, not this log.
 
 ### PMID:38432407 — ochratoxin A target discovery (OGFOD1 prediction) goes to the registry only
 
