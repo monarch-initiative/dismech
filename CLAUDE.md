@@ -2376,7 +2376,8 @@ with attribution in `explanation`, but that prose is not automatically quote-val
 or passed to the evaluator. Narrow an overstated assertion itself; its explanation
 cannot repair it. See [Recording caveats](docs/explanation/evidence-model.md#recording-caveats-with-the-existing-fields)
 for an example and the distinction between evidence direction, claim coverage and
-study strength.
+study strength. Jev’s `MATCH` / `PARTIAL` / `MISMATCH` are classifier outputs;
+they are separate from the retired `supports: PARTIAL` value discussed below.
 
 **`PARTIAL` and `WRONG_STATEMENT` were removed** (issue #7439). If you are
 tempted to reach for the old `PARTIAL`, one of these is what you mean:
