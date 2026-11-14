@@ -2367,6 +2367,18 @@ A quoted **aim** statement ("the aim of the present study was to…") has no val
 in this enum; it is neither the paper's finding nor somebody else's fact. Leave
 `quote_role` off; `just list-background-citations` reports those separately.
 
+**Keep study limitations visible without turning them into direction labels.**
+A small sample or a call for future work can coexist with `SUPPORT` for a finding
+accurately scoped to the study. Include the authors' caveat in the exact `snippet`
+when it is part of the same passage, and record our interpretation in `explanation`.
+Do not splice disconnected quotations. A caveat from another section can be quoted
+with attribution in `explanation`, but that prose is not automatically quote-validated
+or passed to the evaluator. Narrow an overstated assertion itself; its explanation
+cannot repair it. See [Recording caveats](docs/explanation/evidence-model.md#recording-caveats-with-the-existing-fields)
+for an example and the distinction between evidence direction, claim coverage and
+study strength. Jev’s `MATCH` / `PARTIAL` / `MISMATCH` are classifier outputs;
+they are separate from the retired `supports: PARTIAL` value discussed below.
+
 **`PARTIAL` and `WRONG_STATEMENT` were removed** (issue #7439). If you are
 tempted to reach for the old `PARTIAL`, one of these is what you mean:
 

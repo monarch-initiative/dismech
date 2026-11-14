@@ -446,7 +446,7 @@ def test_task_prompt_contract_and_old_outputs_are_unchanged():
         canonical_edge_claim(c), "Source text used only to contextualize."
     )
     assert task.name == edge_prompt()["name"] == "edge_claim_aspects"
-    assert task.version == edge_prompt()["version"] == "2"
+    assert task.version == edge_prompt()["version"] == "2.1"
     assert task.instructions == edge_prompt()["instructions"]
     assert task.criteria == CRITERIA
     assert task.state["source_text"] == "Source text used only to contextualize."
