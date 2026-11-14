@@ -10,14 +10,15 @@ template_variables:
   category: Infectious Disease
 verification:
   searches_run: 3
-  sources_fetched: 3
+  sources_fetched: 2
   full_text_sources_fetched: 2
-  abstract_only_sources_fetched: 1
+  abstract_only_sources_fetched: 0
 note: >-
   Provenance artifact generated for the Enterobiasis new-entry PR. The sweep
   used targeted searches for Enterobius vermicularis, enterobiasis, pinworm
   life cycle, Scotch-tape diagnosis, and mebendazole/albendazole/pyrantel
-  therapy. The authoritative, snippet-validated claims live in
+  therapy, not an external deep-research provider run. The authoritative,
+  snippet-validated claims live in
   kb/disorders/Enterobiasis.yaml; do not import claims from this file without
   fetching the cited source into references_cache/ and validating exact
   snippets with the project reference validator.
@@ -40,7 +41,6 @@ Dientamoebiasis entry *E. vermicularis* eggs are only a proposed vehicle for
 |---|---|---|
 | PMID:31064642 | Wendt et al. 2019, *Dtsch Arztebl Int*, “The Diagnosis and Treatment of Pinworm Infection” | Main source for the direct human gastrointestinal life cycle, infective eggs within 4–6 h of oviposition, cecal and ascending-colon adult worms, nocturnal perianal oviposition, scratch-mediated egg dispersal, adhesive eggs, Scotch-tape microscopy, and the review’s treatment synthesis. |
 | PMID:42267275 | Albasheer et al. 2026, *Front Public Health*, “Pinworm (*Enterobius vermicularis*) in children and adults: a practice-oriented narrative review and household-school algorithm” | Main source for the household/school transmission framing, perianal-pruritus and sleep-disturbance phenotype wording, three-drug two-dose treatment, and synchronized household treatment. |
-| PMID:38288810 | Leung et al. 2025, *Curr Pediatr Rev*, “Pinworm (*Enterobius Vermicularis*) Infestation: An Updated Review” | Abstract-only corroboration for recurrence through autoinfection and for hygiene measures; not used for exact YAML evidence because fuller 2019 and 2026 reviews were available. |
 
 ## Content checklist
 
@@ -50,10 +50,10 @@ Dientamoebiasis entry *E. vermicularis* eggs are only a proposed vehicle for
   Scotch-tape survey estimates.
 - **Phenotypes:** The entry captures the characteristic nocturnal perianal
   pruritus, sleep disturbance, nocturnal enuresis, impaired daytime
-  concentration, and perianal dermatitis. Rare ectopic vulvovaginal migration is
-  modeled narrowly through dysuria and abnormal vaginal discharge; abdominal
-  pain and irritability were left out because the reviews describe them as
-  nonspecific.
+  concentration, and perianal dermatitis. Occasional ectopic vulvovaginal
+  migration is modeled narrowly through dysuria and abnormal vaginal discharge;
+  abdominal pain and irritability were left out because the reviews describe
+  them as nonspecific.
 - **Life cycle and transmission:** The entry records the direct human life cycle
   with OPL-bound egg and adult-worm stages and a fecal-oral/autoinfection/fomite
   transmission row. Non-human reservoirs and vectors are intentionally absent:
@@ -97,12 +97,12 @@ Checked with `linkml-reference-validator` 0.5.1.
 
 | Outcome | Count |
 | --- | --- |
-| References checked | 3 |
-| Resolved | 3 |
+| References checked | 2 |
+| Resolved | 2 |
 | Unresolved (possible confabulation) | 0 |
 | Unverifiable | 0 |
-| References weighed for topical relevance | 3 |
-| On topic | 3 |
+| References weighed for topical relevance | 2 |
+| On topic | 2 |
 | Off topic | 0 |
 
 All extracted references resolved successfully.
