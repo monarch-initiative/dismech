@@ -1,11 +1,11 @@
-# Streptococcus Pneumoniae Discitis Deep Research Note
+# Streptococcus pneumoniae discitis cached-source follow-up
 
 ## Scope and source mode
 
-No external deep-research provider was used for this follow-up pass. This local
-Codex review re-read the cached pneumococcal discitis sources and fetched
-additional PubMed/PMC records to check for missed host-context, progression,
-phenotype, diagnostic, and treatment evidence.
+This local cached-source review re-read the pneumococcal discitis sources
+already fetched during curation and fetched additional PubMed/PMC records to
+check for missed host-context, progression, phenotype, diagnostic, and treatment
+evidence.
 
 ## Sources added
 
@@ -36,19 +36,3 @@ The follow-up pass fixes three structural omissions in the first curation:
 
 PMID:24481748 describes a pooled human review, so its evidence rows were
 regraded to `HUMAN_CLINICAL` with `quote_role: REVIEW_SYNTHESIS`.
-
-## Reference Validation
-
-Checked with `linkml-reference-validator` 0.5.1.
-
-| Outcome | Count |
-| --- | --- |
-| References checked | 4 |
-| Resolved | 4 |
-| Unresolved (possible confabulation) | 0 |
-| Unverifiable | 0 |
-| References weighed for topical relevance | 4 |
-| On topic | 3 |
-| Off topic | 0 |
-
-All extracted references resolved successfully.
