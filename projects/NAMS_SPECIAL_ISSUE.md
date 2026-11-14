@@ -468,6 +468,326 @@ confound and the endpoint-dissociated recovery.
 not from any `kb/` entry. It is kept deliberately, so the abstract stays
 checkable — do not read its absence from `kb/` as uncited and prune it.
 
+### PMID:38029955 — particulate matter on three co-culture architectures: registry only, no dismech anchor
+
+Guerra-Flórez et al. 2023, *Toxicology* 500:153685
+([#16872](https://github.com/monarch-initiative/dismech/issues/16872)).
+Fine and coarse particulate matter captured over Medellín, Colombia, applied to
+monolayers of A549 (lung), HEK001 (skin) and SIRC (cornea), and to three two-layer
+co-cultures built on Transwell inserts over a BALB/3T3 fibroblast feeder, in
+in-contact and non-contact configurations.
+
+**No dismech record.** The full text was not retrievable in the curation
+environment — the paper is `cc by-nc-nd` but sits behind Elsevier, is not in PMC or
+Europe PMC, and the publisher's text-mining API is outside the session's allowed
+hosts — so every statement below is quoted from the abstract. The disposition does
+not depend on the full text, and the issue itself expected it: the paper carries no
+mechanism for a `modeled_mechanisms` link to attach to.
+
+The only cellular endpoint is apical death. The abstract measures the co-culture
+constructs with one assay — "Monolayer and co-culture models were exposed to coarse
+and fine PM (1, 2, and 5 mg/mL) and the cell viability was evaluated at 24 h using
+an MTT assay." The SEM-EDS and GC/LC-MS work characterises the particles (morphology,
+elemental composition, polycyclic aromatic hydrocarbon content), not the cells. MTT
+viability is an apical toxicity label, not a directional mechanism node, so it is the
+same obstacle the MEA assays (PMID:38788893) hit: the method is real but asserts no
+mechanism. The paper is explicit that its mechanistic content is a proposal rather
+than a measurement — its stated aim is to "propose the possible cellular interactions
+that lead the cytotoxic response", and the abstract reports no assay of those
+interactions.
+
+Its three findings are properties of the test systems, not of a disease:
+
+- a particle-size effect — "models exposed to fine PM exhibited a significant
+  reduction in cell viability compared to those exposed to coarse PM";
+- architecture as a determinant of resistance — "multilayer models are more resistant
+  to PM exposure than monolayer models";
+- a seeding-configuration effect — "the non-contact model showed higher resistance to
+  PM exposure than in-contact for SIRC and HEK001, but A549 monolayers showed the
+  highest viability response".
+
+None of these has a dismech expression. The in-contact-versus-non-contact difference
+is a property of how the construct is assembled; it is registry content, and the open
+question it raises is already filed.
+
+The anchor end is empty as well. There is no ambient-PM or air-pollution exposure
+entry in `kb/` — as with Bisphenol A in the PMID:38211720 section above, PM appears
+only inside disease entries (`Asthma`, `Chronic_Obstructive_Pulmonary_Disease`, the
+pneumoconioses, and others such as `Contact_Dermatitis`, `Parkinsons_Disease` and
+`Cystic_Fibrosis`) that are not this cytotoxicity screen. The airway-irritant module gap this paper's lung arm
+contributed to ([#16877](https://github.com/monarch-initiative/dismech/issues/16877))
+is now closed — `inhaled_irritant_airway_injury` exists — but a module existing does
+not create a link: the module models oxidative and electrophilic epithelial injury,
+and MTT death at 24 h measures none of its nodes. Linking A549 cytotoxicity to it
+would assert a mechanism the paper never read out.
+
+The registry disposition is per-construct rows recording each layer's species
+composition and the configuration effect, as the issue asks. That is
+[nams-registry](https://github.com/monarch-initiative/nams-registry) work, not
+dismech, and it is where the mixed-species construct lives: A549 and HEK001 are human,
+SIRC is a rabbit corneal line and BALB/3T3 a mouse feeder, so the ocular arm is not a
+human model and every arm's feeder is non-human. A single `fidelity` tier and
+`model_scale` cannot say which layer diverges, which is
+[#16889](https://github.com/monarch-initiative/dismech/issues/16889) — a registry
+concern here, since no dismech link is being written for it to apply to.
+
+`references_cache/PMID_38029955.md` is committed and is cited only from this page,
+not from any `kb/` entry. It is kept deliberately, so the quoted sentences above stay
+checkable — do not read its absence from `kb/` as uncited and prune it.
+
+#### Proposed registry records
+
+Six [nams-registry](https://github.com/monarch-initiative/nams-registry) records,
+one per construct: the three monolayers as `CellLineModel`, the three two-layer
+co-cultures as `CoCulture`. Drafted against the registry's `nam_records.yaml` at
+`38f8129` and NAMO at `fe36451` (the ref `pyproject.toml` pins), **not yet LinkML-
+validated** — treat the block as a proposal, as the MEA and ReproTracker drafts above
+are.
+
+Three things have changed in the registry since those earlier drafts, and the first
+removes the blocker every one of them hit:
+
+- **`source_resources` is no longer blocked.** The registry now has a
+  `scientific-literature` resource, so a NAM found in a primary paper names it with
+  the DOI in `source_urls` and the full citation in the model's `references` — no
+  ToxCast placeholder. The MEA and ReproTracker drafts above should be updated to
+  this form too.
+- **`species` is a top-level slot on the record**, not inside the model, and it is
+  where the mixed-species construct (#16889) is recorded: each co-culture lists both
+  its epithelial layer's species and the mouse feeder's.
+- **`dismech_status` replaces a free-text note.** It states the NAM came through
+  DisMech curation (`processed_through_dismech: true`) and is absent from the graph
+  (`present_in_dismech: false`), keyed to a DisMech commit — the one below is this
+  branch's head and should become the merge commit when the records are created.
+
+The paper's head-to-head NAM comparison is monolayer versus its own-tissue co-culture
+("multilayer models are more resistant than monolayer models"), so each monolayer is
+`compared_with` its co-culture and vice versa. Fine-versus-coarse is a substance
+contrast, not a model one, and the in-contact/non-contact result is a seeding effect
+*within* each co-culture — `CocultureConfigurationEnum` is single-valued, so the
+records carry `TRANSWELL` (the shared platform) and state both seedings and the
+resistance ordering in prose, since one enum value cannot hold a construct run two
+ways.
+
+The CL cell-type terms were resolved against OLS; SIRC is bound to corneal epithelial
+cell with a caveat, because its lineage (epithelial versus fibroblastic) is debated in
+the literature.
+
+```yaml
+# 1 — lung monolayer
+model:
+  id: lung-monolayer-a549-cell-line
+  type: CellLineModel
+  name: A549 human lung adenocarcinoma monolayer
+  biological_organization_level: CELLULAR
+  cell_types:
+  - {id: CL:0000082, name: epithelial cell of lung}
+  cell_source: A549 immortalised human lung adenocarcinoma cell line
+  references:
+  - id: doi:10.1016/j.tox.2023.153685
+    title: >-
+      In vitro toxicity of fine and coarse particulate matter on the skin, ocular
+      and lung microphysiological cell-culture systems.
+    year: 2023
+species:
+- {id: NCBITaxon:9606, name: Homo sapiens}
+applications:
+- description: >-
+    MTT cytotoxicity screen of fine and coarse particulate matter (1, 2, 5 mg/mL,
+    24 h); the abstract reports A549 monolayers as showing the highest viability
+    response of the models tested.
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+limitations:
+- description: >-
+    The only endpoint is MTT viability at 24 h, an apical death readout that
+    identifies no mechanism.
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+source_resources:
+- resource: scientific-literature
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+  accessed_on: '2026-11-14'
+compared_with:
+- {nam: lung-coculture-a549-balb-3t3-transwell, reference: doi:10.1016/j.tox.2023.153685}
+dismech_status:
+  processed_through_dismech: true
+  present_in_dismech: false
+  dismech_commit: e06e41130277b6b766aa430a1537db22429aa2d7
+  assessed_on: '2026-11-14'
+creation_date: '2026-11-14'
+last_modified_date: '2026-11-14'
+---
+# 2 — skin monolayer
+model:
+  id: skin-monolayer-hek001-cell-line
+  type: CellLineModel
+  name: HEK001 human keratinocyte monolayer
+  biological_organization_level: CELLULAR
+  cell_types:
+  - {id: CL:0000312, name: keratinocyte}
+  cell_source: HEK001 immortalised human keratinocyte cell line
+  references:
+  - {id: doi:10.1016/j.tox.2023.153685, title: 'In vitro toxicity of fine and coarse particulate matter on the skin, ocular and lung microphysiological cell-culture systems.', year: 2023}
+species:
+- {id: NCBITaxon:9606, name: Homo sapiens}
+applications:
+- description: MTT cytotoxicity screen of fine and coarse PM (1, 2, 5 mg/mL, 24 h).
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+limitations:
+- description: Only endpoint is MTT viability at 24 h; identifies no mechanism.
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+source_resources:
+- {resource: scientific-literature, source_urls: [https://doi.org/10.1016/j.tox.2023.153685], accessed_on: '2026-11-14'}
+compared_with:
+- {nam: skin-coculture-hek001-balb-3t3-transwell, reference: doi:10.1016/j.tox.2023.153685}
+dismech_status: {processed_through_dismech: true, present_in_dismech: false, dismech_commit: e06e41130277b6b766aa430a1537db22429aa2d7, assessed_on: '2026-11-14'}
+creation_date: '2026-11-14'
+last_modified_date: '2026-11-14'
+---
+# 3 — cornea monolayer
+model:
+  id: cornea-monolayer-sirc-cell-line
+  type: CellLineModel
+  name: SIRC rabbit corneal monolayer
+  description: >-
+    SIRC (Statens Seruminstitut Rabbit Cornea) line. Corneal in origin; its
+    epithelial-versus-fibroblastic identity is debated, so the cell-type binding is
+    provisional.
+  biological_organization_level: CELLULAR
+  cell_types:
+  - {id: CL:0000575, name: corneal epithelial cell}
+  cell_source: SIRC immortalised rabbit corneal cell line
+  references:
+  - {id: doi:10.1016/j.tox.2023.153685, title: 'In vitro toxicity of fine and coarse particulate matter on the skin, ocular and lung microphysiological cell-culture systems.', year: 2023}
+species:
+- {id: NCBITaxon:9986, name: Oryctolagus cuniculus}
+applications:
+- description: MTT cytotoxicity screen of fine and coarse PM (1, 2, 5 mg/mL, 24 h).
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+limitations:
+- description: Only endpoint is MTT viability at 24 h; identifies no mechanism.
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+source_resources:
+- {resource: scientific-literature, source_urls: [https://doi.org/10.1016/j.tox.2023.153685], accessed_on: '2026-11-14'}
+compared_with:
+- {nam: cornea-coculture-sirc-balb-3t3-transwell, reference: doi:10.1016/j.tox.2023.153685}
+dismech_status: {processed_through_dismech: true, present_in_dismech: false, dismech_commit: e06e41130277b6b766aa430a1537db22429aa2d7, assessed_on: '2026-11-14'}
+creation_date: '2026-11-14'
+last_modified_date: '2026-11-14'
+---
+# 4 — lung co-culture
+model:
+  id: lung-coculture-a549-balb-3t3-transwell
+  type: CoCulture
+  name: A549 / BALB-3T3 two-layer lung co-culture on Transwell
+  description: >-
+    A549 epithelium over a BALB/3T3 mouse fibroblast feeder on a porous Transwell
+    insert, run in both in-contact and non-contact seedings. The abstract reports
+    the non-contact-versus-in-contact seeding effect only for the SIRC and HEK001
+    constructs, not for A549.
+  biological_organization_level: CELLULAR_NEIGHBORHOOD
+  coculture_configuration: TRANSWELL
+  cell_types:
+  - {id: CL:0000082, name: epithelial cell of lung}
+  - {id: CL:0000057, name: fibroblast}
+  cell_source: A549 human lung adenocarcinoma line over a BALB/3T3 mouse embryonic fibroblast feeder
+  references:
+  - {id: doi:10.1016/j.tox.2023.153685, title: 'In vitro toxicity of fine and coarse particulate matter on the skin, ocular and lung microphysiological cell-culture systems.', year: 2023}
+species:
+- {id: NCBITaxon:9606, name: Homo sapiens}
+- {id: NCBITaxon:10090, name: Mus musculus}
+applications:
+- description: >-
+    MTT cytotoxicity screen of fine and coarse PM. The paper reports multilayer
+    models as more PM-resistant than monolayers across the models tested; the
+    A549-specific monolayer-versus-co-culture comparison is not resolvable from the
+    abstract, since the A549 monolayer showed the highest viability of all models.
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+limitations:
+- description: >-
+    Only endpoint is MTT viability at 24 h; identifies no mechanism. Feeder layer is
+    mouse, so the construct is mixed-species (dismech #16889).
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+source_resources:
+- {resource: scientific-literature, source_urls: [https://doi.org/10.1016/j.tox.2023.153685], accessed_on: '2026-11-14'}
+compared_with:
+- {nam: lung-monolayer-a549-cell-line, reference: doi:10.1016/j.tox.2023.153685}
+dismech_status: {processed_through_dismech: true, present_in_dismech: false, dismech_commit: e06e41130277b6b766aa430a1537db22429aa2d7, assessed_on: '2026-11-14'}
+creation_date: '2026-11-14'
+last_modified_date: '2026-11-14'
+---
+# 5 — skin co-culture
+model:
+  id: skin-coculture-hek001-balb-3t3-transwell
+  type: CoCulture
+  name: HEK001 / BALB-3T3 two-layer skin co-culture on Transwell
+  description: >-
+    HEK001 keratinocytes over a BALB/3T3 mouse fibroblast feeder on Transwell,
+    in-contact and non-contact. Non-contact seeding was more PM-resistant than
+    in-contact.
+  biological_organization_level: CELLULAR_NEIGHBORHOOD
+  coculture_configuration: TRANSWELL
+  cell_types:
+  - {id: CL:0000312, name: keratinocyte}
+  - {id: CL:0000057, name: fibroblast}
+  cell_source: HEK001 human keratinocyte line over a BALB/3T3 mouse embryonic fibroblast feeder
+  references:
+  - {id: doi:10.1016/j.tox.2023.153685, title: 'In vitro toxicity of fine and coarse particulate matter on the skin, ocular and lung microphysiological cell-culture systems.', year: 2023}
+species:
+- {id: NCBITaxon:9606, name: Homo sapiens}
+- {id: NCBITaxon:10090, name: Mus musculus}
+applications:
+- description: MTT cytotoxicity screen of fine and coarse PM; the paper reports multilayer models as more PM-resistant than monolayers across the models tested, and non-contact seeding as more PM-resistant than in-contact for this construct.
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+limitations:
+- description: Only endpoint is MTT viability at 24 h; identifies no mechanism. Mouse feeder makes the construct mixed-species (dismech #16889).
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+source_resources:
+- {resource: scientific-literature, source_urls: [https://doi.org/10.1016/j.tox.2023.153685], accessed_on: '2026-11-14'}
+compared_with:
+- {nam: skin-monolayer-hek001-cell-line, reference: doi:10.1016/j.tox.2023.153685}
+dismech_status: {processed_through_dismech: true, present_in_dismech: false, dismech_commit: e06e41130277b6b766aa430a1537db22429aa2d7, assessed_on: '2026-11-14'}
+creation_date: '2026-11-14'
+last_modified_date: '2026-11-14'
+---
+# 6 — cornea co-culture
+model:
+  id: cornea-coculture-sirc-balb-3t3-transwell
+  type: CoCulture
+  name: SIRC / BALB-3T3 two-layer corneal co-culture on Transwell
+  description: >-
+    SIRC rabbit corneal cells over a BALB/3T3 mouse fibroblast feeder on Transwell,
+    in-contact and non-contact. Non-contact was more PM-resistant than in-contact.
+    Mixed-species in two ways — rabbit epithelium, mouse feeder — which is the
+    sharpest case for dismech #16889.
+  biological_organization_level: CELLULAR_NEIGHBORHOOD
+  coculture_configuration: TRANSWELL
+  cell_types:
+  - {id: CL:0000575, name: corneal epithelial cell}
+  - {id: CL:0000057, name: fibroblast}
+  cell_source: SIRC rabbit corneal line over a BALB/3T3 mouse embryonic fibroblast feeder
+  references:
+  - {id: doi:10.1016/j.tox.2023.153685, title: 'In vitro toxicity of fine and coarse particulate matter on the skin, ocular and lung microphysiological cell-culture systems.', year: 2023}
+species:
+- {id: NCBITaxon:9986, name: Oryctolagus cuniculus}
+- {id: NCBITaxon:10090, name: Mus musculus}
+applications:
+- description: MTT cytotoxicity screen of fine and coarse PM; the paper reports multilayer models as more PM-resistant than monolayers across the models tested, and non-contact seeding as more PM-resistant than in-contact for this construct.
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+limitations:
+- description: Only endpoint is MTT viability at 24 h; identifies no mechanism. Rabbit epithelium plus mouse feeder makes the construct doubly mixed-species (dismech #16889).
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+source_resources:
+- {resource: scientific-literature, source_urls: [https://doi.org/10.1016/j.tox.2023.153685], accessed_on: '2026-11-14'}
+compared_with:
+- {nam: cornea-monolayer-sirc-cell-line, reference: doi:10.1016/j.tox.2023.153685}
+dismech_status: {processed_through_dismech: true, present_in_dismech: false, dismech_commit: e06e41130277b6b766aa430a1537db22429aa2d7, assessed_on: '2026-11-14'}
+creation_date: '2026-11-14'
+last_modified_date: '2026-11-14'
+```
+
+The `---` lines separate the six records for readability here; in the registry each
+is its own file in `nams/`, named after its model id.
+
 ### PMID:38580097 — the PFOS thyroid–DNT AOP network: registry only, no dismech edges
 
 Wiklund, Pípal, Weiss and Beronius 2024, *Toxicology* 504:153794
@@ -780,6 +1100,7 @@ per-paper issue:
 | Schema gap | Toxicant susceptibility varying by host genotype | [#16884](https://github.com/monarch-initiative/dismech/issues/16884) |
 | Schema gap | Synergy between two exposures | [#16885](https://github.com/monarch-initiative/dismech/issues/16885) |
 | Schema gap | Reversibility of a toxic injury; PMID:38211720 shows recovery can be endpoint-dissociated, so it has to be per-endpoint | [#16886](https://github.com/monarch-initiative/dismech/issues/16886) |
+| Schema gap | Per-layer species scale in a multi-tissue co-culture | [#16889](https://github.com/monarch-initiative/dismech/issues/16889) |
 | Convention | AOP-derived edges are qualitative; a mechanism-based call needs quantitative AOP information the qualitative framework does not provide (raised by PMID:38580097) — [open-questions §10](NAMS_SPECIAL_ISSUE/open-questions.md) | Not filed |
 | Module gap | Bisphenol, or endocrine-disruptor, neurotoxicity (blocks every dismech record for PMID:38211720; a module would need a mechanism chain that paper does not supply) | Not filed |
 | Schema gap | An immortalised tumour line standing in for a primary cell type: `ModelDivergenceTypeEnum` has no value for a cell-identity substitution (raised by PMID:38211720) | Not filed |
