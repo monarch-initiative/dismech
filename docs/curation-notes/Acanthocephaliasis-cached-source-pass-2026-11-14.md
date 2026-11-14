@@ -1,12 +1,11 @@
 ---
 disease_name: Acanthocephaliasis
 mondo_id: MONDO:0000295
-provider: codex-local-cached-source-pass
+note_type: cached-source completeness pass
 source_set: cached PR references
-external_provider_used: false
 ---
 
-# Acanthocephaliasis: cached-source completeness pass
+# Acanthocephaliasis cached-source completeness pass
 
 This is a local completeness pass produced from the PubMed references already
 cached for the pull request. No external deep-research provider was used.
@@ -59,19 +58,3 @@ cached for the pull request. No external deep-research provider was used.
 - The Acanthocephalus and Pseudoacanthocephalus case strata remain in prose
   because their human source route is unknown or could not be reviewed in the
   cached 2021 article.
-
-## Reference Validation
-
-Checked with `linkml-reference-validator` 0.5.1.
-
-| Outcome | Count |
-| --- | --- |
-| References checked | 3 |
-| Resolved | 3 |
-| Unresolved (possible confabulation) | 0 |
-| Unverifiable | 0 |
-| References weighed for topical relevance | 3 |
-| On topic | 3 |
-| Off topic | 0 |
-
-All extracted references resolved successfully.

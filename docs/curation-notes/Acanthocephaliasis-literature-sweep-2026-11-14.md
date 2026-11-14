@@ -57,33 +57,3 @@ disease entry rather than as a grouping.
   eosinophilia** were added after review as separate phenotype nodes. HPO's
   canonical label for `HP:0003270` is Abdominal distention, while the entry
   keeps the source spelling in `preferred_term`.
-
-## Term Validation
-
-Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
-
-| Outcome | Count |
-| --- | --- |
-| Terms checked | 1 |
-| Resolved | 1 |
-| Unresolved (possible confabulation) | 0 |
-| Obsolete | 0 |
-| Unverifiable | 0 |
-
-Every term resolved, and every label the report gave matched.
-
-## Reference Validation
-
-Checked with `linkml-reference-validator` 0.5.1.
-
-| Outcome | Count |
-| --- | --- |
-| References checked | 3 |
-| Resolved | 3 |
-| Unresolved (possible confabulation) | 0 |
-| Unverifiable | 0 |
-| References weighed for topical relevance | 3 |
-| On topic | 3 |
-| Off topic | 0 |
-
-All extracted references resolved successfully.
