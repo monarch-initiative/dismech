@@ -2016,6 +2016,16 @@ list-cancer-origin *args="":
 backfill-cancer-origin *args="":
     uv run python scripts/backfill_cancer_origin.py {{args}}
 
+# Compute each neoplasm entry's CCDI pediatric oncology diagnosis group (caDSR
+# CDE 16607972) from its MONDO term's NCIT cross-reference and the NCIt
+# concepts caDSR binds each value to, and compare it with
+# classifications.ccdi_pediatric_oncology_category. Report-only and
+# network-dependent (OLS; lookups cached in tmp/), so not part of `just qc`.
+# --format list|tsv, --status MISSING, --offline, --strict (exit 1 on CONFLICT).
+[group('QC')]
+ccdi-pediatric-oncology-audit *args="":
+    uv run python scripts/ccdi_pediatric_oncology_audit.py {{args}}
+
 # Require a stated reason for phenotypes bound to a COARSE HPO term: the 23
 # organ-system roots (the PhenotypeCategoryEnum meanings, which also drive the
 # browser's "Phenotype Systems" facet) plus the 33 hand-curated terms below them

@@ -125,6 +125,10 @@ enum.
   same change. Ion pump disorders (ATP1A3, ATP1A2) are not tagged.
 - **`icdo_morphology`** — ICD-O cancer-morphology category. Apply to
   neoplastic entries. Single-valued. See the dedicated section below.
+- **`ccdi_pediatric_oncology_category`** — the Childhood Cancer Data
+  Initiative diagnosis group (caDSR CDE 16607972). Apply to neoplastic
+  entries whose NCIt concept falls under one of the CDE's 31 values.
+  Single-valued and computed, not chosen. See the dedicated section below.
 - **`icimd_category`** — International Classification of Inherited
   Metabolic Disorders (ICIMD) category/group. Apply to inherited
   metabolic disorders (inborn errors of metabolism). Multivalued. See
@@ -277,6 +281,50 @@ so if a value has its own `source` it is a recent addition.
 
 Worked examples: `Silicosis`, `Asbestosis`, `Malignant_Mesothelioma`,
 `Noise_Induced_Hearing_Loss`.
+
+## CCDI pediatric oncology group (`ccdi_pediatric_oncology_category`)
+
+The values are the permissible values of caDSR common data element 16607972,
+"Diagnosis Pediatric Oncology Grouping Category", copied verbatim (including
+`Ewings Sarcoma`). The value says which CCDI group a case of the disease is
+filed under. It does not say the disease is restricted to children, so
+`Osteosarcoma` and `Hodgkin Lymphoma` carry one.
+
+**Do not pick a value by reading the list.** caDSR binds every value to NCIt
+concepts, so the value follows from the entry's own NCIt concept:
+
+```bash
+just ccdi-pediatric-oncology-audit kb/disorders/<File>.yaml --format list
+```
+
+| Status | What to do |
+|---|---|
+| `MISSING` | Add the proposed value if the entry is a childhood tumor (`--apply <file>` writes it). Adult-predominant entries are left untagged for now; see `docs/ccdi-pediatric-oncology-classification.md`. |
+| `MATCH` | Nothing. |
+| `CONFLICT` | The recorded value is not the one the NCIt hierarchy gives. Fix it, or fix the entry's `disease_term`. |
+| `AMBIGUOUS` | Two values apply and neither is narrower (a rhabdoid tumor of the kidney is under both `Rhabdoid Tumors` and `Renal Tumors`). Leave the slot absent. |
+| `NONE` | No value is derivable. Most adult carcinomas land here. Leave the slot absent, unless the CCDI filing is beyond doubt and only NCIt's hierarchy is in the way (Wilms tumor is `Renal Tumors`, but NCIt's *Wilms Tumor* is not a *Kidney Neoplasm*). Then assign by hand and say so in `notes`. |
+| `NO_NCIT` | MONDO records no NCIT cross-reference for the entry's term, so nothing can be computed. Leave the slot absent. |
+| `CURATED` | A value is recorded that the audit cannot derive. Its `notes` must say it was assigned by hand and why. |
+
+Record the NCIt concept in `notes`, in the audit's own terms:
+
+```yaml
+classifications:
+  ccdi_pediatric_oncology_category:
+    classification_value: Rhabdomyosarcoma
+    notes: >-
+      caDSR CDE 16607972. Derived from MONDO:0009994, whose NCIT
+      cross-reference NCIT:C8971 is a descendant of NCIT:C3359
+      (Rhabdomyosarcoma), the concept caDSR binds this value to.
+```
+
+Four "Other ..." values are residuals (not `Other CNS Embryonal Tumors`, which
+caDSR binds to a concept of its own). The audit proposes one only when
+the disease sits under the residual's parent concept and under no specific
+value. A value makes the entry a required member of the matching grouping
+under `kb/groupings/CCDI_Pediatric_Oncology_Diagnosis_Groups.yaml` where one
+exists; add it there in the same change.
 
 ## ICIMD (`icimd_category`) — inherited metabolic disorders
 
