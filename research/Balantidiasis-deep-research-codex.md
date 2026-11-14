@@ -29,3 +29,19 @@ This is a local literature sweep produced from the PubMed references already cac
 - Extraintestinal balantidiasis remains out of the structured graph because the systematic review found only 27 extraintestinal infections among a heterogeneous literature pool, and the conserved Balantidiasis pathograph in this entry is intestinal.
 - Other proposed reservoirs, including camels, cattle, donkeys, sheep, and goats, remain out of the host list because PMID:33183780 describes pigs as the main reservoir.
 - Secnidazole remains unmodeled as a separate treatment row. The current entry covers the major tetracycline, metronidazole, and iodoquinol regimens, while the cached 2021 review lists secnidazole only as a member of the broader 5-nitroimidazole treatment class.
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.5.1.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 7 |
+| Resolved | 7 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 7 |
+| On topic | 6 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.
