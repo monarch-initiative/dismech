@@ -90,3 +90,19 @@ Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
 | Unverifiable | 0 |
 
 Every term resolved, and every label the report gave matched.
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.5.1.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 3 |
+| Resolved | 3 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 3 |
+| On topic | 3 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.

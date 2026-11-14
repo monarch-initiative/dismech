@@ -25,3 +25,19 @@ This is a local literature sweep produced from the PubMed references already cac
 - Appendicitis remains unmodeled because PMID:31064642 describes the relationship between *E. vermicularis* and acute appendicitis as controversial and not reliably causal.
 - Abdominal pain and irritability remain unmodeled because the cached reviews describe them as nonspecific rather than as causal readouts of the characteristic perianal oviposition mechanism.
 - Extended "pulse" regimens for refractory recurrence remain unmodeled because PMID:42267275 characterizes the supporting evidence as pragmatic experience and expert consensus rather than randomized-trial evidence.
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.5.1.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 3 |
+| Resolved | 3 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 3 |
+| On topic | 3 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.
