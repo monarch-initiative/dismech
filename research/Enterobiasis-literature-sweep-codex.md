@@ -44,28 +44,35 @@ Dientamoebiasis entry *E. vermicularis* eggs are only a proposed vehicle for
 
 ## Content checklist
 
+- **Epidemiology:** The entry captures the review's >1 billion worldwide burden
+  estimate, the near-20% point prevalence among European kindergarten and
+  primary-school pupils, and measured Norwegian and Estonian pediatric
+  Scotch-tape survey estimates.
 - **Phenotypes:** The entry captures the characteristic nocturnal perianal
-  pruritus and its sleep-disruption consequence. Abdominal pain and irritability
-  were left out because the reviews describe them as nonspecific; rare
-  vulvovaginitis, dysuria, and ectopic organ involvement were also left out of
-  the first PR to avoid turning case-report phenomena into core phenotypes.
+  pruritus, sleep disturbance, nocturnal enuresis, impaired daytime
+  concentration, and perianal dermatitis. Rare ectopic vulvovaginal migration is
+  modeled narrowly through dysuria and abnormal vaginal discharge; abdominal
+  pain and irritability were left out because the reviews describe them as
+  nonspecific.
 - **Life cycle and transmission:** The entry records the direct human life cycle
   with OPL-bound egg and adult-worm stages and a fecal-oral/autoinfection/fomite
   transmission row. Non-human reservoirs and vectors are intentionally absent:
   the 2019 review describes *E. vermicularis* as strictly human-pathogenic and
   domestic pets as irrelevant natural reservoirs.
-- **Pathophysiology:** The central disease-specific mechanism is nocturnal
-  migration of gravid females to the perianal skin, adhesive egg deposition, and
-  itch-scratch egg dispersal. A more granular itch neuroimmune mechanism was not
-  modeled because neither cached review provided a disease-specific molecular
-  mechanism for pinworm-induced pruritus.
+- **Pathophysiology:** The central disease-specific mechanism is split into
+  adult cecal and colonic colonization, nocturnal female migration with perianal
+  oviposition, scratch-mediated egg dispersal/autoinfection, and rare
+  vulvovaginal pinworm migration. A more granular itch neuroimmune mechanism was
+  not modeled because neither cached review provided a disease-specific
+  molecular mechanism for pinworm-induced pruritus.
 - **Diagnostics:** The entry captures early-morning perianal adhesive-tape
-  microscopy and the reason stool ova-and-parasite testing is insensitive.
-- **Treatments:** The entry captures single-dose mebendazole, albendazole, or
-  pyrantel repeated after 14 days, with synchronized household treatment to
-  reduce reinfection. Extended pulse regimens for refractory recurrence were
-  left out because the 2026 review characterizes that evidence as pragmatic
-  observational evidence and expert consensus rather than randomized trials.
+  microscopy, the sensitivity increase from three separate mornings, and the
+  reason stool ova-and-parasite testing is insensitive.
+- **Treatments:** The entry splits benzimidazole therapy from pyrantel/pyrvinium
+  adulticidal therapy and adds synchronized household pharmacotherapy to reduce
+  reinfection. Extended pulse regimens for refractory recurrence were left out
+  because the 2026 review characterizes that evidence as pragmatic observational
+  evidence and expert consensus rather than randomized trials.
 - **Differentials and controversies:** Appendicitis was intentionally omitted.
   The 2019 review says the role of *E. vermicularis* in acute appendicitis has
   long been controversial and that causality has not been reliably demonstrated.
