@@ -37,14 +37,26 @@ cases. A 2024 open-access case report, PMID:38680822, was used for disseminated
 penicillin-resistant pneumococcal disease with lumbar spondylodiscitis requiring
 laminectomy/fenestration. Background reviews PMID:29599457 and PMID:21734248
 support human upper-airway pneumococcal carriage and bloodstream invasion during
-invasive pneumococcal disease.
+invasive pneumococcal disease. A cached-source follow-up pass added a generic
+pyogenic spondylodiscitis management review, one recurrent pneumococcal
+meningitis/spondylodiscitis/pneumonia case, and one pneumococcal endocarditis
+plus vertebral-discitis case to fill the reviewer-identified coverage gaps.
+
+The revised pathograph starts with nasopharyngeal pneumococcal carriage and
+bloodstream invasion. It then separates bacteremic lumbar disc involvement,
+local disc-endplate infection, epidural/paraspinal suppuration, and neural
+compression so bacteremia, epidural abscess, paraspinal abscess, lower-limb
+weakness, and hypoesthesia all attach to explicit mechanisms. The laminectomy
+row is targeted to neural compression rather than to the disc infection itself.
 
 ## Open gaps
 
 - No population incidence is recorded for pneumococcal discitis itself; the
   review supports only an ultra-rare cases-in-literature assertion.
 - No molecular pneumococcus-specific vertebral osteomyelitis mechanism was
-  curated because the discitis-specific literature is clinical.
+  curated because the discitis-specific literature is clinical; generic
+  pyogenic spondylodiscitis risk factors are therefore kept as host contexts
+  rather than as pneumococcal virulence claims.
 - The broad `Infectious_Discitis` stub remains open as a future grouping parent
   for Staphylococcus, pneumococcal, Salmonella, E. coli, and fungal discitis
   leaves.
@@ -60,7 +72,7 @@ Checked with `linkml-reference-validator` 0.5.1.
 | Unresolved (possible confabulation) | 0 |
 | Unverifiable | 0 |
 | References weighed for topical relevance | 4 |
-| On topic | 3 |
+| On topic | 2 |
 | Off topic | 0 |
 
 All extracted references resolved successfully.
