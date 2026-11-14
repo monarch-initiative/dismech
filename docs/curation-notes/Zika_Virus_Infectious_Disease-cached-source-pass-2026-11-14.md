@@ -92,19 +92,3 @@ hosts but acknowledges that `Aedes hensilli` predominated in the Yap outbreak.
 - Clinical vaccine-trial rows were left for a later pass because the current
   entry's treatment statement only needs to say that no ZIKV-specific antiviral
   or publicly available vaccine exists.
-
-## Reference Validation
-
-Checked with `linkml-reference-validator` 0.5.1.
-
-| Outcome | Count |
-| --- | --- |
-| References checked | 10 |
-| Resolved | 10 |
-| Unresolved (possible confabulation) | 0 |
-| Unverifiable | 0 |
-| References weighed for topical relevance | 10 |
-| On topic | 7 |
-| Off topic | 0 |
-
-All extracted references resolved successfully.
