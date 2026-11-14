@@ -47,11 +47,13 @@ disease entry rather than as a grouping.
 - **Spurious egg passage** was kept as a diagnostic confounder rather than a
   pathophysiology node or a transmission route because eggs traversing the human
   intestine after liver ingestion are evidence against true biliary infection.
-- **Praziquantel, triclabendazole, and albendazole** were left in treatment
-  prose rather than forced into a small-molecule term binding. The current
-  treatment row has no direct `therapeutic_agent` slot, and the cited reports
-  already distinguish praziquantel/triclabendazole use from the separate
-  albendazole-responsive case.
+- **Praziquantel, triclabendazole, and albendazole** were bound after review.
+  Praziquantel and albendazole were already in the local ChEBI cache;
+  `runoak -i ols:chebi search triclabendazole` returned `CHEBI:94759`
+  6-chloro-5-(2,3-dichlorophenoxy)-2-(methylthio)-1H-benzimidazole.
+- **Right-upper-quadrant pain** was left bound to generic `HP:0002027`
+  Abdominal pain because OLS HPO searches for `right upper quadrant pain` and
+  `hypochondriac pain` returned no right-hypochondrial abdominal-pain class.
 
 ## Term Validation
 
@@ -66,3 +68,19 @@ Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
 | Unverifiable | 0 |
 
 Every term resolved, and every label the report gave matched.
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.5.1.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 5 |
+| Resolved | 5 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 5 |
+| On topic | 5 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.
