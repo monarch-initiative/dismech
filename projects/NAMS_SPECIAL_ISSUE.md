@@ -762,6 +762,41 @@ paper is its hardest instance, recorded here rather than duplicated there.
 not from any `kb/` entry. It is kept deliberately, so the quoted abstract stays
 checkable — do not read its absence from `kb/` as uncited and prune it.
 
+### PMID:38360295 — the compartment-resolved airway monocultures link into the chemical respiratory allergy module
+
+Garcia da Silva et al. 2024, *Toxicology* 503:153750 ([#16865](https://github.com/monarch-initiative/dismech/issues/16865)),
+the companion monoculture study to the 3D tetraculture ([#16866](https://github.com/monarch-initiative/dismech/issues/16866),
+PMID:38369009). Three human respiratory-tract cell lines exposed separately —
+bronchial epithelial (BEAS-2B), lung fibroblast (MRC-5), endothelial (EA.hy926) —
+plus a cell-free toxicant–mucin binding assay.
+
+**dismech disposition: one model-to-mechanism link on
+[`chemical_respiratory_allergy`](../kb/modules/chemical_respiratory_allergy.yaml).**
+The module built in #16912 already cites this paper as node evidence; this adds the
+model-side half as a cellular-scale `experimental_models:` entry. The monoculture
+panel links to *Airway Epithelial Danger Signal Release* as `RECAPITULATES`
+(`model_scale: CELLULAR`) — increased IL-8/IL-6/IL-1β across all three compartments,
+decreased MUC1 in the bronchial epithelium, and increased endothelial ICAM-1. Its
+scale equals the node's cellular scale exactly, so no upward-extrapolation caveat is
+needed; it carries instead a `BOUNDARY_OMISSION` divergence, because the cells are
+cultured in isolation and the model omits the multicellular tissue context and mucus
+barrier that the companion tetraculture (#16866, `model_scale: TISSUE`) adds. The two
+papers are the cellular- and tissue-scale readouts of the same node.
+
+**The negative mucin result is recorded as a knowledge gap, not a pathograph edge.**
+The paper's cell-free assay found that some sensitizers bind secreted mucin but that
+toxicant–mucin complex formation is not a common feature across chemical classes. That
+is a chemical binding a secreted extracellular protein upstream of any cell, which
+dismech has no node shape for, so it is captured as a `KNOWLEDGE_GAP` discussion on the
+module (`gap_mucin_toxicodynamic_target_cra`) carrying both the positive and the
+negative halves of the finding.
+
+**Registry disposition: the three monocultures and the cell-free mucin assay belong in
+the external [nams-registry](https://github.com/monarch-initiative/nams-registry)** as
+catalogued methods — including the negative mucin-binding result, which the registry
+row records as a method property. Those rows are drafted in a separate nams-registry PR,
+not here; this page records the dismech links only.
+
 ## Gaps and questions the screen raised
 
 Mined out of the batch and filed separately, so they are not lost inside a
