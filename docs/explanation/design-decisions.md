@@ -2353,3 +2353,131 @@ members, comorbidity entries) and needs a `history/` record with
 slugs stay fixed while names change is undecided. Until it is decided, renames
 change `name` and `synonyms` only. Tracked in dismech#15894, with the tooling
 (`check-entry-names`, stub name candidates) and the content worklist.
+
+## 19. Natural menopause and perimenopause are a life stage, not an entry (2026-11-14)
+
+**Decision.** Natural menopause and the perimenopausal transition are not DisMech
+entries. There is no `Menopause` or `Perimenopause` `Disease` entry and neither is a
+`Grouping`. What DisMech curates instead is the mechanism oestrogen withdrawal sets off,
+as a `kb/modules/` mechanism module, plus the disorders of the transition that the field
+names, diagnoses and treats as units. The stage itself is recorded on the entries it
+bears on, through the slots in *Where a menopause fact goes* below.
+
+**In scope.**
+
+- A mechanism module for oestrogen-withdrawal biology, which oestrogen-sensitive entries
+  conform to rather than re-deriving. §3's conformance rules apply: the module holds the
+  shared chain once and conforming entries substitute the tissue-specific receptor, cell
+  type and effector.
+- **Vasomotor symptoms**, **genitourinary syndrome of menopause** and **postmenopausal
+  osteoporosis**, each a disorder of the transition rather than the transition. None is
+  curated as of 2026-11-14, and their anchoring is uneven, so §3 decides each one
+  separately. Postmenopausal osteoporosis has its own MONDO class (`MONDO:0008159`),
+  unbound anywhere in `kb/`, while the existing `Osteoporosis` entry binds the parent
+  `MONDO:0005298`. Genitourinary syndrome of menopause has no class under that name, and
+  `MONDO:0001410` *postmenopausal atrophic vaginitis* is the nearest and narrower anchor,
+  so §3a's convention for a stratum without its own class — anchor the parent with
+  `skos:broadMatch` — is the model. Vasomotor symptoms has no MONDO class at all (MONDO
+  searches for `vasomotor symptom` and `hot flash`, OLS, 2026-11-14), only `HP:0031217`
+  *Hot flashes*, bound today in one entry,
+  `Fragile_X-Associated_Primary_Ovarian_Insufficiency`.
+- The existing premature and primary ovarian insufficiency entries, which are diseases on
+  any reading and need no special treatment here. MONDO files `MONDO:0001119` *premature
+  menopause* as a descendant of `MONDO:0005387` *primary ovarian failure*, not as a
+  variant of the life stage. `kb/disorders/` holds the `Premature_Ovarian_Failure_*` and
+  `Fragile_X-Associated_Primary_Ovarian_Insufficiency` entries, and
+  `stubs/Primary_Ovarian_Failure.yaml` carries the parent with `entry_type: GROUPING`.
+
+**Out of scope.** Any entry, grouping or module whose subject is the life stage as such.
+Such an entry would have no etiology to root a pathograph in, and no phenotype set that
+is not either normal physiology or one of the disorders above. Note that the curation
+queue cannot record this exclusion: `CurationStub.mondo_id` is `required` and
+`identifier`, and MONDO has no term for the stage, so there is no stub to mark
+`OUT_OF_SCOPE` and this register is the only place the decision can live.
+
+**Rationale: the ontologies already draw this line.** GO, MONDO and HP checked against
+OLS on 2026-11-14; the annotation counts below against QuickGO the same day.
+
+- **GO** has `GO:0042697` *menopause*, but as a phase: its parents are `GO:0022601`
+  *menstrual cycle phase* and `GO:1990636` *reproductive senescence*, both under
+  `GO:0044848` *biological phase*, and it carries GO's phase-term `rdfs:comment` that the
+  term "should not be used for direct annotation", directing annotators to a regulation
+  term, a process occurring during the phase, or an annotation extension. QuickGO returns
+  zero annotations for `GO:0042697` and zero for `GO:1990636`. So the stage has a GO
+  identifier that is explicitly not an annotation target, which is also why no DisMech
+  node should bind it.
+- **MONDO** has no term for natural menopause or perimenopause. Searches for
+  `perimenopause` and `climacteric` return nothing at all; `menopause` and `menopausal`
+  return no stage term, and the only four classes whose *label* carries the word are
+  `MONDO:0001119` *premature menopause*, the two disorder classes above, and
+  `MONDO:0017379` *polyneuropathy-intellectual disability-acromicria-premature menopause
+  syndrome* (the remaining hits match on a synonym or definition). MONDO thus already
+  treats the normal transition as outside the disease hierarchy while naming its
+  pathological forms, which is the same split this decision adopts.
+- **HP** files `HP:0040406` *Perimenopausal* under `HP:0032443` *Past medical history*,
+  not under `HP:0000118` *Phenotypic abnormality* — it is patient context, not a finding.
+  The findings of the transition are filed as abnormalities (`HP:0033840` *Postmenopausal
+  bleeding* and `HP:0031217` *Hot flashes* both sit under *Phenotypic abnormality*), and
+  the stage-as-timing is a clinical modifier (`HP:6000314` *Perimenopausal onset* and
+  `HP:6000315` *Postmenopausal onset*, under `HP:0003674` *Onset*). Those three homes map
+  onto the three DisMech slots a menopause fact can take: context, phenotype, onset.
+
+**Rationale: the KB's own precedent.** DisMech already curates disorders of a life stage
+without curating the stage. `Preeclampsia` (`MONDO:0005081`) and `Ectopic_Pregnancy`
+(`MONDO:0000755`) are entries; pregnancy is not. `Central_Precocious_Puberty`
+(`MONDO:0019165`) is an entry; puberty is not. This is the same rule §3e and §3f state
+for their own domains — a phase is never an entry, and the entry sits where the mechanism
+is.
+
+**The ICD-anchored route is not forbidden.**
+`Ageing_Associated_Decline_in_Intrinsic_Capacity` shows that a life-stage-adjacent concept
+can be an entry without a MONDO class: it carries no `disease_term` at all, only a
+`mappings.icd11f_mappings` `skos:exactMatch` to `icd11f:835503193`, an ICD-11 Foundation
+entity under *Symptoms, signs or clinical findings*. Symptomatic menopause could take the
+same route, and what would justify it is a project that needs the symptomatic transition
+as a single unit — one entry carrying the vasomotor, genitourinary, skeletal and
+sleep/mood phenotypes together, because the clinical question is about the syndrome rather
+than about any one of its disorders. Absent such a project the default stands, since an
+umbrella entry would duplicate the three disorder entries and the module. An entry taken
+this way must use the ICD anchor rather than binding `GO:0042697` or reusing a MONDO
+disorder class as a proxy for the stage, and would need §4 ontology sign-off.
+
+**Where a menopause fact goes.**
+
+| The fact being recorded | Where it goes | Worked example |
+|---|---|---|
+| Oestrogen withdrawal drives a mechanism in this disease | An `environmental:` record whose `exposure_term` binds `ECTO:9000010` *exposure to estrogens* with `modifier: DECREASED`, linked by `influences_mechanisms`. Bind the hormonal state, not the stage: ECTO has no menopause term | `Osteoporosis` (*Estrogen Deficiency*, `TRIGGERS`), `Semicircular_Canal_Dehiscence_Syndrome` (*Post-Menopausal Estrogen Decline*, `PREDISPOSES`) |
+| The withdrawal is itself a step in the entry's causal chain | A root `pathophysiology` node at `ORGANISM` scale, with the receptor-level consequence as a separate `CELLULAR` node bound to `GO:0030520` *estrogen receptor signaling pathway* with `modifier: DECREASED` | `Heart_Failure` (*Postmenopausal Oestrogen Withdrawal* → *Loss of Myocardial Oestrogen Receptor Signalling*) |
+| The disease behaves differently before and after the transition | `progression:` phases across the reproductive lifespan | `Uterine_Leiomyoma` (Premenarchal / Reproductive years / Postmenopausal) |
+| A treatment's effect differs by menopausal status | `treatments[].effect_modifiers` with `effect_modifier_type: REPRODUCTIVE_STATUS`, which exists for exactly this stratifier and is distinct from `SEX` | `Sarcopenia` (resistance training, `NO_DIFFERENCE`, `META_ANALYSIS_SUBGROUP`) |
+| A laboratory interval differs by menopausal status | Two `reference_ranges` on the same `loinc_term`, separated by `population` | `Gout` (serum urate, `LOINC:3084-1`) |
+| A finding occurs only after the transition | A `phenotypes:` entry bound to the HP term for the finding itself | four entries bind `HP:0033840` *Postmenopausal bleeding* |
+| A phenotype's frequency or severity differs by status | `phenotypes[].phenotype_contexts[].population` | `CHEK2-related_Cancer_Predisposition` |
+| The disease's onset is at or after the transition | `onset.onset_category: PERIMENOPAUSAL` or `POSTMENOPAUSAL` (`HP:6000314` / `HP:6000315`), added to `OnsetEnum` with this decision alongside the existing `PUERPERAL` | none yet; `Morgagni-Stewart-Morel_Syndrome` carries it as free-text `progression[].age_range` |
+
+Two slots in that table are free text and not bound to a vocabulary: `population` on a
+reference range or a phenotype context, and `stratum` on an effect modifier. §16 binds
+populations to HANCESTRO for ancestry only, and reproductive status is not ancestry, so
+these strings stay free text; §12's deferred *structured effect-modifier / life-stage*
+row is the standing proposal that would change that.
+
+**What not to do.** Do not bind `GO:0042697` on a pathophysiology node, for the reason
+above. Do not bind `HP:0040406` *Perimenopausal* as a phenotype: it is past medical
+history, not an abnormality. Do not use a menopause-scoped NCIT treatment term for a
+treatment that is not menopausal hormone therapy — `NCIT:C15599` *Hormone Replacement
+Therapy* is defined by NCIT as post-menopausal or post-ovariectomy oestrogen replacement
+("Treatment with estrogens or estrogen/progesterone after menopause or ovariectomy...")
+and is widely bound to growth-hormone, thyroid and adrenal replacement instead
+(dismech#11705, open, which carries the current count and the proposed sweep).
+
+**Current state.** Menopause is mentioned in 75 `kb/disorders/` entries. In 64 of them it
+appears only in prose — a `description`, `notes`, or an evidence `snippet` or
+`explanation` — and so is not queryable. Eleven carry it in a named slot, and those are
+the worked examples above. `Osteoporosis` is counted in the prose group, correctly: its
+exposure record is named *Estrogen Deficiency* and binds oestrogen, with menopause
+appearing only in the surrounding prose, which is what the first table row asks for.
+
+**Still open.** Whether postmenopausal osteoporosis becomes its own entry on
+`MONDO:0008159` or a `has_subtypes` stratum of `Osteoporosis`; whether vasomotor symptoms
+warrants a MONDO term request; and whether the free-text status strings above should move
+to a bound vocabulary (§12).
