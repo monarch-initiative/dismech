@@ -20,19 +20,21 @@ and experimental neuroinvasion work before creating
   arboviral surveillance.
 - **PMID:35607778** — 152-child single-center cohort and long-term
   neurobehavioral follow-up study. Used for pediatric transmission framing,
-  reported annual ArboNET neuroinvasive cases over 2009-2018, acute seizure and
-  status epilepticus frequencies, and seizures plus altered mental status as
-  predictors of severe disease.
+  acute seizure and status epilepticus frequencies, altered mental status as a
+  severe-disease predictor, SIADH, EEG and MRI abnormalities, epilepsy at
+  follow-up, EEG as a long-term epilepsy predictor, and long-term
+  neurobehavioral sequelae.
 - **PMID:25956408** — mouse olfactory-bulb capillary neuroinvasion study. Used
   as indirect model support for hematogenous LACV CNS entry through
   olfactory-bulb capillary leak.
 - **PMID:39079177** — 2024 review of La Crosse virus encephalitis in children.
-  Used as a recency check for pediatric disease, severity predictors, EEG as an
-  epilepsy-risk marker, and underrecognized neurobehavioral sequelae.
+  Used for age-dependent symptomatic susceptibility in children, and as a
+  recency check for severity predictors, EEG as an epilepsy-risk marker, and
+  underrecognized neurobehavioral sequelae.
 - **PMID:35891445** — open full-text study of LACV Gc fusion-peptide mutants.
-  Used only as background on viral determinants of neuroinvasion and
-  neurovirulence; the structured human entry did not need a separate
-  glycoprotein-fusion node.
+  Used as indirect model support for LACV neuronal infection and apoptosis
+  after CNS entry; the structured entry did not need a separate
+  glycoprotein-fusion determinant node.
 
 ## Lump/split decision
 
