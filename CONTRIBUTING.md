@@ -5,6 +5,12 @@ Thank you for your interest in contributing to the Disorder Mechanisms Knowledge
 A browsable version of this guide, with the same setup steps and screenshots, is at
 [dismech.monarchinitiative.org/contributing/](https://dismech.monarchinitiative.org/contributing/index.html).
 
+> [!TIP]
+> **Brand new?** Start with the [Onboarding guide](docs/onboarding.md)
+> — a step-by-step first curation (Claude Code on the web *and* the local CLI),
+> what to try once the flow is familiar, and where to read about how the system works.
+> This document is the detailed reference behind it.
+
 > [!WARNING]
 > This guide is aimed at **real humans**. Agents are welcome to read this for context,
 > but instructions aimed at people should not be confused for instructions for agents.
