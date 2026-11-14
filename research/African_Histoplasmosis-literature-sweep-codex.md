@@ -55,7 +55,17 @@ lymphadenopathy.
 The best-supported management evidence is still review-level and case-based.
 Itraconazole and amphotericin B are the main antifungal options; published
 African histoplasmosis treatment has largely followed IDSA histoplasmosis
-guidance developed for classical histoplasmosis.
+guidance developed for classical histoplasmosis because no Hcd clinical trial
+or efficacy study is available.
+
+The first pass under-modeled severe disease. PMID:32887981 reported
+disseminated forms in 60.6% of its 1993-2019 cases and global mortality of
+23.4% by the end of follow-up. PMID:33956817 defines disseminated Hcd infection
+as infection of at least two noncontiguous body sites. PMID:32887981 also
+reported an HIV co-infection rate of 20.8%; PMID:18217546 supports advanced
+HIV-associated immunosuppression as a host context for disseminated Hcd by
+reviewing HIV/Hcd case reports in which most well-described patients had poor
+CD4 counts and disseminated infection.
 
 ## Open gaps
 
@@ -70,6 +80,10 @@ The entry intentionally keeps several uncertainties explicit:
 - It does not model Hcd-specific virulence enzymes or immune evasion, because
   the accessible Hcd clinical reviews mainly support tissue yeast persistence
   and granulomatous inflammation rather than a resolved molecular chain.
+- It treats HIV infection as a host susceptibility context feeding
+  dissemination, not as the only or dominant driver of disseminated Hcd, because
+  the 1993-2019 review reports no correlation between disseminated forms and HIV
+  infection.
 
 ## Term Validation
 
