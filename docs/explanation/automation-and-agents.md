@@ -160,6 +160,8 @@ publisher PDFs.
 
 **Scheduled housekeeping** — `weekly-compliance` opens a periodic
 compliance-fix PR, which enters the ordinary review and PR-shepherd closing path;
+`weekly-report` posts a weekly activity summary issue that replaces the previous
+week's and may file up to three `weekly-report-lead` issues;
 `sync-epic-checkboxes` reconciles a tracking issue against the KB.
 
 **Releases** — `kgx-release`, `mondo-emc-release`, `pypi-publish`, triggered by
