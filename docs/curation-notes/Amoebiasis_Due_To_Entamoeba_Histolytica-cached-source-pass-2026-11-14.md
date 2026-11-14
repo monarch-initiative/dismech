@@ -1,4 +1,4 @@
-# Amoebiasis due to *Entamoeba histolytica*: cached-source completeness pass
+# Amoebiasis due to *Entamoeba histolytica* cached-source completeness pass
 
 This is a local literature sweep produced from the full-text PubMed references already cached for the pull request. No external deep-research provider was used.
 
