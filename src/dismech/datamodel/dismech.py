@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-11-10T02:21:53
+# Generation date: 2026-11-14T05:18:24
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -70,6 +70,7 @@ CL = CurieNamespace('CL', 'http://purl.obolibrary.org/obo/CL_')
 ECTO = CurieNamespace('ECTO', 'http://purl.obolibrary.org/obo/ECTO_')
 ENVO = CurieNamespace('ENVO', 'http://purl.obolibrary.org/obo/ENVO_')
 EXO = CurieNamespace('ExO', 'http://purl.obolibrary.org/obo/ExO_')
+FB = CurieNamespace('FB', 'http://identifiers.org/fb/')
 FOODON = CurieNamespace('FOODON', 'http://purl.obolibrary.org/obo/FOODON_')
 GENO = CurieNamespace('GENO', 'http://purl.obolibrary.org/obo/GENO_')
 GO = CurieNamespace('GO', 'http://purl.obolibrary.org/obo/GO_')
@@ -79,17 +80,24 @@ HP = CurieNamespace('HP', 'http://purl.obolibrary.org/obo/HP_')
 ICD10CM = CurieNamespace('ICD10CM', 'http://purl.obolibrary.org/obo/ICD10CM_')
 ICTRP = CurieNamespace('ICTRP', 'https://trialsearch.who.int/Trial2.aspx?TrialID=')
 LOINC = CurieNamespace('LOINC', 'https://loinc.org/')
+MGI = CurieNamespace('MGI', 'http://identifiers.org/mgi/')
 MONDO = CurieNamespace('MONDO', 'http://purl.obolibrary.org/obo/MONDO_')
 MRO = CurieNamespace('MRO', 'http://purl.obolibrary.org/obo/MRO_')
+NCBIGENE = CurieNamespace('NCBIGene', 'http://identifiers.org/ncbigene/')
 NCBITAXON = CurieNamespace('NCBITaxon', 'http://purl.obolibrary.org/obo/NCBITaxon_')
 NCIT = CurieNamespace('NCIT', 'http://purl.obolibrary.org/obo/NCIT_')
 OBI = CurieNamespace('OBI', 'http://purl.obolibrary.org/obo/OBI_')
 OPL = CurieNamespace('OPL', 'http://purl.obolibrary.org/obo/OPL_')
 PATO = CurieNamespace('PATO', 'http://purl.obolibrary.org/obo/PATO_')
 PMID = CurieNamespace('PMID', 'http://www.ncbi.nlm.nih.gov/pubmed/')
+RGD = CurieNamespace('RGD', 'http://identifiers.org/rgd/')
+SGD = CurieNamespace('SGD', 'http://identifiers.org/sgd/')
 SO = CurieNamespace('SO', 'http://purl.obolibrary.org/obo/SO_')
 UBERON = CurieNamespace('UBERON', 'http://purl.obolibrary.org/obo/UBERON_')
+WB = CurieNamespace('WB', 'http://identifiers.org/wb/')
 XCO = CurieNamespace('XCO', 'http://purl.obolibrary.org/obo/XCO_')
+XENBASE = CurieNamespace('Xenbase', 'http://identifiers.org/xenbase/')
+ZFIN = CurieNamespace('ZFIN', 'http://identifiers.org/zfin/')
 ARRAYEXPRESS = CurieNamespace('arrayexpress', 'https://www.ebi.ac.uk/biostudies/arrayexpress/studies/')
 BIGG = CurieNamespace('bigg', 'https://bigg.ucsd.edu/models/')
 BIOMODELS = CurieNamespace('biomodels', 'https://www.ebi.ac.uk/biomodels/')
@@ -653,6 +661,30 @@ class ChemicalEntityDescriptor(Descriptor):
     class_class_curie: ClassVar[str] = "dismech:ChemicalEntityDescriptor"
     class_name: ClassVar[str] = "ChemicalEntityDescriptor"
     class_model_uri: ClassVar[URIRef] = DISMECH.ChemicalEntityDescriptor
+
+    preferred_term: str = None
+    term: Optional[Union[dict, Term]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.term is not None and not isinstance(self.term, Term):
+            self.term = Term(**as_dict(self.term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class GeneOrProductDescriptor(Descriptor):
+    """
+    A descriptor for a gene or gene product in a model system or dataset, bindable to HGNC for a human gene, to the
+    species' Alliance MOD (MGI, RGD, ZFIN, Xenbase, FB, WB, SGD) for a model-organism gene, or to NCBI Gene for a
+    species with no MOD.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["GeneOrProductDescriptor"]
+    class_class_curie: ClassVar[str] = "dismech:GeneOrProductDescriptor"
+    class_name: ClassVar[str] = "GeneOrProductDescriptor"
+    class_model_uri: ClassVar[URIRef] = DISMECH.GeneOrProductDescriptor
 
     preferred_term: str = None
     term: Optional[Union[dict, Term]] = None
@@ -1580,7 +1612,7 @@ class Dataset(YAMLRoot):
     sample_count: Optional[int] = None
     conditions: Optional[Union[str, list[str]]] = empty_list()
     exposures: Optional[Union[Union[dict, ExposureDescriptor], list[Union[dict, ExposureDescriptor]]]] = empty_list()
-    genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
+    genes: Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]] = empty_list()
     platform: Optional[str] = None
     publication: Optional[str] = None
     findings: Optional[Union[Union[dict, "Finding"], list[Union[dict, "Finding"]]]] = empty_list()
@@ -1616,7 +1648,7 @@ class Dataset(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="exposures", slot_type=ExposureDescriptor, key_name="preferred_term", keyed=False)
 
-        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneDescriptor, key_name="preferred_term", keyed=False)
+        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneOrProductDescriptor, key_name="preferred_term", keyed=False)
 
         if self.platform is not None and not isinstance(self.platform, str):
             self.platform = str(self.platform)
@@ -1658,6 +1690,7 @@ class ExperimentalModel(YAMLRoot):
     organism: Optional[Union[dict, OrganismDescriptor]] = None
     tissue_term: Optional[Union[dict, AnatomicalEntityDescriptor]] = None
     cell_types: Optional[Union[Union[dict, CellTypeDescriptor], list[Union[dict, CellTypeDescriptor]]]] = empty_list()
+    genes: Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]] = empty_list()
     conditions: Optional[Union[str, list[str]]] = empty_list()
     cell_source: Optional[str] = None
     culture_system: Optional[str] = None
@@ -1689,6 +1722,8 @@ class ExperimentalModel(YAMLRoot):
             self.tissue_term = AnatomicalEntityDescriptor(**as_dict(self.tissue_term))
 
         self._normalize_inlined_as_list(slot_name="cell_types", slot_type=CellTypeDescriptor, key_name="preferred_term", keyed=False)
+
+        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneOrProductDescriptor, key_name="preferred_term", keyed=False)
 
         if not isinstance(self.conditions, list):
             self.conditions = [self.conditions] if self.conditions is not None else []
@@ -4753,7 +4788,7 @@ class AnimalModel(YAMLRoot):
     species: Optional[str] = None
     genotype: Optional[str] = None
     background: Optional[str] = None
-    genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
+    genes: Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]] = empty_list()
     category: Optional[str] = None
     alleles: Optional[Union[str, list[str]]] = empty_list()
     description: Optional[str] = None
@@ -4774,7 +4809,7 @@ class AnimalModel(YAMLRoot):
         if self.background is not None and not isinstance(self.background, str):
             self.background = str(self.background)
 
-        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneDescriptor, key_name="preferred_term", keyed=False)
+        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneOrProductDescriptor, key_name="preferred_term", keyed=False)
 
         if self.category is not None and not isinstance(self.category, str):
             self.category = str(self.category)
@@ -5879,6 +5914,31 @@ class ILODiseaseCategoryAssignment(ClassificationAssignment):
 
 
 @dataclass(repr=False)
+class CCDIPediatricOncologyAssignment(ClassificationAssignment):
+    """
+    Assignment of a neoplastic disease to a permissible value of caDSR CDE 16607972 (Diagnosis Pediatric Oncology
+    Grouping Category), the diagnosis grouping of the NCI Childhood Cancer Data Initiative. Record in ``notes`` the
+    NCIt concept the assignment was derived from.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["CCDIPediatricOncologyAssignment"]
+    class_class_curie: ClassVar[str] = "dismech:CCDIPediatricOncologyAssignment"
+    class_name: ClassVar[str] = "CCDIPediatricOncologyAssignment"
+    class_model_uri: ClassVar[URIRef] = DISMECH.CCDIPediatricOncologyAssignment
+
+    classification_value: Union[str, "CCDIPediatricOncologyCategoryEnum"] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.classification_value):
+            self.MissingRequiredField("classification_value")
+        if not isinstance(self.classification_value, CCDIPediatricOncologyCategoryEnum):
+            self.classification_value = CCDIPediatricOncologyCategoryEnum(self.classification_value)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class EUOccupationalScheduleAssignment(ClassificationAssignment):
     """
     Assignment of a disease to an item of the European schedule of occupational diseases (Commission Recommendation
@@ -6099,6 +6159,7 @@ class DiseaseClassifications(YAMLRoot):
     class_model_uri: ClassVar[URIRef] = DISMECH.DiseaseClassifications
 
     icdo_morphology: Optional[Union[dict, ICDOMorphologyAssignment]] = None
+    ccdi_pediatric_oncology_category: Optional[Union[dict, CCDIPediatricOncologyAssignment]] = None
     harrisons_chapter: Optional[Union[Union[dict, HarrisonsChapterAssignment], list[Union[dict, HarrisonsChapterAssignment]]]] = empty_list()
     lysosomal_storage_category: Optional[Union[dict, LysosomalStorageAssignment]] = None
     mechanistic_category: Optional[Union[Union[dict, MechanisticNosologyAssignment], list[Union[dict, MechanisticNosologyAssignment]]]] = empty_list()
@@ -6114,6 +6175,9 @@ class DiseaseClassifications(YAMLRoot):
     def __post_init__(self, *_: str, **kwargs: Any):
         if self.icdo_morphology is not None and not isinstance(self.icdo_morphology, ICDOMorphologyAssignment):
             self.icdo_morphology = ICDOMorphologyAssignment(**as_dict(self.icdo_morphology))
+
+        if self.ccdi_pediatric_oncology_category is not None and not isinstance(self.ccdi_pediatric_oncology_category, CCDIPediatricOncologyAssignment):
+            self.ccdi_pediatric_oncology_category = CCDIPediatricOncologyAssignment(**as_dict(self.ccdi_pediatric_oncology_category))
 
         self._normalize_inlined_as_list(slot_name="harrisons_chapter", slot_type=HarrisonsChapterAssignment, key_name="classification_value", keyed=False)
 
@@ -8237,7 +8301,11 @@ class GeneDiseaseRelationshipEnum(EnumDefinitionImpl):
     DISPUTED = PermissibleValue(
         text="DISPUTED",
         title="Disputed",
-        description="""Reported gene-disease association whose validity is contested (corresponds to ClinGen \"Disputed\" or \"Refuted\").""")
+        description="""A reported gene-disease relationship whose validity is contested: the evidence for and against it conflicts, or the original report has not been replicated, and the question is open (corresponds to ClinGen/GenCC \"Disputed\"). Use this, not a subtype row, for a locus whose claim to cause the disease is unsettled. When an external body has graded the pair, copy its tier into `gene_disease_validity` as well; `relationship_type` is the curator's reading, `gene_disease_validity` is the source's.""")
+    REFUTED = PermissibleValue(
+        text="REFUTED",
+        title="Refuted",
+        description="""A reported gene-disease relationship that the evidence now contradicts: the refuting evidence significantly outweighs the original report, so the gene is recorded to stop the claim being re-made, not because it contributes to the disease (corresponds to ClinGen/GenCC \"Refuted\"). Distinct from DISPUTED, where the question is still open. Requires `evidence` citing the refutation, not only the original claim.""")
     UNKNOWN = PermissibleValue(
         text="UNKNOWN",
         title="Unknown",
@@ -8879,6 +8947,19 @@ class TriggerTerm(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="TriggerTerm",
         description="A trigger",
+    )
+
+class GeneOrProductTerm(EnumDefinitionImpl):
+    """
+    A gene or gene product in a model system or dataset, named in its own species. In priority order: HGNC for a human
+    gene; the species' Alliance of Genome Resources member database where one exists (MGI mouse, RGD rat, ZFIN
+    zebrafish, Xenbase Xenopus, FB Drosophila, WB C. elegans, SGD S. cerevisiae); otherwise NCBI Gene. No hierarchy
+    constraint. The schema does not restrict the prefix: where each prefix may appear, and the priority, are enforced
+    by scripts/check_gene_namespaces.py.
+    """
+    _defn = EnumDefinition(
+        name="GeneOrProductTerm",
+        description="""A gene or gene product in a model system or dataset, named in its own species. In priority order: HGNC for a human gene; the species' Alliance of Genome Resources member database where one exists (MGI mouse, RGD rat, ZFIN zebrafish, Xenbase Xenopus, FB Drosophila, WB C. elegans, SGD S. cerevisiae); otherwise NCBI Gene. No hierarchy constraint. The schema does not restrict the prefix: where each prefix may appear, and the priority, are enforced by scripts/check_gene_namespaces.py.""",
     )
 
 class GeneTerm(EnumDefinitionImpl):
@@ -11439,6 +11520,164 @@ When no value fits, omit ``icdo_morphology`` and record why in the entry's ``not
                 text="Histiocytic and Dendritic Cell Neoplasm",
                 description="Neoplasm of histiocytes and accessory/dendritic cells",
                 meaning=NCIT["C9294"]))
+
+class CCDIPediatricOncologyCategoryEnum(EnumDefinitionImpl):
+    """
+    Permissible values of caDSR CDE 16607972, Diagnosis Pediatric Oncology Grouping Category. Each value's
+    ``description`` is the label of the NCIt concept caDSR binds it to; a residual value carries ``residual_of``
+    instead of ``meaning``, and a value bound to two concepts carries ``ncit_scope``.
+    """
+    Craniopharyngiomas = PermissibleValue(
+        text="Craniopharyngiomas",
+        description="Craniopharyngioma",
+        meaning=NCIT["C2964"])
+    Ependymoma = PermissibleValue(
+        text="Ependymoma",
+        description="Ependymoma",
+        meaning=NCIT["C3017"])
+    Medulloblastoma = PermissibleValue(
+        text="Medulloblastoma",
+        description="Medulloblastoma",
+        meaning=NCIT["C3222"])
+    Neuroblastoma = PermissibleValue(
+        text="Neuroblastoma",
+        description="Neuroblastoma",
+        meaning=NCIT["C3270"])
+    Osteosarcoma = PermissibleValue(
+        text="Osteosarcoma",
+        description="Osteosarcoma",
+        meaning=NCIT["C9145"])
+    Rhabdomyosarcoma = PermissibleValue(
+        text="Rhabdomyosarcoma",
+        description="Rhabdomyosarcoma",
+        meaning=NCIT["C3359"])
+    Retinoblastoma = PermissibleValue(
+        text="Retinoblastoma",
+        description="Retinoblastoma",
+        meaning=NCIT["C7541"])
+
+    _defn = EnumDefinition(
+        name="CCDIPediatricOncologyCategoryEnum",
+        description="""Permissible values of caDSR CDE 16607972, Diagnosis Pediatric Oncology Grouping Category. Each value's ``description`` is the label of the NCIt concept caDSR binds it to; a residual value carries ``residual_of`` instead of ``meaning``, and a value bound to two concepts carries ``ncit_scope``.""",
+    )
+
+    @classmethod
+    def _addvals(cls):
+        setattr(cls, "Atypical Teratoid/Rhabdoid Tumors",
+            PermissibleValue(
+                text="Atypical Teratoid/Rhabdoid Tumors",
+                description="Atypical Teratoid/Rhabdoid Tumor",
+                meaning=NCIT["C6906"]))
+        setattr(cls, "Choroid Plexus Tumors",
+            PermissibleValue(
+                text="Choroid Plexus Tumors",
+                description="Choroid Plexus Neoplasm",
+                meaning=NCIT["C3473"]))
+        setattr(cls, "CNS Germ Cell Tumors",
+            PermissibleValue(
+                text="CNS Germ Cell Tumors",
+                description="Central Nervous System Germ Cell Tumor",
+                meaning=NCIT["C5461"]))
+        setattr(cls, "CNS Sarcomas",
+            PermissibleValue(
+                text="CNS Sarcomas",
+                description="Central Nervous System Sarcoma",
+                meaning=NCIT["C5153"]))
+        setattr(cls, "Glioneuronal and Neuronal Tumors",
+            PermissibleValue(
+                text="Glioneuronal and Neuronal Tumors",
+                description="Glioneuronal and Neuronal Tumors",
+                meaning=NCIT["C4747"]))
+        setattr(cls, "High-Grade Glioma",
+            PermissibleValue(
+                text="High-Grade Glioma",
+                description="Malignant Glioma",
+                meaning=NCIT["C4822"]))
+        setattr(cls, "Low-Grade Gliomas",
+            PermissibleValue(
+                text="Low-Grade Gliomas",
+                description="Low Grade Glioma",
+                meaning=NCIT["C132067"]))
+        setattr(cls, "Other CNS Embryonal Tumors",
+            PermissibleValue(
+                text="Other CNS Embryonal Tumors",
+                description="Central Nervous System Embryonal Tumor, Not Otherwise Specified",
+                meaning=NCIT["C5398"]))
+        setattr(cls, "Myeloid Leukemia",
+            PermissibleValue(
+                text="Myeloid Leukemia",
+                description="Myeloid Leukemia",
+                meaning=NCIT["C3172"]))
+        setattr(cls, "Lymphoblastic Leukemia",
+            PermissibleValue(
+                text="Lymphoblastic Leukemia",
+                description="Acute Lymphoblastic Leukemia",
+                meaning=NCIT["C3167"]))
+        setattr(cls, "Hodgkin Lymphoma",
+            PermissibleValue(
+                text="Hodgkin Lymphoma",
+                description="Hodgkin Lymphoma",
+                meaning=NCIT["C9357"]))
+        setattr(cls, "Non-Hodgkin Lymphoma",
+            PermissibleValue(
+                text="Non-Hodgkin Lymphoma",
+                description="Non-Hodgkin Lymphoma",
+                meaning=NCIT["C3211"]))
+        setattr(cls, "Lymphoproliferative Diseases",
+            PermissibleValue(
+                text="Lymphoproliferative Diseases",
+                description="Lymphoproliferative Disorder",
+                meaning=NCIT["C9308"]))
+        setattr(cls, "Soft Tissue Tumors",
+            PermissibleValue(
+                text="Soft Tissue Tumors",
+                description="Soft Tissue Sarcoma",
+                meaning=NCIT["C9306"]))
+        setattr(cls, "Renal Tumors",
+            PermissibleValue(
+                text="Renal Tumors",
+                description="Kidney Neoplasm",
+                meaning=NCIT["C3150"]))
+        setattr(cls, "Germ Cell Tumors",
+            PermissibleValue(
+                text="Germ Cell Tumors",
+                description="Germ Cell Tumor",
+                meaning=NCIT["C3708"]))
+        setattr(cls, "Ewings Sarcoma",
+            PermissibleValue(
+                text="Ewings Sarcoma",
+                description="Ewing Sarcoma",
+                meaning=NCIT["C4817"]))
+        setattr(cls, "Liver Tumors",
+            PermissibleValue(
+                text="Liver Tumors",
+                description="Liver Neoplasm",
+                meaning=NCIT["C7103"]))
+        setattr(cls, "Other Gliomas",
+            PermissibleValue(
+                text="Other Gliomas",
+                description="""Residual value. A glioma that is neither a high-grade nor a low-grade glioma nor an ependymoma under the CDE's own bindings."""))
+        setattr(cls, "Other Brain Tumors",
+            PermissibleValue(
+                text="Other Brain Tumors",
+                description="""Residual value. A brain neoplasm that falls under no specific CNS value and is not a glioma."""))
+        setattr(cls, "Other Solid Tumors",
+            PermissibleValue(
+                text="Other Solid Tumors",
+                description="""Residual value. caDSR binds it to Childhood Solid Neoplasm, which has few descendants in NCIt, so the audit rarely proposes it."""))
+        setattr(cls, "Rhabdoid Tumors",
+            PermissibleValue(
+                text="Rhabdoid Tumors",
+                description="Rhabdoid Tumor",
+                meaning=NCIT["C3808"]))
+        setattr(cls, "Endocrine and Neuroendocrine Tumors",
+            PermissibleValue(
+                text="Endocrine and Neuroendocrine Tumors",
+                description="""Bound by caDSR to two concepts, Neuroendocrine Neoplasm and Endocrine Neoplasm; a disease under either takes the value."""))
+        setattr(cls, "Other Hematopoietic Tumors",
+            PermissibleValue(
+                text="Other Hematopoietic Tumors",
+                description="""Residual value. A hematopoietic or lymphoid neoplasm that is not a myeloid leukemia, a lymphoblastic leukemia, a lymphoma or a lymphoproliferative disorder under the CDE's own bindings."""))
 
 class HarrisonsChapterEnum(EnumDefinitionImpl):
     """
@@ -15628,6 +15867,9 @@ slots.ilo_disease_category = Slot(uri=DISMECH.ilo_disease_category, name="ilo_di
 slots.eu_occupational_category = Slot(uri=DISMECH.eu_occupational_category, name="eu_occupational_category", curie=DISMECH.curie('eu_occupational_category'),
                    model_uri=DISMECH.eu_occupational_category, domain=None, range=Optional[Union[Union[dict, EUOccupationalScheduleAssignment], list[Union[dict, EUOccupationalScheduleAssignment]]]])
 
+slots.ccdi_pediatric_oncology_category = Slot(uri=DISMECH.ccdi_pediatric_oncology_category, name="ccdi_pediatric_oncology_category", curie=DISMECH.curie('ccdi_pediatric_oncology_category'),
+                   model_uri=DISMECH.ccdi_pediatric_oncology_category, domain=None, range=Optional[Union[dict, CCDIPediatricOncologyAssignment]])
+
 slots.exposure_classifications = Slot(uri=DISMECH.exposure_classifications, name="exposure_classifications", curie=DISMECH.curie('exposure_classifications'),
                    model_uri=DISMECH.exposure_classifications, domain=None, range=Optional[Union[dict, ExposureClassifications]])
 
@@ -16025,6 +16267,9 @@ slots.AnatomicalEntityDescriptor_term = Slot(uri=DISMECH.term, name="AnatomicalE
 slots.ChemicalEntityDescriptor_term = Slot(uri=DISMECH.term, name="ChemicalEntityDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.ChemicalEntityDescriptor_term, domain=ChemicalEntityDescriptor, range=Optional[Union[dict, Term]])
 
+slots.GeneOrProductDescriptor_term = Slot(uri=DISMECH.term, name="GeneOrProductDescriptor_term", curie=DISMECH.curie('term'),
+                   model_uri=DISMECH.GeneOrProductDescriptor_term, domain=GeneOrProductDescriptor, range=Optional[Union[dict, Term]])
+
 slots.GeneDescriptor_term = Slot(uri=DISMECH.term, name="GeneDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.GeneDescriptor_term, domain=GeneDescriptor, range=Optional[Union[dict, Term]])
 
@@ -16111,6 +16356,12 @@ slots.PhenotypeContext_evidence = Slot(uri=DISMECH.evidence, name="PhenotypeCont
 
 slots.Dataset_description = Slot(uri=DISMECH.description, name="Dataset_description", curie=DISMECH.curie('description'),
                    model_uri=DISMECH.Dataset_description, domain=Dataset, range=Optional[str])
+
+slots.Dataset_genes = Slot(uri=DISMECH.genes, name="Dataset_genes", curie=DISMECH.curie('genes'),
+                   model_uri=DISMECH.Dataset_genes, domain=Dataset, range=Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]])
+
+slots.ExperimentalModel_genes = Slot(uri=DISMECH.genes, name="ExperimentalModel_genes", curie=DISMECH.curie('genes'),
+                   model_uri=DISMECH.ExperimentalModel_genes, domain=ExperimentalModel, range=Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]])
 
 slots.Experiment_experiment_id = Slot(uri=DISMECH.experiment_id, name="Experiment_experiment_id", curie=DISMECH.curie('experiment_id'),
                    model_uri=DISMECH.Experiment_experiment_id, domain=Experiment, range=str)
@@ -16489,6 +16740,9 @@ slots.AnimalModel_publication = Slot(uri=DISMECH.publication, name="AnimalModel_
 slots.AnimalModel_modeled_mechanisms = Slot(uri=DISMECH.modeled_mechanisms, name="AnimalModel_modeled_mechanisms", curie=DISMECH.curie('modeled_mechanisms'),
                    model_uri=DISMECH.AnimalModel_modeled_mechanisms, domain=AnimalModel, range=Optional[Union[Union[dict, ModelMechanismLink], list[Union[dict, ModelMechanismLink]]]])
 
+slots.AnimalModel_genes = Slot(uri=DISMECH.genes, name="AnimalModel_genes", curie=DISMECH.curie('genes'),
+                   model_uri=DISMECH.AnimalModel_genes, domain=AnimalModel, range=Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]])
+
 slots.TreatmentEffectModifier_effect_modifier_type = Slot(uri=DISMECH.effect_modifier_type, name="TreatmentEffectModifier_effect_modifier_type", curie=DISMECH.curie('effect_modifier_type'),
                    model_uri=DISMECH.TreatmentEffectModifier_effect_modifier_type, domain=TreatmentEffectModifier, range=Union[str, "EffectModifierTypeEnum"])
 
@@ -16563,6 +16817,9 @@ slots.ILOCausativeAgentAssignment_classification_value = Slot(uri=DISMECH.classi
 
 slots.ILODiseaseCategoryAssignment_classification_value = Slot(uri=DISMECH.classification_value, name="ILODiseaseCategoryAssignment_classification_value", curie=DISMECH.curie('classification_value'),
                    model_uri=DISMECH.ILODiseaseCategoryAssignment_classification_value, domain=ILODiseaseCategoryAssignment, range=Union[str, "ILODiseaseCategoryEnum"])
+
+slots.CCDIPediatricOncologyAssignment_classification_value = Slot(uri=DISMECH.classification_value, name="CCDIPediatricOncologyAssignment_classification_value", curie=DISMECH.curie('classification_value'),
+                   model_uri=DISMECH.CCDIPediatricOncologyAssignment_classification_value, domain=CCDIPediatricOncologyAssignment, range=Union[str, "CCDIPediatricOncologyCategoryEnum"])
 
 slots.EUOccupationalScheduleAssignment_classification_value = Slot(uri=DISMECH.classification_value, name="EUOccupationalScheduleAssignment_classification_value", curie=DISMECH.curie('classification_value'),
                    model_uri=DISMECH.EUOccupationalScheduleAssignment_classification_value, domain=EUOccupationalScheduleAssignment, range=Union[str, "EUOccupationalScheduleEnum"])

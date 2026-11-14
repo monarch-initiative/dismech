@@ -71,6 +71,7 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
      'id': 'https://w3id.org/monarch-initiative/dismech',
      'imports': ['linkml:types',
                  'classifications/icdo_morphology',
+                 'classifications/ccdi_pediatric_oncology',
                  'classifications/harrisons_chapters',
                  'classifications/lysosomal_storage',
                  'classifications/mechanistic_nosology',
@@ -102,6 +103,8 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                            'prefix_reference': 'http://purl.obolibrary.org/obo/ENVO_'},
                   'ExO': {'prefix_prefix': 'ExO',
                           'prefix_reference': 'http://purl.obolibrary.org/obo/ExO_'},
+                  'FB': {'prefix_prefix': 'FB',
+                         'prefix_reference': 'http://identifiers.org/fb/'},
                   'FOODON': {'prefix_prefix': 'FOODON',
                              'prefix_reference': 'http://purl.obolibrary.org/obo/FOODON_'},
                   'GENO': {'prefix_prefix': 'GENO',
@@ -120,10 +123,14 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                             'prefix_reference': 'https://trialsearch.who.int/Trial2.aspx?TrialID='},
                   'LOINC': {'prefix_prefix': 'LOINC',
                             'prefix_reference': 'https://loinc.org/'},
+                  'MGI': {'prefix_prefix': 'MGI',
+                          'prefix_reference': 'http://identifiers.org/mgi/'},
                   'MONDO': {'prefix_prefix': 'MONDO',
                             'prefix_reference': 'http://purl.obolibrary.org/obo/MONDO_'},
                   'MRO': {'prefix_prefix': 'MRO',
                           'prefix_reference': 'http://purl.obolibrary.org/obo/MRO_'},
+                  'NCBIGene': {'prefix_prefix': 'NCBIGene',
+                               'prefix_reference': 'http://identifiers.org/ncbigene/'},
                   'NCBITaxon': {'prefix_prefix': 'NCBITaxon',
                                 'prefix_reference': 'http://purl.obolibrary.org/obo/NCBITaxon_'},
                   'NCIT': {'prefix_prefix': 'NCIT',
@@ -136,12 +143,22 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                            'prefix_reference': 'http://purl.obolibrary.org/obo/PATO_'},
                   'PMID': {'prefix_prefix': 'PMID',
                            'prefix_reference': 'http://www.ncbi.nlm.nih.gov/pubmed/'},
+                  'RGD': {'prefix_prefix': 'RGD',
+                          'prefix_reference': 'http://identifiers.org/rgd/'},
+                  'SGD': {'prefix_prefix': 'SGD',
+                          'prefix_reference': 'http://identifiers.org/sgd/'},
                   'SO': {'prefix_prefix': 'SO',
                          'prefix_reference': 'http://purl.obolibrary.org/obo/SO_'},
                   'UBERON': {'prefix_prefix': 'UBERON',
                              'prefix_reference': 'http://purl.obolibrary.org/obo/UBERON_'},
+                  'WB': {'prefix_prefix': 'WB',
+                         'prefix_reference': 'http://identifiers.org/wb/'},
                   'XCO': {'prefix_prefix': 'XCO',
                           'prefix_reference': 'http://purl.obolibrary.org/obo/XCO_'},
+                  'Xenbase': {'prefix_prefix': 'Xenbase',
+                              'prefix_reference': 'http://identifiers.org/xenbase/'},
+                  'ZFIN': {'prefix_prefix': 'ZFIN',
+                           'prefix_reference': 'http://identifiers.org/zfin/'},
                   'arrayexpress': {'prefix_prefix': 'arrayexpress',
                                    'prefix_reference': 'https://www.ebi.ac.uk/biostudies/arrayexpress/studies/'},
                   'bigg': {'prefix_prefix': 'bigg',
@@ -325,6 +342,136 @@ When no value fits, omit ``icdo_morphology`` and record why in the entry's ``not
     Histiocytic_and_Dendritic_Cell_Neoplasm = "Histiocytic and Dendritic Cell Neoplasm"
     """
     Neoplasm of histiocytes and accessory/dendritic cells
+    """
+
+
+class CCDIPediatricOncologyCategoryEnum(str, Enum):
+    """
+    Permissible values of caDSR CDE 16607972, Diagnosis Pediatric Oncology Grouping Category. Each value's ``description`` is the label of the NCIt concept caDSR binds it to; a residual value carries ``residual_of`` instead of ``meaning``, and a value bound to two concepts carries ``ncit_scope``.
+    """
+    Atypical_TeratoidSOLIDUSRhabdoid_Tumors = "Atypical Teratoid/Rhabdoid Tumors"
+    """
+    Atypical Teratoid/Rhabdoid Tumor
+    """
+    Choroid_Plexus_Tumors = "Choroid Plexus Tumors"
+    """
+    Choroid Plexus Neoplasm
+    """
+    CNS_Germ_Cell_Tumors = "CNS Germ Cell Tumors"
+    """
+    Central Nervous System Germ Cell Tumor
+    """
+    CNS_Sarcomas = "CNS Sarcomas"
+    """
+    Central Nervous System Sarcoma
+    """
+    Craniopharyngiomas = "Craniopharyngiomas"
+    """
+    Craniopharyngioma
+    """
+    Ependymoma = "Ependymoma"
+    """
+    Ependymoma
+    """
+    Glioneuronal_and_Neuronal_Tumors = "Glioneuronal and Neuronal Tumors"
+    """
+    Glioneuronal and Neuronal Tumors
+    """
+    High_Grade_Glioma = "High-Grade Glioma"
+    """
+    Malignant Glioma
+    """
+    Low_Grade_Gliomas = "Low-Grade Gliomas"
+    """
+    Low Grade Glioma
+    """
+    Medulloblastoma = "Medulloblastoma"
+    """
+    Medulloblastoma
+    """
+    Other_CNS_Embryonal_Tumors = "Other CNS Embryonal Tumors"
+    """
+    Central Nervous System Embryonal Tumor, Not Otherwise Specified
+    """
+    Myeloid_Leukemia = "Myeloid Leukemia"
+    """
+    Myeloid Leukemia
+    """
+    Lymphoblastic_Leukemia = "Lymphoblastic Leukemia"
+    """
+    Acute Lymphoblastic Leukemia
+    """
+    Hodgkin_Lymphoma = "Hodgkin Lymphoma"
+    """
+    Hodgkin Lymphoma
+    """
+    Non_Hodgkin_Lymphoma = "Non-Hodgkin Lymphoma"
+    """
+    Non-Hodgkin Lymphoma
+    """
+    Lymphoproliferative_Diseases = "Lymphoproliferative Diseases"
+    """
+    Lymphoproliferative Disorder
+    """
+    Soft_Tissue_Tumors = "Soft Tissue Tumors"
+    """
+    Soft Tissue Sarcoma
+    """
+    Neuroblastoma = "Neuroblastoma"
+    """
+    Neuroblastoma
+    """
+    Osteosarcoma = "Osteosarcoma"
+    """
+    Osteosarcoma
+    """
+    Renal_Tumors = "Renal Tumors"
+    """
+    Kidney Neoplasm
+    """
+    Germ_Cell_Tumors = "Germ Cell Tumors"
+    """
+    Germ Cell Tumor
+    """
+    Ewings_Sarcoma = "Ewings Sarcoma"
+    """
+    Ewing Sarcoma
+    """
+    Liver_Tumors = "Liver Tumors"
+    """
+    Liver Neoplasm
+    """
+    Other_Gliomas = "Other Gliomas"
+    """
+    Residual value. A glioma that is neither a high-grade nor a low-grade glioma nor an ependymoma under the CDE's own bindings.
+    """
+    Other_Brain_Tumors = "Other Brain Tumors"
+    """
+    Residual value. A brain neoplasm that falls under no specific CNS value and is not a glioma.
+    """
+    Other_Solid_Tumors = "Other Solid Tumors"
+    """
+    Residual value. caDSR binds it to Childhood Solid Neoplasm, which has few descendants in NCIt, so the audit rarely proposes it.
+    """
+    Rhabdomyosarcoma = "Rhabdomyosarcoma"
+    """
+    Rhabdomyosarcoma
+    """
+    Rhabdoid_Tumors = "Rhabdoid Tumors"
+    """
+    Rhabdoid Tumor
+    """
+    Retinoblastoma = "Retinoblastoma"
+    """
+    Retinoblastoma
+    """
+    Endocrine_and_Neuroendocrine_Tumors = "Endocrine and Neuroendocrine Tumors"
+    """
+    Bound by caDSR to two concepts, Neuroendocrine Neoplasm and Endocrine Neoplasm; a disease under either takes the value.
+    """
+    Other_Hematopoietic_Tumors = "Other Hematopoietic Tumors"
+    """
+    Residual value. A hematopoietic or lymphoid neoplasm that is not a myeloid leukemia, a lymphoblastic leukemia, a lymphoma or a lymphoproliferative disorder under the CDE's own bindings.
     """
 
 
@@ -4134,7 +4281,11 @@ class GeneDiseaseRelationshipEnum(str, Enum):
     """
     Disputed = "DISPUTED"
     """
-    Reported gene-disease association whose validity is contested (corresponds to ClinGen "Disputed" or "Refuted").
+    A reported gene-disease relationship whose validity is contested: the evidence for and against it conflicts, or the original report has not been replicated, and the question is open (corresponds to ClinGen/GenCC "Disputed"). Use this, not a subtype row, for a locus whose claim to cause the disease is unsettled. When an external body has graded the pair, copy its tier into `gene_disease_validity` as well; `relationship_type` is the curator's reading, `gene_disease_validity` is the source's.
+    """
+    Refuted = "REFUTED"
+    """
+    A reported gene-disease relationship that the evidence now contradicts: the refuting evidence significantly outweighs the original report, so the gene is recorded to stop the claim being re-made, not because it contributes to the disease (corresponds to ClinGen/GenCC "Refuted"). Distinct from DISPUTED, where the question is still open. Requires `evidence` citing the refutation, not only the original claim.
     """
     Unknown = "UNKNOWN"
     """
@@ -4641,6 +4792,13 @@ class LifeCycleStageTerm(str):
 class TriggerTerm(str):
     """
     A trigger
+    """
+    pass
+
+
+class GeneOrProductTerm(str):
+    """
+    A gene or gene product in a model system or dataset, named in its own species. In priority order: HGNC for a human gene; the species' Alliance of Genome Resources member database where one exists (MGI mouse, RGD rat, ZFIN zebrafish, Xenbase Xenopus, FB Drosophila, WB C. elegans, SGD S. cerevisiae); otherwise NCBI Gene. No hierarchy constraint. The schema does not restrict the prefix: where each prefix may appear, and the priority, are enforced by scripts/check_gene_namespaces.py.
     """
     pass
 
@@ -7580,6 +7738,111 @@ class ChemicalEntityDescriptor(Descriptor):
     term: Optional[Term] = Field(default=None, description="""Optional CHEBI chemical entity term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
                        'range': 'ChemicalEntityTerm'}],
+         'domain_of': ['Descriptor',
+                       'TermMapping',
+                       'ConditionDescriptor',
+                       'GOEnrichmentTerm'],
+         'recommended': True} })
+    modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional, functional, or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal, gain of function, loss of function). See ModifierEnum for the boundary between the quantitative INCREASED/DECREASED values and the GAIN_OF_FUNCTION/LOSS_OF_FUNCTION values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding', 'DifferentiatingMechanism']} })
+    located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor',
+                       'PhenotypeContext',
+                       'ReferenceRangeBand',
+                       'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Prefer explicit slots like located_in and laterality instead '
+                       'of generic qualifiers',
+         'domain_of': ['Descriptor']} })
+
+
+class GeneOrProductDescriptor(Descriptor):
+    """
+    A descriptor for a gene or gene product in a model system or dataset, bindable to HGNC for a human gene, to the species' Alliance MOD (MGI, RGD, ZFIN, Xenbase, FB, WB, SGD) for a model-organism gene, or to NCBI Gene for a species with no MOD.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
+                                               'obligation_level': 'REQUIRED',
+                                               'range': 'GeneOrProductTerm'}],
+                                 'description': 'hgnc:, an Alliance MOD prefix (MGI:, '
+                                                'RGD:, ZFIN:, Xenbase:, FB:, WB:, '
+                                                'SGD:) or NCBIGene: term reference',
+                                 'name': 'term'}}})
+
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GenomicRegion',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': False} })
+    term: Optional[Term] = Field(default=None, description="""hgnc:, an Alliance MOD prefix (MGI:, RGD:, ZFIN:, Xenbase:, FB:, WB:, SGD:) or NCBIGene: term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
+                       'obligation_level': 'REQUIRED',
+                       'range': 'GeneOrProductTerm'}],
          'domain_of': ['Descriptor',
                        'TermMapping',
                        'ConditionDescriptor',
@@ -10552,6 +10815,7 @@ class GeneticContext(ConfiguredBaseModel):
          'examples': [{'value': '{preferred_term: MEFV}'}]} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
                        'GeneClassificationCollection',
@@ -10985,7 +11249,16 @@ class Dataset(ConfiguredBaseModel):
                                                        'standardization of the title '
                                                        'slot.',
                                         'name': 'description',
-                                        'recommended': True}}})
+                                        'recommended': True},
+                        'genes': {'description': 'Genes perturbed or profiled in the '
+                                                 "dataset, named in the dataset's "
+                                                 'organism: hgnc: for a human gene, '
+                                                 "the species' Alliance MOD identifier "
+                                                 '(MGI: for a mouse knockout) where '
+                                                 'one exists, otherwise NCBIGene:.',
+                                  'inlined_as_list': True,
+                                  'name': 'genes',
+                                  'range': 'GeneOrProductDescriptor'}}})
 
     accession: str = Field(default=..., description="""Dataset accession identifier as a CURIE (e.g., geo:GSE67472)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset'], 'implements': ['linkml:authoritative_reference']} })
     title: Optional[str] = Field(default=None, description="""Title of the publication""", json_schema_extra = { "linkml_meta": {'comments': ['The `linkml:title` annotation is INERT for '
@@ -11079,8 +11352,9 @@ class Dataset(ConfiguredBaseModel):
     sample_count: Optional[int] = Field(default=None, description="""Total number of samples in the dataset""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
     conditions: Optional[list[str]] = Field(default=None, description="""Experimental conditions or disease states represented""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset', 'ExperimentalModel']} })
     exposures: Optional[list[ExposureDescriptor]] = Field(default=None, description="""Environmental exposures studied in the dataset""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
-    genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+    genes: Optional[list[GeneOrProductDescriptor]] = Field(default=None, description="""Genes perturbed or profiled in the dataset, named in the dataset's organism: hgnc: for a human gene, the species' Alliance MOD identifier (MGI: for a mouse knockout) where one exists, otherwise NCBIGene:.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
                        'GeneClassificationCollection',
@@ -11243,7 +11517,21 @@ class ExperimentalModel(ConfiguredBaseModel):
                       'and `description` or `notes` for disease-specific nuance',
                       'Use `cell_source` to record whether the system is '
                       'patient-derived, iPSC-derived, primary, immortalized, or mixed'],
-         'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'genes': {'description': 'Genes or gene products perturbed, '
+                                                 'expressed, or carried as a variant '
+                                                 'in this system, named in the '
+                                                 'organism the cells came from: hgnc: '
+                                                 "for a human gene, the species' "
+                                                 'Alliance MOD identifier where one '
+                                                 "exists (a mouse cell line's knockout "
+                                                 'is MGI:, not its human ortholog), '
+                                                 'otherwise NCBIGene:. Orthology to '
+                                                 'the human disease gene goes in '
+                                                 'description or notes.',
+                                  'inlined_as_list': True,
+                                  'name': 'genes',
+                                  'range': 'GeneOrProductDescriptor'}}})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'domain_of': ['GenomicRegion',
                        'ExperimentalModel',
@@ -11360,6 +11648,15 @@ class ExperimentalModel(ConfiguredBaseModel):
     cell_types: Optional[list[CellTypeDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel', 'Pathophysiology', 'Biochemical'],
          'examples': [{'value': '[{preferred_term: Macrophage}, {preferred_term: T '
                                 'Cell}]'}]} })
+    genes: Optional[list[GeneOrProductDescriptor]] = Field(default=None, description="""Genes or gene products perturbed, expressed, or carried as a variant in this system, named in the organism the cells came from: hgnc: for a human gene, the species' Alliance MOD identifier where one exists (a mouse cell line's knockout is MGI:, not its human ortholog), otherwise NCBIGene:. Orthology to the human disease gene goes in description or notes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ExperimentalPerturbation',
+                       'Subtype',
+                       'GeneClassificationCollection',
+                       'Pathophysiology',
+                       'AnimalModel'],
+         'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
     conditions: Optional[list[str]] = Field(default=None, description="""Experimental conditions or disease states represented""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset', 'ExperimentalModel']} })
     cell_source: Optional[str] = Field(default=None, description="""Source of cells used in the experimental model""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel']} })
     culture_system: Optional[str] = Field(default=None, description="""Culture format or device context used by the experimental model""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel']} })
@@ -11980,6 +12277,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
          'examples': [{'value': '{preferred_term: MEFV}'}]} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
                        'GeneClassificationCollection',
@@ -14453,6 +14751,7 @@ class Subtype(ConfiguredBaseModel):
     children: Optional[list[str]] = Field(default=None, description="""Names of other subtypes in this list that are members/children of this grouping subtype. Used to express cross-scheme relationships (e.g., a pathway_tier subtype grouping complementation_group subtypes).""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype']} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
                        'GeneClassificationCollection',
@@ -14684,6 +14983,7 @@ class AgentSubtype(Subtype):
     children: Optional[list[str]] = Field(default=None, description="""Names of other subtypes in this list that are members/children of this grouping subtype. Used to express cross-scheme relationships (e.g., a pathway_tier subtype grouping complementation_group subtypes).""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype']} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
                        'GeneClassificationCollection',
@@ -17173,6 +17473,7 @@ class GeneClassificationCollection(ConfiguredBaseModel):
     source_version: Optional[str] = Field(default=None, description="""The source's own version string for this snapshot, where it publishes one (e.g. \"GT_NMD 2026\").""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneClassificationCollection']} })
     genes: list[GeneClassification] = Field(default=..., description="""One row per gene listed by the source.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
                        'GeneClassificationCollection',
@@ -19074,6 +19375,7 @@ A node may conform to more than one module node when it is a genuine instance of
                                 '[canonical_model]}]'}]} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
                        'GeneClassificationCollection',
@@ -22097,7 +22399,21 @@ class AnimalModel(ConfiguredBaseModel):
                       'MODEL_ORGANISM` and should not be the sole support for a human '
                       'phenotype.'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech',
-         'slot_usage': {'modeled_mechanisms': {'description': 'Pathophysiology '
+         'slot_usage': {'genes': {'description': 'Genes or gene products perturbed, '
+                                                 'expressed, or carried as a variant '
+                                                 "in the model, named in the model's "
+                                                 'own species: the Alliance MOD '
+                                                 'identifier for a model organism (a '
+                                                 'mouse knockout of Coch is '
+                                                 'MGI:1278313, not hgnc:2180), '
+                                                 'NCBIGene: for a species with no MOD, '
+                                                 'hgnc: for a human transgene. '
+                                                 'Orthology to the human disease gene '
+                                                 'goes in description or notes.',
+                                  'inlined_as_list': True,
+                                  'name': 'genes',
+                                  'range': 'GeneOrProductDescriptor'},
+                        'modeled_mechanisms': {'description': 'Pathophysiology '
                                                               'mechanism nodes this '
                                                               'animal model '
                                                               'recapitulates, '
@@ -22115,8 +22431,9 @@ class AnimalModel(ConfiguredBaseModel):
     species: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['AnimalModel'], 'examples': [{'value': 'Human'}]} })
     genotype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['AnimalModel'], 'examples': [{'value': 'HLA-DQ2'}]} })
     background: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['AnimalModel']} })
-    genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+    genes: Optional[list[GeneOrProductDescriptor]] = Field(default=None, description="""Genes or gene products perturbed, expressed, or carried as a variant in the model, named in the model's own species: the Alliance MOD identifier for a model organism (a mouse knockout of Coch is MGI:1278313, not hgnc:2180), NCBIGene: for a species with no MOD, hgnc: for a human transgene. Orthology to the human disease gene goes in description or notes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
                        'GeneClassificationCollection',
@@ -25180,6 +25497,7 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -25339,6 +25657,7 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -25498,6 +25817,7 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -25657,6 +25977,7 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -25816,6 +26137,7 @@ class IUISAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -25975,6 +26297,7 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -26134,6 +26457,7 @@ class ICIMDAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -26293,6 +26617,7 @@ class ISDSNosologyAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -26452,6 +26777,7 @@ class NIHResearchPriorityAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -26611,6 +26937,7 @@ class ILOCausativeAgentAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -26770,6 +27097,167 @@ class ILODiseaseCategoryAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
+                       'EUOccupationalScheduleAssignment',
+                       'HazardAgentTypeAssignment',
+                       'ExposureRouteAssignment',
+                       'ExposureDurationAssignment',
+                       'IARCCarcinogenGroupAssignment',
+                       'GHSHealthHazardClassAssignment',
+                       'ExposomeDomainAssignment']} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'ExternalAssertion',
+                       'Finding',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'ModelingConsideration',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'AlgorithmValidationStatus',
+                       'CriteriaSet',
+                       'AssociationSignal',
+                       'AssociationStatistics',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': True} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'Transmission',
+                       'Diagnosis',
+                       'VariantPopulationEffect',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+
+
+class CCDIPediatricOncologyAssignment(ClassificationAssignment):
+    """
+    Assignment of a neoplastic disease to a permissible value of caDSR CDE 16607972 (Diagnosis Pediatric Oncology Grouping Category), the diagnosis grouping of the NCI Childhood Cancer Data Initiative. Record in ``notes`` the NCIt concept the assignment was derived from.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'classification_value': {'name': 'classification_value',
+                                                 'range': 'CCDIPediatricOncologyCategoryEnum',
+                                                 'required': True}}})
+
+    classification_value: CCDIPediatricOncologyCategoryEnum = Field(default=..., description="""The classification value assigned""", json_schema_extra = { "linkml_meta": {'domain_of': ['ICDOMorphologyAssignment',
+                       'HarrisonsChapterAssignment',
+                       'LysosomalStorageAssignment',
+                       'MechanisticNosologyAssignment',
+                       'IUISAssignment',
+                       'ChannelopathyAssignment',
+                       'ICIMDAssignment',
+                       'ISDSNosologyAssignment',
+                       'NIHResearchPriorityAssignment',
+                       'ILOCausativeAgentAssignment',
+                       'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -26929,6 +27417,7 @@ class EUOccupationalScheduleAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -27088,6 +27577,7 @@ class HazardAgentTypeAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -27247,6 +27737,7 @@ class ExposureRouteAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -27406,6 +27897,7 @@ class ExposureDurationAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -27565,6 +28057,7 @@ class IARCCarcinogenGroupAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -27724,6 +28217,7 @@ class GHSHealthHazardClassAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -27883,6 +28377,7 @@ class ExposomeDomainAssignment(ClassificationAssignment):
                        'NIHResearchPriorityAssignment',
                        'ILOCausativeAgentAssignment',
                        'ILODiseaseCategoryAssignment',
+                       'CCDIPediatricOncologyAssignment',
                        'EUOccupationalScheduleAssignment',
                        'HazardAgentTypeAssignment',
                        'ExposureRouteAssignment',
@@ -28043,6 +28538,7 @@ class DiseaseClassifications(ConfiguredBaseModel):
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
     icdo_morphology: Optional[ICDOMorphologyAssignment] = Field(default=None, title="ICD-O Morphology", description="""ICD-O morphology classification (for neoplastic diseases)""", json_schema_extra = { "linkml_meta": {'domain_of': ['DiseaseClassifications']} })
+    ccdi_pediatric_oncology_category: Optional[CCDIPediatricOncologyAssignment] = Field(default=None, title="CCDI Pediatric Oncology Group", description="""The Childhood Cancer Data Initiative diagnosis group a case of this disease is filed under (caDSR CDE 16607972, Diagnosis Pediatric Oncology Grouping Category). It does not assert that the disease is restricted to children. Assign the most specific value whose NCIt concept subsumes the entry's own NCIt concept, as computed by ``just ccdi-pediatric-oncology-audit``.""", json_schema_extra = { "linkml_meta": {'domain_of': ['DiseaseClassifications']} })
     harrisons_chapter: Optional[list[HarrisonsChapterAssignment]] = Field(default=None, title="Harrison's Part", description="""Harrison's internal medicine chapter classification""", json_schema_extra = { "linkml_meta": {'domain_of': ['DiseaseClassifications']} })
     lysosomal_storage_category: Optional[LysosomalStorageAssignment] = Field(default=None, title="Lysosomal Storage", description="""Lysosomal storage disease biochemical classification""", json_schema_extra = { "linkml_meta": {'domain_of': ['DiseaseClassifications']} })
     mechanistic_category: Optional[list[MechanisticNosologyAssignment]] = Field(default=None, title="Mechanistic Nosology", description="""Mechanistic/pathway-based disease classification""", json_schema_extra = { "linkml_meta": {'domain_of': ['DiseaseClassifications']} })
@@ -32366,6 +32862,7 @@ BiologicalProcessDescriptor.model_rebuild()
 MolecularFunctionDescriptor.model_rebuild()
 AnatomicalEntityDescriptor.model_rebuild()
 ChemicalEntityDescriptor.model_rebuild()
+GeneOrProductDescriptor.model_rebuild()
 GeneDescriptor.model_rebuild()
 CellularComponentDescriptor.model_rebuild()
 ProteinComplexDescriptor.model_rebuild()
@@ -32476,6 +32973,7 @@ ISDSNosologyAssignment.model_rebuild()
 NIHResearchPriorityAssignment.model_rebuild()
 ILOCausativeAgentAssignment.model_rebuild()
 ILODiseaseCategoryAssignment.model_rebuild()
+CCDIPediatricOncologyAssignment.model_rebuild()
 EUOccupationalScheduleAssignment.model_rebuild()
 HazardAgentTypeAssignment.model_rebuild()
 ExposureRouteAssignment.model_rebuild()
