@@ -78,3 +78,19 @@ term validation.
 | Unverifiable | 0 |
 
 Every term resolved, and every label the report gave matched.
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.5.1.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 7 |
+| Resolved | 7 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 7 |
+| On topic | 3 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.
