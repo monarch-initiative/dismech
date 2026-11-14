@@ -61,8 +61,8 @@ Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
 
 | Outcome | Count |
 | --- | --- |
-| Terms checked | 1 |
-| Resolved | 1 |
+| Terms checked | 3 |
+| Resolved | 3 |
 | Unresolved (possible confabulation) | 0 |
 | Obsolete | 0 |
 | Unverifiable | 0 |
