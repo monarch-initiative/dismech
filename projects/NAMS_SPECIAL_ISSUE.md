@@ -1220,9 +1220,12 @@ node to attach to, and is left for that convention.
 
 **Registry handoff.** The MucilAir nasal ALI NAM is also a registry record (one
 `TwoDCellCulture`/primary-cell ALI mono-culture, human, exposed to a reactive VOC), to be
-created in [nams-registry](https://github.com/monarch-initiative/nams-registry) as the PM
-and liver-spheroid NAMs were, with `dismech_status.present_in_dismech: true` since this
-one *is* wired into the graph.
+created in [nams-registry](https://github.com/monarch-initiative/nams-registry) the way
+the PM co-culture NAMs were in
+[nams-registry#105](https://github.com/monarch-initiative/nams-registry/pull/105), but
+with `dismech_status.present_in_dismech: true` — unlike those registry-only records, this
+one *is* wired into the graph, so the registry record and the graph link must stay
+consistent.
 
 `references_cache/PMID_37863466.md` is committed. Unlike the registry-only papers above it
 is now cited from a `kb/` entry (the module), so it is an ordinary evidence cache, not a
