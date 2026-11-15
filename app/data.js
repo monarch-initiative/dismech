@@ -257867,6 +257867,128 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Lymphedema-Distichiasis Syndrome",
+    "disease_id": "MONDO:0007922",
+    "category": "Mendelian",
+    "parents": [
+      "lymphatic malformation",
+      "syndromic disease"
+    ],
+    "creation_date": "2026-11-13T04:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Lymphedema-distichiasis syndrome (LDS) is an autosomal dominant primary lymphedema caused by heterozygous loss-of-function variants in FOXC2, which encodes a forkhead-box transcription factor expressed in lymphatic and venous valve endothelium, developing eyelids and other mesenchymal tissues. It is defined by lower-limb lymphedema, usually beginning in late childhood or at puberty and often asymmetric, together with distichiasis, an extra row of eyelashes arising from the orifices of the meibomian glands. Unlike the lymphatic hypoplasia of Milroy disease, LDS lymphatic vessels are normal or increased in number but functionally incompetent: FOXC2 deficiency prevents lymphatic valve formation and maintenance and allows abnormal smooth muscle coverage of lymphatic capillaries, so lymph refluxes and initial lymphatics fail to drain on dependency. FOXC2 haploinsufficiency also causes primary failure of superficial and deep leg vein valves, so early-onset varicose veins are the most frequent feature after distichiasis. Additional features include ptosis, corneal irritation, conjunctivitis and photophobia, recurrent cellulitis, and, less often, congenital heart disease, cleft palate, spinal extradural cysts, renal anomalies and fetal hydrops. Management is supportive: compression for the edema, prompt treatment of cellulitis, and ocular lubrication or removal of the aberrant lashes.",
+    "pathophysiology": [
+      "FOXC2 Haploinsufficiency",
+      "Defective Lymphatic Valve Formation and Maintenance",
+      "Abnormal Mural Cell Coverage of Lymphatic Capillaries",
+      "Lymphatic Reflux and Failure of Lymph Drainage",
+      "Venous Valve Failure",
+      "Meibomian Gland Lash Metaplasia"
+    ],
+    "cell_types": [
+      "lymphatic valve endothelial cell",
+      "smooth muscle cell",
+      "pericyte",
+      "dermal lymphatic endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002138",
+      "CL:0000192",
+      "CL:0000669"
+    ],
+    "biological_processes": [
+      "lymphatic valve morphogenesis"
+    ],
+    "phenotypes": [
+      "Predominantly lower limb lymphedema",
+      "Genital edema",
+      "Cellulitis",
+      "Distichiasis",
+      "Conjunctivitis",
+      "Photophobia",
+      "Ptosis",
+      "Varicose veins",
+      "Venous insufficiency",
+      "Congenital heart disease",
+      "Tetralogy of Fallot",
+      "Cleft palate",
+      "Spinal extradural arachnoid cyst",
+      "Increased nuchal translucency",
+      "Hydronephrosis",
+      "Nonimmune hydrops fetalis",
+      "Pulmonary lymphangiectasia"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Infectious",
+      "Ocular",
+      "Craniofacial",
+      "Neurological",
+      "Prenatal",
+      "Renal",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003550",
+      "HP:0031188",
+      "HP:0100658",
+      "HP:0009743",
+      "HP:0000509",
+      "HP:0000613",
+      "HP:0000508",
+      "HP:0002619",
+      "HP:0005293",
+      "HP:0001627",
+      "HP:0001636",
+      "HP:0000175",
+      "HP:6000849",
+      "HP:0010880",
+      "HP:0000126",
+      "HP:0001790",
+      "HP:0006521"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "FOXC2",
+      "LAMA5"
+    ],
+    "treatments": [
+      "Compression therapy",
+      "Antibiotic treatment of cellulitis",
+      "Cryotherapy or electrolysis of distichiatic lashes",
+      "Lid splitting with excision of distichiatic lashes"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lymphedema-Distichiasis_Syndrome.yaml",
+    "page_url": "../pages/disorders/Lymphedema-Distichiasis_Syndrome.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 6,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Lymphogranuloma Venereum",
     "disease_id": "MONDO:0005834",
     "category": "Infectious Disease",
@@ -267322,6 +267444,170 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "14",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Mandibular Hypoplasia, Deafness, Progeroid Features, and Lipodystrophy Syndrome",
+    "disease_id": "MONDO:0014157",
+    "category": "Mendelian",
+    "parents": [
+      "progeroid syndrome",
+      "lipodystrophy"
+    ],
+    "creation_date": "2026-11-13T04:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mandibular hypoplasia, deafness, progeroid features, and lipodystrophy syndrome (MDPL; OMIM 615381) is an ultra-rare autosomal dominant segmental progeroid disorder caused by heterozygous, usually de novo, variants in POLD1, which encodes the catalytic p125 subunit of DNA polymerase delta, the lagging-strand replicative polymerase. Most patients carry the recurrent in-frame deletion c.1812_1814del (p.Ser605del) in motif A of the polymerase active site; this allele abolishes DNA polymerase activity while largely preserving the 3'-5' proofreading exonuclease. A smaller group carries missense variants (p.Arg507Cys, p.Arg507His, and a cluster in the C-terminal CysB zinc-finger region), usually with a milder, atypical presentation.\nChildren are of normal birth weight. Progressive loss of subcutaneous fat begins in childhood and evolves from partial to generalized lipodystrophy with relative preservation or increase of visceral fat, and is accompanied by insulin resistance, hypertriglyceridemia, hepatic steatosis and, in a third to a half of patients, diabetes mellitus. The facial gestalt combines mandibular hypoplasia, a beaked nose, prominent eyes, a small mouth and crowded teeth. Sensorineural hearing loss usually begins in the first or second decade. Males have undescended testes and primary hypogonadism; females often have poor breast development. Scleroderma-like skin tightening, telangiectasia, joint contractures, reduced limb muscle mass and osteoporosis are common. No cancer predisposition has been established, in contrast to POLD1 exonuclease-domain variants, which cause polyposis and colorectal and endometrial cancer predisposition.\nPatient fibroblasts and induced pluripotent stem cell-derived mesenchymal stem cells show the cellular hallmarks of the progeroid laminopathies and of DNA repair disorders: nuclear envelope abnormalities, prelamin A accumulation, micronuclei, slowed proliferation with G0/G1 arrest, cellular senescence, delayed repair of induced DNA damage, accelerated telomere shortening and mitochondrial dysfunction. How a ubiquitously required polymerase defect produces the selective adipose, cochlear, gonadal and craniofacial phenotype is not established.",
+    "pathophysiology": [
+      "POLD1 Polymerase Active-Site Defect",
+      "Impaired DNA Replication and Repair",
+      "Accelerated Telomere Shortening",
+      "Nuclear Envelope Abnormalities and Prelamin A Accumulation",
+      "Mitochondrial Dysfunction",
+      "Premature Cellular Senescence",
+      "Progressive Subcutaneous Adipose Tissue Loss"
+    ],
+    "cell_types": [
+      "dermal fibroblast",
+      "mesenchymal stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002620",
+      "CL:0000134"
+    ],
+    "biological_processes": [
+      "DNA replication",
+      "DNA repair",
+      "telomere maintenance",
+      "nuclear envelope organization",
+      "mitochondrion organization",
+      "reactive oxygen species metabolic process",
+      "cellular senescence"
+    ],
+    "phenotypes": [
+      "Lipodystrophy",
+      "Mandibular Hypoplasia",
+      "Sensorineural Hearing Impairment",
+      "Progeroid Facial Appearance",
+      "Beaked Nose",
+      "Prominent Eyes",
+      "Small Mouth",
+      "Dental Crowding",
+      "High-Pitched Voice",
+      "Insulin Resistance",
+      "Diabetes Mellitus",
+      "Hypertriglyceridemia",
+      "Acute Pancreatitis",
+      "Hepatic Steatosis",
+      "Hepatomegaly",
+      "Male Hypogonadism",
+      "Cryptorchidism",
+      "Breast Hypoplasia",
+      "Scleroderma-Like Skin",
+      "Telangiectasia",
+      "Joint Contractures",
+      "Decreased Limb Muscle Mass",
+      "Osteoporosis",
+      "Short Stature",
+      "Premature Graying of Hair"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Craniofacial",
+      "Hearing",
+      "Other",
+      "Gastrointestinal",
+      "Hepatic",
+      "Reproductive",
+      "Dermatologic",
+      "Musculoskeletal",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0009125",
+      "HP:0000347",
+      "HP:0000407",
+      "HP:0005328",
+      "HP:0000444",
+      "HP:0000520",
+      "HP:0000160",
+      "HP:0000678",
+      "HP:0001620",
+      "HP:0000855",
+      "HP:0000819",
+      "HP:0002155",
+      "HP:0001735",
+      "HP:0001397",
+      "HP:0002240",
+      "HP:0000026",
+      "HP:0000028",
+      "HP:0003187",
+      "HP:0100324",
+      "HP:0001009",
+      "HP:0034392",
+      "HP:0003199",
+      "HP:0000939",
+      "HP:0004322",
+      "HP:0002216"
+    ],
+    "frequencies": [
+      "26/26",
+      "24/24",
+      "21/24",
+      "25/25",
+      "8/9",
+      "12/12",
+      "21/23",
+      "11/17",
+      "9/26",
+      "15/22",
+      "3/9",
+      "10/15",
+      "4/14",
+      "11/12",
+      "9/11",
+      "6/7",
+      "19/20",
+      "15/21",
+      "15/16",
+      "11/21",
+      "3/14"
+    ],
+    "genes": [
+      "POLD1"
+    ],
+    "treatments": [
+      "Testosterone Replacement Therapy",
+      "Hearing Aids",
+      "Lipid-Lowering Therapy",
+      "Glucose-Lowering Therapy",
+      "Metreleptin"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mandibular_Hypoplasia_Deafness_Progeroid_Features_and_Lipodystrophy_Syndrome.yaml",
+    "page_url": "../pages/disorders/Mandibular_Hypoplasia,_Deafness,_Progeroid_Features,_and_Lipodystrophy_Syndrome.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Mandibuloacral Dysplasia Associated to MTX2",
@@ -317249,7 +317535,7 @@ window.searchData = [
     "creation_date": "2026-06-30T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Osteogenesis imperfecta type XXIII (OI type XXIII; OMIM 620639) is an ultra-rare, recently described autosomal recessive brittle bone disorder caused by biallelic loss-of-function variants in PHLDB1, the gene encoding pleckstrin homology-like domain family B member 1. It was first defined in 2022 in five affected children from two unrelated families carrying biallelic PHLDB1 frameshift variants. The reported phenotype is a distinctive \"mild-type\" OI: recurrent fractures and/or osteopenia, platyspondyly, short and bowed long bones, and widened metaphyses, with the metaphyseal and vertebral changes regressing after early childhood and no further fractures occurring under bisphosphonate treatment. The precise molecular mechanism by which PHLDB1 loss causes brittle bone is still emerging and has not been fully established. PHLDB1 protein has a reported role in insulin-dependent Akt phosphorylation; in patient blood and skin fibroblasts, PHLDB1 mRNA expression was decreased and western blot confirmed loss of PHLDB1 protein, supporting the causative role of the biallelic variants. How loss of PHLDB1 translates into the observed skeletal fragility and matrix changes remains an open question and should not be overstated.",
+    "description": "Osteogenesis imperfecta type XXIII (OI type XXIII; OMIM 620639) is an ultra-rare autosomal recessive brittle bone disorder caused by biallelic loss-of-function frameshift variants in PHLDB1, encoding pleckstrin homology-like domain family B member 1. First defined in five affected children from two unrelated families, it manifests as a distinctive mild-type osteogenesis imperfecta with recurrent fractures and/or osteopenia, platyspondyly, short and bowed long bones, and widened metaphyses. A hallmark clinical feature is spontaneous regression of the metaphyseal and vertebral changes after early childhood and cessation of fractures under bisphosphonate therapy. Patient blood and dermal fibroblasts show reduced PHLDB1 transcript levels and complete loss of PHLDB1 protein, establishing PHLDB1 deficiency as the proximal molecular lesion; although PHLDB1 has a reported normal role in insulin-dependent Akt phosphorylation, signaling in patient bone cells has not been tested and the downstream pathway linking PHLDB1 loss to skeletal fragility remains to be defined.",
     "pathophysiology": [
       "Biallelic PHLDB1 Loss-of-Function Eliminates PHLDB1 Protein",
       "Defective Bone Formation and Skeletal Fragility"
@@ -317275,7 +317561,9 @@ window.searchData = [
       "Bowing of the Long Bones",
       "Metaphyseal Widening"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Musculoskeletal"
+    ],
     "phenotype_hpo_categories": [
       "Limbs",
       "Musculoskeletal"
@@ -317288,7 +317576,10 @@ window.searchData = [
       "HP:0006487",
       "HP:0003016"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
     "genes": [
       "PHLDB1 Loss-of-Function (Frameshift) Variants"
     ],
@@ -317305,8 +317596,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Osteoglophonic Dysplasia",
@@ -365334,6 +365625,138 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "8",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "SCN4A-Related Myopathy, Autosomal Recessive",
+    "disease_id": "MONDO:0100121",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital myopathy",
+      "Skeletal muscle channelopathy"
+    ],
+    "creation_date": "2026-11-13T04:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "CM22B",
+      "CM22A",
+      "CMS16"
+    ],
+    "description": "Autosomal recessive skeletal muscle disorder caused by biallelic loss-of-function variants in SCN4A, which encodes Nav1.4, the voltage-gated sodium channel that generates and propagates the skeletal muscle action potential. Reduced sodium current attenuates the muscle fiber action potential below the level needed for normal force generation, and at the endplate it erodes the safety margin of neuromuscular transmission. The clinical spectrum runs from severe fetal hypokinesia with polyhydramnios, hydrops, contractures, pulmonary hypoplasia and death in utero or in the neonatal period (usually two null alleles, or a null allele with a partial loss-of-function allele), through a \"classical\" congenital myopathy with neonatal hypotonia, facial, neck and axial weakness, respiratory and swallowing insufficiency that tends to improve in childhood, to a congenital myasthenic syndrome (CMS16) with fatigable and episodic weakness caused by missense variants that enhance channel inactivation. Heterozygous carriers are unaffected. ClinGen lumps all of these recessive presentations into one disease entity. The recessive loss-of-function disease is distinct from the dominant gain-of-function SCN4A channelopathies (sodium channel myotonia, paramyotonia congenita, hyperkalemic and hypokalemic periodic paralysis), which present later with episodic stiffness or paralysis rather than congenital permanent weakness.",
+    "pathophysiology": [
+      "Nav1.4 Sodium Channel Loss of Function",
+      "Attenuated Muscle Fiber Action Potential",
+      "Reduced Skeletal Muscle Force Generation",
+      "Loss of Endplate Safety Factor for Action Potential Initiation"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "skeletal muscle action potential driving contraction",
+      "skeletal muscle contraction",
+      "neuromuscular synaptic transmission"
+    ],
+    "phenotypes": [
+      "Decreased Fetal Movement",
+      "Polyhydramnios",
+      "Hydrops Fetalis",
+      "Congenital Limb Contractures",
+      "Pulmonary Hypoplasia",
+      "Neonatal Hypotonia",
+      "Facial Weakness",
+      "Neck Muscle Weakness",
+      "Proximal Muscle Weakness",
+      "Neonatal Respiratory Insufficiency",
+      "Neonatal Feeding and Swallowing Difficulty",
+      "Delayed Gross Motor Development",
+      "Scoliosis",
+      "Long Face",
+      "High Palate",
+      "Craniosynostosis",
+      "Ptosis",
+      "Ophthalmoplegia",
+      "Fatigable Weakness",
+      "Episodic Severe Weakness",
+      "Decremental Response on Repetitive Nerve Stimulation",
+      "Myopathic Muscle Histology",
+      "Waddling Gait"
+    ],
+    "phenotype_categories": [
+      "Prenatal",
+      "Musculoskeletal",
+      "Respiratory",
+      "Neuromuscular",
+      "Gastrointestinal",
+      "Neurodevelopmental",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001558",
+      "HP:0001561",
+      "HP:0001789",
+      "HP:0002803",
+      "HP:0002089",
+      "HP:0001319",
+      "HP:0030319",
+      "HP:0000467",
+      "HP:0003701",
+      "HP:0002747",
+      "HP:0011968",
+      "HP:0002194",
+      "HP:0002650",
+      "HP:0000276",
+      "HP:0000218",
+      "HP:0001363",
+      "HP:0000508",
+      "HP:0000602",
+      "HP:0003473",
+      "HP:0003768",
+      "HP:0003403",
+      "HP:0003557",
+      "HP:0002515"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "SCN4A"
+    ],
+    "treatments": [
+      "Acetazolamide",
+      "Beta-2 Adrenergic Agonist (Salbutamol)",
+      "Pyridostigmine",
+      "Respiratory Support",
+      "Gastrostomy Feeding",
+      "Spinal Fusion for Scoliosis",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum Creatine Kinase"
+    ],
+    "source_file": "SCN4A-Related_Myopathy_Autosomal_Recessive.yaml",
+    "page_url": "../pages/disorders/SCN4A-Related_Myopathy,_Autosomal_Recessive.html",
+    "num_phenotypes": 23,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "SCN8A-Related Developmental and Epileptic Encephalopathy",
@@ -438833,17 +439256,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4056,
-  "total_subtypes": 5074,
-  "total_disorders_and_subtypes": 9130,
-  "total_unique_evidence_sources": 60381,
-  "total_unique_publications": 56468,
+  "total_disorder_pages": 4059,
+  "total_subtypes": 5077,
+  "total_disorders_and_subtypes": 9136,
+  "total_unique_evidence_sources": 60448,
+  "total_unique_publications": 56532,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 316,
-  "total_pathographs": 4054,
-  "total_unique_pathological_events": 26683,
-  "total_modules": 232,
-  "total_research_reports": 4164,
+  "total_pathographs": 4057,
+  "total_unique_pathological_events": 26696,
+  "total_modules": 233,
+  "total_research_reports": 4167,
   "total_classifications": 21,
   "total_comorbidities": 55,
   "total_groupings": 133
