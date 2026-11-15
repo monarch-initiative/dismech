@@ -236,6 +236,7 @@ def test_cli_is_advisory_by_default_and_gated_by_strict(tmp_path: Path, capsys) 
     assert "0/1 verified" in capsys.readouterr().out
     assert main([*args, "--strict"]) == 1
 
+
 def test_literal_bracket_patterns_are_honoured_like_the_validator(
     tmp_path: Path,
 ) -> None:
@@ -303,6 +304,7 @@ def test_body_cache_eviction_does_not_change_results(tmp_path: Path) -> None:
         assert check_pair(index, pair) is PairOutcome.VERIFIED
 
     assert len(index._normalized) == 1
+
 
 def test_per_file_validation_loops_surface_the_snippet_count() -> None:
     """The two ``ref_output``-capturing loops must not swallow the audit line.
@@ -775,3 +777,43 @@ def test_the_hint_reads_as_a_sentence_with_two_culprits(tmp_path: Path) -> None:
 
     assert "[xAx] and [xBx] are kept" in outcome.reason
     assert "replace it with ' ... '" in outcome.reason
+
+
+def test_signed_excerpts_fallback_verifies_exact_match_and_rejects_deviation(
+    tmp_path: Path,
+) -> None:
+    """An abstract-only cache verifies when the snippet exact-matches signed_excerpts_dir."""
+    cache_dir = tmp_path / "references_cache"
+    _write_cache(
+        cache_dir,
+        "PMID_999.md",
+        "Only the abstract is here.",
+        content_type="abstract_only",
+    )
+    signed_dir = tmp_path / "signed_excerpts"
+    signed_dir.mkdir()
+    (signed_dir / "PMID_999.yaml").write_text(
+        "reference_id: PMID:999\n"
+        "excerpts:\n"
+        "  - text: Full-text quote verified in claimstore.\n",
+        encoding="utf-8",
+    )
+    index = CachedReferenceIndex(cache_dir, signed_excerpts_dir=signed_dir)
+
+    exact_pair = SnippetPair(
+        path=tmp_path / "entry.yaml",
+        location="evidence[0].snippet",
+        reference_id="PMID:999",
+        snippet="Full-text quote verified in claimstore.",
+    )
+    assert check_pair(index, exact_pair) is PairOutcome.VERIFIED
+
+    deviated_pair = SnippetPair(
+        path=tmp_path / "entry.yaml",
+        location="evidence[0].snippet",
+        reference_id="PMID:999",
+        snippet="Full-text quote modified locally.",
+    )
+    outcome = check_pair(index, deviated_pair)
+    assert isinstance(outcome, Unverified)
+    assert outcome.outcome is PairOutcome.ABSTRACT_ONLY
