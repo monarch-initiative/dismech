@@ -1170,6 +1170,64 @@ paper is its hardest instance, recorded here rather than duplicated there.
 not from any `kb/` entry. It is kept deliberately, so the quoted abstract stays
 checkable — do not read its absence from `kb/` as uncited and prune it.
 
+### PMID:37863466 — 1,3-dichloropropene nasal ALI epithelium links into the inhaled-irritant module
+
+Paudel, Barutcu and Samuel 2023, *Toxicology* 499:153642
+([#16858](https://github.com/monarch-initiative/dismech/issues/16858)). A reconstituted
+differentiated primary human nasal epithelium (MucilAir) exposed to 1,3-dichloropropene
+(1,3-DCP) vapor at the air-liquid interface, read by histology, transcriptomics and a
+glutathione-depletion assay, in an acute six-concentration exposure and a separate 5-day
+repeated exposure.
+
+**This one links into dismech**, unlike the registry-only decisions above, and the
+reason is the same as for the liver spheroid (PMID:38740170): the paper names the
+pathology each readout stands for, and a module now exists for it. When #16858 was
+filed, the inhaled-irritant airway module did not exist, so the triage weighed
+`keap1_nrf2_are_signaling`, `epithelial_barrier_dysfunction` and `ciliopathy_dysfunction`
+and flagged the scope problems with each. Those are the wrong anchors, and the right one
+arrived after: `inhaled_irritant_airway_injury` (created for #16877), whose own
+description names 1,3-dichloropropene as an example agent and whose node chain is exactly
+this paper's abstract-verified findings.
+
+Two `RECAPITULATES` `modeled_mechanisms` links are added on the module, each bounded to
+the abstract:
+
+| Module node | Readout | Abstract support |
+|---|---|---|
+| `Epithelial Thiol Depletion and Electrophilic Stress` | glutathione depletion (`DECREASED`), `model_scale: CELLULAR` | "depletion of GSH" at sub-cytotoxic concentrations |
+| `Loss of Mucociliary Differentiation` | squamous metaplasia (`ALTERED`) and ciliated-cell loss (`DECREASED`), `model_scale: TISSUE` | "pseudostratified columnar epithelium to squamous epithelium"; "a decrease in ciliated bodies" |
+
+Three decisions bound the links to what the abstract licenses:
+
+- **The thiol link stops at glutathione depletion.** The abstract reports GSH depletion
+  but names no NRF2, KEAP1 or ARE transcriptional output, so the link rests on the thiol
+  readout and does not reach the antioxidant-response arm `keap1_nrf2_are_signaling`
+  would need. That arm is in the paper's transcriptomics, which was not retrievable.
+- **The junctional-barrier node — the module's rate-limiting conformance target — is not
+  linked.** The abstract reports no transepithelial-resistance or barrier readout, so the
+  model does not inform that node even though the module funnels through it.
+- **`ciliopathy_dysfunction` is not used**, as the triage warned: chemical loss of
+  ciliated cells is a different claim from inherited axonemal defects, and the
+  mucociliary-differentiation node carries the toxicant reading correctly.
+
+Two of the three inventory gaps #16858 raised are now **closed by the module**, which did
+not exist when the issue was written: squamous metaplasia of respiratory epithelium has a
+home (`Loss of Mucociliary Differentiation`), and acute inhaled-irritant upper-airway
+injury is the whole module. The third — **IVIVE as a dosimetry bridge** — remains the
+same undecided question the PFOS and ReproTracker papers raised (#16887); the paper's
+in-vitro-to-in-vivo extrapolation step carries the regulatory weight but has no mechanism
+node to attach to, and is left for that convention.
+
+**Registry handoff.** The MucilAir nasal ALI NAM is also a registry record (one
+`TwoDCellCulture`/primary-cell ALI mono-culture, human, exposed to a reactive VOC), to be
+created in [nams-registry](https://github.com/monarch-initiative/nams-registry) as the PM
+and liver-spheroid NAMs were, with `dismech_status.present_in_dismech: true` since this
+one *is* wired into the graph.
+
+`references_cache/PMID_37863466.md` is committed. Unlike the registry-only papers above it
+is now cited from a `kb/` entry (the module), so it is an ordinary evidence cache, not a
+page-only one.
+
 ## Gaps and questions the screen raised
 
 Mined out of the batch and filed separately, so they are not lost inside a
