@@ -56,6 +56,17 @@ A field holding `"key_event": 2` is a paraphrase. It may well be right, and noth
 check it. The same field carrying the sentence it came from and `442D/IA/1` can be
 checked by a script and by any reader with the PDF.
 
+**A field may record an absence instead of a value**, because omitting the key can
+only say "nobody extracted this". `absent: NOT_APPLICABLE` says the method has no
+such thing and is sourced like any other claim, with a quote and a paragraph:
+EpiSensA has no reporter construct, and the sentence naming its four endogenous
+marker genes is what establishes that. `absent: NOT_IN_INDEXED_SCOPE` says no
+in-scope paragraph states the fact, carries a note and is refused a quote — it is
+a claim about the committed index, deliberately not about the PDF, because whether
+the fact sits in `PROCEDURE` or is missing from the guideline altogether cannot be
+told from the extracted sections. The vocabulary is closed; `absent: UNKNOWN` is
+rejected, since an omitted key already means that.
+
 **Paragraph numbering restarts in every division**, so a bare paragraph number is
 ambiguous across the five methods TG 442D describes. A citation key names both:
 `442D/IA/3` is paragraph 3 of Appendix IA, not paragraph 3 of the guideline. The
@@ -154,9 +165,10 @@ decision rule (one marker gene versus two) following from it.
 "HaCaT" appears nowhere in its 98 pages, and neither does "monolayer": the host line of
 KeratinoSens™ and LuSens is only ever "an immortalised adherent cell line derived from
 human keratinocytes", and the 2D format is implicit. The records leave both unstated
-rather than supplying the familiar answer from memory, and say so in a note. An absent
-fact recorded as absent is a curation gap someone can close; one filled in from recall
-is a false statement about a source.
+rather than supplying the familiar answer from memory, and say so in a note — which is
+what the `absent` markers above now make structural rather than prose. An absent fact
+recorded as absent is a curation gap someone can close; one filled in from recall is a
+false statement about a source.
 
 **Performance figures are mostly agreement with a mouse assay.** All five methods report
 accuracy against the LLNA; only EpiSensA and α-Sens® also report it against human data,

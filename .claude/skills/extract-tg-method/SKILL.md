@@ -81,14 +81,32 @@ assay.
 | `response_arms` | which biological response(s) the readout spans | appendix ¶1 |
 | `host_cell_line` | the named line, if the guideline names one | appendix ¶3, ¶8 |
 | `tissue_matrix` | 2D culture, or a named 3D model and its interface | appendix ¶3, ¶5 |
-| `regulatory_element` | the response element, **and its species** | appendix ¶8 |
+| `regulatory_element` | the response element, as the guideline words it | appendix ¶8 |
+| `source_gene` | the gene whose regulatory element the reporter carries | appendix ¶8 |
+| `source_species` | that gene's species of origin | appendix ¶8 |
 | `reporter_construct` | reporter gene(s) and promoter arrangement | appendix ¶8 |
 | `internal_viability_control` | a second reporter in the same cells | appendix ¶8 |
 | `marker_genes` | the endogenous genes quantified | appendix ¶1, ¶3 |
 | `marker_gene_interpretation` | what each gene reports biologically | appendix ¶1 |
 | `readout` | the measured quantity and the assay | appendix ¶8, ¶9 |
 | `exposure_route` | in the medium, or applied to the tissue surface | appendix ¶4, ¶5 |
+| `exposure_schedule` | how long, and in what pattern, the chemical is applied | appendix ¶9 |
 | `culture_conditions` | serum, xeno-free, and similar | appendix ¶2 |
+
+**`source_gene` and `source_species` are split out of `regulatory_element` on
+purpose.** The prose field still holds the guideline's own wording, which is what
+gets quoted; the two scalar fields make the one structural divide inside the
+luciferase family answerable without reading five strings. LuSens reads a **rat**
+*NQO1* ARE in a human keratinocyte, while KeratinoSens™ and α-Sens® both read the
+**human** *AKR1C2* ARE — and that is exactly the fact a KB entry records as a
+`SPECIES_MISMATCH` divergence. Bundled into one sentence it was findable only by
+grepping for "rat".
+
+The same applies to `exposure_schedule`, which `exposure_route` does not cover:
+route says *where* the chemical goes, schedule says *for how long*. EpiSensA and
+Epi2SensA differ in nothing else — 6 hours against 1 hour plus 5 hours of
+post-incubation — and the guideline ties that difference to what each can detect,
+since a pre-hapten needing more than 6 hours to oxidise is missed by both.
 
 **Domain of applicability — what the substrate lets it see:**
 
@@ -148,6 +166,49 @@ Record shape, one object per field:
 }
 ```
 
+### Recording that a field has no value
+
+**An omitted field says "nobody extracted this".** That is the honest default and
+most fields on most records are simply absent. What it cannot say is either of
+the two things a reader usually wants to know, so a field may instead carry
+`absent` in place of `value`:
+
+| `absent` | The claim | Burden of proof |
+|---|---|---|
+| `NOT_APPLICABLE` | the method has no such thing | a `quote` and `paragraph`, exactly as for a value, plus a `note` saying what follows |
+| `NOT_IN_INDEXED_SCOPE` | no in-scope paragraph states it | a `note`; a `quote` is **refused** |
+
+```json
+"source_gene": {
+  "absent": "NOT_APPLICABLE",
+  "quote": "quantify changes in the expression of four marker genes associated with keratinocyte activation (i.e. ATF3, GCLM, DNAJB4, and IL-8) in a RhE model",
+  "paragraph": "442D/IC/9",
+  "note": "No reporter construct: the method quantifies four endogenous marker transcripts, so there is no source gene whose regulatory element stands in for the response."
+}
+```
+
+Three things follow from how these are checked:
+
+- **`NOT_APPLICABLE` is a claim about the guideline, so it is sourced like any
+  other.** "EpiSensA has no reporter construct" is not a gap in the record, it is
+  a finding, and the sentence that establishes it — the one naming the four
+  endogenous marker genes — is quotable. The absence marker buys no exemption:
+  a fabricated quote under it fails exactly as it would under a value.
+- **`NOT_IN_INDEXED_SCOPE` is deliberately a claim about the committed index, not
+  about the PDF.** It does not say the guideline is silent. Whether the fact sits
+  in `PROCEDURE` or is missing from the guideline altogether cannot be told from
+  this record, and asserting either would mean writing from memory about text
+  this extraction does not hold. Say what the index does not contain, and stop
+  there.
+- **The vocabulary is closed.** `absent: UNKNOWN` is rejected, because "unknown"
+  is what an omitted key already means.
+
+Do not reach for a marker to tidy a record. A marker says somebody looked; three
+of the five TG 442D methods carry `exposure_schedule: NOT_IN_INDEXED_SCOPE`
+because their schedules were looked for and are not in the extracted sections,
+and the animal comparator records carry none of these three fields at all,
+because nobody went looking on their behalf.
+
 ## Step 4 — quote from the index, never from memory
 
 Copy the sentence out of the index entry you are citing. Do not retype it, and
@@ -163,7 +224,10 @@ The checker rejects a quote that is not a substring of the cited paragraph, and
 says where the sentence actually is when it finds it elsewhere. It also rejects
 three shapes that would otherwise pass as citations without being any: a bare
 value with no quote (`"key_event": 2`), a quote that normalises to nothing
-(`"(TM)"`), and a quote below the five-word floor.
+(`"(TM)"`), and a quote below the five-word floor. It enforces the absence
+contract above as well: an unrecognised marker, a `NOT_APPLICABLE` without a
+verifying quote, a `NOT_IN_INDEXED_SCOPE` without a note or carrying a quote, and
+a field claiming both a value and an absence.
 
 Typography does not decide a match. `KeratinoSens`, `KeratinoSens(TM)` and
 `KeratinoSens™` all verify; `α-Sens®` folds to `alpha-sens`. A **mid-word gap**
