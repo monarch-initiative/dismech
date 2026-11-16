@@ -817,3 +817,28 @@ def test_signed_excerpts_fallback_verifies_exact_match_and_rejects_deviation(
     outcome = check_pair(index, deviated_pair)
     assert isinstance(outcome, Unverified)
     assert outcome.outcome is PairOutcome.ABSTRACT_ONLY
+
+
+def test_signed_excerpts_rejects_mismatched_reference_id_and_supports_alt_keys(
+    tmp_path: Path,
+) -> None:
+    """Parity with LRV 0.6.0: reference_id must match and snippet/supporting_text keys work."""
+    cache_dir = tmp_path / "references_cache"
+    signed_dir = tmp_path / "signed_excerpts"
+    signed_dir.mkdir()
+    (signed_dir / "PMID_111.yaml").write_text(
+        "reference_id: PMID:222\nexcerpts:\n  - text: Wrong reference id in bundle.\n",
+        encoding="utf-8",
+    )
+    (signed_dir / "PMID_333.yaml").write_text(
+        "reference_id: PMID:333\n"
+        "excerpts:\n"
+        "  - snippet: Quote under snippet key.\n"
+        "  - supporting_text: Quote under supporting_text key.\n",
+        encoding="utf-8",
+    )
+    index = CachedReferenceIndex(cache_dir, signed_excerpts_dir=signed_dir)
+
+    assert not index.matches_signed_excerpt("PMID:111", "Wrong reference id in bundle.")
+    assert index.matches_signed_excerpt("PMID:333", "Quote under snippet key.")
+    assert index.matches_signed_excerpt("PMID:333", "Quote under supporting_text key.")

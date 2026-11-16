@@ -711,12 +711,22 @@ class CachedReferenceIndex:
                     except (OSError, yaml.YAMLError):
                         data = None
                     if isinstance(data, dict):
+                        declared_ref = data.get("reference_id")
+                        if declared_ref and (
+                            str(declared_ref).strip().lower()
+                            != reference_id.strip().lower()
+                        ):
+                            break
                         for item in data.get("excerpts") or []:
-                            if isinstance(item, dict) and isinstance(
-                                item.get("text"), str
-                            ):
-                                texts.add(" ".join(item["text"].split()))
-                            elif isinstance(item, str):
+                            if isinstance(item, dict):
+                                val = (
+                                    item.get("text")
+                                    or item.get("snippet")
+                                    or item.get("supporting_text")
+                                )
+                                if isinstance(val, str) and val.strip():
+                                    texts.add(" ".join(val.split()))
+                            elif isinstance(item, str) and item.strip():
                                 texts.add(" ".join(item.split()))
                     break
             if found_file:
