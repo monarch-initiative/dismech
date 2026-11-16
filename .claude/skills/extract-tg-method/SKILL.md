@@ -282,19 +282,34 @@ checkably citing the same thing:
   LuSens's rat *NQO1* element in a human cell is `SPECIES_MISMATCH`; the absent
   dendritic-cell and lymph-node compartments are `BOUNDARY_OMISSION`
 
-**Evidence cannot yet come from the guideline.** `just fetch-reference
-DOI:10.1787/9789264229822-en` resolves and titles correctly but caches with
-`content_type: unavailable`, so there is no body for a snippet to match and an
-exact-quote evidence item citing that DOI cannot verify. Until a structured
-source exists for the guideline (see `docs/oecd-tg-extraction.md`), cite the
-method's **primary literature** — the validation and inter-laboratory papers the
-guideline's own reference list names — and keep the extracted record as the
-audited statement of what the guideline says.
+**Cite the guideline as `OECDTG:<number>`, not as its DOI.** The DOI caches with
+`content_type: unavailable` — the OECD iLibrary landing page carries no abstract —
+so an exact-quote item citing it cannot verify. The structured source writes
+`references_cache/OECDTG_442D.md` from the committed paragraph index instead, so a
+sentence of an in-scope section can be quoted directly:
 
-Do not work around this by quoting another paper's introduction *as though* it
-were the guideline. Where a paper does restate a regulatory fact, that is a real
-citation and takes `quote_role: BACKGROUND`; what it is not is a substitute for
-the guideline on facts no paper states.
+```yaml
+- reference: OECDTG:442D
+  supports: SUPPORT
+  evidence_source: OTHER
+  snippet: "a luciferase reporter gene under the control of the antioxidant response element of the human AKR1C2 gene"
+  explanation: TG 442D states which regulatory element the KeratinoSens reporter carries.
+```
+
+A Test Guideline is a regulatory consensus document rather than a study, so
+`evidence_source: OTHER`; a quote where the guideline restates validation work
+done elsewhere also takes `quote_role: REVIEW_SYNTHESIS`. Only the in-scope
+sections are in the body, so a licence term or a cell-line supplier still cannot
+be quoted from it — those sit in PROCEDURE.
+
+For the method's own results — performance figures, inter-laboratory
+reproducibility — prefer the **primary literature** the guideline's reference list
+names. The guideline is the citation for what the guideline says.
+
+Do not quote another paper's introduction *as though* it were the guideline. Where
+a paper does restate a regulatory fact, that is a real citation and takes
+`quote_role: BACKGROUND`; what it is not is a substitute for the guideline, which
+is now citable in its own right.
 
 Do not copy the extraction JSON into the entry. The record is the audited
 source; the entry states what that disease's curator needs from it.
