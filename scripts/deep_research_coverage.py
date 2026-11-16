@@ -16,8 +16,12 @@ from typing import TextIO
 
 import yaml
 
-from dismech.research_reports import strip_run_suffix
+from dismech.research_reports import is_unsuccessful, strip_run_suffix
 from dismech.yaml_io import safe_load
+
+#: deep-research-client's exit code for a run whose provider could not answer
+#: (from-memory answer, refusal, or self-declared incomplete report).
+EXIT_UNSUCCESSFUL_ANSWER = 4
 
 RESEARCH_FILE_RE = re.compile(r"^(?P<disorder>.+)-deep-research-(?P<provider>.+)\.md$")
 FRONTMATTER_DELIMITER = "---"
@@ -42,12 +46,19 @@ class ResearchReport:
     citation_count: int | None
     end_time: str
     mtime: float
+    #: ``answer_status: unsuccessful`` in the frontmatter: the provider did not
+    #: produce a report (deep-research-client exited 4). Never coverage.
+    unsuccessful: bool = False
 
 
 @dataclass(frozen=True)
 class CoverageRow:
     disorder: DisorderInfo
     reports: tuple[ResearchReport, ...]
+    #: Files in ``research/`` marked ``answer_status: unsuccessful``. Kept out
+    #: of ``reports`` so they count toward no provider, and listed so they are
+    #: deleted rather than forgotten.
+    unsuccessful_reports: tuple[ResearchReport, ...] = ()
 
     @property
     def providers(self) -> tuple[str, ...]:
@@ -203,6 +214,7 @@ def collect_reports(research_dir: Path) -> dict[str, list[ResearchReport]]:
             citation_count=parse_optional_int(frontmatter.get("citation_count")),
             end_time=str(frontmatter.get("end_time") or ""),
             mtime=path.stat().st_mtime,
+            unsuccessful=is_unsuccessful(frontmatter),
         )
         reports.setdefault(disorder, []).append(report)
     return reports
@@ -210,12 +222,17 @@ def collect_reports(research_dir: Path) -> dict[str, list[ResearchReport]]:
 
 def build_coverage(kb_dir: Path, research_dir: Path) -> tuple[CoverageRow, ...]:
     reports_by_disorder = collect_reports(research_dir)
-    return tuple(
-        CoverageRow(
-            disorder=disorder, reports=tuple(reports_by_disorder.get(disorder.slug, []))
+    rows = []
+    for disorder in list_disorders(kb_dir):
+        found = reports_by_disorder.get(disorder.slug, [])
+        rows.append(
+            CoverageRow(
+                disorder=disorder,
+                reports=tuple(report for report in found if not report.unsuccessful),
+                unsuccessful_reports=tuple(report for report in found if report.unsuccessful),
+            )
         )
-        for disorder in list_disorders(kb_dir)
-    )
+    return tuple(rows)
 
 
 def tsv_value(value: object) -> str:
@@ -234,6 +251,7 @@ def status_header(target_provider: str | None) -> list[str]:
         "latest_provider",
         "latest_end_time",
         "latest_file",
+        "unsuccessful_reports",
     ]
     if target_provider:
         header.extend(
@@ -260,6 +278,7 @@ def status_record(row: CoverageRow, target_provider: str | None) -> list[str]:
         latest.provider if latest else "",
         latest.end_time if latest else "",
         str(latest.path) if latest else "",
+        ",".join(str(report.path) for report in row.unsuccessful_reports),
     ]
     if target_provider:
         provider_reports = row.reports_for_provider(target_provider)
@@ -336,6 +355,8 @@ def write_status(
     )
     print(f"# reports_total\t{report_total}", file=out)
     print(f"# citation_files_total\t{citation_file_total}", file=out)
+    unsuccessful_total = sum(len(row.unsuccessful_reports) for row in all_rows)
+    print(f"# unsuccessful_reports_total\t{unsuccessful_total}", file=out)
     if target_provider or missing_provider:
         provider = target_provider or missing_provider
         assert provider is not None
@@ -486,6 +507,11 @@ def run_missing(
                 status = "OK"
             elif result.returncode == 0:
                 status = "MISSING_OUTPUT"
+                failures += 1
+            elif result.returncode == EXIT_UNSUCCESSFUL_ANSWER:
+                # The provider ran but did not produce a report; the file it
+                # left in research/ carries answer_status: unsuccessful.
+                status = "UNSUCCESSFUL"
                 failures += 1
             else:
                 status = f"ERROR_{result.returncode}"
