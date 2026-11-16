@@ -4971,6 +4971,14 @@ as evidence `snippet:` values.
 | `ICTRP:` | WHO International Clinical Trials Registry Platform search portal | One record per trial, fetched per identifier on demand (no bulk file) | WHO ICTRP terms |
 | `OECDTG:` | OECD Test Guideline PDFs, pinned by sha256 in `data/oecd_tg/MANIFEST.yaml` | One record per guideline; currently TG 442D, 51 paragraphs — the General Introduction plus each appendix's `Initial Considerations` and `Principle of the Test` | CC BY 4.0 |
 
+**`OECDTG:` is the one prefix in this table that is cache-only.** Unlike every
+other row, it may *not* appear in an evidence `reference:` — it is absent from
+`ALLOWED_REFERENCE_PREFIXES` and `check_evidence_items_have_references` rejects
+it. A Test Guideline describes an assay in the key-event terms of an Adverse
+Outcome Pathway, and a key event is not a pathograph node, so citing one asserts
+a correspondence nothing here records. The cache is for reading the guideline
+and for auditing the method extraction against it. See design decisions §6e.
+
 **Citing an NCIT P302 (Accepted_Therapeutic_Use_For) treatment indication:**
 
 `NCIT:P302` links a drug to the free-text disease/condition it is an accepted

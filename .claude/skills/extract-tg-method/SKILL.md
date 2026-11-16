@@ -229,6 +229,30 @@ contract above as well: an unrecognised marker, a `NOT_APPLICABLE` without a
 verifying quote, a `NOT_IN_INDEXED_SCOPE` without a note or carrying a quote, and
 a field claiming both a value and an absence.
 
+**Quote only the guideline's own sentences — not dismech's.** The cache body is
+not all guideline text, and the parts that are not verify just as exactly as the
+parts that are. A quote taken from dismech's own framing is a substring of the
+paragraph file, so `just check-tg-extraction` accepts it, it reads as a finding,
+and it attributes this repository's words to the OECD.
+
+Guideline text is **only** the prose under a `### 442D/<division>/<n>` heading.
+Everything else in the file was written here:
+
+| In the body | Whose words |
+|---|---|
+| prose under `### 442D/GI/1` and the other 50 paragraph headings | the guideline's — quotable |
+| the `**Scope of this record.**` paragraph | dismech's |
+| the `## Test methods` and `## Divisions` tables | dismech's |
+| the italic locator under each heading (`*General Introduction · … · PDF p. 6*`) | dismech's |
+| the `## Source` block and the licence line | dismech's |
+
+The locator line is the easiest to quote by accident, because it names the
+section and so reads like guideline text. It is a pointer this repository
+generated from the index.
+
+The test is positional, not stylistic: find the sentence in the PDF at the
+paragraph the citation key names. If it is not there, it is not the guideline's.
+
 Typography does not decide a match. `KeratinoSens`, `KeratinoSens(TM)` and
 `KeratinoSens™` all verify; `α-Sens®` folds to `alpha-sens`. A **mid-word gap**
 (`con sidered`) does not fold and must not be worked around — it means the index
@@ -365,30 +389,6 @@ A Test Guideline is a regulatory consensus document rather than a study, so
 done elsewhere also takes `quote_role: REVIEW_SYNTHESIS`. Only the in-scope
 sections are in the body, so a licence term or a cell-line supplier still cannot
 be quoted from it — those sit in PROCEDURE.
-
-**Quote only the guideline's own sentences — not dismech's.** The cache body is
-not all guideline text, and the parts that are not verify just as exactly as the
-parts that are. A snippet taken from dismech's own framing passes
-`validate-kb-references`, passes `check-snippet-length`, reads as a finding, and
-attributes this repository's words to the OECD.
-
-Guideline text is **only** the prose under a `### 442D/<division>/<n>` heading.
-Everything else in the file was written here:
-
-| In the body | Whose words |
-|---|---|
-| prose under `### 442D/GI/1` and the other 50 paragraph headings | the guideline's — quotable |
-| the `**Scope of this record.**` paragraph | dismech's |
-| the `## Test methods` and `## Divisions` tables | dismech's |
-| the italic locator under each heading (`*General Introduction · … · PDF p. 6*`) | dismech's |
-| the `## Source` block and the licence line | dismech's |
-
-The locator line is the easiest to quote by accident, because it names the
-section and so reads like guideline text. It is a pointer this repository
-generated from the index.
-
-The test is positional, not stylistic: find the sentence in the PDF at the
-paragraph the citation key names. If it is not there, it is not the guideline's.
 
 For the method's own results — performance figures, inter-laboratory
 reproducibility — prefer the **primary literature** the guideline's reference list
