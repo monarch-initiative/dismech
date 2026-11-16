@@ -42,6 +42,7 @@ def test_ci_runs_negative_controls_when_reference_policy_changes():
     for path in (
         "conf/reference_validator_config.yaml",
         ".linkml-reference-validator.yaml",
+        "signed_excerpts/**",
         "scripts/run_reference_validator.sh",
         "src/**",
         "tests/**/*.py",
