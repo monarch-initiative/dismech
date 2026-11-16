@@ -322,8 +322,8 @@ guideline's judgement that a result is shown only indirectly, a construct
 description that differs from the originating paper's. Write them as prose in the
 record's `notes:`, saying they come from the guideline. `notes:` carries no
 evidence claim, which is the right strength for a fact whose only source is a
-consensus document. `Contact_Dermatitis` is the worked example: five TG 442D
-methods, no guideline citation, a `notes:` paragraph on each.
+consensus document. `Contact_Dermatitis` is the worked example; design decision
+6e records what was removed from it and what each removal was re-sourced to.
 
 Do not quote another paper's introduction *as though* it were the guideline
 either. Where a paper restates a regulatory fact, that is a real citation and takes

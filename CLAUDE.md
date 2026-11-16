@@ -2290,9 +2290,9 @@ Cache it, read it, and source the claim from the primary literature its referenc
 list names — which is often better evidence rather than a weaker substitute. A
 fact with no primary source (a method's Validated Reference Method standing, the
 guideline's own judgement about a result) goes in `notes:`, attributed to the
-guideline and marked as a lead. `Contact_Dermatitis` is the worked example: five
-TG 442D methods, no guideline citation. See design decisions §6e and the
-`extract-tg-method` skill.
+guideline and marked as a lead. `Contact_Dermatitis` is the worked example; see
+design decisions §6e, which records what was removed from it and what each
+removal was re-sourced to, and the `extract-tg-method` skill.
 
 #### `supports` is direction; `directness` is a separate axis
 

@@ -1325,12 +1325,13 @@ paper's. Record these in the record's `notes:`, attributed to the guideline and
 marked as a lead. `notes:` is curator prose and carries no evidence claim, which is
 the correct strength for a fact whose only source is a consensus document.
 
-**Worked example.** `Contact_Dermatitis` carries all five TG 442D methods. It cited
-`OECDTG:442D` in eleven evidence items and now cites none. Two of the eleven
-re-sourced to something stronger than the guideline: the marker-gene-to-response
-mapping behind EpiSensA and Epi2SensA now cites `PMID:27965148`, which reports the
-P2X7-antagonist and Nrf2-siRNA knockdowns that established it rather than asserting
-it. The rest sit in `notes:`.
+**Worked example.** `Contact_Dermatitis`, which carries the TG 442D methods. The
+branch adding the last two of them (#18286) first cited `OECDTG:442D` in eleven
+evidence items; under this decision all eleven were removed. Two re-sourced to
+something stronger than the guideline — the marker-gene-to-response mapping behind
+EpiSensA and Epi2SensA now cites `PMID:27965148`, which reports the P2X7-antagonist
+and Nrf2-siRNA knockdowns that established it rather than asserting it — and the
+rest moved to `notes:`.
 
 
 ## 7. Curation process & governance
