@@ -227,3 +227,21 @@ def test_all_caps_section_headings_become_running_text():
     # A heading that is already mixed case is left exactly as the guideline set it.
     assert _title_case_section("Principle of the Test") == "Principle of the Test"
     assert _title_case_section("") == ""
+
+
+def test_the_prefix_is_an_allowed_evidence_reference_prefix():
+    """A KB entry may cite ``OECDTG:`` in an evidence ``reference:``.
+
+    ``check_evidence_items_have_references`` in ``tests/test_data.py`` rejects
+    any prefix outside its allowlist, and a structured source is only usable
+    from ``kb/`` once its prefix is on that list. ``OECDTG:`` was absent for
+    the whole window between this source landing and the first entry citing
+    it, and nothing caught it: the sweep that applies the allowlist runs on
+    schema changes and in the merge queue, not on the curation PR that adds
+    the citation, so PR #18286 was green on its own checks and failed the
+    queue twice (dismech#18286).
+    """
+    from tests.test_data import _has_allowed_reference_prefix
+
+    assert _has_allowed_reference_prefix(f"{PREFIX}:442D")
+    assert _has_allowed_reference_prefix(f"{PREFIX.lower()}:442d")

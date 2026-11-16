@@ -106,6 +106,7 @@ ALLOWED_REFERENCE_PREFIXES = (
     "ICTRP:",  # WHO ICTRP trial registrations (ChiCTR, ISRCTN, EUCTR, JPRN, ...)
     "NCIT:",  # NCI Thesaurus predicate edges (e.g. NCIT:P302 therapeutic use)
     "STRCHIVE:",  # STRchive tandem-repeat disease loci (references_cache/STRCHIVE_*.md)
+    "OECDTG:",  # OECD Test Guideline paragraphs (references_cache/OECDTG_*.md)
     "metabolights:",  # dataset accession; skip_prefixes in the validator config
 )
 
