@@ -1350,6 +1350,42 @@ catalogued methods — including the negative mucin-binding result, which the re
 row records as a method property. Those rows are drafted in a separate nams-registry PR,
 not here; this page records the dismech links only.
 
+### PMID:38013136 — the Calu-3 air-liquid-interface lung model links into the inhaled-irritant airway-injury module
+
+Effah et al. 2023, *Toxicology* 500:153683 ([#16859](https://github.com/monarch-initiative/dismech/issues/16859)).
+The Calu-3 human bronchial epithelial line cultured at an air-liquid interface for
+28 days, validated against seven differentiation genes, MUC5AC staining and TEER,
+then exposed apically to the aerosols of three flavoured e-cigarette e-liquids, a
+PG/VG vehicle and a 3R4F reference cigarette.
+
+**dismech disposition: one model-to-mechanism link on
+[`inhaled_irritant_airway_injury`](../kb/modules/inhaled_irritant_airway_injury.yaml).**
+The module built after this batch began already cites this paper as node evidence on
+*Airway Epithelial Junctional Barrier Failure*; this adds the model-side half as a
+cellular-scale `experimental_models:` entry. The ALI-cultured Calu-3 model links to
+that node as `RECAPITULATES` (`model_scale: CELLULAR`) — the barrier-failure readout
+the module's own description names, where an inhaled aerosol deposited on the
+bronchial epithelium drops TEER and raises LDH. Its scale equals the node's cellular
+scale exactly, so no upward-extrapolation caveat is needed; it carries instead a
+`BOUNDARY_OMISSION` divergence, because the barrier is measured in a monoculture that
+omits the immune, endothelial and fibroblast compartments of the airway wall. This is
+the issue's proposed `epithelial_barrier_dysfunction` anchor resolved differently:
+that module is scoped to the allergic/type-2 barrier hypothesis, so a chemical aerosol
+insult does not conform to it honestly, whereas `inhaled_irritant_airway_injury` — the
+non-immune inhaled-chemical module that did not yet exist when the issue was written —
+is the exact fit, and names ALI/TEER as its readout.
+
+**Two arms stay out of dismech and go to the registry.** The 28-day
+differentiation-marker validation arm reads out a *normal* mucociliary developmental
+trajectory, which dismech models no pathology node for (and which the exposure did not
+disrupt), so it is the model's credibility claim rather than a mechanism link. The
+flavour-, vehicle- and particle-size-dependent differences between exposures — including
+that the PG/VG vehicle alone and two of three flavours matched the reference cigarette
+while vanilla tobacco was inert — are comparisons between exposures with no dismech
+shape. Both belong in the external
+[nams-registry](https://github.com/monarch-initiative/nams-registry) as catalogued
+method properties, drafted in a separate PR in that repo, not here.
+
 ## Gaps and questions the screen raised
 
 Mined out of the batch and filed separately, so they are not lost inside a
