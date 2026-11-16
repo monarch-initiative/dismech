@@ -332,6 +332,14 @@ def load_cache_dir(config_path: Path, default: Path = DEFAULT_CACHE_DIR) -> Path
     return default
 
 
+def load_signed_excerpts_dir(config_path: Path) -> Path | None:
+    """Read ``signed_excerpts_dir`` from the reference-validator config, else ``None``."""
+    signed_dir = _load_config(config_path).get("signed_excerpts_dir")
+    if isinstance(signed_dir, str) and signed_dir.strip():
+        return Path(signed_dir)
+    return None
+
+
 def iter_snippet_pairs(
     path: Path,
     data: Any,
@@ -390,8 +398,10 @@ class CachedReferenceIndex:
         skip_prefixes: Iterable[str] = (),
         literal_bracket_patterns: Iterable[str] = (),
         cache_size: int = NORMALIZED_CACHE_SIZE,
+        signed_excerpts_dir: Path | None = None,
     ) -> None:
         self.cache_dir = cache_dir
+        self.signed_excerpts_dir = signed_excerpts_dir
         self.skip_prefixes = frozenset(prefix.upper() for prefix in skip_prefixes)
         self._literal_bracket_regexes = [
             re.compile(pattern) for pattern in literal_bracket_patterns
@@ -399,6 +409,7 @@ class CachedReferenceIndex:
         self._cache_size = max(1, cache_size)
         self._normalized: OrderedDict[str, str | None] = OrderedDict()
         self._relaxed: OrderedDict[str, str | None] = OrderedDict()
+        self._signed_excerpts: dict[str, frozenset[str]] = {}
         self._fetcher = self._build_fetcher(cache_dir)
         self._by_stem: dict[str, Path] | None = None
         self._by_bare_id: dict[str, Path | None] | None = None
@@ -683,6 +694,52 @@ class CachedReferenceIndex:
         content_type = self.content_type(reference_id)
         return content_type is not None and content_type in ABSTRACT_ONLY_CONTENT_TYPES
 
+    def _signed_excerpt_set(self, reference_id: str) -> frozenset[str]:
+        if self.signed_excerpts_dir is None or not self.signed_excerpts_dir.is_dir():
+            return frozenset()
+        if reference_id in self._signed_excerpts:
+            return self._signed_excerpts[reference_id]
+        texts: set[str] = set()
+        for stem in cache_stems(reference_id):
+            found_file = False
+            for ext in (".yaml", ".yml"):
+                candidate = self.signed_excerpts_dir / f"{stem}{ext}"
+                if candidate.is_file():
+                    found_file = True
+                    try:
+                        data = _load_yaml(candidate)
+                    except (OSError, yaml.YAMLError):
+                        data = None
+                    if isinstance(data, dict):
+                        declared_ref = data.get("reference_id")
+                        if declared_ref and (
+                            str(declared_ref).strip().lower()
+                            != reference_id.strip().lower()
+                        ):
+                            break
+                        for item in data.get("excerpts") or []:
+                            if isinstance(item, dict):
+                                val = (
+                                    item.get("text")
+                                    or item.get("snippet")
+                                    or item.get("supporting_text")
+                                )
+                                if isinstance(val, str) and val.strip():
+                                    texts.add(" ".join(val.split()))
+                            elif isinstance(item, str) and item.strip():
+                                texts.add(" ".join(item.split()))
+                    break
+            if found_file:
+                break
+        result = frozenset(texts)
+        self._signed_excerpts[reference_id] = result
+        return result
+
+    def matches_signed_excerpt(self, reference_id: str, snippet: str) -> bool:
+        """True when ``snippet`` exact-matches a verified entry in ``signed_excerpts_dir``."""
+        norm = " ".join(snippet.split())
+        return bool(norm) and norm in self._signed_excerpt_set(reference_id)
+
 
 def boundary_defect(index: CachedReferenceIndex, pair: SnippetPair) -> str | None:
     """Reason a strictly-verified snippet begins or ends inside a word, else ``None``.
@@ -706,6 +763,8 @@ def boundary_defect(index: CachedReferenceIndex, pair: SnippetPair) -> str | Non
     verifications -- which are exactly the #8048 ligature/hyphenation cases that
     the legitimate "begins mid-word" curator notes are about.
     """
+    if index.matches_signed_excerpt(pair.reference_id, pair.snippet):
+        return None
     content = index.normalized_content(pair.reference_id)
     if content is None:
         return None
@@ -752,6 +811,9 @@ def check_pair(
     """Classify one pair: a :class:`PairOutcome`, or an :class:`Unverified` mismatch."""
     if index.is_skipped(pair.reference_id):
         return PairOutcome.SKIPPED_PREFIX
+
+    if index.matches_signed_excerpt(pair.reference_id, pair.snippet):
+        return PairOutcome.VERIFIED
 
     content = index.normalized_content(pair.reference_id)
     if content is None:
@@ -853,6 +915,7 @@ def audit_files(
         cache_dir,
         skip_prefixes,
         load_literal_bracket_patterns(config_path),
+        signed_excerpts_dir=load_signed_excerpts_dir(config_path),
     )
 
     report = AuditReport()
