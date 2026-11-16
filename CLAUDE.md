@@ -4969,6 +4969,7 @@ as evidence `snippet:` values.
 | `ICEES:` | ICEES Knowledge Graph (KGX, RENCI/UNC) | One record per disease/phenotype comorbidity pair (MONDO/HP both sides), with per-cohort chi-square rows | ICEES terms |
 | `NCIT:` | NCI Thesaurus selected predicate edges (via OAK `sqlite:obo:ncit`) | One record per subject carrying a selected predicate; currently `NCIT:P302` (Accepted_Therapeutic_Use_For), 796 drug→indication assertions | NCIT terms |
 | `ICTRP:` | WHO International Clinical Trials Registry Platform search portal | One record per trial, fetched per identifier on demand (no bulk file) | WHO ICTRP terms |
+| `OECDTG:` | OECD Test Guideline PDFs, pinned by sha256 in `data/oecd_tg/MANIFEST.yaml` | One record per guideline; currently TG 442D, 51 paragraphs — the General Introduction plus each appendix's `Initial Considerations` and `Principle of the Test` | CC BY 4.0 |
 
 **Citing an NCIT P302 (Accepted_Therapeutic_Use_For) treatment indication:**
 
