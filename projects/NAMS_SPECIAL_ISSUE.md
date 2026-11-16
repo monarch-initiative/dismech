@@ -1255,6 +1255,36 @@ so no placeholder is needed.
 not from any `kb/` entry. It is kept deliberately, so the quoted abstract stays
 checkable — do not read its absence from `kb/` as uncited and prune it.
 
+### PMID:38369009 — the 3D tetraculture bronchial model links into the chemical respiratory allergy module
+
+da Silva et al. 2024, *Toxicology* 503:153756 ([#16866](https://github.com/monarch-initiative/dismech/issues/16866)),
+with its companion monoculture study ([#16865](https://github.com/monarch-initiative/dismech/issues/16865), PMID:38360295).
+A reconstructed three-dimensional bronchial tissue from four cell lines — bronchial
+epithelial, lung fibroblast, endothelial and monocytic — challenged with maleic
+anhydride aerosol.
+
+**dismech disposition: two model-to-mechanism links on
+[`chemical_respiratory_allergy`](../kb/modules/chemical_respiratory_allergy.yaml).**
+The module built in #16912 already cites both papers as node evidence; this adds the
+model-side half as an `experimental_models:` entry. The tetraculture is the
+tissue-scale anchor the issue called for: it links to *Airway Epithelial Danger
+Signal Release* as `RECAPITULATES` (IL-8/IL-6, ROS and epithelial apoptosis
+readouts) and to *Dendritic Cell Activation and Th2-Polarizing Antigen Presentation*
+as `PARTIALLY_RECAPITULATES` (monocytic IL-8 as an indirect dendritic-cell-activation
+surrogate). Both carry `model_scale: TISSUE`; against the module's cellular nodes that
+is a model-above-target scale, so it contains the node and needs no scale caveat. The
+dendritic-cell link carries two typed divergences: a `BOUNDARY_OMISSION` (the
+co-culture has no T lymphocyte compartment, so it reaches dendritic cell activation
+but not sensitization proper) and a `PROXY_QUANTITY` (the node's quantity is dendritic
+cell maturation on `CL:0000451`, while the model's is monocytic-line IL-8 reported as
+correlating with DC activation, with no maturation marker read out). The companion monoculture paper (#16865) is the cellular-scale counterpart and
+is left to its own issue.
+
+**Registry disposition: the method also belongs in the external
+[nams-registry](https://github.com/monarch-initiative/nams-registry)** as a catalogued
+NAM — a reconstructed four-cell airway tissue with a respiratory-sensitization
+application. That row is not created here; this page records the dismech links only.
+
 ### PMID:37863466 — 1,3-dichloropropene nasal ALI epithelium links into the inhaled-irritant module
 
 Paudel, Barutcu and Samuel 2023, *Toxicology* 499:153642
@@ -1349,6 +1379,42 @@ the external [nams-registry](https://github.com/monarch-initiative/nams-registry
 catalogued methods — including the negative mucin-binding result, which the registry
 row records as a method property. Those rows are drafted in a separate nams-registry PR,
 not here; this page records the dismech links only.
+
+### PMID:38013136 — the Calu-3 air-liquid-interface lung model links into the inhaled-irritant airway-injury module
+
+Effah et al. 2023, *Toxicology* 500:153683 ([#16859](https://github.com/monarch-initiative/dismech/issues/16859)).
+The Calu-3 human bronchial epithelial line cultured at an air-liquid interface for
+28 days, validated against seven differentiation genes, MUC5AC staining and TEER,
+then exposed apically to the aerosols of three flavoured e-cigarette e-liquids, a
+PG/VG vehicle and a 3R4F reference cigarette.
+
+**dismech disposition: one model-to-mechanism link on
+[`inhaled_irritant_airway_injury`](../kb/modules/inhaled_irritant_airway_injury.yaml).**
+The module built after this batch began already cites this paper as node evidence on
+*Airway Epithelial Junctional Barrier Failure*; this adds the model-side half as a
+cellular-scale `experimental_models:` entry. The ALI-cultured Calu-3 model links to
+that node as `RECAPITULATES` (`model_scale: CELLULAR`) — the barrier-failure readout
+the module's own description names, where an inhaled aerosol deposited on the
+bronchial epithelium drops TEER and raises LDH. Its scale equals the node's cellular
+scale exactly, so no upward-extrapolation caveat is needed; it carries instead a
+`BOUNDARY_OMISSION` divergence, because the barrier is measured in a monoculture that
+omits the immune, endothelial and fibroblast compartments of the airway wall. This is
+the issue's proposed `epithelial_barrier_dysfunction` anchor resolved differently:
+that module is scoped to the allergic/type-2 barrier hypothesis, so a chemical aerosol
+insult does not conform to it honestly, whereas `inhaled_irritant_airway_injury` — the
+non-immune inhaled-chemical module that did not yet exist when the issue was written —
+is the exact fit, and names ALI/TEER as its readout.
+
+**Two arms stay out of dismech and go to the registry.** The 28-day
+differentiation-marker validation arm reads out a *normal* mucociliary developmental
+trajectory, which dismech models no pathology node for (and which the exposure did not
+disrupt), so it is the model's credibility claim rather than a mechanism link. The
+flavour-, vehicle- and particle-size-dependent differences between exposures — including
+that the PG/VG vehicle alone and two of three flavours matched the reference cigarette
+while vanilla tobacco was inert — are comparisons between exposures with no dismech
+shape. Both belong in the external
+[nams-registry](https://github.com/monarch-initiative/nams-registry) as catalogued
+method properties, drafted in a separate PR in that repo, not here.
 
 ## Gaps and questions the screen raised
 
