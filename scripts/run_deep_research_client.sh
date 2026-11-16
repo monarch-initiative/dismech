@@ -41,10 +41,11 @@ if not biomni_opted_in and requests_biomni_research(sys.argv[1:]):
     raise SystemExit(2)
 
 from deep_research_client.cli import app
-from deep_research_client.client import REGISTRATION_GATES
+from deep_research_client.providers.biomni import BiomniProvider
 
+# Explain the opt-in policy wherever the client says why Biomni is unavailable.
 if not biomni_opted_in:
-    REGISTRATION_GATES['biomni'] = BIOMNI_DISABLED_DETAIL
+    BiomniProvider.registration_requirement = BIOMNI_DISABLED_DETAIL
 
 # Submit Perplexity requests as async jobs so an idle-timeout proxy does not
 # drop a multi-minute sonar-deep-research request (dismech#9357).

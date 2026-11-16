@@ -109,6 +109,10 @@ just pytest-all
 # Run a single test
 uv run pytest tests/test_data.py -k "test_name" -v
 
+# Lint Python with the pinned ruff, exactly as CI does (version pinned in
+# pyproject.toml; bump it there, in uv.lock and in .pre-commit-config.yaml together)
+just lint-python
+
 # Generate HTML pages for all disorders
 uv run python -m dismech.render --all
 
@@ -235,7 +239,7 @@ the parity test fails until they agree. See `models/README.md`.
 ### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
 The cron cadence of the scheduled "agent" workflows (curation-scanner,
 pr-shepherd, discussion-scanner, literature-scan, knowledge-gap-scan,
-preprint-scan, weekly-compliance, post-review-agent) is centralized in
+preprint-scan, weekly-compliance, weekly-report, post-review-agent) is centralized in
 `.github/cron-profiles.yaml` as named profiles (`slow`/`medium`/`fast`/`fast-weekend`).
 Switch with `just cron-profile <name>` (preview with `just cron-profile-preview <name>`,
 list with `just cron-profiles`), which rewrites the `on.schedule` cron lines in
@@ -246,7 +250,7 @@ config instead. Page/build crons are intentionally unmanaged. See
 ### Agent Model Config (`.github/agent-config.yaml`)
 The Claude **model** backing each agentic workflow (curation-scanner,
 discussion-scanner, claude-dedupe-issues, knowledge-gap-scan, literature-scan, preprint-scan,
-post-review-agent, pr-shepherd, weekly-compliance, claude-code-review, claude)
+post-review-agent, pr-shepherd, weekly-compliance, weekly-report, claude-code-review, claude)
 is centralized in `.github/agent-config.yaml` — one source of truth instead of a
 `--model` hardcoded per workflow. For single-model workflows, the `Resolve agent
 config` step (the `.github/actions/resolve-agent-config` composite action) reads
@@ -4300,6 +4304,9 @@ Non-negotiable rules:
   on an HGNC identifier written beside the wrong gene (#9845).
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
+- Never create or hand-edit `signed_excerpts/*.yaml`; those bundles are verified
+  against full-text PDFs in the private `monarch-initiative/claimstore`
+  repository and synced from there (design decisions §6d).
 - Validation is read-only for committed caches. `just validate`,
   `validate-kb-references` and `validate-disorders` may *create* a cache file
   for a newly cited reference (commit it), but they never rewrite a tracked one:
