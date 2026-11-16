@@ -271373,16 +271373,7 @@ window.searchData = [
       "OCCASIONAL"
     ],
     "genes": [
-      "FBN1",
-      "TGFBR1",
-      "TGFBR2",
-      "SMAD2",
-      "SMAD3",
-      "ACTA2",
-      "AGTR1",
-      "ITGAV",
-      "NOS2",
-      "VCAN"
+      "FBN1"
     ],
     "treatments": [
       "Beta Blockers",
@@ -271402,7 +271393,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Marfan_Syndrome.html",
     "num_phenotypes": 26,
     "num_pathophysiology": 6,
-    "num_genes": 10,
+    "num_genes": 1,
     "num_treatments": 5,
     "causal_graph_edges": "23",
     "causal_graph_longest_path": "5"
@@ -297327,6 +297318,68 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "NUT Carcinoma",
+    "disease_id": "MONDO:0005563",
+    "category": "",
+    "parents": [
+      "carcinoma"
+    ],
+    "creation_date": "2026-11-11T19:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A poorly differentiated carcinoma defined by rearrangement of NUTM1, arising mostly in adolescents and young adults and mostly in midline structures of the thorax and the head and neck. The fusion partner is BRD4 in most cases, BRD3 or NSD3 in most of the rest. The NUT half recruits and activates the histone acetyltransferase p300, and in BRD4-NUT - the only fusion any cached source has mapped - the complex builds megabase-scale hyperacetylated chromatin domains over a small, recurrent set of stem-cell transcription factors. The block to squamous differentiation is the one step a cached source demonstrates for a non-BRD4 partner too. It is aggressive and is widely underdiagnosed.",
+    "pathophysiology": [
+      "NUTM1 Rearrangement",
+      "p300 Recruitment and Megadomain Formation",
+      "Global Hypoacetylation with Local Hyperacetylation",
+      "MYC, TP63 and SOX2 Transcription Factor Activation",
+      "Block to Squamous Differentiation"
+    ],
+    "cell_types": [
+      "squamous epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000076"
+    ],
+    "biological_processes": [
+      "redistribution of chromatin acetylation",
+      "squamous epithelial cell differentiation"
+    ],
+    "phenotypes": [
+      "Regional lymph node involvement",
+      "Distant metastasis"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [],
+    "phenotype_ids": [],
+    "frequencies": [],
+    "genes": [
+      "NUTM1 fusion",
+      "BRD4 as fusion partner",
+      "BRD3 as fusion partner",
+      "NSD3 as fusion partner"
+    ],
+    "treatments": [
+      "Surgical resection",
+      "Radiotherapy",
+      "Conventional chemotherapy",
+      "BET bromodomain inhibition",
+      "Histone deacetylase inhibition"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "NUT_Carcinoma.yaml",
+    "page_url": "../pages/disorders/NUT_Carcinoma.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 5,
+    "num_genes": 4,
+    "num_treatments": 5,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Nager Acrofacial Dysostosis",
@@ -443205,17 +443258,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4081,
+  "total_disorder_pages": 4082,
   "total_subtypes": 5084,
-  "total_disorders_and_subtypes": 9165,
-  "total_unique_evidence_sources": 60937,
-  "total_unique_publications": 56943,
+  "total_disorders_and_subtypes": 9166,
+  "total_unique_evidence_sources": 60958,
+  "total_unique_publications": 56964,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4079,
-  "total_unique_pathological_events": 26935,
+  "total_pathographs": 4080,
+  "total_unique_pathological_events": 26940,
   "total_modules": 235,
-  "total_research_reports": 4184,
+  "total_research_reports": 4185,
   "total_classifications": 21,
   "total_comorbidities": 56,
   "total_groupings": 136
