@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNGA3-Related Retinopathy · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>CNGA3-Related Retinopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>CNGA3-Related Retinopathy</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-11-11</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0800102" target="_blank" rel="noopener noreferrer">MONDO:0800102</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p>CNGA3-related retinopathy is the most frequent form of <strong>achromatopsia (ACHM)</strong> attributable to the cone CNG channel α-subunit. Achromatopsia is a rare, congenital, autosomal-recessive cone photoreceptor dysfunction syndrome characterized by <strong>absent or severely reduced color vision, markedly reduced visual acuity, photophobia/day-blindness (hemeralopia), and congenital pendular nystagmus</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40699246/" target="_blank" rel="noopener noreferrer">PMID 40699246</a>, 29303385). CNGA3 causes "Achromatopsia 2" (ACHM2). Clinically it ranges from <strong>complete achromatopsia</strong> (total color blindness, VA typically ≤0.1) to <strong>incomplete achromatopsia</strong> (residual color discrimination and better acuity) (<a href="https://pubmed.ncbi.nlm.nih.gov/19592100/" target="_blank" rel="noopener noreferrer">PMID 19592100</a>).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>OMIM:</strong> 216900 (Achromatopsia 2); gene CNGA3 OMIM <em>600053
+- </em><em>Mondo:</em><em> <a href="http://purl.obolibrary.org/obo/MONDO_0800102" target="_blank" rel="noopener noreferrer">MONDO:0800102</a> (gene-based class "CNGA3-related retinopathy," defined as "a retinopathy, typically described as achromatopsia, caused by biallelic variants in the CNGA3 gene"; synonyms ACHM2, RMCH2, "achromatopsia 2," "colorblindness, total") — corresponds to the OMIM-anchored class </em><em><a href="http://purl.obolibrary.org/obo/MONDO_0009003" target="_blank" rel="noopener noreferrer">MONDO:0009003</a></em><em> (<a href="https://bioregistry.io/OMIM:216900" target="_blank" rel="noopener noreferrer">OMIM:216900</a>) [confirmed via OLS4/HPO API, this work]
+- </em><em>Orphanet:</em><em> <a href="https://bioregistry.io/ORPHA:49382" target="_blank" rel="noopener noreferrer">ORPHA:49382</a> (Achromatopsia)
+- </em><em>ICD-10:</em><em> H53.51 (achromatopsia) / H53.52 (acquired) — ICD-11: 9D45 (colour vision deficiencies) / congenital cone dysfunction
+- </em><em>MeSH:</em><em> D003117 (Color Vision Defects); "Achromatopsia" concepts
+- </em><em>HGNC:</em><em> 2383 (CNGA3); </em><em>UniProt:</em><em> Q16281 (CNGA3_HUMAN); </em><em>NCBI Gene:</em><em> 1261; </em><em>Ensembl:</em>* ENSG00000144191</p>
+<p><strong>Synonyms:</strong> Achromatopsia 2; CNGA3 achromatopsia; rod monochromacy / total colour blindness (historical); congenital cone dysfunction (CNGA3-related); ACHM2.</p>
+<p><strong>Information source:</strong> Derived predominantly from <strong>aggregated disease-level resources</strong> — OMIM, Orphanet, GeneReviews, and multi-center patient cohorts/natural-history studies — supplemented by EHR/clinic cohort series (e.g., <a href="https://pubmed.ncbi.nlm.nih.gov/41867372/" target="_blank" rel="noopener noreferrer">PMID 41867372</a>, 36980963).</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause — genetic.</strong> Biallelic (homozygous or compound-heterozygous) loss-of-function or dysfunction-causing variants in <strong>CNGA3</strong>. The disease is monogenic/Mendelian; there is no established environmental or infectious cause.</p>
+<p><strong>Genetic risk factors:</strong>
+- Causal: pathogenic CNGA3 variants (see §4). Being a <strong>carrier of two CNGA3 pathogenic alleles</strong> is necessary and essentially sufficient for disease.
+- <strong>Consanguinity</strong> markedly increases risk of homozygous disease; many reported families are consanguineous (e.g., Pakistani, Middle Eastern cohorts; <a href="https://pubmed.ncbi.nlm.nih.gov/42099125/" target="_blank" rel="noopener noreferrer">PMID 42099125</a>, 35456423).
+- <strong>Modifier/triallelic effects:</strong> an accessory heterozygous CNGA3 allele can exacerbate CNGB3-related disease (digenic/triallelic inheritance; <a href="https://pubmed.ncbi.nlm.nih.gov/30418171/" target="_blank" rel="noopener noreferrer">PMID 30418171</a>).</p>
+<p><strong>Environmental risk factors:</strong> None established. Age and sex are <strong>not</strong> risk factors (congenital, autosomal — no sex predilection; apparent female excess in some small clinic cohorts is sampling, <a href="https://pubmed.ncbi.nlm.nih.gov/41867372/" target="_blank" rel="noopener noreferrer">PMID 41867372</a>). Light exposure does not cause the disease but worsens symptoms (photophobia).</p>
+<p><strong>Protective factors:</strong> No environmental protective factors known. Behaviorally, <strong>light avoidance / tinted (red/amber) lenses</strong> reduce symptom burden but do not alter underlying biology. No protective modifier alleles are established; residual rod function "protects" scotopic vision by default.</p>
+<p><strong>Gene–environment interactions:</strong> Minimal. The principal "environmental" interaction is that cone-driven symptoms (photophobia, poor acuity) manifest under <strong>photopic (bright-light) conditions</strong>, whereas rod-mediated vision is near-normal in dim light.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Severity/Progression</th>
+<th>Frequency</th>
+<th>HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Impaired/absent color vision (achromatopsia)</td>
+<td>Symptom/sign</td>
+<td>Congenital</td>
+<td>Severe; stable</td>
+<td>~100%</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0011516" target="_blank" rel="noopener noreferrer">HP:0011516</a> (Achromatopsia)</strong>; <a href="http://purl.obolibrary.org/obo/HP_0000551" target="_blank" rel="noopener noreferrer">HP:0000551</a> (Abnormal color vision)</td>
+</tr>
+<tr>
+<td>Reduced visual acuity (often ≤0.1–0.2 / 20/200)</td>
+<td>Sign</td>
+<td>Congenital</td>
+<td>Severe; largely stable</td>
+<td>~100%</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" rel="noopener noreferrer">HP:0007663</a> (Reduced visual acuity)</strong>; <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" rel="noopener noreferrer">HP:0000505</a> (Visual impairment)</td>
+</tr>
+<tr>
+<td>Photophobia / day-blindness (hemeralopia)</td>
+<td>Symptom</td>
+<td>Infancy</td>
+<td>Moderate–severe; stable</td>
+<td>~95%</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" rel="noopener noreferrer">HP:0000613</a> (Photophobia)</strong>; <strong><a href="http://purl.obolibrary.org/obo/HP_0012047" target="_blank" rel="noopener noreferrer">HP:0012047</a> (Hemeralopia)</strong></td>
+</tr>
+<tr>
+<td>Pendular (congenital) nystagmus</td>
+<td>Sign</td>
+<td>Infancy (often dampens with age)</td>
+<td>Moderate; may improve</td>
+<td>~85–95%</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0012043" target="_blank" rel="noopener noreferrer">HP:0012043</a> (Pendular nystagmus)</strong>; <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a> (Nystagmus)</td>
+</tr>
+<tr>
+<td>Foveal hypoplasia / abnormal foveal reflex</td>
+<td>Structural</td>
+<td>Congenital</td>
+<td>Variable; mostly stable</td>
+<td>Common</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0007750" target="_blank" rel="noopener noreferrer">HP:0007750</a> (Hypoplasia of the fovea)</strong>; <a href="http://purl.obolibrary.org/obo/HP_0030825" target="_blank" rel="noopener noreferrer">HP:0030825</a> (Absent foveal reflex); <a href="http://purl.obolibrary.org/obo/HP_0034362" target="_blank" rel="noopener noreferrer">HP:0034362</a> (Dull foveal reflex)</td>
+</tr>
+<tr>
+<td>Refractive error (myopic astigmatism / hyperopia)</td>
+<td>Sign</td>
+<td>Childhood</td>
+<td>Mild–moderate</td>
+<td>Frequent</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0500041" target="_blank" rel="noopener noreferrer">HP:0500041</a> (Myopic astigmatism)</strong>; <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" rel="noopener noreferrer">HP:0000545</a> (Myopia); <a href="http://purl.obolibrary.org/obo/HP_0000540" target="_blank" rel="noopener noreferrer">HP:0000540</a> (Hypermetropia)</td>
+</tr>
+<tr>
+<td>Undetectable light-adapted (photopic) ERG</td>
+<td>Lab/functional</td>
+<td>Congenital</td>
+<td>Severe; stable</td>
+<td>~100%</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0030465" target="_blank" rel="noopener noreferrer">HP:0030465</a> (Undetectable light-adapted electroretinogram)</strong></td>
+</tr>
+<tr>
+<td>Retinal thinning / outer-retinal atrophy, peripapillary atrophy</td>
+<td>Structural</td>
+<td>Variable</td>
+<td>Slowly progressive in a subset</td>
+<td>Subset</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0030329" target="_blank" rel="noopener noreferrer">HP:0030329</a> (Retinal thinning on OCT)</strong>; <a href="http://purl.obolibrary.org/obo/HP_0500087" target="_blank" rel="noopener noreferrer">HP:0500087</a> (Peripapillary atrophy)</td>
+</tr>
+<tr>
+<td>Nyctalopia (occasional)</td>
+<td>Symptom</td>
+<td>Variable</td>
+<td>Mild</td>
+<td>~33%</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" rel="noopener noreferrer">HP:0000662</a> (Nyctalopia)</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Frequencies from <a href="https://pubmed.ncbi.nlm.nih.gov/41867372/" target="_blank" rel="noopener noreferrer">PMID 41867372</a> (color vision 100%, photosensitivity 95.2%, nystagmus 85.7%, nyctalopia 33%); clinical constellation from <a href="https://pubmed.ncbi.nlm.nih.gov/40699246/" target="_blank" rel="noopener noreferrer">PMID 40699246</a>, 37714190, 29303385. <strong>HP identifiers validated against the official HPO annotation for <a href="https://bioregistry.io/OMIM:216900" target="_blank" rel="noopener noreferrer">OMIM:216900</a> (ontology.jax.org; gene NCBIGene:1261 CNGA3; inheritance <a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a>; clinical course <a href="http://purl.obolibrary.org/obo/HP_0011463" target="_blank" rel="noopener noreferrer">HP:0011463</a> childhood onset)</strong>, this work.</p>
+<p><strong>Quality-of-life impact:</strong> Legal blindness-level acuity and severe photophobia impair reading, driving (usually precluded), education, and daily navigation in bright light; congenital nystagmus and total color blindness affect schooling and occupation. Overall the condition is "profoundly disabling" though <strong>non-progressive and compatible with normal lifespan</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29303385/" target="_blank" rel="noopener noreferrer">PMID 29303385</a>). No disease-specific validated QoL instrument; generic low-vision/vision-related QoL tools (e.g., NEI-VFQ) apply.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene:</strong> <strong>CNGA3</strong> (<a href="https://bioregistry.io/HGNC:2383" target="_blank" rel="noopener noreferrer">HGNC:2383</a>, OMIM <em>600053, UniProt Q16281), encoding the cone CNG channel α3-subunit — a 6-transmembrane (S1–S6) cation channel with a pore region and a C-terminal </em><em>cyclic nucleotide-binding domain (CNBD)</em><em> that binds cGMP (<a href="https://pubmed.ncbi.nlm.nih.gov/26493561/" target="_blank" rel="noopener noreferrer">PMID 26493561</a>, 23530136). The functional cone channel is a </em><em>heterotetramer of CNGA3 and CNGB3 subunits</em>* (stoichiometry 3A3:1B3 / 2:2 debated) in the cone outer-segment plasma membrane.</p>
+<p><strong>Pathogenic variants:</strong>
+- <strong>Variant type/class:</strong> CNGA3 variants are <strong>predominantly missense</strong> amino-acid substitutions (contrast with CNGB3, where truncating/frameshift variants and the founder c.1148delC/p.Thr383IlefsX13 predominate) (<a href="https://pubmed.ncbi.nlm.nih.gov/19592100/" target="_blank" rel="noopener noreferrer">PMID 19592100</a>, 39217486). <strong>Quantitative ClinVar analysis (this work, via gnomAD; 849 total CNGA3 ClinVar variants, 319 Pathogenic/Likely-pathogenic):</strong> missense <strong>57.1%</strong> (182/319), frameshift 17.9% (57), nonsense/stop-gained 15.0% (48), splice-site ~3.4% (11), intron 4, in-frame deletion 3 — i.e., ~36% truncating. A large fraction of CNGA3 ClinVar entries are <strong>VUS (314; 37%)</strong> or conflicting (79), underscoring interpretation challenges. <strong>Deep-intronic</strong> (e.g., c.1663-1205G&gt;A) and copy-number variants also occur (<a href="https://pubmed.ncbi.nlm.nih.gov/34703197/" target="_blank" rel="noopener noreferrer">PMID 34703197</a>, 28795510).
+- <strong>Variant clustering:</strong> many variants cluster in <strong>exon 8</strong>, the transmembrane helices (notably S5), and the CNBD/cGMP-binding region (<a href="https://pubmed.ncbi.nlm.nih.gov/39217486/" target="_blank" rel="noopener noreferrer">PMID 39217486</a>, 26493561).
+- <strong>Representative pathogenic/likely-pathogenic variants (ACMG-classified):</strong> p.Arg283Trp (c.847C&gt;T), p.Asn276Ser (c.827A&gt;G), p.Arg427Cys (c.1279C&gt;T) — altered membrane targeting (<a href="https://pubmed.ncbi.nlm.nih.gov/35456423/" target="_blank" rel="noopener noreferrer">PMID 35456423</a>); p.Arg410Trp (c.1228C&gt;T) — gain-of-function (<a href="https://pubmed.ncbi.nlm.nih.gov/35233102/" target="_blank" rel="noopener noreferrer">PMID 35233102</a>); p.Gly397Val, p.Trp358X, p.Arg569His, p.Ala323Asp (<a href="https://pubmed.ncbi.nlm.nih.gov/39217486/" target="_blank" rel="noopener noreferrer">PMID 39217486</a>, 26493561); novel p.Ser570Arg (possible gain-of-function; <a href="https://pubmed.ncbi.nlm.nih.gov/40699246/" target="_blank" rel="noopener noreferrer">PMID 40699246</a>).
+- <strong>Allele frequency:</strong> individual pathogenic alleles are rare in gnomAD (typically &lt;0.1–0.5%; many ultra-rare/private), consistent with a rare recessive disorder.
+- <strong>Origin:</strong> <strong>germline</strong> (constitutional, inherited). No somatic contribution.
+- <strong>Functional consequence:</strong> predominantly <strong>loss of function</strong> (no/low cGMP-gated cone current) via gating defects or impaired trafficking/membrane targeting; a subset are <strong>gain-of-function</strong> (constitutively/spontaneously open channels) (<a href="https://pubmed.ncbi.nlm.nih.gov/35456423/" target="_blank" rel="noopener noreferrer">PMID 35456423</a>, 35233102).</p>
+<p><strong>Modifier genes:</strong> CNGB3 (triallelic/digenic modifier; a CNGA3-null allele worsens CNGB3-p.R403Q disease — <a href="https://pubmed.ncbi.nlm.nih.gov/30418171/" target="_blank" rel="noopener noreferrer">PMID 30418171</a>). General IRD genetic background may modulate expressivity.</p>
+<p><strong>Epigenetic information:</strong> No disease-specific DNA-methylation/histone signature established for CNGA3-ACHM.</p>
+<p><strong>Chromosomal abnormalities:</strong> Large-scale aneuploidy/translocations are not a feature; small exon-level CNVs/deletions are an uncommon minority of alleles.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> None causative. Bright-light/UV exposure aggravates symptoms (photophobia) but does not cause or accelerate the genetic disease; sunglasses/tinted lenses are protective against symptoms.</li>
+<li><strong>Lifestyle factors:</strong> No diet/smoking/alcohol associations. Light-management behavior is the main modifiable factor for symptom relief.</li>
+<li><strong>Infectious agents:</strong> Not applicable — non-infectious Mendelian disorder.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal chain (ordered)</h3>
+<ol>
+<li><strong>Biallelic CNGA3 mutation</strong> → <strong>leads to</strong> absent or structurally/functionally defective CNGA3 α-subunit protein.</li>
+<li>Defective α-subunit → <strong>results in</strong> failure to assemble/traffic functional cone CNG channels to the cone outer-segment plasma membrane (loss-of-function class) <strong>OR</strong> channels that gate abnormally.</li>
+<li><strong>Branch A (loss-of-function, majority):</strong> no cGMP-gated inward Na⁺/Ca²⁺ current → cone outer segment cannot depolarize/respond to light-induced cGMP changes → <strong>loss of cone phototransduction</strong> (inferred from heterologous-expression trafficking defects, <a href="https://pubmed.ncbi.nlm.nih.gov/35456423/" target="_blank" rel="noopener noreferrer">PMID 35456423</a>).</li>
+<li><strong>Branch B (gain-of-function, minority; e.g., p.Arg410Trp):</strong> closed-state destabilized → <strong>channel spontaneously open without cGMP</strong> → <strong>constitutive Ca²⁺ influx/overload</strong> → cytotoxicity (demonstrated structurally/functionally and cell death in vitro, <a href="https://pubmed.ncbi.nlm.nih.gov/35233102/" target="_blank" rel="noopener noreferrer">PMID 35233102</a>).</li>
+<li>Loss of cone signal → <strong>leads to</strong> failure to transmit cone-derived signals to <strong>cone bipolar cells → retinal ganglion cells → brain</strong> (demonstrated reversible in Cnga3⁻/⁻ mouse by gene therapy, <a href="https://pubmed.ncbi.nlm.nih.gov/20628362/" target="_blank" rel="noopener noreferrer">PMID 20628362</a>).</li>
+<li>Absent cone function → <strong>results in</strong> the clinical phenotype: achromatopsia, reduced photopic acuity, photophobia, and (via early sensory deprivation) <strong>congenital pendular nystagmus</strong> and <strong>foveal hypoplasia</strong>.</li>
+<li>Over years, a subset of cones → <strong>undergo</strong> slow structural decline (EZ disruption, outer-retinal thinning), likely via dysregulated cGMP/Ca²⁺ homeostasis and (in GoF) Ca²⁺ overload, with Müller-glial reactive gliosis (inferred; mouse data <a href="https://pubmed.ncbi.nlm.nih.gov/20628362/" target="_blank" rel="noopener noreferrer">PMID 20628362</a>). Most patients remain <strong>largely stationary</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39365261/" target="_blank" rel="noopener noreferrer">PMID 39365261</a>, 32960951).</li>
+</ol>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathway:</strong> <strong>Cone phototransduction cascade</strong> (<a href="http://purl.obolibrary.org/obo/GO_0007602" target="_blank" rel="noopener noreferrer">GO:0007602</a>) — light → opsin/transducin (GNAT2) → PDE6C → ↓cGMP → closure of CNG channels. CNGA3 is the effector cation channel; its loss uncouples cGMP signaling from membrane potential. Relevant KEGG: hsa04744 (Phototransduction).</li>
+<li><strong>Cellular process:</strong> loss of light-evoked cation flux; dysregulated intracellular <strong>Ca²⁺ homeostasis</strong>; in GoF, Ca²⁺-mediated cytotoxicity/cell death; reactive gliosis.</li>
+<li><strong>Protein dysfunction:</strong> impaired channel <strong>assembly/trafficking/membrane targeting</strong>, altered <strong>cGMP sensitivity/gating</strong>, or <strong>constitutive activation</strong> (loss- vs gain-of-function) (<a href="https://pubmed.ncbi.nlm.nih.gov/35456423/" target="_blank" rel="noopener noreferrer">PMID 35456423</a>, 35233102, 23530136).</li>
+<li><strong>Metabolic/second-messenger:</strong> <strong>cGMP (<a href="http://purl.obolibrary.org/obo/CHEBI_16356" target="_blank" rel="noopener noreferrer">CHEBI:16356</a>)</strong> and <strong>Ca²⁺ (<a href="http://purl.obolibrary.org/obo/CHEBI_29108" target="_blank" rel="noopener noreferrer">CHEBI:29108</a>)</strong> signaling at the cone outer segment.</li>
+<li><strong>Immune involvement:</strong> not autoimmune; secondary Müller-glia/microglial reactivity in degenerating retina (inferred).</li>
+<li><strong>Tissue-damage mechanism:</strong> Ca²⁺ overload/excitotoxic-type cone loss (primarily GoF alleles); for LoF alleles, cones are largely preserved structurally for decades.</li>
+<li><strong>Ion-channel defect (biochemical abnormality):</strong> the core lesion is a <strong>cone cyclic-nucleotide-gated cation channelopathy</strong>.</li>
+</ul>
+<p><strong>GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0007602" target="_blank" rel="noopener noreferrer">GO:0007602</a> (phototransduction), <a href="http://purl.obolibrary.org/obo/GO_0007601" target="_blank" rel="noopener noreferrer">GO:0007601</a> (visual perception), <a href="http://purl.obolibrary.org/obo/GO_0050908" target="_blank" rel="noopener noreferrer">GO:0050908</a> (detection of light stimulus in visual perception), <a href="http://purl.obolibrary.org/obo/GO_0005223" target="_blank" rel="noopener noreferrer">GO:0005223</a> (intracellularly cGMP-activated cation channel activity), <a href="http://purl.obolibrary.org/obo/GO_0030553" target="_blank" rel="noopener noreferrer">GO:0030553</a> (cGMP binding), <a href="http://purl.obolibrary.org/obo/GO_0005261" target="_blank" rel="noopener noreferrer">GO:0005261</a> (monoatomic cation channel activity). <strong>CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a> (retinal cone cell), <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a> (retinal rod cell, spared), <a href="http://purl.obolibrary.org/obo/CL_0000748" target="_blank" rel="noopener noreferrer">CL:0000748</a> (retinal bipolar neuron), <a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" rel="noopener noreferrer">CL:0000740</a> (retinal ganglion cell), <a href="http://purl.obolibrary.org/obo/CL_0000636" target="_blank" rel="noopener noreferrer">CL:0000636</a> (Müller cell).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level:</strong> <strong>Eye</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a>); specifically the <strong>retina</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a>). Body system: <strong>visual/nervous system</strong>. No systemic organ involvement (non-syndromic).</li>
+<li><strong>Regional:</strong> <strong>fovea centralis</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001786" target="_blank" rel="noopener noreferrer">UBERON:0001786</a>) and <strong>macula</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0005417" target="_blank" rel="noopener noreferrer">UBERON:0005417</a>) most functionally affected; <strong>photoreceptor layer / outer nuclear layer</strong> structurally altered (foveal hypoplasia, EZ/IZ disruption).</li>
+<li><strong>Tissue/cell level:</strong> <strong>neural (photoreceptor) tissue</strong>; the targeted population is the <strong>cone photoreceptor (<a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a>)</strong>; rods (<a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a>) are spared. Downstream cone bipolar and ganglion cells are deprived of input but intrinsically normal.</li>
+<li><strong>Subcellular level:</strong> <strong>cone outer segment / photoreceptor membrane</strong> (<a href="http://purl.obolibrary.org/obo/GO_0001750" target="_blank" rel="noopener noreferrer">GO:0001750</a> photoreceptor outer segment; <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a> plasma membrane) where the CNG channel resides; the connecting cilium (trafficking).</li>
+<li><strong>Localization/lateralization:</strong> <strong>bilateral and symmetric</strong>, centered on the cone-rich fovea/macula (HPO lateralization: bilateral).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> <strong>Congenital / infantile.</strong> Nystagmus and photophobia are usually the first signs noticed in the first months of life (mean symptom onset ~0.9 years; <a href="https://pubmed.ncbi.nlm.nih.gov/40241905/" target="_blank" rel="noopener noreferrer">PMID 40241905</a>).</li>
+<li><strong>Onset pattern:</strong> chronic/stationary from birth (not acute).</li>
+<li><strong>Progression:</strong> <strong>Predominantly stationary</strong> — longitudinal AOSLO shows stable foveal cone mosaic (~0.8%/yr density change, non-significant) and stable ONL/EZ over years (<a href="https://pubmed.ncbi.nlm.nih.gov/39365261/" target="_blank" rel="noopener noreferrer">PMID 39365261</a>); microperimetry/contrast/acuity stable over ~7 years (<a href="https://pubmed.ncbi.nlm.nih.gov/32960951/" target="_blank" rel="noopener noreferrer">PMID 32960951</a>). A <strong>minority of patients/families show slow progression</strong> of outer-retinal atrophy (<a href="https://pubmed.ncbi.nlm.nih.gov/42099125/" target="_blank" rel="noopener noreferrer">PMID 42099125</a>, 34449556).</li>
+<li><strong>Course/duration:</strong> <strong>chronic, lifelong, non-remitting</strong>; no spontaneous remission.</li>
+<li><strong>Critical period / therapeutic window:</strong> persistence of residual foveal cones into adulthood defines a <strong>wide window</strong> for gene-supplementation therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/39365261/" target="_blank" rel="noopener noreferrer">PMID 39365261</a>, 32203983).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Epidemiology:</strong> Achromatopsia prevalence is commonly cited as <strong>~1 in 30,000–50,000</strong> worldwide (standard literature/Orphanet figure). CNGA3 accounts for the <strong>second-largest share</strong> (~25–30%; ranges 5–30% by population) after CNGB3 (~45%) (<a href="https://pubmed.ncbi.nlm.nih.gov/28795510/" target="_blank" rel="noopener noreferrer">PMID 28795510</a>, 19592100). In consanguineous/Middle-Eastern populations CNGA3 may be proportionally higher.</li>
+<li><strong>Inheritance:</strong> <strong>Autosomal recessive.</strong> Rare <strong>digenic/triallelic</strong> contributions involving CNGA3 as a modifier (<a href="https://pubmed.ncbi.nlm.nih.gov/30418171/" target="_blank" rel="noopener noreferrer">PMID 30418171</a>).</li>
+<li><strong>Penetrance:</strong> essentially <strong>complete</strong> for biallelic pathogenic genotypes.</li>
+<li><strong>Expressivity:</strong> <strong>variable</strong> (complete vs incomplete ACHM; variable progression), with weak/absent genotype–phenotype correlation, though CNGA3 genotypes tend to be more severe than CNGB3 (<a href="https://pubmed.ncbi.nlm.nih.gov/19592100/" target="_blank" rel="noopener noreferrer">PMID 19592100</a>, 39217486).</li>
+<li><strong>Genetic anticipation:</strong> none (not a repeat-expansion disorder).</li>
+<li><strong>Germline mosaicism:</strong> not characteristically reported.</li>
+<li><strong>Founder effects:</strong> CNGA3 has fewer strong founder alleles than CNGB3; recurrent alleles appear in specific populations (e.g., Pakistani/Chinese cohorts) largely via consanguinity (<a href="https://pubmed.ncbi.nlm.nih.gov/42099125/" target="_blank" rel="noopener noreferrer">PMID 42099125</a>, 39217486).</li>
+<li><strong>Consanguinity:</strong> major contributor to homozygous CNGA3 disease.</li>
+<li><strong>Carrier frequency:</strong> individual alleles rare; <strong>estimated aggregate heterozygous carrier frequency ≈ 0.45–0.63% (≈1/160–1/225)</strong> by Hardy-Weinberg from achromatopsia prevalence (1/30,000–1/50,000) × CNGA3's ~25–30% share (CNGA3-ACHM prevalence ≈ 1/100,000–1/200,000; pathogenic allele q ≈ 0.002–0.003) (this work).</li>
+<li><strong>Gene constraint (recessive mechanism):</strong> gnomAD shows CNGA3 is <strong>LoF-tolerant</strong> — pLI ≈ 0, observed/expected LoF = 0.90 (obs 42 vs exp 46.6), missense o/e ≈ 1.00 — i.e., not depleted of loss-of-function variation, consistent with a recessive gene in which <strong>heterozygous carriers are phenotypically normal</strong> and disease requires biallelic hits (this work).</li>
+<li><strong>Demographics:</strong> <strong>no sex predilection</strong> (autosomal). Congenital age distribution. Reported across European, Chinese, Pakistani, Middle-Eastern, and other populations.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Electrophysiology (key):</strong> full-field <strong>ERG</strong> — <strong>severely reduced/absent photopic (cone) responses with preserved scotopic (rod) responses</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/37714190/" target="_blank" rel="noopener noreferrer">PMID 37714190</a>, 41867372). (LOINC-type functional test.)</li>
+<li><strong>Color vision testing:</strong> confirms complete/near-complete color blindness.</li>
+<li><strong>Imaging:</strong></li>
+<li><strong>OCT:</strong> foveal hypoplasia, ellipsoid-zone (EZ)/interdigitation-zone disruption, variable outer-retinal atrophy; a 5-grade macular classification is used (<a href="https://pubmed.ncbi.nlm.nih.gov/34449556/" target="_blank" rel="noopener noreferrer">PMID 34449556</a>).</li>
+<li><strong>Fundus autofluorescence (FAF):</strong> foveal/parafoveal hyper- or hypo-autofluorescence; macular hyperfluorescence common (<a href="https://pubmed.ncbi.nlm.nih.gov/41867372/" target="_blank" rel="noopener noreferrer">PMID 41867372</a>).</li>
+<li><strong>Adaptive optics scanning light ophthalmoscopy (AOSLO):</strong> reduced but persistent foveal cone density (<a href="https://pubmed.ncbi.nlm.nih.gov/39365261/" target="_blank" rel="noopener noreferrer">PMID 39365261</a>, 32203983).</li>
+<li><strong>Genetic testing (confirmatory):</strong> <strong>IRD NGS gene panels / whole-exome sequencing</strong>, Sanger confirmation, ACMG interpretation (<a href="https://pubmed.ncbi.nlm.nih.gov/40699246/" target="_blank" rel="noopener noreferrer">PMID 40699246</a>, 26493561). <strong>Single-gene/CNGA3 sequencing</strong> plus <strong>CNV analysis</strong> and, when coding analysis is negative, <strong>deep-intronic/WGS</strong> screening (<a href="https://pubmed.ncbi.nlm.nih.gov/34703197/" target="_blank" rel="noopener noreferrer">PMID 34703197</a>, 28795510). Chromosomal microarray/karyotype/FISH generally not indicated.</li>
+<li><strong>Clinical criteria:</strong> congenital nystagmus + photophobia + poor color vision + reduced acuity + absent photopic ERG + biallelic CNGA3 variants.</li>
+<li><strong>Differential diagnosis:</strong> blue-cone monochromacy (OPN1LW/OPN1MW), other ACHM genes (CNGB3, GNAT2, PDE6C, PDE6H, ATF6), cone/cone-rod dystrophy, Leber congenital amaurosis, and other causes of infantile nystagmus (<a href="https://pubmed.ncbi.nlm.nih.gov/30516820/" target="_blank" rel="noopener noreferrer">PMID 30516820</a>, 32913385).</li>
+<li><strong>Screening:</strong> carrier/cascade testing in families; preconception/prenatal and preimplantation genetic testing available for known biallelic variants.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> <strong>Normal life expectancy; no disease-specific mortality</strong> — isolated, non-syndromic ocular condition.</li>
+<li><strong>Morbidity/function:</strong> <strong>lifelong low vision</strong> (acuity commonly 20/120–20/200, often legal blindness), severe photophobia, total/near-total color blindness; stable rod-mediated (dim-light) vision. Visual acuity deteriorated into adulthood in ~12% in one cohort (to ≤0.10 in ~61–81%; <a href="https://pubmed.ncbi.nlm.nih.gov/19592100/" target="_blank" rel="noopener noreferrer">PMID 19592100</a>).</li>
+<li><strong>Disease course/complications:</strong> generally <strong>stable</strong>; a subset show slow macular atrophy. No systemic complications.</li>
+<li><strong>Recovery potential:</strong> no spontaneous recovery; <strong>AAV gene-supplementation therapy</strong> offers modest functional gains and is the leading disease-modifying approach (see §12).</li>
+<li><strong>Prognostic factors:</strong> gene (CNGA3 somewhat more severe than CNGB3; <a href="https://pubmed.ncbi.nlm.nih.gov/19592100/" target="_blank" rel="noopener noreferrer">PMID 19592100</a>), completeness (complete vs incomplete), degree of EZ/foveal preservation on OCT/AOSLO (defines therapeutic window), and variant mechanism (GoF alleles may progress more).</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>No approved cure; management is largely supportive, with gene therapy in trials.</strong></p>
+<ul>
+<li><strong>Supportive/optical (standard of care):</strong> <strong>tinted/red or amber filters and dark sunglasses</strong> to reduce photophobia; magnifiers and low-vision aids; refractive correction; occupational/educational support. (NCIT: supportive care, low-vision rehabilitation.)</li>
+<li><strong>Pharmacotherapy:</strong> none disease-modifying. No pharmacogenomic considerations.</li>
+<li><strong>Advanced therapeutics — Gene therapy (leading approach, NCIT:C15431 Gene Therapy; NCIT: Adeno-associated Virus Vector):</strong></li>
+<li><strong>AAV-mediated CNGA3 gene supplementation</strong>, subretinal delivery, cone-specific promoters. Restores cone function in <strong>Cnga3⁻/⁻ mice</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/20628362/" target="_blank" rel="noopener noreferrer">PMID 20628362</a>, 28596720) and <strong>CNGA3-mutant day-blind sheep</strong> (long-term rescue &gt;3–6 years; <a href="https://pubmed.ncbi.nlm.nih.gov/26087757/" target="_blank" rel="noopener noreferrer">PMID 26087757</a>, 28282490, 29926749, 28478700).</li>
+<li><strong>First-in-human:</strong> open-label dose-escalation <strong>AAV8.CNGA3</strong> subretinal trial (9 patients) — <strong>safe</strong>, with modest secondary gains in cone-mediated spatial/contrast/color sensitivity at 12 months (<a href="https://pubmed.ncbi.nlm.nih.gov/32352493/" target="_blank" rel="noopener noreferrer">PMID 32352493</a>).</li>
+<li><strong>Registered trials (verified on ClinicalTrials.gov, this work):</strong> <strong>NCT02610582</strong> (rAAV.hCNGA3/AAV8.CNGA3, Phase 1/2, STZ eyetrial Tübingen; = <a href="https://pubmed.ncbi.nlm.nih.gov/32352493/" target="_blank" rel="noopener noreferrer">PMID 32352493</a>); <strong>NCT03758404</strong> (MeiraGTx AAV-CNGA3, Phase 1/2, completed); <strong>NCT02935517</strong> (AGTC-402 = rAAV2tYF-PR1.7-hCNGA3, Phase 1/2, AGTC/Beacon Therapeutics, "CLARITY"); plus a dedicated natural-history study <strong>NCT04124185</strong> (MeiraGTx) and a long-term follow-up <strong>NCT03278873</strong>.</li>
+<li>Intravitreal delivery insufficient for clinical rescue in sheep (needs &gt;~23% endogenous expression; <a href="https://pubmed.ncbi.nlm.nih.gov/34853444/" target="_blank" rel="noopener noreferrer">PMID 34853444</a>) — supports <strong>subretinal</strong> route.</li>
+<li><strong>Cell therapy / RNA therapy:</strong> investigational only; mechanism-specific strategies (e.g., for gain-of-function alleles) proposed (<a href="https://pubmed.ncbi.nlm.nih.gov/35233102/" target="_blank" rel="noopener noreferrer">PMID 35233102</a>).</li>
+<li><strong>Treatment outcomes:</strong> gene therapy to date = good safety, <strong>modest efficacy</strong>; response likely depends on residual cone viability and window.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> not preventable (congenital genetic). <strong>Genetic counseling</strong> for at-risk/consanguineous families; carrier and cascade testing; <strong>prenatal and preimplantation genetic testing</strong> for known biallelic CNGA3 variants (NSGC/ACMG frameworks).</li>
+<li><strong>Secondary prevention:</strong> early diagnosis (ERG + genetics) enables early photophobia management, refractive correction, amblyopia management, educational support, and <strong>early identification of gene-therapy candidates</strong>.</li>
+<li><strong>Tertiary prevention:</strong> low-vision rehabilitation; UV/light protection; monitoring OCT for the progressive subset.</li>
+<li><strong>Immunization / public health / environmental:</strong> not applicable.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / orthologs:</strong> Human CNGA3 (NCBI Gene 1261). Orthologs: mouse <em>Cnga3</em> (NCBI Gene 12789), sheep <em>CNGA3</em> (Ovis aries, NCBI Taxon 9940), dog (Canis lupus familiaris, Taxon 9615), zebrafish.</li>
+<li><strong>Natural disease in animals:</strong></li>
+<li><strong>Sheep (Ovis aries):</strong> naturally occurring <strong>day-blindness</strong> from CNGA3 mutations (ovine p.Arg236* and p.Gly540Ser in the cGMP-binding domain) — a well-characterized large-animal model with attenuated photopic ERG and preserved cone structure (<a href="https://pubmed.ncbi.nlm.nih.gov/28282490/" target="_blank" rel="noopener noreferrer">PMID 28282490</a>, 25204753).</li>
+<li><strong>Dog:</strong> cone-degeneration/day-blindness linked to CNGB3 in Alaskan Malamutes/German Shorthaired Pointers (CNGB3, the paralog) — comparative relevance for the cone-channelopathy mechanism.</li>
+<li><strong>Comparative biology:</strong> high cross-species conservation of the cone phototransduction cascade; the sheep and mouse recapitulate the human cone-specific deficit and respond to AAV CNGA3 supplementation, validating evolutionary conservation of mechanism and therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/20628362/" target="_blank" rel="noopener noreferrer">PMID 20628362</a>, 26087757).</li>
+<li><strong>Zoonotic/transmission:</strong> not applicable (genetic, non-communicable).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse — <em>Cnga3</em>⁻/⁻ knockout</strong> (mammalian): congenital complete lack of cone function; recapitulates absent cone ERG and progressive cone loss; <strong>AAV CNGA3 gene therapy restores cone responses, normalizes cGMP, delays cone death, reduces Müller-glia inflammation, and restores vision-guided behavior</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/20628362/" target="_blank" rel="noopener noreferrer">PMID 20628362</a>); used to define therapeutic time-window and durability (<a href="https://pubmed.ncbi.nlm.nih.gov/28596720/" target="_blank" rel="noopener noreferrer">PMID 28596720</a>). Triallelic <em>Cnga3⁺/⁻;Cngb3^R403Q/R403Q</em> model demonstrates CNGA3 modifier effect (<a href="https://pubmed.ncbi.nlm.nih.gov/30418171/" target="_blank" rel="noopener noreferrer">PMID 30418171</a>).</li>
+<li><strong>Sheep — naturally occurring CNGA3 day-blind</strong> (large-animal): closely models human ocular dimensions/surgery; subretinal AAV5/AAV2tYF-hCNGA3 restores photopic vision for years (<a href="https://pubmed.ncbi.nlm.nih.gov/26087757/" target="_blank" rel="noopener noreferrer">PMID 26087757</a>, 28282490, 29926749, 28478700, 34853444).</li>
+<li><strong>Model types available:</strong> spontaneous (sheep), knockout and compound/triallelic (mouse). Zebrafish and in vitro <strong>heterologous expression systems</strong> (HEK cells) used to assess trafficking/gating of specific variants (<a href="https://pubmed.ncbi.nlm.nih.gov/35456423/" target="_blank" rel="noopener noreferrer">PMID 35456423</a>); cryo-EM of orthologous <strong>C. elegans TAX-4</strong> channel used to resolve gating mechanism of achromatopsia alleles (<a href="https://pubmed.ncbi.nlm.nih.gov/35233102/" target="_blank" rel="noopener noreferrer">PMID 35233102</a>).</li>
+<li><strong>Phenotype recapitulation:</strong> excellent for the cone-specific functional deficit and for demonstrating gene-therapy rescue; <strong>limitations</strong> include species differences in cone/rod ratio and foveal anatomy (mice lack a fovea; sheep lack a true human-type fovea), limiting direct modeling of foveal hypoplasia and human acuity outcomes.</li>
+<li><strong>Resources:</strong> MGI (mouse <em>Cnga3</em>), model repositories; large-animal colonies (CNGA3 sheep).</li>
+</ul>
+<hr />
+<h2>Evidence Summary &amp; Limitations</h2>
+<p><strong>Supported conclusions:</strong> (1) CNGA3-related retinopathy = autosomal-recessive Achromatopsia 2 from biallelic CNGA3 variants affecting the cone CNG channel α-subunit; (2) congenital cone-specific loss (absent photopic ERG, preserved rods); (3) mostly missense, LoF-predominant with a GoF subset; (4) largely stationary natural history with residual foveal cones; (5) AAV CNGA3 gene supplementation rescues cone function in mouse and sheep and is safe in first-in-human trials.</p>
+<p><strong>Limitations:</strong> precise CNGA3-specific prevalence and gnomAD allele-frequency figures were not retrieved from primary sources in this review (prevalence quoted is the standard achromatopsia figure); genotype–phenotype correlation remains weak; long-term human gene-therapy efficacy data are still maturing; epigenetic and detailed omics data for CNGA3-ACHM are sparse.</p>
+<p><strong>Evidence source types:</strong> human clinical cohorts/natural-history (<a href="https://pubmed.ncbi.nlm.nih.gov/40699246/" target="_blank" rel="noopener noreferrer">PMID 40699246</a>, 37714190, 39365261, 32960951, 19592100, 41867372, 36980963); in vitro/structural (<a href="https://pubmed.ncbi.nlm.nih.gov/35456423/" target="_blank" rel="noopener noreferrer">PMID 35456423</a>, 35233102, 23530136); model organism (<a href="https://pubmed.ncbi.nlm.nih.gov/20628362/" target="_blank" rel="noopener noreferrer">PMID 20628362</a>, 28596720, 26087757, 28282490, 29926749, 28478700); clinical trial (<a href="https://pubmed.ncbi.nlm.nih.gov/32352493/" target="_blank" rel="noopener noreferrer">PMID 32352493</a>).</p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/CNGA3-Related_Retinopathy-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/CNGA3-Related_Retinopathy-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="CNGA1-Related_Retinopathy-openscientist.html">← CNGA1-Related Retinopathy (OpenScientist)</a>
+                
+                
+                <a href="CNGB3-Related_Retinopathy-openscientist.html">CNGB3-Related Retinopathy (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/CNGA3-Related_Retinopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/CNGA3-Related_Retinopathy-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
