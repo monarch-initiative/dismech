@@ -986,6 +986,12 @@ exactly.
   reference, enforced by `linkml-reference-validator`. Paraphrase fails validation.
 - **Cache files are tool-generated**: `references_cache/*.md` are created exclusively by
   `just fetch-reference` or the validator. They are **never** hand-written or hand-edited.
+- **Signed full-text excerpts are synced from `claimstore`, never hand-authored**:
+  `signed_excerpts/*.yaml` contain brief fair-use excerpts synced from the private
+  `monarch-initiative/claimstore` repository, where closed-access full-text PDFs and
+  extracted Markdowns are validated with `linkml-reference-validator` and
+  `linkml-term-validator` (see §6d below). They are **never** created or edited by hand in
+  `dismech`.
 - **`evidence_source` describes the study type** reported in the publication
   (HUMAN_CLINICAL, MODEL_ORGANISM, IN_VITRO, COMPUTATIONAL, OTHER), **not** how curation
   was performed. Model-organism evidence must not be the sole support for a human
@@ -1244,6 +1250,36 @@ value for them; see [#10262](https://github.com/monarch-initiative/dismech/issue
 Whether `quote_role` should ever be gated, and whether the same treatment should reach a
 full text's own section headings
 ([#9711](https://github.com/monarch-initiative/dismech/issues/9711)), are both open.
+
+### 6d. Signed full-text excerpts (`signed_excerpts/`) are verified in `claimstore` and synced as fair-use bundles (2026-11-15)
+
+**Decision.** When a cited publication's full text cannot be redistributed in
+`references_cache/` (for example, a paywalled publisher PDF or an article whose public
+fetch returns `abstract_only` or `unavailable`), brief fair-use excerpts may be verified
+against the full-text PDF and extracted Markdown in the private
+[`monarch-initiative/claimstore`](https://github.com/monarch-initiative/claimstore)
+repository and synced into `signed_excerpts/<REF_ID>.yaml`.
+
+- **Two-stage verification.** In `claimstore`, `linkml-reference-validator` (`>=0.6.0`)
+  verifies that every excerpt is an exact substring (with `...` ellipsis support) of the
+  full-text Markdown in `claimstore/references_cache/`, enforces fair-use length and
+  fraction bounds (`max_excerpt_part_length: 250`, `max_excerpt_length: 450`,
+  `max_total_chars_per_reference: 1500`, `max_reference_fraction: 0.05`), and checks the
+  publication title; `linkml-term-validator` verifies all ontology entity annotations.
+- **Exact-match fallback in `dismech`.** Both `linkml-reference-validator` (configured via
+  `signed_excerpts_dir: signed_excerpts` in `conf/reference_validator_config.yaml` and
+  `.linkml-reference-validator.yaml`) and `just count-verified-snippets`
+  (`src/dismech/reference_snippet_audit.py`) accept a `kb/` snippet when it either
+  substring-matches `references_cache/` **or** exact-matches (after whitespace
+  normalization) a verified entry in `signed_excerpts/<REF_ID>.yaml`. Any local edit or
+  paraphrase of a signed excerpt fails the exact-match check and falls through to normal
+  `references_cache/` substring matching, failing validation.
+- **Never hand-authored in `dismech`.** `signed_excerpts/*.yaml` files are synced from
+  `claimstore` and are governed by the same no-hand-editing rule as `references_cache/*.md`.
+  `tests/test_signed_excerpts.py` enforces provenance metadata (`reference_id`,
+  `source_md_sha256`, `source_pdf_sha256`, `source_char_count`), per-excerpt `sha256` and
+  `char_count` integrity, and fair-use bounds on every committed bundle, and `signed_excerpts/`
+  is excluded from the routine curation PR scope allowlist in `.github/workflows/main.yaml`.
 
 
 ## 7. Curation process & governance

@@ -24,6 +24,9 @@ Use this workflow whenever evidence or its cited source changes.
   A paper title usually establishes only that a topic was studied.
 - Never create or hand-edit `references_cache/*.md`. Generate or regenerate a
   cache entry with `just fetch-reference <ID>`.
+- Never create or hand-edit `signed_excerpts/*.yaml`. Those fair-use excerpt
+  bundles are verified against full-text PDFs in `monarch-initiative/claimstore`
+  and synced from there.
 - Never use fuzzy auto-repair to rewrite snippets. Read the source and copy the
   exact passage, choose another source, or remove the evidence.
 - Treat deep-research output as leads, not ground truth.
