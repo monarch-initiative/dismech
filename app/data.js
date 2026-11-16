@@ -227812,7 +227812,8 @@ window.searchData = [
       "Stage III Dermal Melanophage Pigment Incontinence",
       "Stage IV Atrophic Hypopigmentation",
       "Retinal Vascular Dysgenesis and Neovascularization",
-      "Cerebral Vaso-Occlusive and Neuronal Injury"
+      "Cerebral Vaso-Occlusive and Neuronal Injury",
+      "Impaired Ectodermal Appendage and Odontogenic Morphogenesis"
     ],
     "cell_types": [
       "keratinocyte",
@@ -227820,7 +227821,10 @@ window.searchData = [
       "eosinophil",
       "melanocyte",
       "macrophage",
-      "neuron"
+      "neuron",
+      "ectodermal cell",
+      "hair follicular keratinocyte",
+      "nail matrix keratinocyte"
     ],
     "cell_type_ids": [
       "CL:0000312",
@@ -227828,11 +227832,18 @@ window.searchData = [
       "CL:0000771",
       "CL:0000148",
       "CL:0000235",
-      "CL:0000540"
+      "CL:0000540",
+      "CL:0000221",
+      "CL:2000092",
+      "CL:4052064"
     ],
     "biological_processes": [
       "canonical NF-kappaB signal transduction",
-      "apoptotic process"
+      "apoptotic process",
+      "ectoderm development",
+      "odontogenesis",
+      "hair follicle development",
+      "nail development"
     ],
     "phenotypes": [
       "Stage I vesiculobullous eruption",
@@ -227902,11 +227913,11 @@ window.searchData = [
     "source_file": "Incontinentia_Pigmenti.yaml",
     "page_url": "../pages/disorders/Incontinentia_Pigmenti.html",
     "num_phenotypes": 14,
-    "num_pathophysiology": 11,
+    "num_pathophysiology": 12,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Indian Tick Typhus",
@@ -361273,8 +361284,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Renal Cell Carcinoma",
@@ -396181,8 +396192,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Spinocerebellar Ataxia 46",
@@ -443261,12 +443272,12 @@ window.searchMetrics = {
   "total_disorder_pages": 4082,
   "total_subtypes": 5084,
   "total_disorders_and_subtypes": 9166,
-  "total_unique_evidence_sources": 60958,
-  "total_unique_publications": 56964,
+  "total_unique_evidence_sources": 60960,
+  "total_unique_publications": 56965,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4080,
-  "total_unique_pathological_events": 26940,
+  "total_unique_pathological_events": 26941,
   "total_modules": 235,
   "total_research_reports": 4185,
   "total_classifications": 21,
