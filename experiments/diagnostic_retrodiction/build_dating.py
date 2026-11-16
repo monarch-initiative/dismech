@@ -31,8 +31,8 @@ case that was still ACCEPTED_FLAGGED or NOT_ACCEPTED after agent C.
     the reviewer then judged from the title, full text or source).
   - EXCLUDE_CASE: dating_status HUMAN_EXCLUDED. The case is kept in
     dating_flags.tsv and literature_check.tsv but left out of dating.tsv.
-Readiness for a HUMAN_VERIFIED case is the READINESS judgment when one exists
-(the former ACCEPTED_FLAGGED cases have one), else NA.
+Readiness for a HUMAN_VERIFIED case is its READINESS judgment, made by the same
+method; a case with none gets NA.
 
 Exclusions after dating (HUMAN_EXCLUDED, and INSUFFICIENT_PRE_CUTOFF_LITERATURE
 below) are propagated to eligibility.tsv and cases.tsv by
@@ -288,6 +288,13 @@ READINESS = {
     # Only pre-1993 amphiphysin paper (PMID:1628617) describes the protein, not stiff person syndrome.
     ("Stiff Person Syndrome", "anti-amphiphysin antibodies"): "no",
     ("Transverse Myelitis", "AQP4-IgG"): "16087714",
+    # HUMAN_VERIFIED cases that were NOT_ACCEPTED before review, judged 2026-11-16 by the same method.
+    ("Childhood Absence Epilepsy", "CSF glucose (hypoglycorrhachia)"): "12752470",
+    ("Heparin-Induced Thrombocytopenia", "anti-PF4/heparin IgG immunoassay"): "2709525",
+    # Before 2004 aquaporin-4 appears only as an optic-nerve water channel (PMID:9502811), with no
+    # link to optic neuritis; the same judgment as the NMOSD AQP4-IgG case.
+    ("Optic Neuritis", "AQP4-IgG"): "no",
+    ("Stiff Person Syndrome", "anti-glycine receptor antibodies"): "10839351",
 }
 
 

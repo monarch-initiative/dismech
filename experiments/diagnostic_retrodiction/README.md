@@ -23,35 +23,85 @@ any arm.
   frozen at 5 cases.
 - Draft protocol, with every placeholder filled; deny rules for the curation
   sessions.
-- Agent C dated the 10 cases A and B disagreed on. 6 became MAJORITY_VERIFIED
-  and received mechanistic-readiness judgments.
-- Literature aliases for C001 and C052, both of which then passed.
-- Human dating review of the remaining 10 cases (2026-11-16): 9 accepted
-  (HUMAN_VERIFIED), C007 excluded as WRONG_SPECIMEN.
-- Literature check rerun. Two of the newly verified cases, C048 and C049,
-  failed it.
-- Post-dating exclusions propagated to `eligibility.tsv` and `cases.tsv`.
-- Split rerun with the dev set frozen. Every dated case is now verified, and
-  none is pending.
+- Agent C dated the 10 cases A and B disagreed on; 6 became
+  MAJORITY_VERIFIED.
+- Literature aliases for C001 and C052.
+- Human dating review of the remaining 10 cases: 9 accepted, C007 excluded as
+  WRONG_SPECIMEN. C048 and C049 then failed the literature check.
+- Post-dating exclusions propagated to `eligibility.tsv` and `cases.tsv`;
+  split rerun with the dev set frozen.
+- Mechanistic readiness judged for every verified case.
+- Design decisions recorded (see *Decisions*):
+  - single model family;
+  - negatives expanded by a seeded draw, so 13 are now usable and H3 stays
+    confirmatory;
+  - decoy D009 dropped.
 
 **Next, in order:**
-1. Mechanistic-readiness judgments for the 4 HUMAN_VERIFIED cases that have
-   none: C010, C018, C040, C055.
-2. Decide whether C048 and C049 (RCDP types 1 and 5) get literature aliases.
-   They failed on catalogue subtype names, the pattern the earlier aliases
-   fixed (see *Aliases*).
-3. Settle the open decisions:
-   - how an LLM arm's 3 runs become one outcome per case;
-   - which curation replicate feeds the arms;
-   - what cutoff the negatives are curated and prompted as of;
-   - whether to expand the negatives, since only 3 qualify for the primary
-     H3 analysis;
-   - Alzheimer disease, which is both a decoy (D009) and dev case C003;
-   - the second model family.
-4. Write the rubrics and, from them, the banned-term lists.
-5. Write `audit_transcript.py`, A1's node-type table and weights, the prompts,
+1. Define the matching criterion for the negatives' cutoffs, then run the
+   seeded assignment (see *Decisions*).
+2. Write the rubrics and, from them, the banned-term lists.
+3. Write `audit_transcript.py`, A1's node-type table and weights, the prompts,
    the candidate schema, and `DEVIATIONS.md`.
-6. Tag prereg-v1 and register on OSF.
+4. Tag prereg-v1 and register on OSF.
+
+## Decisions
+
+Recorded 2026-11-16. They settle the questions listed as open in earlier
+drafts.
+
+- **Run aggregation.**
+  - **LLM arms:** every LLM arm runs 3 times on each of the 2 curation
+    replicates, 6 runs per case. A case is a hit when T2 is reached in at
+    least 4 of the 6 runs, and this is the outcome every McNemar test uses.
+  - **A1:** it is deterministic, so it has one run per replicate, and a case
+    is an A1 hit only when it hits in both replicates.
+  - **Secondary summaries:** the any-hit rate (a hit in at least 1 run) and
+    the mean per-run hit rate are reported alongside.
+- **Replicates.** Both curation replicates feed every arm. Replicate
+  agreement is reported: the per-case agreement of each arm's outcome between
+  the replicates, and the agreement of the two time-sliced entries' node
+  sets.
+- **Negatives' cutoffs.** A negative has no test and so no discovery date.
+  - **Rule:** each negative takes the cutoff of a test case drawn at random
+    (seed 20261114) from the cases it is matched to. A4 uses that cutoff's
+    year.
+  - **Not yet done:** the matching criterion is not yet defined, so the
+    assignment has not been run.
+- **Negatives expansion.**
+  - **Draw:** `draw_negatives.py` drew 12 diseases (seed 20261114) from
+    `coverage.tsv`. The pool was entries with at least one measurable node
+    and no accessible test, 232 in all.
+  - **Usability:** each drawn disease was judged usable for the primary H3
+    analysis or not (`negatives.tsv`, columns `h3_usable` and
+    `h3_usable_basis`).
+    - **Usable (10):** their measurable nodes are real accessible-specimen
+      readouts.
+    - **Not usable (2):** the MKB-type blepharophimosis syndrome node is a
+      cultured-cell response, and the choroid plexus neoplasm node is a CSF
+      production process no assay measures.
+  - **Total usable:** with the 3 original negatives that have measurable
+    nodes, **13 negatives are usable**.
+  - **Rule:** H3 would have become exploratory below 10 usable negatives. At
+    13 it stays confirmatory.
+- **Decoy D009 dropped.** Alzheimer disease was both a decoy (D009) and dev
+  case C003, so D009 is removed from `decoys.tsv`. `decoy_screen.tsv` still
+  records the screening decision that kept it.
+- **C048 and C049 stay dropped.** No literature aliases are added. They share
+  the erythrocyte-plasmalogens test_group with C047, which passes the
+  literature check and is that group's representative.
+- **Single model family.**
+  - **Removed:** the second-family arms A2′ and A3′, and their robustness
+    check, are gone from *Arms* and *Endpoints*.
+  - **Leakage:** checked within the one family by A4 (disease name and
+    cutoff year only) and by the T4 leakage alarm (see *Scoring*).
+  - **Limitation:** recorded under *Limitations*.
+- **Power.** The test set is 42 cases in 33 test-group clusters.
+  - **H1:** its exact McNemar test is powered only for large effects (see
+    *Analysis plan*).
+  - **Reporting:** every comparison reports its effect size with a 95% CI:
+    the paired difference in hit rate and the discordant-pair odds ratio,
+    with a cluster bootstrap over test groups.
 
 ## Why retrodiction measures the KB without changing it
 
@@ -99,7 +149,8 @@ primary.
     cluster.
   - The primary H3 analysis uses only positive cases and negatives whose graph
     has at least one node passing the coverage audit's measurable-node rule
-    (see *Coverage audit*). AUROC over all cases and negatives, and the
+    (see *Coverage audit*), that is the 13 negatives marked `h3_usable` in
+    `negatives.tsv`. AUROC over all cases and negatives, and the
     results stratified by coverage, are also reported.
 - **H3, decoys:** scored separately. For each arm, the fraction of decoy
   diseases (`decoys.tsv`) where the decoy biomarker appears in the arm's top
@@ -109,8 +160,6 @@ primary.
   - T2 hit rates at top-1, top-3, top-5 and top-10;
   - mean reciprocal rank of the first T2 hit (0 when there is none in the
     top 10).
-- **A2′ vs A3′:** a robustness check reported with the same exact McNemar
-  test. Not confirmatory.
 
 ## Arms
 
@@ -123,10 +172,8 @@ primary.
 | A5 | A2 with the causal edges scrambled | As A2 |
 | A6 | A2 with a path ablated | As A2 |
 | A7 | The entry at `PINNED_COMMIT`, with the test's own `diagnosis`/`biochemical` rows and every node or evidence item containing a banned term removed | As A2 |
-| A2′ | A2's inputs and prompts | Run on a second model family |
-| A3′ | A3's inputs and prompts | Run on a second model family |
 
-The second model family is named in `RUN_CONFIG.yaml`.
+Every LLM arm uses one model family, named in `RUN_CONFIG.yaml`.
 
 **A1, the graph-only arm.**
 - **Candidates:** every node of the time-sliced entry that passes
@@ -155,8 +202,9 @@ The second model family is named in `RUN_CONFIG.yaml`.
   nearest to the target first.
 - **No match:** if no node matches T1, A6 is NA for that case.
 
-**LLM arms (A2–A7, A2′, A3′).** Each runs 3 times per case at temperature 0
-where the model supports it (`RUN_CONFIG.yaml`). Each proposes up to k = 10
+**LLM arms (A2–A7).** Each runs 3 times per case on each of the 2 curation
+replicates, at temperature 0 where the model supports it (`RUN_CONFIG.yaml`).
+*Decisions* gives how the 6 runs become one outcome. Each proposes up to k = 10
 candidates, each with a confidence from 0 to 1.
 
 ## Case selection, as done
@@ -323,9 +371,10 @@ excluded by an eligibility rule and 3 are KB gaps.
   HUMAN_VERIFIED and 1 HUMAN_EXCLUDED. None is awaiting review.
 - **Mechanistic readiness.** `build_dating.py` writes `dating.tsv` and records
   a mechanistic-readiness judgment for every ACCEPTED, ACCEPTED_FLAGGED and
-  MAJORITY_VERIFIED case. The former ACCEPTED_FLAGGED cases keep theirs after
-  human review. The 4 formerly NOT_ACCEPTED cases (C010, C018, C040, C055)
-  have none yet (NA). The judgment is "yes" with one PubMed paper dated on
+  MAJORITY_VERIFIED case, and for every HUMAN_VERIFIED one. The former
+  ACCEPTED_FLAGGED cases keep theirs after review. The 4 formerly
+  NOT_ACCEPTED cases were judged after review: C010 yes (PMID:12752470), C018
+  yes (PMID:2709525), C040 no, C055 yes (PMID:10839351). The judgment is "yes" with one PubMed paper dated on
   or before the cutoff that links the test's molecule to the disease
   mechanism, or "no" when the searches found none. The script checks each
   cited paper's date against the cutoff.
@@ -402,22 +451,48 @@ excluded by an eligibility rule and 3 are KB gaps.
 - **Verified (47):** 34 ACCEPTED, 6 MAJORITY_VERIFIED and 7 HUMAN_VERIFIED,
   in 38 test groups.
   - 41 are FIRST and 6 IMPROVEMENT.
-  - Mechanistic readiness is "yes" for 37, "no" for 6 and not yet judged for
-    4.
+  - Mechanistic readiness is "yes" for 40 and "no" for 7.
 - **Pending (0):** `pending_cases.txt` is empty.
 
 ## Controls
 
-- **Negatives** (`negatives.tsv`): six diseases with no accepted
-  accessible-specimen confirmatory test. Each row gives the disease, its
-  `kb/disorders/` file and MONDO term. The six:
-  - hypermobile EDS;
-  - Kawasaki disease;
-  - sarcoidosis;
-  - Behçet's disease;
-  - CRPS type 1;
-  - Takayasu arteritis.
-- **Decoys** (`decoys.tsv`): 11 disease–biomarker pairs, from 9 PubMed records,
+- **Negatives** (`negatives.tsv`): 18 diseases with no accepted
+  accessible-specimen confirmatory test, 13 of them usable for the primary H3
+  analysis. Each row gives:
+  - the disease, its `kb/disorders/` file, MONDO term and label;
+  - `origin`;
+  - the measurable nodes;
+  - `h3_usable` with its basis;
+  - `monogenic_germline`.
+
+  The groups:
+  - **Original six** (`origin` ORIGINAL): hypermobile EDS, Kawasaki disease,
+    sarcoidosis, Behçet's disease, CRPS type 1 and Takayasu arteritis.
+    Kawasaki disease, sarcoidosis and Takayasu arteritis have measurable
+    nodes and are usable.
+  - **Drawn twelve** (`origin` DRAW_SEED_20261114, `draw_negatives.py`; see
+    *Decisions*). Ten are usable:
+    - dystroglycanopathy;
+    - mitochondrial DNA depletion syndrome 17;
+    - NAD(P)HX epimerase deficiency;
+    - autosomal dominant limb-girdle muscular dystrophy;
+    - maculopapular cutaneous mastocytosis;
+    - SRD5A3-CDG;
+    - lung disease, immunodeficiency and chromosome breakage syndrome;
+    - angiomatoid fibrous histiocytoma;
+    - inclusion body myopathy with Paget disease and FTD;
+    - severe X-linked mitochondrial encephalomyopathy.
+
+    Not usable: MKB-type blepharophimosis syndrome and choroid plexus
+    neoplasm.
+  - **Germline diseases.** Seven of the ten usable drawn diseases are
+    monogenic germline disorders. Their real diagnostic route is germline
+    sequencing, which this experiment excludes by scope (see *Limitations*).
+  - **Coverage audit.** `coverage_audit/audit.py` reads `negatives.tsv`.
+    Rerun, it would label the drawn diseases NEGATIVE in `coverage.tsv`
+    rather than frame entries. It has not been rerun. The draw does not read
+    that label, so it is unaffected.
+- **Decoys** (`decoys.tsv`): 10 disease–biomarker pairs, from 8 PubMed records,
   where a proposed diagnostic biomarker failed replication.
   - **Query:** one fixed query, recorded verbatim with its run date and 48
     hits in `decoy_query.txt` and run by `find_decoys.py`. Its phrases use
@@ -427,8 +502,11 @@ excluded by an eligibility rule and 3 are KB gaps.
   - **Kept:** only accessible-specimen diagnostic biomarkers whose failure the
     abstract states. Each kept row's failure quote matches its abstract
     (`quote_ok`).
-  - **Disease match:** 7 rows matched their kb file through MeSH and 4 by
+  - **Disease match:** 6 rows matched their kb file through MeSH and 4 by
     judgment (`disease_match`). Every disease exists in `kb/disorders/`.
+  - **Dropped:** D009 (Alzheimer disease, serum lipid panel), because
+    Alzheimer disease is also dev case C003. The remaining decoys keep their
+    IDs.
 
   Caveats:
   - **Partial failures.** Some decoys did not fail outright: the bladder
@@ -517,8 +595,8 @@ of the 2,548 entries list any.
 **What this implies for H3.** A negative can receive low confidence because its
 graph has nothing measurable to propose, which is not the same as the arm
 recognising there is no test. So the primary H3 analysis is restricted to
-cases and negatives whose graph has at least one measurable node. Only the
-three negatives with measurable nodes qualify: Kawasaki disease, sarcoidosis
+cases and negatives whose graph has at least one measurable node. Of the
+original six negatives only three qualified: Kawasaki disease, sarcoidosis
 and Takayasu arteritis. Unrestricted and stratified results are reported
 alongside (see *Endpoints*).
 
@@ -644,23 +722,17 @@ judged against it:
 
   The study can detect a large difference between A2 and A3. It is not powered
   for a moderate one, and a null result will not show the arms are equivalent.
+  So every comparison is reported as an effect size with a 95% CI as well as
+  its test (see *Decisions*).
 
 ## Pending before prereg-v1
 
-- [ ] Mechanistic readiness for C010, C018, C040 and C055.
-- [ ] Decide whether C048 and C049 get literature aliases.
+- [ ] Define the matching criterion for the negatives' cutoffs and run the
+  seeded assignment (seed 20261114).
 - [ ] Write the per-case rubrics and, from them, the banned-term lists.
 - [ ] Write `audit_transcript.py`, A1's node-type → `analyte_type` table and
   A1's weights, and freeze them before the dev set is run.
-- [ ] Finalise `RUN_CONFIG.yaml`: the second model family is TBD.
-- [ ] Decide whether to expand the negatives, and how to handle Alzheimer
-  disease as both a decoy and a dev case.
-- [ ] Decide how an LLM arm's 3 runs become one hit or miss per case for
-  McNemar.
-- [ ] Decide which of the 2 curation replicates feeds the arms, or how both
-  do.
-- [ ] Decide what the negatives are curated and prompted as of. They have no
-  test, so no cutoff date or cutoff year.
+- [ ] Write the prompts, the candidate schema and `DEVIATIONS.md`.
 - [ ] Register on OSF.
 
 ## Limitations
@@ -691,12 +763,20 @@ judged against it:
 - **KB gaps.** The frame holds only tests dismech records: 3 of 22 known
   positives are missing.
 - **Sparse differentials.** Most entries list no differential diagnoses, and
-  five of the six negatives list none. This limits A1 and H3 (see *Coverage
+  five of the six original negatives list none. This limits A1 and H3 (see *Coverage
   audit*).
 - **LLM training-data leakage.** The models behind the LLM arms were trained
   on literature that post-dates every cutoff. Packets and worktree isolation
   limit what an arm can read, not what it already knows. A2 and A3 share this
   exposure, so the paired comparison is less affected than absolute hit rates.
+- **Single model family.** Every LLM arm uses one model family, so no result
+  shows that the findings hold for another family's models, or for a model
+  whose training predates the cutoffs. Leakage is checked only within the
+  family, by A4 and the T4 alarm.
+- **Germline negatives.** Seven of the 13 usable negatives are monogenic
+  germline disorders. They lack an accessible test only because this
+  experiment excludes germline sequencing, so an arm that proposes nothing
+  non-genetic for them is not recognising a disease with no test.
 - **Mechanistic-readiness and flag assessments are one agent's judgment** from
   titles and abstracts.
 
@@ -706,7 +786,7 @@ judged against it:
 |---|---|
 | `README.md` | this document |
 | `PINNED_COMMIT` | the `kb/` commit the frame was built from |
-| `RUN_CONFIG.yaml` | run parameters: packet minimum, models, temperature, runs per arm, k, MONDO build |
+| `RUN_CONFIG.yaml` | run parameters: packet minimum, model, temperature, runs per arm, replicates, k, MONDO build |
 | `census.py` | builds `frame.tsv` from `kb/disorders/` |
 | `frame.tsv` | the frozen sampling frame, one row per diagnosis/biochemical item |
 | `known_positives.tsv` | 22 disease/test pairs the frame should contain |
@@ -770,12 +850,13 @@ judged against it:
 | `literature_check.tsv` | the literature check for all 57 cases, with aliases |
 | `literature_recount.py` | recount under plain disease names |
 | `literature_recount.tsv` | that recount, for the 17 cases that first failed |
-| `negatives.tsv` | 6 negative-control diseases and their kb files |
+| `negatives.tsv` | 18 negative-control diseases (6 original, 12 drawn), with H3 usability |
+| `draw_negatives.py` | the seeded draw of the 12 added negatives |
 | `find_decoys.py` | runs the fixed decoy query and maps hits to kb files |
 | `decoy_query.txt` | the decoy query, run date and hit count |
 | `decoy_candidates.tsv` | all 48 hits with MeSH, MONDO and kb matches |
 | `decoy_screen.tsv` | decision and reason for each hit |
-| `decoys.tsv` | the 11 decoy disease–biomarker pairs |
+| `decoys.tsv` | the 10 decoy disease–biomarker pairs (D009 dropped) |
 | `make_split.py` | checks the frozen dev set; writes the test and pending lists |
 | `dev_set.txt` | 5 dev cases (frozen) |
 | `test_set.txt` | 42 test cases |
