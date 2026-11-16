@@ -26512,18 +26512,45 @@ human results. The comparator is therefore part of the field name
 (<code>performance_vs_llna</code>, <code>performance_vs_human</code>), not a neighbouring field that can be
 dropped while the number survives.</p>
 <h2 id="citing-a-guideline-from-a-kb-entry">Citing a guideline from a KB entry</h2>
-<p>Not yet possible with a verified snippet. <code>just fetch-reference
-DOI:10.1787/9789264229822-en</code> resolves and titles correctly — "Test No. 442D: In Vitro
-Skin Sensitisation" — but caches with <code>content_type: unavailable</code>, because the OECD
-iLibrary landing page carries no abstract. There is no body for
-<code>linkml-reference-validator</code> to match a quote against, so an entry can name the
-guideline but cannot quote it.</p>
-<p>The paragraph index is the missing body, and the repository already has the pattern for
-this: a structured-database source (<code>src/dismech/structured_sources/</code>) that writes a
-line-oriented <code>references_cache/</code> file whose rows are stable quotable substrings, as
-<code>ORPHA:</code>, <code>CGGV:</code>, <code>ICEES:</code> and <code>NCIT:</code> do. Until that exists, a method carried into a
-disease entry cites the literature for its evidence and names the guideline and
-paragraph in prose.</p>
+<p>Cite <code>OECDTG:442D</code> and quote a sentence of the guideline:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">evidence</span><span class="p">:</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">reference</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">OECDTG:442D</span>
+<span class="w">  </span><span class="nt">supports</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SUPPORT</span>
+<span class="w">  </span><span class="nt">evidence_source</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">OTHER</span>
+<span class="w">  </span><span class="nt">snippet</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;a</span><span class="nv"> </span><span class="s">luciferase</span><span class="nv"> </span><span class="s">reporter</span><span class="nv"> </span><span class="s">gene</span><span class="nv"> </span><span class="s">under</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">control</span><span class="nv"> </span><span class="s">of</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">antioxidant</span><span class="nv"> </span><span class="s">response</span><span class="nv"> </span><span class="s">element</span><span class="nv"> </span><span class="s">of</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">human</span><span class="nv"> </span><span class="s">AKR1C2</span><span class="nv"> </span><span class="s">gene&quot;</span>
+<span class="w">  </span><span class="nt">explanation</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TG 442D states which regulatory element the KeratinoSens reporter carries.</span>
+</code></pre></div>
+<p><code>evidence_source: OTHER</code> is right here: a Test Guideline is a regulatory consensus
+document, not a study. Where the guideline reports a method's performance it is
+restating validation work done elsewhere, so such a quote also takes
+<code>quote_role: REVIEW_SYNTHESIS</code>.</p>
+<p><strong>The DOI does not work for this, which is why the prefix exists.</strong> <code>just
+fetch-reference DOI:10.1787/9789264229822-en</code> resolves and titles correctly — "Test
+No. 442D: In Vitro Skin Sensitisation" — but caches with <code>content_type: unavailable</code>,
+because the OECD iLibrary landing page carries no abstract. There is no body for
+<code>linkml-reference-validator</code> to match a quote against. The workaround already visible
+in <code>kb/</code> was to cite a method's own primary paper and quote <em>its</em> introduction for a
+fact about the guideline, under <code>quote_role: BACKGROUND</code> — which attributes a
+regulatory statement to a research article that was only mentioning it.</p>
+<p><code>OECDTestGuidelineSource</code> renders the committed paragraph index into
+<code>references_cache/OECDTG_442D.md</code>, the way <code>ORPHA:</code>, <code>CGGV:</code>, <code>ICEES:</code> and <code>NCIT:</code>
+cache their records, so each in-scope paragraph becomes a stable quotable substring:</p>
+<div class="highlight"><pre><span></span><code>just<span class="w"> </span>oecd-tg-list<span class="w">                      </span><span class="c1"># the guidelines that have a cache file</span>
+just<span class="w"> </span>oecd-tg-rebuild<span class="w">                   </span><span class="c1"># rebuild every references_cache/OECDTG_*.md</span>
+just<span class="w"> </span>oecd-tg-rebuild<span class="w"> </span>--id<span class="w"> </span>OECDTG:442D<span class="w">  </span><span class="c1"># just one</span>
+just<span class="w"> </span>fetch-reference<span class="w"> </span>OECDTG:442D<span class="w">       </span><span class="c1"># routes to the same rebuild</span>
+</code></pre></div>
+<p>The cache file is <strong>generated</strong> — never hand-edit it, as with every other
+<code>references_cache/</code> file. Unlike the other structured sources there is nothing to
+download: the paragraph index is committed, so a rebuild needs no network, and the
+only way to change the body is to re-extract from the pinned PDF. If an edit to the
+renderer leaves the committed file stale,
+<code>test_committed_cache_file_matches_a_fresh_render</code> fails and names the recipe.</p>
+<p><strong>Two limits before you quote it.</strong> The body carries only the in-scope sections (see
+<em>Scope</em> above), so a licence term or a cell-line supplier — all of which sit in
+PROCEDURE — cannot be quoted from it at all. And a quote being verbatim says nothing
+about whether it supports the claim it is attached to, which is the same limitation
+the checker has, below.</p>
 <h2 id="what-the-checker-does-and-does-not-establish">What the checker does and does not establish</h2>
 <p>It checks that each recorded quote is a real substring of the paragraph it cites. That
 catches a fabricated quote, a quote attributed to the wrong appendix (it says where the
