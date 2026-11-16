@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from dismech.research_reports import strip_run_suffix
+from dismech.research_reports import report_is_unsuccessful, strip_run_suffix
 from dismech.yaml_io import safe_load
 
 RESEARCH_FILE_RE = re.compile(
@@ -169,6 +169,11 @@ def research_provider_map(research_dir: str) -> dict[str, set[str]]:
             continue
         match = RESEARCH_FILE_RE.match(filename)
         if not match:
+            continue
+        # A report marked answer_status: unsuccessful is not coverage, and
+        # neither is its citations sidecar.
+        report_path = Path(path.removesuffix(".citations.md"))
+        if report_path.exists() and report_is_unsuccessful(report_path):
             continue
         providers[match.group("name")].add(strip_run_suffix(match.group("provider")))
     return providers
