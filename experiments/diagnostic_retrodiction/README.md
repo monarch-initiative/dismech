@@ -11,30 +11,35 @@ time-sliced entry. The question is how often the real test is among them.
 
 ## Status and next session
 
-Status at 2026-11-12. The protocol below is a draft; nothing has been run on
+Status at 2026-11-16. The protocol below is a draft; nothing has been run on
 any arm.
 
-**Done today:**
+**Done:**
 - Negative controls (`negatives.tsv`) and decoys from one fixed PubMed query
   (`decoys.tsv`).
 - Coverage audit of the negatives and the frame entries without an accessible
   test (`coverage_audit/`).
-- Literature-check alias fix; stratified dev/test split, with the dev set now
+- Literature-check alias fix; stratified dev/test split, with the dev set
   frozen at 5 cases.
 - Draft protocol, with every placeholder filled; deny rules for the curation
   sessions.
 - Agent C dated the 10 cases A and B disagreed on. 6 became MAJORITY_VERIFIED
   and received mechanistic-readiness judgments.
-- Literature aliases for C001 and C052, both of which then passed the
-  literature check.
-- Human review sheet for the 10 cases still unresolved.
+- Literature aliases for C001 and C052, both of which then passed.
+- Human dating review of the remaining 10 cases (2026-11-16): 9 accepted
+  (HUMAN_VERIFIED), C007 excluded as WRONG_SPECIMEN.
+- Literature check rerun. Two of the newly verified cases, C048 and C049,
+  failed it.
+- Post-dating exclusions propagated to `eligibility.tsv` and `cases.tsv`.
+- Split rerun with the dev set frozen. Every dated case is now verified, and
+  none is pending.
 
 **Next, in order:**
-1. Human review of the 10 cases in `dating_review_sheet.md`, recorded in
-   `dating_human_review.tsv`.
-2. Apply the review: settle each cutoff in `build_dating.py`, rerun the
-   literature check, add readiness judgments, and rerun `make_split.py`. The
-   dev set stays frozen.
+1. Mechanistic-readiness judgments for the 4 HUMAN_VERIFIED cases that have
+   none: C010, C018, C040, C055.
+2. Decide whether C048 and C049 (RCDP types 1 and 5) get literature aliases.
+   They failed on catalogue subtype names, the pattern the earlier aliases
+   fixed (see *Aliases*).
 3. Settle the open decisions:
    - how an LLM arm's 3 runs become one outcome per case;
    - which curation replicate feeds the arms;
@@ -43,11 +48,10 @@ any arm.
      H3 analysis;
    - Alzheimer disease, which is both a decoy (D009) and dev case C003;
    - the second model family.
-4. Propagate the literature exclusion to `eligibility.tsv` and `cases.tsv`.
-5. Write the rubrics and, from them, the banned-term lists.
-6. Write `audit_transcript.py`, A1's node-type table and weights, the prompts,
+4. Write the rubrics and, from them, the banned-term lists.
+5. Write `audit_transcript.py`, A1's node-type table and weights, the prompts,
    the candidate schema, and `DEVIATIONS.md`.
-7. Tag prereg-v1 and register on OSF.
+6. Tag prereg-v1 and register on OSF.
 
 ## Why retrodiction measures the KB without changing it
 
@@ -226,7 +230,9 @@ rebuilds `eligibility.tsv` from `frame.tsv` and the judgment tables;
   - **Replacement:** a computed literature check applied after dating (see
     *Dating*).
 
-Final eligibility: **71 INCLUDE rows covering 48 entries**.
+Final eligibility before dating: **71 INCLUDE rows covering 48 entries**.
+After the exclusions decided during dating (see *Dating*), **57 INCLUDE rows
+covering 39 entries** remain.
 
 ### Screeners
 
@@ -295,23 +301,37 @@ excluded by an eligibility rule and 3 are KB gaps.
     `check_dating.py` record of that PMID.
   - **Result:** 6 cases became MAJORITY_VERIFIED: C001, C039, C042, C052, C054
     and C056. The other 4 remain NOT_ACCEPTED: C010, C018, C040 and C055.
-- **Human review.** `make_review_sheet.py` writes `dating_review_sheet.md` and
-  `dating_human_review.tsv` for the 10 cases still unresolved. They are the 4
+- **Human review.** `make_review_sheet.py` wrote `dating_review_sheet.md` and
+  `dating_human_review.tsv` for the 10 cases still unresolved. They were the 4
   NOT_ACCEPTED and the 6 ACCEPTED_FLAGGED cases. For each case the sheet
   lists every candidate PMID with its PubMed title, date and implied cutoff,
   and each agent's quote. The written assessment comes last.
-- **Current dating status (57 cases):** 41 ACCEPTED (7 of them dropped by
-  the literature check, below), 6 MAJORITY_VERIFIED, and 10 pending human
-  review.
+  - **Decisions** (reviewer Chris, 2026-11-16, in `dating_human_review.tsv`):
+    9 ACCEPT_PMID, which become HUMAN_VERIFIED. C007 (Barth syndrome) is
+    EXCLUDE_CASE: its earliest diagnostic report used cultured fibroblasts
+    (WRONG_SPECIMEN).
+  - **Checks.** `check_dating.py` checked each reviewer PMID
+    (`dating_checks/human_review.checked.tsv`). `build_dating.py` stops unless
+    each PubMed date gives the reviewer's cutoff.
+  - **No abstract.** C018 (PMID 1514184) and C055 (PMID 18852446) have no
+    PubMed abstract. They were judged from the title, and for C055 from the
+    source's opening text, which the reviewer supplied and which is kept
+    locally and not committed.
+  - **C009.** Its abstract names no specimen. The reviewer accepted the
+    anti-tTG ELISA as serum-based without checking the full text.
+- **Current dating status (57 cases):** 41 ACCEPTED, 6 MAJORITY_VERIFIED, 9
+  HUMAN_VERIFIED and 1 HUMAN_EXCLUDED. None is awaiting review.
 - **Mechanistic readiness.** `build_dating.py` writes `dating.tsv` and records
   a mechanistic-readiness judgment for every ACCEPTED, ACCEPTED_FLAGGED and
-  MAJORITY_VERIFIED case. The judgment is "yes" with one PubMed paper dated on
+  MAJORITY_VERIFIED case. The former ACCEPTED_FLAGGED cases keep theirs after
+  human review. The 4 formerly NOT_ACCEPTED cases (C010, C018, C040, C055)
+  have none yet (NA). The judgment is "yes" with one PubMed paper dated on
   or before the cutoff that links the test's molecule to the disease
   mechanism, or "no" when the searches found none. The script checks each
   cited paper's date against the cutoff.
 - **Literature sufficiency.** `check_pretest_era.py` counts PubMed records with
-  an abstract published on or before each verified (ACCEPTED or
-  MAJORITY_VERIFIED) cutoff. The query ORs
+  an abstract published on or before each verified (ACCEPTED,
+  MAJORITY_VERIFIED or HUMAN_VERIFIED) cutoff. The query ORs
   together:
   - the disease's MeSH heading;
   - its MONDO label and exact synonyms, read with `runoak` from the local
@@ -342,30 +362,49 @@ excluded by an eligibility rule and 3 are KB gaps.
     `literature_recount.py` did not test them. Each one's `alias_source`
     says so. With them, C001 counts 690 records and C052 counts 57, and both
     pass.
+  - **C048 and C049.** After human review these two RCDP subtypes failed with
+    3 and 0 records. Their queries hold only catalogue subtype names
+    ("RCDP1", "peroxisome biogenesis disorder 9", "RCDP5") and no MeSH
+    heading. C047, the same test under the parent RCDP name, passes with 31.
+    No alias has been added, so both stand as dropped.
+- **Exclusions after dating.** `eligibility_work/post_dating_exclusions.py`
+  lists the frame rows of every case dropped by the literature check or
+  excluded in review (`eligibility_work/post_dating_exclusions.tsv`).
+  - `build_eligibility.py` turns those rows into EXCLUDE in
+    `eligibility.tsv`, tagged `[post-dating Cnnn]`. It applies them after
+    `eligibility_review.tsv`'s sample is drawn, so that file does not move.
+  - `build_cases.py` marks those cases `case_status` EXCLUDED, with an
+    `exclusion_reason`, and keeps their rows and case_ids.
+  - `build_dating.py` stops if the cases marked EXCLUDED in `cases.tsv`
+    differ from the ones it leaves out of `dating.tsv`.
 
 ### Case counts
 
-| test_class | Cases | Verified (PASS) | Dropped (insufficient) | Pending (unverified cutoff) |
-|---|---|---|---|---|
-| AUTOANTIBODY | 24 | 19 | 1 | 4 |
-| METABOLITE | 12 | 5 | 1 | 6 |
-| SECRETED_PROTEIN | 7 | 7 | 0 | 0 |
-| OTHER | 7 | 4 | 3 | 0 |
-| ENZYME_ACTIVITY | 5 | 3 | 2 | 0 |
-| CELL_SURFACE_MARKER | 1 | 1 | 0 | 0 |
-| SOMATIC_VARIANT | 1 | 1 | 0 | 0 |
-| **Total** | **57** | **40** | **7** | **10** |
+| test_class | Cases | Verified (PASS) | Dropped (insufficient literature) | Excluded in review | Pending |
+|---|---|---|---|---|---|
+| AUTOANTIBODY | 24 | 23 | 1 | 0 | 0 |
+| METABOLITE | 12 | 8 | 3 | 1 | 0 |
+| SECRETED_PROTEIN | 7 | 7 | 0 | 0 | 0 |
+| OTHER | 7 | 4 | 3 | 0 | 0 |
+| ENZYME_ACTIVITY | 5 | 3 | 2 | 0 | 0 |
+| CELL_SURFACE_MARKER | 1 | 1 | 0 | 0 | 0 |
+| SOMATIC_VARIANT | 1 | 1 | 0 | 0 | 0 |
+| **Total** | **57** | **47** | **9** | **1** | **0** |
 
-- **Dropped (7):** anti-NMDAR encephalitis, congenital TTP, Immunodeficiency 18,
-  Immunodeficiency 19, MNGIE ×2 and Revesz syndrome. They stay listed in
-  `literature_check.tsv`.
-- **`dating.tsv`** holds the other 50, in 39 test groups.
-- **Verified (40):** 34 ACCEPTED and 6 MAJORITY_VERIFIED, in 33 test groups.
-  35 are FIRST and 5 IMPROVEMENT; 34 have mechanistic readiness "yes" and 6
-  "no".
-- **Pending (10):** listed in `pending_cases.txt`. They are the 6
-  ACCEPTED_FLAGGED and 4 NOT_ACCEPTED cases awaiting human review, so their
-  cutoff has not been literature-checked.
+- **Dropped for literature (9):** anti-NMDAR encephalitis, congenital TTP,
+  Immunodeficiency 18, Immunodeficiency 19, MNGIE ×2, Revesz syndrome, and
+  RCDP types 1 and 5 (C048, C049).
+- **Excluded in review (1):** C007, Barth syndrome (WRONG_SPECIMEN).
+- **Where they are recorded.** All 10 stay listed in `literature_check.tsv`
+  and `cases.tsv`, marked EXCLUDED, and their frame rows are EXCLUDE in
+  `eligibility.tsv`.
+- **`dating.tsv`** holds the other 47, in 38 test groups. All are verified.
+- **Verified (47):** 34 ACCEPTED, 6 MAJORITY_VERIFIED and 7 HUMAN_VERIFIED,
+  in 38 test groups.
+  - 41 are FIRST and 6 IMPROVEMENT.
+  - Mechanistic readiness is "yes" for 37, "no" for 6 and not yet judged for
+    4.
+- **Pending (0):** `pending_cases.txt` is empty.
 
 ## Controls
 
@@ -407,7 +446,8 @@ excluded by an eligibility rule and 3 are KB gaps.
 the 34 cases verified at the time, with seed 20261111. `make_split.py` now
 reads `dev_set.txt` and never redraws it. The script fails if a dev case is no
 longer verified, or if a dev case's test_group has gained other cases. Rerun
-after agent C, `dev_set.txt` is byte-identical to the committed version.
+after agent C and after the human review, `dev_set.txt` is byte-identical to
+the committed version.
 
 **Dev set** (`dev_set.txt`): one case per test_class, drawn as follows:
 - **Candidates:** only cases that are alone in their test_group across all
@@ -426,22 +466,21 @@ after agent C, `dev_set.txt` is byte-identical to the committed version.
 | C044 | METABOLITE | serum 7-alpha-hydroxy-4-cholesten-3-one | Primary Bile Acid Malabsorption |
 | C050 | OTHER | TREC newborn screening | Severe Combined Immunodeficiency |
 
-**Test set** (`test_set.txt`): every other verified case, **35** in 28 test
+**Test set** (`test_set.txt`): every other verified case, **42** in 33 test
 groups.
 
 | test_class | Test cases |
 |---|---|
-| AUTOANTIBODY | 18 |
+| AUTOANTIBODY | 22 |
+| METABOLITE | 7 |
 | SECRETED_PROTEIN | 6 |
-| METABOLITE | 4 |
 | OTHER | 3 |
 | ENZYME_ACTIVITY | 2 |
 | CELL_SURFACE_MARKER | 1 |
 | SOMATIC_VARIANT | 1 |
 
-**Pending** (`pending_cases.txt`): the **10** cases awaiting human review. Each
-joins the test set once its cutoff is verified and passes the literature
-check.
+**Pending** (`pending_cases.txt`): empty. The human review settled every
+remaining cutoff.
 
 ## Coverage audit
 
@@ -591,9 +630,9 @@ judged against it:
   - a sensitivity analysis keeping one case per test_group: the case with the
     earliest cutoff, ties broken by case_id;
   - a cluster bootstrap over test groups.
-- **Sample size.** The test set holds 35 cases in 28 test groups now, and at
-  most 45 if all 10 pending cases are verified and pass the literature
-  check. Exact two-sided McNemar at
+- **Sample size.** The test set holds 42 cases in 33 test groups. No case
+  is pending, so this is the final size unless C048 and C049 are restored by
+  aliases (at most 44). Exact two-sided McNemar at
   α = 0.05 reaches significance only with enough discordant pairs:
 
   | Discordant pairs | Split needed |
@@ -608,11 +647,8 @@ judged against it:
 
 ## Pending before prereg-v1
 
-- [ ] Verify the 10 unverified cutoffs: human review in
-  `dating_human_review.tsv`, then rerun the literature check and
-  `make_split.py`.
-- [ ] Propagate the literature exclusion into `eligibility.tsv` and
-  `cases.tsv`, which still count the 7 dropped cases as INCLUDE.
+- [ ] Mechanistic readiness for C010, C018, C040 and C055.
+- [ ] Decide whether C048 and C049 get literature aliases.
 - [ ] Write the per-case rubrics and, from them, the banned-term lists.
 - [ ] Write `audit_transcript.py`, A1's node-type → `analyte_type` table and
   A1's weights, and freeze them before the dev set is run.
@@ -645,10 +681,13 @@ judged against it:
 - **Abstracts-only counts undercount early literature.** `hasabstract` drops
   most PubMed records before about 1975, so the literature check and packets
   under-represent the oldest literature. The 17 aliases are hand-written.
-- **Dating uncertainty.** The discovery date is unverified for 10 cases. Even
-  where both agents agree, 6 accepted PMIDs look later than the real report.
-  Six cutoffs rest on a 2-of-3 agent majority rather than agreement of the
-  first two.
+- **Dating uncertainty.**
+  - **Majority cutoffs.** Six cutoffs rest on a 2-of-3 agent majority rather
+    than on agreement of the first two agents.
+  - **Single-reviewer cutoffs.** Nine rest on one person's review.
+  - **No-abstract records.** Two of those nine (C018, C055) were judged
+    without a PubMed abstract.
+  - **C009 specimen.** It was accepted without checking the full text.
 - **KB gaps.** The frame holds only tests dismech records: 3 of 22 known
   positives are missing.
 - **Sparse differentials.** Most entries list no differential diagnoses, and
@@ -706,7 +745,7 @@ judged against it:
 | `eligibility.screenerC2.tsv` | screener C2's decisions |
 | `eligibility_rule1_rescreen.tsv` | the 5 re-screen disagreements and outcomes |
 | `build_cases.py` | collapses INCLUDE rows into cases |
-| `cases.tsv` | the 57 cases |
+| `cases.tsv` | the 57 cases, 10 marked EXCLUDED after dating |
 | `known_positives_cases.tsv` | which known positives are cases, and why not |
 | `dating.agentA.tsv` | agent A's discovery PMIDs and quotes |
 | `dating.agentB.tsv` | agent B's discovery PMIDs and quotes |
@@ -717,11 +756,15 @@ judged against it:
 | `dating.agentC.tsv` | agent C's discovery PMIDs and quotes |
 | `dating_checks/agentC.checked.tsv` | `check_dating.py` output for agent C |
 | `build_dating.py` | merges the agents into `dating.tsv`; writes flags and spot-check |
-| `dating.tsv` | the 50 dated cases not dropped by the literature check |
+| `dating.tsv` | the 47 dated cases not excluded after dating |
 | `dating_flags.tsv` | the 16 cases A and B did not settle cleanly, with assessments and agent C's PMID |
 | `make_review_sheet.py` | writes the human review sheet and its TSV |
-| `dating_review_sheet.md` | the 10 unresolved cases, candidates first |
-| `dating_human_review.tsv` | one row per unresolved case, for the reviewer's decision |
+| `dating_review_sheet.md` | the 10 cases sent to human review, candidates first |
+| `dating_human_review.tsv` | the reviewer's decision, PMID and cutoff for each of those 10 |
+| `dating_checks/human_review.input.tsv` | the reviewer PMIDs, as `check_dating.py` input |
+| `dating_checks/human_review.checked.tsv` | `check_dating.py` output for the reviewer PMIDs |
+| `eligibility_work/post_dating_exclusions.py` | lists frame rows of cases excluded after dating |
+| `eligibility_work/post_dating_exclusions.tsv` | those rows, read by `build_eligibility.py` |
 | `dating_spotcheck.tsv` | 8 unflagged accepted cases for spot-checking |
 | `check_pretest_era.py` | counts pre-cutoff literature per case |
 | `literature_check.tsv` | the literature check for all 57 cases, with aliases |
@@ -735,8 +778,8 @@ judged against it:
 | `decoys.tsv` | the 11 decoy disease–biomarker pairs |
 | `make_split.py` | checks the frozen dev set; writes the test and pending lists |
 | `dev_set.txt` | 5 dev cases (frozen) |
-| `test_set.txt` | 35 test cases |
-| `pending_cases.txt` | 10 cases awaiting cutoff verification |
+| `test_set.txt` | 42 test cases |
+| `pending_cases.txt` | cases awaiting cutoff verification (now none) |
 | `coverage_audit/audit.py` | the pathograph coverage audit |
 | `coverage_audit/FINDINGS.md` | its definitions, results and review |
 | `coverage.tsv` | one row per audited disease |

@@ -20,6 +20,14 @@ cases.tsv columns:
   test_group            the test across entries; cases sharing it are the same test
   source_frame_rows     1-based data-row numbers in frame.tsv (header not counted),
                         ';'-separated
+  case_status           INCLUDED, or EXCLUDED when eligibility.tsv excludes the
+                        case's rows after dating (reason tagged [post-dating ...],
+                        from eligibility_work/post_dating_exclusions.tsv)
+  exclusion_reason      the exclusion code (INSUFFICIENT_PRE_CUTOFF_LITERATURE or
+                        WRONG_SPECIMEN), or NA
+
+A case excluded after dating keeps its row and case_id, so case_ids never
+shift; every one of its rows must carry the same post-dating exclusion.
 
 Also writes known_positives_cases.tsv: for each pair in known_positives.tsv,
 whether it is in cases.tsv (matched as check_recall.py matches pairs: the
@@ -135,12 +143,16 @@ def main() -> None:
             sys.exit("eligibility.tsv no longer lines up with the flagged frame rows")
 
     include = {i for i, e in enumerate(elig[:len(flagged)]) if e["decision"] == "INCLUDE"}
+    post = {i: e["reason"].split(":", 1)[0] for i, e in enumerate(elig[:len(flagged)])
+            if e["decision"] == "EXCLUDE" and "[post-dating " in e["reason"]}
     assigned = [i for *_, rows in CASE_MAP for i in rows]
     problems = []
     if len(assigned) != len(set(assigned)):
         problems.append(f"rows assigned twice: {sorted(i for i, c in Counter(assigned).items() if c > 1)}")
-    if set(assigned) - include:
-        problems.append(f"assigned rows that are not INCLUDE: {sorted(set(assigned) - include)}")
+    if set(assigned) - include - set(post):
+        problems.append(f"assigned rows that are not INCLUDE: {sorted(set(assigned) - include - set(post))}")
+    if set(post) - set(assigned):
+        problems.append(f"post-dating exclusions on rows with no case: {sorted(set(post) - set(assigned))}")
     if include - set(assigned):
         problems.append(f"INCLUDE rows with no case: {sorted(include - set(assigned))}")
     for test, cls, group, rows in CASE_MAP:
@@ -148,24 +160,39 @@ def main() -> None:
             problems.append(f"{test}: unknown test_class {cls}")
         if len({flagged[i]["disease_name"] for i in rows}) != 1:
             problems.append(f"{test}: rows {rows} span more than one entry")
+        if any(i in post for i in rows) and len({post.get(i) for i in rows}) != 1:
+            problems.append(f"{test}: rows {rows} are not all excluded the same way after dating")
         for col in ("subset", "first_or_improvement"):
-            if len({elig[i][col] for i in rows}) != 1:
+            if not any(i in post for i in rows) and len({elig[i][col] for i in rows}) != 1:
                 problems.append(f"{test}: rows {rows} disagree on {col}")
     if problems:
         sys.exit("\n".join(problems))
 
+    previous = {}
+    if (HERE / "cases.tsv").exists():
+        with open(HERE / "cases.tsv", newline="", encoding="utf-8") as f:
+            previous = {r["case_id"]: r for r in csv.DictReader(f, delimiter="\t")}
     cases, case_of_row = [], {}
     for n, (test, cls, group, rows) in enumerate(CASE_MAP, 1):
         cid = f"C{n:03d}"
         r0 = flagged[rows[0]]
+        excluded = rows[0] in post
+        # An excluded row's eligibility no longer carries subset/first_or_improvement;
+        # keep the values the case had, from cases.tsv as last written while included.
+        prev = previous.get(cid, {})
+        if excluded and not prev:
+            sys.exit(f"{cid}: excluded after dating but absent from the existing cases.tsv")
         cases.append({"case_id": cid, "disease": r0["disease_name"], "mondo_id": r0["mondo_id"], "test": test,
-                      "subset": elig[rows[0]]["subset"], "test_class": cls,
-                      "first_or_improvement": elig[rows[0]]["first_or_improvement"], "test_group": group,
-                      "source_frame_rows": ";".join(str(flagged_rownum[i]) for i in rows)})
+                      "subset": prev["subset"] if excluded else elig[rows[0]]["subset"], "test_class": cls,
+                      "first_or_improvement": prev["first_or_improvement"] if excluded
+                      else elig[rows[0]]["first_or_improvement"], "test_group": group,
+                      "source_frame_rows": ";".join(str(flagged_rownum[i]) for i in rows),
+                      "case_status": "EXCLUDED" if excluded else "INCLUDED",
+                      "exclusion_reason": post[rows[0]] if excluded else "NA"})
         for i in rows:
             case_of_row[flagged_rownum[i]] = cid
     cols = ["case_id", "disease", "mondo_id", "test", "subset", "test_class", "first_or_improvement",
-            "test_group", "source_frame_rows"]
+            "test_group", "source_frame_rows", "case_status", "exclusion_reason"]
     with open(HERE / "cases.tsv", "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols, delimiter="\t", lineterminator="\n")
         w.writeheader()
@@ -201,7 +228,9 @@ def main() -> None:
         w.writeheader()
         w.writerows(out)
 
-    print(f"cases: {len(cases)} from {len(assigned)} INCLUDE rows; "
+    print(f"excluded after dating: {sum(c['case_status'] == 'EXCLUDED' for c in cases)} "
+          + str(dict(Counter(c['exclusion_reason'] for c in cases if c['case_status'] == 'EXCLUDED'))))
+    print(f"cases: {len(cases)} from {len(assigned)} assigned rows; "
           f"entries: {len({c['disease'] for c in cases})}; test groups: {len({c['test_group'] for c in cases})}")
     print("\nby test_class:")
     for cls, c in Counter(c["test_class"] for c in cases).most_common():

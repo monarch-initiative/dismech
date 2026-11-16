@@ -17,11 +17,14 @@ Inputs (all committed):
                           screener B2 disagreed with A in the rule-1 re-screen
                           (written by resolve_rule1_rescreen.py), same format;
                           applied after ov9
-  pre_cutoff_literature.tsv
-                          optional: check_pretest_era.py output. An INCLUDE row
-                          it rules INSUFFICIENT_PRE_CUTOFF_LITERATURE becomes
-                          EXCLUDE. Absent until verified cutoffs exist, in which
-                          case nothing is applied.
+  post_dating_exclusions.tsv
+                          optional, written by post_dating_exclusions.py: frame
+                          rows of cases excluded after dating, either
+                          INSUFFICIENT_PRE_CUTOFF_LITERATURE (literature check)
+                          or WRONG_SPECIMEN (human dating review). An INCLUDE
+                          row listed there becomes EXCLUDE with that code. It is
+                          applied after eligibility_review.tsv's sample is drawn,
+                          so the review sample and file do not move.
 
 Version 2's computed pre-test-era count (rule 2, pretest_era.tsv) is no longer
 read; version 3 removed it.
@@ -44,10 +47,10 @@ Each row's reason is assembled in this order:
   3. otherwise the profiling-platform pattern                  [rule]
   4. otherwise NOT_PRIMARY_ROUTE                               [scanned-default]
 Then an ov9_resolution.txt entry, and after it an ov10_rule1_rescreen.txt
-entry, replaces the reason [judged]; an INCLUDE row
-ruled INSUFFICIENT_PRE_CUTOFF_LITERATURE in pre_cutoff_literature.tsv becomes
-EXCLUDE [rule]; and an IMPLICIT-basis row listed in wrong.txt becomes
-WRONG_SPECIMEN regardless.
+entry, replaces the reason [judged]; and an IMPLICIT-basis row listed in
+wrong.txt becomes WRONG_SPECIMEN regardless. Last, an INCLUDE row listed in
+post_dating_exclusions.tsv becomes EXCLUDE [post-dating] (eligibility.tsv
+only; see above).
 
 Usage:
     python experiments/diagnostic_retrodiction/eligibility_work/build_eligibility.py
@@ -172,23 +175,26 @@ def load_tables() -> tuple:
         if line.strip() and not line.startswith("#"):
             i, text = line.split("|", 1)
             subset[int(i)] = text.strip()
-    lit_path = HERE / "pre_cutoff_literature.tsv"
-    literature = {}
-    if lit_path.exists():
-        with open(lit_path, newline="", encoding="utf-8") as f:
-            literature = {int(r["frame_idx"]): r for r in csv.DictReader(f, delimiter="\t")}
-    return ov, wrong, infectious, subset, resolution, literature
+    post_path = HERE / "post_dating_exclusions.tsv"
+    post_dating = {}
+    if post_path.exists():
+        with open(post_path, newline="", encoding="utf-8") as f:
+            post_dating = {int(r["flagged_idx"]): r for r in csv.DictReader(f, delimiter="\t")}
+    return ov, wrong, infectious, subset, resolution, post_dating
 
 
 def build(apply_resolution: bool = True, upto: str | None = None) -> tuple[str, str, list[dict]]:
     """Build the files. ``apply_resolution=False`` leaves every resolution round
-    out; ``upto`` applies resolution rounds only up to and excluding that file."""
+    out; ``upto`` applies resolution rounds only up to and excluding that file.
+    post_dating_exclusions.tsv is applied only to the full build (neither option)."""
     with open(EXP / "frame.tsv", newline="", encoding="utf-8") as f:
         flagged = [r for r in csv.DictReader(f, delimiter="\t") if r["flag_nongenetic_specimen"] == "TRUE"]
     if len(flagged) != FLAGGED_ROWS:
         sys.exit(f"frame.tsv has {len(flagged)} flagged rows, expected {FLAGGED_ROWS}; "
                  "the judgment indices no longer line up")
-    ov, wrong, infectious, subsets, resolution, literature = load_tables()
+    ov, wrong, infectious, subsets, resolution, post_dating = load_tables()
+    if not apply_resolution or upto is not None:
+        post_dating = {}
     if not apply_resolution:
         resolution = {}
     elif upto is not None:
@@ -215,11 +221,6 @@ def build(apply_resolution: bool = True, upto: str | None = None) -> tuple[str, 
         if i in resolution:
             code, amb, foi, detail = resolution[i]
             tag = "judged"
-        lit = literature.get(i)
-        if code == "INCLUDE" and lit and lit.get("lit_ruling") == "INSUFFICIENT_PRE_CUTOFF_LITERATURE":
-            code, amb, foi, tag = "INSUFFICIENT_PRE_CUTOFF_LITERATURE", False, "NA", "rule"
-            detail = (f'{lit["lit_count"]} PubMed records on or before {lit["cutoff_date"]}, below the '
-                      f'packet minimum of {lit["packet_minimum"]}')
         spec = "NA"
         if r["specimen_basis"] == "IMPLICIT":
             spec = "WRONG_SPECIMEN" if i in wrong else "CONFIRMED"
@@ -247,12 +248,18 @@ def build(apply_resolution: bool = True, upto: str | None = None) -> tuple[str, 
         csv.writer(buf, delimiter="\t", lineterminator="\n").writerows(rows)
         return buf.getvalue()
 
-    elig = tsv([COLS] + [[o[c] for c in COLS] for o in out])
     inc = [o for o in out if o["decision"] == "INCLUDE"]
     sampled = {id(o) for o in random.Random(SEED).sample(inc, round(0.2 * len(inc)))}
     review = tsv([COLS + ["review_basis"]] +
                  [[o[c] for c in COLS] + ["SAMPLED_INCLUDE" if id(o) in sampled else "AMBIGUOUS_EXCLUDE"]
                   for o in out if id(o) in sampled or o["_amb"]])
+    for i, pd in post_dating.items():
+        o = out[i]
+        if o["decision"] != "INCLUDE":
+            sys.exit(f"post_dating_exclusions.tsv lists row {i} ({pd['case_id']}), which is not INCLUDE")
+        o.update(decision="EXCLUDE", reason=f'{pd["code"]}: {pd["detail"]} [post-dating {pd["case_id"]}]',
+                 first_or_improvement="NA", subset="NA", _code=pd["code"])
+    elig = tsv([COLS] + [[o[c] for c in COLS] for o in out])
     return elig, review, out
 
 

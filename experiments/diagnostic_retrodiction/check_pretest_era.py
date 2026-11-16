@@ -51,8 +51,11 @@ Added columns:
   lit_count        PubMed's hit count
   packet_minimum   from RUN_CONFIG.yaml
   lit_ruling       INSUFFICIENT_PRE_CUTOFF_LITERATURE if lit_count < packet_minimum,
-                   PASS otherwise; UNVERIFIED_CUTOFF when quote_ok is not TRUE or
-                   cutoff_date is unusable; NA when a lookup or search failed
+                   PASS otherwise; UNVERIFIED_CUTOFF when the dating_status is not
+                   verified, quote_ok is not TRUE (HUMAN_VERIFIED excepted: the
+                   reviewer may have judged a record with no abstract), or
+                   cutoff_date is unusable; EXCLUDED_BY_REVIEW for a
+                   HUMAN_EXCLUDED case; NA when a lookup or search failed
 
 The packet minimum is read from ../diagnostic_retrodiction/RUN_CONFIG.yaml
 (``packet_minimum``). NCBI_API_KEY is required; it is sent only as a request
@@ -87,7 +90,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 MONDO_ADAPTER = "sqlite:obo:mondo"  # named only to locate the build; never opened by name
-VERIFIED_STATUSES = ("ACCEPTED", "MAJORITY_VERIFIED")
+VERIFIED_STATUSES = ("ACCEPTED", "MAJORITY_VERIFIED", "HUMAN_VERIFIED")
 REQUIRED = ("disease", "test", "cutoff_date", "quote_ok")
 ADDED = ("frame_idx", "mondo_id", "mondo_build", "mesh_id", "mesh_heading", "n_synonyms", "lit_query",
          "lit_count", "packet_minimum", "lit_ruling")
@@ -257,8 +260,15 @@ def main() -> None:
             cutoff = dt.date.fromisoformat((row["cutoff_date"] or "").strip())
         except ValueError:
             cutoff = None
-        status_ok = "dating_status" not in row or (row["dating_status"] or "").strip() in VERIFIED_STATUSES
-        if cutoff is None or (row["quote_ok"] or "").strip().upper() != "TRUE" or not status_ok:
+        status = (row.get("dating_status") or "").strip()
+        if status == "HUMAN_EXCLUDED":
+            row["lit_ruling"] = "EXCLUDED_BY_REVIEW"
+            continue
+        status_ok = "dating_status" not in row or status in VERIFIED_STATUSES
+        # A HUMAN_VERIFIED cutoff may rest on a record with no abstract (quote_ok NA):
+        # the reviewer judged it from the title, full text or source.
+        quote_ok = (row["quote_ok"] or "").strip().upper() == "TRUE" or status == "HUMAN_VERIFIED"
+        if cutoff is None or not quote_ok or not status_ok:
             row["lit_ruling"] = "UNVERIFIED_CUTOFF"
             continue
         if not mondo_id.startswith("MONDO:"):

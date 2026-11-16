@@ -21,6 +21,25 @@ disagree, or where the agreeing agents' quotes do not all pass, stays
 NOT_ACCEPTED. MAJORITY_VERIFIED cases get a mechanistic-readiness judgment by
 the same method as ACCEPTED ones (below).
 
+Human review: dating_human_review.tsv records a person's decision on each
+case that was still ACCEPTED_FLAGGED or NOT_ACCEPTED after agent C.
+  - ACCEPT_PMID: dating_status HUMAN_VERIFIED. discovery_pmid is the
+    reviewer's; its date is check_dating.py's, read from
+    dating_checks/human_review.checked.tsv, and its cutoff (31 December of the
+    year before) must equal the reviewer_cutoff the person wrote, or the
+    script stops. quote_ok is that check's (NA when PubMed has no abstract;
+    the reviewer then judged from the title, full text or source).
+  - EXCLUDE_CASE: dating_status HUMAN_EXCLUDED. The case is kept in
+    dating_flags.tsv and literature_check.tsv but left out of dating.tsv.
+Readiness for a HUMAN_VERIFIED case is the READINESS judgment when one exists
+(the former ACCEPTED_FLAGGED cases have one), else NA.
+
+Exclusions after dating (HUMAN_EXCLUDED, and INSUFFICIENT_PRE_CUTOFF_LITERATURE
+below) are propagated to eligibility.tsv and cases.tsv by
+eligibility_work/post_dating_exclusions.py. When cases.tsv carries
+case_status, this script checks that its EXCLUDED cases are exactly the ones
+it leaves out of dating.tsv.
+
 dating_flags.tsv lists every case that needs a person: the agents disagree, a
 quote failed, or an earlier paper looks like the real discovery report. The
 assessments in FLAG_NOTES were written after reading the abstracts.
@@ -326,6 +345,10 @@ def main() -> None:
         sys.exit("agent files do not cover exactly the cases in cases.tsv")
     c_path = HERE / "dating_checks" / "agentC.checked.tsv"
     agent_c = {r["case_id"]: r for r in read_tsv(c_path)} if c_path.exists() else {}
+    review = {r["case_id"]: r for r in read_tsv(HERE / "dating_human_review.tsv")} \
+        if (HERE / "dating_human_review.tsv").exists() else {}
+    hc_path = HERE / "dating_checks" / "human_review.checked.tsv"
+    human_check = {r["case_id"]: r for r in read_tsv(hc_path)} if hc_path.exists() else {}
     unknown = set(FLAG_NOTES) - set(a)
     if unknown:
         sys.exit(f"FLAG_NOTES names unknown cases: {sorted(unknown)}")
@@ -384,6 +407,34 @@ def main() -> None:
             if k not in READINESS:
                 sys.exit(f"{k}: majority-verified but has no READINESS judgment")
             row["mechanistic_readiness"] = "no" if READINESS[k] == "no" else f"yes PMID:{READINESS[k]}"
+        rv = review.get(c["case_id"])
+        if rv is not None and rv["decision"]:
+            if status not in ("ACCEPTED_FLAGGED", "NOT_ACCEPTED"):
+                sys.exit(f"{c['case_id']}: human review given for a {status} case")
+            if rv["decision"] == "EXCLUDE_CASE":
+                status = "HUMAN_EXCLUDED"
+                row.update(discovery_pmid="NA", discovery_date="NA", date_precision="NA", cutoff_date="NA",
+                           mechanistic_readiness="NA", quote_ok="NA")
+            elif rv["decision"] == "ACCEPT_PMID":
+                hc = human_check.get(c["case_id"])
+                if hc is None or hc["discovery_pmid"].replace("PMID:", "").strip() != rv["reviewer_pmid"] \
+                        or hc["pubmed_date"] == "NA":
+                    sys.exit(f"{c['case_id']}: reviewer PMID {rv['reviewer_pmid']} has no matching dated row "
+                             f"in {hc_path.name}")
+                d = dt.date.fromisoformat(hc["pubmed_date"])
+                cutoff = f"{d.year - 1}-12-31"
+                if cutoff != rv["reviewer_cutoff"]:
+                    sys.exit(f"{c['case_id']}: reviewer_cutoff {rv['reviewer_cutoff']} but PubMed date gives {cutoff}")
+                status = "HUMAN_VERIFIED"
+                row.update(discovery_pmid=f"PMID:{rv['reviewer_pmid']}", discovery_date=hc["pubmed_date"],
+                           date_precision=hc["date_precision"], cutoff_date=cutoff, quote_ok=hc["quote_ok"])
+                if k in READINESS:
+                    row["mechanistic_readiness"] = "no" if READINESS[k] == "no" else f"yes PMID:{READINESS[k]}"
+                else:
+                    row["mechanistic_readiness"] = "NA"
+            else:
+                sys.exit(f"{c['case_id']}: unknown review decision {rv['decision']!r}")
+            row["dating_status"] = status
         rows.append(row)
         if note:
             flag_type, cand, source, assessment = note
@@ -436,11 +487,18 @@ def main() -> None:
         if set(lit) != {r["case_id"] for r in rows}:
             sys.exit("literature_check.tsv does not cover exactly the cases; rerun it on --full-out output")
         dropped = {cid for cid, r in lit.items() if r["lit_ruling"] == "INSUFFICIENT_PRE_CUTOFF_LITERATURE"}
+    dropped |= {r["case_id"] for r in rows if r["dating_status"] == "HUMAN_EXCLUDED"}
+    if "case_status" in cases[0]:
+        marked = {c["case_id"] for c in cases if c["case_status"] == "EXCLUDED"}
+        if marked != dropped:
+            sys.exit("cases.tsv EXCLUDED cases differ from the dating exclusions; rerun "
+                     "eligibility_work/post_dating_exclusions.py, build_eligibility.py and build_cases.py. "
+                     f"only in cases.tsv: {sorted(marked - dropped)}; only here: {sorted(dropped - marked)}")
     write_tsv(HERE / "dating.tsv", cols, [r for r in rows if r["case_id"] not in dropped])
     write_tsv(HERE / "dating_flags.tsv", list(flags[0].keys()), flags)
     write_tsv(HERE / "dating_spotcheck.tsv", cols, [r for r in rows if r["case_id"] in sample_ids])
     if dropped:
-        print(f"dropped {len(dropped)} INSUFFICIENT_PRE_CUTOFF_LITERATURE cases from dating.tsv: "
+        print(f"dropped {len(dropped)} cases (literature check or human review) from dating.tsv: "
               + ", ".join(sorted(dropped)))
         gone = sorted(sample_ids & dropped)
         if gone:
