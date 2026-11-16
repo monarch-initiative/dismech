@@ -1,0 +1,51 @@
+# A1, the graph-only arm: node-type -> analyte_type table and scoring weights.
+# DRAFT to be frozen before the dev set is run; never tuned on any data (README, *Arms*).
+# Read by run_all.py (stage arms, A1). One-line rationale per weight.
+
+status: DRAFT
+version: 1
+
+# Which nodes are candidates: nodes of the time-sliced entry that pass
+# coverage_audit/audit.py's measurable-node rule (README, *Coverage audit*).
+candidate_rule: coverage_audit.measurable_node
+
+# Rules are tried in order; the first match gives the candidate's analyte_type.
+# census_implicit_class is census.classify's implicit_class on the node's identity text;
+# term_prefix is the CURIE prefix of any identity term bound to the node.
+node_type_to_analyte_type:
+  - {when: {census_implicit_class: AUTOANTIBODY}, analyte_type: AUTOANTIBODY}
+  - {when: {census_implicit_class: ENZYME_ACTIVITY}, analyte_type: ENZYME_ACTIVITY}
+  - {when: {census_implicit_class: FLOW_CYTOMETRY}, analyte_type: CELL_SURFACE_MARKER}
+  - {when: {census_implicit_class: SOMATIC_HEME_DRIVER}, analyte_type: SOMATIC_VARIANT}
+  - {when: {census_implicit_class: CIRCULATING_METABOLITE}, analyte_type: METABOLITE}
+  - {when: {section: genetic, variant_origin: SOMATIC}, analyte_type: SOMATIC_VARIANT}
+  - {when: {name_regex: "(?i)telomer|excision circle|TREC"}, analyte_type: CELLULAR_DNA_MEASURE}
+  - {when: {term_prefix: CHEBI}, analyte_type: METABOLITE}
+  - {when: {term_prefix: [hgnc, NCIT, PR]}, analyte_type: PROTEIN_LEVEL}
+  - {when: {section: [phenotypes, biochemical]}, analyte_type: PROTEIN_LEVEL}
+  # anything else (including germline genetic nodes) is not a candidate
+
+# Specimen: the node's census specimen if one is stated; otherwise this default per analyte_type.
+default_specimen:
+  AUTOANTIBODY: serum
+  ENZYME_ACTIVITY: leukocytes
+  METABOLITE: plasma
+  PROTEIN_LEVEL: serum
+  CELL_SURFACE_MARKER: whole_blood
+  SOMATIC_VARIANT: whole_blood
+  CELLULAR_DNA_MEASURE: whole_blood
+
+weights:
+  w_differential_specificity: 0.5   # equal weight with all-pathograph specificity: no prior reason to favour either
+  w_all_specificity: 0.5            # specificity against every pathograph guards against sparse differential lists
+  no_differential_all_weight: 1.0   # with no resolved differential, all-pathograph specificity carries the whole score
+  neighbourhood_radius: 1           # a term's direct parent or child counts as the same node; wider radii blur specificity
+  distance_decay_exponent: 1        # score x 1/(1+d)^1: proximity to the root cause matters, without a free shape parameter
+  unreachable_distance: longest_path_plus_1  # a node off every causal path from the root is ranked below all reachable ones
+  confidence: score                 # the score (0-1) is reported as the candidate's confidence; no recalibration
+  k: 10                             # same top-10 cut as the LLM arms (RUN_CONFIG.yaml)
+  tie_break: node_name_ascending    # deterministic ordering of equal scores
+
+root_cause_node: >-
+  The node(s) with no incoming causal edge in the time-sliced entry's pathograph; with
+  several, the distance is to the nearest one.

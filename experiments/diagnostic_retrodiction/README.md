@@ -11,39 +11,62 @@ time-sliced entry. The question is how often the real test is among them.
 
 ## Status and next session
 
-Status at 2026-11-16. The protocol below is a draft; nothing has been run on
-any arm.
+Status at 2026-11-16. The protocol is a draft. No LLM arm, packet or curation
+has been run.
 
 **Done:**
-- Negative controls (`negatives.tsv`) and decoys from one fixed PubMed query
-  (`decoys.tsv`).
-- Coverage audit of the negatives and the frame entries without an accessible
-  test (`coverage_audit/`).
-- Literature-check alias fix; stratified dev/test split, with the dev set
-  frozen at 5 cases.
-- Draft protocol, with every placeholder filled; deny rules for the curation
-  sessions.
-- Agent C dated the 10 cases A and B disagreed on; 6 became
-  MAJORITY_VERIFIED.
-- Literature aliases for C001 and C052.
-- Human dating review of the remaining 10 cases: 9 accepted, C007 excluded as
-  WRONG_SPECIMEN. C048 and C049 then failed the literature check.
-- Post-dating exclusions propagated to `eligibility.tsv` and `cases.tsv`;
-  split rerun with the dev set frozen.
-- Mechanistic readiness judged for every verified case.
-- Design decisions recorded (see *Decisions*):
-  - single model family;
-  - negatives expanded by a seeded draw, so 13 are now usable and H3 stays
-    confirmatory;
-  - decoy D009 dropped.
+- **Controls:** negative controls (`negatives.tsv`) and decoys from one fixed
+  PubMed query (`decoys.tsv`, D009 dropped).
+- **Coverage audit:** of the negatives and of the frame entries without an
+  accessible test (`coverage_audit/`).
+- **Dating:**
+  - dating by three agents and human review;
+  - aliases for C001 and C052;
+  - post-dating exclusions propagated to `eligibility.tsv` and `cases.tsv`,
+    with case_ids kept;
+  - mechanistic readiness for every verified case.
+- **Split:** frozen dev set of 5; test set of 41 cases in 33 test-group
+  clusters.
+- **Decisions and defaults:**
+  - design decisions recorded (see *Decisions*);
+  - the defaults of 2026-11-16, which are pending Chris: C036 excluded, C047
+    phytanic acid at T1, C056 re-dated to 2003, C022's display name, and
+    N10, N13 and N17 replaced after a new accessible-test screen;
+  - every change is logged in `DEVIATIONS.md`.
+- **Negatives:** 18 in slots, 11 usable for H3, which stays confirmatory.
+- **Rubrics:** drafts for every case and negative (`rubrics/`), with leakage
+  terms and arm display names.
+- **Components drafted to be frozen:**
+  - `audit_transcript.py`, with unit tests;
+  - `a1_config.yaml`;
+  - the prompts: curation, A2, A3, A4, probe, adjudication and the shared
+    system prompt;
+  - `schemas/candidate.yaml`;
+  - `match.py` and `analysis.py`, with tests;
+  - `prereg_draft/REVIEW.md`.
+- **Orchestrator:** `run_all.py`, resumable, with a dry-run mode; it has been
+  dry-run for both splits.
 
 **Next, in order:**
-1. Define the matching criterion for the negatives' cutoffs, then run the
-   seeded assignment (see *Decisions*).
-2. Write the rubrics and, from them, the banned-term lists.
-3. Write `audit_transcript.py`, A1's node-type table and weights, the prompts,
-   the candidate schema, and `DEVIATIONS.md`.
-4. Tag prereg-v1 and register on OSF.
+1. **Review:** go through `prereg_draft/REVIEW.md` and the defaults in
+   `DEVIATIONS.md`. Confirm or change each item.
+2. **A1:** implement A1's scoring in `run_all.py` from `a1_config.yaml`. Only
+   the candidate rule is wired now.
+3. **Matching criterion:** define it for the negatives' cutoffs, or confirm
+   the unmatched seeded draw.
+4. **Dev packets and curation:**
+   `run_all.py --split dev --stages packets,curation`. Check the worktree
+   exclusions, the deny rules, the transcript audit and the
+   `claude -p` flags on a real session.
+5. **Dev arms and scoring:** `--split dev --stages arms,scoring,analysis`.
+   Measure real tokens and times, and replace the dry-run assumptions (`EST`
+   in `run_all.py`).
+6. **Freeze:** the prompts, schema, A1 configuration, rubrics and matcher. No
+   tuning on test data.
+7. **Preregister:** tag prereg-v1 and register on OSF.
+8. **Held-out run:** run the test split
+   (`--split test --confirm-heldout I-HAVE-PREREGISTERED`), then human
+   adjudication, then the final analysis.
 
 ## Decisions
 
@@ -66,24 +89,51 @@ drafts.
   - **Rule:** each negative takes the cutoff of a test case drawn at random
     (seed 20261114) from the cases it is matched to. A4 uses that cutoff's
     year.
-  - **Not yet done:** the matching criterion is not yet defined, so the
-    assignment has not been run.
+  - **Provisional assignment:** no matching criterion is defined yet. For now
+    the negative slots N01–N18 take the cutoffs of 18 test cases drawn with
+    `random.Random(20261114).sample`, one per slot (`negatives.tsv`,
+    `matched_case`).
+  - **Literature check:** every negative is checked at its slot's cutoff, with
+    the same query and packet minimum as the cases
+    (`negatives_literature_check.tsv`).
+- **Negatives' cutoffs, frozen.** The slot-to-case assignment is frozen in
+  `draw_negatives.py` (SLOT_CASE). A slot reads its case's current cutoff, so
+  re-dating C056 moved N11 to 2003-12-31. N11 still passes at 31 records.
 - **Negatives expansion.**
   - **Draw:** `draw_negatives.py` drew 12 diseases (seed 20261114) from
     `coverage.tsv`. The pool was entries with at least one measurable node
-    and no accessible test, 232 in all.
-  - **Usability:** each drawn disease was judged usable for the primary H3
-    analysis or not (`negatives.tsv`, columns `h3_usable` and
-    `h3_usable_basis`).
-    - **Usable (10):** their measurable nodes are real accessible-specimen
-      readouts.
-    - **Not usable (2):** the MKB-type blepharophimosis syndrome node is a
-      cultured-cell response, and the choroid plexus neoplasm node is a CSF
-      production process no assay measures.
-  - **Total usable:** with the 3 original negatives that have measurable
-    nodes, **13 negatives are usable**.
+    and no accessible test, 232 in all. Later draws continue the same seeded
+    stream.
+  - **Replacements:**
+    - **By decision:** N12 (maculopapular cutaneous mastocytosis) and N13
+      (SRD5A3-CDG) were replaced by the next draws.
+    - **For literature:** a drawn negative below `packet_minimum` at its
+      slot's cutoff is redrawn. 25 draws failed for that reason and 1 had no
+      MONDO ID (`negatives_replaced.tsv`, 28 rows in all).
+    - **By screen (default, pending Chris):** N10 (aortitis), N13
+      (Kearns-Sayre syndrome) and N17 (melanotic neuroectodermal tumour of
+      infancy) were replaced.
+      - **What it rejects:** a draw whose standard diagnostic criteria
+        include an accessible-specimen test.
+      - **How it decides:** from the kb entry's diagnosis and definitions
+        items, from a measurable node described as diagnostic, or from a
+        recorded judgment.
+      - **How it runs:** as a second phase, so the earlier slots are
+        reproduced exactly.
+      - **Result:** 19 further draws were rejected or failed the literature
+        check before the slots settled on DIRA, lipoprotein glomerulopathy
+        and congenital hydrocephalus. Congenital hydrocephalus is not
+        usable.
+  - **Usability:** each negative is judged usable for the primary H3
+    analysis or not (`h3_usable`, `h3_usable_basis`), from its measurable
+    nodes.
+  - **Total usable:** 11 negatives are usable and pass the literature
+    check.
   - **Rule:** H3 would have become exploratory below 10 usable negatives. At
-    13 it stays confirmatory.
+    11 it stays confirmatory.
+  - **Selection effect:** the literature check removes most very rare
+    disorders at early cutoffs. The surviving draws lean towards common
+    diseases such as juvenile idiopathic arthritis and psoriasis.
 - **Decoy D009 dropped.** Alzheimer disease was both a decoy (D009) and dev
   case C003, so D009 is removed from `decoys.tsv`. `decoy_screen.tsv` still
   records the screening decision that kept it.
@@ -96,7 +146,8 @@ drafts.
   - **Leakage:** checked within the one family by A4 (disease name and
     cutoff year only) and by the T4 leakage alarm (see *Scoring*).
   - **Limitation:** recorded under *Limitations*.
-- **Power.** The test set is 42 cases in 33 test-group clusters.
+- **Power.** The test set is 41 cases in 33 test-group clusters (42 before
+  C036 was excluded).
   - **H1:** its exact McNemar test is powered only for large effects (see
     *Analysis plan*).
   - **Reporting:** every comparison reports its effect size with a 95% CI:
@@ -149,8 +200,11 @@ primary.
     cluster.
   - The primary H3 analysis uses only positive cases and negatives whose graph
     has at least one node passing the coverage audit's measurable-node rule
-    (see *Coverage audit*), that is the 13 negatives marked `h3_usable` in
-    `negatives.tsv`. AUROC over all cases and negatives, and the
+    (see *Coverage audit*): the 11 negatives in `negatives.tsv` marked
+    `h3_usable` yes that also pass the literature check. AUROC is reported
+    pooled and within tertiles of packet size. This guards against
+    confidence tracking how much pre-cutoff literature a disease has, since
+    the negatives skew common. AUROC over all cases and negatives, and the
     results stratified by coverage, are also reported.
 - **H3, decoys:** scored separately. For each arm, the fraction of decoy
   diseases (`decoys.tsv`) where the decoy biomarker appears in the arm's top
@@ -171,7 +225,7 @@ primary.
 | A4 | Disease name and cutoff year only | LLM prompted "It is <cutoff year>…", same candidate schema |
 | A5 | A2 with the causal edges scrambled | As A2 |
 | A6 | A2 with a path ablated | As A2 |
-| A7 | The entry at `PINNED_COMMIT`, with the test's own `diagnosis`/`biochemical` rows and every node or evidence item containing a banned term removed | As A2 |
+| A7 | The entry at `PINNED_COMMIT`, with the test's own `diagnosis`/`biochemical` rows and every node or evidence item containing a leakage term removed | As A2 |
 
 Every LLM arm uses one model family, named in `RUN_CONFIG.yaml`.
 
@@ -366,9 +420,32 @@ excluded by an eligibility rule and 3 are KB gaps.
     source's opening text, which the reviewer supplied and which is kept
     locally and not committed.
   - **C009.** Its abstract names no specimen. The reviewer accepted the
-    anti-tTG ELISA as serum-based without checking the full text.
-- **Current dating status (57 cases):** 41 ACCEPTED, 6 MAJORITY_VERIFIED, 9
-  HUMAN_VERIFIED and 1 HUMAN_EXCLUDED. None is awaiting review.
+    anti-tTG ELISA as serum-based without checking the full text. The cutoff
+    stays 1997-12-31 (default, pending Chris).
+- **C056 re-dated (default, pending Chris).** C056 was MAJORITY_VERIFIED on
+  PMID:16453327 (2006). It is re-dated to PMID:15589308 (Lennon 2004,
+  cutoff 2003-12-31), the same report as C040, which tested syndromes at high
+  risk of NMO, including LETM.
+  - **How:** a review row whose notes begin "RE-DATED" may overrule a
+    verified date in `build_dating.py`.
+  - **Checks:** `check_dating.py` confirms the date and quote, and the case
+    passes the literature check at 453 records.
+  - **Readiness:** "no", because its earlier readiness paper (Aug 2005) now
+    postdates the cutoff.
+- **C036 excluded (default, pending Chris).** C036 is excluded as
+  NOT_NEW_ANALYTE: copeptin was in use for central DI by 2011
+  (PMID:21367924).
+  - **Where recorded:** `post_dating_decisions.tsv`, which is propagated like
+    the other post-dating exclusions.
+- **Current dating status (57 cases):**
+  - 41 ACCEPTED, of which 7 are dropped by the literature check and C036 is
+    excluded;
+  - 5 MAJORITY_VERIFIED;
+  - 10 HUMAN_VERIFIED, of which C048 and C049 are dropped by the literature
+    check;
+  - 1 HUMAN_EXCLUDED.
+
+  None is awaiting review.
 - **Mechanistic readiness.** `build_dating.py` writes `dating.tsv` and records
   a mechanistic-readiness judgment for every ACCEPTED, ACCEPTED_FLAGGED and
   MAJORITY_VERIFIED case, and for every HUMAN_VERIFIED one. The former
@@ -429,69 +506,74 @@ excluded by an eligibility rule and 3 are KB gaps.
 
 ### Case counts
 
-| test_class | Cases | Verified (PASS) | Dropped (insufficient literature) | Excluded in review | Pending |
+| test_class | Cases | Verified (PASS) | Dropped (insufficient literature) | Excluded (review or decision) | Pending |
 |---|---|---|---|---|---|
 | AUTOANTIBODY | 24 | 23 | 1 | 0 | 0 |
 | METABOLITE | 12 | 8 | 3 | 1 | 0 |
-| SECRETED_PROTEIN | 7 | 7 | 0 | 0 | 0 |
+| SECRETED_PROTEIN | 7 | 6 | 0 | 1 | 0 |
 | OTHER | 7 | 4 | 3 | 0 | 0 |
 | ENZYME_ACTIVITY | 5 | 3 | 2 | 0 | 0 |
 | CELL_SURFACE_MARKER | 1 | 1 | 0 | 0 | 0 |
 | SOMATIC_VARIANT | 1 | 1 | 0 | 0 | 0 |
-| **Total** | **57** | **47** | **9** | **1** | **0** |
+| **Total** | **57** | **46** | **9** | **2** | **0** |
 
 - **Dropped for literature (9):** anti-NMDAR encephalitis, congenital TTP,
   Immunodeficiency 18, Immunodeficiency 19, MNGIE ×2, Revesz syndrome, and
   RCDP types 1 and 5 (C048, C049).
-- **Excluded in review (1):** C007, Barth syndrome (WRONG_SPECIMEN).
-- **Where they are recorded.** All 10 stay listed in `literature_check.tsv`
+- **Excluded (2):**
+  - C007, Barth syndrome (WRONG_SPECIMEN, human review);
+  - C036, neurohypophyseal DI (NOT_NEW_ANALYTE, default, pending Chris).
+- **Where they are recorded.** All 11 stay listed in `literature_check.tsv`
   and `cases.tsv`, marked EXCLUDED, and their frame rows are EXCLUDE in
   `eligibility.tsv`.
-- **`dating.tsv`** holds the other 47, in 38 test groups. All are verified.
-- **Verified (47):** 34 ACCEPTED, 6 MAJORITY_VERIFIED and 7 HUMAN_VERIFIED,
-  in 38 test groups.
-  - 41 are FIRST and 6 IMPROVEMENT.
-  - Mechanistic readiness is "yes" for 40 and "no" for 7.
+- **`dating.tsv`** holds the other 46, in 38 test groups. All are verified.
+- **Verified (46):** 33 ACCEPTED, 5 MAJORITY_VERIFIED and 8 HUMAN_VERIFIED.
+  - 41 are FIRST and 5 IMPROVEMENT.
+  - Mechanistic readiness is "yes" for 38 and "no" for 8.
 - **Pending (0):** `pending_cases.txt` is empty.
 
 ## Controls
 
 - **Negatives** (`negatives.tsv`): 18 diseases with no accepted
-  accessible-specimen confirmatory test, 13 of them usable for the primary H3
-  analysis. Each row gives:
+  accessible-specimen confirmatory test, in slots N01–N18. 12 of them are
+  usable for the primary H3 analysis. Each row gives:
   - the disease, its `kb/disorders/` file, MONDO term and label;
-  - `origin`;
-  - the measurable nodes;
+  - its origin;
+  - its measurable nodes;
   - `h3_usable` with its basis;
-  - `monogenic_germline`.
+  - `monogenic_germline`;
+  - its matched case and cutoff;
+  - its literature-check count and ruling.
 
-  The groups:
-  - **Original six** (`origin` ORIGINAL): hypermobile EDS, Kawasaki disease,
-    sarcoidosis, Behçet's disease, CRPS type 1 and Takayasu arteritis.
-    Kawasaki disease, sarcoidosis and Takayasu arteritis have measurable
-    nodes and are usable.
-  - **Drawn twelve** (`origin` DRAW_SEED_20261114, `draw_negatives.py`; see
-    *Decisions*). Ten are usable:
-    - dystroglycanopathy;
-    - mitochondrial DNA depletion syndrome 17;
-    - NAD(P)HX epimerase deficiency;
+  The 18:
+  - **Usable (11):**
+    - Kawasaki disease, sarcoidosis and Takayasu arteritis (original);
+    - juvenile idiopathic arthritis;
+    - congenital merosin-deficient muscular dystrophy 1A;
+    - deficiency of the interleukin-1 receptor antagonist (DIRA);
     - autosomal dominant limb-girdle muscular dystrophy;
-    - maculopapular cutaneous mastocytosis;
-    - SRD5A3-CDG;
-    - lung disease, immunodeficiency and chromosome breakage syndrome;
+    - lipoprotein glomerulopathy;
+    - psoriasis;
     - angiomatoid fibrous histiocytoma;
-    - inclusion body myopathy with Paget disease and FTD;
-    - severe X-linked mitochondrial encephalomyopathy.
-
-    Not usable: MKB-type blepharophimosis syndrome and choroid plexus
-    neoplasm.
-  - **Germline diseases.** Seven of the ten usable drawn diseases are
-    monogenic germline disorders. Their real diagnostic route is germline
-    sequencing, which this experiment excludes by scope (see *Limitations*).
-  - **Coverage audit.** `coverage_audit/audit.py` reads `negatives.tsv`.
-    Rerun, it would label the drawn diseases NEGATIVE in `coverage.tsv`
-    rather than frame entries. It has not been rerun. The draw does not read
-    that label, so it is unaffected.
+    - peeling skin syndrome.
+  - **Not usable (7):**
+    - hypermobile EDS: no measurable node, and only 2 records at its 1987
+      cutoff;
+    - Behçet's disease and CRPS type 1: no measurable node;
+    - soil-transmitted helminthiases: an infectious disease confirmed by
+      stool microscopy;
+    - hereditary angioedema: C1-inhibitor and C4 are accessible tests in
+      clinical use;
+    - choroid plexus neoplasm and congenital hydrocephalus: their nodes are
+      CSF processes that no assay measures.
+  - **Germline diseases.** Five of the 11 usable negatives are monogenic
+    germline disorders.
+  - **Screen applies to draws only.** The accessible-test screen applies to
+    drawn negatives. The original six were not screened, and Kawasaki
+    disease's entry lists blood tests.
+  - **Coverage audit.** `coverage_audit/audit.py` reads `negatives.tsv`, but
+    it has not been rerun. The draw does not read the audit's
+    NEGATIVE/frame label, so a rerun would not change it.
 - **Decoys** (`decoys.tsv`): 10 disease–biomarker pairs, from 8 PubMed records,
   where a proposed diagnostic biomarker failed replication.
   - **Query:** one fixed query, recorded verbatim with its run date and 48
@@ -544,14 +626,14 @@ the committed version.
 | C044 | METABOLITE | serum 7-alpha-hydroxy-4-cholesten-3-one | Primary Bile Acid Malabsorption |
 | C050 | OTHER | TREC newborn screening | Severe Combined Immunodeficiency |
 
-**Test set** (`test_set.txt`): every other verified case, **42** in 33 test
+**Test set** (`test_set.txt`): every other verified case, **41** in 33 test
 groups.
 
 | test_class | Test cases |
 |---|---|
 | AUTOANTIBODY | 22 |
 | METABOLITE | 7 |
-| SECRETED_PROTEIN | 6 |
+| SECRETED_PROTEIN | 5 |
 | OTHER | 3 |
 | ENZYME_ACTIVITY | 2 |
 | CELL_SURFACE_MARKER | 1 |
@@ -604,8 +686,8 @@ The audit has not been run on the positive cases or on time-sliced entries.
 
 ## Curation protocol
 
-Planned. None of this has been run, and no packet, banned-term list or
-time-sliced entry is committed.
+Planned. None of this has been run, and no packet or time-sliced entry is
+committed. Draft rubrics, with their leakage terms, are in `rubrics/`.
 
 - **Packets.** For each case, `build_packet.py` builds a PubMed literature packet
   from a query and `--maxdate` (the cutoff). It keeps records with an abstract
@@ -614,15 +696,16 @@ time-sliced entry is committed.
 - **Gate.** `check_cutoff.py` fails a time-sliced entry that does any of these:
   - cites a PMID outside its packet;
   - cites a non-PMID reference;
-  - contains a banned post-cutoff term;
+  - contains a leakage term that is not in its packet (see *Leakage
+    measures*);
   - keeps present-day `has_subtypes`;
   - has a pathophysiology node with no evidence.
 - **Replicates.** Two independent curation replicates per case. Each runs in
   an isolated git worktree with the packet pre-loaded, and web tools and
   ad-hoc fetching denied (see *Enforcement*).
 - **Answer-bearing files excluded** from each worktree:
-  - every repository file outside `experiments/` that matches the case's
-    banned terms;
+  - every repository file outside `experiments/` that contains one of the
+    case's leakage terms with `in_packet` no;
   - all of `references_cache/` except the packet's PMIDs, which are
     pre-fetched before the session;
   - everything in `experiments/diagnostic_retrodiction/` except the case's
@@ -655,7 +738,8 @@ time-sliced entry is committed.
 In place now:
 - `build_packet.py` dates each record by the earlier of its issue and
   e-publication dates.
-- `check_cutoff.py` enforces packet-only citation and the banned-term list.
+- `check_cutoff.py` enforces packet-only citation, and its `--banned` list
+  will be fed each case's leakage terms with `in_packet` no.
 - Screener inputs carried frame columns only (`select_screenerB.py`,
   `select_screenerB2.py`).
 - No dev case shares a test_group with a test or pending case.
@@ -666,25 +750,44 @@ Known and not yet closed:
 - **Bookshelf dates.** PubMed dates Bookshelf chapters (GeneReviews) 1993, the
   start of the series, so they can pass a date filter they should fail. They
   appeared as false earlier hits in `check_dating.py` output.
-- **Banned terms.** The lists are not written yet. Each will be generated per
-  case, then checked by a human, from:
-  - the rubric's T4 analyte: its term label and synonyms via OAK;
-  - the analyte's gene symbol;
-  - the names of subtypes defined by the analyte.
-
-  `check_cutoff.py --banned` reads the list, one term per line.
+- **Leakage terms** (`leakage_terms` in each rubric, drafted, under review).
+  - **What they are:** the names, synonyms and abbreviations of the case's
+    test and analyte.
+  - **Never stripped:** packets are pre-cutoff by construction, so whatever
+    a packet contains is legitimate input, and nothing is removed from it.
+  - **`in_packet`:** each term is marked yes when it co-occurs with the
+    disease in PubMed on or before the cutoff, from the rubric's
+    co-occurrence count, and no otherwise.
+  - **Alarm (planned, to be built with `audit_transcript.py`):** a leakage
+    term that is absent from the case's packet but appears in a curated
+    time-sliced entry or in an arm's output is a leakage alarm. A term that
+    is in the packet cannot raise one.
+  - **Generic terms:** terms too generic to tell apart from ordinary text
+    ("GAD", "C4", "NAA", tau) are left out of the list, so they cannot raise
+    false alarms.
+- **Arm display names** (`arm_display_name` in each rubric).
+  - **What arms see:** an arm sees only this disease name, which is a
+    pre-cutoff name with no test, analyte or antibody in it. For example
+    "neuromyelitis optica", not the NMOSD entry named after AQP4 antibodies.
+  - **Subset text:** a case's subset text (for example "MOG-IgG-positive
+    optic neuritis") never appears in an arm prompt.
+  - **Checks:** each name is checked by PubMed count before the cutoff, and
+    against the case's leakage terms.
+  - **"NMO" alone is not an alarm** for C037, C040 and C056. Leakage terms
+    match whole and exact, so an arm told "neuromyelitis optica" can write
+    "NMO" without matching "NMO-IgG".
 - **Training data.** The LLM arms' training data post-dates every cutoff (see
   *Limitations*).
 
 ## Scoring and adjudication
 
-Each case gets a rubric in `rubrics/`. None is written yet. The tiers are
-judged against it:
+Each case gets a rubric in `rubrics/` (drafts, one YAML per case and per
+negative, written by `build_rubrics.py`). The tiers are judged against it:
 
 | Tier | A candidate reaches it when |
 |---|---|
 | T1 | its mechanism class matches the rubric's, by ontology subsumption |
-| T2 | its `analyte_type` equals the rubric's, its specimen is in the rubric's allowed set, and its target term is subsumed by the rubric's target class. This is the primary endpoint's threshold. |
+| T2 | its `analyte_type` equals the rubric's, its specimen is in the rubric's allowed set, and its target is one of the members of the rubric's target class (an anchor term plus an explicit member list). A rubric may list more than one accepted T2 definition. An analyte already in clinical diagnostic use for the disease at the cutoff reaches T1 only (`t1_only_in_clinical_use`). This is the primary endpoint's threshold. |
 | T3 | the discovery experiment it proposes matches the rubric's description (adjudicated) |
 | T4 | it names the exact analyte, by ID or synonym. T4 on a case the rubric marks unreachable is a leakage alarm. |
 
@@ -708,9 +811,8 @@ judged against it:
   - a sensitivity analysis keeping one case per test_group: the case with the
     earliest cutoff, ties broken by case_id;
   - a cluster bootstrap over test groups.
-- **Sample size.** The test set holds 42 cases in 33 test groups. No case
-  is pending, so this is the final size unless C048 and C049 are restored by
-  aliases (at most 44). Exact two-sided McNemar at
+- **Sample size.** The test set holds 41 cases in 33 test groups. No case is
+  pending, so this is the final size unless an exclusion is reversed. Exact two-sided McNemar at
   α = 0.05 reaches significance only with enough discordant pairs:
 
   | Discordant pairs | Split needed |
@@ -727,12 +829,16 @@ judged against it:
 
 ## Pending before prereg-v1
 
-- [ ] Define the matching criterion for the negatives' cutoffs and run the
-  seeded assignment (seed 20261114).
-- [ ] Write the per-case rubrics and, from them, the banned-term lists.
-- [ ] Write `audit_transcript.py`, A1's node-type → `analyte_type` table and
-  A1's weights, and freeze them before the dev set is run.
-- [ ] Write the prompts, the candidate schema and `DEVIATIONS.md`.
+- [ ] Define the matching criterion for the negatives' cutoffs, which are
+  provisionally an unmatched seeded draw.
+- [ ] Review and freeze the draft rubrics, their leakage terms and display
+  names.
+- [ ] Review the judgment calls in `prereg_draft/REVIEW.md` and the defaults
+  in `DEVIATIONS.md`.
+- [ ] Implement A1's scoring from `a1_config.yaml`.
+- [ ] Freeze `audit_transcript.py`, `a1_config.yaml`, the prompts, the
+  schemas, `match.py` and `analysis.py` after the dev run, before the test
+  run.
 - [ ] Register on OSF.
 
 ## Limitations
@@ -773,12 +879,23 @@ judged against it:
   shows that the findings hold for another family's models, or for a model
   whose training predates the cutoffs. Leakage is checked only within the
   family, by A4 and the T4 alarm.
-- **Germline negatives.** Seven of the 13 usable negatives are monogenic
+- **Germline negatives.** Five of the 11 usable negatives are monogenic
   germline disorders. They lack an accessible test only because this
   experiment excludes germline sequencing, so an arm that proposes nothing
   non-genetic for them is not recognising a disease with no test.
+- **Negatives skew common.** Redrawing negatives that fail the literature
+  check favours common diseases. Negatives and positives therefore differ in
+  how much pre-cutoff literature they have, which H3's confidence comparison
+  can pick up.
 - **Mechanistic-readiness and flag assessments are one agent's judgment** from
   titles and abstracts.
+- **Two cases cannot raise a leakage alarm.** For C015 and C016 every leakage
+  term is already in the packet, so a leak shows only as an unusually good
+  result, not as an alarm.
+- **Temperature not set.** claude-opus-5-5 accepts no sampling parameters,
+  so every LLM call runs at the model's default sampling. The protocol's
+  temperature 0 is not applied; repeated runs measure that variability
+  (DEVIATIONS.md, F1).
 
 ## Files
 
@@ -836,7 +953,8 @@ judged against it:
 | `dating.agentC.tsv` | agent C's discovery PMIDs and quotes |
 | `dating_checks/agentC.checked.tsv` | `check_dating.py` output for agent C |
 | `build_dating.py` | merges the agents into `dating.tsv`; writes flags and spot-check |
-| `dating.tsv` | the 47 dated cases not excluded after dating |
+| `dating.tsv` | the 46 dated cases not excluded after dating |
+| `post_dating_decisions.tsv` | exclusions decided after dating that are not review outcomes (C036) |
 | `dating_flags.tsv` | the 16 cases A and B did not settle cleanly, with assessments and agent C's PMID |
 | `make_review_sheet.py` | writes the human review sheet and its TSV |
 | `dating_review_sheet.md` | the 10 cases sent to human review, candidates first |
@@ -850,8 +968,22 @@ judged against it:
 | `literature_check.tsv` | the literature check for all 57 cases, with aliases |
 | `literature_recount.py` | recount under plain disease names |
 | `literature_recount.tsv` | that recount, for the 17 cases that first failed |
-| `negatives.tsv` | 18 negative-control diseases (6 original, 12 drawn), with H3 usability |
-| `draw_negatives.py` | the seeded draw of the 12 added negatives |
+| `negatives.tsv` | 18 negative-control diseases with H3 usability, cutoff and literature check |
+| `draw_negatives.py` | seeded draw and redraw of the added negatives, their cutoffs and literature check |
+| `negatives_replaced.tsv` | every drawn negative that was replaced, and why |
+| `negatives_literature_check.tsv` | the literature check of each negative at its cutoff |
+| `build_rubrics.py` | writes the draft rubrics and `rubrics/rubrics_review.md` |
+| `rubrics/` | draft rubrics: one YAML per case (`Cnnn`) and per negative (`Nnn`), and `rubrics_review.md` |
+| `DEVIATIONS.md` | every protocol change since the first README draft, with its status |
+| `prereg_draft/REVIEW.md` | every open judgment call, one line each |
+| `audit_transcript.py` | the curation transcript audit |
+| `tests/` | unit tests for the audit, the matcher and the analysis (synthetic data) |
+| `a1_config.yaml` | A1's node-type → analyte_type table and weights |
+| `schemas/candidate.yaml`, `schemas/adjudication.yaml` | arm output and adjudication schemas |
+| `prompts/` | curation, arm system prompt, A2, A3, A4, probe and adjudication prompts (and `screenerC2.md`) |
+| `match.py` | automatic T2/T4 matching and alarms |
+| `analysis.py` | endpoint analysis (PROVISIONAL until human adjudication) |
+| `run_all.py` | resumable orchestrator with `--dry-run` |
 | `find_decoys.py` | runs the fixed decoy query and maps hits to kb files |
 | `decoy_query.txt` | the decoy query, run date and hit count |
 | `decoy_candidates.tsv` | all 48 hits with MeSH, MONDO and kb matches |
@@ -859,11 +991,10 @@ judged against it:
 | `decoys.tsv` | the 10 decoy disease–biomarker pairs (D009 dropped) |
 | `make_split.py` | checks the frozen dev set; writes the test and pending lists |
 | `dev_set.txt` | 5 dev cases (frozen) |
-| `test_set.txt` | 42 test cases |
+| `test_set.txt` | 41 test cases |
 | `pending_cases.txt` | cases awaiting cutoff verification (now none) |
 | `coverage_audit/audit.py` | the pathograph coverage audit |
 | `coverage_audit/FINDINGS.md` | its definitions, results and review |
 | `coverage.tsv` | one row per audited disease |
 | `build_packet.py` | builds a date-limited PubMed packet |
 | `check_cutoff.py` | gates a time-sliced entry against its packet |
-| `prompts/`, `rubrics/`, `schemas/` | `prompts/` holds only `screenerC2.md`; the others are empty |

@@ -7,8 +7,7 @@ Usage:
     uv run python experiments/diagnostic_retrodiction/build_packet.py \
         --term '"Glomerulonephritis, Membranous"[MeSH Terms]' \
         --maxdate 2008/12/31 \
-        --out experiments/diagnostic_retrodiction/Membranous_Nephropathy-pre2009/packet \
-        --email you@example.org
+        --out experiments/diagnostic_retrodiction/Membranous_Nephropathy-pre2009/packet
 """
 from __future__ import annotations
 
@@ -28,14 +27,16 @@ MONTHS = {m: i for i, m in enumerate(
 
 
 def get(endpoint: str, params: dict) -> bytes:
-    url = f"{EUTILS}/{endpoint}?{urllib.parse.urlencode(params)}"
+    """POST to E-utilities. The parameters (including any api_key) go in the request body, never in the
+    URL, and an exception is reported by type only, since its text can echo the request."""
+    body = urllib.parse.urlencode(params).encode()
     for attempt in range(5):
         try:
-            with urllib.request.urlopen(url, timeout=60) as r:
+            with urllib.request.urlopen(urllib.request.Request(f"{EUTILS}/{endpoint}", data=body), timeout=60) as r:
                 return r.read()
-        except Exception:
+        except Exception as e:
             if attempt == 4:
-                raise
+                raise SystemExit(f"{endpoint} failed ({type(e).__name__})") from None
             time.sleep(2 * (attempt + 1))
     raise RuntimeError("unreachable")
 
@@ -66,12 +67,14 @@ def main() -> None:
     ap.add_argument("--term", required=True, help="PubMed query WITHOUT a date clause")
     ap.add_argument("--maxdate", required=True, help="YYYY/MM/DD, inclusive")
     ap.add_argument("--out", required=True, type=Path)
-    ap.add_argument("--email", required=True)
+    ap.add_argument("--email", default="", help="optional; sent to NCBI only if given (no personal address by default)")
     ap.add_argument("--api-key", default=os.environ.get("NCBI_API_KEY"))
     a = ap.parse_args()
 
     cutoff = dt.date(*map(int, a.maxdate.split("/")))
-    base = {"db": "pubmed", "email": a.email, "tool": "dismech-retrodiction"}
+    base = {"db": "pubmed", "tool": "dismech-retrodiction"}
+    if a.email:
+        base["email"] = a.email
     if a.api_key:
         base["api_key"] = a.api_key
     term = f"({a.term}) AND hasabstract"

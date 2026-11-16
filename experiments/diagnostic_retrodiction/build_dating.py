@@ -29,6 +29,8 @@ case that was still ACCEPTED_FLAGGED or NOT_ACCEPTED after agent C.
     year before) must equal the reviewer_cutoff the person wrote, or the
     script stops. quote_ok is that check's (NA when PubMed has no abstract;
     the reviewer then judged from the title, full text or source).
+  A review row whose notes begin "RE-DATED" may also overrule a verified
+  (MAJORITY_VERIFIED or ACCEPTED) date.
   - EXCLUDE_CASE: dating_status HUMAN_EXCLUDED. The case is kept in
     dating_flags.tsv and literature_check.tsv but left out of dating.tsv.
 Readiness for a HUMAN_VERIFIED case is its READINESS judgment, made by the same
@@ -287,7 +289,9 @@ READINESS = {
     ("Statin Toxicity", "anti-HMGCR antibodies"): "14609738",
     # Only pre-1993 amphiphysin paper (PMID:1628617) describes the protein, not stiff person syndrome.
     ("Stiff Person Syndrome", "anti-amphiphysin antibodies"): "no",
-    ("Transverse Myelitis", "AQP4-IgG"): "16087714",
+    # Re-dated to the 2003 cutoff (PMID:15589308), which 16087714 (Aug 2005) postdates; the same
+    # judgment as the other 2003 AQP4-IgG cases.
+    ("Transverse Myelitis", "AQP4-IgG"): "no",
     # HUMAN_VERIFIED cases that were NOT_ACCEPTED before review, judged 2026-11-16 by the same method.
     ("Childhood Absence Epilepsy", "CSF glucose (hypoglycorrhachia)"): "12752470",
     ("Heparin-Induced Thrombocytopenia", "anti-PF4/heparin IgG immunoassay"): "2709525",
@@ -416,7 +420,7 @@ def main() -> None:
             row["mechanistic_readiness"] = "no" if READINESS[k] == "no" else f"yes PMID:{READINESS[k]}"
         rv = review.get(c["case_id"])
         if rv is not None and rv["decision"]:
-            if status not in ("ACCEPTED_FLAGGED", "NOT_ACCEPTED"):
+            if status not in ("ACCEPTED_FLAGGED", "NOT_ACCEPTED") and not rv["notes"].startswith("RE-DATED"):
                 sys.exit(f"{c['case_id']}: human review given for a {status} case")
             if rv["decision"] == "EXCLUDE_CASE":
                 status = "HUMAN_EXCLUDED"
@@ -495,6 +499,9 @@ def main() -> None:
             sys.exit("literature_check.tsv does not cover exactly the cases; rerun it on --full-out output")
         dropped = {cid for cid, r in lit.items() if r["lit_ruling"] == "INSUFFICIENT_PRE_CUTOFF_LITERATURE"}
     dropped |= {r["case_id"] for r in rows if r["dating_status"] == "HUMAN_EXCLUDED"}
+    dec_path = HERE / "post_dating_decisions.tsv"  # exclusions decided after dating, not by review
+    if dec_path.exists():
+        dropped |= {r["case_id"] for r in read_tsv(dec_path)}
     if "case_status" in cases[0]:
         marked = {c["case_id"] for c in cases if c["case_status"] == "EXCLUDED"}
         if marked != dropped:

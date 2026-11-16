@@ -5,6 +5,10 @@ Two kinds of exclusion are decided only once a case has been dated:
                                       the packet minimum (check_pretest_era.py)
   WRONG_SPECIMEN                      dating_human_review.tsv records EXCLUDE_CASE
                                       with a note starting "WRONG_SPECIMEN"
+  any code in post_dating_decisions.tsv
+                                      exclusions decided after dating that are not
+                                      review outcomes (e.g. NOT_NEW_ANALYTE), with
+                                      who decided and when
 
 Every frame row of such a case (cases.tsv source_frame_rows) is listed, keyed by
 its index among the flagged frame rows, which is what build_eligibility.py
@@ -49,6 +53,10 @@ def main() -> None:
                 sys.exit(f"{r['case_id']}: excluded twice")
             excl[r["case_id"]] = ("WRONG_SPECIMEN",
                                   f'human dating review {r["review_date"]}: {r["notes"].split(":", 1)[1].strip()}')
+    for r in read_tsv(EXP / "post_dating_decisions.tsv"):
+        if r["case_id"] in excl:
+            sys.exit(f"{r['case_id']}: excluded twice")
+        excl[r["case_id"]] = (r["code"], f'{r["detail"]} ({r["decided_by"]}, {r["decision_date"]})')
     out = []
     for cid in sorted(excl):
         code, detail = excl[cid]
