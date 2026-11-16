@@ -5301,6 +5301,45 @@ window.searchData = [
     "source_file": "kb/disorders/Cystic_Fibrosis.yaml"
   },
   {
+    "model_key": "Drug-Induced_Phospholipidosis_Module--computational-model-sar-qsar-models-of-carboxylic-acid-hepatic-lipid-accumulation--0",
+    "name": "SAR/QSAR models of carboxylic-acid hepatic lipid accumulation",
+    "description": "Structure-activity relationship (SAR) and quantitative structure-activity relationship (QSAR) models built on the high-content-screening results to identify the molecular substructures and descriptors that drive each lipid accumulation pattern, with physicochemical properties correlated to accumulation and two external datasets used to probe the applicability domain. The models predict the accumulation phenotype from chemical structure - for example implicating the presence of nitrogen and the arrangement of substitutions along the carbon chain - rather than observing the lysosomal mechanism, so they give a structure-based predictor of the phospholipidosis readout.",
+    "model_type": "Machine Learning",
+    "model_type_raw": "MACHINE_LEARNING",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:38428665",
+    "runnable": "Reference only",
+    "source_type": "Module",
+    "source_name": "Drug-Induced Phospholipidosis Module",
+    "disease_id": null,
+    "category": "",
+    "parents": [],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Intralysosomal Phospholipid Accumulation"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "Linked as the computational, structure-based counterpart of the HCS screen on the same node: the QSAR predicts the accumulation phenotype the HCS measures, which is why it carries a PROXY_QUANTITY divergence.",
+    "creation_date": "2026-11-13T00:00:00Z",
+    "page_url": "../../pages/modules/drug_induced_phospholipidosis.html#computational-model-sar-qsar-models-of-carboxylic-acid-hepatic-lipid-accumulation",
+    "model_page_url": "",
+    "source_file": "kb/modules/drug_induced_phospholipidosis.yaml"
+  },
+  {
     "model_key": "KEAP1-NRF2-ARE_Signaling_Module--computational-model-semi-mechanistic-nrf2-srxn1-dynamic-model--0",
     "name": "Semi-mechanistic NRF2-SRXN1 dynamic model",
     "description": "A semi-mechanistic mathematical model, fitted with a nonlinear mixed-effect approach with partially hierarchical parameters, of NRF2 and SRXN1 protein expression over time in HepG2 cells exposed, singly or repeatedly, to the NRF2-activating soft electrophiles sulforaphane, andrographolide, ethacrynic acid and CDDO-methyl across a wide concentration range. It reproduces the observed dynamics and concludes that NRF2 abundance alone does not set its transcription-factor activity \u2014 a cofactor or post-translational modification is required, in a time-, compound- and exposure-specific way.",
@@ -7327,8 +7366,8 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 151,
-  "total_source_entries": 66,
+  "total_models": 152,
+  "total_source_entries": 67,
   "total_model_types": 11,
   "total_runnable": 4,
   "total_with_repository": 58
