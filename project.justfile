@@ -1521,6 +1521,17 @@ alias validate-references := validate-kb-references
 count-verified-snippets *args:
     uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} --config {{ref_validator_config}} {{args}}
 
+# Sync signed fair-use excerpts from the PRIVATE monarch-initiative/claimstore
+# repo into signed_excerpts/. Needs read access to claimstore and a local clone,
+# at ../claimstore by default or wherever CLAIMSTORE_DIR points. Selection
+# (target_repo, referenced_in, prune) lives in conf/reference_validator_config.yaml.
+# Pass --check to report drift without writing. Commit the changed
+# signed_excerpts/*.yaml with the disorder files that quote them; CI validates
+# against the committed copy and never needs claimstore.
+[group('Research')]
+sync-signed-excerpts *args:
+    uv run linkml-reference-validator excerpts sync --config {{ref_validator_config}} --source "${CLAIMSTORE_DIR:-../claimstore}/signed_excerpts" {{args}}
+
 # Audit curated `clinical_trials` status/phase against live ClinicalTrials.gov.
 # A trial's `status:`/`phase:` are a snapshot taken at curation time and nothing
 # re-checks them: the trial registry is the one live-API reference source with no
