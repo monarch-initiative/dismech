@@ -76,7 +76,9 @@ def test_prose_use_of_restricted_does_not_hide_available_body():
         # phrase below MAX_STUB_NOTICE_CHARS, so a toy fixture would be
         # discarded for its size rather than kept for its structure, and would
         # pin the wrong behaviour.
-        + "<p>" + "Results paragraph. " * 200 + "</p>"
+        + "<p>"
+        + "Results paragraph. " * 200
+        + "</p>"
     )
     xml = f"<article><body><sec>{body}</sec></body></article>".encode()
 
@@ -351,7 +353,13 @@ def test_reference_validator_wrapper_treats_warning_only_exit_as_advisory(
 
     env = {**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}"}
     result = subprocess.run(
-        ["bash", "scripts/run_reference_validator.sh", "validate", "data", "dummy.yaml"],
+        [
+            "bash",
+            "scripts/run_reference_validator.sh",
+            "validate",
+            "data",
+            "dummy.yaml",
+        ],
         capture_output=True,
         check=False,
         env=env,
@@ -585,3 +593,51 @@ def test_a_cached_bot_challenge_page_is_never_evidence(tmp_path):
     )
 
     assert fetcher._load_from_disk(f"url:{BOOKSHELF_URL}") is None
+
+
+# --------------------------------------------------------------------------
+# Signed excerpts fallback (#171)
+# --------------------------------------------------------------------------
+
+
+def test_signed_excerpts_dir_verifies_exact_match_and_rejects_deviation(
+    tmp_path: Path,
+) -> None:
+    """Upstream #171: signed_excerpts_dir trusts exact fair-use quotes and flags edits."""
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    signed = tmp_path / "signed_excerpts"
+    signed.mkdir()
+
+    (cache / "PMID_999999.md").write_text(
+        "---\n"
+        "reference_id: PMID:999999\n"
+        f"extractor_version: {EXTRACTOR_CACHE_VERSION}\n"
+        "title: A paper with only an abstract cached\n"
+        "content_type: abstract_only\n"
+        "---\n\n# A paper with only an abstract cached\n\n## Content\n\nOnly the abstract is cached locally.\n",
+        encoding="utf-8",
+    )
+    (signed / "PMID_999999.yaml").write_text(
+        "reference_id: PMID:999999\n"
+        "excerpts:\n"
+        "  - text: Full-text sentence verified in claimstore.\n",
+        encoding="utf-8",
+    )
+
+    config = ReferenceValidationConfig(
+        cache_dir=cache,
+        signed_excerpts_dir=signed,
+        trust_cached_entries=True,
+    )
+    validator = SupportingTextValidator(config)
+
+    exact = validator.validate(
+        "Full-text sentence verified in claimstore.", "PMID:999999"
+    )
+    assert exact.is_valid
+
+    edited = validator.validate(
+        "Full-text sentence paraphrased locally.", "PMID:999999"
+    )
+    assert not edited.is_valid
