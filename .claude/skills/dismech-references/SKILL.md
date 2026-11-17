@@ -28,6 +28,15 @@ Use this workflow whenever evidence or its cited source changes.
   bundles are verified against full-text PDFs in `monarch-initiative/claimstore`
   and synced from there with `just sync-signed-excerpts` (needs claimstore read
   access; set `CLAIMSTORE_DIR` if the clone is not at `../claimstore`).
+- A `file:` reference (e.g. a committed supplement under
+  `data/literature_supplements/`) is read from disk on every run. Since
+  linkml-reference-validator 0.8.0 it is **not** cached: do not create or commit
+  a `references_cache/file_*.md` entry for one, and cite it by a path relative to
+  the repository root, never an absolute path.
+- `linkml-reference-validator excerpts sign` and the `local_full_text` settings
+  are not used in dismech. A quote matched against a private local file passes
+  on your machine and fails in CI; full-text quotes reach dismech only as
+  claimstore bundles via `just sync-signed-excerpts`.
 - Never use fuzzy auto-repair to rewrite snippets. Read the source and copy the
   exact passage, choose another source, or remove the evidence.
 - Treat deep-research output as leads, not ground truth.
