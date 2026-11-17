@@ -2989,7 +2989,10 @@ templates_dir := "templates"
 #   just validate-research-reference <the report that was written>
 #
 # To skip it (quick iteration, or no network):
-#   just dr_validation='' research-disorder falcon Marfan_Syndrome
+#   just dr_validation='--no-validate-references' research-disorder falcon Marfan_Syndrome
+# Not `dr_validation=''`: since deep-research-client 0.2.15 references are
+# validated by default, so an empty variable only drops our cache directory and
+# the run validates into ~/.deep_research_cache/references instead.
 dr_validation := "--validate-references --validation-cache-dir references_cache"
 
 # Ontology term validation applied to a deep-research report as it is generated
