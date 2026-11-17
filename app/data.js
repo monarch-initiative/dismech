@@ -26413,6 +26413,7 @@ window.searchData = [
       "Neuroinflammation",
       "Microglial TREM2 Signaling",
       "Axonal Transport Dysfunction",
+      "SARM1-Mediated Axon Degeneration",
       "Impaired Autophagy",
       "TDP-43-Driven Glycolytic Failure",
       "Endogenous Retrovirus Reactivation and TDP-43 Feedback"
@@ -26578,6 +26579,7 @@ window.searchData = [
       "TARDBP Mutations",
       "FUS Mutations",
       "NEK1 Variants",
+      "SARM1 Constitutively Active Variants",
       "ATXN2 Intermediate-Length Repeat Expansion",
       "ARHGEF28",
       "ARPP21",
@@ -26640,10 +26642,10 @@ window.searchData = [
     "source_file": "Amyotrophic_Lateral_Sclerosis.yaml",
     "page_url": "../pages/disorders/Amyotrophic_Lateral_Sclerosis.html",
     "num_phenotypes": 46,
-    "num_pathophysiology": 18,
-    "num_genes": 37,
+    "num_pathophysiology": 19,
+    "num_genes": 38,
     "num_treatments": 11,
-    "causal_graph_edges": "54",
+    "causal_graph_edges": "56",
     "causal_graph_longest_path": "5"
   },
   {
@@ -390368,7 +390370,8 @@ window.searchData = [
       "Rituximab",
       "Nintedanib",
       "Tofacitinib",
-      "Ianalumab"
+      "Ianalumab",
+      "Telitacicept"
     ],
     "environmental": [],
     "biochemical": [
@@ -390383,8 +390386,8 @@ window.searchData = [
     "num_phenotypes": 31,
     "num_pathophysiology": 6,
     "num_genes": 4,
-    "num_treatments": 7,
-    "causal_graph_edges": "1",
+    "num_treatments": 8,
+    "causal_graph_edges": "2",
     "causal_graph_longest_path": "1"
   },
   {
@@ -423709,8 +423712,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 8,
     "num_treatments": 18,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Tuberous Sclerosis Complex",
@@ -444501,12 +444504,12 @@ window.searchMetrics = {
   "total_disorder_pages": 4093,
   "total_subtypes": 5094,
   "total_disorders_and_subtypes": 9187,
-  "total_unique_evidence_sources": 61177,
-  "total_unique_publications": 57171,
+  "total_unique_evidence_sources": 61182,
+  "total_unique_publications": 57175,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4091,
-  "total_unique_pathological_events": 27013,
+  "total_unique_pathological_events": 27014,
   "total_modules": 235,
   "total_research_reports": 4196,
   "total_classifications": 21,
