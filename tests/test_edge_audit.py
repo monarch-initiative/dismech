@@ -150,7 +150,7 @@ def test_cli_filter_and_manifest(tmp_path):
     assert result.exit_code == 0, result.output
     manifest = json.loads((tmp_path / "output/manifest.json").read_text())
     assert manifest["assertion_types"] == ["TreatmentMechanismTarget"]
-    assert manifest["edge_prompt"]["version"] == "2"
+    assert manifest["edge_prompt"]["version"] == "2.1"
     assert manifest["inventory_counts"] == {"ready": 1}
     assert (
         CliRunner().invoke(main, ["--dry-run", "--assertion-type", "Typo"]).exit_code
@@ -184,3 +184,36 @@ def test_canonical_migration_preserves_old_scores_and_node_activity(tmp_path):
     (resumed,) = list(assess([node], fake, cache, 1))
     assert resumed["cached"]
     assert fake.calls == 3
+
+
+@pytest.mark.parametrize("edge", [False, True], ids=["node", "edge"])
+def test_quoted_caveat_reaches_all_questions_but_appraisal_does_not(edge):
+    doc = document()
+    node = doc["pathophysiology"][0]
+    ev = node["downstream"][0]["evidence"][0] if edge else node["evidence"][0]
+    finding = "The source increased the endpoint in three cell cultures."
+    caveat = " Larger studies are needed to assess generalizability."
+    ev.update(
+        snippet=finding + caveat,
+        supports="SUPPORT",
+        explanation="CURATOR APPRAISAL: preliminary evidence only.",
+    )
+    path = PATH if edge else "/pathophysiology/0/evidence/0"
+
+    def extract():
+        if edge:
+            return canonical_edge_claim(extract_edge_claim(doc, path))
+        return extract_claim(doc, path)
+
+    original = extract()
+    tasks = tasks_for(original)
+    for task in tasks:
+        assert task.state["selected_evidence"]["snippet"] == finding + caveat
+        assert task.state["selected_evidence"]["supports"] == "SUPPORT"
+        assert "CURATOR APPRAISAL" not in json.dumps(task.state)
+    original_key = cache_key("synthetic-model", tasks)
+    ev["explanation"] += " Do not generalize beyond the experiment."
+    assert cache_key("synthetic-model", tasks_for(extract())) == original_key
+    ev["snippet"] = finding
+    assert cache_key("synthetic-model", tasks_for(extract())) != original_key
+    assert input_key(extract()) != input_key(original)
