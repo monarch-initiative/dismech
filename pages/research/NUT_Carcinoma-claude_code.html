@@ -1,0 +1,2560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NUT Carcinoma · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>NUT Carcinoma</span>
+            </div>
+
+            <header class="report-header">
+                <h1>NUT Carcinoma</h1>
+                
+                <p class="report-subtitle">NUT Carcinoma (MONDO:0005563) — Comprehensive Disease Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-11-11</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005563" target="_blank" rel="noopener noreferrer">MONDO:0005563</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-opus-5</span>
+                    
+                    
+                    <span class="meta-chip">56 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>NUT Carcinoma (<a href="http://purl.obolibrary.org/obo/MONDO_0005563" target="_blank" rel="noopener noreferrer">MONDO:0005563</a>) — Comprehensive Disease Characteristics Research Report</h1>
+<p><strong>Prepared:</strong> 11 November 2026
+<strong>Target:</strong> NUT carcinoma (NC), formerly NUT midline carcinoma (NMC)
+<strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005563" target="_blank" rel="noopener noreferrer">MONDO:0005563</a></p>
+<hr />
+<h2>Scope note and a caution about identifiers</h2>
+<p><strong>Causal gene: <code>NUTM1</code></strong> (NUT midline carcinoma family member 1; formerly <em>NUT</em> / <em>C15orf55</em>; <a href="https://bioregistry.io/HGNC:29919" target="_blank" rel="noopener noreferrer">HGNC:29919</a>; OMIM *608963; NCBI Gene 256646; chromosome <strong>15q14</strong>). NUT carcinoma is <strong>defined</strong> — not merely associated — by a somatic rearrangement of <em>NUTM1</em>, most often an in-frame fusion to <em>BRD4</em> (<a href="https://bioregistry.io/HGNC:13575" target="_blank" rel="noopener noreferrer">HGNC:13575</a>; OMIM *608749; 19p13.12) produced by the balanced reciprocal translocation <strong>t(15;19)(q14;p13.1)</strong>. There is no germline gene, no inherited form, and no serial-numbered OMIM phenotype entry for this disease; the two relevant OMIM records are the <em>gene</em> entries *608963 (<em>NUTM1</em>) and *608749 (<em>BRD4</em>).</p>
+<p><strong>Two naming traps that matter for knowledge-base work:</strong></p>
+<ol>
+<li>The MONDO label (<code>nut midline carcinoma</code>) is the <strong>superseded</strong> name. WHO dropped "midline" in the 5th-edition classifications because the tumour is not confined to midline structures (kidney, pancreas, bone, skin adnexa, bladder are all documented). The current entity name is <strong>NUT carcinoma</strong>.</li>
+<li><strong><em>NUTM1</em> fusions are not specific to this disease.</strong> The same gene is rearranged in <em>NUTM1</em>-rearranged B-lymphoblastic leukaemia, in <em>CIC::NUTM1</em> and <em>MGA::NUTM1</em> sarcomas, and in cutaneous poroma/porocarcinoma — all <strong>different diseases</strong> with different partners, different lineages, and markedly different prognoses (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10432870/">Hsiao et al., <em>Pediatr Blood Cancer</em> 2023, PMID:37082775</a>). Do not merge them under this MONDO ID.</li>
+</ol>
+<p><strong>Ontology CURIE caveat.</strong> Every CURIE below marked <strong>(verify)</strong> is a <em>lead only</em> — reconstructed from domain knowledge, not resolved against the ontology in the step it was written. Per this repository's own rule (<em>Every CURIE is read from a source in the same step it is written</em>), each must be looked up with OAK/OLS and its canonical label copied before being bound. CURIEs not so marked were read from a source during this session.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<h3>1.1 Overview</h3>
+<p>NUT carcinoma is a rare, highly aggressive, poorly differentiated carcinoma defined genetically by rearrangement of <em>NUTM1</em> at 15q14. It most often arises in the thorax (lung, mediastinum/thymus) and the head and neck (sinonasal tract, nasopharynx, salivary glands, orbit), typically presents at advanced stage, responds poorly to conventional cytotoxic therapy, and carries a median overall survival of roughly 6–9 months.</p>
+<blockquote>
+<p>"NUT carcinoma (NC) is a rare and highly aggressive malignancy characterized by <em>NUTM1</em> gene fusions." — <a href="https://pubmed.ncbi.nlm.nih.gov/41737331/">Zhang et al., <em>Innovation (Camb)</em> 2025, PMID:41737331</a></p>
+<p>"NUT carcinomas (NC) are very rare and highly aggressive tumors, molecularly defined by an aberrant gene fusion involving the <em>NUTM1</em> gene. NCs preferentially arise intrathoracically or in the head and neck region, having a highly adverse prognosis with almost no long-term survivors." — <a href="https://pubmed.ncbi.nlm.nih.gov/38301600/">Kloker et al., <em>Lung Cancer</em> 2024;189:107496, PMID:38301600</a></p>
+</blockquote>
+<p>A major 2025 reframing argues NC is not an orphan entity at all but an <strong>unrecognised molecular subtype of squamous cell carcinoma</strong>:</p>
+<blockquote>
+<p>"Hiding in plain sight: NUT carcinoma is an unrecognized subtype of squamous cell carcinoma of the lungs and head and neck." — <a href="https://www.nature.com/articles/s41571-025-00986-3">Luo J, Bishop JA, DuBois SG, Hanna GJ, Sholl LM, Stelow EB, Thompson LDR, Shapiro GI, French CA. <em>Nat Rev Clin Oncol.</em> 2025 Apr;22(4):292–306. PMID:39900969</a></p>
+</blockquote>
+<p>That review estimates <strong>~1,400 new cases per year in the United States</strong>, which would exceed the incidence of several recognised NSCLC and HNSCC subtypes — against only ~20 cases/year captured by the International NUT Carcinoma Registry. The gap is attributed to systematic underdiagnosis rather than to true rarity.</p>
+<h3>1.2 Key identifiers</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MONDO</strong></td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0005563" target="_blank" rel="noopener noreferrer">MONDO:0005563</a></td>
+<td>label <code>nut midline carcinoma</code> (superseded name)</td>
+</tr>
+<tr>
+<td><strong>ICD-O-3.2</strong></td>
+<td><strong>8023/3</strong></td>
+<td>"NUT carcinoma"; introduced in the ICD-O-3.2 update (<a href="https://www.encr.eu/sites/default/files/inline-files/Changes%20ICD-O-3.2.pdf">ENCR, 2021</a>)</td>
+</tr>
+<tr>
+<td><strong>ICD-11</strong></td>
+<td><strong>XH2855</strong> (morphology)</td>
+<td>"nuclear protein in testis (NUT) associated carcinoma"; combined with a site stem code (e.g. 2D42 for ill-defined sites) (<a href="https://www.pathologyoutlines.com/topic/nasalnutcarcinoma.html">PathologyOutlines</a>)</td>
+</tr>
+<tr>
+<td><strong>ICD-10</strong></td>
+<td>site-dependent (C34.x lung; C30–C31 sinonasal; C38.3 mediastinum; C76/C80 ill-defined)</td>
+<td>no dedicated behaviour code</td>
+</tr>
+<tr>
+<td><strong>NCIT</strong></td>
+<td>C45716</td>
+<td>from MONDO xrefs</td>
+</tr>
+<tr>
+<td><strong>Orphanet</strong></td>
+<td><a href="https://bioregistry.io/ORPHA:443167" target="_blank" rel="noopener noreferrer">ORPHA:443167</a></td>
+<td>from MONDO xrefs</td>
+</tr>
+<tr>
+<td><strong>DOID</strong></td>
+<td><a href="http://purl.obolibrary.org/obo/DOID_0060463" target="_blank" rel="noopener noreferrer">DOID:0060463</a></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>EFO</strong></td>
+<td><a href="https://bioregistry.io/EFO:0005783" target="_blank" rel="noopener noreferrer">EFO:0005783</a></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>UMLS</strong></td>
+<td>C1707291</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>MedGen</strong></td>
+<td>312999</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>GARD</strong></td>
+<td>0021852</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>OncoTree</strong></td>
+<td>NMCHN</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>OMIM (gene)</strong></td>
+<td>*608963 (<em>NUTM1</em>), *608749 (<em>BRD4</em>)</td>
+<td>no phenotype MIM</td>
+</tr>
+<tr>
+<td><strong>WHO</strong></td>
+<td><em>Thoracic Tumours</em> 5th ed. (2021); <em>Head and Neck Tumours</em> 5th ed. (2022)</td>
+<td>listed as a distinct entity in both</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>MONDO definition (verbatim, from OLS4):</p>
+<blockquote>
+<p>"A rare, highly aggressive and lethal carcinoma that affects children and young adults. It arises from midline epithelial structures, most commonly the head, neck, and mediastinum. It is a poorly differentiated carcinoma and is characterized by mutations and rearrangement of the NUT gene. A balanced translocation t(15;19) is present that results in the creation of a fusion gene involving the NUT gene, most commonly BRD4-NUT fusion gene."</p>
+</blockquote>
+<h3>1.3 Synonyms</h3>
+<p>NUT carcinoma; NUT midline carcinoma; NMC; midline carcinoma of children and young adults with NUT rearrangement; carcinoma with t(15;19)(q13;p13.1) translocation; nuclear protein in testis midline carcinoma; nuclear protein in testis (NUT)-associated carcinoma; <em>NUTM1</em>-rearranged carcinoma. Historically described as "aggressive t(15;19)-positive carcinoma" and "lethal midline carcinoma of young people."</p>
+<h3>1.4 Nature of the evidence base</h3>
+<p>Almost all clinical knowledge derives from <strong>aggregated, disease-level sources</strong> rather than individual EHR records:</p>
+<ul>
+<li><strong>International NUT Carcinoma Registry</strong> (www.nc-registry.org / nmcregistry.org), Brigham and Women's Hospital — the single largest curated clinical series (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9197941/">French et al., <em>Clin Cancer Res</em> 2022, PMID:35417004</a>).</li>
+<li><strong>SEER</strong> — population-based but small (n=45 and n=91 in two analyses), with cases only from 2018 onwards once ICD-O 8023/3 existed (<a href="https://pubmed.ncbi.nlm.nih.gov/40486575/">PMID:40486575</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42870800/">PMID:42870800</a>).</li>
+<li><strong>Commercial molecular profiling cohorts</strong> (Caris) — 54 cases with paired DNA/RNA and immune profiling (<a href="https://ascopubs.org/doi/10.1200/PO.24.00334">Kroening et al., <em>JCO Precis Oncol</em> 2024, PMID:39447095</a>).</li>
+<li>Multiple single-institution and national retrospective series (Germany n=35; France n=12; Korea n=13).</li>
+<li>Case reports and small series dominate the long tail, with the attendant publication bias toward unusual sites and unusual survivors.</li>
+</ul>
+<p><strong>Caveat for any prevalence or frequency figure below:</strong> because an estimated majority of cases are never correctly diagnosed, every denominator in the literature is biased toward centres that test for NUT.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Disease causal factor</h3>
+<p>The disease has a <strong>single, sufficient, somatic genetic cause</strong>: an in-frame fusion placing nearly the entire <em>NUTM1</em> open reading frame downstream of a chromatin-binding partner. This is the defining lesion, the only recurrent lesion, and — in mouse models — sufficient on its own to initiate the tumour.</p>
+<blockquote>
+<p>"About 70% of NUT carcinoma is associated with chromosome translocation events that lead to the formation of a <em>BRD4::NUTM1</em> fusion gene." — <a href="https://www.life-science-alliance.org/content/7/7/e202402602">Zheng et al., <em>Life Sci Alliance</em> 2024;7(7):e202402602, PMID:38724194</a></p>
+</blockquote>
+<p>The genome is otherwise remarkably quiet:</p>
+<blockquote>
+<p>"NCs are genomically stable… Apart from the <em>NUTM1</em>-fusion, NCs lack oncogenic mutations, have low tumor mutation burdens, and have few, if any, copy number alterations." — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7914217/">Eagen &amp; French, <em>Oncogene</em> 2021, PMID:33452461</a></p>
+<p>"Unlike other solid tumors with complex chromosomal rearrangements and a high mutational burden, NCs display a simple karyotype, often with only one alteration comprising the translocation." — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9360329/">Moreno et al., <em>Front Oncol</em> 2022, PMID:35957893</a></p>
+</blockquote>
+<p><strong>Causal sufficiency is demonstrated <em>in vivo</em></strong>, not merely inferred. A cre/lox + CRISPR "NUT carcinoma translocator" (NCT) mouse engineers the syntenic mouse <strong>t(2;17)</strong> (mouse <em>Nutm1</em> on chr 2, <em>Brd4</em> on chr 17) and produces tumours with <strong>100% penetrance</strong> in every lineage tested: KRT14-Cre head and neck (n&gt;50), Pdx1-Cre pancreas (18/18), Prrx1-Cre soft tissue (9/9), NLS-Cre constitutive (25/25) (<a href="https://www.life-science-alliance.org/content/7/7/e202402602">PMID:38724194</a>).</p>
+<h3>2.2 Risk factors</h3>
+<p><strong>Genetic risk factors — none identified.</strong> There is no reported familial clustering, no germline predisposition syndrome, no susceptibility locus from GWAS, and no modifier gene. The <em>NUTM1</em> fusion is <strong>somatic and acquired</strong>; it is not present in constitutional tissue. There is no carrier state and no reported germline mosaicism. No ClinVar germline pathogenic variant in <em>NUTM1</em> is associated with this disease.</p>
+<p><strong>Environmental risk factors — none identified.</strong> This is an unusually clean negative in oncology and should be recorded as a positive finding, not as missing data:</p>
+<blockquote>
+<p>"There is no evidence of an association between environmental exposure, infectious agents, or tobacco exposure and NC." — <a href="https://www.hh.um.es/pdf/Vol_40/40_11/Xie-40-1839-1846-2025.pdf">Xie et al., <em>Histol Histopathol</em> 2025;40:1839–1846</a></p>
+</blockquote>
+<p>Specifically:
+- <strong>Tobacco:</strong> among 42 pulmonary NC cases with documented smoking status, <strong>66.7% were never-smokers</strong> and 33.3% smokers (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13655413">PMID:42865603</a>) — the inverse of the pattern for conventional lung squamous cell carcinoma. This is the strongest single argument against a tobacco aetiology.
+- <strong>HPV and EBV:</strong> no case reported to date has been associated with either virus. NC is consistently p16/HPV-negative and EBER-negative, which is diagnostically useful (see §10.4).
+- <strong>Occupational exposure, radiation, diet, alcohol:</strong> no reported association. No study has had the statistical power to exclude a modest effect.</p>
+<p><strong>Demographic correlates (associations, not established risk factors):</strong>
+- <strong>Age:</strong> strongly enriched in adolescents and young adults. Molecular-profiling data show NC prevalence is <strong>~10× higher in patients under 50 than in those over 70</strong> (<a href="https://ascopubs.org/doi/10.1200/PO.24.00334">Kroening 2024, PMID:39447095</a>). Why a <em>de novo</em> translocation should favour young people is unexplained and is a genuine open question.
+- <strong>Sex:</strong> approximately balanced. Registry (n=141): 48% male / 52% female (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7165803/">Chau et al., <em>JNCI</em> 2020, PMID:32328562</a>). Other series report 57%/43% male-biased (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9360329/">PMID:35957893</a>) and a 1.89:1 male:female ratio in pulmonary cases (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13655413">PMID:42865603</a>). The spread across series is consistent with no real sex effect.
+- <strong>Ancestry/geography:</strong> no established difference. The apparent US concentration (49% of 310 identified cases) reflects where NUT IHC is performed, not where the disease occurs (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9360329/">PMID:35957893</a>).</p>
+<h3>2.3 Protective factors</h3>
+<p>No genetic or environmental protective factor has been identified. gnomAD contains no protective <em>NUTM1</em> allele relevant to this disease. There is no evidence for dietary or lifestyle protection.</p>
+<h3>2.4 Gene–environment interactions</h3>
+<p><strong>Not applicable / none described.</strong> With no established environmental exposure, there is no GxE interaction to report. CTD contains no chemical–disease association for NUT carcinoma specifically.</p>
+<p><strong>One mechanistic interaction worth noting</strong> sits at the gene–drug rather than gene–environment interface: the <em>identity of the fusion partner</em> modifies response to BET inhibitors. Across three independent phase I trials, responders were disproportionately patients with <strong>non-BRD4</strong> fusions (BRD3-NUT, NSD3-NUT) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9197941/">PMID:35417004</a>) — see §12.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>NUT carcinoma has <strong>no constitutional phenotype</strong>. Its clinical features are entirely those of a rapidly growing, locally destructive, early-metastasising carcinoma, and they are therefore determined by the primary site. There is no HPO-codeable syndromic gestalt.</p>
+<h3>3.1 Site-independent features</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency</th>
+<th>Onset/course</th>
+<th>Candidate HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rapidly enlarging mass</td>
+<td>clinical sign</td>
+<td>near-universal</td>
+<td>acute/subacute; weeks</td>
+<td>Neoplasm — <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" rel="noopener noreferrer">HP:0002664</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Constitutional symptoms (weight loss, fatigue, fever)</td>
+<td>symptom</td>
+<td>common</td>
+<td>subacute</td>
+<td>Weight loss <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" rel="noopener noreferrer">HP:0001824</a> <strong>(verify)</strong>; Fever <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Regional lymphadenopathy</td>
+<td>clinical sign</td>
+<td><strong>91.9%</strong> in pulmonary NC</td>
+<td>present at diagnosis</td>
+<td>Lymphadenopathy <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Distant metastasis at diagnosis</td>
+<td>clinical sign</td>
+<td>~50% overall; <strong>~96%</strong> in pulmonary series</td>
+<td>present at diagnosis</td>
+<td>Neoplasm metastasis — term uncertain <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Bone metastasis</td>
+<td>clinical sign</td>
+<td><strong>71.4%</strong> of metastatic pulmonary NC</td>
+<td>—</td>
+<td>Bone neoplasm / bone pain <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" rel="noopener noreferrer">HP:0002653</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Liver metastasis</td>
+<td>clinical sign</td>
+<td><strong>23.8%</strong> of metastatic pulmonary NC</td>
+<td>—</td>
+<td>Hepatic neoplasm <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Elevated serum LDH</td>
+<td>laboratory abnormality</td>
+<td>prognostically relevant; <strong>LDH &gt;306 U/L</strong> predicts OS &lt;7.5 months (AUC 0.85)</td>
+<td>at diagnosis</td>
+<td>Elevated circulating LDH <strong>(verify)</strong>; LOINC 2532-0 (LDH, serum) <strong>(verify)</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Sources: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13655413">PMID:42865603</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8966081/">PMID:35372003</a>; LDH threshold from Kloker et al. 2024 as reported in <a href="https://www.hh.um.es/pdf/Vol_40/40_11/Xie-40-1839-1846-2025.pdf">Xie et al. 2025</a>.</p>
+<h3>3.2 Thoracic NUT carcinoma (~50% of cases)</h3>
+<p>From a review of 44 patients with primary pulmonary NC (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13655413">PMID:42865603</a>) and a second series (<a href="https://www.frontiersin.org/journals/oncology/articles/10.3389/fonc.2021.690115/full">Front Oncol 2021, doi:10.3389/fonc.2021.690115</a>):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency</th>
+<th>Candidate HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cough</td>
+<td><strong>63.6%</strong> (47.5% in a second series)</td>
+<td>Cough <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" rel="noopener noreferrer">HP:0012735</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Dyspnoea</td>
+<td><strong>29.5%</strong></td>
+<td>Dyspnea <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Chest/back pain</td>
+<td><strong>18.2%</strong> (37.5% in a second series)</td>
+<td>Chest pain <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" rel="noopener noreferrer">HP:0100749</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Haemoptysis</td>
+<td><strong>18.2%</strong></td>
+<td>Hemoptysis <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" rel="noopener noreferrer">HP:0002105</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Pleural effusion</td>
+<td>frequent, "moderate or large"; independently predicts shorter survival</td>
+<td>Pleural effusion <a href="http://purl.obolibrary.org/obo/HP_0002202" target="_blank" rel="noopener noreferrer">HP:0002202</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Wheezing</td>
+<td>reported</td>
+<td>Wheezing <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" rel="noopener noreferrer">HP:0030828</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Superior vena cava obstruction</td>
+<td>reported with mediastinal masses</td>
+<td><strong>(verify — term uncertain)</strong></td>
+</tr>
+<tr>
+<td>Acute respiratory failure</td>
+<td>reported as presenting event</td>
+<td>Respiratory failure <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" rel="noopener noreferrer">HP:0002878</a> <strong>(verify)</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p>"The common symptoms included cough, chest pain, hemoptysis, wheezing, dyspnea, fever, etc., among which cough is the most common." — <a href="https://www.frontiersin.org/journals/oncology/articles/10.3389/fonc.2021.690115/full"><em>Front Oncol</em> 2021</a></p>
+</blockquote>
+<p><strong>Tempo:</strong> "median interval from symptom onset to diagnosis is 10 weeks" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13655413">PMID:42865603</a>). Mean maximal tumour diameter 6.55 cm (range 1.4–12.7 cm), lower lobe in 46.5%.</p>
+<h3>3.3 Head and neck NUT carcinoma (~40% of cases)</h3>
+<p>Sinonasal, nasopharyngeal, orbital, oral, laryngeal and major salivary (especially parotid) presentations:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Candidate HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nasal obstruction</td>
+<td>Nasal obstruction <a href="http://purl.obolibrary.org/obo/HP_0001742" target="_blank" rel="noopener noreferrer">HP:0001742</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Epistaxis</td>
+<td>Epistaxis <a href="http://purl.obolibrary.org/obo/HP_0000421" target="_blank" rel="noopener noreferrer">HP:0000421</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Proptosis / orbital mass / diplopia</td>
+<td>Proptosis <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" rel="noopener noreferrer">HP:0000520</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Facial pain, headache</td>
+<td>Facial pain <strong>(verify)</strong>; Headache <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Cranial neuropathies (orbital/skull base extension)</td>
+<td><strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Neck mass (nodal or parotid)</td>
+<td>Neck mass <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Dysphagia, hoarseness (laryngeal/hypopharyngeal)</td>
+<td>Dysphagia <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" rel="noopener noreferrer">HP:0002015</a> <strong>(verify)</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>3.4 Severity, progression and frequency</h3>
+<ul>
+<li><strong>Severity:</strong> uniformly severe. There is no mild form.</li>
+<li><strong>Progression:</strong> <strong>progressive</strong> and rapid. Treatment-induced remissions are typically transient; in one multicentre series "a transient response to chemotherapy was observed in four of 11 patients" (<a href="https://pubmed.ncbi.nlm.nih.gov/28643357/">Lemelle et al., <em>Pediatr Blood Cancer</em> 2017, PMID:28643357</a>).</li>
+<li><strong>Frequency among affected individuals:</strong> the phenotype table above gives per-site frequencies; no phenotype is pathognomonic, which is precisely why the disease is missed.</li>
+</ul>
+<h3>3.5 Quality-of-life impact</h3>
+<p><strong>No disease-specific QoL instrument exists and no EQ-5D/SF-36/PROMIS data have been published for NUT carcinoma.</strong> This is a genuine gap, and is explicitly reflected in the current cemiplimab trial (<a href="https://clinicaltrials.gov/study/NCT07050186">NCT07050186</a>), which lists questionnaires among its assessments. What can be stated from the clinical literature:</p>
+<ul>
+<li>Airway compromise, pleural effusion, and pain are the dominant symptom burdens in thoracic disease.</li>
+<li>Orbital and skull-base extension in head and neck disease causes visual and cranial-nerve morbidity.</li>
+<li>Radical surgery at head and neck sites — which is the single intervention most strongly associated with survival (HR 0.3) — carries substantial functional cost (speech, swallowing, facial form, vision).</li>
+<li>With a median survival measured in months and a median age in the twenties, the disability-adjusted burden per case is very high relative to the case count.</li>
+</ul>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 The defining lesion</h3>
+<p><strong>Lesion class:</strong> somatic balanced reciprocal chromosomal <strong>translocation</strong> producing an in-frame <strong>gene fusion</strong>. Not a point mutation, not a copy-number change.</p>
+<p><strong>Canonical fusion — <code>BRD4::NUTM1</code>:</strong></p>
+<blockquote>
+<p>"The chromosome 19 translocation breakpoint targets the BRD4 double bromodomain-containing gene, which functions in regulation of cell cycle progression. Herein we demonstrate that BRD4 is fused with nearly the entire transcript of the novel 15q13 gene, NUT (nuclear protein in testis), forming a 6.4-kb fusion oncogene, BRD4-NUT." — <a href="https://pubmed.ncbi.nlm.nih.gov/12543779/">French CA, Miyoshi I, Kubonishi I, Grier HE, Perez-Atayde AR, Fletcher JA. <em>Cancer Res.</em> 2003;63(2):304–7. PMID:12543779</a></p>
+</blockquote>
+<p>The typical junction is <strong>BRD4 exon 10 → NUTM1 exon 2</strong>, yielding a chimera containing BRD4's two bromodomains, two NLSs, the ET domain and the serine-rich region, fused to essentially all of NUT including its C-terminal NLS (OMIM *608749).</p>
+<h3>4.2 Fusion partners and frequencies</h3>
+<p>Reported frequencies vary with ascertainment method and cohort; the registry cohort is the best-characterised denominator.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Partner</th>
+<th>Locus</th>
+<th>HGNC</th>
+<th>Frequency (registry, n=127)</th>
+<th>Frequency (other series)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>BRD4</strong></td>
+<td>19p13.12</td>
+<td><a href="https://bioregistry.io/HGNC:13575" target="_blank" rel="noopener noreferrer">HGNC:13575</a></td>
+<td><strong>99 (78%)</strong></td>
+<td>65–88%</td>
+<td>t(15;19)(q14;p13.1); worst prognosis of the three common partners</td>
+</tr>
+<tr>
+<td><strong>BRD3</strong></td>
+<td>9q34.2</td>
+<td><a href="https://bioregistry.io/HGNC:1104" target="_blank" rel="noopener noreferrer">HGNC:1104</a></td>
+<td><strong>19 (15%)</strong></td>
+<td>~6–30%</td>
+<td>BET family, same mechanism</td>
+</tr>
+<tr>
+<td><strong>NSD3</strong> (<em>WHSC1L1</em>)</td>
+<td>8p11.23</td>
+<td><a href="https://bioregistry.io/HGNC:12767" target="_blank" rel="noopener noreferrer">HGNC:12767</a></td>
+<td><strong>7 (6%)</strong></td>
+<td>~6%</td>
+<td>Not a BET protein; binds BRD4 in <em>trans</em></td>
+</tr>
+<tr>
+<td><strong>Other</strong></td>
+<td>—</td>
+<td>—</td>
+<td><strong>2 (1%)</strong></td>
+<td>—</td>
+<td>see below</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Source for registry column: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7165803/">Chau et al., <em>JNCI</em> 2020, PMID:32328562</a>.</p>
+<p><strong>Rarer and emerging partners in NUT carcinoma:</strong> <em>ZNF532</em> (<a href="https://bioregistry.io/HGNC:30940" target="_blank" rel="noopener noreferrer">HGNC:30940</a>) and <em>ZNF592</em> (<a href="https://bioregistry.io/HGNC:28986" target="_blank" rel="noopener noreferrer">HGNC:28986</a>) — both members of the "Z4" complex; <em>CIC</em>; <em>BCORL1</em>; <em>MXD1</em>, <em>MXD4</em>, <em>MXI1</em>; <em>MGA</em>; <em>YAP1</em>; <em>ATXN1</em>; <em>CHD4</em>; <em>BRD9</em>; and in 2025 the first reports of <strong><code>SPECC1::NUTM1</code></strong> (17p11.2) and an intergenic <strong><code>IGR(downstream ROR2)::NUTM1</code></strong> fusion in pulmonary NC (<a href="https://www.hh.um.es/pdf/Vol_40/40_11/Xie-40-1839-1846-2025.pdf">Xie et al. 2025</a>). Cytogenetic bands for <em>ZNF532</em> and <em>ZNF592</em> were <strong>not verified in this session</strong> — look them up before binding.</p>
+<blockquote>
+<p>"Although additional <em>NUTM1</em> fusion partners have been identified in recent years, the clinical relevance and mechanistic contributions of these novel fusion events to NC pathogenesis remain incompletely characterized."</p>
+</blockquote>
+<p><strong>Partners that belong to <em>other</em> diseases</strong> (do not curate under <a href="http://purl.obolibrary.org/obo/MONDO_0005563" target="_blank" rel="noopener noreferrer">MONDO:0005563</a>): <em>ACIN1</em>, <em>BRD9</em>, <em>CUX1</em>, <em>ZNF618</em>, <em>IKZF1</em>, <em>RUNX1</em> in B-ALL; <em>CIC</em>, <em>MGA</em>, <em>MXD1/MXD4</em> in sarcoma; <em>BPTF</em> in T-ALL; <em>ZBTB7A</em> in AML (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10432870/">PMID:37082775</a>).</p>
+<h3>4.3 Variant classification and provenance</h3>
+<ul>
+<li><strong>Classification:</strong> oncogenic driver fusion. Not an ACMG/AMP germline classification; the appropriate framework is AMP/ASCO/CAP somatic <strong>Tier I</strong> (biomarker of a distinct diagnostic entity with therapeutic and prognostic implications).</li>
+<li><strong>Origin:</strong> <strong>somatic</strong>, invariably. Not germline. Not inherited. No parental mosaicism reported.</li>
+<li><strong>Allele frequency in population databases:</strong> <strong>not applicable</strong> — gnomAD, 1000 Genomes and TOPMed do not catalogue somatic fusions, and the fusion is absent from normal tissue.</li>
+<li><strong>Functional consequence:</strong> <strong>gain of function / neomorphic</strong>. The fusion is not a loss of <em>BRD4</em> or <em>NUTM1</em> function; it creates a novel chimeric chromatin regulator with an activity neither parent protein has alone. Record as <code>GAIN_OF_FUNCTION</code> (or more precisely neomorphic) with <code>variant_origin: SOMATIC</code>, <code>allele_type:</code> structural/fusion.</li>
+</ul>
+<h3>4.4 Co-occurring somatic alterations</h3>
+<blockquote>
+<p>"Co-occurring mutations in epigenetic or cell cycle pathways were observed in 26% of cases." — <a href="https://ascopubs.org/doi/10.1200/PO.24.00334">Kroening et al., <em>JCO Precis Oncol</em> 2024, PMID:39447095</a> (n=54, paired DNA/RNA)</p>
+</blockquote>
+<p>The remaining ~74% carry essentially no second driver. Tumour mutational burden is low; microsatellite status is stable; PD-L1 is negative in the great majority (<strong>0/57 tested positive</strong> in one IHC series — <a href="https://meridian.allenpress.com/aplm/article/148/8/898/497494/Nuclear-Protein-in-Testis-NUT-Carcinoma-A">Farooq et al., <em>Arch Pathol Lab Med</em> 2024;148(8):898, PMID:38059551</a>), though individual PD-L1-high cases are reported and are the basis for the checkpoint-inhibitor work in §12.</p>
+<h3>4.5 Modifier genes</h3>
+<p>None established. The nearest thing to a modifier is the <strong>fusion partner itself</strong>, which modifies both prognosis (§11) and BET-inhibitor response (§12).</p>
+<h3>4.6 Epigenetic information</h3>
+<p>Epigenetics is not a secondary feature of this disease — it <strong>is</strong> the disease mechanism. Covered in full in §6. Summary of the chromatin signature:</p>
+<ul>
+<li><strong>Hyperacetylation</strong> (H3K27ac, H3K18ac) within megadomains.</li>
+<li><strong>Global hypoacetylation</strong> of chromatin outside megadomains, caused by p300 sequestration.</li>
+<li><strong>Absent H3K4me3</strong> over megadomain bodies, distinguishing them from conventional promoters/super-enhancers.</li>
+<li>A distinct 3D nuclear compartment ("subcompartment M") into which megadomains cluster.</li>
+<li>No recurrent DNA-methylation signature has been established as causal; NC has no entry in DiseaseMeth as a methylation-driven disorder.</li>
+</ul>
+<h3>4.7 Chromosomal abnormalities</h3>
+<ul>
+<li><strong>t(15;19)(q14;p13.1)</strong> — the diagnostic translocation (BRD4::NUTM1). Historically the defining cytogenetic finding.</li>
+<li><strong>t(9;15)(q34;q14)</strong> — BRD3::NUTM1 <strong>(cytoband pairing inferred from the two loci; verify)</strong>.</li>
+<li><strong>NSD3::NUTM1</strong> arises from 8p11/15q14 rearrangement.</li>
+<li><strong>Karyotype is otherwise simple</strong>, often with the translocation as the sole abnormality. There is no aneuploidy signature, no chromothripsis, and no recurrent arm-level change.</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Environmental factors:</strong> none established (see §2.2). No entry in CTD links a chemical to NUT carcinoma causally. There is no occupational, radiation, or pollutant association.</p>
+<p><strong>Lifestyle factors:</strong> none established. The never-smoker predominance (66.7%) is an important <em>negative</em>: for a poorly differentiated squamous carcinoma of the lung, this inverts the expected exposure profile and is itself diagnostically suggestive — a poorly differentiated squamous lung tumour in a young never-smoker should prompt NUT testing.</p>
+<p><strong>Infectious agents:</strong> <strong>none.</strong> NC is HPV-negative and EBV-negative in all reported cases. This is diagnostically load-bearing in the sinonasal and nasopharyngeal differential, where HPV-related multiphenotypic sinonasal carcinoma and EBV-associated nasopharyngeal carcinoma are the principal mimics.</p>
+<p>For knowledge-base purposes, an <code>environmental:</code> block for this disease should either be absent or carry an explicit "searched, nothing citable" record — the absence of an environmental cause is a reported finding, not an unexamined gap.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 Ordered causal chain</h3>
+<p><strong>Step 1 — Somatic translocation.</strong> A balanced reciprocal translocation, most often t(15;19)(q14;p13.1), <strong>results in</strong> an in-frame fusion of <em>BRD4</em> exon 10 to <em>NUTM1</em> exon 2, producing the <strong>BRD4::NUT chimeric protein</strong>. <em>[Demonstrated — <a href="https://pubmed.ncbi.nlm.nih.gov/12543779/" target="_blank" rel="noopener noreferrer">PMID:12543779</a>; causally sufficient in vivo, <a href="https://pubmed.ncbi.nlm.nih.gov/38724194/" target="_blank" rel="noopener noreferrer">PMID:38724194</a>.]</em></p>
+<p><strong>Step 2 — Chromatin tethering.</strong> The retained <strong>tandem bromodomains of BRD4</strong> bind acetyl-lysine on histone tails, which <strong>tethers</strong> the NUT moiety to acetylated chromatin — physically relocating a normally testis-restricted protein onto somatic chromatin. <em>[Demonstrated.]</em></p>
+<p><strong>Step 3 — p300 recruitment and de-repression.</strong> NUT's acidic transactivation domain (AD1) binds the <strong>TAZ2 zinc-finger domain of EP300 (p300)</strong>, which <strong>relieves p300's autoinhibition</strong> and <strong>activates</strong> its histone acetyltransferase activity.</p>
+<blockquote>
+<p>"an acidic patch of NUT… interacts with the TAZ2 zinc finger domain of p300"; this domain "stimulated the ability of p300 to in vitro acetylate purified H3 histones." — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7914217/">Eagen &amp; French, PMID:33452461</a> <em>[Demonstrated in vitro with recombinant proteins.]</em></p>
+</blockquote>
+<p><strong>Step 4 — Feed-forward acetylation loop.</strong> Activated p300 <strong>acetylates</strong> surrounding histones, which <strong>creates</strong> new acetyl-lysine binding sites, which <strong>recruits</strong> further BRD4::NUT, which <strong>recruits</strong> further p300. The loop is self-sustaining and processive.</p>
+<blockquote>
+<p>"BRD4-NUT first bound to regular enhancers, and then spread contiguously… over time (7h) to form mature MDs" — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7914217/">PMID:33452461</a> <em>[Demonstrated by time-resolved ChIP-seq.]</em></p>
+</blockquote>
+<p><strong>Step 5 — Megadomain formation.</strong> Iterative spreading <strong>produces</strong> contiguous hyperacetylated "megadomains" of <strong>100 kb to 2 Mb</strong>, co-enriched for BRD4-NUT, wild-type BRD4, p300 and active histone marks.</p>
+<blockquote>
+<p>"BRD4-NUT co-occupies with p300 unprecedented 100kb-2 Mbp 'megadomains' of acetylated chromatin." — <a href="https://genesdev.cshlp.org/content/29/14/1507.full.html">Alekseyenko et al., <em>Genes Dev</em> 2015;29(14):1507–23, PMID:26220994</a> <em>[Demonstrated.]</em></p>
+</blockquote>
+<p><strong>Step 6 — 3D reorganisation.</strong> Megadomains <strong>cluster</strong> in nuclear space into a novel sixth nuclear subcompartment ("<strong>subcompartment M</strong>"), bringing the key target loci into physical proximity — a plausible auto-regulatory circuit. <em>[Demonstrated by Hi-C; the regulatory consequence is inferred.]</em> This is the structural correlate of the characteristic <strong>speckled/punctate nuclear NUT staining</strong> seen on IHC — i.e. the diagnostic stain is literally a picture of the mechanism.</p>
+<p><strong>Branch 6a — Global acetylation deficit.</strong> Sequestration of the limited cellular pool of p300 into megadomains <strong>depletes</strong> acetylation from the rest of the genome, <strong>causing</strong> global histone hypoacetylation and widespread transcriptional repression, including of differentiation programmes.</p>
+<blockquote>
+<p>"BRD4-NUT expression causes global histone hypoacetylation and transcriptional repression. The fusion protein sequesters histone acetyltransferase (p300) activity." — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3070805/">Schwartz et al., <em>Cancer Res</em> 2011;71(7):2686–96, PMID:21447744</a> <em>[Demonstrated; this is the rationale for HDAC-inhibitor therapy.]</em></p>
+</blockquote>
+<p><strong>Branch 6b — Targeted oncogene activation.</strong> Megadomains land on and <strong>drive</strong> a small, consistent set of stem-cell transcription factor loci.</p>
+<blockquote>
+<p>"Across five different cell line and tissues we have identified a very limited set of NC-specific, common MDs: those associated with the <em>MYC</em>, <em>TP63</em>, and <em>SOX2</em> loci." — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7914217/">PMID:33452461</a></p>
+</blockquote>
+<p><strong>Step 7a — MYC axis.</strong> Megadomain-driven <em>MYC</em> (sustained in part via the <strong>PVT1</strong> lncRNA) <strong>blocks</strong> squamous differentiation and <strong>drives</strong> proliferation through cyclin D1/D2. Knockdown of <em>MYC</em> or <em>PVT1</em> <strong>causes</strong> differentiation of NC cells. <em>[Demonstrated in vitro — necessary and sufficient for the differentiation block.]</em></p>
+<p><strong>Step 7b — TP63 axis.</strong> Megadomain-driven <strong>ΔNp63</strong> sustains a squamous stem/progenitor programme and <strong>antagonises</strong> TP53, <strong>conferring</strong> apoptosis resistance. "knockdown of <em>TP63</em> potently induces death of NC cells." <em>[Demonstrated in vitro; the TP53-antagonism step is partly inferred.]</em></p>
+<p><strong>Step 7c — SOX2 axis — CONTESTED.</strong> <em>SOX2</em> is a consistent megadomain target and its knockdown causes differentiation <strong>in vitro</strong>. However, a 2025 genetic test <em>in vivo</em> <strong>contradicts</strong> a requirement:</p>
+<blockquote>
+<p>"SOX2 is dispensable for NC initiation and progression" — conditional <em>Sox2</em> deletion in the NCT mouse across SOX2-expressing (oral) and SOX2-absent (pancreas) lineages left tumour histology and the BRD4::NUTM1/MYC/TP63 programme intact. — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12634820/"><em>Life Sci Alliance</em> 2025;9(2):e202503447, PMID:41266112</a>
+<strong>Curation note:</strong> this is a genuine in-vitro/in-vivo discordance and should be recorded as a <code>HUMAN_MODEL_MISMATCH</code>-style open question, not resolved in favour of either side.</p>
+</blockquote>
+<p><strong>Step 8 — Arrested squamous progenitor.</strong> The combination — proliferation driven, differentiation blocked, apoptosis resisted — <strong>yields</strong> a squamous-lineage progenitor locked in an undifferentiated/basal state. The histological signature of a <em>partial, leaky</em> block is the characteristic <strong>abrupt keratinisation</strong>: islands of fully keratinised cells appearing without intermediate maturation, directly adjacent to primitive cells.</p>
+<p><strong>Step 9 — Invasion and dissemination.</strong> Unchecked growth <strong>leads to</strong> rapid local invasion and early lymphatic and haematogenous spread — nodal involvement in <strong>91.9%</strong> and distant metastasis in up to <strong>96%</strong> of pulmonary cases at diagnosis, to bone (71.4%) and liver (23.8%) — <strong>causing</strong> airway obstruction, pleural effusion, pain, and organ failure, and <strong>resulting in</strong> death at a median of ~6.5 months.</p>
+<p><strong>Therapeutic branch 10 — BET inhibition.</strong> A BET inhibitor <strong>competitively occupies</strong> BRD4's bromodomains, which <strong>evicts</strong> BRD4::NUT from chromatin, which <strong>collapses</strong> megadomains, which <strong>de-represses</strong> differentiation and <strong>arrests</strong> growth. <em>[Demonstrated in vitro and in patients — §12.]</em></p>
+<p><strong>Therapeutic branch 11 — HDAC inhibition.</strong> An HDAC inhibitor <strong>restores</strong> acetylation outside megadomains and <strong>depletes</strong> BRD4-NUT and H3K27ac from megadomains, <strong>inducing</strong> squamous differentiation. <em>[Demonstrated in vitro, in xenograft, and in one patient — <a href="https://pubmed.ncbi.nlm.nih.gov/21447744/" target="_blank" rel="noopener noreferrer">PMID:21447744</a>.]</em></p>
+<h3>6.2 Molecular pathways</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Pathway / process</th>
+<th>Role</th>
+<th>Candidate GO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Histone acetylation / HAT activity (EP300)</td>
+<td><strong>central driver</strong></td>
+<td>histone acetyltransferase activity <a href="http://purl.obolibrary.org/obo/GO_0004402" target="_blank" rel="noopener noreferrer">GO:0004402</a> <strong>(verify)</strong>; histone H3-K27 acetylation <a href="http://purl.obolibrary.org/obo/GO_0043974" target="_blank" rel="noopener noreferrer">GO:0043974</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Acetyl-lysine recognition (bromodomain)</td>
+<td>tethering step</td>
+<td>lysine-acetylated histone binding <a href="http://purl.obolibrary.org/obo/GO_0070577" target="_blank" rel="noopener noreferrer">GO:0070577</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Chromatin remodelling / organisation</td>
+<td>megadomain formation</td>
+<td>chromatin organization <a href="http://purl.obolibrary.org/obo/GO_0006325" target="_blank" rel="noopener noreferrer">GO:0006325</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>RNA Pol II transcriptional elongation (P-TEFb/CDK9, cyclin T1)</td>
+<td>downstream output; co-precipitates with the BRD4-NUT complex via BRD4-long</td>
+<td>positive regulation of transcription elongation from RNA Pol II promoter <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>MYC transcriptional programme</td>
+<td>proliferation + differentiation block</td>
+<td>MYC pathway activity elevated vs. comparators (<a href="https://pubmed.ncbi.nlm.nih.gov/39447095/" target="_blank" rel="noopener noreferrer">PMID:39447095</a>)</td>
+</tr>
+<tr>
+<td>Cell cycle (cyclin D1/D2, CDK4/6–Rb)</td>
+<td>proliferation; therapeutic node</td>
+<td>cell cycle G1/S phase transition <a href="http://purl.obolibrary.org/obo/GO_0044843" target="_blank" rel="noopener noreferrer">GO:0044843</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>TP53 signalling (antagonised by ΔNp63)</td>
+<td>apoptosis resistance</td>
+<td>negative regulation of apoptotic process <a href="http://purl.obolibrary.org/obo/GO_0043066" target="_blank" rel="noopener noreferrer">GO:0043066</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Keratinocyte / squamous differentiation</td>
+<td><strong>blocked</strong></td>
+<td>keratinocyte differentiation <a href="http://purl.obolibrary.org/obo/GO_0030216" target="_blank" rel="noopener noreferrer">GO:0030216</a> <strong>(verify)</strong>; negative regulation of cell differentiation <a href="http://purl.obolibrary.org/obo/GO_0045596" target="_blank" rel="noopener noreferrer">GO:0045596</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td>Spermatogenesis (NUT's normal context)</td>
+<td>the ectopic programme</td>
+<td>spermatogenesis <a href="http://purl.obolibrary.org/obo/GO_0007283" target="_blank" rel="noopener noreferrer">GO:0007283</a> <strong>(verify)</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>KEGG/Reactome have no NUT-carcinoma-specific pathway; the relevant Reactome entries are the generic HATs-acetylate-histones and MYC-target modules.</p>
+<h3>6.3 Normal function of NUT (the programme being misplaced)</h3>
+<p>NUT expression is physiologically restricted to post-meiotic <strong>spermatids</strong> (and reportedly ciliary body and ovarian germ cells). There it partners with <strong>BRDT</strong>, the testis-specific BET protein, and <strong>EP300</strong>, driving the hyperacetylation that precedes histone-to-protamine exchange during spermiogenesis. The <em>BRD4::NUTM1</em> fusion therefore executes a <strong>germ-cell chromatin programme in a somatic epithelial cell</strong> — the cleanest available description of what this oncoprotein actually does. <em>[NUTM1 structure: 7 exons, ~12 kb, 1127 aa, ~120 kDa, two acidic TADs, bipartite NLS, NES; intrinsically disordered.]</em></p>
+<h3>6.4 Cellular processes</h3>
+<p>Cell-cycle dysregulation (cyclin D1/D2 up); apoptosis evasion (TP53 repression); <strong>arrested differentiation</strong> (the defining cellular phenotype); maintenance of a stem-like/basal state. Notably <strong>not</strong> prominent: oxidative stress, fibrosis, autophagy dysregulation, or immune-mediated tissue damage.</p>
+<h3>6.5 Protein dysfunction</h3>
+<p>Neither BRD4 nor NUT is misfolded or lost. The pathology is <strong>mislocalisation of a functional module</strong>: a chromatin-reading domain welded to a HAT-activating domain, creating a protein that both reads and writes the same mark — a self-amplifying circuit no wild-type protein possesses. The intrinsically disordered NUT moiety is also a plausible driver of biomolecular condensate formation at megadomains <em>[mechanistically plausible; the condensate contribution is an active question rather than settled]</em>.</p>
+<h3>6.6 Metabolic changes</h3>
+<p>Not a primary feature. GSEA in the NCT mouse model showed enrichment of "proliferation, mitosis, MYC targets, and <strong>metabolic reprogramming</strong> pathways" (<a href="https://www.life-science-alliance.org/content/7/7/e202402602">PMID:38724194</a>), and conditional <em>Sox2</em> loss produced "only modest transcriptional changes affecting metabolic pathways" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12634820/">PMID:41266112</a>). A single case report describes metabolic and epigenetic reprogramming in retroperitoneal NC. No enzyme deficiency, no HMDB metabolite signature.</p>
+<h3>6.7 Immune system involvement</h3>
+<p>NUT carcinoma is <strong>immunologically cold</strong>:</p>
+<blockquote>
+<p>"significantly lower immune cell infiltration compared with HNSCC and LUSC" — <a href="https://ascopubs.org/doi/10.1200/PO.24.00334">Kroening 2024, PMID:39447095</a></p>
+</blockquote>
+<p>PD-L1 was negative in <strong>all</strong> of 57 tested cases in one IHC series (<a href="https://meridian.allenpress.com/aplm/article/148/8/898/497494/Nuclear-Protein-in-Testis-NUT-Carcinoma-A">PMID:38059551</a>); low TMB and MSS status compound this. The theoretical counter-argument is that the fusion junction is a true tumour-specific neoantigen, which is the rationale for the vaccine strategies discussed in §12. A striking cautionary case of <strong>hyperprogression</strong> after pembrolizumab in sinonasal NC has been reported (<a href="https://onlinelibrary.wiley.com/doi/10.1002/lary.70733"><em>Laryngoscope</em> 2025</a>).</p>
+<p>One consistent histological immune feature: <strong>neutrophilic infiltration</strong> within the tumour, reported across series.</p>
+<h3>6.8 Tissue damage mechanisms</h3>
+<p>Direct replacement and compression by tumour, plus <strong>extensive confluent necrosis</strong> (a near-constant histological finding, reflecting outgrowth of blood supply). Not oxidative, ischaemic, autoimmune or fibrotic in origin.</p>
+<h3>6.9 Molecular profiling summary</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Finding</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Genomics</strong></td>
+<td>Low TMB; MSS; few/no CNVs; simple karyotype; co-mutations (epigenetic/cell-cycle) in 26%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39447095/" target="_blank" rel="noopener noreferrer">PMID:39447095</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33452461/" target="_blank" rel="noopener noreferrer">PMID:33452461</a></td>
+</tr>
+<tr>
+<td><strong>Transcriptomics</strong></td>
+<td>Squamous programme; elevated MYC pathway; TP63/SOX2 high; mouse model: 3,065 up / 2,654 down genes, CIBERSORT enrichment for proliferating basal cells</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39447095/" target="_blank" rel="noopener noreferrer">PMID:39447095</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38724194/" target="_blank" rel="noopener noreferrer">PMID:38724194</a></td>
+</tr>
+<tr>
+<td><strong>Epigenomics</strong></td>
+<td>ChIP-seq megadomains (H3K27ac, H3K18ac, BRD4, p300); H3K4me3-negative bodies; global extra-megadomain hypoacetylation; Hi-C subcompartment M</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26220994/" target="_blank" rel="noopener noreferrer">PMID:26220994</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33452461/" target="_blank" rel="noopener noreferrer">PMID:33452461</a></td>
+</tr>
+<tr>
+<td><strong>Proteomics</strong></td>
+<td>BRD4-NUT complex pull-downs contain wild-type BRD4, p300, P-TEFb (CDK9/cyclin T1)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33452461/" target="_blank" rel="noopener noreferrer">PMID:33452461</a></td>
+</tr>
+<tr>
+<td><strong>Metabolomics / lipidomics</strong></td>
+<td>No published signature</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Single-cell / spatial</strong></td>
+<td>Essentially unstudied in NC; a clear gap</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Functional genomics</strong></td>
+<td>CDK9 identified as a synthetic-lethal dependency in NC cell lines; CDK4/6 and p300 identified as synergistic nodes with BET inhibition</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35417004/" target="_blank" rel="noopener noreferrer">PMID:35417004</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Organ level</h3>
+<p><strong>Primary sites (registry, n=140 — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7165803/">PMID:32328562</a>):</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Site group</th>
+<th>n</th>
+<th>%</th>
+<th>Candidate UBERON</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Thoracic</strong> (lung, mediastinum, thymus, pleura)</td>
+<td>71</td>
+<td><strong>51%</strong></td>
+<td>lung <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a> <strong>(verify)</strong>; mediastinum <strong>(verify)</strong>; thymus <a href="http://purl.obolibrary.org/obo/UBERON_0002370" target="_blank" rel="noopener noreferrer">UBERON:0002370</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td><strong>Head and neck</strong> (sinonasal, nasopharynx, orbit, oral cavity, larynx, salivary)</td>
+<td>58</td>
+<td><strong>41%</strong></td>
+<td>nasal cavity <a href="http://purl.obolibrary.org/obo/UBERON_0001707" target="_blank" rel="noopener noreferrer">UBERON:0001707</a> <strong>(verify)</strong>; paranasal sinus <strong>(verify)</strong>; parotid gland <a href="http://purl.obolibrary.org/obo/UBERON_0001831" target="_blank" rel="noopener noreferrer">UBERON:0001831</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td><strong>Bone / soft tissue</strong></td>
+<td>9</td>
+<td>6%</td>
+<td>bone element <a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" rel="noopener noreferrer">UBERON:0001474</a> <strong>(verify)</strong></td>
+</tr>
+<tr>
+<td><strong>Other</strong></td>
+<td>2</td>
+<td>1%</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>A second large tabulation gives lung n=87, mediastinum n=44, nose n=31, sinus n=19, parotid n=9 (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9360329/">PMID:35957893</a>).</p>
+<p><strong>SEER site distribution (n=45):</strong> lung/bronchus <strong>51.1%</strong>, nasal cavity/paranasal sinuses <strong>28.9%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40486575/">PMID:40486575</a>).</p>
+<p><strong>Documented non-midline primaries:</strong> kidney, pancreas, bladder, adrenal gland, stomach, brain, ocular globe, soft tissue, bone, retroperitoneum, and <strong>primary cutaneous/adnexal</strong> NC (<a href="https://onlinelibrary.wiley.com/doi/full/10.1111/cup.14602"><em>J Cutan Pathol</em> 2024</a>). These are why "midline" was dropped from the name.</p>
+<p><strong>Secondary organ involvement (metastatic):</strong> regional lymph nodes (91.9% in pulmonary NC), <strong>bone (71.4%)</strong>, <strong>liver (23.8%)</strong>, lung, pleura, brain.</p>
+<p><strong>Body systems:</strong> respiratory (primary), head and neck/upper aerodigestive (primary), lymphatic (near-universal), skeletal (metastatic), hepatobiliary (metastatic).</p>
+<h3>7.2 Tissue and cell level</h3>
+<p><strong>Tissue type:</strong> epithelial — specifically <strong>squamous</strong> or squamous-committed epithelium. The 2025 <em>Nat Rev Clin Oncol</em> review argues on transcriptional, histopathological, cell-of-origin and molecular grounds that NC <em>is</em> a squamous cell carcinoma (<a href="https://www.nature.com/articles/s41571-025-00986-3">PMID:39900969</a>).</p>
+<p><strong>Cell of origin — formally undetermined, but converging evidence points to a squamous/basal epithelial progenitor:</strong>
+- "Cell-of-origin remains undefined" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7914217/">PMID:33452461</a>).
+- The NCT mouse generates NC-like squamous carcinomas from <strong>KRT14-Cre</strong> (basal keratinocyte) lineages, and the tumours are KRT14⁺, P63⁺, MYC⁺ (<a href="https://www.life-science-alliance.org/content/7/7/e202402602">PMID:38724194</a>).
+- CIBERSORT on those tumours shows "strong enrichment of <strong>proliferating basal cell</strong> profiles compared to normal oral mucosa."
+- But the same model produces tumours from <strong>Pdx1-Cre</strong> (pancreas) and <strong>Prrx1-Cre</strong> (mesenchyme), so the permissive cell state is broader than classical squamous epithelium.
+- Megadomain <em>placement</em> is itself cell-state dependent: in a human stem-cell model, "megadomains formed in dissimilar patterns when comparing cells in the pluripotent state with the same cell line following induction along a mesodermal lineage" (<a href="https://academic.oup.com/genetics/article/224/3/iyad083/7147209"><em>Genetics</em> 2023, PMID:37131839</a>) — i.e. the pre-existing chromatin landscape determines where the oncoprotein lands.</p>
+<p><strong>Candidate CL terms:</strong> basal cell of epithelium <a href="http://purl.obolibrary.org/obo/CL_0000646" target="_blank" rel="noopener noreferrer">CL:0000646</a> <strong>(verify)</strong>; squamous epithelial cell <a href="http://purl.obolibrary.org/obo/CL_0000076" target="_blank" rel="noopener noreferrer">CL:0000076</a> <strong>(verify)</strong>; keratinocyte <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a> <strong>(verify)</strong>; basal cell of epithelium of trachea/bronchus <strong>(verify)</strong>.</p>
+<h3>7.3 Subcellular level</h3>
+<p>Overwhelmingly <strong>nuclear</strong>. Candidate GO Cellular Component terms: nucleus <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> <strong>(verify)</strong>; chromatin <a href="http://purl.obolibrary.org/obo/GO_0000785" target="_blank" rel="noopener noreferrer">GO:0000785</a> <strong>(verify)</strong>; nuclear speck <a href="http://purl.obolibrary.org/obo/GO_0016607" target="_blank" rel="noopener noreferrer">GO:0016607</a> <strong>(verify)</strong>; euchromatin <a href="http://purl.obolibrary.org/obo/GO_0000791" target="_blank" rel="noopener noreferrer">GO:0000791</a> <strong>(verify)</strong>. The diagnostically distinctive <strong>speckled/punctate nuclear foci</strong> of NUT IHC correspond to megadomain clusters (subcompartment M) — the subcellular finding and the molecular mechanism are the same object seen at two scales.</p>
+<h3>7.4 Localisation and laterality</h3>
+<p>Historically midline (hence the old name), but the modern entity is explicitly <strong>not</strong> midline-restricted. Thoracic disease is commonly <strong>unilateral</strong> at presentation with a lower-lobe predilection (46.5%), though "both lungs affected" is reported; head and neck disease is typically <strong>unilateral</strong> at origin with midline crossing on extension. No systematic left/right asymmetry has been reported.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>8.1 Onset</h3>
+<ul>
+<li><strong>Age of onset:</strong> any age — the literature spans <strong>18 days to 82 years</strong>. The registry median is <strong>23.6 years</strong> (n=141, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7165803/">PMID:32328562</a>); other series give a median of <strong>30 years</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9360329/">PMID:35957893</a>) and, for pulmonary NC specifically, a <strong>mean 41.4 / median 36 years</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13655413">PMID:42865603</a>). The spread is real: head and neck disease skews younger, thoracic disease older.</li>
+<li><strong>Pattern:</strong> <strong>acute to subacute</strong>. Median symptom-to-diagnosis interval in pulmonary NC is <strong>10 weeks</strong>. There is no prodrome, no premalignant lesion, and no recognised precursor state.</li>
+<li><strong>Not congenital, not developmental.</strong> A neonatal case exists but the lesion is still acquired.</li>
+</ul>
+<h3>8.2 Progression</h3>
+<ul>
+<li><strong>Stages:</strong> staged by site-specific AJCC systems (TNM for lung, for sinonasal, etc.). There is <strong>no NUT-carcinoma-specific staging system</strong>, and this is a recognised limitation — most patients are stage IV or equivalent at diagnosis.</li>
+<li><strong>Rate:</strong> rapid and relentless. 2-year OS <strong>22%</strong> (95% CI 15–30%) across the registry cohort.</li>
+<li><strong>Course:</strong> <strong>progressive</strong>. Not episodic, not relapsing-remitting.</li>
+<li><strong>Duration:</strong> measured in months. Median OS <strong>6.5 months</strong>.</li>
+</ul>
+<h3>8.3 Remission and long-term survival</h3>
+<p>Remission is <strong>treatment-induced, usually partial, and usually transient</strong>. Initial complete or partial response to first-line therapy occurred in <strong>55/112 (49%)</strong> of registry patients — yet 2-year OS was 22%, so response does not translate into durable control in most cases. Spontaneous remission is not described.</p>
+<p><strong>Long-term survivors do exist, and their distribution is informative</strong> (≥3-year survival, registry):
+- <strong>Group A</strong> (non-thoracic, BRD3-/NSD3-NUT): <strong>5/12 (42%)</strong>
+- <strong>Group B</strong> (non-thoracic, BRD4-NUT): <strong>7/45 (16%)</strong>
+- <strong>Group C</strong> (thoracic, any fusion): <strong>0/67 (0%)</strong></p>
+<p>One French patient remained in remission <strong>&gt;12 years</strong> after diagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/28643357/">PMID:28643357</a>). Cure, where it happens, follows complete resection of localised non-thoracic disease.</p>
+<h3>8.4 Critical periods</h3>
+<p>The <strong>only clearly defined window of opportunity is at initial presentation</strong>, before dissemination, when complete surgical resection with negative margins plus radiotherapy is possible. Surgery is the strongest favourable variable in the registry analysis (HR <strong>0.3</strong>, 95% CI 0.2–0.5, P&lt;.0001), and the difference between thoracic and non-thoracic outcomes is partly a difference in resectability (surgery received by <strong>73% of non-thoracic vs 30% of thoracic</strong> patients). Everything downstream of that window is palliative in the great majority of cases.</p>
+<p>A second, system-level critical period is <strong>diagnostic</strong>: initial misdiagnosis occurred in <strong>31%</strong> of German cases and <strong>50%</strong> of French cases, and approximately <strong>70% of NCs are estimated to be misdiagnosed</strong> overall. Time lost to a wrong diagnosis is time lost from the only curative window.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Epidemiology</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Measure</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Estimated true US incidence</strong></td>
+<td><strong>~1,400 cases/year</strong> (≈0.4/100,000/year)</td>
+<td><a href="https://www.nature.com/articles/s41571-025-00986-3">PMID:39900969</a></td>
+</tr>
+<tr>
+<td>Registry-captured incidence</td>
+<td>~20 new cases/year</td>
+<td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9197941/">PMID:35417004</a></td>
+</tr>
+<tr>
+<td>Total cases in literature</td>
+<td>~300–310 (as of ~2022)</td>
+<td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9360329/">PMID:35957893</a></td>
+</tr>
+<tr>
+<td>Paediatric incidence (Western Australia, 0–16 y)</td>
+<td>0.41 per million child-years</td>
+<td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9360329/">PMID:35957893</a></td>
+</tr>
+<tr>
+<td>Share of primary thoracic tumours</td>
+<td>~0.22%</td>
+<td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13655413">PMID:42865603</a></td>
+</tr>
+<tr>
+<td>SEER cases 2018–2023</td>
+<td>91</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42870800/">PMID:42870800</a></td>
+</tr>
+<tr>
+<td>Estimated misdiagnosis rate</td>
+<td>~70%</td>
+<td><a href="https://www.hh.um.es/pdf/Vol_40/40_11/Xie-40-1839-1846-2025.pdf">Xie et al. 2025</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Orphanet prevalence class:</strong> the registry-based figures place NC well below 1/1,000,000 as <em>diagnosed</em>, but the French-et-al. estimate of 1,400 US cases/year implies a <strong>true</strong> annual incidence around 0.4/100,000 — a two-order-of-magnitude discrepancy that is the central epidemiological fact about this disease. Any prevalence record for this entry should carry both numbers with their different bases: one is <em>ascertained</em>, the other <em>estimated true</em>.</p>
+<blockquote>
+<p>"with approximately 1,400 annual cases in the United States and a median survival of roughly 6.5 months, this disease surpasses the incidence of certain established NSCLC and HNSCC subtypes yet remains misclassified as a distinct orphan entity." — <a href="https://www.nature.com/articles/s41571-025-00986-3">PMID:39900969</a></p>
+</blockquote>
+<p>The underdiagnosis has a measurable cause. A nationwide survey of <strong>2,215 Chinese clinicians</strong> found <strong>65.2% reported no awareness of any domain</strong> of NUT carcinoma; awareness of <em>NUTM1</em> fusion partners was <strong>9.7%</strong>; only ~7% reported awareness across all domains — and 81.2% of respondents worked in tertiary hospitals (<a href="https://pubmed.ncbi.nlm.nih.gov/41772604/"><em>BMC Health Serv Res</em> 2026, PMID:41772604</a>).</p>
+<h3>9.2 Inheritance</h3>
+<ul>
+<li><strong>Inheritance pattern:</strong> <strong>none — not heritable.</strong> The <em>NUTM1</em> fusion is a somatic event. There is no autosomal dominant, recessive, X-linked, mitochondrial, or multifactorial inheritance.</li>
+<li><strong>Penetrance / expressivity / anticipation / germline mosaicism / founder effects / consanguinity / carrier frequency:</strong> <strong>not applicable.</strong></li>
+<li><strong>Genetic counselling:</strong> limited to explaining that the tumour is sporadic and poses no risk to relatives — which is itself a useful counselling message for families of young patients.</li>
+</ul>
+<h3>9.3 Population demographics</h3>
+<ul>
+<li><strong>Ethnic/ancestral groups:</strong> no established difference. Apparent geographic concentration tracks diagnostic practice.</li>
+<li><strong>Geographic distribution:</strong> worldwide. Registry data skew to the US (49% of 310 identified cases); Germany was represented by only 8 cases in one tabulation, which the authors read as underdiagnosis rather than true rarity.</li>
+<li><strong>Variant geography:</strong> no reported geographic variation in fusion-partner distribution.</li>
+<li><strong>Sex ratio:</strong> approximately <strong>1:1</strong> (registry 48% M / 52% F); some series report modest male excess (up to 1.89:1 in pulmonary cases). Treat as no established sex effect.</li>
+<li><strong>Age distribution:</strong> bimodal-leaning-young; peak in adolescents and young adults, with a long tail into old age. Molecular-profiling data: NC <strong>~10× more prevalent in &lt;50 than &gt;70</strong> (<a href="https://ascopubs.org/doi/10.1200/PO.24.00334">PMID:39447095</a>). Paediatric and adult outcomes do not differ significantly (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9197941/">PMID:35417004</a>).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 The single most important point</h3>
+<p><strong>NUT carcinoma is a diagnosis you have to think of.</strong> It has no pathognomonic clinical or radiological feature, and its default misread is "poorly differentiated squamous cell carcinoma" or "undifferentiated carcinoma, NOS." The consensus recommendation is explicit:</p>
+<blockquote>
+<p>"NUT immunohistochemistry is adequate for diagnosis and should be considered in any patient with a poorly differentiated carcinoma." — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9197941/">PMID:35417004</a></p>
+</blockquote>
+<p>and</p>
+<blockquote>
+<p>"NGS should detect <em>NUTM1</em> rearrangement in all thoracic tumors." — same source.</p>
+</blockquote>
+<h3>10.2 Histopathology</h3>
+<p><strong>Gross/architectural:</strong> infiltrative mass, often large (mean 6.55 cm in lung), with extensive confluent necrosis.</p>
+<p><strong>Microscopic:</strong>
+- Sheets and nests of <strong>monomorphic, small-to-medium, primitive round-to-polygonal cells</strong>, scant-to-moderate eosinophilic or amphophilic cytoplasm, vesicular chromatin with prominent nucleoli (a "fried-egg" appearance is described).
+- <strong>Abrupt keratinisation</strong> — islands of mature keratinised cells arising without intermediate maturation, immediately adjacent to primitive cells. Present in roughly <strong>30–40%</strong> of cases; <strong>"abrupt keratinization is the most characteristic histological finding."</strong>
+- ~<strong>55% show no squamous differentiation at all</strong> — which is the main reason the diagnosis is missed.
+- High mitotic rate; median <strong>Ki-67 60%</strong>.
+- <strong>Neutrophilic infiltrate</strong> is characteristic.</p>
+<p><strong>Cytology:</strong> diagnosable on EBUS-FNA and other small samples; monomorphic primitive cells with occasional keratinised forms. Small-biopsy diagnosis is realistic, which matters since many of these tumours are unresectable.</p>
+<h3>10.3 Immunohistochemistry</h3>
+<p><strong>The diagnostic test: anti-NUT monoclonal antibody, clone C52B1 (Cell Signaling Technology).</strong></p>
+<blockquote>
+<p>Nuclear staining in "&gt;50% of nuclei" is <strong>"100% specific and shows a sensitivity of 87% for a diagnosis of NC"</strong> among carcinomas. — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9360329/">PMID:35957893</a>; concordant in <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9197941/">PMID:35417004</a></p>
+</blockquote>
+<p>The pattern is <strong>diffuse, speckled/punctate nuclear</strong> labelling (described also as "granular" or "dusty"). The speckles <em>are</em> the megadomain subcompartment.</p>
+<p><strong>Comprehensive IHC profile — 57 cases (<a href="https://meridian.allenpress.com/aplm/article/148/8/898/497494/Nuclear-Protein-in-Testis-NUT-Carcinoma-A">Farooq AL, Kerper AL, Boland JM, Lo YC. <em>Arch Pathol Lab Med.</em> 2024;148(8):898. PMID:38059551</a>) — sites: thoracic/mediastinal 38, head-and-neck/sinonasal 13, other 6:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Marker</th>
+<th>Result</th>
+<th>Interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Keratins</strong></td>
+<td>variable; <strong>completely negative in 15%</strong></td>
+<td>a keratin-negative carcinoma does <strong>not</strong> exclude NC</td>
+</tr>
+<tr>
+<td><strong>p63</strong></td>
+<td><strong>positive in 87%</strong></td>
+<td>more sensitive than p40 — use both</td>
+</tr>
+<tr>
+<td><strong>p40</strong></td>
+<td><strong>positive in only 65% (24/37)</strong></td>
+<td><strong>key pitfall</strong>: p40-negativity is common and will push a reader away from a squamous diagnosis</td>
+</tr>
+<tr>
+<td><strong>INSM1</strong></td>
+<td><strong>positive in 54%</strong></td>
+<td><strong>major pitfall</strong> — invites a wrong diagnosis of neuroendocrine carcinoma</td>
+</tr>
+<tr>
+<td><strong>TTF-1</strong></td>
+<td>predominantly negative (occasional positives, incl. 60% in one reported lung case)</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>CD34</strong></td>
+<td>positive in <strong>15%</strong></td>
+<td>some series report up to ~50%</td>
+</tr>
+<tr>
+<td><strong>CD99</strong></td>
+<td>positive in <strong>21%</strong></td>
+<td>mimics Ewing sarcoma</td>
+</tr>
+<tr>
+<td><strong>BRG1 (SMARCA4) / INI1 (SMARCB1)</strong></td>
+<td><strong>retained in all cases</strong></td>
+<td>distinguishes from SMARCA4-deficient undifferentiated thoracic tumour and SMARCB1-deficient sinonasal carcinoma</td>
+</tr>
+<tr>
+<td><strong>Ki-67</strong></td>
+<td>median <strong>60%</strong></td>
+<td></td>
+</tr>
+<tr>
+<td><strong>PD-L1</strong></td>
+<td><strong>negative in all tested</strong></td>
+<td></td>
+</tr>
+<tr>
+<td>Synaptophysin / chromogranin</td>
+<td>may be focally positive</td>
+<td>further neuroendocrine confusion</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Practical rule:</strong> a poorly differentiated carcinoma in a young patient, p63⁺ but p40⁻, INSM1⁺, SMARCA4/SMARCB1-retained, p16/HPV⁻, EBER⁻ — is a NUT IHC case until proven otherwise.</p>
+<h3>10.4 Differential diagnosis</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Mimic</th>
+<th>How it is distinguished</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Poorly differentiated / basaloid <strong>squamous cell carcinoma</strong></td>
+<td>NUT IHC negative; usually older, smoker</td>
+</tr>
+<tr>
+<td><strong>Small cell / large cell neuroendocrine carcinoma</strong></td>
+<td>chromogranin/synaptophysin strong and diffuse; NUT negative — but note NC is INSM1⁺ in 54%</td>
+</tr>
+<tr>
+<td><strong>SMARCA4-deficient undifferentiated thoracic tumour</strong></td>
+<td>BRG1 <strong>lost</strong>; NC retains it</td>
+</tr>
+<tr>
+<td><strong>SMARCB1-deficient sinonasal carcinoma</strong></td>
+<td>INI1 <strong>lost</strong>; NC retains it</td>
+</tr>
+<tr>
+<td><strong>Sinonasal undifferentiated carcinoma (SNUC)</strong></td>
+<td>keratin⁺, p40⁻/weak p63; IDH2 mutation in a subset; NUT negative</td>
+</tr>
+<tr>
+<td><strong>HPV-related multiphenotypic sinonasal carcinoma</strong></td>
+<td>p16⁺/HPV⁺; NC is HPV-negative</td>
+</tr>
+<tr>
+<td><strong>Nasopharyngeal carcinoma</strong></td>
+<td>EBER⁺; NC is EBV-negative</td>
+</tr>
+<tr>
+<td><strong>Ewing sarcoma / round cell sarcoma</strong></td>
+<td>CD99 diffuse membranous, <em>EWSR1</em> fusion; NC CD99⁺ in only 21% and keratin/p63⁺</td>
+</tr>
+<tr>
+<td><strong>Lymphoma, melanoma, germ cell tumour</strong></td>
+<td>lineage markers</td>
+</tr>
+<tr>
+<td><strong>Poorly differentiated adenocarcinoma</strong></td>
+<td>TTF-1⁺/napsin⁺, p40⁻, NUT⁻</td>
+</tr>
+<tr>
+<td><strong>NUT-rearranged non-carcinomas</strong> (B-ALL, CIC-NUTM1 sarcoma, poroma)</td>
+<td>lineage, site, age, partner gene — <em>different diseases</em></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>10.5 Molecular and genetic testing</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Utility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>NUT IHC (C52B1)</strong></td>
+<td><strong>first-line</strong>; 87% sensitive, ~100% specific; cheap, fast, works on small biopsies. One multi-omic comparison found <strong>NUT IHC positive in 100% (99/99)</strong> of confirmed cases vs <strong>RNA-based fusion detection 83.9% (52/62)</strong></td>
+</tr>
+<tr>
+<td><strong>FISH, <em>NUTM1</em> break-apart probe</strong></td>
+<td>confirms rearrangement; <strong>does not identify the partner</strong>; false-negatives occur with cryptic/complex rearrangements</td>
+</tr>
+<tr>
+<td><strong>RNA sequencing / targeted fusion panels</strong> (e.g. Archer FusionPlex)</td>
+<td>identifies the <strong>partner</strong>, which carries prognostic and predictive weight; registry data report fusions detected in <strong>82.1% of RNA tests</strong></td>
+</tr>
+<tr>
+<td><strong>RT-PCR</strong></td>
+<td>confirms a known fusion; will miss novel partners</td>
+</tr>
+<tr>
+<td><strong>DNA NGS / WES</strong></td>
+<td>poor at detecting fusions with intronic breakpoints; useful for co-mutations, TMB, MSI</td>
+</tr>
+<tr>
+<td><strong>Karyotyping</strong></td>
+<td>historical; can show t(15;19)</td>
+</tr>
+<tr>
+<td><strong>Chromosomal microarray (CMA)</strong></td>
+<td><strong>low yield</strong> — the translocation is balanced and invisible to CMA</td>
+</tr>
+<tr>
+<td><strong>WGS</strong></td>
+<td>can detect the structural variant but is not routine</td>
+</tr>
+<tr>
+<td><strong>Mitochondrial DNA / repeat-expansion testing</strong></td>
+<td><strong>not applicable</strong></td>
+</tr>
+<tr>
+<td><strong>Liquid biopsy / ctDNA</strong></td>
+<td>investigational; fusion-specific ctDNA assays are plausible but not established</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Recommended workflow:</strong> NUT IHC on any poorly differentiated carcinoma without an established lineage → if positive (or if clinical suspicion is high despite a negative stain), RNA-based fusion sequencing to identify the partner → report the partner, because it changes prognostic group and may change BET-inhibitor expectations.</p>
+<h3>10.6 Imaging and other tests</h3>
+<ul>
+<li><strong>CT:</strong> irregular soft-tissue mass; "uneven enhancement"; frequent moderate-to-large pleural effusion; lower-lobe predilection in lung.</li>
+<li><strong>FDG-PET/CT:</strong> used for staging and response, <strong>with an explicit caveat from the consensus panel</strong>: <em>"FDG-PET scanning may not be a reliable measure of tumor response to BET inhibitor-based treatment"</em> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9197941/">PMID:35417004</a>) — because differentiation-inducing agents may alter glucose avidity without tumour shrinkage.</li>
+<li><strong>MRI:</strong> for orbital/skull-base and intracranial extension.</li>
+<li><strong>Laboratory:</strong> no diagnostic blood test. <strong>Serum LDH</strong> has prognostic value (&gt;306 U/L → OS &lt;7.5 months; AUC 0.85). Candidate LOINC: LDH serum/plasma <a href="https://bioregistry.io/LOINC:2532" target="_blank" rel="noopener noreferrer">LOINC:2532</a>-0 <strong>(verify)</strong>.</li>
+<li><strong>Functional tests / electrophysiology:</strong> not applicable.</li>
+</ul>
+<h3>10.7 Screening</h3>
+<p><strong>There is no screening programme and none is justified</strong> — the disease is sporadic, somatic, has no precursor lesion, no at-risk population to enrol, and no asymptomatic detectable phase. Newborn screening, carrier screening, cascade testing and preimplantation diagnosis are all <strong>not applicable</strong>.</p>
+<p>The actionable "screening" analogue is <strong>diagnostic reflex testing</strong>: routinely applying NUT IHC or <em>NUTM1</em>-inclusive NGS to poorly differentiated carcinomas, especially in patients under 50 and in never-smokers with squamous lung tumours.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>11.1 Survival</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Cohort</th>
+<th>n</th>
+<th>Median OS</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>International registry (all)</td>
+<td>141</td>
+<td><strong>6.5 months</strong> (95% CI 5.8–9.1)</td>
+<td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7165803/">PMID:32328562</a></td>
+</tr>
+<tr>
+<td>Early registry cohort</td>
+<td>63</td>
+<td><strong>6.7 months</strong>; 2-y PFS 9%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22896655/">Bauer et al., <em>Clin Cancer Res</em> 2012, PMID:22896655</a></td>
+</tr>
+<tr>
+<td>Head and neck NMC</td>
+<td>40</td>
+<td><strong>9.7 months</strong>; 2-y OS 30%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27509377/">Chau et al., <em>Cancer</em> 2016, PMID:27509377</a></td>
+</tr>
+<tr>
+<td>Germany (adults)</td>
+<td>35</td>
+<td><strong>7.5 months</strong></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38301600/">PMID:38301600</a></td>
+</tr>
+<tr>
+<td>SEER (2025 analysis)</td>
+<td>45</td>
+<td><strong>8 months</strong> (95% CI 4.09–11.91)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40486575/">PMID:40486575</a></td>
+</tr>
+<tr>
+<td>SEER 2018–2023</td>
+<td>91</td>
+<td><strong>8 months</strong>; 67% died</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42870800/">PMID:42870800</a></td>
+</tr>
+<tr>
+<td>France, children + adults</td>
+<td>12</td>
+<td><strong>4.7 months</strong> (95% CI 2.1–17.7)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28643357/">PMID:28643357</a></td>
+</tr>
+<tr>
+<td>Korea</td>
+<td>13</td>
+<td><strong>10.6 months</strong> (9 deaths, range 3–23.6 mo)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30696721/">Jung et al., <em>Oncologist</em> 2019, PMID:30696721</a></td>
+</tr>
+<tr>
+<td><strong>Primary pulmonary NC</strong></td>
+<td>pooled</td>
+<td><strong>2.2–5.9 months</strong> (mean 6.21; one series 2.2)</td>
+<td><a href="https://www.frontiersin.org/journals/oncology/articles/10.3389/fonc.2021.690115/full"><em>Front Oncol</em> 2021</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13655413">PMID:42865603</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>2-year OS: 22%</strong> (95% CI 15–30%). <strong>~70–80% of patients die within 2 years.</strong> 10-year survival is not meaningfully reported.</p>
+<h3>11.2 The prognostic model (the single most useful prognostic tool)</h3>
+<p><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7165803/">Chau NG et al., <em>J Natl Cancer Inst</em> 2020. PMID:32328562</a> — <strong>anatomical site + fusion partner</strong>, n=124:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Definition</th>
+<th>Median OS</th>
+<th>≥3-year survivors</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A</strong></td>
+<td>Non-thoracic <strong>and</strong> BRD3- or NSD3-NUT</td>
+<td><strong>36.5 months</strong> (95% CI 12.5–NR)</td>
+<td>5/12 (<strong>42%</strong>)</td>
+</tr>
+<tr>
+<td><strong>B</strong></td>
+<td>Non-thoracic <strong>and</strong> BRD4-NUT</td>
+<td><strong>10 months</strong> (95% CI 7–14.6)</td>
+<td>7/45 (16%)</td>
+</tr>
+<tr>
+<td><strong>C</strong></td>
+<td><strong>Thoracic</strong> (any fusion)</td>
+<td><strong>4.4 months</strong> (95% CI 3.5–5.6)</td>
+<td><strong>0/67 (0%)</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Univariate hazard ratios:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Factor</th>
+<th>HR (95% CI)</th>
+<th>P</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Thoracic vs non-thoracic primary</td>
+<td><strong>3.4 (2.2–5.1)</strong></td>
+<td>&lt;.0001</td>
+</tr>
+<tr>
+<td>BRD4-NUT vs BRD3-/NSD3-NUT</td>
+<td><strong>1.8 (1.1–3.1)</strong></td>
+<td>.024</td>
+</tr>
+<tr>
+<td>Lymph node / organ metastasis</td>
+<td><strong>2.2 (1.2–4.1)</strong></td>
+<td>.01</td>
+</tr>
+<tr>
+<td><strong>Surgery (ever received)</strong></td>
+<td><strong>0.3 (0.2–0.5)</strong></td>
+<td>&lt;.0001</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>11.3 Other prognostic factors</h3>
+<ul>
+<li><strong>Stage / distant metastasis / M1</strong> — worse (<a href="https://pubmed.ncbi.nlm.nih.gov/42870800/">PMID:42870800</a>).</li>
+<li><strong>Larger tumour size</strong> — worse.</li>
+<li><strong>Older age at diagnosis</strong> — lower cumulative survival in pulmonary NC.</li>
+<li><strong>Pleural effusion</strong> — shorter survival.</li>
+<li><strong>Serum LDH &gt;306 U/L</strong> — OS &lt;7.5 months (AUC 0.85).</li>
+<li><strong>Complete resection with negative margins</strong> — the strongest favourable factor.</li>
+<li><strong>Receipt of radiotherapy and systemic therapy</strong> — associated with better OS in SEER analyses, with the usual confounding by fitness and resectability.</li>
+</ul>
+<h3>11.4 Morbidity, disability and quality of life</h3>
+<p>No ICF-coded disability data, no DALY estimate in GBD (the disease has no GBD cause category), and <strong>no published EQ-5D, SF-36 or PROMIS data</strong>. Morbidity is driven by local tumour effects (airway obstruction, pain, visual loss, dysphagia), by the morbidity of radical head and neck surgery and chemoradiation in the minority who are treatable with curative intent, and by the toxicity of BET inhibitors (notably thrombocytopenia). Given the median age in the twenties, years of life lost per case is very high.</p>
+<h3>11.5 Complications</h3>
+<p>Airway obstruction and respiratory failure; massive pleural effusion; superior vena cava syndrome; pathological fracture and bone pain from skeletal metastases; hepatic failure; cranial neuropathy and visual loss from skull-base/orbital extension; treatment-related cytopenias and infection.</p>
+<h3>11.6 Recovery potential</h3>
+<p>Cure is possible but uncommon and essentially confined to <strong>completely resected, localised, non-thoracic disease</strong>, ideally with a non-BRD4 partner. The zero 3-year survivors in thoracic disease (0/67) is the hardest number in this report and should be reflected in any prognosis record.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>There is no standard of care.</strong> This should be stated explicitly rather than implied.</p>
+<blockquote>
+<p>"There is currently no standard-of-care therapy for NC, and patients face a grim prognosis." — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9360329/">PMID:35957893</a>
+"The status quo is largely unsatisfactory and better drugs are needed to effectively treat NC." — consensus statement, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9197941/">PMID:35417004</a></p>
+</blockquote>
+<h3>12.1 Surgery and radiotherapy — the backbone</h3>
+<blockquote>
+<p>"Aggressive control of localized disease with surgery and radiation is the most effective treatment" and represents "the only chance for long-term survival." — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9197941/">PMID:35417004</a></p>
+<p>"extent of surgical resection and initial radiotherapy were independent predictors of PFS and OS," while conventional chemotherapy showed no benefit. — <a href="https://pubmed.ncbi.nlm.nih.gov/22896655/">Bauer et al. 2012, PMID:22896655</a></p>
+</blockquote>
+<ul>
+<li><strong>Surgery</strong> — HR 0.3; complete resection with negative margins is the single intervention most associated with long-term survival. Received by 73% of non-thoracic vs 30% of thoracic patients. NCIT: <strong>Surgical Procedure NCIT:C15329</strong>.</li>
+<li><strong>Radiotherapy</strong> — received by 73% (85/117) of registry patients; definitive or post-operative. NCIT: <strong>Radiation Therapy NCIT:C15313</strong>.</li>
+</ul>
+<h3>12.2 Cytotoxic chemotherapy</h3>
+<p>Received by <strong>90% (105/117)</strong> of registry patients. Initial CR/PR in <strong>49% (55/112)</strong>, almost always transient.</p>
+<p>Regimens used (none established as superior):
+- <strong>Ifosfamide-based</strong>, particularly the <strong>Scandinavian Sarcoma Group IX (SSG IX)</strong> Ewing-sarcoma regimen — "has demonstrated anecdotal successes" with "four long term complete responses (CR) or cures reported" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9197941/">PMID:35417004</a>). This is the most interesting signal in conventional chemotherapy and is a paediatric-oncology-derived approach.
+- Ifosfamide + etoposide.
+- Platinum (cisplatin/carboplatin) + etoposide.
+- Platinum + paclitaxel.
+- Anthracycline-containing regimens in some series.</p>
+<p><strong>Chemoradiotherapy</strong> gave mean OS <strong>13.2 months</strong> in a pulmonary series (vs 5.58 for chemotherapy alone and 3.54 for surgery alone), with 4 patients surviving &gt;12 months (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13655413">PMID:42865603</a>) — noting heavy selection bias.</p>
+<p>NCIT: <strong>Chemotherapy NCIT:C15632</strong>; <strong>Pharmacotherapy NCIT:C15986</strong>.
+CHEBI candidates <strong>(verify all)</strong>: cisplatin <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" rel="noopener noreferrer">CHEBI:27899</a>; etoposide <a href="http://purl.obolibrary.org/obo/CHEBI_4911" target="_blank" rel="noopener noreferrer">CHEBI:4911</a>; ifosfamide <a href="http://purl.obolibrary.org/obo/CHEBI_5864" target="_blank" rel="noopener noreferrer">CHEBI:5864</a>; paclitaxel <a href="http://purl.obolibrary.org/obo/CHEBI_45863" target="_blank" rel="noopener noreferrer">CHEBI:45863</a>; doxorubicin <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" rel="noopener noreferrer">CHEBI:28748</a>; carboplatin <a href="http://purl.obolibrary.org/obo/CHEBI_31355" target="_blank" rel="noopener noreferrer">CHEBI:31355</a>.</p>
+<h3>12.3 BET bromodomain inhibitors — the mechanism-matched class</h3>
+<p><strong>Rationale:</strong> "The bromodomain-acetyl-lysine interaction thus represents a therapeutic vulnerability in cancers that are dependent on BRD4, including NC." BET inhibitors "evict BRD4-NUT from chromatin by directly binding the dual bromodomains of BRD4," collapsing megadomains and inducing differentiation.</p>
+<p><strong>Historical note:</strong> BET inhibitors as a drug class were <em>discovered through</em> NUT carcinoma — "BET bromodomain inhibitors were initially discovered in NUT midline carcinoma (NMC)" (<a href="https://pubmed.ncbi.nlm.nih.gov/26976114/">Stathis et al., <em>Cancer Discov</em> 2016, PMID:26976114</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Study</th>
+<th>NC patients</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Birabresib (OTX015/MK-8628)</strong></td>
+<td>Stathis 2016, <a href="https://pubmed.ncbi.nlm.nih.gov/26976114/" target="_blank" rel="noopener noreferrer">PMID:26976114</a> (4 pts); phase Ib (9 pts)</td>
+<td>4 / 9</td>
+<td>first proof of concept: 2/4 "responded rapidly with tumor regression and symptomatic relief," a third had meaningful stabilisation. In the larger set: 3 PR, 3 SD, 2 PD; duration 1.4–8.4 months. Reversible grade 3 thrombocytopenia</td>
+</tr>
+<tr>
+<td><strong>Molibresib (GSK525762 / i-BET762)</strong></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32328561/">Piha-Paul et al., <em>JNCI Cancer Spectr</em>, PMID:32328561</a></td>
+<td><strong>19</strong></td>
+<td><strong>4 PR, 8 SD; ORR 11%</strong>; 4 progression-free &gt;6 months. Thrombocytopenia 51%, GI 22–42%, anaemia 22%, fatigue 20%. RP2D 80 mg QD. "Preliminary data indicate proof-of-concept in NC"</td>
+</tr>
+<tr>
+<td><strong>RO6870810</strong></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33311588/">Shapiro et al., <em>Br J Cancer</em> 2021, PMID:33311588</a></td>
+<td>8</td>
+<td><strong>ORR 25% (2/8)</strong>; 4 SD, 1 PD; median PFS 94 days. <strong>Both responders had non-BRD4 fusions (NSD3-NUT, BRD3-NUT)</strong>; one NSD3-NUT response lasted <strong>797 days</strong></td>
+</tr>
+<tr>
+<td><strong>ODM-207</strong></td>
+<td>phase I</td>
+<td>4</td>
+<td>minimal activity: 3 PD, 1 SD</td>
+</tr>
+<tr>
+<td><strong>BMS-986158</strong></td>
+<td>NCT03936465</td>
+<td>—</td>
+<td>"most robust clinical benefit in NC patient with non-BRD4-NUT (BRD3-NUT) fusion," PFS 279 days</td>
+</tr>
+<tr>
+<td><strong>ZEN-3694 (ZEN003694)</strong></td>
+<td>FDA <strong>orphan drug designation</strong> for NUT carcinoma; two active trials</td>
+<td>—</td>
+<td>NCT05019716 (+ cisplatin/etoposide or carboplatin/paclitaxel), NCT05372640 (+ abemaciclib)</td>
+</tr>
+<tr>
+<td><strong>NHWD-870 HCl</strong></td>
+<td><strong>Phase II, China, 2026</strong></td>
+<td><strong>40</strong></td>
+<td><strong>ORR 30% (12/40) by IRC; thoracic subgroup ORR 45% (9/20); DCR 47.5%; mPFS 2.76 mo; mOS 9.33 mo.</strong> Dose 2 mg PO, 5-days-on/2-days-off, 28-day cycles. AEs: thrombocytopenia 55%, hypertriglyceridaemia 55%, hyperbilirubinaemia 47.5%, anaemia 47.5%; <strong>no treatment-related deaths</strong>. <strong>China NMPA breakthrough therapy designation, 9 May 2026</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>⚠️ Evidence-quality flag on NHWD-870:</strong> these figures come from a <strong>2026 ESMO presentation and company press release</strong> (<a href="https://www.clinicaltrialvanguard.com/news/nhwd-870-hcl-hits-45-response-rate-in-thoracic-nut-carcinoma/">clinicaltrialvanguard</a>; <a href="https://en.prnasia.com/releases/global/zhejiang-wenda-pharma-announces-positive-results-from-phase-ii-trial-of-oral-bet-inhibitor-nhwd-870-hcl-at-the-2026-esmo-annual-meeting-553108.shtml">PR Newswire</a>), <strong>not from a peer-reviewed publication</strong>, and the trial registration number was not located. They should be curated as conference-abstract-level evidence, if at all, and the claim re-checked against a journal publication before being treated as established. If confirmed, a 45% ORR in <em>thoracic</em> disease — the group with 0/67 three-year survivors — would be the most meaningful therapeutic advance in this disease to date.</p>
+<p><strong>Consensus verdict on BET monotherapy:</strong></p>
+<blockquote>
+<p>BET-inhibitor monotherapy has produced "modest benefit in a minority of patients"; most responses occurred in patients with <strong>non-BRD4-NUT</strong> translocations. — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9197941/">PMID:35417004</a></p>
+</blockquote>
+<p><strong>Next-generation agents:</strong> ABBV-744 (BD2-selective; 325× BD2/BD1 selectivity, 12.5× less thrombopoietic toxicity); mivebresib/ABBV-075 (pan-BET); BI 894999 (BD1-selective; IC₅₀ 1–2 nM across four NC models, evicts BRD4-NUT at 30 nM vs 1 µM for molibresib); NEO2734 (dual p300/CBP + BET).</p>
+<p><strong>PROTAC BET degraders</strong> are the stated next direction: "Future research directions include exploring new therapeutic strategies (such as highly selective BET inhibitors, BET-inhibitor combinations, and <strong>PROTAC technologies</strong>)" (<a href="https://pubmed.ncbi.nlm.nih.gov/41737331/">PMID:41737331</a>). RNK05047, a dual BRD4/HSP90 PROTAC degrader, is in phase I/II for advanced solid tumours and lymphomas.</p>
+<p>NCIT: <strong>Targeted Therapy NCIT:C93352 (verify)</strong>; <strong>Pharmacotherapy NCIT:C15986</strong>.</p>
+<h3>12.4 HDAC inhibitors</h3>
+<p><strong>Rationale</strong> (and it is a different rationale from BET inhibition): megadomains sequester the limited p300 pool, leaving the rest of the genome hypoacetylated; HDAC inhibition restores that acetylation and depletes BRD4-NUT from megadomains, inducing differentiation.</p>
+<ul>
+<li>Nine structurally distinct HDAC inhibitors showed dose-dependent growth inhibition correlating with histone acetylation (<strong>R² = 0.96</strong>) across four NMC lines (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3070805/">Schwartz et al., <em>Cancer Res</em> 2011, PMID:21447744</a>).</li>
+<li><strong>LBH-589 (panobinostat)</strong> produced significant growth suppression and survival benefit in PER-403 xenografts (P=0.001) with morphological squamous differentiation.</li>
+<li><strong>Clinical:</strong> a 10-year-old with mediastinal NMC achieved an objective response to <strong>vorinostat</strong> monotherapy at 5 weeks (reduced PET avidity) before dose-limiting thrombocytopenia stopped treatment.</li>
+<li><strong>Verdict:</strong> "Since positive studies are still missing, HDACi treatment currently cannot be recommended as a standard of care."</li>
+</ul>
+<p>CHEBI: vorinostat <a href="http://purl.obolibrary.org/obo/CHEBI_45716" target="_blank" rel="noopener noreferrer">CHEBI:45716</a> <strong>(verify)</strong>; panobinostat <strong>(verify)</strong>.</p>
+<h3>12.5 Other targeted and combination strategies</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>p300/CBP HAT or bromodomain inhibition</strong></td>
+<td>A-485 (HAT) and GNE-781 (bromodomain) inhibit NC growth; <strong>synergistic with BET inhibitors</strong>. NEO2734 (dual) "potently inhibited growth and induced differentiation of NC cells <em>in vitro</em>" and gave "greater growth inhibition, tumor regression, and significant survival benefit" vs chemotherapy in xenografts</td>
+</tr>
+<tr>
+<td><strong>CDK4/6 inhibition + BET inhibition</strong></td>
+<td>Palbociclib + JQ1 synergistic <em>in vitro</em>; <strong>only the combination produced tumour regression</strong> in xenografts, with survival benefit — but "rapid tumor re-growth occurred" on stopping, indicating reversible quiescence rather than cell kill. Clinical translation: <strong>NCT05372640</strong> (ZEN-3694 + abemaciclib)</td>
+</tr>
+<tr>
+<td><strong>CDK9 inhibition</strong></td>
+<td>CDK9 identified as a <strong>synthetic-lethal</strong> target in NC lines; inhibition induced apoptosis and reduced Pol II occupancy at <em>MYC</em>. Agents: KB-0742 (NCT04718675), TP1287 (NCT03604783)</td>
+</tr>
+<tr>
+<td><strong>Dual HDAC/PI3K inhibition</strong></td>
+<td>CUDC-907 IC₅₀ <strong>5.5–9.0 pmol/L</strong> in NC lines; panobinostat 0.4–1.3 nmol/L; AZD5153 (BET) 3.7–8.2 nmol/L. "CUDC-907 might be promising in NUT carcinoma treatment" (<a href="https://pubmed.ncbi.nlm.nih.gov/30696721/">PMID:30696721</a>)</td>
+</tr>
+<tr>
+<td><strong>BET + DNA-damaging agents / PARP inhibitors</strong></td>
+<td>BET inhibition reduces <em>BRCA1</em>/<em>RAD51</em> transcription, compromising homologous recombination — rationale for ZEN-3694 + talazoparib (NCT03901469 in TNBC; NCT05327010 ComBET)</td>
+</tr>
+<tr>
+<td><strong>EZH2 inhibition</strong></td>
+<td>EZH2 reported to synergise with BRD4-NUT; preclinical</td>
+</tr>
+<tr>
+<td><strong>miR-766-5p targeting BRD4</strong></td>
+<td>preclinical</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>12.6 Immunotherapy</h3>
+<p>A genuinely unsettled area, with evidence pointing both ways.</p>
+<p><strong>For:</strong>
+- "Two studies have reported durable disease stability in PD-L1-high NCs treated with nivolumab or pembrolizumab," supporting a "consensus recommendation to consider the addition of immune checkpoint blockade to the treatment paradigm of non-surgically treated NC patients with PD-L1+ disease" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9197941/">PMID:35417004</a>).
+- In the German cohort, "Patients treated with an immune checkpoint inhibitor (ICI) in addition to first-line chemotherapy <strong>tended to have longer OS</strong>" (<a href="https://pubmed.ncbi.nlm.nih.gov/38301600/">PMID:38301600</a>).
+- The NUT fusion junction is a true tumour-specific neoantigen — a rational target for personalised vaccination.
+- Active trial: <strong>NCT07050186</strong>, phase II cemiplimab in incurable metastatic/unresectable NUT carcinoma.</p>
+<p><strong>Against:</strong>
+- NC is immunologically cold, with significantly lower immune infiltration than HNSCC and LUSC, low TMB, MSS status, and PD-L1 negative in 0/57 tested cases.
+- <strong>Hyperprogression</strong> after pembrolizumab-based treatment has been reported in sinonasal NC (<a href="https://onlinelibrary.wiley.com/doi/10.1002/lary.70733"><em>Laryngoscope</em> 2025</a>).</p>
+<p><strong>Net:</strong> reasonable to consider in PD-L1-positive, non-surgical disease; not an established benefit; a real risk signal exists.</p>
+<h3>12.7 Supportive and rehabilitative care</h3>
+<p>Airway management (stenting, tracheostomy), pleural drainage/pleurodesis, analgesia including opioids, palliative radiotherapy to painful bone metastases, nutritional support, speech/swallow and physical rehabilitation after head and neck surgery, and early palliative care integration. NCIT: <strong>Supportive Care NCIT:C15747</strong>; <strong>Rehabilitation NCIT:C15315</strong>; <strong>Physical Therapy NCIT:C15302</strong>; <strong>Nutritional Support NCIT:C15433 (verify)</strong>.</p>
+<h3>12.8 Active clinical trials (as of November 2026)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>NCT</th>
+<th>Title / agent</th>
+<th>Phase</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://clinicaltrials.gov/study/NCT05019716">NCT05019716</a></td>
+<td><strong>ZEN003694 + chemotherapy</strong> (cisplatin/etoposide; carboplatin/paclitaxel) in advanced NUT carcinoma</td>
+<td>1/2</td>
+<td>Recruiting</td>
+</tr>
+<tr>
+<td><a href="https://clinicaltrials.gov/study/NCT05372640">NCT05372640</a></td>
+<td><strong>ZEN003694 + abemaciclib</strong> (CDK4/6i)</td>
+<td>1</td>
+<td>Recruiting</td>
+</tr>
+<tr>
+<td><a href="https://clinicaltrials.gov/study/NCT07050186">NCT07050186</a></td>
+<td><strong>Cemiplimab</strong> in incurable metastatic/unresectable NUT carcinoma</td>
+<td>2</td>
+<td>Recruiting</td>
+</tr>
+<tr>
+<td><a href="https://clinicaltrials.gov/study/NCT07863765">NCT07863765</a></td>
+<td><strong>Enfortumab vedotin</strong> (anti-nectin-4 ADC) for thyroid and NUT carcinomas</td>
+<td>2</td>
+<td>Not yet recruiting</td>
+</tr>
+<tr>
+<td><a href="https://clinicaltrials.gov/study/NCT06943521">NCT06943521</a></td>
+<td>MT-4561 in advanced solid tumours incl. NUT carcinoma</td>
+<td>1/2</td>
+<td>Recruiting</td>
+</tr>
+<tr>
+<td><a href="https://clinicaltrials.gov/study/NCT07459127">NCT07459127</a></td>
+<td>Multicentre retrospective cohort, pulmonary NUT carcinoma</td>
+<td>—</td>
+<td>Active, not recruiting</td>
+</tr>
+<tr>
+<td><a href="https://clinicaltrials.gov/study/NCT07072143">NCT07072143</a></td>
+<td>International study, paediatric rare tumours incl. NUT carcinoma</td>
+<td>—</td>
+<td>Recruiting</td>
+</tr>
+<tr>
+<td><a href="https://clinicaltrials.gov/study/NCT05265429">NCT05265429</a></td>
+<td>YOUNG LUNG biology study (incl. NUT carcinoma)</td>
+<td>—</td>
+<td>Recruiting</td>
+</tr>
+<tr>
+<td><a href="https://clinicaltrials.gov/study/NCT05812027">NCT05812027</a></td>
+<td>TAA/HLA/HLA-LOH screening study (incl. NUT carcinoma)</td>
+<td>—</td>
+<td>Active, not recruiting</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>(Two trials returned by the ClinicalTrials.gov query — NCT07817329 "NUT Project: Nutritional Support in Thoracic Oncology" and NCT07733466 on </em><em>betel-nut</em><em>-associated oral carcinoma — are </em><em>false positives on the string "NUT"</em><em> and are unrelated to this disease. Worth knowing if you automate trial curation for this entry.)</em></p>
+<p><strong>Consensus trial-design recommendations</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9197941/">PMID:35417004</a>): lower trial eligibility to <strong>age 12</strong>; enrol all patients in the <strong>NUT Carcinoma Registry</strong>; perform NGS for <em>NUTM1</em> rearrangement on all thoracic tumours.</p>
+<h3>12.9 Treatment algorithm (synthesised)</h3>
+<ol>
+<li><strong>Establish the diagnosis</strong> — NUT IHC, then RNA fusion sequencing to identify the partner.</li>
+<li><strong>Stage</strong> with CT and FDG-PET/CT; MRI for skull base/orbit.</li>
+<li><strong>Assess resectability immediately.</strong> If localised and resectable (far more often non-thoracic): <strong>complete resection with negative margins</strong>, followed by radiotherapy ± chemotherapy. This is the only established path to cure and the window is short.</li>
+<li><strong>If unresectable or metastatic:</strong> enrol in a clinical trial as first choice. Otherwise multimodal chemotherapy (ifosfamide-based or platinum/etoposide) + definitive radiotherapy to the primary where feasible.</li>
+<li><strong>Consider checkpoint blockade</strong> added to first-line chemotherapy in PD-L1-positive non-surgical disease, with awareness of the hyperprogression signal.</li>
+<li><strong>At progression:</strong> BET inhibitor (trial preferred), with the expectation of higher benefit if the partner is BRD3 or NSD3.</li>
+<li><strong>Throughout:</strong> registry enrolment, early palliative care, symptom-directed intervention.</li>
+<li><strong>Pharmacogenomics:</strong> no NUT-carcinoma-specific PharmGKB/CPIC guidance. Standard germline considerations apply to cytotoxics (e.g. DPYD, UGT1A1) where relevant agents are used.</li>
+</ol>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention: none possible, and none is being pursued.</strong> The causal event is a spontaneous somatic translocation with no known exogenous cause. There is no exposure to avoid, no vaccine, no chemoprophylaxis, and no behavioural intervention with any evidence base. Writing "smoking cessation" or similar into a prevention record for this disease would misrepresent the evidence — the majority of pulmonary cases arise in never-smokers.</p>
+<p><strong>Immunisation:</strong> not applicable (no infectious aetiology). Note that HPV vaccination prevents <em>other</em> head and neck carcinomas but has no bearing on NC, which is HPV-negative.</p>
+<p><strong>Secondary prevention (early detection): this is where the entire preventable burden sits.</strong> Not population screening — which is unjustifiable for a disease of this frequency with no precursor — but <strong>diagnostic vigilance</strong>:</p>
+<ul>
+<li>Reflex <strong>NUT IHC</strong> on any poorly differentiated or undifferentiated carcinoma of unknown lineage, particularly in patients under 50 and in never-smokers.</li>
+<li>Inclusion of <em>NUTM1</em> in all thoracic tumour NGS panels (explicit consensus recommendation).</li>
+<li>Rapid specialist referral once diagnosed, as urged by the German cohort authors given a 31% initial-misdiagnosis rate.</li>
+<li><strong>Clinician education</strong> — the Chinese national survey (65.2% with no awareness of any domain) identifies the limiting factor precisely, and recommends prioritising "training for pathology services and tumor-related specialties and strengthen[ing] referral pathways and access to NUT immunohistochemistry and molecular diagnostics to reduce missed or delayed diagnoses" (<a href="https://pubmed.ncbi.nlm.nih.gov/41772604/">PMID:41772604</a>).</li>
+</ul>
+<p><strong>Tertiary prevention:</strong> aggressive local control at first presentation (surgery + radiotherapy) to prevent the dissemination that makes the disease incurable; management of treatment toxicity, especially BET-inhibitor thrombocytopenia.</p>
+<p><strong>Genetic screening and counselling:</strong> carrier screening, cascade testing, prenatal testing and PGD are <strong>all not applicable</strong> — the lesion is somatic. Counselling content is limited to: this is sporadic; relatives are not at increased risk; the tumour's fusion is not heritable.</p>
+<p><strong>Risk stratification:</strong> no individual-level risk model exists or is possible. The only usable stratification is diagnostic (which biopsies warrant NUT testing).</p>
+<p><strong>Public health / environmental interventions:</strong> not applicable.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p><strong>There is no naturally occurring NUT carcinoma described in any non-human species.</strong> It does not appear in OMIA, and there is no veterinary literature on spontaneous <em>NUTM1</em>-rearranged carcinoma in companion animals, livestock, or wildlife. This is an <strong>engineered-model-only</strong> disease outside humans.</p>
+<p><strong>Taxonomy:</strong>
+- <em>Homo sapiens</em> — <strong>NCBITaxon:9606</strong> (the only species with naturally occurring disease).
+- <em>Mus musculus</em> — <strong>NCBITaxon:10090</strong> (engineered models only).</p>
+<p><strong>Breed:</strong> not applicable — no VBO identifier.</p>
+<p><strong>Orthologous genes:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Species</th>
+<th>Gene</th>
+<th>Location</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Human</td>
+<td><em>NUTM1</em></td>
+<td>15q14</td>
+<td><a href="https://bioregistry.io/HGNC:29919" target="_blank" rel="noopener noreferrer">HGNC:29919</a>; NCBI Gene <strong>256646</strong></td>
+</tr>
+<tr>
+<td>Human</td>
+<td><em>BRD4</em></td>
+<td>19p13.12</td>
+<td><a href="https://bioregistry.io/HGNC:13575" target="_blank" rel="noopener noreferrer">HGNC:13575</a></td>
+</tr>
+<tr>
+<td>Mouse</td>
+<td><em>Nutm1</em></td>
+<td><strong>chromosome 2</strong></td>
+<td>MGI ID <strong>(not verified — look up)</strong></td>
+</tr>
+<tr>
+<td>Mouse</td>
+<td><em>Brd4</em></td>
+<td><strong>chromosome 17</strong></td>
+<td>MGI ID <strong>(not verified — look up)</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The mouse chromosome assignments are established by the syntenic <strong>t(2;17)</strong> translocation engineered in the NCT model (<a href="https://www.life-science-alliance.org/content/7/7/e202402602">PMID:38724194</a>). Per the repository's <em>Naming Genes in a Model's Own Species</em> rule, mouse genes in any animal-model record must be bound to <strong>MGI:</strong> identifiers, not to <code>hgnc:</code>.</p>
+<p><strong>Comparative biology:</strong>
+- The BRD4–p300 acetylation machinery and the BET-protein/acetyl-lysine reading module are deeply conserved across vertebrates, which is why a mouse translocation reproduces the human disease.
+- The mouse model recapitulates the human disease well at the histological and molecular level: squamous cell carcinomas with variable differentiation, areas of keratinisation, "pervasive nuclear NUTM1 expression," and "extensive MYC, KRT14, and P63 positivity."
+- NUT's physiological role in spermiogenesis (histone-to-protamine exchange with BRDT and EP300) is conserved in mammals.</p>
+<p><strong>Transmission:</strong> not applicable. <strong>No zoonotic potential, no cross-species transmission, no infectious component.</strong></p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>15.1 Genetically engineered mouse model — the field's major recent advance</h3>
+<p><strong>NUT carcinoma translocator (NCT) mouse</strong> — <a href="https://www.life-science-alliance.org/content/7/7/e202402602">Zheng D et al., <em>Life Sci Alliance</em> 2024;7(7):e202402602. PMID:38724194</a></p>
+<ul>
+<li><strong>Design:</strong> CRISPR-inserted loxP sites in mouse <em>Brd4</em> and <em>Nutm1</em>; Cre-mediated stochastic reciprocal <strong>t(2;17)</strong> translocation generating the <em>Brd4::Nutm1</em> fusion <em>in situ</em>, at the endogenous locus, under endogenous regulation. This is the right design — a knock-in transgene would not reproduce the native expression context.</li>
+<li><strong>Penetrance:</strong> <strong>100%</strong> in every lineage tested — KRT14-Cre head and neck (n&gt;50), Pdx1-Cre pancreas (18/18), Prrx1-Cre soft tissue (9/9), NLS-Cre constitutive (25/25).</li>
+<li><strong>Phenotype recapitulation (good):</strong> squamous cell carcinomas, poorly differentiated/basaloid, with keratinisation foci and intratumoural heterogeneity; nuclear NUTM1; MYC, KRT14, P63 positive; variable clustered SOX2. Transcriptomics: 3,065 up / 2,654 down genes; GSEA enrichment for proliferation, mitosis, MYC targets, metabolic reprogramming; CIBERSORT shows proliferating basal cell enrichment.</li>
+<li><strong>Metastasis modelled:</strong> Pdx1-Cre pancreatic tumours disseminate widely with micrometastasis within 10 weeks, with desmoplasia, activated fibroblasts and EMT markers.</li>
+<li><strong>Limitations:</strong> tumour site is dictated by the Cre driver, not by the biology that selects sites in patients, so the model cannot explain the human thoracic/head-and-neck site distribution. Mouse immune context differs. The relationship between mouse tumour latency and human disease tempo is not established.</li>
+<li><strong>Key application already delivered:</strong> the conditional <em>Sox2</em> knockout showing <strong>SOX2 is dispensable</strong> for NC initiation and progression in both SOX2-expressing (oral) and SOX2-absent (pancreatic) lineages, with tumours retaining histology and the BRD4::NUTM1/MYC/TP63 programme (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12634820/">PMID:41266112</a>). This <strong>contradicts</strong> the in-vitro knockdown literature and is a model-organism result that should temper, not be averaged with, the cell-line data.</li>
+</ul>
+<h3>15.2 Human cell lines</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Line</th>
+<th>Fusion</th>
+<th>Origin</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>TC-797</strong> (797)</td>
+<td>BRD4-NUT</td>
+<td>classic NMC line</td>
+</tr>
+<tr>
+<td><strong>PER-403</strong></td>
+<td>BRD4-NUT</td>
+<td>11-year-old female, poorly differentiated intrathoracic squamous carcinoma of possible thymic origin</td>
+</tr>
+<tr>
+<td><strong>PER-624</strong></td>
+<td>—</td>
+<td>paediatric NMC</td>
+</tr>
+<tr>
+<td><strong>TY-82</strong></td>
+<td>BRD4-NUT</td>
+<td>widely used</td>
+</tr>
+<tr>
+<td><strong>HCC2429</strong></td>
+<td>BRD4-NUT</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>10326</strong></td>
+<td><strong>BRD3-NUT</strong></td>
+<td>one of few BRD3 models</td>
+</tr>
+<tr>
+<td><strong>10-15</strong></td>
+<td>BRD4-NUT</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>00-143</strong></td>
+<td>BRD-NUT</td>
+<td></td>
+</tr>
+<tr>
+<td>Controls</td>
+<td>—</td>
+<td>HTB-43, HCC-95 (squamous, NUT-wild-type)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Cellosaurus accessions were <strong>not resolved in this session</strong> — look them up before binding any <code>experimental_models</code> record.</p>
+<h3>15.3 Xenografts</h3>
+<p>Luciferised <strong>TC-797</strong> and <strong>PER-403</strong> xenograft models support bioluminescent longitudinal imaging and survival endpoints. PER-403 xenografts demonstrated significant survival benefit from HDAC inhibition (LBH-589, P=0.001) with increased histone acetylation and morphological squamous differentiation (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3070805/">PMID:21447744</a>). Patient-derived xenografts are described but not systematically catalogued.</p>
+<h3>15.4 Other model systems</h3>
+<ul>
+<li><strong>Human stem-cell / iPSC models:</strong> used to show cell-state-dependent megadomain placement — BRD4-NUT expressed in pluripotent vs mesoderm-induced cells formed megadomains at "dissimilar patterns" (<a href="https://academic.oup.com/genetics/article/224/3/iyad083/7147209">PMID:37131839</a>). This is the key model for the cell-of-origin question.</li>
+<li><strong>Invertebrate models (Drosophila, C. elegans), zebrafish:</strong> none established.</li>
+<li><strong>Organoids:</strong> none published for NC specifically — a clear gap given their value elsewhere in squamous biology.</li>
+<li><strong>Oncolytic virotherapy models:</strong> the 10-15 line has been used in this context.</li>
+</ul>
+<h3>15.5 Research applications and limitations</h3>
+<p><strong>What the models support:</strong> mechanism (megadomain formation, feed-forward acetylation), drug screening (the CUDC-907/panobinostat/AZD5153 IC₅₀ data come from NC lines), combination-therapy testing (BETi + CDK4/6i, BETi + p300i), and now genetic epistasis <em>in vivo</em>.</p>
+<p><strong>Principal unmet model need, stated by the field itself:</strong> "<strong>Immunocompetent mouse models for combination testing</strong>" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9197941/">PMID:35417004</a>). The NCT mouse now supplies this — immunotherapy combination work in NC should move onto it rather than continuing in xenografts, given that the disease's defining immunological feature is a cold microenvironment that a xenograft cannot model at all.</p>
+<p><strong>Resources:</strong> MGI, IMSR, Alliance of Genome Resources for mouse strains; the <strong>International NUT Carcinoma Registry</strong> (nc-registry.org / nmcregistry.org, Brigham and Women's Hospital — C.A. French) for clinical data and tissue.</p>
+<hr />
+<h2>Curation notes and open questions</h2>
+<p>Flagging these explicitly because they bear on how a knowledge-base entry should be built, and several are places where the literature does not agree with itself.</p>
+<ol>
+<li>
+<p><strong>Name and MONDO label.</strong> The MONDO label <code>nut midline carcinoma</code> is superseded. Per the <code>entry-naming</code> rule that a name must cover exactly what the entry covers, "NUT Carcinoma" is correct and "NUT Midline Carcinoma" is too narrow (it excludes renal, pancreatic, cutaneous and bone primaries that the entry must cover). Consider reporting the stale label upstream to MONDO.</p>
+</li>
+<li>
+<p><strong>Granularity (design decisions §3a).</strong> NC is a <strong>histologic/molecular entity</strong> at the WHO blue-book level with its own ICD-O code (8023/3) — the correct default rung. It is <em>not</em> a biomarker stratum of squamous cell carcinoma, despite the 2025 <em>Nat Rev Clin Oncol</em> argument for reclassification; that argument is about how the field should <em>organise</em> the entity, not about whether it is one. Thoracic vs head-and-neck NC should be <code>has_subtypes</code> or prognostic strata, <strong>not</strong> separate entries, since they share every pathophysiology node. "Metastatic NUT carcinoma" must never be an entry.</p>
+</li>
+<li>
+<p><strong>Cell of origin (design decisions §3d).</strong> The origin node is the <em>NUTM1</em> fusion node, marked <code>variant_origin: SOMATIC</code>, <code>functional_impact_category: GAIN_OF_FUNCTION</code>. The <code>cell_types</code> on that node are the derivation. Evidence supports a basal/squamous epithelial progenitor (<a href="http://purl.obolibrary.org/obo/CL_0000646" target="_blank" rel="noopener noreferrer">CL:0000646</a> <strong>verify</strong>), but the mouse model's pancreatic and mesenchymal tumours mean a single bound cell type will be an oversimplification — record the uncertainty in <code>notes</code> rather than binding a confident wrong answer.</p>
+</li>
+<li>
+<p><strong>SOX2 is a genuine in-vitro / in-vivo contradiction.</strong> Cell-line knockdown says SOX2 is required for the differentiation block; conditional knockout in the NCT mouse says it is dispensable for initiation and progression. This is textbook <code>HUMAN_MODEL_MISMATCH</code> material — or rather its inverse — and should be curated as an open question with both results cited, not resolved.</p>
+</li>
+<li>
+<p><strong>The epidemiology has two incompatible numbers and both are real.</strong> ~20 ascertained cases/year (registry) versus ~1,400 estimated true cases/year (US). A <code>prevalence</code> record needs <code>measure_type: ANNUAL_INCIDENCE</code>, an explicit <code>rate_denominator</code>, and <code>notes</code> stating which basis each figure uses. Conflating them would be a serious misrepresentation in either direction.</p>
+</li>
+<li>
+<p><strong>NHWD-870 is conference/press-release evidence only.</strong> The 45% thoracic ORR is the most clinically significant claim in this report and is the least well-sourced. Do not curate it as a peer-reviewed finding; re-check for a journal publication.</p>
+</li>
+<li>
+<p><strong><em>NUTM1</em> fusion ≠ NUT carcinoma.</strong> <em>NUTM1</em>-rearranged B-ALL, <em>CIC::NUTM1</em> sarcoma and <em>NUTM1</em> poroma are different diseases. Any gene-level record for <em>NUTM1</em> should make this explicit, or a gene page will silently merge four entities.</p>
+</li>
+<li>
+<p><strong>Every CURIE marked (verify)</strong> in this report must be resolved against its ontology and its canonical label copied before binding. That applies to all HPO, UBERON, CL, GO, CHEBI and LOINC suggestions above; the NCIT treatment terms quoted from the repository's own documentation (C15986, C15632, C15313, C15329, C15747, C15315, C15302) were read from a source and are safer, but still warrant <code>just validate-terms</code>.</p>
+</li>
+<li>
+<p><strong>Not covered because not applicable:</strong> inheritance pattern, penetrance, expressivity, anticipation, founder effects, consanguinity, carrier frequency, newborn/carrier/prenatal screening, infectious agents, gene–environment interaction, veterinary natural disease, zoonosis. Each is a <em>reported negative</em>, not an unexamined gap, and should be recorded as such rather than left blank.</p>
+</li>
+</ol>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://www.nature.com/articles/s41571-025-00986-3">Luo J et al. Hiding in plain sight: NUT carcinoma is an unrecognized subtype of squamous cell carcinoma of the lungs and head and neck. <em>Nat Rev Clin Oncol</em> 2025;22(4):292–306. PMID:39900969</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41737331/">Zhang Y et al. International guidelines on the diagnosis and treatment of NUT carcinoma. <em>Innovation (Camb)</em> 2025. PMID:41737331</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7165803/">Chau NG et al. An anatomical site and genetic-based prognostic model for patients with NUT midline carcinoma. <em>JNCI</em> 2020. PMID:32328562</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9197941/">French CA et al. Report of the First International Symposium on NUT Carcinoma. <em>Clin Cancer Res</em> 2022. PMID:35417004</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7914217/">Eagen KP, French CA. Supercharging BRD4 with NUT in carcinoma. <em>Oncogene</em> 2021. PMID:33452461</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/12543779/">French CA et al. BRD4-NUT fusion oncogene: a novel mechanism in aggressive carcinoma. <em>Cancer Res</em> 2003. PMID:12543779</a></li>
+<li><a href="https://genesdev.cshlp.org/content/29/14/1507.full.html">Alekseyenko AA et al. The oncogenic BRD4-NUT chromatin regulator drives aberrant transcription within large topological domains. <em>Genes Dev</em> 2015. PMID:26220994</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3070805/">Schwartz BE et al. Differentiation of NUT midline carcinoma by epigenomic reprogramming. <em>Cancer Res</em> 2011. PMID:21447744</a></li>
+<li><a href="https://www.life-science-alliance.org/content/7/7/e202402602">Zheng D et al. Brd4::Nutm1 fusion gene initiates NUT carcinoma in vivo. <em>Life Sci Alliance</em> 2024. PMID:38724194</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12634820/">SOX2 is a dispensable modulator of NUT carcinoma oncogenesis in mice. <em>Life Sci Alliance</em> 2025. PMID:41266112</a></li>
+<li><a href="https://academic.oup.com/genetics/article/224/3/iyad083/7147209">Alekseyenko AA et al. Cell state-dependent chromatin targeting in NUT carcinoma. <em>Genetics</em> 2023. PMID:37131839</a></li>
+<li><a href="https://meridian.allenpress.com/aplm/article/148/8/898/497494/Nuclear-Protein-in-Testis-NUT-Carcinoma-A">Farooq A et al. NUT Carcinoma: A Comprehensive Immunohistochemical Analysis of 57 Cases. <em>Arch Pathol Lab Med</em> 2024. PMID:38059551</a></li>
+<li><a href="https://ascopubs.org/doi/10.1200/PO.24.00334">Kroening G et al. Multiomic Characterization and Molecular Profiling of NUT Carcinoma. <em>JCO Precis Oncol</em> 2024. PMID:39447095</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38301600/">Kloker LD et al. Clinical management of NUT carcinoma in Germany. <em>Lung Cancer</em> 2024;189:107496. PMID:38301600</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/22896655/">Bauer DE et al. Clinicopathologic features and long-term outcomes of NUT midline carcinoma. <em>Clin Cancer Res</em> 2012. PMID:22896655</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/27509377/">Chau NG et al. Intensive treatment and survival outcomes in NUT midline carcinoma of the head and neck. <em>Cancer</em> 2016. PMID:27509377</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28643357/">Lemelle L et al. NUT carcinoma in children and adults: a multicenter retrospective study. <em>Pediatr Blood Cancer</em> 2017. PMID:28643357</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/26976114/">Stathis A et al. Clinical response of carcinomas harboring the BRD4-NUT oncoprotein to OTX015/MK-8628. <em>Cancer Discov</em> 2016. PMID:26976114</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/32328561/">Piha-Paul SA et al. Phase 1 study of molibresib (GSK525762) in NUT carcinoma and other solid tumors. <em>JNCI Cancer Spectr</em>. PMID:32328561</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33311588/">Shapiro GI et al. Phase 1 study of RO6870810 in NUT carcinoma, other solid tumours, or DLBCL. <em>Br J Cancer</em> 2021. PMID:33311588</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/30696721/">Jung M et al. Clinicopathological and preclinical findings of NUT carcinoma: a multicenter study. <em>Oncologist</em> 2019. PMID:30696721</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/24875858/">French CA et al. NSD3-NUT fusion oncoprotein in NUT midline carcinoma. <em>Cancer Discov</em> 2014. PMID:24875858</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9360329/">NUT Carcinoma — An Underdiagnosed Malignancy. <em>Front Oncol</em> 2022. PMID:35957893</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8966081/">NUT Carcinoma: Clinicopathologic Features, Molecular Genetics and Epigenetics. <em>Front Oncol</em> 2022. PMID:35372003</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10432870/">The expanding universe of NUTM1 fusions in pediatric cancer. <em>Pediatr Blood Cancer</em> 2023. PMID:37082775</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13655413">Primary pulmonary NUT carcinoma: an extended review. PMID:42865603</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40486575/">Arabi TZ et al. Nationwide retrospective study on the prevalence and prognostic factors of NUT carcinoma in the United States. <em>Ann Med Surg</em> 2025. PMID:40486575</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/42870800/">Yang G et al. Survival and treatment selection in NUT carcinoma: a population-based study. <em>Transl Cancer Res</em> 2026. PMID:42870800</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41772604/">Ye Z et al. A nationwide survey of awareness and understanding of NUT carcinoma among clinicians in China. <em>BMC Health Serv Res</em> 2026. PMID:41772604</a></li>
+<li><a href="https://www.hh.um.es/pdf/Vol_40/40_11/Xie-40-1839-1846-2025.pdf">Xie et al. <em>Histol Histopathol</em> 2025;40:1839–1846</a></li>
+<li><a href="https://www.frontiersin.org/journals/oncology/articles/10.3389/fonc.2021.690115/full">Primary pulmonary NUT carcinoma clinical review. <em>Front Oncol</em> 2021</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/10.1002/lary.70733">Hyperacute progression of sinonasal NUT carcinoma after pembrolizumab-based treatment. <em>Laryngoscope</em> 2025</a></li>
+<li><a href="https://en.prnasia.com/releases/global/zhejiang-wenda-pharma-announces-positive-results-from-phase-ii-trial-of-oral-bet-inhibitor-nhwd-870-hcl-at-the-2026-esmo-annual-meeting-553108.shtml">Zhejiang Wenda Pharma NHWD-870 HCl phase II results, 2026 ESMO (press release)</a> · <a href="https://www.clinicaltrialvanguard.com/news/nhwd-870-hcl-hits-45-response-rate-in-thoracic-nut-carcinoma/">trade coverage</a></li>
+<li><a href="https://www.pathologyoutlines.com/topic/lungtumornutcarcinoma.html">PathologyOutlines — NUT carcinoma (lung)</a> · <a href="https://www.pathologyoutlines.com/topic/nasalnutcarcinoma.html">(sinonasal)</a> · <a href="https://www.pathologyoutlines.com/topic/skinnonmelanocyticcutaneousadnexalNUT.html">(cutaneous adnexal)</a></li>
+<li><a href="https://www.encr.eu/sites/default/files/inline-files/Changes%20ICD-O-3.2.pdf">ENCR — Changes in ICD-O-3.2 (2021)</a></li>
+<li><a href="https://www.omim.org/entry/608963">OMIM *608963 NUTM1</a> · <a href="https://atlasgeneticsoncology.org/gene/41595/nutm1-(nuclear-protein-in-testis)">Atlas of Genetics and Cytogenetics in Oncology — NUTM1</a> · <a href="https://www.ncbi.nlm.nih.gov/gene/256646">NCBI Gene 256646</a></li>
+<li><a href="https://nc-registry.org/">International NUT Carcinoma Registry</a> · <a href="https://www.dana-farber.org/cancer-care/types/nut-carcinoma">Dana-Farber NUT Carcinoma Center</a></li>
+<li><a href="http://purl.obolibrary.org/obo/MONDO_0005563" target="_blank" rel="noopener noreferrer">MONDO:0005563</a> via <a href="https://www.ebi.ac.uk/ols4/ontologies/mondo">EBI OLS4</a>; HGNC identifiers via <a href="https://rest.genenames.org/">genenames.org REST</a>; trials via <a href="https://clinicaltrials.gov/">ClinicalTrials.gov API v2</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>42</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>42</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>28</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>42</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:41737331</code> <em>(abstract only)</em>: "NUT carcinoma (NC) is a rare and highly aggressive malignancy characterized by <em>NUTM1</em> gene fusions."</li>
+<li>closest text in source: "Nuclear protein in testis (NUT) carcinoma (NC) represents a rare, clinically aggressive cancer defined by pathognomonic NUT Midline Carcinoma Family Member 1 (NUTM1) gene fusions, with bromodomain and extraterminal domain (BET) protein 4 (BRD4)-NUTM1 being the predominant oncogenic driver"</li>
+<li><code>PMID:33452461</code> <em>(abstract only)</em>: "NCs are genomically stable… Apart from the <em>NUTM1</em>-fusion, NCs lack oncogenic mutations, have low tumor mutation burdens, and have few, if any, copy number alterations."</li>
+<li>closest text in source: "Common targets of MDs across multiple NCs and tissues are three stem cell-related transcription factors frequently implicated in cancer: MYC, SOX2, and TP63"</li>
+<li><code>PMID:35957893</code> <em>(abstract only)</em>: "Unlike other solid tumors with complex chromosomal rearrangements and a high mutational burden, NCs display a simple karyotype, often with only one alteration comprising the translocation."</li>
+<li>closest text in source: "NC is characterized by a single translocation involving the NUTM1 (NUT midline carcinoma family member 1) gene and different partner genes"</li>
+<li><code>PMID:42865603</code> <em>(abstract only)</em>: "median interval from symptom onset to diagnosis is 10 weeks"</li>
+<li>closest text in source: "This review provides an updated overview of its pathological features, clinical presentation, diagnosis, treatment, and prognosis, aiming to serve as a practical reference for clinicians and pathologists."</li>
+<li><code>PMC:PMC13655413</code> <em>(abstract only)</em>: "median interval from symptom onset to diagnosis is 10 weeks"</li>
+<li>closest text in source: "This review provides an updated overview of its pathological features, clinical presentation, diagnosis, treatment, and prognosis, aiming to serve as a practical reference for clinicians and pathologists."</li>
+<li><code>PMID:39447095</code> <em>(abstract only)</em>: "Co-occurring mutations in epigenetic or cell cycle pathways were observed in 26% of cases."</li>
+<li>closest text in source: "RESULTS: While NC is driven by NUTM1 fusion oncoproteins, co-occurring DNA mutations in epigenetic or cell cycle pathways were observed in 26% of cases"</li>
+<li><code>PMID:33452461</code> <em>(abstract only)</em>: "stimulated the ability of p300 to in vitro acetylate purified H3 histones."</li>
+<li>closest text in source: "BRD4-NUT nuclear foci correspond with massive contiguous regions of chromatin co-enriched with BRD4-NUT, p300, and acetylated histones, termed "megadomains" (MD)"</li>
+<li><code>PMID:33452461</code> <em>(abstract only)</em>: "BRD4-NUT first bound to regular enhancers, and then spread contiguously… over time (7h) to form mature MDs"</li>
+<li>closest text in source: "Finally, we discuss how our knowledge of BRD4-NUT function has been leveraged for the therapeutic development of first-in-class BET inhibitors and other targeted strategies."</li>
+<li><code>PMID:26220994</code> <em>(abstract only)</em>: "BRD4-NUT co-occupies with p300 unprecedented 100kb-2 Mbp 'megadomains' of acetylated chromatin."</li>
+<li>closest text in source: "BRD4-NUT forms distinctive nuclear foci in patient tumors, which we found correlate with ∼100 unprecedented, hyperacetylated expanses of chromatin that reach up to 2 Mb in size"</li>
+<li><code>PMID:21447744</code> <em>(abstract only)</em>: "BRD4-NUT expression causes global histone hypoacetylation and transcriptional repression. The fusion protein sequesters histone acetyltransferase (p300) activity."</li>
+<li>closest text in source: "In both gain-of and loss-of-expression assays, we find that expression of BRD4-NUT is associated with globally decreased histone acetylation and transcriptional repression"</li>
+<li><code>PMID:33452461</code> <em>(abstract only)</em>: "Across five different cell line and tissues we have identified a very limited set of NC-specific, common MDs: those associated with the <em>MYC</em>, <em>TP63</em>, and <em>SOX2</em> loci."</li>
+<li>closest text in source: "Common targets of MDs across multiple NCs and tissues are three stem cell-related transcription factors frequently implicated in cancer: MYC, SOX2, and TP63"</li>
+<li><code>PMID:38724194</code> <em>(abstract only)</em>: "proliferation, mitosis, MYC targets, and <strong>metabolic reprogramming</strong> pathways"</li>
+<li>closest text in source: "The consistent induction of poorly differentiated carcinoma demonstrated a strong reprogramming activity of BRD4::NUTM1"</li>
+<li><code>PMID:41266112</code> <em>(abstract only)</em>: "only modest transcriptional changes affecting metabolic pathways"</li>
+<li>closest text in source: "Bulk RNA sequencing revealed only modest transcriptional changes in SOX2-deficient tumors, primarily affecting metabolic and biosynthetic pathways, without disrupting core oncogenic programs"</li>
+<li><code>PMC:PMC12634820</code> <em>(abstract only)</em>: "only modest transcriptional changes affecting metabolic pathways"</li>
+<li>closest text in source: "Bulk RNA sequencing revealed only modest transcriptional changes in SOX2-deficient tumors, primarily affecting metabolic and biosynthetic pathways, without disrupting core oncogenic programs"</li>
+<li><code>PMID:33452461</code> <em>(abstract only)</em>: "Cell-of-origin remains undefined"</li>
+<li>Text part not found as substring: 'Cell-of-origin remains undefined' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/33452461/" target="_blank" rel="noopener noreferrer">PMID:33452461</a>, full text may contain this excerpt)</li>
+<li><code>PMC:PMC7914217</code> <em>(abstract only)</em>: "Cell-of-origin remains undefined"</li>
+<li>Text part not found as substring: 'Cell-of-origin remains undefined' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/33452461/" target="_blank" rel="noopener noreferrer">PMID:33452461</a>, full text may contain this excerpt)</li>
+<li><code>PMID:39900969</code> <em>(abstract only)</em>: "with approximately 1,400 annual cases in the United States and a median survival of roughly 6.5 months, this disease surpasses the incidence of certain established NSCLC and HNSCC subtypes yet remains misclassified as a distinct orphan entity."</li>
+<li>closest text in source: "The orphan classification of NUT carcinoma as a distinct entity leads to a lack of awareness of this malignancy among oncologists and surgeons, despite early diagnosis being crucial for this cancer type with a median survival of only ~6.5 months"</li>
+<li><code>PMID:35417004</code> <em>(abstract only)</em>: "NUT immunohistochemistry is adequate for diagnosis and should be considered in any patient with a poorly differentiated carcinoma."</li>
+<li>closest text in source: "While the incidence likely exceeds that of Ewing sarcoma, and BRD4-NUT heralded the bromodomain and extra-terminal domain (BET) inhibitor class of selective epigenetic modulators, NUT carcinoma is incorrectly perceived as "impossibly rare," and therefore receives comparatively little private or governmental funding or prioritization by pharma"</li>
+<li><code>PMID:35957893</code> <em>(abstract only)</em>: "There is currently no standard-of-care therapy for NC, and patients face a grim prognosis."</li>
+<li>closest text in source: "There are currently no standard-of-care treatment options for patients with NC"</li>
+<li><code>PMID:35417004</code> <em>(abstract only)</em>: "the only chance for long-term survival."</li>
+<li>Text part not found as substring: 'the only chance for long-term survival.' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/35417004/" target="_blank" rel="noopener noreferrer">PMID:35417004</a>, full text may contain this excerpt)</li>
+<li><code>PMID:35417004</code> <em>(abstract only)</em>: "four long term complete responses (CR) or cures reported"</li>
+<li>closest text in source: "Broadly, the four areas discussed by experts in the field included (1) the biology of NUT carcinoma; (2) standard approaches to the treatment of NUT carcinoma; (3) results of clinical trials using BET inhibitors; and (4) future directions, including novel BET bromodomain inhibitors, combinatorial approaches, and immunotherapy"</li>
+<li><code>PMC:PMC9197941</code> <em>(abstract only)</em>: "four long term complete responses (CR) or cures reported"</li>
+<li>closest text in source: "Broadly, the four areas discussed by experts in the field included (1) the biology of NUT carcinoma; (2) standard approaches to the treatment of NUT carcinoma; (3) results of clinical trials using BET inhibitors; and (4) future directions, including novel BET bromodomain inhibitors, combinatorial approaches, and immunotherapy"</li>
+<li><code>PMID:26976114</code> <em>(abstract only)</em>: "BET bromodomain inhibitors were initially discovered in NUT midline carcinoma (NMC)"</li>
+<li>closest text in source: "UNLABELLED: The antineoplastic, prodifferentiative effects of bromodomain and extra-terminal (BET) bromodomain (BRD) inhibitors were initially discovered in NUT midline carcinoma (NMC), an aggressive subtype of squamous cancer driven by the BRD4-NUT fusion oncoprotein"</li>
+<li><code>PMID:41737331</code> <em>(abstract only)</em>: "Future research directions include exploring new therapeutic strategies (such as highly selective BET inhibitors, BET-inhibitor combinations, and <strong>PROTAC technologies</strong>)"</li>
+<li>closest text in source: "Future research directions include improving diagnostic efficiency, exploring new therapeutic strategies (such as highly selective BET inhibitors, BET-inhibitor combinations, and PROTAC technologies), and recommending basket trials as a research approach for patients with NUTM1 gene fusions."</li>
+<li><code>PMID:35417004</code> <em>(abstract only)</em>: "consensus recommendation to consider the addition of immune checkpoint blockade to the treatment paradigm of non-surgically treated NC patients with PD-L1+ disease"</li>
+<li>closest text in source: "To raise awareness, propagate scientific knowledge, and initiate a consensus on standard and targeted treatment of NUT carcinoma, we held the First International Symposium on NUT Carcinoma on March 3, 2021"</li>
+<li><code>PMC:PMC9197941</code> <em>(abstract only)</em>: "consensus recommendation to consider the addition of immune checkpoint blockade to the treatment paradigm of non-surgically treated NC patients with PD-L1+ disease"</li>
+<li>closest text in source: "To raise awareness, propagate scientific knowledge, and initiate a consensus on standard and targeted treatment of NUT carcinoma, we held the First International Symposium on NUT Carcinoma on March 3, 2021"</li>
+<li><code>PMID:35417004</code> <em>(abstract only)</em>: "<strong>Immunocompetent mouse models for combination testing</strong>"</li>
+<li>Text part not found as substring: '<strong>Immunocompetent mouse models for combination testing</strong>' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/35417004/" target="_blank" rel="noopener noreferrer">PMID:35417004</a>, full text may contain this excerpt)</li>
+<li><code>PMC:PMC9197941</code> <em>(abstract only)</em>: "<strong>Immunocompetent mouse models for combination testing</strong>"</li>
+<li>Text part not found as substring: '<strong>Immunocompetent mouse models for combination testing</strong>' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/35417004/" target="_blank" rel="noopener noreferrer">PMID:35417004</a>, full text may contain this excerpt)</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>67</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>56</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>5</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0005563</code> (5 mentions) - the report calls it "MONDO"; MONDO calls it <strong>nut midline carcinoma</strong></li>
+<li><code>DOID:0060463</code> (1 mention) - the report calls it "DOID"; DOID calls it <strong>NUT midline carcinoma</strong></li>
+<li><code>EFO:0005783</code> (1 mention) - the report calls it "EFO"; EFO calls it <strong>obsolete_NUT midline carcinoma</strong></li>
+<li><code>NCIT:C93352</code> (1 mention) - the report calls it "verify"; NCIT calls it <strong>Targeted Therapy</strong></li>
+<li><code>NCIT:C15433</code> (1 mention) - the report calls it "verify"; NCIT calls it <strong>Nutritional Support</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>EFO:0005783</code> (obsolete_NUT midline carcinoma) (1 mention) - replaced by <code>http://purl.obolibrary.org/obo/MONDO:0005563</code></li>
+<li><code>GO:0043974</code> (obsolete histone H3-K27 acetylation) (1 mention)</li>
+<li><code>GO:0070577</code> (obsolete lysine-acetylated histone binding) (1 mention) - replaced by <code>GO:0140566</code></li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>, <code>LOINC</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="NTRK_Fusion_Positive_Cancer-falcon.html">← NTRK Fusion-Positive Cancer (Falcon)</a>
+                
+                
+                <a href="ODonnell-Luria-Rodan_Syndrome-claude_code.html">O&#39;Donnell-Luria-Rodan Syndrome (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/NUT_Carcinoma.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/NUT_Carcinoma-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
