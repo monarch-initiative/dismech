@@ -71,7 +71,9 @@ and the files they cover travel together. The per-pair join of verdicts to label
 tables 1 to 5 — is held back while an independent audit of the same pinned text
 is still possible, so that publishing it cannot shape one; `FINDINGS.md` reports counts and
 publishes the hash of the frozen verdicts, so the table can be matched to them whenever it is
-released, audit or no audit.
+released, audit or no audit. When it is released it goes to `monarch-initiative/dismech-evals`,
+beside the checker runs it is joined to, which is where this repository keeps corpus evaluation
+history.
 
 A repair pull request that follows a run touches curation-scope paths only — `kb/`, `history/`,
 `references_cache/` and the term caches. The repository's curation scope check does not list
@@ -105,7 +107,12 @@ about every other field of that row. That is an artefact of the unit, not a defe
   does not settle a question, records that it did so, and saves its verdicts as each assertion is
   finished.
 - **The second pass** is a separate agent session that judges a stratified sample of the frame
-  without seeing the first verdicts.
+  without seeing the first verdicts. Separate is not independent: if both passes run the same model,
+  they share whatever that model is systematically wrong about, so their agreement is an upper bound
+  on reliability rather than a measurement of it. A run records which model each pass used, and
+  `FINDINGS.md` reads table 5 against that. The human reviewer's rulings are the only verdicts in
+  the design that do not share the agents' bias, which is why table 5 reports agreement with them
+  separately.
 - **A human reviewer** judges a sample of that sample blind, judges the excluded rows, and rules on
   every pair where the two passes disagree. The human rulings are what the agreement table in
   `FINDINGS.md` is measured against.
@@ -313,9 +320,8 @@ Neuroblastoma that is the useful direction: the judgement that costs effort is t
 **At the assertion level it found one, and a mild one.** Worked example 8 above is that finding: a
 row whose every pair passed and whose stated denominator none of its quotes carries. It is severity
 2 rather than 1 because the figure is one quote extension away, where the same class on example 5
-would have been severity 1. So the assertion level earned its cost here on one row in thirty pairs,
-and what it bought was an evidence-layer repair rather than a corrected claim — a weaker result than
-a severity-1 find, and the honest one.
+would have been severity 1. So the assertion level found, on one row in thirty pairs, a gap the pair
+level could not see, and what it bought was an evidence-layer repair rather than a corrected claim.
 
 **A whole-claim MATCH does not mean every field matched.** 20 of the 72 whole-claim MATCH pairs
 carry at least one field-level MISMATCH, and 18 of the 42 PARTIAL pairs do. So any count has to say
@@ -326,12 +332,15 @@ pair.
 ## What is left out, and how it is counted
 
 - **Excluded rows.** A small set of rows in the entry is excluded from this group's own
-  adjudication by a standing rule of its own, and judged by a human reviewer instead. They are the
-  entry's ALK-inhibitor treatment and trial rows and its chromosomal-lesion genetic rows, both
-  already visible in `kb/disorders/Neuroblastoma.yaml`, so the count in `FINDINGS.md` can be
-  audited against the entry. They are counted separately in `FINDINGS.md` and never silently
-  dropped; the sheet holding them is not opened by the judge or by the second pass. A run's
-  `FINDINGS.md` says how many rows this covered and in which sections.
+  adjudication, and judged by a human reviewer instead. They are the entry's ALK-inhibitor
+  treatment and trial rows and its chromosomal-lesion genetic rows, both already visible in
+  `kb/disorders/Neuroblastoma.yaml`, so the count in `FINDINGS.md` can be audited against the
+  entry. The reason is that the group does not curate those rows at all — they are excluded from
+  its curation by a standing rule it works under — so it would be adjudicating work it has no
+  part in and cannot repair, which is a different exercise from the one this experiment
+  measures. They are counted separately in `FINDINGS.md` and never silently dropped; the sheet
+  holding them is not opened by the judge or by the second pass. A run's `FINDINGS.md` says how
+  many rows this covered and in which sections.
 - **Pairs the checker's run did not assess.** Counted as "not assessed by the checker", and
   `FINDINGS.md` reports them as a share of the frame, so a flag count is never read against a
   different denominator.
@@ -410,7 +419,9 @@ Computed by `tally.py` from the frozen verdict files joined to the checker's lab
 3. **Defects by class, severity and section**, from the class and severity recorded on each confirmed
    defect.
 4. **Does the checker's ranking put the real defects first?** Confirmed defects among its top 50, 100
-   and 200 pairs by mismatch probability, against the base rate.
+   and 200 pairs by mismatch probability, against the base rate. Each cut-off is computed only where
+   the frame is at least twice its size, so a frame under 400 pairs reports fewer of them and one
+   under 100 reports none; `FINDINGS.md` says which were computed.
 5. **Agreement**: the first verdicts against the second pass on its sample, and against the human
    reviewer's, both as plain agreement and as agreement on "defect or not".
 6. **Before and after**: the checker's verdict on each repaired pair, joined on assertion path and
