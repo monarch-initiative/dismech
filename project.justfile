@@ -182,6 +182,16 @@ validate-pre-edit file:
     fi
     echo "✓ Pre-edit validation passed for {{file}}"
 
+# Run the per-entry structural tests in tests/test_data.py (test_disorder_file,
+# test_module_file, test_comorbidity_file) on the given KB files only. These
+# are the `kb_data` checks the merge queue runs over the whole KB; CI runs this
+# on the entries a curation PR changes, so an entry-local failure shows up on
+# the PR rather than in the queue (#18313). Deleted files are skipped.
+#   just test-kb-files kb/disorders/Asthma.yaml kb/modules/fibrotic_response.yaml
+[group('QC')]
+test-kb-files *files: gen-python
+    uv run python scripts/run_changed_kb_entry_tests.py "$@"
+
 # Full validation of one or more disorder files, batched by validator phase.
 # This is intended for CI changed-file validation, where a PR may touch hundreds
 # of disorder YAMLs but still should avoid full-corpus validation. Reference
@@ -1144,7 +1154,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-reference-cache-welded-headings check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-gene-namespaces check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-unsuccessful-research check-reference-cache-nul-bytes check-reference-cache-welded-headings check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-gene-namespaces check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1521,6 +1531,30 @@ alias validate-references := validate-kb-references
 count-verified-snippets *args:
     uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} --config {{ref_validator_config}} {{args}}
 
+# Sync signed fair-use excerpts from the PRIVATE monarch-initiative/claimstore
+# repo into signed_excerpts/. Needs read access to claimstore and a local clone,
+# at ../claimstore by default or wherever CLAIMSTORE_DIR points. Selection
+# (target_repo, referenced_in, prune) lives in conf/reference_validator_config.yaml.
+# Pass --check to report drift without writing. Commit the changed
+# signed_excerpts/*.yaml with the disorder files that quote them; CI validates
+# against the committed copy and never needs claimstore.
+[group('Research')]
+sync-signed-excerpts *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src="${CLAIMSTORE_DIR:-../claimstore}/signed_excerpts"
+    if [ ! -d "$src" ]; then
+        echo "claimstore not found at $src" >&2
+        echo "Clone the private repo (needs read access) and/or set CLAIMSTORE_DIR:" >&2
+        echo "  git clone git@github.com:monarch-initiative/claimstore.git ../claimstore" >&2
+        exit 2
+    fi
+    if ! uv run linkml-reference-validator excerpts --help >/dev/null 2>&1; then
+        echo "linkml-reference-validator has no 'excerpts sync' command; upgrade to >=0.7.0" >&2
+        exit 2
+    fi
+    uv run linkml-reference-validator excerpts sync --config {{ref_validator_config}} --source "$src" {{args}}
+
 # Audit curated `clinical_trials` status/phase against live ClinicalTrials.gov.
 # A trial's `status:`/`phase:` are a snapshot taken at curation time and nothing
 # re-checks them: the trial registry is the one live-API reference source with no
@@ -1692,6 +1726,15 @@ check-block-scalar-comments *files:
 [group('QC')]
 check-case-collisions:
     uv run python scripts/check_case_collisions.py
+
+# deep-research-client 0.2.14 marks a run that produced no report -- a from-memory
+# answer, a refusal, a self-declared incomplete draft -- answer_status: unsuccessful
+# and exits 4, but the file still lands in research/. Ungated and whole-tree
+# because the PRs that add one touch only research/ and kb/. ~2s, offline.
+# Fail when research/ holds a deep-research run marked answer_status: unsuccessful
+[group('QC')]
+check-unsuccessful-research *args="":
+    uv run python scripts/check_unsuccessful_research.py {{args}}
 
 # PDF text extraction emits an unmapped glyph -- usually an fi/fl ligature -- as
 # U+0000, and one NUL makes grep treat the whole file as binary and silently drop
@@ -2480,6 +2523,11 @@ ai-blame-annotate-all:
     else
         echo "Completed without errors."
     fi
+
+# Lint Python with the pinned ruff -- the same command CI runs (#9964)
+[group('QC')]
+lint-python *args:
+    uv run ruff check . {{args}}
 
 # Lint the schema
 [group('QC')]
@@ -3930,7 +3978,7 @@ fetch-reference +identifiers:
     for identifier in "${ids[@]}"; do
         echo "Fetching reference: $identifier"
         case "$identifier" in
-            CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*|ICTRP:*|ictrp:*|CGGV:*|CGDS:*|ORPHA:*|Orphanet:*|ICEES:*|NCIT:*)
+            CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*|ICTRP:*|ictrp:*|CGGV:*|CGDS:*|ORPHA:*|Orphanet:*|ICEES:*|NCIT:*|OECDTG:*|oecdtg:*)
                 if [ ${#flags[@]} -gt 0 ]; then
                     echo "Note: ${flags[*]} ignored for $identifier; structured-source records are always rebuilt." >&2
                 fi
@@ -3985,6 +4033,13 @@ fetch-reference +identifiers:
                 ;;
             ICEES:*)
                 uv run python -m dismech.structured_sources.cli rebuild icees --id "$identifier"
+                ;;
+            # The paragraph index is committed, so unlike the other structured
+            # prefixes there is nothing to refresh and no network call: the
+            # rebuild renders `data/oecd_tg/*-paragraphs.json`. The guideline PDF
+            # is pinned by sha256 in that manifest and is not needed here.
+            OECDTG:*|oecdtg:*)
+                uv run python -m dismech.structured_sources.cli rebuild oecd-tg --id "$identifier"
                 ;;
             NCIT:*)
                 # `rebuild ncit` opens sqlite:obo:ncit, and OAK downloads that
@@ -4997,3 +5052,14 @@ extract-oecd-tg pdf out="data/oecd_tg/tg442d-paragraphs.json":
 # Check extracted Test Guideline facts against the paragraphs they cite
 check-tg-extraction *args="":
     @uv run python scripts/check_tg_extraction.py {{args}}
+
+# Rebuild references_cache/OECDTG_*.md from the committed paragraph indexes, so a KB
+# entry can cite `OECDTG:442D` and quote a paragraph. Offline and deterministic: the
+# index is committed, the PDF is not needed, and re-running changes nothing unless the
+# index did. Commit the cache file alongside the entry that cites it.
+oecd-tg-rebuild *args="":
+    @uv run python -m dismech.structured_sources.cli rebuild oecd-tg {{args}}
+
+# Which Test Guidelines have a quotable record
+oecd-tg-list:
+    @uv run python -m dismech.structured_sources.cli list oecd-tg
