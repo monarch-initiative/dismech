@@ -394,6 +394,146 @@ argument for the `HUMAN_OBSERVATIONAL` detail block in stage 1c carrying the
 study population as a first-class slot — and, incidentally, the single largest
 use of the `OTHER` bucket this note set out to close.
 
+### What the migration pass closed, and why the animal rows stayed put
+
+Of the 59 rows, 11 are now closed: both computational systems moved to
+`computational_models` (the CiPA in-silico arm in `Long_QT_Syndrome` and the
+temperature-dependent CaV1.2 model in `Timothy_Syndrome`, both typed `KINETIC`),
+and nine of the ten NAMs got a real `experimental_model_type`.
+
+A twelfth is decided but not yet applied. One of the eleven "unclear" rows is
+not unclear at all — `Hepatocellular_Carcinoma`'s HepG2 row is a cell line, and
+it reads as ambiguous only because its description is about *labelling* the line
+correctly (hepatoblastoma-derived, not HCC-derived) rather than about what kind
+of system it is. That entry carries seven pre-existing reference-validation
+failures unrelated to this axis — two cached references with no content, a paper
+title used as an evidence snippet, and three JAMA snippets that concatenate the
+structured-abstract section label onto the first sentence, so `ImportanceThe
+burden of liver cancer varies worldwide.` does not match a cache that has the
+label on its own line. Touching the file for a one-word enum value would pull
+all seven into the changed-path validator, so the row waits for the change that
+fixes them.
+
+**The fifteen animal rows were not moved, and the reason is stronger than the
+missing species.** Measured against the two classes rather than assumed: five of
+the fifteen carry an NCBITaxon-bound `organism`, which `AnimalModel.species` — a
+plain string — would turn back into free text; three of those five also carry
+`tissue_term` or `cell_types`, for which `AnimalModel` has no slot at all. The
+remaining ten record no organism whatsoever, and four of those name no species
+anywhere in the record ("Gyrencephalic mammalian model", "CML patient-derived
+xenograft (PDX)", "Rat and mouse embryonic neocortex", "Rodent or porcine VML
+injury model").
+
+So the migration is lossy exactly where the record is best annotated and
+under-determined exactly where it is worst. There is no subset of the fifteen
+where it is clean, which is the signal that the target class is wrong rather
+than that the rows are sloppy.
+
+**The cause is the same inheritance that produced the human-cohort problem.**
+`Experiment`'s model sections were given the disease level's three-way split,
+and the two levels ask different questions. At disease level an `AnimalModel`
+record describes an animal *line* — genotype, background, alleles — and that is
+what its slots are for. At experiment level what needs describing is a
+*preparation*: a ferret cortex, the brain and microglia of an `Atp7b` R778L
+mouse, rat and mouse embryonic neocortex under in-utero electroporation. A
+preparation is scoped to a tissue and a cell type, which is what
+`ExperimentalModel` expresses and `AnimalModel` does not. Adding an in-vivo
+value to `ExperimentalModelTypeEnum` is not the fix either: that class defines
+itself as non-animal, so the value would contradict its own scope statement.
+Together with the 21 human cohorts, **36 of the 59 rows have no good home** — a
+considerably stronger argument for the stage-1c detail blocks than the cohorts
+alone.
+
+Two smaller findings from the same pass. The worklist itself misfiled one row:
+"SMA mouse model with locked miR-128-3p inhibitor" is classified as a NAM
+needing a type, but its description is a severe SMA mouse (`Smn1-/-`; `Smn2`
+transgene), so it belongs with the animal rows and keeps `OTHER` for the reason
+above. And `ExperimentalModelTypeEnum` has no value for an engineered 3D tissue:
+`MRPL44_Deficiency`'s maturation-promoted engineered heart tissue exists
+precisely to escape the immaturity of monolayer iPSC cardiomyocytes, yet the
+only true value available is `IPSC_DERIVED_MODEL`, the same one its monolayer
+siblings carry. The distinction survives in the name and description rather than
+in the enum, which is the ontology-binding compromise CLAUDE.md already
+sanctions for `preferred_term`, applied to a closed vocabulary instead.
+
+### The DESCRIPTIVE_PROFILING / HUMAN_OBSERVATIONAL tie-break
+
+Both values fit a study that measures human material without perturbing it, and
+the backfill left the overlap unresolved. The discriminator is the **unit of
+analysis**, now recorded in both enum descriptions:
+
+- `HUMAN_OBSERVATIONAL` when the inference is about the *people* — penetrance,
+  prevalence, natural history, genotype-phenotype correlation, case-control
+  association. The participants are the study population.
+- `DESCRIPTIVE_PROFILING` when the inference is about the *specimens* — a
+  single-cell atlas, a spatial map, postmortem characterization. The
+  participants are where the tissue came from.
+
+Two things follow that are easy to miss. `DESCRIPTIVE_PROFILING` is not a
+human-material value at all: profiling an animal or an in-vitro system without
+perturbing it belongs there too, so the two values only compete over
+human-specimen profiling and not over the whole non-perturbational space. And
+the word in the title decides nothing — "Longitudinal profiling of
+presymptomatic HMOX1-null siblings" follows people and is
+`HUMAN_OBSERVATIONAL`, while "Adequately powered brain EWAS with cell-type
+deconvolution" characterizes a methylome and is `DESCRIPTIVE_PROFILING`.
+
+**The rule codifies existing practice rather than reclassifying it.** Read
+against the 453 records already carrying one of the two values, it moves
+exactly one. That is the outcome a tie-break should have: it makes the next
+assignment deterministic without churning the corpus. The one move,
+`exp_imcd_pretreatment_endotype_stratified_trial`, was not a profiling-versus-cohort
+confusion at all — the proposal randomizes patients to an endotype-matched agent
+after the profiling step, so it is an `INTERVENTIONAL_TRIAL` whose stratification
+arm had been read as the design.
+
+A related false positive is worth stating, because it is the shape a stricter
+rule would get wrong. Four other `HUMAN_OBSERVATIONAL` records mention
+randomization in order to *rule it out*, and the clearest says why: a registry
+rather than a trial "because withholding chelation from a severely poisoned
+child is not randomisable". The other three likewise call a randomized
+comparison not feasible or not realistic at their disease's rarity. All four
+are correctly non-interventional, and all four mention the word because the
+author anticipated the question. What makes a record `INTERVENTIONAL_TRIAL` is
+the investigator allocating the intervention, not the word appearing.
+
+### Two values had no uses, and one of them has a visible population
+
+`METHOD_DEVELOPMENT` and `MIXED` were unused across every assignment the
+backfill made, which is what a conservative matcher does to the values that
+need judgement: both require reading an experiment's purpose rather than its
+nouns. Each now has a first use, and they came from opposite directions.
+
+`exp_acy1_hearing_replication` is the straightforward `MIXED` case. Its name
+gives two arms equal billing — "Independent human hearing cohort replication
+and orthogonal model validation" — and the point of the word *orthogonal* is
+that neither arm alone settles the question, which is precisely the condition
+the value documents.
+
+`METHOD_DEVELOPMENT` is the more interesting one, because what identifies it is
+not in the experiment at all. `exp_stxbp1_mouse_human_trajectory_comparison`
+runs two perturbation arms (an `Stxbp1+/-` mouse series and patient iPSC
+neurons against an isogenic-corrected control), so every anchor in its own text
+points at `TARGETED_PERTURBATION`. But it sits under a `HUMAN_MODEL_MISMATCH`
+discussion, its stated aim is to "quantify where the mouse under-represents
+human severity", and its decision criterion is whether the mouse is a faithful
+model. The object under test is the model system, which is what
+`METHOD_DEVELOPMENT` means. The perturbations are how the comparison is made,
+not what it is about.
+
+**That generalizes into a prior, and it must not be applied as a rule.** 918
+proposed experiments across the KB sit under `HUMAN_MODEL_MISMATCH`
+discussions — the second-largest discussion kind after `KNOWLEDGE_GAP` — and
+they are where `METHOD_DEVELOPMENT`'s real population lives. But a gap of that
+kind asks whether a model reflects human biology, and an experiment proposed to
+close it can legitimately be model validation (`METHOD_DEVELOPMENT`), a human
+study supplying the comparator (`HUMAN_OBSERVATIONAL`), or a perturbation in a
+better model (`TARGETED_PERTURBATION`). Reassigning them from the parent
+discussion's `kind` would repeat the backfill's error at four times the scale.
+The usable finding is narrower and sharper: the parent discussion's `kind` is a
+signal the backfill never read, and it is the one place to look for the value
+that currently has a population of one.
+
 ## 10. Explicitly rejected
 
 - **Subclassing by every parameter.** A class per assay type would multiply
