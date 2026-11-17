@@ -281,7 +281,7 @@ Two things follow that are worth putting to the AOP 40 authors:
   [#18328](https://github.com/monarch-initiative/dismech/issues/18328) carries the dismech
   half of it, with the seven entries that already name AOP-Wiki Events in prose.
 
-### Three caveats on the dismech side
+### Four caveats on the dismech side
 
 - **The queryable signal is far thinner than the corpus mentions.** IL-8 appears in 267
   strings across 77 files in `kb/`, but only **six** of those are ontology-grounded
@@ -310,6 +310,17 @@ Two things follow that are worth putting to the AOP 40 authors:
   Subacute_Inflammatory_Demyelinating_Polyneuropathy is hedged the same way: CSF IL-8 as a
   biomarker of blood-nerve barrier dysfunction, with the node description saying outright
   that the evidence is from GBS and CIDP and is "not SIDP-specific."
+- **Contact_Dermatitis itself does not follow this reading.** The entry curates all four
+  TG 442E assays as `experimental_models` with `relationship: MEASURES`, and wires every one
+  of them — the IL-8 Luc assay included — to
+  `Skin innate immune activation during sensitization`, its KE3 counterpart, not to either
+  keratinocyte node. It does record a gap, as a `PROXY_QUANTITY` divergence, but a different
+  one: "IL-8 promoter-driven luciferase activity is the measured quantity; dendritic-cell
+  activation in skin is the quantity of interest." That is the monocytic reporter line
+  standing in for a dendritic cell, which is a measurement proxy. This section argues
+  something stronger — that the compartment the readout reports is keratinocyte, so the
+  quantity of interest may be the wrong one to name. The two readings have not been
+  reconciled, and the entry's is the one a query sees.
 
 ## What this case adds to the alignment project
 
@@ -376,8 +387,15 @@ Two things follow that are worth putting to the AOP 40 authors:
 
 ## Next steps
 
-- [ ] Check whether the same KE2/KE3 reading holds for the other TG 442E assays, which the
-      article says are "also representative of the events leading up to KE3."
+- [ ] Decide whether the IL-8 Luc assay's `PROXY_QUANTITY` divergence in
+      Contact_Dermatitis should name the keratinocyte compartment. It currently records
+      only that a monocytic reporter line stands in for a dendritic cell, which leaves
+      dendritic-cell activation as the quantity of interest; this page argues the readout
+      reports keratinocyte production instead. Whichever way it is settled, the entry and
+      this page should say the same thing. The other three TG 442E assays need no survey of
+      their own — h-CLAT, U-SENS and GARDskin are already curated against the same node,
+      the first two with the same `PROXY_QUANTITY` divergence — so the open question is
+      what that divergence should say, not which assays have one.
 - [x] Curate a keratinocyte-activation step onto the sensitization arm of
       Contact_Dermatitis. Done as two parallel nodes,
       `Hapten-driven keratinocyte electrophile sensing` and
