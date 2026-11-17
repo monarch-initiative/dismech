@@ -26,7 +26,8 @@ Use this workflow whenever evidence or its cited source changes.
   cache entry with `just fetch-reference <ID>`.
 - Never create or hand-edit `signed_excerpts/*.yaml`. Those fair-use excerpt
   bundles are verified against full-text PDFs in `monarch-initiative/claimstore`
-  and synced from there.
+  and synced from there with `just sync-signed-excerpts` (needs claimstore read
+  access; set `CLAIMSTORE_DIR` if the clone is not at `../claimstore`).
 - Never use fuzzy auto-repair to rewrite snippets. Read the source and copy the
   exact passage, choose another source, or remove the evidence.
 - Treat deep-research output as leads, not ground truth.

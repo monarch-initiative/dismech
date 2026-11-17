@@ -182,6 +182,16 @@ validate-pre-edit file:
     fi
     echo "✓ Pre-edit validation passed for {{file}}"
 
+# Run the per-entry structural tests in tests/test_data.py (test_disorder_file,
+# test_module_file, test_comorbidity_file) on the given KB files only. These
+# are the `kb_data` checks the merge queue runs over the whole KB; CI runs this
+# on the entries a curation PR changes, so an entry-local failure shows up on
+# the PR rather than in the queue (#18313). Deleted files are skipped.
+#   just test-kb-files kb/disorders/Asthma.yaml kb/modules/fibrotic_response.yaml
+[group('QC')]
+test-kb-files *files: gen-python
+    uv run python scripts/run_changed_kb_entry_tests.py "$@"
+
 # Full validation of one or more disorder files, batched by validator phase.
 # This is intended for CI changed-file validation, where a PR may touch hundreds
 # of disorder YAMLs but still should avoid full-corpus validation. Reference
@@ -1520,6 +1530,30 @@ alias validate-references := validate-kb-references
 [group('QC')]
 count-verified-snippets *args:
     uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} --config {{ref_validator_config}} {{args}}
+
+# Sync signed fair-use excerpts from the PRIVATE monarch-initiative/claimstore
+# repo into signed_excerpts/. Needs read access to claimstore and a local clone,
+# at ../claimstore by default or wherever CLAIMSTORE_DIR points. Selection
+# (target_repo, referenced_in, prune) lives in conf/reference_validator_config.yaml.
+# Pass --check to report drift without writing. Commit the changed
+# signed_excerpts/*.yaml with the disorder files that quote them; CI validates
+# against the committed copy and never needs claimstore.
+[group('Research')]
+sync-signed-excerpts *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src="${CLAIMSTORE_DIR:-../claimstore}/signed_excerpts"
+    if [ ! -d "$src" ]; then
+        echo "claimstore not found at $src" >&2
+        echo "Clone the private repo (needs read access) and/or set CLAIMSTORE_DIR:" >&2
+        echo "  git clone git@github.com:monarch-initiative/claimstore.git ../claimstore" >&2
+        exit 2
+    fi
+    if ! uv run linkml-reference-validator excerpts --help >/dev/null 2>&1; then
+        echo "linkml-reference-validator has no 'excerpts sync' command; upgrade to >=0.7.0" >&2
+        exit 2
+    fi
+    uv run linkml-reference-validator excerpts sync --config {{ref_validator_config}} --source "$src" {{args}}
 
 # Audit curated `clinical_trials` status/phase against live ClinicalTrials.gov.
 # A trial's `status:`/`phase:` are a snapshot taken at curation time and nothing
