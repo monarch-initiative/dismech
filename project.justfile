@@ -2974,9 +2974,10 @@ dr_validation := "--validate-references --validation-cache-dir references_cache"
 # the end of the body, and a `term_validation:` summary in the YAML frontmatter.
 #
 # Which ontologies, and how each is looked up, is set in conf/dr_ontologies.yaml
-# (needs deep-research-client >= 0.2.14). Passing it also appends a section to
-# the research prompt asking for terms from those ontologies only, and a CURIE
-# from any other ontology is reported as not configured rather than looked up.
+# (needs the deep-research-client release after 0.2.14). Passing it also
+# appends a section to the research prompt asking for terms from those
+# ontologies only, and a CURIE from any other ontology is reported as not
+# configured rather than looked up.
 # Two choices in that file worth knowing about, both settled by testing rather
 # than taste:
 #
