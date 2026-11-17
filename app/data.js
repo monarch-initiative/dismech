@@ -445275,7 +445275,7 @@ window.searchMetrics = {
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4098,
   "total_unique_pathological_events": 27058,
-  "total_modules": 235,
+  "total_modules": 236,
   "total_research_reports": 4203,
   "total_classifications": 21,
   "total_comorbidities": 57,
