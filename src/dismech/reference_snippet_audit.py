@@ -423,7 +423,13 @@ class CachedReferenceIndex:
             from linkml_reference_validator.models import ReferenceValidationConfig
         except ImportError:  # pragma: no cover - validator always installed here
             return None
-        return ReferenceFetcher(ReferenceValidationConfig(cache_dir=cache_dir))
+        # ``file:`` references are resolved against the checkout that holds the
+        # cache, as the validator resolves them against ``reference_base_dir``.
+        return ReferenceFetcher(
+            ReferenceValidationConfig(
+                cache_dir=cache_dir, reference_base_dir=cache_dir.resolve().parent
+            )
+        )
 
     @staticmethod
     def normalize(text: str) -> str:
@@ -599,6 +605,27 @@ class CachedReferenceIndex:
                 return match
         return self._by_bare_id.get(stems[0].casefold())
 
+    def _read_local_file(self, reference_id: str) -> str | None:
+        """Read a ``file:`` reference from disk, as the validator does.
+
+        Since linkml-reference-validator 0.8.0 a ``file:`` reference is read
+        directly on every run and no longer written to ``references_cache/``
+        (upstream #173): the validator never read those entries back, and the
+        file is often one the project may not redistribute. Reading the file
+        here keeps this audit in agreement with the validator for a reference
+        that has no cache entry. A legacy ``file_*.md`` cache entry, if present,
+        is still used when the source file is missing.
+        """
+        if self._fetcher is None:
+            return None
+        try:
+            fetched = self._fetcher.fetch(reference_id)
+        except Exception:  # pragma: no cover - upstream API drift
+            return None
+        if fetched is None or not fetched.content:
+            return None
+        return fetched.content
+
     @staticmethod
     def extract_body(text: str) -> str:
         """Strip YAML frontmatter and pre-content headers, as the fetcher does.
@@ -619,6 +646,10 @@ class CachedReferenceIndex:
         return body
 
     def _read_body(self, reference_id: str) -> str | None:
+        if reference_id.casefold().startswith("file:"):
+            local = self._read_local_file(reference_id)
+            if local is not None:
+                return local
         if self._fetcher is not None:
             try:
                 cached = self._fetcher._load_from_disk(

@@ -4341,6 +4341,10 @@ Non-negotiable rules:
   against full-text PDFs in the private `monarch-initiative/claimstore`
   repository and synced from there with `just sync-signed-excerpts`, which needs
   claimstore read access (design decisions §6d).
+- A `file:` reference (a committed supplement, cited by a repo-relative path
+  such as `file:data/literature_supplements/<name>.md`) is read from disk on
+  every run and, since linkml-reference-validator 0.8.0, never cached. Do not
+  commit a `references_cache/file_*.md` entry for one.
 - Validation is read-only for committed caches. `just validate`,
   `validate-kb-references` and `validate-disorders` may *create* a cache file
   for a newly cited reference (commit it), but they never rewrite a tracked one:
