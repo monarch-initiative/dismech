@@ -149,4 +149,4 @@ def aspect_output_schema(claim, fields=DEFAULT_FIELDS):
 
 
 def aspect_prompt():
-    return {"name": "claim_aspects", "version": "4", "instructions": INSTRUCTIONS}
+    return {"name": "claim_aspects", "version": "5", "instructions": INSTRUCTIONS}
