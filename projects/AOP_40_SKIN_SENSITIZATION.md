@@ -323,33 +323,46 @@ Two things follow that are worth putting to the AOP 40 authors:
   is a different kind of gap from an unmapped one.
 - **Most of the chain is curated, and the gaps are not where the earlier pilots' were.**
   Against AOP 40's five Events, the allergic arm of Contact_Dermatitis holds counterparts
-  for KE1, KE3 (`Skin innate immune activation during sensitization`, binding Langerhans
-  cell and dendritic cell) and KE4 (`Allergen-specific T-cell priming`, binding
+  for KE1, KE2, KE3 (`Skin innate immune activation during sensitization`, binding
+  Langerhans cell and dendritic cell) and KE4 (`Allergen-specific T-cell priming`, binding
   `GO:0042110` *T cell activation* with CD8-positive T cell and dendritic cell). Two
   observations fall out of that:
 
-  **KE2 is skipped on the arm that needs it.** The entry does carry
-  `Keratinocyte activation and proinflammatory mediator release` with `GO:0032980`
-  *keratinocyte activation*, which is a clean KE 826 counterpart — but it sits on the
-  **irritant** chain (irritant exposure → barrier disruption → keratinocyte activation →
-  inflammatory cell recruitment), not the hapten chain, which runs adduct formation →
-  innate activation → T-cell priming with no keratinocyte step. AOP 40 is a sensitization
-  pathway, so its KE2 belongs on the allergic arm. This is a concrete curation lead, and it
-  is the same compartment the IL-8 section argues the IL-8 Luc assay is really reading.
+  **KE2 is curated on the sensitization arm, as two parallel nodes.** The hapten chain runs
+  adduct formation → two keratinocyte nodes in parallel → innate activation → T-cell
+  priming. `Hapten-driven keratinocyte electrophile sensing` carries the Keap1-Nrf2-ARE
+  antioxidant-response programme that the OECD TG 442D methods measure;
+  `Keratinocyte inflammasome danger signalling` carries the IL-1 family route and conforms
+  to `nlrp3_inflammasome_activation`. Both bind `GO:0032980` *keratinocyte activation*,
+  both name KE 826 in their descriptions, and both feed
+  `Skin innate immune activation during sensitization`. The entry curates them apart
+  because different models read each one. The irritant chain keeps its own `GO:0032980`
+  node, `Keratinocyte activation and proinflammatory mediator release`, so the term is
+  bound three times in the entry and only the two hapten-chain nodes are AOP 40's KE2 —
+  the GO term alone does not say which arm a node sits on. This is also the compartment the
+  IL-8 section below argues the IL-8 Luc assay is really reading.
 
-  **The AO is not missing, it is fused with KE4.** AO 827 *sensitisation, skin* is the
-  established sensitized state, and that is what `Allergen-specific T-cell priming`
-  describes — "establishing the adaptive immune memory required for later flares" — in the
-  same node as the T-cell activation that is KE4. Past that point the entry continues
-  *beyond* the AOP's scope into elicitation: re-exposure-driven recruitment, resident memory
-  T-cell flare, and the `Contact dermatitis` phenotype (`HP:0032282`). So the earlier
-  pilots' endpoint gap does not reproduce here. What replaces it is a harder modelling
-  question: one dismech node standing for two AOP-Wiki Events.
+  **The AO has no corresponding node.** AO 827 *sensitisation, skin* is the sensitised
+  state reached at the end of induction. `Allergen-specific T-cell priming` is the obvious
+  candidate — its description closes "establishing the adaptive immune memory required for
+  later flares" — but the KE 827 cross-walk judged it not to correspond and recorded no
+  aggregation (enviromech, `data/key_events/KE-827.yaml`). Its reasons: the node describes
+  the priming process rather than the state it produces, the node after it is
+  `Re-exposure-driven effector T-cell recruitment` which is already elicitation, and the
+  entry's disease term `MONDO:0005480` *contact dermatitis* is what a sensitised person
+  develops on re-exposure rather than the sensitised state itself. dismech records the
+  missing outcome node in its own `no_node_for_integrated_outcome_prediction` discussion.
+  So the earlier pilots' endpoint gap does reproduce here, in a narrower form: past KE4 the
+  entry continues *beyond* the AOP's scope into elicitation — re-exposure-driven
+  recruitment, resident memory T-cell flare, the `Contact dermatitis` phenotype
+  (`HP:0032282`) — without ever naming the state the AOP ends at.
 - **It supplies two tests for any future Key Event cross-reference slot**, and neither can
   be met by a bare identifier. A slot recording "this node corresponds to KE3" must also be
   able to record the IL-8 case, where the assay's own biology sits at KE2 while the
-  alignment is at KE3 — and the KE4/AO case, where one node answers to two Events at once.
-  The second needs an explicit aggregation relation, not just a list of identifiers.
+  alignment is at KE3 — and the KE 826 case, where one Event answers to two nodes curated
+  apart because different models read them. The second needs an explicit aggregation
+  relation, and it runs the opposite way from the one first expected here: not one node
+  standing for several Events, but one Event spread over several nodes.
 - **It is the first case running in the other direction.** The lead and liver pilots ask
   what an AOP can contribute to dismech. The IL-8 section asks what dismech's corpus says
   about a Key Event assignment the AOP's own review article flags as uncertain, and gets a
@@ -360,17 +373,23 @@ Two things follow that are worth putting to the AOP 40 authors:
 
 - [ ] Put the IL-8 KE2/KE3 question to the AOP 40 authors, together with the
       `measurement-methodology` observation on KE 826.
-- [ ] Decide whether the three encodings of increased IL-8 in `kb/` should be normalised,
-      and if so to which one. This is a corpus-wide question about `modifier` versus
-      `positive regulation of` GO terms, not specific to IL-8.
 - [ ] Check whether the same KE2/KE3 reading holds for the other TG 442E assays, which the
       article says are "also representative of the events leading up to KE3."
-- [ ] Curate a keratinocyte-activation step onto the **allergic** arm of Contact_Dermatitis.
-      The entry's existing `GO:0032980` node sits on the irritant chain, so AOP 40's KE2 has
-      no counterpart on the chain that corresponds to it. This is the one Event of the five
-      with no node on the right arm, and it is the compartment the IL-8 section argues the
-      IL-8 Luc assay is actually reading.
-- [ ] Decide how a node standing for two AOP-Wiki Events should be recorded, using
-      `Allergen-specific T-cell priming` (KE4 + AO 827) as the test case. This is the
-      aggregation-relation question, and it is now a worked instance rather than a
-      hypothetical.
+- [ ] Decide whether the three encodings of increased IL-8 in `kb/` should be normalised,
+      and if so to which one. Filed as
+      [#18229](https://github.com/monarch-initiative/dismech/issues/18229). This is a
+      corpus-wide question about `modifier` versus `positive regulation of` GO terms, not
+      specific to IL-8.
+- [ ] Give the Key Event cross-references a place to live. Seven entries name AOP-Wiki
+      Events in `description`, `notes` and `downstream[].description` prose, with no slot
+      and nothing checking the identifiers. Filed as
+      [#18328](https://github.com/monarch-initiative/dismech/issues/18328).
+- [x] Curate a keratinocyte-activation step onto the sensitization arm of
+      Contact_Dermatitis. Done as two parallel nodes,
+      `Hapten-driven keratinocyte electrophile sensing` and
+      `Keratinocyte inflammasome danger signalling`, so KE 826 now has counterparts on the
+      arm AOP 40 describes.
+- [x] Decide how a node standing for two AOP-Wiki Events should be recorded, using
+      `Allergen-specific T-cell priming` (KE4 + AO 827) as the test case. The premise did
+      not hold: the KE 827 cross-walk recorded no corresponding node, so this is not an
+      aggregation case. The KE 826 split is the one-Event-to-many-nodes case instead.
