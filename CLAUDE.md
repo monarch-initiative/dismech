@@ -109,6 +109,10 @@ just pytest-all
 # Run a single test
 uv run pytest tests/test_data.py -k "test_name" -v
 
+# Lint Python with the pinned ruff, exactly as CI does (version pinned in
+# pyproject.toml; bump it there, in uv.lock and in .pre-commit-config.yaml together)
+just lint-python
+
 # Generate HTML pages for all disorders
 uv run python -m dismech.render --all
 
@@ -2367,6 +2371,18 @@ A quoted **aim** statement ("the aim of the present study was to…") has no val
 in this enum; it is neither the paper's finding nor somebody else's fact. Leave
 `quote_role` off; `just list-background-citations` reports those separately.
 
+**Keep study limitations visible without turning them into direction labels.**
+A small sample or a call for future work can coexist with `SUPPORT` for a finding
+accurately scoped to the study. Include the authors' caveat in the exact `snippet`
+when it is part of the same passage, and record our interpretation in `explanation`.
+Do not splice disconnected quotations. A caveat from another section can be quoted
+with attribution in `explanation`, but that prose is not automatically quote-validated
+or passed to the evaluator. Narrow an overstated assertion itself; its explanation
+cannot repair it. See [Recording caveats](docs/explanation/evidence-model.md#recording-caveats-with-the-existing-fields)
+for an example and the distinction between evidence direction, claim coverage and
+study strength. Jev’s `MATCH` / `PARTIAL` / `MISMATCH` are classifier outputs;
+they are separate from the retired `supports: PARTIAL` value discussed below.
+
 **`PARTIAL` and `WRONG_STATEMENT` were removed** (issue #7439). If you are
 tempted to reach for the old `PARTIAL`, one of these is what you mean:
 
@@ -4300,6 +4316,9 @@ Non-negotiable rules:
   on an HGNC identifier written beside the wrong gene (#9845).
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
+- Never create or hand-edit `signed_excerpts/*.yaml`; those bundles are verified
+  against full-text PDFs in the private `monarch-initiative/claimstore`
+  repository and synced from there (design decisions §6d).
 - Validation is read-only for committed caches. `just validate`,
   `validate-kb-references` and `validate-disorders` may *create* a cache file
   for a newly cited reference (commit it), but they never rewrite a tracked one:
