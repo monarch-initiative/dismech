@@ -51637,6 +51637,113 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "BENTA Disease",
+    "disease_id": "MONDO:0014645",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn error of immunity",
+      "Lymphoproliferative disorder"
+    ],
+    "creation_date": "2026-11-13T09:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "BENTA disease (B cell Expansion with NF-kappaB and T cell Anergy, OMIM 616452) is an autosomal dominant inborn error of immunity caused by germline gain-of-function variants in CARD11, the gene for the lymphocyte-restricted scaffold protein CARMA1. In resting lymphocytes an inhibitory linker domain holds CARD11 in a closed conformation; antigen receptor engagement phosphorylates that linker, the protein opens, and it recruits BCL10 and MALT1 into the CARD11-BCL10-MALT1 signalosome that activates IKK and so the canonical NF-kappaB pathway. The BENTA variants cluster in the CARD, LATCH and coiled-coil domains and uncouple that sequence: the mutant protein self-aggregates into large cytosolic structures that recruit MALT1 and phosphorylated IKK, so NF-kappaB runs constitutively with no antigen receptor signal at all. The clinical result is a congenital polyclonal, naive-predominant expansion of B lymphocytes with splenomegaly, lymphadenopathy and recurrent infection, alongside the paradox the name records: T cells from the same patients are functionally hyporesponsive. Humoral immunity is impaired despite the B cell excess, because the expanded B cells are intrinsically unable to differentiate into plasmablasts and plasma cells. The natural history is bimodal. In a 2025 systematic review of 34 reported cases, 15 patients were asymptomatic or improved with no specific treatment, while all six deaths occurred before the age of three, two from refractory haemophagocytic syndrome and four from opportunistic infection. Patients carry an elevated lifetime risk of lymphoid malignancy, which is unsurprising for B cell lymphoma, since the same lesion class occurs somatically in activated B cell-like diffuse large B cell lymphoma, and unexpected for the subcutaneous panniculitis-like T cell lymphoma reported in two unrelated patients. There is no curative therapy; management is supportive and immunomodulatory, and splenectomy is avoided because it worsens the lymphocytosis.",
+    "pathophysiology": [
+      "Germline CARD11 Gain-of-Function Variant",
+      "Constitutive CARD11 Self-Aggregation",
+      "Antigen-Independent CBM Signalosome Assembly",
+      "Constitutive NF-kappaB Activation",
+      "Polyclonal Naive B Cell Expansion",
+      "Impaired Plasma Cell Differentiation",
+      "T Cell Anergy",
+      "Impaired Control of Epstein-Barr Virus"
+    ],
+    "cell_types": [
+      "naive B cell",
+      "T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000788",
+      "CL:0000084"
+    ],
+    "biological_processes": [
+      "antigen receptor-mediated signaling pathway",
+      "canonical NF-kappaB signal transduction",
+      "B cell proliferation",
+      "T cell anergy"
+    ],
+    "phenotypes": [
+      "B Lymphocytosis",
+      "Splenomegaly",
+      "Lymphadenopathy",
+      "Recurrent Infections",
+      "Impaired Humoral Vaccine Response",
+      "Reduced Class-Switched Memory B Cells",
+      "T Cell Hyporesponsiveness",
+      "Hemophagocytic Lymphohistiocytosis",
+      "Lymphoid Malignancy",
+      "Adenotonsillar Hyperplasia",
+      "Membranoproliferative Glomerulonephritis",
+      "Autoimmune Manifestations"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0005404",
+      "HP:0001744",
+      "HP:0002716",
+      "HP:0002719",
+      "HP:0032140",
+      "HP:0030388",
+      "HP:0011840",
+      "HP:0012156",
+      "HP:0002665",
+      "HP:0030812",
+      "HP:0000793",
+      "HP:0001369"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "CARD11"
+    ],
+    "treatments": [
+      "Sirolimus",
+      "Corticosteroid Therapy",
+      "Tacrolimus",
+      "Etoposide and Dexamethasone for HLH",
+      "Adenotonsillectomy for Airway Obstruction",
+      "Autologous Bone Marrow Transplantation for SPTCL",
+      "Avoidance of Splenectomy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "BENTA_Disease.yaml",
+    "page_url": "../pages/disorders/BENTA_Disease.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "BEST1-Related Dominant Retinopathy",
     "disease_id": "MONDO:0700238",
     "category": "Mendelian",
@@ -206111,6 +206218,127 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Hyaline Fibromatosis Syndrome",
+    "disease_id": "MONDO:0009229",
+    "category": "Mendelian",
+    "parents": [
+      "Connective tissue disease",
+      "Primary osteolysis"
+    ],
+    "creation_date": "2026-11-13T09:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "JHF",
+      "ISH"
+    ],
+    "description": "Hyaline fibromatosis syndrome (HFS, OMIM 228600) is an ultra-rare autosomal recessive connective tissue disorder caused by biallelic loss-of-function variants in ANTXR2 (also called CMG2, capillary morphogenesis gene 2). It is the unifying term for two conditions described separately for decades and shown in 2003 to be allelic: the milder juvenile hyaline fibromatosis and the severe, usually lethal infantile systemic hyalinosis. The defining lesion is progressive deposition of amorphous, PAS-positive, diastase-resistant hyaline extracellular matrix in skin, gingiva, periarticular tissue, bone and, in the severe form, the viscera. ANTXR2 encodes a single-pass type I transmembrane receptor with an extracellular von Willebrand factor type A domain and an immunoglobulin-like domain. Its physiological role is the turnover of collagen VI: ligand binding triggers release of talin and recruitment of RhoA, and this switch is required for receptor-mediated internalisation and intracellular degradation of collagen VI. When ANTXR2 is lost, collagen VI is no longer cleared and accumulates extracellularly, which is the material seen histologically as hyaline. Children present at or soon after birth with extreme pain on minimal handling, painful joint stiffness and contractures, thickened skin with pearly papules and subcutaneous nodules, hyperpigmented patches over bony prominences, gingival hypertrophy and fleshy perianal masses. The severe form adds protein-losing enteropathy, intractable diarrhoea, recurrent infection and failure to thrive, with death usually before the second birthday. Cognitive development is normal. Severity tracks with the position of the variant: missense changes in exons 1 to 12 and variants producing a premature stop codon give the severe form, while missense variants in exons 13 to 17 give the mild form. No curative therapy exists.",
+    "pathophysiology": [
+      "Biallelic ANTXR2 Loss-of-Function Variant",
+      "Endoplasmic Reticulum Retention of Misfolded CMG2",
+      "Loss of Cell-Surface CMG2 Collagen VI Receptor",
+      "Failed Receptor-Mediated Endocytosis of Collagen VI",
+      "Extracellular Collagen VI Accumulation",
+      "Hyaline Deposition in Skin and Gingiva",
+      "Periarticular and Osseous Hyaline Deposition",
+      "Duodenal Collagen VI Deposition",
+      "Impaired Wnt-Dependent Intestinal Stem Cell Renewal",
+      "Intramuscular Connective Tissue Stiffening"
+    ],
+    "cell_types": [
+      "patient dermal fibroblast",
+      "fibro-adipogenic progenitor",
+      "dermal fibroblast",
+      "gingival fibroblast",
+      "Lgr5-positive intestinal stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000134",
+      "CL:0002552",
+      "CL:0002250"
+    ],
+    "biological_processes": [
+      "ER-associated degradation of misfolded CMG2",
+      "receptor-mediated endocytosis of collagen VI",
+      "collagen VI catabolism",
+      "extracellular matrix organization",
+      "canonical Wnt signaling pathway"
+    ],
+    "phenotypes": [
+      "Joint Contractures",
+      "Joint Stiffness",
+      "Gingival Hypertrophy",
+      "Subcutaneous Nodules",
+      "Thickened Skin",
+      "Hyperpigmentation Over Bony Prominences",
+      "Fleshy Perianal Masses",
+      "Severe Pain on Handling",
+      "Intractable Diarrhea",
+      "Protein-Losing Enteropathy",
+      "Failure to Thrive",
+      "Osteolytic Bone Lesions",
+      "Osteopenia",
+      "Recurrent Infections",
+      "Muscle Weakness",
+      "Hypotonia"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001371",
+      "HP:0001387",
+      "HP:0000212",
+      "HP:0001482",
+      "HP:0001072",
+      "HP:0000953",
+      "HP:0012531",
+      "HP:0002041",
+      "HP:0002243",
+      "HP:0001508",
+      "HP:0002797",
+      "HP:0000938",
+      "HP:0002719",
+      "HP:0001324",
+      "HP:0001252"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ANTXR2"
+    ],
+    "treatments": [
+      "Surgical Excision of Nodules and Perianal Masses",
+      "Corticosteroid Therapy for Nodules",
+      "Pain Management",
+      "Nutritional Support and Albumin Infusion",
+      "Physical Therapy for Contractures",
+      "Genetic Counseling and Reproductive Testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hyaline_Fibromatosis_Syndrome.yaml",
+    "page_url": "../pages/disorders/Hyaline_Fibromatosis_Syndrome.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Hydatidiform Mole",
@@ -444501,17 +444729,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4093,
-  "total_subtypes": 5094,
-  "total_disorders_and_subtypes": 9187,
-  "total_unique_evidence_sources": 61182,
-  "total_unique_publications": 57175,
+  "total_disorder_pages": 4095,
+  "total_subtypes": 5096,
+  "total_disorders_and_subtypes": 9191,
+  "total_unique_evidence_sources": 61209,
+  "total_unique_publications": 57199,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4091,
-  "total_unique_pathological_events": 27014,
+  "total_pathographs": 4093,
+  "total_unique_pathological_events": 27031,
   "total_modules": 235,
-  "total_research_reports": 4196,
+  "total_research_reports": 4198,
   "total_classifications": 21,
   "total_comorbidities": 57,
   "total_groupings": 136
