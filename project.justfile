@@ -1530,7 +1530,20 @@ count-verified-snippets *args:
 # against the committed copy and never needs claimstore.
 [group('Research')]
 sync-signed-excerpts *args:
-    uv run linkml-reference-validator excerpts sync --config {{ref_validator_config}} --source "${CLAIMSTORE_DIR:-../claimstore}/signed_excerpts" {{args}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src="${CLAIMSTORE_DIR:-../claimstore}/signed_excerpts"
+    if [ ! -d "$src" ]; then
+        echo "claimstore not found at $src" >&2
+        echo "Clone the private repo (needs read access) and/or set CLAIMSTORE_DIR:" >&2
+        echo "  git clone git@github.com:monarch-initiative/claimstore.git ../claimstore" >&2
+        exit 2
+    fi
+    if ! uv run linkml-reference-validator excerpts --help >/dev/null 2>&1; then
+        echo "linkml-reference-validator has no 'excerpts sync' command; upgrade to >=0.7.0" >&2
+        exit 2
+    fi
+    uv run linkml-reference-validator excerpts sync --config {{ref_validator_config}} --source "$src" {{args}}
 
 # Audit curated `clinical_trials` status/phase against live ClinicalTrials.gov.
 # A trial's `status:`/`phase:` are a snapshot taken at curation time and nothing
