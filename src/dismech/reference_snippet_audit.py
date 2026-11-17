@@ -60,6 +60,7 @@ its "only abstract available" note to a result whose severity stays ``ERROR``.
 from __future__ import annotations
 
 import argparse
+import logging
 import re
 import unicodedata
 from collections import OrderedDict
@@ -75,6 +76,8 @@ from linkml_reference_validator.matching import split_supporting_text
 from dismech.frontmatter import split_frontmatter
 from dismech.reference_cache_names import cache_stems
 from dismech.yaml_io import safe_load
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_SCHEMA = Path("src/dismech/schema/dismech.yaml")
 DEFAULT_CONFIG = Path("conf/reference_validator_config.yaml")
@@ -620,9 +623,13 @@ class CachedReferenceIndex:
             return None
         try:
             fetched = self._fetcher.fetch(reference_id)
-        except Exception:  # pragma: no cover - upstream API drift
+        except Exception as exc:  # missing/unreadable file, or upstream API drift
+            # Advisory counter: degrade to the cache lookup, but say why, so a
+            # "not cached locally" result for a file: reference can be traced.
+            logger.debug("could not read %s from disk: %s", reference_id, exc)
             return None
         if fetched is None or not fetched.content:
+            logger.debug("%s read from disk with no text", reference_id)
             return None
         return fetched.content
 

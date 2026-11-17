@@ -876,3 +876,26 @@ def test_file_reference_is_read_from_disk_without_a_cache_entry(
 
     assert check_pair(index, pair) is PairOutcome.VERIFIED
     assert list(cache_dir.iterdir()) == []
+
+
+def test_unreadable_file_reference_says_why_at_debug_level(
+    tmp_path: Path, caplog
+) -> None:
+    """A ``file:`` source that cannot be read degrades, and logs the reason."""
+    import logging
+
+    cache_dir = tmp_path / "references_cache"
+    cache_dir.mkdir()
+    index = CachedReferenceIndex(cache_dir)
+    pair = SnippetPair(
+        path=tmp_path / "kb" / "Entry.yaml",
+        location="phenotypes[0].evidence[0]",
+        reference_id="file:data/missing.md",
+        snippet="A quote from a supplement that is not on disk.",
+    )
+
+    with caplog.at_level(logging.DEBUG, logger="dismech.reference_snippet_audit"):
+        outcome = check_pair(index, pair)
+
+    assert outcome is PairOutcome.NOT_CACHED
+    assert any("file:data/missing.md" in record.getMessage() for record in caplog.records)
