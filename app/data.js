@@ -151550,7 +151550,7 @@ window.searchData = [
     "creation_date": "2026-11-11T20:30:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "A rare biphasic sarcoma of infants and young children in which a rhabdomyosarcomatous mesenchymal component and a neuroectodermal component are intimately intermixed in one tumour. The mesenchymal half is almost always embryonal rhabdomyosarcoma; the neuroectodermal half runs the whole spectrum of neural crest differentiation, from neuroblastoma through ganglioneuroblastoma and ganglioneuroma to scattered mature ganglion cells and Schwann cell areas. The pelvic and genitourinary region is the commonest site in both cached series, though in the larger one it accounts for fewer than half the cases. How often a RAS pathway gene is mutated is unsettled: one series found HRAS in six of seven tumours, the other a RAS mutation in three of seventeen. Where the entity belongs nosologically is also unsettled; see review_notes.",
+    "description": "A rare biphasic sarcoma of infants and young children in which a rhabdomyosarcomatous mesenchymal component and a neuroectodermal component are intimately intermixed in one tumour. The mesenchymal half is almost always embryonal rhabdomyosarcoma; the neuroectodermal half runs the whole spectrum of neural crest differentiation, from neuroblastoma through ganglioneuroblastoma and ganglioneuroma to scattered mature ganglion cells and Schwann cell areas. The pelvic and genitourinary region is the commonest site in both cached series, though in the larger one it accounts for fewer than half the cases. How often a RAS pathway gene is mutated is unsettled: one series found HRAS in six of seven tumours, the other a RAS mutation in three of seventeen. Where the entity belongs nosologically is contested, and the current WHO classification has removed it as a separate entity; see review_notes.",
     "pathophysiology": [
       "HRAS Hotspot Mutation",
       "Divergent Rhabdomyoblastic and Neuroectodermal Differentiation",
@@ -377118,6 +377118,114 @@ window.searchData = [
     "causal_graph_longest_path": "11"
   },
   {
+    "name": "Sacrococcygeal Teratoma",
+    "disease_id": "MONDO:0042727",
+    "category": "",
+    "parents": [
+      "extragonadal germ cell tumor"
+    ],
+    "creation_date": "2026-11-13T20:13:09Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "The commonest tumour of the newborn, and a germ cell tumour in a place with no gonad. It is thought to arise when a primordial germ cell migrating from the yolk sac to the gonadal ridge is left behind in the caudal midline and is reprogrammed to a pluripotent state, after which it differentiates into all three germ layers at once. Most are mature, and complete resection with clear margins is the treatment; about one child in ten recurs. Two things make it dangerous. Before birth, a large solid tumour steals so much cardiac output that the fetus goes into high-output failure and hydrops, which is what the prenatal predictors are for. After birth, a mature-looking tumour can recur as a yolk sac tumour years later, which is what the alpha-fetoprotein surveillance is for.",
+    "pathophysiology": [
+      "Primordial Germ Cell Left in the Caudal Midline",
+      "Epigenetic Reprogramming to a Pluripotent State",
+      "Tridermal Teratomatous Mass at the Sacrococcyx",
+      "High-Output Cardiac State from Tumour Vascular Steal",
+      "Malignant Yolk Sac Component",
+      "Pelvic and Perineal Mass Effect"
+    ],
+    "cell_types": [
+      "primordial germ cell",
+      "pluripotent stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000670",
+      "CL:0002248"
+    ],
+    "biological_processes": [
+      "germ cell migration",
+      "stem cell population maintenance"
+    ],
+    "phenotypes": [
+      "Sacrococcygeal mass",
+      "Hydrops fetalis",
+      "Cardiomegaly",
+      "Polyhydramnios",
+      "Premature birth",
+      "Elevated serum alpha-fetoprotein",
+      "Malignant recurrence",
+      "Bowel incontinence",
+      "Urinary incontinence",
+      "Constipation",
+      "Cosmetically unacceptable surgical scar",
+      "Associated major birth defect",
+      "Stillbirth",
+      "Placentomegaly"
+    ],
+    "phenotype_categories": [
+      "Neoplasm",
+      "Prenatal",
+      "Biochemical",
+      "Gastrointestinal",
+      "Genitourinary",
+      "Dermatological",
+      "Congenital"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0030736",
+      "HP:0001789",
+      "HP:0001640",
+      "HP:0001561",
+      "HP:0001622",
+      "HP:0006254",
+      "HP:0100728",
+      "HP:0002607",
+      "HP:0000020",
+      "HP:0002019",
+      "HP:0100699",
+      "HP:0006267"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "BAK1 rs210138",
+      "SPRY4",
+      "GAB2 rs948662",
+      "KITLG rs4474514"
+    ],
+    "treatments": [
+      "Complete resection with the coccyx",
+      "Fetal radiofrequency ablation of the feeding vessels",
+      "Open fetal resection",
+      "JEB chemotherapy for malignant disease"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Sacrococcygeal_Teratoma.yaml",
+    "page_url": "../pages/disorders/Sacrococcygeal_Teratoma.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 6,
+    "num_genes": 4,
+    "num_treatments": 4,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Saethre-Chotzen Syndrome",
     "disease_id": "MONDO:0007042",
     "category": "Mendelian",
@@ -443269,17 +443377,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4082,
+  "total_disorder_pages": 4083,
   "total_subtypes": 5084,
-  "total_disorders_and_subtypes": 9166,
-  "total_unique_evidence_sources": 60960,
-  "total_unique_publications": 56965,
+  "total_disorders_and_subtypes": 9167,
+  "total_unique_evidence_sources": 60994,
+  "total_unique_publications": 56999,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4080,
-  "total_unique_pathological_events": 26941,
+  "total_pathographs": 4081,
+  "total_unique_pathological_events": 26947,
   "total_modules": 235,
-  "total_research_reports": 4185,
+  "total_research_reports": 4186,
   "total_classifications": 21,
   "total_comorbidities": 56,
   "total_groupings": 136
