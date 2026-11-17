@@ -376,8 +376,6 @@ Two things follow that are worth putting to the AOP 40 authors:
 
 ## Next steps
 
-- [ ] Put the IL-8 KE2/KE3 question to the AOP 40 authors, together with the
-      `measurement-methodology` observation on KE 826.
 - [ ] Check whether the same KE2/KE3 reading holds for the other TG 442E assays, which the
       article says are "also representative of the events leading up to KE3."
 - [x] Curate a keratinocyte-activation step onto the sensitization arm of
