@@ -277,7 +277,9 @@ Two things follow that are worth putting to the AOP 40 authors:
   AOP-Wiki's Key Event records nor dismech's node annotations can currently hold that
   sentence, which is the same gap
   [question 1](AOP_EMOD_ALIGNMENT.md#1-should-a-pathophysiology-node-be-able-to-carry-a-key-event-cross-reference)
-  is about, reached from the opposite direction.
+  is about, reached from the opposite direction. Issue
+  [#18328](https://github.com/monarch-initiative/dismech/issues/18328) carries the dismech
+  half of it, with the seven entries that already name AOP-Wiki Events in prose.
 
 ### Three caveats on the dismech side
 
@@ -296,7 +298,10 @@ Two things follow that are worth putting to the AOP 40 authors:
   regulation of interleukin-8 production* with no modifier; Autoimmune_Pancreatitis states
   it in the node **name** alone, binding no process descriptor at all. All three assert the
   same thing. A filter on `modifier: INCREASED` finds two of them, a filter on the GO term
-  finds one, and nothing short of reading node names finds the third.
+  finds one, and nothing short of reading node names finds the third. Issue
+  [#18229](https://github.com/monarch-initiative/dismech/issues/18229) asks which encoding
+  the corpus should settle on; it is a question about cytokine production bindings
+  generally, and IL-8 is only where it surfaced.
 - **The strongest-looking row is the most carefully hedged.** Autoimmune_Pancreatitis is
   the only node in `kb/` named for increased IL-8 expression, and its curator recorded
   `causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES`, `directness: INDIRECT`, and an
@@ -375,15 +380,6 @@ Two things follow that are worth putting to the AOP 40 authors:
       `measurement-methodology` observation on KE 826.
 - [ ] Check whether the same KE2/KE3 reading holds for the other TG 442E assays, which the
       article says are "also representative of the events leading up to KE3."
-- [ ] Decide whether the three encodings of increased IL-8 in `kb/` should be normalised,
-      and if so to which one. Filed as
-      [#18229](https://github.com/monarch-initiative/dismech/issues/18229). This is a
-      corpus-wide question about `modifier` versus `positive regulation of` GO terms, not
-      specific to IL-8.
-- [ ] Give the Key Event cross-references a place to live. Seven entries name AOP-Wiki
-      Events in `description`, `notes` and `downstream[].description` prose, with no slot
-      and nothing checking the identifiers. Filed as
-      [#18328](https://github.com/monarch-initiative/dismech/issues/18328).
 - [x] Curate a keratinocyte-activation step onto the sensitization arm of
       Contact_Dermatitis. Done as two parallel nodes,
       `Hapten-driven keratinocyte electrophile sensing` and
