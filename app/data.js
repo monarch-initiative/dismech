@@ -61429,6 +61429,115 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Blepharocheilodontic Syndrome 2",
+    "disease_id": "MONDO:0040503",
+    "category": "Mendelian",
+    "parents": [
+      "Blepharocheilodontic syndrome",
+      "Ectodermal dysplasia syndrome",
+      "Orofacial clefting syndrome"
+    ],
+    "creation_date": "2026-11-17T09:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Blepharocheilodontic syndrome 2 (BCDS2, OMIM 617681) is the CTNND1-associated form of blepharocheilodontic syndrome, a rare autosomal dominant malformation syndrome of the eyelids, lips and teeth. The eyelid anomalies are lagophthalmos, ectropion of the lower eyelids, euryblepharon and distichiasis; the orofacial cleft is classically bilateral cleft lip and palate; the dental anomalies are oligodontia with conical and notched teeth, taurodontia and a severe class III malocclusion on a short, narrow maxilla. CTNND1 encodes p120-catenin, which binds the cadherin cytoplasmic juxtamembrane domain and prevents cadherin endocytosis, so holding E-cadherin and P-cadherin at the cell surface. BCDS2 alleles are heterozygous protein-truncating or splice variants acting by haploinsufficiency: with less p120-catenin, surface cadherin is lost to turnover, and adhesion falls below the threshold that epithelial fusion needs. Live imaging in the mouse embryo has since shown what that threshold is for: actomyosin contractility drives upper lip fusion along multicellular F-actin cables anchored at the fusion site, and upper lip fusion specifically requires an elevated level of cadherin adhesion, higher than neighbouring tissues need. The same work showed that p120-catenin's binding to RhoA and to Kaiso is dispensable in mammalian development while its stabilisation of cadherins is crucial, which is why this entry models the adhesion route and not the transcriptional one. The CTNND1 phenotype is wider than the classic triad: congenital cardiac anomalies, limb dysmorphologies and neurodevelopmental disorders were found across nine families, and single cases have added genitourinary anomalies and prenatal hydrocephalus.",
+    "pathophysiology": [
+      "Heterozygous CTNND1 Truncating Variant",
+      "Reduced p120-Catenin Dosage",
+      "Increased Cadherin Endocytosis and Turnover",
+      "Cadherin Adhesion Below the Lip-Fusion Threshold",
+      "Failed Lip and Palate Fusion",
+      "Defective Eyelid Morphogenesis",
+      "Defective Odontogenesis"
+    ],
+    "cell_types": [
+      "embryonic surface epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000066"
+    ],
+    "biological_processes": [
+      "adherens junction organization",
+      "cell-cell adhesion mediated by cadherin",
+      "roof of mouth development",
+      "eyelid development",
+      "odontogenesis"
+    ],
+    "phenotypes": [
+      "Oligodontia",
+      "Conical Teeth",
+      "Taurodontia",
+      "Dental Malocclusion",
+      "Narrow Maxilla",
+      "Orofacial Cleft",
+      "Ectropion of Lower Eyelids",
+      "Lagophthalmos",
+      "Euryblepharon",
+      "Distichiasis",
+      "Congenital Cardiac Anomaly",
+      "Limb Dysmorphology",
+      "Neurodevelopmental Disorder",
+      "Duplicated Collecting System",
+      "Bicornuate Uterus",
+      "Hydrocephalus"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000677",
+      "HP:0000698",
+      "HP:0000679",
+      "HP:0000689",
+      "HP:0002010",
+      "HP:0000202",
+      "HP:0007651",
+      "HP:0030001",
+      "HP:0012905",
+      "HP:0009743",
+      "HP:0001627",
+      "HP:0002813",
+      "HP:0012759",
+      "HP:0000081",
+      "HP:0000813",
+      "HP:0000238"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "CTNND1"
+    ],
+    "treatments": [
+      "Eyelid reconstruction",
+      "Cleft lip and palate repair",
+      "Prosthodontic and orthodontic management of oligodontia",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Blepharocheilodontic_Syndrome_2.yaml",
+    "page_url": "../pages/disorders/Blepharocheilodontic_Syndrome_2.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Blepharophimosis-Impaired Intellectual Development Syndrome",
     "disease_id": "MONDO:0859139",
     "category": "Mendelian",
@@ -62623,6 +62732,107 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "28",
     "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "Bone Marrow Failure Syndrome 3",
+    "disease_id": "MONDO:0014887",
+    "category": "Mendelian",
+    "parents": [
+      "Bone marrow failure syndrome",
+      "Ribosomopathy"
+    ],
+    "creation_date": "2026-11-13T09:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Bone marrow failure syndrome 3 (BMFS3, OMIM 617052) is an autosomal recessive inherited bone marrow failure syndrome caused by biallelic loss-of-function variants in DNAJC21. DNAJC21 encodes a DnaJ/Hsp40 co-chaperone that associates with ribosomal RNA and works with HSPA8 and the cofactors PA2G4 and ZNF622 in early nuclear rRNA biogenesis and in the late cytoplasmic maturation of the 60S large ribosomal subunit. The disease is therefore a ribosomopathy, and it sits inside the Shwachman-Diamond spectrum alongside SBDS, EFL1 and SRP54, which converge on the same step of ribosome maturation. Loss of DNAJC21 leaves the 60S nuclear export factor PA2G4 stranded in the cytoplasm, distorts ribosome profiles, reduces rRNA and increases cell death, and the resulting ribosomal stress falls hardest on haematopoietic progenitors, producing trilineage marrow failure. Children present with bone marrow failure, growth retardation, failure to thrive, developmental delay, recurrent infection and skin, teeth or hair abnormalities, with retinal, pancreatic, hepatic and skeletal involvement in some. The phenotype overlaps Shwachman-Diamond syndrome and dyskeratosis congenita without being either. The spectrum extends further than the paediatric presentation suggests: the first adult reported was a 20-year-old with thrombocytopenia, dysmorphic features and ovarian agenesis. One child in the founding cohort developed acute myeloid leukaemia, and the predisposition to myeloid neoplasia is the reason surveillance matters. There is no gene-specific therapy.",
+    "pathophysiology": [
+      "Biallelic DNAJC21 Loss-of-Function Variant",
+      "Impaired 60S Ribosomal Subunit Maturation",
+      "Ribosomal Stress and Increased Cell Death",
+      "Nucleotide Metabolic Imbalance",
+      "Trilineage Bone Marrow Failure",
+      "Myeloid Neoplasia Predisposition"
+    ],
+    "cell_types": [
+      "hematopoietic stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000037"
+    ],
+    "biological_processes": [
+      "ribosomal large subunit biogenesis"
+    ],
+    "phenotypes": [
+      "Bone Marrow Failure",
+      "Growth Retardation",
+      "Failure to Thrive",
+      "Developmental Delay",
+      "Recurrent Infections",
+      "Ectodermal Abnormalities",
+      "Thrombocytopenia",
+      "Neutropenia",
+      "Exocrine Pancreatic Insufficiency",
+      "Retinal Abnormalities",
+      "Liver Cirrhosis",
+      "Congenital Hip Dysplasia",
+      "Joint Hypermobility",
+      "Cryptorchidism",
+      "Acute Myeloid Leukemia"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0005528",
+      "HP:0001510",
+      "HP:0001508",
+      "HP:0001263",
+      "HP:0002719",
+      "HP:0001873",
+      "HP:0001875",
+      "HP:0001738",
+      "HP:0000479",
+      "HP:0001394",
+      "HP:0001385",
+      "HP:0001382",
+      "HP:0000028",
+      "HP:0004808"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "DNAJC21"
+    ],
+    "treatments": [
+      "Haematopoietic Stem Cell Transplantation",
+      "Multisystem Surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bone_Marrow_Failure_Syndrome_3.yaml",
+    "page_url": "../pages/disorders/Bone_Marrow_Failure_Syndrome_3.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Bone Marrow Failure Syndrome 4",
@@ -116004,6 +116214,76 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Congenital High-molecular-weight Kininogen Deficiency",
+    "disease_id": "MONDO:0009234",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited blood coagulation disorder",
+      "Coagulation protein disease"
+    ],
+    "creation_date": "2026-11-13T09:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Congenital high-molecular-weight kininogen (HK) deficiency, OMIM 228960, is an autosomal recessive defect of the plasma contact system caused by biallelic truncating variants in KNG1. KNG1 encodes, by alternative splicing, both high-molecular-weight and low-molecular-weight kininogen. HK is not an enzyme: it is the cofactor that scaffolds prekallikrein and factor XI onto anionic surfaces and onto the endothelial receptor gC1qR, which is what allows factor XII to drive contact activation. Losing it therefore removes the contact arm of the intrinsic pathway, and that arm turns out to be dispensable for haemostasis in life, because physiological clotting is driven by tissue factor and factor VIIa. The result is a disease that is almost entirely a laboratory finding: an isolated, markedly prolonged activated partial thromboplastin time that corrects on mixing with normal plasma, with procoagulant HK activity under 1% and secondary reductions in prekallikrein and factor XI, in a person who is asymptomatic and has a normal life expectancy. The 2023 systematic review that assembled the literature found 48 cases in 41 families, ten deficiency-causing KNG1 variants, all truncating, and estimated a prevalence near one case per eight million, slightly higher in people of African ancestry. The clinical risk is not the deficiency but the misreading of it: the prolonged aPTT and the secondary low prekallikrein and factor XI invite a diagnosis of a bleeding disorder, and from there unnecessary blood products or deferred surgery.",
+    "pathophysiology": [
+      "Biallelic Truncating KNG1 Variant",
+      "Absent Plasma High-Molecular-Weight Kininogen",
+      "Failure to Scaffold Prekallikrein and Factor XI on Anionic Surfaces",
+      "Secondary Reduction of Prekallikrein and Factor XI",
+      "Failure of Contact Activation of the Intrinsic Pathway",
+      "Preserved Haemostasis",
+      "Reduced Bradykinin Generation"
+    ],
+    "cell_types": [
+      "vascular endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000115"
+    ],
+    "biological_processes": [
+      "plasma kallikrein-kinin cascade",
+      "blood coagulation, intrinsic pathway",
+      "bradykinin biosynthetic process"
+    ],
+    "phenotypes": [
+      "Isolated Prolonged aPTT",
+      "Severely Reduced High-Molecular-Weight Kininogen Activity",
+      "Decreased Circulating Prekallikrein",
+      "Reduced Factor XI Activity"
+    ],
+    "phenotype_categories": [
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0003645",
+      "HP:0001928",
+      "HP:0034371",
+      "HP:0001929"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "KNG1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_High-molecular-weight_Kininogen_Deficiency.yaml",
+    "page_url": "../pages/disorders/Congenital_High-molecular-weight_Kininogen_Deficiency.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Congenital Hydrocephalus",
@@ -261962,6 +262242,147 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "MAN1B1-Congenital Disorder of Glycosylation",
+    "disease_id": "MONDO:0018349",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "congenital disorder of glycosylation",
+      "disorder of protein N-glycosylation"
+    ],
+    "creation_date": "2026-11-12T23:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "MAN1B1-CDG is an autosomal recessive congenital disorder of glycosylation caused by biallelic loss-of-function variants in MAN1B1, which encodes the class I alpha-1,2-mannosidase historically called ER mannosidase I (ERManI). The enzyme removes the terminal mannose from the middle branch of Man9GlcNAc2, a step that both feeds normal N-glycan maturation and marks misfolded glycoproteins for ER-associated degradation. Its loss slows that trimming step, leaves hybrid-type N-glycans on circulating glycoproteins and produces a type 2 serum transferrin pattern with a raised trisialotransferrin fraction, so the disorder is classed as a CDG type II.\nClinically it is a comparatively mild CDG. Intellectual disability with delayed motor and speech development is present in essentially every reported patient, usually in the mild to moderate range, together with a recognisable facial gestalt (hypertelorism, downslanting palpebral fissures, large low-set ears, a thin upper lip with an underdeveloped nasolabial fold), hypotonia, and in many patients truncal obesity and macrocephaly. Joint hypermobility and skin laxity, aggressive behaviour, seizures and isolated transaminase elevation occur in a subset. Growth is usually preserved, unlike most CDGs. The disorder was first reported as non-syndromic autosomal recessive intellectual disability (MRT15, later Rafiq syndrome) before the glycosylation defect was recognised, and both names remain in use.",
+    "pathophysiology": [
+      "Biallelic MAN1B1 Loss-of-Function Variants",
+      "Loss of MAN1B1 Alpha-1,2-Mannosidase Activity",
+      "Defective Golgi N-Glycan Processing",
+      "Impaired Glycoprotein Quality Control",
+      "Golgi Dilatation and Fragmentation",
+      "Disrupted Cortical Neuron Development",
+      "Multisystem Glycoprotein Dysfunction"
+    ],
+    "cell_types": [
+      "skin fibroblast",
+      "excitatory neuron",
+      "neural progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002620",
+      "CL:0000679",
+      "CL:0011020"
+    ],
+    "biological_processes": [
+      "N-glycan mannose trimming",
+      "ERAD pathway",
+      "Golgi organization",
+      "neuron projection development",
+      "neuron migration",
+      "neural precursor cell proliferation"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Motor delay",
+      "Delayed speech and language development",
+      "Hypotonia",
+      "Seizure",
+      "Aggressive behavior",
+      "Drooling",
+      "Truncal obesity",
+      "Macrocephaly",
+      "Hypertelorism",
+      "Downslanted palpebral fissures",
+      "Macrotia",
+      "Low-set ears",
+      "Thin upper lip vermilion",
+      "Underdeveloped nasolabial fold",
+      "Joint hypermobility",
+      "Skin laxity",
+      "Inverted nipples",
+      "Wide intermamillary distance",
+      "Elevated circulating hepatic transaminase concentration",
+      "Abnormality of coagulation",
+      "Type II transferrin isoform profile"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Behavioral",
+      "Metabolic",
+      "Growth",
+      "Craniofacial",
+      "Musculoskeletal",
+      "Integument",
+      "Hepatic",
+      "Hematologic",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Breast",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001270",
+      "HP:0000750",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0000718",
+      "HP:0002307",
+      "HP:0001956",
+      "HP:0000256",
+      "HP:0000316",
+      "HP:0000494",
+      "HP:0000400",
+      "HP:0000369",
+      "HP:0000219",
+      "HP:0010801",
+      "HP:0001382",
+      "HP:0000973",
+      "HP:0003186",
+      "HP:0006610",
+      "HP:0002910",
+      "HP:0001928",
+      "HP:0012301"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "MAN1B1"
+    ],
+    "treatments": [
+      "Anticonvulsant Therapy",
+      "Developmental Rehabilitation",
+      "Weight Management Diet",
+      "Disulfiram",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum transferrin isoform profile",
+      "Hybrid-type glycan on transferrin Asn432"
+    ],
+    "source_file": "MAN1B1-Congenital_Disorder_of_Glycosylation.yaml",
+    "page_url": "../pages/disorders/MAN1B1-Congenital_Disorder_of_Glycosylation.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "MAN2C1-congenital disorder of deglycosylation 2",
     "disease_id": "MONDO:0030770",
     "category": "Mendelian",
@@ -407466,6 +407887,122 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Syndromic Multisystem Autoimmune Disease Due to ITCH Deficiency",
+    "disease_id": "MONDO:0013245",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn error of immunity",
+      "Primary immune regulatory disorder"
+    ],
+    "creation_date": "2026-11-13T09:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Syndromic multisystem autoimmune disease due to ITCH deficiency (OMIM 613385), also called autoimmune disease, multisystem, with facial dysmorphism, is an autosomal recessive primary immune regulatory disorder caused by biallelic loss-of-function variants in ITCH. ITCH encodes a NEDD4-family HECT-domain E3 ubiquitin ligase that enforces peripheral T cell tolerance by ubiquitylating and degrading a set of substrates including JunB, c-Jun, Notch, p63, p73 and c-FLIP, and by acting within the A20 ubiquitin-editing complex that restrains NF-kappaB signalling. Losing it removes several brakes at once: JunB accumulates and skews responses toward Th2, antigen that should induce anergy no longer does so, TGF-beta-driven regulatory T cell generation is impaired, and NF-kappaB signalling is disinhibited. The clinical result is early-onset, progressive, multi-organ autoimmunity, with autoimmune hepatitis, enteropathy, chronic interstitial lung disease, thyroiditis, type 1 diabetes, myositis and arthritis accruing over time, on a syndromic background of failure to thrive, facial dysmorphism and developmental delay. The disorder was defined in 2010 by autozygosity mapping in a large Old Order Amish kindred, where ten patients shared a truncating ITCH variant; patients of other ancestries have since been reported. Morbidity and mortality are high. Autoimmune hepatitis can progress to acute liver failure, and lung disease to ventilator dependence. Management is broad immunosuppression for individual manifestations; allogeneic haematopoietic stem cell transplantation is the only reported disease-modifying therapy.",
+    "pathophysiology": [
+      "Biallelic ITCH Loss-of-Function Variant",
+      "Loss of ITCH E3 Ubiquitin Ligase Activity",
+      "Failure of Peripheral T Cell Tolerance",
+      "Multi-Organ Autoimmune Attack",
+      "Mitochondrial Bioenergetic Deficit"
+    ],
+    "cell_types": [
+      "T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084"
+    ],
+    "biological_processes": [
+      "protein ubiquitination",
+      "T cell anergy"
+    ],
+    "phenotypes": [
+      "Failure to Thrive",
+      "Dysmorphic Facial Features",
+      "Developmental Delay",
+      "Autoimmune Hepatitis",
+      "Enteropathy",
+      "Chronic Interstitial Lung Disease",
+      "Thyroiditis",
+      "Type 1 Diabetes Mellitus",
+      "Immune Neutropenia",
+      "Myositis",
+      "Inflammatory Arthritis",
+      "Muscular Hypotonia",
+      "Short Stature",
+      "Hepatosplenomegaly",
+      "Relative Macrocephaly",
+      "Psoriasis",
+      "Parotitis",
+      "IgA Deficiency and Hypogammaglobulinemia"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Endocrine",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001508",
+      "HP:0001999",
+      "HP:0001263",
+      "HP:5210421",
+      "HP:0004386",
+      "HP:0006530",
+      "HP:0100646",
+      "HP:0100651",
+      "HP:0001904",
+      "HP:0100614",
+      "HP:0001369",
+      "HP:0001252",
+      "HP:0004322",
+      "HP:0001433",
+      "HP:0004482",
+      "HP:0003765",
+      "HP:0011850",
+      "HP:0002720"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "ITCH"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Corticosteroid Therapy for Autoimmune Manifestations",
+      "Liver Transplantation for Acute Liver Failure",
+      "Sirolimus",
+      "Immunoglobulin Replacement",
+      "Biologic and Cytotoxic Immunomodulators with Limited Response"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Syndromic_Multisystem_Autoimmune_Disease_Due_To_ITCH_Deficiency.yaml",
+    "page_url": "../pages/disorders/Syndromic_Multisystem_Autoimmune_Disease_Due_to_ITCH_Deficiency.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Syndromic X-linked Intellectual Disability 94",
     "disease_id": "MONDO:0010402",
     "category": "Mendelian",
@@ -444729,17 +445266,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4095,
+  "total_disorder_pages": 4100,
   "total_subtypes": 5096,
-  "total_disorders_and_subtypes": 9191,
-  "total_unique_evidence_sources": 61209,
-  "total_unique_publications": 57199,
+  "total_disorders_and_subtypes": 9196,
+  "total_unique_evidence_sources": 61255,
+  "total_unique_publications": 57240,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4093,
-  "total_unique_pathological_events": 27031,
+  "total_pathographs": 4098,
+  "total_unique_pathological_events": 27058,
   "total_modules": 235,
-  "total_research_reports": 4198,
+  "total_research_reports": 4203,
   "total_classifications": 21,
   "total_comorbidities": 57,
   "total_groupings": 136
