@@ -370,34 +370,53 @@ checkably citing the same thing:
   LuSens's rat *NQO1* element in a human cell is `SPECIES_MISMATCH`; the absent
   dendritic-cell and lymph-node compartments are `BOUNDARY_OMISSION`
 
-**Cite the guideline as `OECDTG:<number>`, not as its DOI.** The DOI caches with
-`content_type: unavailable` — the OECD iLibrary landing page carries no abstract —
-so an exact-quote item citing it cannot verify. The structured source writes
-`references_cache/OECDTG_442D.md` from the committed paragraph index instead, so a
-sentence of an in-scope section can be quoted directly:
+**Never cite the guideline in an evidence `reference:`.** `OECDTG:` is not an
+allowed evidence prefix and will fail `check_evidence_items_have_references`. This
+is deliberate, and the reason is the one thing to carry out of this step.
+
+A Test Guideline describes an assay in the **key-event** terms of an Adverse
+Outcome Pathway — TG 442D is titled for the AOP key event on keratinocyte
+activation, and its methods are defined as addressing KE2. A key event is not a
+dismech pathograph node. Citing the guideline on a `modeled_mechanisms` link
+therefore asserts a key-event-to-node correspondence that nothing in this
+repository records, under a citation that does not make it. See design decision
+6e in `docs/explanation/design-decisions.md`.
+
+**The guideline is a lead. Source the claim from the primary literature it names.**
+Its reference list is where to look, and the result is usually better evidence, not
+a weaker substitute: the guideline asserts that GCLM and DNAJB4 report a
+cytoprotective response, while `PMID:27965148` reports the Nrf2-siRNA knockdown
+that established it.
 
 ```yaml
-- reference: OECDTG:442D
+# Right: the paper that built the construct.
+- reference: PMID:25172300
   supports: SUPPORT
-  evidence_source: OTHER
-  snippet: "a luciferase reporter gene under the control of the antioxidant response element of the human AKR1C2 gene"
-  explanation: TG 442D states which regulatory element the KeratinoSens reporter carries.
+  directness: DIRECT
+  evidence_source: IN_VITRO
+  snippet: >-
+    the LuSens assay, that uses a human keratinocyte cell line harbouring a
+    reporter gene construct composed of the antioxidant response element (ARE)
+    of the rat NADPH:quinone oxidoreductase 1 gene and the luciferase gene
+  explanation: The originating paper's statement of which element the reporter carries.
+
+# Wrong: OECDTG: is not an allowed evidence prefix.
+# - reference: OECDTG:442D
 ```
 
-A Test Guideline is a regulatory consensus document rather than a study, so
-`evidence_source: OTHER`; a quote where the guideline restates validation work
-done elsewhere also takes `quote_role: REVIEW_SYNTHESIS`. Only the in-scope
-sections are in the body, so a licence term or a cell-line supplier still cannot
-be quoted from it — those sit in PROCEDURE.
+**A guideline-only fact goes in `notes:`, attributed and marked as a lead.** Some
+facts have no primary source — a method's Validated Reference Method standing, the
+guideline's judgement that a result is shown only indirectly, a construct
+description that differs from the originating paper's. Write them as prose in the
+record's `notes:`, saying they come from the guideline. `notes:` carries no
+evidence claim, which is the right strength for a fact whose only source is a
+consensus document. `Contact_Dermatitis` is the worked example; design decision
+6e records what was removed from it and what each removal was re-sourced to.
 
-For the method's own results — performance figures, inter-laboratory
-reproducibility — prefer the **primary literature** the guideline's reference list
-names. The guideline is the citation for what the guideline says.
-
-Do not quote another paper's introduction *as though* it were the guideline. Where
-a paper does restate a regulatory fact, that is a real citation and takes
-`quote_role: BACKGROUND`; what it is not is a substitute for the guideline, which
-is now citable in its own right.
+Do not quote another paper's introduction *as though* it were the guideline
+either. Where a paper restates a regulatory fact, that is a real citation and takes
+`quote_role: BACKGROUND` — but a restatement is not a reason to record the fact as
+evidence when what you want is the guideline's assertion. Prefer `notes:`.
 
 Do not copy the extraction JSON into the entry. The record is the audited
 source; the entry states what that disease's curator needs from it.
