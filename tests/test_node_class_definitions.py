@@ -14,8 +14,10 @@ from dismech.node_class_definitions import (
     check_labels,
     curie_labels,
     evaluate,
+    evaluate_tree,
     modifier_values,
     no_closure,
+    obo_ancestors,
     parse_definition,
     triage_label_problems,
 )
@@ -146,3 +148,55 @@ def test_modifier_values_are_read_from_the_schema():
     assert {"GAIN_OF_FUNCTION", "LOSS_OF_FUNCTION"} <= modifier_values()
     d = parse_definition("biological_processes some GO:0007165 modifier GAIN_OF_FUNCTION")
     assert d.disjuncts[0][0].modifiers == ("GAIN_OF_FUNCTION",)
+
+
+def test_obo_ancestors_closes_over_is_a(tmp_path):
+    obo = tmp_path / "mini.obo"
+    obo.write_text(
+        "format-version: 1.2\n\n"
+        "[Term]\nid: GO:3\nname: leaf\nis_a: GO:2 ! middle\n\n"
+        "[Term]\nid: GO:2\nname: middle\nis_a: GO:1 ! root\n\n"
+        "[Term]\nid: GO:1\nname: root\n\n"
+        "[Typedef]\nid: part_of\nis_a: GO:9\n",
+        encoding="utf-8",
+    )
+    ancestors = obo_ancestors(obo)
+    assert ancestors("GO:3") == {"GO:2", "GO:1"}
+    assert ancestors("GO:1") == set()
+    assert ancestors("CL:0000000") == set()
+    assert ancestors("part_of") == set(), "a [Typedef] stanza is not a term"
+
+
+def test_a_tier_definition_is_scored_over_the_examples_beneath_it(tmp_path):
+    """A tier's examples sit on its leaves, so its own-example recall is 0/0."""
+    from dismech.node_classes import parse_text
+
+    kb = tmp_path / "disorders"
+    kb.mkdir()
+    (kb / "D.yaml").write_text(
+        "pathophysiology:\n"
+        "- name: Dying\n  biological_processes:\n  - term: {id: GO:0008219}\n"
+        "- name: Bare\n",
+        encoding="utf-8",
+    )
+    roots = parse_text(
+        "CELLULAR EFFECT\n"
+        "  = biological_processes some GO:0008219\n"
+        "  cell death\n"
+        "    [D] Dying\n"
+        "    [D] Bare\n"
+    )
+    (report,) = evaluate_tree(roots, [kb], no_closure)
+    assert (report.examples, report.examples_matched) == (0, 0)
+    assert (report.subtree_examples, report.subtree_matched) == (2, 1)
+    assert report.subtree_recall == 0.5
+
+
+def test_evaluate_refuses_to_download_the_go_build(monkeypatch, capsys):
+    import dismech.oak_db
+    from dismech import node_classes
+
+    monkeypatch.setattr(dismech.oak_db, "local_build_present", lambda spec: False)
+    tree = Path(__file__).parent.parent / "kb" / "node_classes" / "pathograph_node_classes.txt"
+    assert node_classes.main([str(tree), "--evaluate"]) == 2
+    assert "just fetch-ontology-dbs go" in capsys.readouterr().err

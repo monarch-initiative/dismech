@@ -76,7 +76,10 @@ LEDGER_MARKER_RE = re.compile(
     r"<!--\s*citation-scan\s+pmid=(?P<pmid>\d+)\s+entry=(?P<entry>\S+)"
     r"\s+overlap=(?P<overlap>\d+)\s*-->"
 )
-PMID_RE = re.compile(r"PMID:\s*(\d+)")
+# Older scanner issues write the PMID in markdown bold ("**PMID:** 123",
+# "**PMID**: 123") or without a colon ("PMID 123"). Allow a few punctuation
+# characters between the word and the number.
+PMID_RE = re.compile(r"PMID[\s:*_`]{0,6}(\d{1,9})\b")
 ENTRY_PATH_RE = re.compile(r"kb/disorders/[A-Za-z0-9_.\-]+\.yaml")
 
 # A paper sharing one reference with an entry is mostly noise: the dry run's

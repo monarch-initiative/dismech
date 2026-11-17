@@ -54,14 +54,34 @@ ledger to go stale). The gate for claiming a **new** disease is:
 > **No PR of the user's still needs the user's own work, and no un-PR'd claim
 > issue exists.**
 
-A PR **needs my work** (blocks a new claim) when it is `CHANGES_REQUESTED`,
-**failing** a required check, or **conflicted**. A PR does **not** need my work —
-it is *parked* — when it is awaiting review (green/pending checks) or approved +
-green waiting only for the auto-merge sweep. An un-PR'd claim issue always needs
-my work (a prior fire that crashed before pushing — resume it).
+A PR **needs my work** when it is `CHANGES_REQUESTED`, **failing** a required
+check, or **conflicted**. A PR does **not** need my work — it is *parked* — when
+it is awaiting review (green/pending checks) or approved + green waiting only for
+the auto-merge sweep. An un-PR'd claim issue always needs my work (a prior fire
+that crashed before pushing — resume it).
+
+**"Needs my work" is not "I can hand this off."** The loop is an *unattended
+curation* hand-off, so a needs-work PR is either **actionable** (a routine
+curation fix the fire attempts) or **deferred** to the author (reported, never
+attempted). The reconcile module decides this from evidence the fetch passes it:
+
+- **Deferred — a human (non-bot) reviewer requested changes.** Their call is a
+  design judgement the author owns. The automated reviewer (`*[bot]`) requesting
+  changes is still actionable.
+- **Deferred — the PR changes non-curation files** (`src/`, `tests/`, `scripts/`,
+  `.github/`, `.claude/`, `conf/`, `docs/`, `CLAUDE.md`, a `*.justfile`, …). A
+  curation hand-off edits KB content; a code / schema / tooling / docs PR goes to
+  the author.
+- **Actionable** — everything else that needs work: a bot-reviewer round, a
+  failing check, or a conflict on a PR whose diff is pure KB content.
+
+Only an **actionable** needs-work PR (or an un-PR'd claim issue) blocks a new
+claim. A deferred PR is the author's now, so it does **not** block the loop — it
+is surfaced each fire and left alone.
 
 This classification is a **pure, unit-tested function**, not prose to
-re-interpret each run. Do not hand-classify PRs; call the module.
+re-interpret each run. Do not hand-classify PRs; call the module, and pass it the
+`reviews` and `files` it needs to make the deferral call.
 
 ## Step 1 — reconcile (every invocation)
 
@@ -69,9 +89,18 @@ Fetch the user's in-flight work and classify it with
 `dismech.schedule.reconcile`:
 
 ```bash
+# reviews (per-author state, to tell a human reviewer from the bot) and files
+# (to tell a curation PR from a code one) feed reconcile's actionable/deferred
+# call. `gh pr list --json` is a GraphQL call; if GraphQL is blocked in a
+# session, use the REST fallback below.
 gh pr list --author @me --state open \
-  --json number,title,url,headRefName,reviewDecision,mergeable,statusCheckRollup \
+  --json number,title,url,headRefName,reviewDecision,mergeable,statusCheckRollup,reviews,files \
   > /tmp/schedule_prs.json
+# If a build's `gh` omits reviews/files from `pr list`, fill each PR in with:
+#   gh api repos/$REPO/pulls/$N/reviews  --jq '[.[]|{state,login:.user.login}]'   # -> .reviews
+#   gh api repos/$REPO/pulls/$N/files    --jq '[.[].filename]'                     # -> .files
+# reconcile reads reviews[].state + the login (nested user/author accepted) and
+# files[] (bare paths or {filename}); with neither, a PR is assumed hand-off-able.
 
 gh issue list --assignee @me --state open --label claim \
   --json number,title,closedByPullRequestsReferences \
@@ -93,21 +122,27 @@ print(r.summary)
 print("IDENTITY_OK:", r.identity_ok, "SHOULD_CLAIM_NEW:", r.should_claim_new)
 if r.item_needing_work:
     print("ITEM:", json.dumps(r.item_needing_work))
+for c in r.deferred_prs:
+    print(f"  DEFERRED PR #{c.number}: {'; '.join(c.defer_reasons)}")
 for c in r.pr_classifications:
-    print(f"  PR #{c.number}: {c.category} (checks={c.checks}, review={c.review_decision}, mergeable={c.mergeable})")
+    print(f"  PR #{c.number}: {c.category} (checks={c.checks}, review={c.review_decision}, mergeable={c.mergeable}, hand_off_able={c.hand_off_able})")
 PY
 ```
 
-`reconcile()` returns `should_claim_new` and, when something needs work, the
-single `item_needing_work` to finish this fire. **Trust its verdict.** If
-`identity_ok` is false — the fire authenticated as someone other than the
-config's `github_login` — the fire does **nothing** (no claim, no fix); report
-the mismatch and stop.
+`reconcile()` returns `should_claim_new` and, when an **actionable** item needs
+work, the single `item_needing_work` to finish this fire. **Trust its verdict.**
+`r.deferred_prs` are needs-work PRs handed to the author — do not attempt them;
+report them (Step 4). If `identity_ok` is false — the fire authenticated as
+someone other than the config's `github_login` — the fire does **nothing** (no
+claim, no fix); report the mismatch and stop.
 
-## Step 2 — finish-first (if anything needs my work)
+## Step 2 — finish-first (if an actionable item needs my work)
 
-If `should_claim_new` is false, handle **the one** `item_needing_work` and then
-**stop — claim nothing new this fire**:
+If `should_claim_new` is false, handle **the one** `item_needing_work` — already
+the lowest-numbered *actionable* item, because reconcile has filtered out the
+deferred PRs — and then **stop, claim nothing new this fire**. The deferred PRs
+are the author's: report them in Step 4, do not attempt them. Finish the
+actionable item under CLAUDE.md's "drive a PR to green" rules:
 
 - **PR `CHANGES_REQUESTED` / failing / conflicted** → dispatch a fix subagent
   (`Task`) that **reuses `pr-shepherd`'s logic and scripts**, not a bespoke
@@ -144,9 +179,12 @@ PR carrying `Closes #<issue>`, in its own worktree. Use `/curate` /
 
 Report the one item's final state (curating / PR needs-fix-pushed /
 awaiting-review / waiting-to-merge / merged) and whether a new disease was
-claimed or the fire deferred because a PR needed work. Leave awaiting-review and
-approved-waiting PRs to the review / `auto_merge_ready_prs.py` automation — report
-their state only, never merge them.
+claimed or the fire held off because an actionable PR needed work. List
+`reconcile`'s `deferred_prs` separately — each with its `defer_reasons` — so the
+author sees the PRs handed back to them (a human reviewer's changes, or a
+code/schema/docs change) in one place instead of mid-fire. Leave awaiting-review
+and approved-waiting PRs to the review / `auto_merge_ready_prs.py` automation —
+report their state only, never merge them.
 
 ## Registering a recurring window (`/donate-curation <window> ...`)
 

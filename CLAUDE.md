@@ -109,6 +109,10 @@ just pytest-all
 # Run a single test
 uv run pytest tests/test_data.py -k "test_name" -v
 
+# Lint Python with the pinned ruff, exactly as CI does (version pinned in
+# pyproject.toml; bump it there, in uv.lock and in .pre-commit-config.yaml together)
+just lint-python
+
 # Generate HTML pages for all disorders
 uv run python -m dismech.render --all
 
@@ -159,6 +163,12 @@ Maps ontology prefixes to OAK adapters for term validation:
   also records the precondition for migrating a further prefix)
 - HGNC (and lowercase `hgnc`), GENO, ECTO (and `ExO`, which is bundled with
   ECTO), XCO, OPL, ICD10CM, icd11f → `sqlite:obo:<name>`
+- **NCBIGene and the Alliance MOD prefixes (MGI, RGD, ZFIN, Xenbase, FB, WB,
+  SGD), admitted only on a model's or dataset's `genes`, are not routed**: no
+  OAK adapter serves them reliably, so `just check-gene-namespaces` checks them
+  against `cache/<prefix>/terms.csv` instead (see *Naming Genes in a Model's
+  Own Species* below). A gene-product (`UniProtKB:`) accession is not an
+  accepted namespace for now; a follow-up issue tracks adding it
 
 Note this governs **automated term validation** only. Several modules build an
 adapter directly and ignore this file — notably
@@ -229,7 +239,7 @@ the parity test fails until they agree. See `models/README.md`.
 ### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
 The cron cadence of the scheduled "agent" workflows (curation-scanner,
 pr-shepherd, discussion-scanner, literature-scan, knowledge-gap-scan,
-preprint-scan, weekly-compliance, post-review-agent) is centralized in
+preprint-scan, weekly-compliance, weekly-report, post-review-agent) is centralized in
 `.github/cron-profiles.yaml` as named profiles (`slow`/`medium`/`fast`/`fast-weekend`).
 Switch with `just cron-profile <name>` (preview with `just cron-profile-preview <name>`,
 list with `just cron-profiles`), which rewrites the `on.schedule` cron lines in
@@ -240,7 +250,7 @@ config instead. Page/build crons are intentionally unmanaged. See
 ### Agent Model Config (`.github/agent-config.yaml`)
 The Claude **model** backing each agentic workflow (curation-scanner,
 discussion-scanner, claude-dedupe-issues, knowledge-gap-scan, literature-scan, preprint-scan,
-post-review-agent, pr-shepherd, weekly-compliance, claude-code-review, claude)
+post-review-agent, pr-shepherd, weekly-compliance, weekly-report, claude-code-review, claude)
 is centralized in `.github/agent-config.yaml` — one source of truth instead of a
 `--model` hardcoded per workflow. For single-model workflows, the `Resolve agent
 config` step (the `.github/actions/resolve-agent-config` composite action) reads
@@ -1251,18 +1261,58 @@ sufficient condition over the node's ontology-bound slots
 `src/dismech/node_class_definitions.py`); judgement classes (DISPOSITION,
 OUTCOME, STILL UNPLACED …) deliberately carry none. A companion
 `pathograph_node_class_go_seed.tsv` maps GO biological-process terms to
-classes. There is **no schema slot yet**: no disorder entry names a class, and
-the scanner applies the vocabulary read-only. Edit the tree by PR like any
-other `kb/` content.
+classes. Edit the tree by PR like any other `kb/` content.
+
+**The tree is versioned, and its classes are the values of a slot.** Since
+tree v1.0 (2026-11-04) the classes under the nine cascade tiers and DISPOSITION
+are the permissible values of an optional `Pathophysiology.node_class`
+(`PathographNodeClassEnum`, generated into
+`src/dismech/schema/pathograph_node_class.yaml`). ALSO CLASSES, DEBUNDLE
+TARGETS and STILL UNPLACED are not values. A change to a class or a gloss is
+therefore a schema change: run `just gen-node-class-enum` and bump the tree's
+`# VERSION` line by the rules in its header, in the same PR
+(`just node-classes --check-enum`, an ungated CI step, compares the tree with
+the enum). No entry was backfilled; nothing has to carry the slot.
+
+Assigning `node_class`:
+
+- **The most specific class whose gloss fits the node's own claim**, judged
+  against the worked examples under it. A tier is fine when no leaf fits;
+  leave the slot absent when nothing does.
+- **One value.** A node that needs two classes is making two claims; split it.
+- **Classify the claim, not the gene.** A lesion node is often bound to the
+  wild-type molecular function of its gene; whether it is a GENOMIC class (the
+  allele) or a MOLECULAR ACTIVITY one (the lost activity) depends on what the
+  node asserts, not on that term.
+- **The scanner's class is a hint.** It reads a curated `node_class` first; its
+  term-based suggestions are tier-level only. Its GO molecular-function rule is
+  MEDIUM confidence because on `conforms_to` pairs it disagrees with the module
+  side more often than not, for the reason above.
+- **It is not `biological_scale`.** Set both where both apply;
+  `--format scale` lists nodes whose class tier and scale disagree
+  (report-only), which usually means one of the two is wrong or the node is
+  bundling two claims.
+
+When a curation PR renames a node the tree cites, `--verify-kb` fails (an
+ungated CI step) and the example needs re-pointing. When it **splits** one,
+file each half under its own class with `:split_from <old node name>` instead
+of deleting the example; `--verify-kb` checks the old node is really gone.
 
 ```bash
 just node-classes --verify-kb              # grammar + every cited leaf resolves in kb/
+just node-classes --format summary         # version, counts, recorded splits
 just node-classes --check-definitions      # definition labels vs the term caches (--online: OLS)
-just node-classes --evaluate               # each definition vs its examples and the KB (needs GO sqlite)
+just node-classes --evaluate --go-obo go-basic.obo   # each definition vs its examples and the KB
+just gen-node-class-enum                   # regenerate the node_class enum from the tree
 just node-class-scan                       # apply the seed table across kb/: coverage
 just node-class-scan --format debundle     # nodes whose own GO terms span two classes
+just node-class-scan --format conformance-gates  # conforms_to agreement at each confidence level
+just node-class-scan --format scale        # node_class tier vs biological_scale (report-only)
 just node-role-audit                       # the free-text `role` slot against the edges
 ```
+
+`--evaluate` without `--go-obo` uses the local `sqlite:obo:go` build and exits
+with a message, rather than downloading it, when the build is absent.
 
 Design record: `docs/superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md`.
 
@@ -1861,6 +1911,92 @@ model, which is `PARTIALLY_RECAPITULATES` against `Motor Neuron Degeneration`
 while `RECAPITULATES` `Oxidative Stress`, with a `RESTORED` readout for the
 vitamin-E rescue arm.
 
+### Naming Genes in a Model's Own Species (MOD first, then `NCBIGene:`)
+
+HGNC names human genes only. That is right for `genetic:` and for
+pathophysiology nodes, and wrong for a model system: a Coch knock-in mouse
+carries mouse *Coch*, not `hgnc:2180`, and a zebrafish morphant knocks down
+`tmem165`, which HGNC has no record of. So the `genes` of `animal_models[]`,
+`experimental_models[]` and `datasets[]` take a `GeneOrProductDescriptor`, which
+admits a gene in its own species:
+
+```yaml
+animal_models:
+- name: Coch G88E knock-in mouse
+  species: Mouse
+  genes:
+  - preferred_term: Coch
+    term:
+      id: MGI:1278313
+      label: Coch
+```
+
+**Pick the namespace in this order:**
+
+| Species | Prefix | Label |
+|---|---|---|
+| human (including a human transgene, a human cell line) | `hgnc:` | HGNC symbol |
+| mouse / rat / zebrafish / *Xenopus* / *Drosophila* / *C. elegans* / *S. cerevisiae* | `MGI:` / `RGD:` / `ZFIN:ZDB-GENE-…` / `Xenbase:XB-GENE-…` / `FB:FBgn…` / `WB:WBGene…` / `SGD:S…` | the MOD's official symbol |
+| anything else (pig, dog, macaque) | `NCBIGene:` | NCBI official symbol |
+
+A gene-product (`UniProtKB:`) accession is **not** an accepted namespace for
+now — a non-MOD species' gene, whether the model acts on the gene or its
+product, takes its `NCBIGene:` identifier, with the protein name in
+`preferred_term`. A follow-up issue tracks adding `UniProtKB:` support.
+
+- **A model organism always takes its MOD**, whether the model acts on the gene
+  (knockout, knockdown, a carried variant) or on its product (an injected
+  protein): injected mouse cochlin is `MGI:1278313`, not a UniProtKB accession.
+  This is the Monarch KG's convention — the MOD ID is the gene node there, and
+  NCBI Gene is ingested only for species without one. It is deliberately **not**
+  Biolink's `id_prefixes` order or Translator node normalization, which lead
+  with NCBIGene; do not "fix" a MOD binding to match them.
+- **Spell prefixes as Biolink does** (also the Monarch KG's and GO's forms):
+  `FB:` not `FlyBase:`, `WB:` not `WormBase:`, `Xenbase:` not `XENBASE:`, and
+  `MGI:1278313`, never GO's `MGI:MGI:1278313`.
+- **MGI's official symbol can differ from the name the paper uses.** Bbs8 is
+  `MGI:1923510` *Ttc8*: put the paper's name in `preferred_term` and MGI's
+  symbol in `label`.
+- **Orthology goes in `description` or `notes`** for now. Rebinding a mouse
+  gene off `hgnc:` takes the model off the human gene's page in the gene index,
+  which keys on HGNC; a structured orthology link is the planned follow-up.
+- **Nowhere else.** Every other gene slot stays HGNC-only, and the gate below
+  enforces that; the schema itself does not restrict prefixes.
+
+Look identifiers up at the source (the Alliance gene page or API, NCBI Gene,
+UniProt), never from memory. **The term validator does not check MOD or
+`NCBIGene:` labels**: none of those prefixes is routed in
+`conf/oak_config.yaml`, and a prefix with no adapter passes `just
+validate-terms` with any label at all. That gap is not theoretical: three
+`MGI:` bindings reached `main` carrying the right symbol on another gene's ID
+(`MGI:107573` labelled *Blm* is *Ott*).
+
+```bash
+just check-gene-namespaces                      # gate (offline, in `just qc`, ungated in CI)
+just check-gene-namespaces-online               # resolve new MOD/NCBIGene IDs into the caches, then gate
+just check-gene-namespaces --format list        # also the advisory worklist
+```
+
+The gate fails on a non-human binding outside a model's or dataset's `genes`; a
+misspelled or malformed MOD ID; a MOD or `NCBIGene:` ID that is uncached or
+whose label is not the official symbol; and an `NCBIGene:` binding
+on a record whose `organism` has a MOD. The online mode resolves MOD IDs through
+the Alliance API and NCBIGene through E-utilities, and also rejects retired
+records, human genes, and fallback-prefix records whose own taxon has a MOD —
+which is what covers animal models, whose `species` is free text. Run it after
+adding a binding and commit the `cache/<prefix>/terms.csv` rows with it.
+`--format list` also reports `hgnc:` genes on a record whose `organism` has a
+MOD (`HGNC_IN_MOD_ORGANISM`): usually the human ortholog standing in for the
+model's own gene, sometimes a genuine human transgene, so it is a worklist and
+never gates.
+
+Worked examples: `TMEM165-Congenital_Disorder_of_Glycosylation` (mouse
+knockouts on `MGI:`, a zebrafish morphant on `ZFIN:`, a human HEK293 knockout on
+`hgnc:`), `Autosomal_Dominant_Nonsyndromic_Hearing_Loss_9` (Coch knock-in and
+injected mouse cochlin both on `MGI:1278313`, human minigene cells on `hgnc:`),
+`Severe_Combined_Immunodeficiency_Due_To_CORO1A_Deficiency`,
+`BBSome-Related_Retinitis_Pigmentosa` (a mouse dataset's gene on `MGI:`).
+
 ### Linking Environmental Factors into the Pathograph
 
 An `environmental:` entry only appears in the pathograph if it declares which
@@ -2137,6 +2273,27 @@ evidence:
     explanation: "Why this evidence supports/refutes the claim"
 ```
 
+#### A regulatory test guideline is a lead, never an evidence reference
+
+An OECD Test Guideline, and any comparable regulatory consensus document, must
+not appear in an evidence `reference:`. `OECDTG:` is deliberately absent from
+`ALLOWED_REFERENCE_PREFIXES` in `tests/test_data.py`, as `AOP:` always has been,
+and `check_evidence_items_have_references` fails on it.
+
+A guideline describes an assay in the **key-event** terms of an Adverse Outcome
+Pathway — TG 442D is titled for the AOP key event on keratinocyte activation. A
+key event is not a pathograph node, and nothing here records the correspondence
+between any particular pair. So a guideline citation on a `modeled_mechanisms`
+link asserts that step silently, under a citation that does not make it.
+
+Cache it, read it, and source the claim from the primary literature its reference
+list names — which is often better evidence rather than a weaker substitute. A
+fact with no primary source (a method's Validated Reference Method standing, the
+guideline's own judgement about a result) goes in `notes:`, attributed to the
+guideline and marked as a lead. `Contact_Dermatitis` is the worked example; see
+design decisions §6e, which records what was removed from it and what each
+removal was re-sourced to, and the `extract-tg-method` skill.
+
 #### `supports` is direction; `directness` is a separate axis
 
 `supports` records **which way** the cited evidence cuts, and nothing else:
@@ -2234,6 +2391,18 @@ item lands on `OTHER`, now distinguished as `BACKGROUND` and
 A quoted **aim** statement ("the aim of the present study was to…") has no value
 in this enum; it is neither the paper's finding nor somebody else's fact. Leave
 `quote_role` off; `just list-background-citations` reports those separately.
+
+**Keep study limitations visible without turning them into direction labels.**
+A small sample or a call for future work can coexist with `SUPPORT` for a finding
+accurately scoped to the study. Include the authors' caveat in the exact `snippet`
+when it is part of the same passage, and record our interpretation in `explanation`.
+Do not splice disconnected quotations. A caveat from another section can be quoted
+with attribution in `explanation`, but that prose is not automatically quote-validated
+or passed to the evaluator. Narrow an overstated assertion itself; its explanation
+cannot repair it. See [Recording caveats](docs/explanation/evidence-model.md#recording-caveats-with-the-existing-fields)
+for an example and the distinction between evidence direction, claim coverage and
+study strength. Jev’s `MATCH` / `PARTIAL` / `MISMATCH` are classifier outputs;
+they are separate from the retired `supports: PARTIAL` value discussed below.
 
 **`PARTIAL` and `WRONG_STATEMENT` were removed** (issue #7439). If you are
 tempted to reach for the old `PARTIAL`, one of these is what you mean:
@@ -4168,6 +4337,10 @@ Non-negotiable rules:
   on an HGNC identifier written beside the wrong gene (#9845).
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
+- Never create or hand-edit `signed_excerpts/*.yaml`; those bundles are verified
+  against full-text PDFs in the private `monarch-initiative/claimstore`
+  repository and synced from there with `just sync-signed-excerpts`, which needs
+  claimstore read access (design decisions §6d).
 - Validation is read-only for committed caches. `just validate`,
   `validate-kb-references` and `validate-disorders` may *create* a cache file
   for a newly cited reference (commit it), but they never rewrite a tracked one:
@@ -4830,6 +5003,15 @@ as evidence `snippet:` values.
 | `ICEES:` | ICEES Knowledge Graph (KGX, RENCI/UNC) | One record per disease/phenotype comorbidity pair (MONDO/HP both sides), with per-cohort chi-square rows | ICEES terms |
 | `NCIT:` | NCI Thesaurus selected predicate edges (via OAK `sqlite:obo:ncit`) | One record per subject carrying a selected predicate; currently `NCIT:P302` (Accepted_Therapeutic_Use_For), 796 drug→indication assertions | NCIT terms |
 | `ICTRP:` | WHO International Clinical Trials Registry Platform search portal | One record per trial, fetched per identifier on demand (no bulk file) | WHO ICTRP terms |
+| `OECDTG:` | OECD Test Guideline PDFs, pinned by sha256 in `data/oecd_tg/MANIFEST.yaml` | One record per guideline; currently TG 442D, 51 paragraphs — the General Introduction plus each appendix's `Initial Considerations` and `Principle of the Test` | CC BY 4.0 |
+
+**`OECDTG:` is the one prefix in this table that is cache-only.** Unlike every
+other row, it may *not* appear in an evidence `reference:` — it is absent from
+`ALLOWED_REFERENCE_PREFIXES` and `check_evidence_items_have_references` rejects
+it. A Test Guideline describes an assay in the key-event terms of an Adverse
+Outcome Pathway, and a key event is not a pathograph node, so citing one asserts
+a correspondence nothing here records. The cache is for reading the guideline
+and for auditing the method extraction against it. See design decisions §6e.
 
 **Citing an NCIT P302 (Accepted_Therapeutic_Use_For) treatment indication:**
 

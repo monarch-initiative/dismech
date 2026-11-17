@@ -182,6 +182,16 @@ validate-pre-edit file:
     fi
     echo "✓ Pre-edit validation passed for {{file}}"
 
+# Run the per-entry structural tests in tests/test_data.py (test_disorder_file,
+# test_module_file, test_comorbidity_file) on the given KB files only. These
+# are the `kb_data` checks the merge queue runs over the whole KB; CI runs this
+# on the entries a curation PR changes, so an entry-local failure shows up on
+# the PR rather than in the queue (#18313). Deleted files are skipped.
+#   just test-kb-files kb/disorders/Asthma.yaml kb/modules/fibrotic_response.yaml
+[group('QC')]
+test-kb-files *files: gen-python
+    uv run python scripts/run_changed_kb_entry_tests.py "$@"
+
 # Full validation of one or more disorder files, batched by validator phase.
 # This is intended for CI changed-file validation, where a PR may touch hundreds
 # of disorder YAMLs but still should avoid full-corpus validation. Reference
@@ -1144,7 +1154,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-reference-cache-welded-headings check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-unsuccessful-research check-reference-cache-nul-bytes check-reference-cache-welded-headings check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-gene-namespaces check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1521,6 +1531,30 @@ alias validate-references := validate-kb-references
 count-verified-snippets *args:
     uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} --config {{ref_validator_config}} {{args}}
 
+# Sync signed fair-use excerpts from the PRIVATE monarch-initiative/claimstore
+# repo into signed_excerpts/. Needs read access to claimstore and a local clone,
+# at ../claimstore by default or wherever CLAIMSTORE_DIR points. Selection
+# (target_repo, referenced_in, prune) lives in conf/reference_validator_config.yaml.
+# Pass --check to report drift without writing. Commit the changed
+# signed_excerpts/*.yaml with the disorder files that quote them; CI validates
+# against the committed copy and never needs claimstore.
+[group('Research')]
+sync-signed-excerpts *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src="${CLAIMSTORE_DIR:-../claimstore}/signed_excerpts"
+    if [ ! -d "$src" ]; then
+        echo "claimstore not found at $src" >&2
+        echo "Clone the private repo (needs read access) and/or set CLAIMSTORE_DIR:" >&2
+        echo "  git clone git@github.com:monarch-initiative/claimstore.git ../claimstore" >&2
+        exit 2
+    fi
+    if ! uv run linkml-reference-validator excerpts --help >/dev/null 2>&1; then
+        echo "linkml-reference-validator has no 'excerpts sync' command; upgrade to >=0.7.0" >&2
+        exit 2
+    fi
+    uv run linkml-reference-validator excerpts sync --config {{ref_validator_config}} --source "$src" {{args}}
+
 # Audit curated `clinical_trials` status/phase against live ClinicalTrials.gov.
 # A trial's `status:`/`phase:` are a snapshot taken at curation time and nothing
 # re-checks them: the trial registry is the one live-API reference source with no
@@ -1593,9 +1627,10 @@ check-not4curation *args:
 # `conformance` compares every conforms_to edge's two sides, which is an
 # INDEPENDENT check on the classes because conforming pairs are curated as
 # "same kind of thing" by an unrelated process. Conformance is gated on both
-# sides being HIGH confidence by default -- letting the gene/CL/UBERON fallbacks
-# in multiplies the mismatch rate several times over; pass --include-low to see
-# the rest, or `--format conformance-gates` for the current rate under each gate.
+# sides being curated or HIGH confidence by default -- letting the GO MF, CHEBI
+# and gene/CL/UBERON rules in multiplies the mismatch rate several times over;
+# pass --include-low to see the rest, or `--format conformance-gates` for the
+# current rate at each confidence level.
 # Read-only: the tree and seed table under kb/node_classes/ are inputs.
 [group('QC')]
 node-class-scan *args:
@@ -1616,18 +1651,29 @@ node-role-audit *args:
 
 # Parse and check the compact pathograph node-class tree
 # (kb/node_classes/pathograph_node_classes.txt). The tree is curated content
-# with no schema slot yet; its leaves are real (node, disease) pairs, and a
-# tree whose leaves have drifted from the KB is worse than no tree because it
-# still looks grounded. Bare invocation checks the
-# grammar only (instant); --verify-kb also resolves every cited leaf against
-# kb/ (slow: parses the whole KB); --check-definitions verifies every `=`
-# line's term labels against the caches (--online: against OLS); --evaluate
-# runs each logical definition over its own examples and the whole KB (needs
-# the local OAK GO sqlite). --format yaml|json|text emits the tree, `text`
-# being a stable round-trip of the compact form.
+# whose classes are also the values of Pathophysiology.node_class; its leaves
+# are real (node, disease) pairs, and a tree whose leaves have drifted from the
+# KB is worse than no tree because it still looks grounded. Bare invocation
+# checks the grammar only (instant); --verify-kb also resolves every cited leaf
+# against kb/ and checks each :split_from (slow: parses the whole KB);
+# --check-definitions verifies every `=` line's term labels against the caches
+# (--online: against OLS); --evaluate runs each logical definition over its own
+# examples and the whole KB, taking the GO is_a closure from --go-obo <file> or
+# the local OAK GO sqlite (never downloaded implicitly). --format
+# yaml|json|text emits the tree, `text` being a stable round-trip of the
+# compact form; --format linkml-enum prints the generated node_class enum.
 [group('QC')]
 node-classes *args:
     uv run python -m dismech.node_classes {{args}}
+
+# Regenerate src/dismech/schema/pathograph_node_class.yaml, the enum behind
+# Pathophysiology.node_class, from the node-class tree. Run it after changing a
+# class or gloss in kb/node_classes/pathograph_node_classes.txt, bump the
+# tree's VERSION line by its VERSIONING rules, and commit both files together;
+# tests/test_node_classes.py fails while they disagree.
+[group('Schema')]
+gen-node-class-enum:
+    uv run python -m dismech.node_classes --write-enum
 
 # Validate the Claude Code skill files under .claude/skills/ (#11758). A skill
 # whose SKILL.md is missing or miscased is simply never loaded -- no error, and
@@ -1681,6 +1727,15 @@ check-block-scalar-comments *files:
 check-case-collisions:
     uv run python scripts/check_case_collisions.py
 
+# deep-research-client 0.2.14 marks a run that produced no report -- a from-memory
+# answer, a refusal, a self-declared incomplete draft -- answer_status: unsuccessful
+# and exits 4, but the file still lands in research/. Ungated and whole-tree
+# because the PRs that add one touch only research/ and kb/. ~2s, offline.
+# Fail when research/ holds a deep-research run marked answer_status: unsuccessful
+[group('QC')]
+check-unsuccessful-research *args="":
+    uv run python scripts/check_unsuccessful_research.py {{args}}
+
 # PDF text extraction emits an unmapped glyph -- usually an fi/fl ligature -- as
 # U+0000, and one NUL makes grep treat the whole file as binary and silently drop
 # it from its output. Repair with scripts/repair_reference_cache_nuls.py --apply.
@@ -1724,6 +1779,33 @@ check-enum-values *files:
 [group('QC')]
 check-delivery-system *args:
     uv run python scripts/check_delivery_system.py {{args}}
+
+# Check the gene namespace of every model and dataset gene, and that its
+# identifier is real. Non-human genes (Alliance MODs: MGI, RGD, ZFIN, Xenbase,
+# FB, WB, SGD; then NCBIGene, UniProtKB) are admitted only on the genes of
+# animal_models, experimental_models and datasets; a model organism's gene must
+# use its MOD; a MOD or NCBIGene binding must be cached in cache/<prefix>/terms.csv
+# with the official symbol as its label. Offline, whole-KB. `--format list` also
+# prints the advisory rows (hgnc: genes on a MOD-organism record).
+#   just check-gene-namespaces
+#   just check-gene-namespaces kb/disorders/TMEM165-Congenital_Disorder_of_Glycosylation.yaml
+#   Gate model and dataset gene namespaces (MOD first, then NCBIGene/UniProtKB)
+[group('QC')]
+check-gene-namespaces *args:
+    uv run python scripts/check_gene_namespaces.py {{args}}
+
+# Like check-gene-namespaces, but first resolves every uncached MOD identifier
+# through the Alliance API and every uncached NCBIGene one through NCBI
+# E-utilities, writing their cache rows, and checks every UniProtKB accession's
+# species with UniProt. Rejects retired records, human genes (which are hgnc:),
+# and NCBIGene/UniProtKB records for a species that has a MOD. Run it after
+# adding a non-human gene binding, and commit the cache rows with it. The term
+# validator cannot check MOD or NCBIGene labels; this is the only check that
+# does. Set NCBI_API_KEY to lift the 3 requests/second limit.
+#   Resolve new MOD/NCBIGene identifiers, then run the gene-namespace gate
+[group('QC')]
+check-gene-namespaces-online *args:
+    uv run python scripts/check_gene_namespaces.py --online {{args}}
 
 # Resolve every `<kind>#<name>` entity reference in kb/ (#9473). The same rules
 # run in `check_entity_ref_foreign_keys`, but that test is selected by the
@@ -2441,6 +2523,11 @@ ai-blame-annotate-all:
     else
         echo "Completed without errors."
     fi
+
+# Lint Python with the pinned ruff -- the same command CI runs (#9964)
+[group('QC')]
+lint-python *args:
+    uv run ruff check . {{args}}
 
 # Lint the schema
 [group('QC')]
@@ -3891,7 +3978,7 @@ fetch-reference +identifiers:
     for identifier in "${ids[@]}"; do
         echo "Fetching reference: $identifier"
         case "$identifier" in
-            CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*|ICTRP:*|ictrp:*|CGGV:*|CGDS:*|ORPHA:*|Orphanet:*|ICEES:*|NCIT:*)
+            CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*|ICTRP:*|ictrp:*|CGGV:*|CGDS:*|ORPHA:*|Orphanet:*|ICEES:*|NCIT:*|OECDTG:*|oecdtg:*)
                 if [ ${#flags[@]} -gt 0 ]; then
                     echo "Note: ${flags[*]} ignored for $identifier; structured-source records are always rebuilt." >&2
                 fi
@@ -3946,6 +4033,13 @@ fetch-reference +identifiers:
                 ;;
             ICEES:*)
                 uv run python -m dismech.structured_sources.cli rebuild icees --id "$identifier"
+                ;;
+            # The paragraph index is committed, so unlike the other structured
+            # prefixes there is nothing to refresh and no network call: the
+            # rebuild renders `data/oecd_tg/*-paragraphs.json`. The guideline PDF
+            # is pinned by sha256 in that manifest and is not needed here.
+            OECDTG:*|oecdtg:*)
+                uv run python -m dismech.structured_sources.cli rebuild oecd-tg --id "$identifier"
                 ;;
             NCIT:*)
                 # `rebuild ncit` opens sqlite:obo:ncit, and OAK downloads that
@@ -4958,3 +5052,14 @@ extract-oecd-tg pdf out="data/oecd_tg/tg442d-paragraphs.json":
 # Check extracted Test Guideline facts against the paragraphs they cite
 check-tg-extraction *args="":
     @uv run python scripts/check_tg_extraction.py {{args}}
+
+# Rebuild references_cache/OECDTG_*.md from the committed paragraph indexes, so a KB
+# entry can cite `OECDTG:442D` and quote a paragraph. Offline and deterministic: the
+# index is committed, the PDF is not needed, and re-running changes nothing unless the
+# index did. Commit the cache file alongside the entry that cites it.
+oecd-tg-rebuild *args="":
+    @uv run python -m dismech.structured_sources.cli rebuild oecd-tg {{args}}
+
+# Which Test Guidelines have a quotable record
+oecd-tg-list:
+    @uv run python -m dismech.structured_sources.cli list oecd-tg
