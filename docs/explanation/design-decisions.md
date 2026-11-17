@@ -1274,6 +1274,14 @@ repository and synced into `signed_excerpts/<REF_ID>.yaml`.
   normalization) a verified entry in `signed_excerpts/<REF_ID>.yaml`. Any local edit or
   paraphrase of a signed excerpt fails the exact-match check and falls through to normal
   `references_cache/` substring matching, failing validation.
+- **Synced with `just sync-signed-excerpts`.** The recipe runs
+  `linkml-reference-validator excerpts sync` against a local claimstore clone
+  (`../claimstore` or `$CLAIMSTORE_DIR`), so only people with claimstore read access can
+  run it; CI only validates the committed copy. The `signed_excerpts_sync` section of
+  `conf/reference_validator_config.yaml` selects a bundle if an excerpt is tagged
+  `target_repo: dismech:...` or its reference is cited anywhere under `kb/`, copies it
+  byte-for-byte, and prunes bundles no longer selected. `--check` reports drift without
+  writing.
 - **Never hand-authored in `dismech`.** `signed_excerpts/*.yaml` files are synced from
   `claimstore` and are governed by the same no-hand-editing rule as `references_cache/*.md`.
   `tests/test_signed_excerpts.py` enforces provenance metadata (`reference_id`,

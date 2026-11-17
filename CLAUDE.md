@@ -4339,7 +4339,8 @@ Non-negotiable rules:
   entry with `just fetch-reference <ID>`.
 - Never create or hand-edit `signed_excerpts/*.yaml`; those bundles are verified
   against full-text PDFs in the private `monarch-initiative/claimstore`
-  repository and synced from there (design decisions §6d).
+  repository and synced from there with `just sync-signed-excerpts`, which needs
+  claimstore read access (design decisions §6d).
 - Validation is read-only for committed caches. `just validate`,
   `validate-kb-references` and `validate-disorders` may *create* a cache file
   for a newly cited reference (commit it), but they never rewrite a tracked one:
