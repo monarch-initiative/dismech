@@ -182,6 +182,16 @@ validate-pre-edit file:
     fi
     echo "✓ Pre-edit validation passed for {{file}}"
 
+# Run the per-entry structural tests in tests/test_data.py (test_disorder_file,
+# test_module_file, test_comorbidity_file) on the given KB files only. These
+# are the `kb_data` checks the merge queue runs over the whole KB; CI runs this
+# on the entries a curation PR changes, so an entry-local failure shows up on
+# the PR rather than in the queue (#18313). Deleted files are skipped.
+#   just test-kb-files kb/disorders/Asthma.yaml kb/modules/fibrotic_response.yaml
+[group('QC')]
+test-kb-files *files: gen-python
+    uv run python scripts/run_changed_kb_entry_tests.py "$@"
+
 # Full validation of one or more disorder files, batched by validator phase.
 # This is intended for CI changed-file validation, where a PR may touch hundreds
 # of disorder YAMLs but still should avoid full-corpus validation. Reference
