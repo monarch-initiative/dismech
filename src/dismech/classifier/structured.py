@@ -84,7 +84,7 @@ def structured_claim_task(
         state["source_text"] = source_text
     return ClassificationTask(
         name="whole_claim",
-        version="3",
+        version="4",
         state=state,
         instructions=INSTRUCTIONS,
         criteria=dict(CRITERIA),
@@ -97,7 +97,7 @@ def mismatch_reason_task(
     task = structured_claim_task(claim, source_text)
     return ClassificationTask(
         name="whole_claim_mismatch_reason",
-        version="3",
+        version="4",
         state=task.state,
         instructions=INSTRUCTIONS
         + "\nAssume the primary evaluation is MISMATCH. Select its principal reason; do not change the primary judgment.",

@@ -2,7 +2,7 @@
 
 `just jev-audit` checks the selected snippets against the structured assertions in
 all `kb/disorders/*.yaml` files, and produces a queue for recuration. It uses the
-same MATCH / MISMATCH / PARTIAL rubric as the evidence-claim-match benchmark.
+MATCH / MISMATCH / PARTIAL labels used by the evidence-claim-match benchmark.
 These are model judgments of snippet support, not curator labels, source-quality
 ratings, or judgments of whether a disease assertion is true elsewhere.
 
@@ -105,7 +105,16 @@ therefore appear in both counts. This is a snippet-repair queue: a different
 snippet supporting the same assertion does not cancel a mismatched snippet.
 
 Root outcomes and individual-aspect counts are separate columns. PARTIAL means
-weak, incomplete, mixed or uncertain support; it is not counted as MISMATCH.
+incomplete, mixed or uncertain claim coverage; it is not counted as MISMATCH.
+Limited study strength alone does not require PARTIAL. A small study can adequately
+support an accurately scoped finding; explicit author caveats matter when the claim
+overstates what was established. See [Recording caveats](explanation/evidence-model.md#recording-caveats-with-the-existing-fields).
+
+The caveat clarification uses rubric `three-valued-v2`, node-aspect prompt `5`,
+whole-claim prompt `4`, and edge prompt `2.1`. Edge `2.1` builds on `2`; it does not
+adopt the separate benchmark prompt `3` experiment. Earlier benchmark runs retain
+their frozen prompts and results. Prompt changes produce new assessment cache keys,
+so existing results are retained but are not reused as judgments under this rubric.
 Probabilities are retained for sorting and review, not treated as measured accuracy.
 
 Missing evidence, missing snippets and invalid input (for example, an unresolved
