@@ -60575,6 +60575,113 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Birk-Landau-Perez Syndrome",
+    "disease_id": "MONDO:0044726",
+    "category": "Mendelian",
+    "parents": [
+      "inherited neurodegenerative disorder",
+      "inherited renal tubular disease"
+    ],
+    "creation_date": "2026-11-18T11:48:17Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Birk-Landau-Perez syndrome (BILAPES) is an autosomal recessive cerebro-renal disorder caused by biallelic variants in SLC30A9, which encodes the zinc transporter ZnT-9. Children develop normally for the first one to two years and then regress, losing speech and motor skills and going on to severe intellectual disability, a progressive hyperkinetic movement disorder, profound ataxia, oculomotor apraxia, ptosis and camptocormia. The founding Bedouin kindred also had early-onset tubulointerstitial nephropathy with hypertension and a tendency to hyperkalemia, but a later series of eight patients from four families had the same neurological disease with no severe renal impairment, so the renal arm is variable rather than obligatory. Hearing loss and cerebellar atrophy are reported in some families and absent in others. How the transport defect injures neurons is unsettled: the founding study measured lower cytosolic zinc in mutant cells, whereas later work on SLC30A9 as a mitochondrial zinc exporter describes zinc accumulation and mitochondrial stress. Both readings are recorded here.",
+    "pathophysiology": [
+      "Biallelic SLC30A9 Variant in the Cation Efflux Domain",
+      "Defective SLC30A9-Dependent Zinc Transport",
+      "Disturbed Intracellular Zinc Homeostasis",
+      "Mitochondrial Dysfunction in Neurons",
+      "Progressive Neuronal Dysfunction and Regression",
+      "Tubulointerstitial Nephropathy"
+    ],
+    "cell_types": [
+      "neuron",
+      "kidney tubule cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:1000507"
+    ],
+    "biological_processes": [
+      "intracellular zinc ion homeostasis",
+      "mitochondrion organization"
+    ],
+    "phenotypes": [
+      "Developmental regression",
+      "Intellectual disability",
+      "Ataxia",
+      "Camptocormia",
+      "Oculomotor apraxia",
+      "Dyskinesia",
+      "Ptosis",
+      "Axial hypotonia",
+      "Limb hypertonia",
+      "Sensorineural hearing impairment",
+      "Cerebellar atrophy",
+      "Spasticity",
+      "Hyperkalemia",
+      "Hyperechogenic kidneys",
+      "Microcephaly",
+      "Tubulointerstitial nephritis",
+      "Hypertension"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic",
+      "Otologic",
+      "Laboratory",
+      "Renal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002376",
+      "HP:0001249",
+      "HP:0001251",
+      "HP:0100595",
+      "HP:0000657",
+      "HP:0100660",
+      "HP:0000508",
+      "HP:0008936",
+      "HP:0002509",
+      "HP:0000407",
+      "HP:0001272",
+      "HP:0001257",
+      "HP:0002153",
+      "HP:0004719",
+      "HP:0000252",
+      "HP:0001970",
+      "HP:0000822"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SLC30A9"
+    ],
+    "treatments": [
+      "Supportive and Symptomatic Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Birk-Landau-Perez_Syndrome.yaml",
+    "page_url": "../pages/disorders/Birk-Landau-Perez_Syndrome.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Birt-Hogg-Dube Syndrome",
     "disease_id": "MONDO:0800444",
     "category": "Mendelian",
@@ -324415,6 +324522,66 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "PBRM1-Related BAFopathy",
+    "disease_id": "MONDO:0700122",
+    "category": "Mendelian",
+    "parents": [
+      "BAFopathy"
+    ],
+    "creation_date": "2026-11-18T11:48:17Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "PBRM1-related BAFopathy is a proposed, not established, neurodevelopmental disorder. PBRM1 encodes BAF180, the defining subunit of the PBAF form of the BAF chromatin-remodelling complex, and other BAF subunits cause well-characterised BAFopathies such as Coffin-Siris and Nicolaides-Baraitser syndromes. The human evidence runs both ways and is thin in both directions. For: one patient carrying a de novo heterozygous predicted splice-altering variant, selection of PBRM1 on its intolerance to loss of function, and further de novo PBRM1 variants recorded in DDD and denovo-db. Against: that variant was never tested by RNA study, a 31,058-trio developmental disorder study did not find PBRM1 significantly associated, and predicted loss-of-function variants were no more abundant in the patient cohort than in gnomAD. The reporting authors call PBRM1 a candidate gene rather than a confirmed one, and add that the lack of significance may reflect the methods and cohort used. Against that, a conditional knockout of Pbrm1 in mouse microglia produces a detailed and internally consistent mechanism: loss of PBRM1 derepresses Ccl5, the released CCL5 drives neural stem and progenitor cells through CCR1 and CCR5 to beta-catenin signalling, neurogenesis becomes excessive, and the mice show autism-like behaviour that blocking CCR1 and CCR5 reverses. This entry records both: a mechanism worked out in mice, and a human gene-disease relationship that is still open.",
+    "pathophysiology": [
+      "Reduced PBRM1 Function in the PBAF Complex",
+      "Derepression of CCL5 in Microglia",
+      "CCR1 and CCR5 Signalling to Beta-Catenin in Neural Progenitors",
+      "Excessive Neurogenesis"
+    ],
+    "cell_types": [
+      "microglial cell",
+      "neural stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000129",
+      "CL:0000047"
+    ],
+    "biological_processes": [
+      "chromatin remodeling",
+      "negative regulation of transcription by RNA polymerase II",
+      "chemokine-mediated signaling pathway",
+      "canonical Wnt signaling pathway",
+      "neurogenesis"
+    ],
+    "phenotypes": [
+      "Autism"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000717"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PBRM1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PBRM1-Related_BAFopathy.yaml",
+    "page_url": "../pages/disorders/PBRM1-Related_BAFopathy.html",
+    "num_phenotypes": 1,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "PCDH19 Clustering Epilepsy",
     "disease_id": "MONDO:0010246",
     "category": "Mendelian",
@@ -445816,19 +445983,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4105,
+  "total_disorder_pages": 4107,
   "total_subtypes": 5096,
-  "total_disorders_and_subtypes": 9201,
-  "total_unique_evidence_sources": 61309,
-  "total_unique_publications": 57289,
+  "total_disorders_and_subtypes": 9203,
+  "total_unique_evidence_sources": 61315,
+  "total_unique_publications": 57294,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4103,
-  "total_unique_pathological_events": 27090,
+  "total_pathographs": 4105,
+  "total_unique_pathological_events": 27100,
   "total_modules": 236,
-  "total_research_reports": 4208,
+  "total_research_reports": 4210,
   "total_classifications": 21,
   "total_comorbidities": 57,
-  "total_groupings": 137
+  "total_groupings": 138
 };
 window.dispatchEvent(new Event('searchDataReady'));
