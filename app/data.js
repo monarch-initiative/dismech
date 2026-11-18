@@ -47484,6 +47484,74 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Autosomal Recessive Nonsyndromic Hearing Loss 63",
+    "disease_id": "MONDO:0012670",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Recessive Nonsyndromic Hearing Loss"
+    ],
+    "creation_date": "2026-11-16T14:25:26Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DFNB63 is autosomal recessive, nonsyndromic sensorineural hearing loss caused by biallelic pathogenic variants in LRTOMT on chromosome 11q13.3-q13.4. LRTOMT is a primate fusion gene with two alternative reading frames; the disease-relevant product is LRTOMT2, the transmembrane O-methyltransferase (TOMT) moiety, which corresponds to the separate rodent gene Tomt (Comt2). Most affected individuals come from consanguineous families in North Africa, the Middle East, Turkey and Pakistan, and have congenital, bilateral, profound hearing loss. A recurrent founder allele, c.242G>A (p.Arg81Gln), accounts for a measurable share of recessive deafness in Morocco, Tunisia and Libya. Rarer compound heterozygous genotypes have been reported with moderate, high-frequency or progressive loss. In mouse and zebrafish, TOMT is a Golgi-enriched protein that binds TMC1 and TMC2 and is required to deliver them to the hair-cell stereocilia; without it, hair cells have no mechanoelectrical transduction current and later degenerate. This role does not depend on methyltransferase activity, which replaced the earlier proposal that DFNB63 is a disorder of catecholamine catabolism. Animal models also show vestibular dysfunction, which has not been described in patients. Management is auditory rehabilitation with hearing aids or cochlear implantation.",
+    "pathophysiology": [
+      "LRTOMT2 (TOMT) Biallelic Loss of Function",
+      "Failed TMC1 and TMC2 Trafficking to the Hair Bundle",
+      "Absent Hair Cell Mechanoelectrical Transduction",
+      "Cochlear Hair Cell Degeneration"
+    ],
+    "cell_types": [
+      "cochlear inner hair cell",
+      "cochlear outer hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000589",
+      "CL:0000601"
+    ],
+    "biological_processes": [
+      "Golgi to stereocilia transport of TMC1 and TMC2",
+      "detection of mechanical stimulus involved in sensory perception of sound"
+    ],
+    "phenotypes": [
+      "Profound sensorineural hearing impairment",
+      "Congenital sensorineural hearing impairment",
+      "Bilateral sensorineural hearing impairment",
+      "High-frequency hearing impairment",
+      "Progressive hearing impairment"
+    ],
+    "phenotype_categories": [
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0011476",
+      "HP:0008527",
+      "HP:0008619",
+      "HP:0005101",
+      "HP:0001730"
+    ],
+    "frequencies": [],
+    "genes": [
+      "LRTOMT"
+    ],
+    "treatments": [
+      "Cochlear Implantation",
+      "Hearing Aid Amplification"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_63.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_63.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Autosomal Recessive Nonsyndromic Hearing Loss 7",
     "disease_id": "MONDO:0010967",
     "category": "Mendelian",
@@ -267938,6 +268006,109 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "MTSS2-Related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0859303",
+    "category": "Mendelian",
+    "parents": [
+      "Intellectual Disability"
+    ],
+    "creation_date": "2026-11-16T15:54:53Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant neurodevelopmental disorder caused by a recurrent heterozygous missense variant in MTSS2, c.2011C>T p.(Arg671Trp), which every reported patient carries and which arose de novo in every patient whose parents were tested. MTSS2 (also MTSS1L or ABBA) is an I-BAR protein that binds actin monomers and deforms phosphoinositide-rich membranes, and it is a different gene from its paralog MTSS1. The core features are global developmental delay, especially of language, mild intellectual disability, microcephaly or relative microcephaly, eye anomalies and mild facial dysmorphism; hypotonia, seizures, autistic behaviour, hearing impairment, feeding difficulties and poor coordination occur in some patients. In embryonic mouse cortex the variant disorganizes the radial glial scaffold and disrupts neuronal migration, while loss of Mtss2 blocks radial glial cytokinesis. In flies the variant only partly replaces the ortholog and is toxic when overexpressed. How the variant acts in human cortex, as a partial loss of function, a dominant negative or a gain of function, is unresolved. About eleven patients have been reported, and no disease-specific treatment exists.",
+    "pathophysiology": [
+      "De Novo MTSS2 p.Arg671Trp Variant",
+      "Disorganized Radial Glial Scaffold and Impaired Neuronal Migration",
+      "Impaired Cytokinesis of Radial Glial Progenitors",
+      "Reduced Synaptic Transmission"
+    ],
+    "cell_types": [
+      "radial glial cell",
+      "migrating cortical neuron",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000681",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "radial glia-guided neuronal migration",
+      "cytokinesis",
+      "neural precursor cell proliferation",
+      "chemical synaptic transmission"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Delayed speech and language development",
+      "Intellectual disability",
+      "Microcephaly",
+      "Ocular anomalies",
+      "Facial dysmorphism",
+      "Hypotonia",
+      "Seizure",
+      "Feeding difficulties",
+      "Incoordination",
+      "Growth delay",
+      "Specific learning disability",
+      "Autistic behavior",
+      "Hearing impairment"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Ophthalmological",
+      "Craniofacial",
+      "Gastrointestinal",
+      "Growth",
+      "Behavioral",
+      "Otolaryngological"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0001249",
+      "HP:0000252",
+      "HP:0000478",
+      "HP:0001999",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0011968",
+      "HP:0002311",
+      "HP:0001510",
+      "HP:0001328",
+      "HP:0000729",
+      "HP:0000365"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "MTSS2"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "MTSS2-Related_Neurodevelopmental_Disorder.yaml",
+    "page_url": "../pages/disorders/MTSS2-Related_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "MUTYH-Associated Polyposis",
     "disease_id": "MONDO:0012041",
     "category": "Mendelian",
@@ -278230,7 +278401,8 @@ window.searchData = [
       "PNPLA3 rs738409 Genetic Susceptibility",
       "TM6SF2 p.Glu167Lys Genetic Susceptibility",
       "Obstructive Sleep Apnea-Associated Chronic Intermittent Hypoxia",
-      "Hypoxia-Driven Hepatic Lipogenesis and Oxidative Stress"
+      "Hypoxia-Driven Hepatic Lipogenesis and Oxidative Stress",
+      "Gut Dysbiosis and Intestinal Barrier Disruption"
     ],
     "cell_types": [
       "adipocyte",
@@ -278239,7 +278411,8 @@ window.searchData = [
       "macrophage",
       "liver sinusoidal endothelial cell",
       "hepatic stellate cell",
-      "myofibroblast"
+      "myofibroblast",
+      "enterocyte"
     ],
     "cell_type_ids": [
       "CL:0000136",
@@ -278248,7 +278421,8 @@ window.searchData = [
       "CL:0000235",
       "CL:1000398",
       "CL:0000632",
-      "CL:0000186"
+      "CL:0000186",
+      "CL:0000584"
     ],
     "biological_processes": [
       "cellular response to insulin stimulus",
@@ -278266,7 +278440,8 @@ window.searchData = [
       "nitric oxide biosynthetic process",
       "extracellular matrix organization",
       "response to hypoxia",
-      "cellular response to hypoxia"
+      "cellular response to hypoxia",
+      "tight junction organization"
     ],
     "phenotypes": [
       "Hepatic steatosis",
@@ -278319,10 +278494,10 @@ window.searchData = [
     "source_file": "Metabolic_Dysfunction-Associated_Steatotic_Liver_Disease.yaml",
     "page_url": "../pages/disorders/Metabolic_Dysfunction-Associated_Steatotic_Liver_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 13,
+    "num_pathophysiology": 14,
     "num_genes": 5,
     "num_treatments": 7,
-    "causal_graph_edges": "43",
+    "causal_graph_edges": "44",
     "causal_graph_longest_path": "8"
   },
   {
@@ -384999,9 +385174,18 @@ window.searchData = [
       "Lymphadenopathy",
       "Hepatomegaly",
       "Splenomegaly",
-      "Atypical Lymphocytes"
+      "Atypical Lymphocytes",
+      "Anorexia"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Systemic",
+      "Neurological",
+      "Musculoskeletal",
+      "Immunological",
+      "Hepatic",
+      "Hematologic",
+      "Gastrointestinal"
+    ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
@@ -385019,9 +385203,12 @@ window.searchData = [
       "HP:0002716",
       "HP:0002240",
       "HP:0001744",
-      "HP:0004332"
+      "HP:0004332",
+      "HP:0002039"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
     "genes": [],
     "treatments": [
       "Tetracycline-Class Pharmacotherapy"
@@ -385030,11 +385217,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Sennetsu_Fever.yaml",
     "page_url": "../pages/disorders/Sennetsu_Fever.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 9,
     "num_pathophysiology": 8,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "17",
+    "causal_graph_edges": "19",
     "causal_graph_longest_path": "6"
   },
   {
@@ -412142,6 +412329,133 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "24",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "TPP2 Deficiency",
+    "disease_id": "MONDO:0030971",
+    "category": "Mendelian",
+    "parents": [
+      "Primary Immunodeficiency",
+      "Combined Immunodeficiency"
+    ],
+    "creation_date": "2026-11-16T14:25:26Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "TPP2 deficiency is a very rare autosomal recessive inborn error of immunity caused by biallelic loss-of-function variants in TPP2, which encodes tripeptidyl peptidase II, a giant cytosolic serine exopeptidase acting downstream of the proteasome. Loss of TPP2 impairs cytosolic amino acid recycling; cells compensate by expanding the lysosomal compartment, which degrades hexokinase-2 and lowers glycolysis in activated lymphocytes, and lymphocytes acquire a stress-induced senescent phenotype. Patients present in infancy or early childhood with combined immunodeficiency (recurrent viral and respiratory infections, lymphopenia), severe and often refractory autoimmune cytopenias (Evans syndrome), and mild to moderate developmental delay. Hematopoietic stem cell transplantation can resolve the hematologic and immune disease. A family with a homozygous TPP2 missense variant and sterile brain inflammation mimicking multiple sclerosis has also been reported; whether that presentation belongs to the same disorder is unsettled.",
+    "pathophysiology": [
+      "TPP2 Loss of Function",
+      "Impaired Cytosolic Amino Acid Recycling",
+      "Compensatory Lysosomal Expansion",
+      "Lysosomal Degradation of Hexokinase-2",
+      "Reduced Glycolysis in Activated Lymphocytes",
+      "Impaired Effector Cytokine Production",
+      "Premature Lymphocyte Senescence",
+      "Expansion of Age-Associated B Cells",
+      "Increased MHC Class I Surface Expression"
+    ],
+    "cell_types": [
+      "T cell",
+      "CD4-positive T cell",
+      "CD8-positive, alpha-beta T cell",
+      "age-associated B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000624",
+      "CL:0000625",
+      "CL:4033094"
+    ],
+    "biological_processes": [
+      "intracellular amino acid homeostasis",
+      "lysosome organization",
+      "chaperone-mediated autophagy",
+      "glycolytic process",
+      "interferon-gamma production",
+      "cellular senescence",
+      "apoptotic process",
+      "T cell proliferation"
+    ],
+    "phenotypes": [
+      "Immune thrombocytopenia",
+      "Autoimmune hemolytic anemia",
+      "Autoimmune neutropenia",
+      "Progressive leukopenia",
+      "Antinuclear antibodies",
+      "Autoimmune hepatitis",
+      "Recurrent viral infections",
+      "Recurrent lower respiratory tract infections",
+      "Recurrent otitis media",
+      "Lymphopenia",
+      "Reduced naive T cells",
+      "Hypergammaglobulinemia",
+      "Developmental delay",
+      "Intellectual disability",
+      "Intracranial calcification",
+      "Seizures",
+      "Stroke"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Laboratory",
+      "Gastrointestinal",
+      "Infectious",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Ear",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001973",
+      "HP:0001890",
+      "HP:0001904",
+      "HP:0001882",
+      "HP:0003493",
+      "HP:5210421",
+      "HP:0004429",
+      "HP:0002783",
+      "HP:0000403",
+      "HP:0001888",
+      "HP:0031397",
+      "HP:0010702",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0430048",
+      "HP:0001250",
+      "HP:0001297"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TPP2"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Intravenous Immunoglobulin and Corticosteroids",
+      "Second-Line Immunosuppression",
+      "Sirolimus",
+      "Eltrombopag"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TPP2_Deficiency.yaml",
+    "page_url": "../pages/disorders/TPP2_Deficiency.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "TRAF3 Haploinsufficiency",
@@ -445266,17 +445580,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4100,
+  "total_disorder_pages": 4103,
   "total_subtypes": 5096,
-  "total_disorders_and_subtypes": 9196,
-  "total_unique_evidence_sources": 61255,
-  "total_unique_publications": 57240,
+  "total_disorders_and_subtypes": 9199,
+  "total_unique_evidence_sources": 61285,
+  "total_unique_publications": 57268,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4098,
-  "total_unique_pathological_events": 27058,
+  "total_pathographs": 4101,
+  "total_unique_pathological_events": 27075,
   "total_modules": 236,
-  "total_research_reports": 4203,
+  "total_research_reports": 4206,
   "total_classifications": 21,
   "total_comorbidities": 57,
   "total_groupings": 137
