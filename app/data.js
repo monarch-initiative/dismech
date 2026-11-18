@@ -198626,6 +198626,104 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Hereditary Cryohydrocytosis With Reduced Stomatin",
+    "disease_id": "MONDO:0012143",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary stomatocytosis",
+      "GLUT1 deficiency syndrome"
+    ],
+    "creation_date": "2026-11-18T11:48:17Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Stomatin-deficient cryohydrocytosis (sdCHC) is a very rare hereditary stomatocytosis in which heterozygous SLC2A1 variants give the glucose transporter GLUT1 two separate defects at once: it stops carrying glucose, and it opens a non-selective monovalent cation pathway across the membrane it sits in. The two defects act in different tissues. At the blood-brain barrier the transport loss starves the brain of glucose, as in ordinary GLUT1 deficiency syndrome, giving seizures, developmental delay and a movement disorder. In the red cell, where GLUT1 is the dominant membrane transporter, the leak disturbs sodium and potassium handling, producing stomatocytic cells, chronic hemolysis and a potassium efflux on standing that is read in the laboratory as hyperkalemia. The leak is temperature dependent and worsens in the cold, which is what the name cryohydrocytosis records. Membrane stomatin is reduced as a secondary consequence rather than as the primary lesion. Cataracts and hepatosplenomegaly complete the picture. Only four pedigrees have been described.",
+    "pathophysiology": [
+      "Mutant GLUT1 With Abolished Transport and a Gained Cation Pathway",
+      "Loss of GLUT1-Mediated Glucose Transport",
+      "Reduced Glucose Delivery Across the Blood-Brain Barrier",
+      "Cerebral Energy Failure",
+      "Monovalent Cation Leak Across the GLUT1-Bearing Membrane",
+      "Erythrocyte Cation and Water Imbalance",
+      "Loss of Membrane Stomatin During Reticulocyte Maturation"
+    ],
+    "cell_types": [
+      "erythrocyte",
+      "reticulocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000232",
+      "CL:0000558"
+    ],
+    "biological_processes": [
+      "D-glucose transmembrane transport",
+      "monoatomic cation transmembrane transport",
+      "potassium ion transmembrane transport"
+    ],
+    "phenotypes": [
+      "Stomatocytosis",
+      "Hemolytic anemia",
+      "Pseudohyperkalemia",
+      "Cataract",
+      "Visual impairment",
+      "Seizure",
+      "Intellectual disability",
+      "Abnormality of movement",
+      "Microcephaly",
+      "Hepatosplenomegaly",
+      "Hypoglycorrhachia",
+      "Neonatal hyperbilirubinemia"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Laboratory",
+      "Ophthalmologic",
+      "Neurologic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0004446",
+      "HP:0001878",
+      "HP:4000194",
+      "HP:0000518",
+      "HP:0000505",
+      "HP:0001250",
+      "HP:0001249",
+      "HP:0100022",
+      "HP:0000252",
+      "HP:0001433",
+      "HP:0011972",
+      "HP:0003265"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SLC2A1"
+    ],
+    "treatments": [
+      "Ketogenic Diet Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hereditary_Cryohydrocytosis_With_Reduced_Stomatin.yaml",
+    "page_url": "../pages/disorders/Hereditary_Cryohydrocytosis_With_Reduced_Stomatin.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Hereditary Diffuse Leukoencephalopathy with Spheroids",
     "disease_id": "MONDO:0800027",
     "category": "Mendelian",
@@ -329648,7 +329746,9 @@ window.searchData = [
     "genes": [
       "FRYL"
     ],
-    "treatments": [],
+    "treatments": [
+      "Cardiac Surgery for Congenital Heart Defects"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Pan-Chung-Bellen_Syndrome.yaml",
@@ -329656,8 +329756,8 @@ window.searchData = [
     "num_phenotypes": 21,
     "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "23",
+    "num_treatments": 1,
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "3"
   },
   {
@@ -385468,7 +385568,12 @@ window.searchData = [
       "Tachycardia",
       "Dehydration"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Systemic",
+      "Gastrointestinal",
+      "Cardiovascular",
+      "Metabolic"
+    ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Constitutional",
@@ -385487,7 +385592,10 @@ window.searchData = [
       "HP:0001649",
       "HP:0001944"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
     "genes": [],
     "treatments": [
       "Surgical Source Control",
@@ -445708,17 +445816,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4104,
+  "total_disorder_pages": 4105,
   "total_subtypes": 5096,
-  "total_disorders_and_subtypes": 9200,
-  "total_unique_evidence_sources": 61306,
-  "total_unique_publications": 57286,
+  "total_disorders_and_subtypes": 9201,
+  "total_unique_evidence_sources": 61309,
+  "total_unique_publications": 57289,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4102,
-  "total_unique_pathological_events": 27084,
+  "total_pathographs": 4103,
+  "total_unique_pathological_events": 27090,
   "total_modules": 236,
-  "total_research_reports": 4207,
+  "total_research_reports": 4208,
   "total_classifications": 21,
   "total_comorbidities": 57,
   "total_groupings": 137
