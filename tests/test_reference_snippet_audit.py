@@ -236,6 +236,7 @@ def test_cli_is_advisory_by_default_and_gated_by_strict(tmp_path: Path, capsys) 
     assert "0/1 verified" in capsys.readouterr().out
     assert main([*args, "--strict"]) == 1
 
+
 def test_literal_bracket_patterns_are_honoured_like_the_validator(
     tmp_path: Path,
 ) -> None:
@@ -303,6 +304,7 @@ def test_body_cache_eviction_does_not_change_results(tmp_path: Path) -> None:
         assert check_pair(index, pair) is PairOutcome.VERIFIED
 
     assert len(index._normalized) == 1
+
 
 def test_per_file_validation_loops_surface_the_snippet_count() -> None:
     """The two ``ref_output``-capturing loops must not swallow the audit line.
@@ -775,3 +777,125 @@ def test_the_hint_reads_as_a_sentence_with_two_culprits(tmp_path: Path) -> None:
 
     assert "[xAx] and [xBx] are kept" in outcome.reason
     assert "replace it with ' ... '" in outcome.reason
+
+
+def test_signed_excerpts_fallback_verifies_exact_match_and_rejects_deviation(
+    tmp_path: Path,
+) -> None:
+    """An abstract-only cache verifies when the snippet exact-matches signed_excerpts_dir."""
+    cache_dir = tmp_path / "references_cache"
+    _write_cache(
+        cache_dir,
+        "PMID_999.md",
+        "Only the abstract is here.",
+        content_type="abstract_only",
+    )
+    signed_dir = tmp_path / "signed_excerpts"
+    signed_dir.mkdir()
+    (signed_dir / "PMID_999.yaml").write_text(
+        "reference_id: PMID:999\n"
+        "excerpts:\n"
+        "  - text: Full-text quote verified in claimstore.\n",
+        encoding="utf-8",
+    )
+    index = CachedReferenceIndex(cache_dir, signed_excerpts_dir=signed_dir)
+
+    exact_pair = SnippetPair(
+        path=tmp_path / "entry.yaml",
+        location="evidence[0].snippet",
+        reference_id="PMID:999",
+        snippet="Full-text quote verified in claimstore.",
+    )
+    assert check_pair(index, exact_pair) is PairOutcome.VERIFIED
+
+    deviated_pair = SnippetPair(
+        path=tmp_path / "entry.yaml",
+        location="evidence[0].snippet",
+        reference_id="PMID:999",
+        snippet="Full-text quote modified locally.",
+    )
+    outcome = check_pair(index, deviated_pair)
+    assert isinstance(outcome, Unverified)
+    assert outcome.outcome is PairOutcome.ABSTRACT_ONLY
+
+
+def test_signed_excerpts_rejects_mismatched_reference_id_and_supports_alt_keys(
+    tmp_path: Path,
+) -> None:
+    """Parity with LRV 0.6.0: reference_id must match and snippet/supporting_text keys work."""
+    cache_dir = tmp_path / "references_cache"
+    signed_dir = tmp_path / "signed_excerpts"
+    signed_dir.mkdir()
+    (signed_dir / "PMID_111.yaml").write_text(
+        "reference_id: PMID:222\nexcerpts:\n  - text: Wrong reference id in bundle.\n",
+        encoding="utf-8",
+    )
+    (signed_dir / "PMID_333.yaml").write_text(
+        "reference_id: PMID:333\n"
+        "excerpts:\n"
+        "  - snippet: Quote under snippet key.\n"
+        "  - supporting_text: Quote under supporting_text key.\n",
+        encoding="utf-8",
+    )
+    index = CachedReferenceIndex(cache_dir, signed_excerpts_dir=signed_dir)
+
+    assert not index.matches_signed_excerpt("PMID:111", "Wrong reference id in bundle.")
+    assert index.matches_signed_excerpt("PMID:333", "Quote under snippet key.")
+    assert index.matches_signed_excerpt("PMID:333", "Quote under supporting_text key.")
+
+
+def test_file_reference_is_read_from_disk_without_a_cache_entry(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A ``file:`` reference verifies from the file itself and writes no cache.
+
+    linkml-reference-validator 0.8.0 stopped caching ``file:`` references
+    (linkml/linkml-reference-validator#173) and reads them from disk on every
+    run, resolving a relative path against ``reference_base_dir``. The audit
+    must do the same, or a committed supplement cited by a new entry would read
+    as "not cached locally" here while the validator verifies it.
+    """
+    cache_dir = tmp_path / "references_cache"
+    cache_dir.mkdir()
+    supplement = tmp_path / "data" / "supplement.md"
+    supplement.parent.mkdir()
+    supplement.write_text(
+        "# Supplement\n\nTable S1 lists the frontotemporal pachygyria cases.\n",
+        encoding="utf-8",
+    )
+    # Run from elsewhere: the path must resolve against the checkout holding
+    # the cache, not the working directory.
+    monkeypatch.chdir(tmp_path.parent)
+    index = CachedReferenceIndex(cache_dir)
+    pair = SnippetPair(
+        path=tmp_path / "kb" / "Entry.yaml",
+        location="phenotypes[0].evidence[0]",
+        reference_id="file:data/supplement.md",
+        snippet="Table S1 lists the frontotemporal pachygyria cases.",
+    )
+
+    assert check_pair(index, pair) is PairOutcome.VERIFIED
+    assert list(cache_dir.iterdir()) == []
+
+
+def test_unreadable_file_reference_says_why_at_debug_level(
+    tmp_path: Path, caplog
+) -> None:
+    """A ``file:`` source that cannot be read degrades, and logs the reason."""
+    import logging
+
+    cache_dir = tmp_path / "references_cache"
+    cache_dir.mkdir()
+    index = CachedReferenceIndex(cache_dir)
+    pair = SnippetPair(
+        path=tmp_path / "kb" / "Entry.yaml",
+        location="phenotypes[0].evidence[0]",
+        reference_id="file:data/missing.md",
+        snippet="A quote from a supplement that is not on disk.",
+    )
+
+    with caplog.at_level(logging.DEBUG, logger="dismech.reference_snippet_audit"):
+        outcome = check_pair(index, pair)
+
+    assert outcome is PairOutcome.NOT_CACHED
+    assert any("file:data/missing.md" in record.getMessage() for record in caplog.records)

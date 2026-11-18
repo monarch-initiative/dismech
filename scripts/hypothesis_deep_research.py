@@ -91,12 +91,20 @@ DEFAULT_SUBPROCESS_TIMEOUT_SECONDS = 7800
 # `references_cache/`, so it does not need the reference-cache handling that
 # `scripts/run_deep_research_client.sh` routes through.
 #
-# Note what is still missing here, since it is the asymmetry a reader will hit:
-# this script does NOT reference-validate (no `--validate-references`), unlike
-# every justfile research recipe. That gap predates term validation. Closing it
-# means moving this script onto `scripts/run_deep_research_client.sh` first --
-# the reference path reads and writes `references_cache/` and must not run
-# unpatched.
+# Reference validation is deliberately left off here, and since
+# deep-research-client 0.2.15 that has to be said: the client now validates
+# references by default (deep-research-client#106), into its own
+# `~/.deep_research_cache/references` rather than this repo's
+# `references_cache/`. `NO_REFERENCE_VALIDATION_ARGS` keeps these runs as they
+# were before the upgrade. This is the one research path that does not
+# reference-validate, unlike every justfile research recipe; the old reason (an
+# unpatched validator writing `references_cache/`) no longer applies, since the
+# patch is gone (dismech#11849), so closing the gap now means choosing the cache
+# directory and accepting the network lookups, not moving onto the wrapper.
+# Pass `-- --validate-references --validation-cache-dir references_cache` to
+# validate a single run.
+NO_REFERENCE_VALIDATION_ARGS = ["--no-validate-references"]
+
 TERM_VALIDATION_ARGS = [
     "--validate-terms",
     "--term-cache-dir",
@@ -396,6 +404,7 @@ def build_command(
         command.extend(["--var", f"{key}={value}"])
     command.extend(build_provider_args(normalized))
     command.extend(provider_default_params(normalized, extra_args))
+    command.extend(reference_validation_args(extra_args))
     if validate_terms:
         command.extend(term_validation_args(extra_args))
     command.extend(
@@ -408,6 +417,29 @@ def build_command(
     )
     command.extend(extra_args)
     return command
+
+
+def reference_validation_args(extra_args: Sequence[str]) -> list[str]:
+    """Return ``--no-validate-references`` unless the caller chose for themselves.
+
+    deep-research-client 0.2.15 turned reference validation on by default. Any
+    ``--validate-references``, ``--no-validate-references`` or ``--validation-*``
+    argument passed after ``--`` means the caller is steering it, so the default
+    steps aside rather than contradicting them on the same command line.
+
+    Args:
+        extra_args: Arguments the caller passed through after ``--``.
+
+    Returns:
+        The default flag, or an empty list when the caller supplied their own.
+    """
+    if any(
+        str(arg) in {"--validate-references", "--no-validate-references"}
+        or str(arg).startswith("--validation-")
+        for arg in extra_args
+    ):
+        return []
+    return list(NO_REFERENCE_VALIDATION_ARGS)
 
 
 def term_validation_args(extra_args: Sequence[str]) -> list[str]:
