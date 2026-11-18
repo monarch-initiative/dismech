@@ -9,7 +9,12 @@ check here and is exactly the error the extraction exists to prevent.
 from __future__ import annotations
 
 from scripts.check_snippet_length import MIN_SNIPPET_WORDS
-from scripts.check_tg_extraction import MIN_QUOTE_WORDS, check, normalise
+from scripts.check_tg_extraction import (
+    ABSENCE_MARKERS,
+    MIN_QUOTE_WORDS,
+    check,
+    normalise,
+)
 
 INDEX = {
     "paragraphs": [
@@ -203,3 +208,106 @@ def test_a_quote_below_the_word_floor_does_not_verify() -> None:
 def test_the_word_floor_matches_the_evidence_snippet_floor() -> None:
     """Same floor, and the same reason, as the repository's snippet-length gate."""
     assert MIN_QUOTE_WORDS == MIN_SNIPPET_WORDS
+
+
+# ---------------------------------------------------------------------------
+# Recording an absence
+#
+# An omitted key means "nobody extracted this". The two markers below are
+# different claims, and the checker holds each to its own burden of proof so
+# that neither can be used to wave a field away.
+# ---------------------------------------------------------------------------
+
+MARKER_GENES = (
+    "quantifying changes in the expression of marker genes associated "
+    "with keratinocyte activation"
+)
+
+
+def test_not_applicable_needs_a_quote_like_any_other_claim() -> None:
+    """"This method has none" is a claim about the guideline, so it is sourced."""
+    assert check(
+        INDEX,
+        record(
+            "source_gene",
+            absent="NOT_APPLICABLE",
+            quote=MARKER_GENES,
+            paragraph="442D/IC/3",
+        ),
+    ) == []
+
+
+def test_not_applicable_without_a_quote_is_rejected() -> None:
+    problems = check(INDEX, record("source_gene", absent="NOT_APPLICABLE"))
+    assert problems
+    assert "carries no quote" in problems[0]
+
+
+def test_not_applicable_with_a_fabricated_quote_is_still_rejected() -> None:
+    """The absence marker buys no exemption from quote verification."""
+    problems = check(
+        INDEX,
+        record(
+            "source_gene",
+            absent="NOT_APPLICABLE",
+            quote="this method carries no reporter construct of any kind",
+            paragraph="442D/IC/3",
+        ),
+    )
+    assert problems
+    assert "does not appear" in problems[0]
+
+
+def test_not_in_indexed_scope_needs_a_note_and_takes_no_quote() -> None:
+    assert check(
+        INDEX,
+        record(
+            "exposure_schedule",
+            absent="NOT_IN_INDEXED_SCOPE",
+            note="No in-scope paragraph states the exposure duration for this method.",
+        ),
+    ) == []
+
+
+def test_not_in_indexed_scope_without_a_note_is_rejected() -> None:
+    problems = check(INDEX, record("exposure_schedule", absent="NOT_IN_INDEXED_SCOPE"))
+    assert problems
+    assert "carries no note" in problems[0]
+
+
+def test_not_in_indexed_scope_carrying_a_quote_is_rejected() -> None:
+    """A quote contradicts the claim: the claim is that there is nothing to quote."""
+    problems = check(
+        INDEX,
+        record(
+            "exposure_schedule",
+            absent="NOT_IN_INDEXED_SCOPE",
+            note="Stated nowhere in scope.",
+            quote=MARKER_GENES,
+            paragraph="442D/IC/3",
+        ),
+    )
+    assert any("carries a quote" in m for m in problems)
+
+
+def test_a_field_cannot_be_both_present_and_absent() -> None:
+    problems = check(
+        INDEX,
+        record(
+            "source_species",
+            value="rat",
+            absent="NOT_APPLICABLE",
+            quote=MARKER_GENES,
+            paragraph="442D/IC/3",
+        ),
+    )
+    assert any("both a value and absent" in m for m in problems)
+
+
+def test_an_invented_absence_marker_is_rejected() -> None:
+    """The vocabulary is closed, so `absent: UNKNOWN` cannot be smuggled in."""
+    problems = check(INDEX, record("source_gene", absent="UNKNOWN"))
+    assert problems
+    assert "not one of" in problems[0]
+    for marker in ABSENCE_MARKERS:
+        assert marker in problems[0]
