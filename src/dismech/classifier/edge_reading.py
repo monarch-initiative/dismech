@@ -675,7 +675,7 @@ def edge_claim_task(claim: dict, source_text: str | None = None) -> Classificati
         state["source_text"] = source_text
     return ClassificationTask(
         name="edge_claim_aspects",
-        version="2",
+        version="2.1",
         state=state,
         instructions=INSTRUCTIONS,
         criteria=dict(CRITERIA),
@@ -729,4 +729,8 @@ def edge_claim_aspect_schema(claim: dict, fields: Iterable[str] = EDGE_FIELDS) -
 
 def edge_prompt() -> dict[str, str]:
     """Return the canonical edge-claim prompt."""
-    return {"name": "edge_claim_aspects", "version": "2", "instructions": INSTRUCTIONS}
+    return {
+        "name": "edge_claim_aspects",
+        "version": "2.1",
+        "instructions": INSTRUCTIONS,
+    }
