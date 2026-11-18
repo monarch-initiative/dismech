@@ -1,14 +1,14 @@
 # Diabetes mellitus: grouping refactor + pathophysiology migration map
 
-**Status:** A2 largely done. Grouping landed; shared cascade is the
+**Status:** A2 done through step 4. Grouping landed; shared cascade is the
 `diabetic_vascular_complications` module; T1D/T2D/T5 conform to it; **the
 umbrella's blended mechanism graph has been retired** (3367→2024 lines) and
-replaced with a single node conforming to `#Chronic Hyperglycemia`. Remaining
-(deferred): reallocating the umbrella's still-blended
-`phenotypes`/`biochemical`/`genetic`/`treatments`/`clinical_trials`/`datasets`/
-`computational_models` sections (type-specific → per-type entry; cross-cutting →
-keep), and optionally promoting high-value subtypes (MODY genes, neonatal
-diabetes) to standalone entries so the umbrella could eventually be fully retired.
+replaced with a single node conforming to `#Chronic Hyperglycemia`. The
+umbrella's type-specific phenotypes, genetics, treatments, trials, datasets,
+models, exposures and progression stages have been moved to or deduplicated
+against the per-type entries (step 4, below), and its type rows are now
+`curated_in` pointers. Remaining: step 5, a home for the monogenic catalogue so
+the umbrella Disease can be retired and the Grouping can hold `MONDO:0005015`.
 
 ## Problem
 
@@ -156,10 +156,22 @@ replaced with the single conforming node); **steps 4–5 DEFERRED**:
    mechanism without re-deriving it.
 3. ✅ **Keep** `has_subtypes` (the subtype catalog), the case-definition and USPSTF
    screening `definitions`, and disease-level framing.
-4. ⬜ **Reallocate** the blended `phenotypes` / `biochemical` / `genetic` /
-   `treatments` / `clinical_trials` / `datasets` / `computational_models`:
-   cross-cutting items stay; type-specific items are dropped if already covered by
-   the standalone entry, migrated if not.
+4. ✅ **Reallocate** the blended sections. Type-specific rows already covered
+   by a per-type entry were deleted (T1/T2 susceptibility genes INS, PTPN22,
+   IL2RA, CTLA4, TCF7L2, PPARG, KCNJ11, SLC30A8; obesity, hyperinsulinaemia,
+   impaired glucose tolerance, DKA; metformin, GLP-1 RA, SGLT2i, tirzepatide,
+   teplizumab; the four type 2 metabolic models and BioProject datasets; the
+   type-specific exposures; two duplicate progression stages). Rows with no
+   per-type counterpart were moved: HLA-DQA1/DQB1 (as HGNC-bound records beside
+   the type 1 entry's DQ2/DQ8 haplotype rows), the teplizumab prevention trial
+   and the UVA/Padova simulator to type 1; the tirzepatide and empagliflozin
+   trials and the prediabetes stage to type 2; the pregnancy-onset stage to
+   gestational diabetes. LADA and SAID moved to the type 1 entry's
+   `has_subtypes`. What stays is cross-cutting: complication phenotypes, the
+   osmotic symptoms, HbA1c and glucose, insulin, monitoring, diet and exercise,
+   differential diagnoses, case definitions, drug- and checkpoint-inhibitor
+   exposures, and the share-of-diabetes prevalence rows, plus the monogenic
+   catalogue.
 5. ⬜ Longer term, consider promoting the high-value subtypes (esp. MODY genes,
    neonatal diabetes) to standalone entries + Grouping members, at which point the
    umbrella Disease could be fully retired.
