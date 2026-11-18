@@ -4479,7 +4479,17 @@ in the merge queue. A curation PR touches none of those paths, so
 a re-graded quote passes every check on the PR and is first caught when the
 merge queue runs the full suite and ejects it. This is the hazard described
 under *Why the entity-ref check is a CI step and not just a test* below. Run
-`just check-snippet-grading` yourself before pushing a curation PR.
+it yourself before pushing a curation PR, naming the files you touched:
+
+```bash
+just check-snippet-grading kb/disorders/MyDisease.yaml
+```
+
+The whole corpus is still indexed, because the cross-file half compares one
+sentence against every other entry and the file that is wrong may be one this
+change never opened. Only findings touching the named paths are reported and
+gated, so the output is the worklist for this PR rather than the KB-wide
+backlog. With no paths it scans everything, as CI does.
 
 They catch folded-scalar word corruption, evidence items swallowed into a
 block scalar, non-propositional short snippets,

@@ -2302,9 +2302,11 @@ update-retired-support-prose-baseline:
 # self-contradicting (#8184). Also compares the same sentence across files and
 # fails on HUMAN_CLINICAL against IN_VITRO/MODEL_ORGANISM/COMPUTATIONAL (#11221).
 # Grandfathered against origin/main like the length and title checks.
+# Pass kb/ paths to report only on the files you touched; the whole corpus is
+# still indexed, because a cross-file pair's other side can be any entry.
 [group('QC')]
-check-snippet-grading:
-    uv run python scripts/check_snippet_grading.py --against-ref origin/main
+check-snippet-grading *args="":
+    uv run python scripts/check_snippet_grading.py --against-ref origin/main {{ args }}
 
 # List every snippet-grading divergence, baselined or not (triage view).
 # `--fields all` adds the `supports` divergences, which are NOT gated -- see the
@@ -2313,7 +2315,7 @@ check-snippet-grading:
 # including the report-only pairs involving OTHER (pending #10273).
 [group('QC')]
 list-snippet-grading *args="":
-    uv run python scripts/check_snippet_grading.py --all {{args}}
+    uv run python scripts/check_snippet_grading.py --all {{ args }}
 
 # Regenerate both snippet-grading baselines (per-file and cross-file) after
 # intentionally changing the set (e.g. reconciling backlog divergences). Review
