@@ -1,0 +1,39 @@
+---
+reference_id: DOI:10.3390/cancers18142352
+extractor_version: 1
+title: Genomic Characterization of Urothelial Carcinoma and Sarcomatoid Carcinoma of the Upper Urinary Tract
+authors:
+- Salvador Jaime-Casas
+- Nicholas J. Salgia
+- Miguel Zugman
+- Vitor Goes
+- Ali Moradi
+- Koral Shah
+- Rahul Winayak
+- Regina Barragan-Carrillo
+- Jadon Fann
+- George Zhang
+- Benjamin Mercier
+- Daniela V. Castro
+- Nazli Dizman
+- JoAnn Hsu
+- Alexander Chehrazi-Raffle
+- Tanya Dorff
+- Wesley Yip
+- Sumanta K. Pal
+- Abhishek Tripathi
+journal: Cancers
+year: '2026'
+doi: 10.3390/cancers18142352
+content_type: abstract_only
+is_preprint: false
+---
+
+# Genomic Characterization of Urothelial Carcinoma and Sarcomatoid Carcinoma of the Upper Urinary Tract
+**Authors:** Salvador Jaime-Casas, Nicholas J. Salgia, Miguel Zugman, Vitor Goes, Ali Moradi, Koral Shah, Rahul Winayak, Regina Barragan-Carrillo, Jadon Fann, George Zhang, Benjamin Mercier, Daniela V. Castro, Nazli Dizman, JoAnn Hsu, Alexander Chehrazi-Raffle, Tanya Dorff, Wesley Yip, Sumanta K. Pal, Abhishek Tripathi
+**Journal:** Cancers (2026)
+**DOI:** [10.3390/cancers18142352](https://doi.org/10.3390/cancers18142352)
+
+## Content
+
+Background: Sarcomatoid carcinoma of the upper urinary tract (SCUT) is a rare and aggressive malignancy. Due to its rarity, the molecular landscape and the prevalence of potentially targetable alterations are poorly characterized. We aimed to compare the clinical, pathological, and genomic profiles of SCUT and upper tract urothelial carcinoma (UTUC). Methods: We leveraged the Tempus Lens clinically annotated genomic dataset to extract clinicopathologic and somatic genomic alteration data from patients with UTUC and SCUT. Patients with any-stage disease who underwent either blood- or tissue-based next-generation sequencing were included. Baseline clinical and demographic characteristics were summarized using descriptive statistics. Comparisons between groups were performed using Wilcoxon rank-sum test for continuous variables and the Chi-square test/Fisher’s exact test for categorical variables. Mutational frequencies and pairwise comparisons were performed to assess significant differences between groups. Results: In total, 1721 patients were included, of which 1600 (93%) had UTUC and 121 (7%) had SCUT. Patients with SCUT were younger at diagnosis, 61 years (interquartile range (IQR) 54, 70), compared to UTUC, 71 years (IQR 64, 77) (p < 0.001), and were more likely to have node-positive disease at presentation (all p < 0.001). SCUT patients were more likely to show visceral metastases to the lung (44% vs. 21%), bone (31% vs. 17%), and brain (7% vs. 1%), compared to UTUC (all p < 0.05). Among SCUT patients, the most common genomic alterations were TERT (30%), TP53 (29%), NF2 (19%), PTEN (13%), SETD2 (12%), PBRM1 (12%), and BAP1 (8%). Among UTUC patients, the most common were TERT (52%), TP53 (52%), KMT2D (30%), FGFR3 (25%), ARID1A (20%), and KDM6A (18%). Compared to UTUC, SCUT was significantly enriched with NF2, SETD2, PBRM1, PTEN, and BAP1 (all p < 0.05). SCUT was depleted in FGFR3 (0% vs. 25%) and FGF4 (0% vs. 8%) mutations compared to UTUC (both p < 0.05). Targetable alterations were observed in SCUT, including NF2, SETD2, and PTEN. Conclusion: Compared with UTUC, SCUT exhibits a more aggressive clinical and genomic phenotype, characterized by enrichment in NF2, SETD2, PBRM1, and PTEN. These findings underscore the divergent molecular landscape of SCUT and highlight potentially targetable genomic alterations.

@@ -1,0 +1,31 @@
+---
+reference_id: DOI:10.1093/jmcb/mjag020
+extractor_version: 1
+title: Structural basis of complex assembly and nucleosome recognition by the chromatin remodeling ncBAF complex
+authors:
+- Wancheng Xu
+- Shengsheng Ma
+- Yi Li
+- Muchun Li
+- Chihang Li
+- Yue Yin
+- Qingrun Li
+- Jingdong Cheng
+- Yong Chen
+journal: Journal of Molecular Cell Biology
+year: '2026'
+doi: 10.1093/jmcb/mjag020
+content_type: abstract_only
+is_preprint: false
+---
+
+# Structural basis of complex assembly and nucleosome recognition by the chromatin remodeling ncBAF complex
+**Authors:** Wancheng Xu, Shengsheng Ma, Yi Li, Muchun Li, Chihang Li, Yue Yin, Qingrun Li, Jingdong Cheng, Yong Chen
+**Journal:** Journal of Molecular Cell Biology (2026)
+**DOI:** [10.1093/jmcb/mjag020](https://doi.org/10.1093/jmcb/mjag020)
+
+## Content
+
+Abstract
+
+BRG1/BRM-associated factor (BAF)-family chromatin remodelers regulate transcription and genome organization by repositioning nucleosomes. The human non-canonical BAF (ncBAF) complex is uniquely defined by the presence of BRD9 and GLTSCR1/GLTSCR1L, as well as the absence of the ARID1/2 scaffold and the canonical nucleosome-binding module found in cBAF and PBAF. How ncBAF assembles and engages nucleosomes remains elusive. Here, we present a cryo-EM structure of ncBAF bound to a nucleosome, integrated with biochemical assays and crosslinking mass spectrometry analyses. The ncBAF complex adopts a three-module architecture comprising an ATPase motor module, a repositioned actin-related protein (ARP) module, and a highly flexible Base module. The ncBAF-specific subunits BRD9 and GLTSCR1L are largely dispensable for complex assembly and nucleosome remodeling. Instead, BCL7A directly engages the H2A–H2B acidic patch and the H2A N-terminal tail, providing a structural substitute for SMARCB1 in stimulating remodeling activity. These findings reveal how ncBAF compensates for the loss of the canonical nucleosome-binding module through modular reorganization, providing a structural framework for understanding ncBAF-mediated chromatin regulation and its roles in development and disease.

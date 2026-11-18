@@ -1,0 +1,34 @@
+---
+reference_id: DOI:10.1093/nar/gkag092
+extractor_version: 1
+title: Structural basis for BCL7B-mediated ncBAF-nucleosome engagement
+authors:
+- Fahui Sun
+- Binqian Zou
+- He Li
+- Chongshen Xu
+- Qiaohong Luo
+- Chi Wang
+- Pengqi Xu
+- Duanqing Pei
+- Jiekai Chen
+- Dajiang Qin
+- Ying Zhang
+- Jun He
+journal: Nucleic Acids Research
+year: '2026'
+doi: 10.1093/nar/gkag092
+content_type: abstract_only
+is_preprint: false
+---
+
+# Structural basis for BCL7B-mediated ncBAF-nucleosome engagement
+**Authors:** Fahui Sun, Binqian Zou, He Li, Chongshen Xu, Qiaohong Luo, Chi Wang, Pengqi Xu, Duanqing Pei, Jiekai Chen, Dajiang Qin, Ying Zhang, Jun He
+**Journal:** Nucleic Acids Research (2026)
+**DOI:** [10.1093/nar/gkag092](https://doi.org/10.1093/nar/gkag092)
+
+## Content
+
+Abstract
+
+The mammalian SWI/SNF family of chromatin remodelers comprises BRG1/BRM-associated factor (cBAF), polybromo-associated BAF (PBAF), and non-canonical BAF (ncBAF) complexes, which slide and disassemble nucleosomes to regulate gene expression and chromatin structure dependent on ATP hydrolysis energy. While the chromatin engagement mechanisms of cBAF and PBAF have been structurally resolved, the molecular architecture governing ncBAF interaction with chromatin remains elusive. In this study, by integrating cryo-electron microscopy, biochemical assays, and cross-linking mass spectrometry, we resolved the conformational transition of ncBAF-nucleosome complexes from nucleotide-free to nucleotide-bound states. Our analyses establish BCL7 proteins as dynamic molecular tethers connecting the ARP module to the nucleosomal acidic patch and demonstrate that BCL7B promotes ncBAF-mediated nucleosome remodeling, with BRG1-catalyzed ATP hydrolysis triggering conformational changes that modulate BCL7-mediated histone association. Structurally and biochemically, we further demonstrate that β-actin within the BCL7-containing ARP module retains ATP hydrolysis activity, rendering its exposed pointed end structurally compatible with incorporation into the barbed end of nuclear actin filaments, which provides a potential molecular basis for coordinating nuclear actin networks with chromatin remodeling. Collectively, our findings unravel a dynamic role of BCL7 in regulating ncBAF-mediated chromatin remodeling and establish a distinct chromatin engagement mode of ncBAF from that of cBAF/PBAF.

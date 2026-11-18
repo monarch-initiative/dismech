@@ -1,0 +1,30 @@
+---
+reference_id: DOI:10.1126/sciadv.aei0972
+extractor_version: 1
+title: Structural principles underlying the evolution of SWI/SNF chromatin remodelers
+authors:
+- Shengsheng Ma
+- Mingdong Liu
+- Wancheng Xu
+- Quanmeng Wang
+- Xiaoman Wang
+- Yaoguang Huang
+- Muchun Li
+- Chihang Li
+- Qing-Tao Shen
+- Yong Chen
+journal: Science Advances
+year: '2026'
+doi: 10.1126/sciadv.aei0972
+content_type: abstract_only
+is_preprint: false
+---
+
+# Structural principles underlying the evolution of SWI/SNF chromatin remodelers
+**Authors:** Shengsheng Ma, Mingdong Liu, Wancheng Xu, Quanmeng Wang, Xiaoman Wang, Yaoguang Huang, Muchun Li, Chihang Li, Qing-Tao Shen, Yong Chen
+**Journal:** Science Advances (2026)
+**DOI:** [10.1126/sciadv.aei0972](https://doi.org/10.1126/sciadv.aei0972)
+
+## Content
+
+Adenosine 5′-triphosphate–dependent switch/sucrose nonfermentable (SWI/SNF)–family chromatin remodelers regulate genome accessibility by repositioning nucleosomes, yet how these complexes diversified across evolution while preserving a common remodeling mechanism has remained unresolved. Here, we determine cryo–electron microscopy structures of the SWI/SNF and RSC (remodels the structure of chromatin) complexes from the thermophilic fungus Chaetomium thermophilum in apo and nucleosome-bound states, providing an evolutionarily informative structural bridge between budding yeast and metazoan remodelers. We show that SWI/SNF-family complexes are built around a conserved mechanochemical core, whereas architectural and functional diversification is achieved through modular rewiring of peripheral regulatory elements. Despite extensive sequence divergence, several regulatory subunits preserve conserved structural motifs and occupy equivalent positions within the remodeler scaffold, revealing previously unrecognized structural relationships, including the ARP (actin-related protein)–associated SMARCJ and QLQ-binding SMARCL proteins. Our findings establish a unifying framework for the evolution of SWI/SNF-family remodelers and illustrate how large chromatin remodeling assemblies preserve catalytic cores while diversifying regulatory architecture across eukaryotes.
