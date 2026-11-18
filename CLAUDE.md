@@ -4232,9 +4232,18 @@ cited paper. Worked examples: `Progressive_Supranuclear_Palsy` (ChiCTR),
 
 **Key fields:**
 - `name`: NCT identifier (e.g., NCT05813288)
-- `phase` (`ClinicalTrialPhaseEnum`): `PHASE_I`, `PHASE_II`, `PHASE_III`, `PHASE_IV`, or
-  `NOT_APPLICABLE` (observational or device studies that do not follow the standard FDA
-  phase classification)
+- `phase` (`ClinicalTrialPhaseEnum`): `EARLY_PHASE_I`, `PHASE_I`, `PHASE_I_II`,
+  `PHASE_II`, `PHASE_II_III`, `PHASE_III`, `PHASE_IV`, or `NOT_APPLICABLE`
+  (observational or device studies that do not follow the standard FDA phase
+  classification). **A combined-phase trial takes the combined value, not either
+  component.** ClinicalTrials.gov registers these designs as `PHASE1|PHASE2` and
+  `PHASE2|PHASE3`, and they are common in rare-disease gene therapy and early
+  oncology work; rounding one to a single phase makes a query for "phase III
+  trials in X" include some phase 2/3 trials and silently exclude others
+  (#15385). Entries curated before these values existed still carry a rounded
+  value and a `notes:` sentence explaining it, and `just
+  clinicaltrials-status-audit` deliberately does not report those as drift,
+  because migrating one means re-reading its registry phase
 - `status` (`ClinicalTrialStatusEnum`): `RECRUITING`, `NOT_RECRUITING`,
   `ACTIVE_NOT_RECRUITING`, `COMPLETED`, `ENROLLING_BY_INVITATION`, `SUSPENDED`,
   `TERMINATED`, `WITHDRAWN`, or `UNKNOWN`
