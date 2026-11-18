@@ -2899,6 +2899,21 @@ Rules for filling it:
   only when its MONDO term is the entry's `disease_term`, a `has_subtypes`
   term, or an `exactMatch` MONDO mapping. A broader ClinGen lumping (generic
   hypertrophic cardiomyopathy cited from an ALPK3 entry) is a different pair.
+- **The hearing-loss panel is the exception to that.** The ClinGen Hearing
+  Loss expert panel files most genes under a generic term (`MONDO:0019497`
+  nonsyndromic genetic hearing loss, `MONDO:0019587`, `MONDO:0019588`) and
+  tells loci apart by gene and mode of inheritance, where dismech has one
+  entry per locus. Its KCNQ4 / autosomal dominant record is DFNA2A's
+  classification under a different filing convention. Record it on the locus
+  entry when the entry (a) maps the generic term in `mappings.mondo_mappings`
+  with `skos:broadMatch` and (b) binds the same mode of inheritance in its own
+  `inheritance` block. `just list-gene-validity` applies both conditions, so a
+  recessive record is not offered to a dominant locus of the same gene (TECTA,
+  COL11A2). A gene with two loci of one inheritance mode, or a record under a
+  wider class such as `MONDO:0005365` hearing loss disorder, is still a
+  curator's call. The terms are listed in `PANEL_LUMPED_DISEASES` in
+  `scripts/check_gene_validity.py`; extending that list to another panel is a
+  policy change, not a per-entry fix.
 - **Orphanet submits everything to GenCC as `SUPPORTIVE`.** That is its whole
   scale, not a weak rating.
 - **Record it on the claim ClinGen classified.** An entry can carry a
