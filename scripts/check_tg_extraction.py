@@ -75,6 +75,49 @@ MIN_QUOTE_WORDS = 5
 TRADEMARK_ASCII_RE = re.compile(r"\(\s*(?:tm|r)\s*\)", re.IGNORECASE)
 
 
+# A field may record an absence instead of a value. Omitting the key cannot do this:
+# an absent key means "nobody extracted it", which is not the same claim as "this
+# method has none" and not the same claim as "no in-scope paragraph states it". The
+# two markers below are those claims, and each carries its own burden of proof.
+#
+#   NOT_APPLICABLE         the method has no such thing. A guideline sentence has to
+#                          say so, so a quote and a paragraph are required, exactly
+#                          as for a value.
+#   NOT_IN_INDEXED_SCOPE   no in-scope paragraph states it. There is nothing to quote
+#                          by construction, so a `note` is required and a quote is
+#                          refused. This is deliberately a claim about the committed
+#                          index and not about the PDF: whether the fact sits in
+#                          PROCEDURE or is absent from the guideline altogether cannot
+#                          be told from this record, and guessing is what the quote
+#                          requirement exists to prevent.
+ABSENCE_REQUIRING_QUOTE = "NOT_APPLICABLE"
+ABSENCE_REQUIRING_NOTE = "NOT_IN_INDEXED_SCOPE"
+ABSENCE_MARKERS = (ABSENCE_REQUIRING_QUOTE, ABSENCE_REQUIRING_NOTE)
+
+
+def check_absence(method: str, name: str, field: dict) -> list[str]:
+    """Return problems with a field that records an absence rather than a value."""
+    where = f"{method} / {name}"
+    marker = str(field.get("absent") or "")
+    problems: list[str] = []
+    if marker not in ABSENCE_MARKERS:
+        problems.append(
+            f"{where}: absent is {marker!r}, not one of {', '.join(ABSENCE_MARKERS)}"
+        )
+        return problems
+    if "value" in field:
+        problems.append(f"{where}: carries both a value and absent={marker}")
+    if marker == ABSENCE_REQUIRING_NOTE:
+        if not str(field.get("note") or "").strip():
+            problems.append(f"{where}: absent={marker} carries no note")
+        if field.get("quote"):
+            problems.append(
+                f"{where}: absent={marker} carries a quote, but the claim is that no "
+                f"in-scope paragraph states this"
+            )
+    return problems
+
+
 def normalise(text: str) -> str:
     """Fold typography, then collapse whitespace. Case-insensitive.
 
@@ -104,6 +147,10 @@ def iter_quotes(records: list[dict]) -> list[tuple[str, str, str, str]]:
             if not isinstance(field, dict):
                 found.append((method, name, "", ""))
                 continue
+            # An absence marked NOT_IN_INDEXED_SCOPE has no quote on purpose, so it is
+            # not a quote to verify. `check` handles it through `check_absence`.
+            if field.get("absent") == ABSENCE_REQUIRING_NOTE:
+                continue
             found.append(
                 (
                     method,
@@ -122,6 +169,12 @@ def check(index: dict, records: list[dict]) -> list[str]:
         for p in index["paragraphs"]
     }
     problems: list[str] = []
+
+    for record in records:
+        method = str(record.get("method", "<unnamed>"))
+        for name, field_value in sorted(record.get("fields", {}).items()):
+            if isinstance(field_value, dict) and "absent" in field_value:
+                problems.extend(check_absence(method, name, field_value))
 
     for method, field, key, quote in iter_quotes(records):
         where = f"{method} / {field}"
