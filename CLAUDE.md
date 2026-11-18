@@ -1820,14 +1820,35 @@ Rules for using it:
   existing links' caveats. A typed divergence now satisfies the caveat requirement on a
   `FAILS_TO_RECAPITULATE` or upward-extrapolating link wherever `limitations` did.
 
-Populated on computational models, plus one non-computational system: the cell-free
-expression panel in `Prolidase_Deficiency`, which carries two `BOUNDARY_OMISSION`
-divergences on a model system declared inside a *proposed* experiment. The taxonomy was
+**Most divergences are now on animal models, not computational ones.** The taxonomy was
+derived from the 50 computational-model `limitations` strings, and the corpus has since
+moved: a count over `kb/` through `dismech.model_links.iter_model_links` gives 603
+divergence entries on `animal_models`, 243 on `experimental_models`, 82 on
+`computational_models` and 12 inside proposed experiments, across 275 files. Those
+figures move with every curation PR, so run the walk rather than trusting them. The
+first non-computational case was the cell-free expression panel in
+`Prolidase_Deficiency`, which carries two `BOUNDARY_OMISSION` divergences on a model
+system declared inside a *proposed* experiment. The taxonomy was
 chosen to extend to NAM and animal models unchanged — `BOUNDARY_OMISSION`,
 `PROXY_QUANTITY`, `CALIBRATION_PROVENANCE`, `POPULATION_MISMATCH` and `SPECIES_MISMATCH`
 all apply — and that first case needed no new value, which is some evidence the choice
-was right. Extending it further would likely add `SUPRAPHYSIOLOGICAL_EXPRESSION` and
-`INCOMPLETE_PHENOTYPE`, both already evidenced in the animal set.
+was right. `INCOMPLETE_PHENOTYPE` was the first of the two predicted additions to be
+made (#11743), once the animal set it was predicted from had become the dominant
+population. `SUPRAPHYSIOLOGICAL_EXPRESSION` is still predicted and has not been added.
+
+- **`SPECIES_MISMATCH` vs `INCOMPLETE_PHENOTYPE`** is the distinction to get right on an
+  animal model, and it is the one `SPECIES_MISMATCH` was being stretched to cover.
+  `SPECIES_MISMATCH` asserts that the organism structurally cannot express the node (no
+  IgG4 subclass, no thalamus, growth plates that never close). `INCOMPLETE_PHENOTYPE`
+  says the organism could and the model does not: a mouse can have seizures, so a model
+  that lacks them is incomplete rather than species-mismatched. Reaching for
+  `SPECIES_MISMATCH` there puts a cause in a typed field that is not in evidence, and
+  hides the difference that matters to a reader, since a species-structural gap never
+  closes in that organism while an incomplete phenotype may be strain, age at assay, or
+  penetrance. One model often needs both, against different features;
+  `GALNT2-Congenital_Disorder_of_Glycosylation` is the worked example, where the absent
+  murine counterpart for language is a species mismatch and the unreported epilepsy and
+  insomnia are an incomplete phenotype.
 
 **A model system inside a `proposed_experiments` entry takes the same link object**, so
 a proposal can state its own translational limits before anybody runs it. Such a link
