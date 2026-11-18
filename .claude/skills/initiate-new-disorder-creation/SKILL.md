@@ -128,6 +128,7 @@ Depending on user preference, use one or more of the following commands
 - `just research-disorder cyberian DISORDER_NAME`
 - `just research-disorder openscientist DISORDER_NAME`
 - `just research-disorder claude_code DISORDER_NAME`
+- `just research-disorder antigravity DISORDER_NAME`
 
 Use the filesystem-friendly name here.
 
@@ -159,11 +160,39 @@ artifact. This makes it the natural default when you are already inside a Claude
 Code agentic session and just want a web-grounded report without standing up
 extra credentials. Requires `deep-research-client >= 0.2.7`.
 
+**Exit code 4 means the run did not produce a report.** Since
+`deep-research-client` 0.2.14, `claude_code` (and `antigravity`) mark a run
+unsuccessful when the agent answered from memory without retrieving anything,
+declined the task, or wrote a line beginning `**Incomplete report:**`. The
+output is still placed in `research/` so a paid run is not lost, but the
+command exits 4, the report's frontmatter says `answer_status: unsuccessful`,
+and its first line is a warning. Do not commit such a file as the entry's
+deep-research report and do not take evidence from it: delete it (with its
+`.citations.md` sidecar) and re-run, or use another provider.
+`just check-unsuccessful-research` fails while one is in `research/`, and
+`just preflight-dr` refuses it. An unsuccessful answer is not a missing
+credential, so `--fallback` does not hand it to another provider.
+
+`antigravity` drives Google's local Antigravity CLI (`agy`) the same way
+`claude_code` drives `claude`. It needs no API key: authenticate once by
+running `agy` interactively. It registers whenever `agy` is on PATH (opt out
+with `DISABLE_ANTIGRAVITY_PROVIDER=true`), runs in `agy`'s default
+`request-review` permission mode, which skips file writes and shell commands,
+and is allowed 30 minutes per run. It is not installed in CI. Requires
+`deep-research-client >= 0.2.14`. Before 0.2.15, a run started from a
+directory holding agent-instruction files (this repository's root, with its
+`CLAUDE.md`) could come back as an empty report; 0.2.15 fixes that
+(deep-research-client#113), so no empty-directory workaround is needed.
+
 `falcon` requires `EDISON_API_KEY` **or** `FUTUREHOUSE_API_KEY` to be exported
 in the environment — both names refer to the same key and are accepted
 interchangeably by `deep-research-client`.  The provider was originally named
 "FutureHouse Falcon" and later rebranded as "Edison Scientific"; the `falcon`
-provider slug in `just research-disorder` is unchanged.  Use whichever key name
+provider slug in `just research-disorder` is unchanged.  Since
+`deep-research-client` 0.2.14 the Edison client libraries are an optional
+`edison` extra; dismech's dev dependencies request it, so `just install` covers
+it, but a hand-built environment without it reports falcon as not installed
+even with the key set.  Use whichever key name
 your environment/secrets manager provides; if you have `FUTUREHOUSE_API_KEY`
 that is sufficient.  Edison is a large-scale literature agent that performs
 deep bibliographic research.  `falcon` runs may take 20 minutes or longer.
@@ -223,6 +252,8 @@ Timing varies by provider. As a rule of thumb:
   and cost ~$2 in Claude Code usage. The report's YAML frontmatter records this
   provenance under `run_metadata` (models used, `web_search_requests`,
   `num_turns`, `total_cost_usd`, `session_id`).
+- `antigravity` is a single agentic session like `claude_code`, capped at 30
+  minutes; there is no representative dismech timing yet.
 
 On completion, this will create a file here:
 
