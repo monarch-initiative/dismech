@@ -40,6 +40,7 @@ FILE_SCOPED_STEPS = {
     "Validate changed comorbidity KB files",
     "Validate changed module KB files",
     "Validate changed grouping KB files",
+    "Test changed KB entries",
 }
 
 # Steps allowed to skip a queue build when their filter is false, because the
