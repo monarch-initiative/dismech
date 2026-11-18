@@ -46,13 +46,23 @@ Turning it on for a single run you are watching is the case it is built for.
 
 With a bare `--fallback`, the client tries the other providers in the order it
 registers them, skipping any that are not available and any that do not write
-real reports (the mock provider). As of 0.2.14 that order is:
+real reports (the mock provider). As of 0.2.15 that order is:
 
 openai, falcon, asta, perplexity, consensus, openscientist, cyberian, biomni,
-tooluniverse, claude_code, antigravity
+tooluniverse, claude_code, antigravity, rss_agent
 
 so on a machine with only the local CLI providers, `claude_code` is chosen
-before `antigravity`. Biomni stays out of the list unless `DISMECH_ENABLE_BIOMNI=1`
+before `antigravity`. `rss_agent` registers only when its local checkout is
+configured, so on most machines the list ends at `antigravity`, as it did in
+0.2.14.
+
+`claude_managed` (Claude Managed Agents, new in 0.2.15) is **never** chosen by a
+bare `--fallback`, even though it registers whenever `ANTHROPIC_API_KEY` is set,
+which it is in this repository's agent workflows. The client marks it as too
+costly to stand in for another provider (`automatic_fallback = False`); name it
+with `--provider` or `--fallback-provider` to use it. The `deeper_med` and
+`toxindex` stubs are registered but never available, so they are never chosen
+either. Biomni stays out of the list unless `DISMECH_ENABLE_BIOMNI=1`
 is set. Name the order with `--fallback-provider` when it matters which one runs.
 
 ## An unsuccessful answer is not a fallback
