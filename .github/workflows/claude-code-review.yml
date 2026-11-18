@@ -13,11 +13,62 @@ on:
         required: true
         type: number
 
+# Every comment on a PR starts an issue_comment run of this workflow. Only a
+# `/review` comment asks for a review; any other comment's run skips all jobs.
+# It must not share the PR's group, or it cancels the queued or running review
+# on its way to skipping (dismech#18311). Such runs get their own group by
+# appending the run id, so only real review requests replace each other.
 concurrency:
-  group: claude-review-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
+  group: >-
+    claude-review-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}${{ github.event_name == 'issue_comment' && github.event.comment.body != '/review' && format('-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 jobs:
+  # dismech#18311: a `/review` comment otherwise gets no sign it was accepted
+  # until the review job reaches a runner, which can take many minutes when CI
+  # is busy. This small job (no project install, one-file checkout) posts a
+  # status comment as soon as any runner is free: "queued" for an accepted
+  # request, or a refusal saying why. The review job then edits that comment
+  # to "started" and to the outcome. Gated on the exact body so ordinary
+  # comments start no job here. The comment is posted with GITHUB_TOKEN, and
+  # comments made with that token do not trigger workflows, so it cannot start
+  # (or cancel) another run.
+  acknowledge:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request != null &&
+      github.event.comment.body == '/review'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout the status-comment script
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          sparse-checkout: scripts/review_status_comment.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Post the review request status
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          RUN_ID: ${{ github.run_id }}
+          SERVER_URL: ${{ github.server_url }}
+          REQUESTER: ${{ github.event.comment.user.login }}
+          AUTHOR_ASSOCIATION: ${{ github.event.comment.author_association }}
+          # Must match the author check in claude-review's `if:` below.
+          ACCEPTED: ${{ contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) }}
+        run: |
+          if [[ "$ACCEPTED" == "true" ]]; then
+            bash scripts/review_status_comment.sh queued
+          else
+            bash scripts/review_status_comment.sh refused
+          fi
+
   # Automated page-build regen PRs (auto/generate-pages,
   # auto/generate-grouping-pages, auto/generate-project-pages — opened by
   # ai4c-agent, with legacy open PRs authored by github-actions[bot]) are pure
@@ -131,6 +182,22 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 1
+
+      # dismech#18311. Copy the script out of the default-branch checkout before
+      # the next steps switch to the PR branch, so the status updates always run
+      # main's copy, then mark the request as started.
+      - name: Mark the /review status comment as started
+        if: github.event_name == 'issue_comment'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          SERVER_URL: ${{ github.server_url }}
+          REQUESTER: ${{ github.event.comment.user.login }}
+        run: |
+          cp scripts/review_status_comment.sh "${RUNNER_TEMP}/review_status_comment.sh"
+          bash "${RUNNER_TEMP}/review_status_comment.sh" started
 
       - name: Resolve agent config
         uses: ./.github/actions/resolve-agent-config
@@ -631,3 +698,27 @@ jobs:
           echo "::error title=Claude review published no verdict::${msg}"
           printf '### ❌ Claude review published no verdict\n\n%s\n' "$msg" >> "$GITHUB_STEP_SUMMARY"
           exit 1
+
+      # dismech#18311: close out the /review status comment with the outcome.
+      # Runs last so job.status reflects every step above, including the
+      # verdict check: success here means a verdict was published.
+      - name: Record the /review outcome in the status comment
+        if: always() && github.event_name == 'issue_comment'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          SERVER_URL: ${{ github.server_url }}
+          REQUESTER: ${{ github.event.comment.user.login }}
+          JOB_STATUS: ${{ job.status }}
+          OVERSIZED: ${{ steps.diff-scale.outputs.oversized }}
+        run: |
+          script="${RUNNER_TEMP}/review_status_comment.sh"
+          [[ -f "$script" ]] || { echo "::warning::Status script missing; not updating the status comment."; exit 0; }
+          if [[ "$OVERSIZED" == "true" ]]; then state=skipped
+          elif [[ "$JOB_STATUS" == "success" ]]; then state=success
+          elif [[ "$JOB_STATUS" == "cancelled" ]]; then state=cancelled
+          else state=failure
+          fi
+          bash "$script" "$state"
