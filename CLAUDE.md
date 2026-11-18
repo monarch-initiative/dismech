@@ -1588,6 +1588,12 @@ from `sqlite:obo:omim`. `OMIMPS:209900` is a series; `OMIM:209900` is an
 individual member record and is not interchangeable. Normal term validation
 checks series labels and existence; schema validation rejects individual OMIM
 identifiers in this field. Each mapping requires a `mapping_justification`.
+Validation is cache-first. An uncached series can trigger a download of the
+whole OMIM build from `https://semanticsql.berkeleybop.io/omim.db.gz`;
+availability was verified on 2026-11-18 (about 44 MB compressed and 244 MB
+for the inspected local database). The committed `cache/omimps/terms.csv`
+rows support offline validation of the pilot; adding a new series requires
+online validation once to populate its cache row.
 Choose the predicate after reviewing the series scope and members, rather than
 copying MONDO's predicate automatically. Use `skos:exactMatch` for the same
 disease-family concept (Bardet-Biedl Syndrome) or explicit union (Tyrosinemias).
