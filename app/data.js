@@ -143521,8 +143521,8 @@ window.searchData = [
     "num_pathophysiology": 16,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "24",
-    "causal_graph_longest_path": "9"
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Disabling Pansclerotic Morphea of Childhood",
@@ -292098,6 +292098,138 @@ window.searchData = [
     "causal_graph_longest_path": "10"
   },
   {
+    "name": "Multiple Mitochondrial Dysfunctions Syndrome 7",
+    "disease_id": "MONDO:0957382",
+    "category": "Mendelian",
+    "parents": [
+      "Nonketotic Hyperglycinemia",
+      "Mitochondrial lipoylation defect"
+    ],
+    "creation_date": "2026-11-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Multiple mitochondrial dysfunctions syndrome 7 (MMDS7) is an ultra-rare autosomal recessive disorder caused by biallelic pathogenic variants in GCSH, which encodes the H-protein of the mitochondrial glycine cleavage system. The H-protein is a moonlighting lipoyl carrier: it carries the lipoyl arm that shuttles the aminomethyl intermediate within the glycine cleavage system, and it is also the lipoyl donor from which LIPT1 lipoylates the E2 subunits of pyruvate dehydrogenase and 2-ketoglutarate dehydrogenase. Hypomorphic GCSH variants therefore combine nonketotic hyperglycinemia (raised CSF and plasma glycine with glycine encephalopathy) with a lipoylation defect that lowers pyruvate dehydrogenase activity and mitochondrial respiratory reserve. The clinical spectrum runs from fatal neonatal apneic coma with burst-suppression seizures to an attenuated course of developmental delay, hyperactivity, behavioral problems, limited epilepsy and dystonia.\n",
+    "pathophysiology": [
+      "GCSH H-protein Deficiency",
+      "Glycine Cleavage System Deficiency",
+      "Systemic and CNS Glycine Accumulation",
+      "Deficient Lipoylation of 2-Oxoacid Dehydrogenase E2 Subunits",
+      "Pyruvate Dehydrogenase and 2-Ketoglutarate Dehydrogenase Deficiency"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "glycine decarboxylation via glycine cleavage system",
+      "protein lipoylation",
+      "pyruvate decarboxylation to acetyl-CoA",
+      "tricarboxylic acid cycle"
+    ],
+    "phenotypes": [
+      "Increased CSF glycine",
+      "Hyperglycinemia",
+      "Seizure",
+      "Infantile spasms",
+      "Hypsarrhythmia",
+      "EEG with burst suppression",
+      "Myoclonus",
+      "Coma",
+      "Apnea",
+      "Respiratory insufficiency",
+      "Lethargy",
+      "Neonatal hypotonia",
+      "Feeding difficulties",
+      "Hypoglycemia",
+      "Global developmental delay",
+      "Delayed speech and language development",
+      "Hyperactivity",
+      "Aggressive behavior",
+      "Generalized dystonia",
+      "Hypoplasia of the corpus callosum",
+      "Myoclonic seizure",
+      "Developmental regression",
+      "Microcephaly",
+      "Thin corpus callosum",
+      "NKH-type diffusion restriction on brain MRI",
+      "Leigh-like basal ganglia lesions",
+      "Thalamic lesion",
+      "Reduced caudate nucleus volume",
+      "Lactic acidosis",
+      "Elevated brain lactate level by MRS"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Neurological",
+      "Respiratory",
+      "Gastrointestinal",
+      "Metabolic",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0500230",
+      "HP:0002154",
+      "HP:0001250",
+      "HP:0012469",
+      "HP:0002521",
+      "HP:0010851",
+      "HP:0001336",
+      "HP:0001259",
+      "HP:0002104",
+      "HP:0002093",
+      "HP:0001254",
+      "HP:0001319",
+      "HP:0011968",
+      "HP:0001943",
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0000752",
+      "HP:0000718",
+      "HP:0007325",
+      "HP:0002079",
+      "HP:0032794",
+      "HP:0002376",
+      "HP:0000252",
+      "HP:0033725",
+      "HP:0032615",
+      "HP:0012751",
+      "HP:0012696",
+      "HP:0002339",
+      "HP:0003128",
+      "HP:0012707"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "GCSH"
+    ],
+    "treatments": [
+      "Sodium benzoate therapy",
+      "Dextromethorphan (NMDA receptor antagonist)",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "CSF glycine",
+      "Lipoylated mitochondrial proteins"
+    ],
+    "source_file": "Multiple_Mitochondrial_Dysfunctions_Syndrome_7.yaml",
+    "page_url": "../pages/disorders/Multiple_Mitochondrial_Dysfunctions_Syndrome_7.html",
+    "num_phenotypes": 30,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Multiple Mitochondrial Dysfunctions Syndrome 9B",
     "disease_id": "MONDO:0971174",
     "category": "Genetic",
@@ -292605,7 +292737,8 @@ window.searchData = [
     "treatments": [
       "Surgical Excision",
       "Oral Retinoid Therapy",
-      "Intralesional Triamcinolone"
+      "Intralesional Triamcinolone",
+      "Genetic Counseling"
     ],
     "environmental": [
       "Radiotherapy to the skin"
@@ -292616,7 +292749,7 @@ window.searchData = [
     "num_phenotypes": 2,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 3,
+    "num_treatments": 4,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "5"
   },
@@ -321442,7 +321575,13 @@ window.searchData = [
       "White Sclerae (Blue Sclerae Characteristically Absent)",
       "Normal Dentition (Dentinogenesis Imperfecta Characteristically Absent)"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Growth",
+      "Neurological",
+      "Ophthalmological",
+      "Dental"
+    ],
     "phenotype_hpo_categories": [
       "Eye",
       "Growth",
@@ -321481,8 +321620,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Osteogenesis Imperfecta Type XVI",
@@ -358001,6 +358140,75 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "RAD51C-Related Cancer Predisposition",
+    "disease_id": "MONDO:0700273",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary neoplastic syndrome"
+    ],
+    "creation_date": "2026-11-12T23:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant hereditary cancer predisposition caused by heterozygous germline loss-of-function variants in RAD51C, a RAD51 paralog that acts in the BCDX2 and CX3 subcomplexes to load RAD51 onto single-stranded DNA and to protect stalled replication forks. The risk profile is markedly asymmetric and that asymmetry is the clinically important fact: tubo-ovarian carcinoma carries a relative risk of 7.55 and a cumulative risk to age 80 of 11%, while breast cancer carries a relative risk of about 2 and is weighted toward oestrogen-receptor-negative and triple-negative disease. ClinGen re-curated the pair as Definitive for this combined entity in 2024, having previously classified it Definitive for familial ovarian cancer and Disputed for hereditary breast carcinoma. Tumours arise by a somatic second hit on the wild-type allele, which can be a mutation, a deletion, or promoter hypermethylation; the resulting homologous-recombination deficiency is the therapeutic target of PARP inhibitors. This entry covers the monoallelic predisposition only; biallelic RAD51C causes Fanconi anemia complementation group O, which ClinGen curates separately and rates only Limited.",
+    "pathophysiology": [
+      "Germline RAD51C Loss of Function",
+      "Somatic Second-Hit Inactivation Including Promoter Hypermethylation",
+      "Failure of BCDX2-Mediated RAD51 Loading and Fork Protection",
+      "Homologous Recombination Deficiency and Signature 3 Genomic Instability",
+      "TP53 Loss and Checkpoint Escape",
+      "Clonal Expansion and Tumor Initiation",
+      "PARP-Inhibitor Sensitivity"
+    ],
+    "cell_types": [
+      "fallopian tube secretory epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:4030006"
+    ],
+    "biological_processes": [
+      "double-strand break repair via homologous recombination",
+      "DNA repair"
+    ],
+    "phenotypes": [
+      "Ovarian carcinoma",
+      "Breast carcinoma"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Genitourinary",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0025318",
+      "HP:0003002"
+    ],
+    "frequencies": [
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RAD51C"
+    ],
+    "treatments": [
+      "Risk-reducing salpingo-oophorectomy",
+      "Enhanced breast surveillance",
+      "PARP-inhibitor therapy",
+      "Genetic counseling and cascade testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "RAD51C-Related_Cancer_Predisposition.yaml",
+    "page_url": "../pages/disorders/RAD51C-Related_Cancer_Predisposition.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "RARB-related syndromic microphthalmia",
     "disease_id": "MONDO:0014229",
     "category": "Mendelian",
@@ -361284,7 +361492,7 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 0,
     "num_treatments": 7,
-    "causal_graph_edges": "15",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "8"
   },
   {
@@ -392441,7 +392649,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "4"
   },
   {
@@ -445983,19 +446191,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4107,
+  "total_disorder_pages": 4109,
   "total_subtypes": 5096,
-  "total_disorders_and_subtypes": 9203,
-  "total_unique_evidence_sources": 61315,
-  "total_unique_publications": 57294,
+  "total_disorders_and_subtypes": 9205,
+  "total_unique_evidence_sources": 61337,
+  "total_unique_publications": 57312,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4105,
-  "total_unique_pathological_events": 27100,
+  "total_pathographs": 4107,
+  "total_unique_pathological_events": 27110,
   "total_modules": 236,
-  "total_research_reports": 4210,
+  "total_research_reports": 4212,
   "total_classifications": 21,
-  "total_comorbidities": 57,
+  "total_comorbidities": 58,
   "total_groupings": 138
 };
 window.dispatchEvent(new Event('searchDataReady'));
