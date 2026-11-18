@@ -186,6 +186,64 @@ grep -rn "^- name: <node>" kb/modules/
 
 A module anchor is written `module_slug#Node Name`. Confirm both halves.
 
+### Choose the anchor *level* before the anchor
+
+A model link lives in a disease entry or in a module, and the choice decides how
+many entries the work reaches. Get this wrong toward the entry and the link
+serves one disease when the mechanism it bears on is shared by a dozen.
+
+Ask whether the node is shared:
+
+```bash
+grep -rl "<module_slug>#<Node Name>" kb/disorders/ | wc -l
+```
+
+More than one conforming entry means the mechanism is not that entry's own, and
+the module is probably the right anchor. Seventeen modules already carry
+`experimental_models:`, and they are mostly the NAM ones: the quadruple
+co-culture liver spheroid went into four liver modules, the bronchial
+tetraculture into `chemical_respiratory_allergy`. That is the established shape
+for a NAM, not an exception.
+
+**A module link is recorded once at the shared level; it is not inherited.**
+Do not tell a reviewer that a module anchor makes the model visible to every
+conforming entry, because it does not. `_annotate_model_links` builds the
+"models informing this mechanism" back-link within one file, so a module's model
+links draw on the module's own nodes and nowhere else. `Occupational_Asthma`
+conforms to `chemical_respiratory_allergy`, that module holds two NAM models,
+and the disorder file names neither. The module page lists its conforming
+diseases, so the model is reachable *from* the module; nothing walks the other
+way.
+
+What the module anchor buys is therefore placement, not propagation: one record
+of the model at the level its mechanism actually lives at, instead of the same
+system re-described in each entry that could claim it. That the sharing is not
+surfaced is a real gap, and part of the argument for
+[#17015](https://github.com/monarch-initiative/dismech/issues/17015).
+
+The test is what the model is specific *to*. A patient-derived or
+genotype-corrected system is about that genotype and belongs on the entry. A
+system built from healthy donor lines, or an exposure model, is usually about the
+cell population and the process, which is the module. The hiPSC midbrain organoid
+grafted into a 6-OHDA mouse carries no PD genotype at all, and fifteen entries
+conform to `parkinsonism_dopaminergic_degeneration` — so an entry-level link
+there privileges one disease over fourteen others with equal claim.
+
+**Why this is a convention and not yet a structure.** Models are inlined in
+disease entries today, which is why the module anchor is the only sharing
+mechanism available. [#17015](https://github.com/monarch-initiative/dismech/issues/17015)
+proposes a first-class `kb/models/` split into computational, experimental and
+animal, for exactly this reason — "models are shared between diseases" — and
+names the NAM registry as one of the registries it would formalize. Until that
+lands, prefer the module: a module-level link is the closer approximation of a
+shared model, so it is the choice that survives the migration.
+
+Meanwhile the registry already *is* the cross-entry home for the method. The
+registry record describes the system once, for every disease it ever serves; the
+DisMech link asserts what it says about one mechanism. A genotype-agnostic model
+should therefore end up as one registry record plus a module link, not as the
+same system re-described in several entries.
+
 **Read a module's own scope before conforming to it.** Several modules declare a
 scope narrower than their title suggests — `epithelial_barrier_dysfunction` frames
 itself around the allergic and type 2 barrier hypothesis, so a chemical irritant
@@ -200,10 +258,14 @@ decide it once and write the decision down.
 3. **Read** it. The abstract if that is all there is; the full text when there is
    one, and say which the spec's claims came from.
 4. **Search** the KB with `just list-modules` and grep for anchors and their
-   near-misses. Verify every node name resolves.
+   near-misses. Verify every node name resolves, and **settle the anchor level
+   first** — count the conforming entries before deciding an entry node is the
+   right target.
 5. **Author** `templates/nam_mining/<slug>.yaml`. Slug is
    `<first_author>_<year>_<short_subject>`, as in `zheng_2023_hmo_graft`. `entry`
-   is the DisMech entry the run's output will land on.
+   is where the run's output will land; say in the spec when the real anchor is a
+   module and how many entries conform to it, so the reviewer sees the reach of
+   the link rather than inferring it.
 6. **Preview** the prompt, which costs nothing:
    `just nam-mining-prompt <slug>`
 7. **Stop and show the user the spec and the triage decision.** These are
