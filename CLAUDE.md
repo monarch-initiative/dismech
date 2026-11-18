@@ -1582,6 +1582,23 @@ stays a manual audit.
 
 ### Disease Groupings
 
+**OMIM phenotypic series:** use `mappings.omimps_mappings` on a Disease,
+Subtype, or Grouping, with `OMIMPS:<six digits>` and the canonical series label
+from `sqlite:obo:omim`. `OMIMPS:209900` is a series; `OMIM:209900` is an
+individual member record and is not interchangeable. Normal term validation
+checks series labels and existence; schema validation rejects individual OMIM
+identifiers in this field. Each mapping requires a `mapping_justification`.
+Choose the predicate after reviewing the series scope and members, rather than
+copying MONDO's predicate automatically. Use `skos:exactMatch` for the same
+disease-family concept (Bardet-Biedl Syndrome) or explicit union (Tyrosinemias).
+For susceptibility-locus series linked to a complex Disease, use
+`skos:relatedMatch` when equating the clinical disease with the locus collection
+would overstate the alignment (Celiac Disease). State that scope distinction
+and any disagreement with MONDO. A mapping does not assert complete member
+curation or Mendelian inheritance. Use a Grouping only for independently
+curated diseases, explain why they belong together and remain separate, and
+audit any post-hoc logical criterion before claiming sufficiency.
+
 Groupings under `kb/groupings/` are explicit curated unions of existing diseases,
 named disease subtypes, or nested disease groupings. They validate against
 `Grouping`, not `Disease`, and list members explicitly rather than recreating an
