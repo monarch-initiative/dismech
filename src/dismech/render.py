@@ -2299,6 +2299,19 @@ DEEP_RESEARCH_PROVIDERS: list[_ProviderEntry] = [
         "pill": {"border": "#f3c2b3", "background": "#fdf2ee", "color": "#b8451f"},
     },
     {
+        "key": "antigravity",
+        "name": "Antigravity",
+        "match_keys": ("antigravity",),
+        "humanize": {},
+        "url": "https://antigravity.google/",
+        "prefix": "",
+        "description": (
+            "Web-grounded agentic deep research run via the local Google "
+            "Antigravity CLI (agy); no separate API key required."
+        ),
+        "pill": {"border": "#99f6e4", "background": "#f0fdfa", "color": "#0f766e"},
+    },
+    {
         "key": "fallback",
         "name": "Fallback",
         "match_keys": ("fallback",),
