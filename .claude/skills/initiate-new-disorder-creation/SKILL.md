@@ -179,7 +179,10 @@ running `agy` interactively. It registers whenever `agy` is on PATH (opt out
 with `DISABLE_ANTIGRAVITY_PROVIDER=true`), runs in `agy`'s default
 `request-review` permission mode, which skips file writes and shell commands,
 and is allowed 30 minutes per run. It is not installed in CI. Requires
-`deep-research-client >= 0.2.14`.
+`deep-research-client >= 0.2.14`. Before 0.2.15, a run started from a
+directory holding agent-instruction files (this repository's root, with its
+`CLAUDE.md`) could come back as an empty report; 0.2.15 fixes that
+(deep-research-client#113), so no empty-directory workaround is needed.
 
 `falcon` requires `EDISON_API_KEY` **or** `FUTUREHOUSE_API_KEY` to be exported
 in the environment — both names refer to the same key and are accepted

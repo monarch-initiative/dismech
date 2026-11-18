@@ -3,22 +3,27 @@
 An OECD Test Guideline is a primary source for *non-animal method* curation:
 TG 442D defines the five in-vitro skin-sensitisation methods a disease entry
 cites as ``experimental_models``, states which key event each addresses, and
-states each one's applicability limits. None of that could be quoted.
+states each one's applicability limits. This source renders it as text so that
+a curator can read it and so that ``just check-tg-extraction`` can verify every
+quoted fact in ``data/oecd_tg/*-methods.json`` against the paragraph it names.
 
 The guideline resolves as a DOI and caches with no body. ``just fetch-reference
 DOI:10.1787/9789264229822-en`` returns the right title and
 ``content_type: unavailable``, because the OECD iLibrary landing page carries no
-abstract -- the content is in a PDF behind it. So an evidence item citing that
-DOI has nothing for ``linkml-reference-validator`` to match a snippet against,
-and a curator who wants to state what the guideline says has to quote some other
-paper's introduction instead. ``Contact_Dermatitis`` already does exactly that:
-the fact that KeratinoSens is accepted under TG 442D is cited to the LuSens
-inter-laboratory paper, correctly marked ``quote_role: BACKGROUND``, because
-there was no way to cite the guideline itself.
+abstract -- the content is in a PDF behind it. So there is no text to read and
+nothing for the extraction checker to verify against.
 
-This source supplies the missing body from the committed paragraph index
-(``data/oecd_tg/*-paragraphs.json``), so ``OECDTG:442D`` becomes an ordinary
-quotable reference and a snippet is checked against the guideline's own words.
+This source supplies that body from the committed paragraph index
+(``data/oecd_tg/*-paragraphs.json``).
+
+**It does not make the guideline citable, and is not meant to.** ``OECDTG:`` is
+not an allowed evidence prefix (design decision 6e): a Test Guideline describes
+an assay in the key-event terms of an Adverse Outcome Pathway, a key event is
+not a pathograph node, and nothing here records the correspondence -- so a
+guideline citation on a ``modeled_mechanisms`` link asserts that step under a
+citation that does not make it. A KB claim is sourced from the primary
+literature the guideline's reference list names; a guideline-only fact goes in
+``notes:`` as a lead.
 
 **It is not a second extraction, and it adds nothing.** The index is built by
 ``scripts/extract_oecd_tg.py`` from a sha256-pinned PDF and re-extracts
