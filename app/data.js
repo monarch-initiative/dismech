@@ -445279,6 +445279,6 @@ window.searchMetrics = {
   "total_research_reports": 4203,
   "total_classifications": 21,
   "total_comorbidities": 57,
-  "total_groupings": 136
+  "total_groupings": 137
 };
 window.dispatchEvent(new Event('searchDataReady'));
