@@ -390,9 +390,10 @@ is **blocking** under the same threshold as the Content-Completeness Checklist.
 a title**, and the reviewer must use that title to judge whether the publication is
 actually relevant to the claim it is attached to.
 
-This is a review requirement, not a validator one, and it is deliberately stricter than
-the `recommended: true` flags on `EvidenceItem.reference_title` and
-`PublicationReference.title`. Two gaps make the human read necessary:
+`EvidenceItem.reference_title` is `required` in the schema, and
+`just check-reference-titles-present` gates its absence; `PublicationReference.title` is
+still only `recommended`, so check new disease-level publications by eye. Presence is not
+the point of this section, though. Two gaps make the human read necessary:
 
 - Nothing checks an `EvidenceItem.reference_title` against the real publication. A
   deliberately wrong `reference_title` passes `linkml-reference-validator` with "All
