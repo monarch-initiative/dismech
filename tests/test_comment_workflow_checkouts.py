@@ -104,3 +104,65 @@ def test_per_comment_job_reads_nothing_outside_dot_github(workflow, job_id):
             if target.suffix == ".js" and target.is_file() and target not in seen:
                 seen.add(target)
                 pending.append((target.read_text(encoding="utf-8"), target.parent))
+
+
+# --- Job-level pre-filters (#17150, follow-ups to #17312) ------------------
+#
+# A job-level `if:` is evaluated before GitHub assigns a runner, so a skipped
+# job never waits in the shared org-wide queue. Each filter must only ever skip
+# events the job's own script would have declined; these tests pin that.
+
+MENTION_MODULE = SCRIPTS / "agent-mention.js"
+TRUST_GATE = SCRIPTS / "github-trust-gate.js"
+
+
+def _module_handles() -> set[str]:
+    source = MENTION_MODULE.read_text(encoding="utf-8")
+    canonical = re.search(r'AGENT_MENTION = "([^"]+)"', source).group(1)
+    legacy = re.findall(
+        r'"([^"]+)"',
+        re.search(r"LEGACY_AGENT_MENTIONS = \[([^\]]*)\]", source).group(1),
+    )
+    return {canonical, *legacy}
+
+
+def test_mention_prefilter_names_exactly_the_module_handles():
+    """The `if:` repeats the handles, so it must track agent-mention.js.
+
+    A handle added to the module but not to the `if:` would be silently
+    skipped before the parser ever saw it -- the same failure as the
+    retired-handle bug the module exists to prevent.
+    """
+    condition = _job("dragon-ai.yml", "check-mention")["if"]
+    in_filter = set(re.findall(r"'@([^']+)'", condition))
+
+    assert in_filter == _module_handles()
+
+
+def test_mention_prefilter_reads_every_event_body():
+    condition = _job("dragon-ai.yml", "check-mention")["if"]
+    # The comment body must come first: a comment event's payload also
+    # carries the parent issue or PR, whose body is not what was just posted.
+    expected = (
+        "github.event.comment.body || github.event.issue.body"
+        " || github.event.pull_request.body"
+    )
+    for handle in _module_handles():
+        assert f"contains({expected}, '@{handle}')" in condition
+
+
+def test_agent_job_still_depends_on_the_mention_check():
+    """If check-mention is skipped, respond-to-mention must be skipped too."""
+    job = _job("dragon-ai.yml", "respond-to-mention")
+    assert job["needs"] == "check-mention"
+    assert "always()" not in job["if"]
+
+
+def test_guard_skips_only_logins_the_trust_gate_already_trusts():
+    condition = _job("untrusted-comment-guard.yml", "guard-comment")["if"]
+    assert condition == "${{ !endsWith(github.event.comment.user.login, '[bot]') }}"
+    assert "author_association" not in condition
+
+    # The skip is only safe while the gate trusts every `[bot]` login.
+    gate = TRUST_GATE.read_text(encoding="utf-8")
+    assert 'normalized.endsWith("[bot]")' in gate

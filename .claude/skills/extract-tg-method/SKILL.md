@@ -81,14 +81,32 @@ assay.
 | `response_arms` | which biological response(s) the readout spans | appendix ¶1 |
 | `host_cell_line` | the named line, if the guideline names one | appendix ¶3, ¶8 |
 | `tissue_matrix` | 2D culture, or a named 3D model and its interface | appendix ¶3, ¶5 |
-| `regulatory_element` | the response element, **and its species** | appendix ¶8 |
+| `regulatory_element` | the response element, as the guideline words it | appendix ¶8 |
+| `source_gene` | the gene whose regulatory element the reporter carries | appendix ¶8 |
+| `source_species` | that gene's species of origin | appendix ¶8 |
 | `reporter_construct` | reporter gene(s) and promoter arrangement | appendix ¶8 |
 | `internal_viability_control` | a second reporter in the same cells | appendix ¶8 |
 | `marker_genes` | the endogenous genes quantified | appendix ¶1, ¶3 |
 | `marker_gene_interpretation` | what each gene reports biologically | appendix ¶1 |
 | `readout` | the measured quantity and the assay | appendix ¶8, ¶9 |
 | `exposure_route` | in the medium, or applied to the tissue surface | appendix ¶4, ¶5 |
+| `exposure_schedule` | how long, and in what pattern, the chemical is applied | appendix ¶9 |
 | `culture_conditions` | serum, xeno-free, and similar | appendix ¶2 |
+
+**`source_gene` and `source_species` are split out of `regulatory_element` on
+purpose.** The prose field still holds the guideline's own wording, which is what
+gets quoted; the two scalar fields make the one structural divide inside the
+luciferase family answerable without reading five strings. LuSens reads a **rat**
+*NQO1* ARE in a human keratinocyte, while KeratinoSens™ and α-Sens® both read the
+**human** *AKR1C2* ARE — and that is exactly the fact a KB entry records as a
+`SPECIES_MISMATCH` divergence. Bundled into one sentence it was findable only by
+grepping for "rat".
+
+The same applies to `exposure_schedule`, which `exposure_route` does not cover:
+route says *where* the chemical goes, schedule says *for how long*. EpiSensA and
+Epi2SensA differ in nothing else — 6 hours against 1 hour plus 5 hours of
+post-incubation — and the guideline ties that difference to what each can detect,
+since a pre-hapten needing more than 6 hours to oxidise is missed by both.
 
 **Domain of applicability — what the substrate lets it see:**
 
@@ -148,6 +166,49 @@ Record shape, one object per field:
 }
 ```
 
+### Recording that a field has no value
+
+**An omitted field says "nobody extracted this".** That is the honest default and
+most fields on most records are simply absent. What it cannot say is either of
+the two things a reader usually wants to know, so a field may instead carry
+`absent` in place of `value`:
+
+| `absent` | The claim | Burden of proof |
+|---|---|---|
+| `NOT_APPLICABLE` | the method has no such thing | a `quote` and `paragraph`, exactly as for a value, plus a `note` saying what follows |
+| `NOT_IN_INDEXED_SCOPE` | no in-scope paragraph states it | a `note`; a `quote` is **refused** |
+
+```json
+"source_gene": {
+  "absent": "NOT_APPLICABLE",
+  "quote": "quantify changes in the expression of four marker genes associated with keratinocyte activation (i.e. ATF3, GCLM, DNAJB4, and IL-8) in a RhE model",
+  "paragraph": "442D/IC/9",
+  "note": "No reporter construct: the method quantifies four endogenous marker transcripts, so there is no source gene whose regulatory element stands in for the response."
+}
+```
+
+Three things follow from how these are checked:
+
+- **`NOT_APPLICABLE` is a claim about the guideline, so it is sourced like any
+  other.** "EpiSensA has no reporter construct" is not a gap in the record, it is
+  a finding, and the sentence that establishes it — the one naming the four
+  endogenous marker genes — is quotable. The absence marker buys no exemption:
+  a fabricated quote under it fails exactly as it would under a value.
+- **`NOT_IN_INDEXED_SCOPE` is deliberately a claim about the committed index, not
+  about the PDF.** It does not say the guideline is silent. Whether the fact sits
+  in `PROCEDURE` or is missing from the guideline altogether cannot be told from
+  this record, and asserting either would mean writing from memory about text
+  this extraction does not hold. Say what the index does not contain, and stop
+  there.
+- **The vocabulary is closed.** `absent: UNKNOWN` is rejected, because "unknown"
+  is what an omitted key already means.
+
+Do not reach for a marker to tidy a record. A marker says somebody looked; three
+of the five TG 442D methods carry `exposure_schedule: NOT_IN_INDEXED_SCOPE`
+because their schedules were looked for and are not in the extracted sections,
+and the animal comparator records carry none of these three fields at all,
+because nobody went looking on their behalf.
+
 ## Step 4 — quote from the index, never from memory
 
 Copy the sentence out of the index entry you are citing. Do not retype it, and
@@ -163,7 +224,34 @@ The checker rejects a quote that is not a substring of the cited paragraph, and
 says where the sentence actually is when it finds it elsewhere. It also rejects
 three shapes that would otherwise pass as citations without being any: a bare
 value with no quote (`"key_event": 2`), a quote that normalises to nothing
-(`"(TM)"`), and a quote below the five-word floor.
+(`"(TM)"`), and a quote below the five-word floor. It enforces the absence
+contract above as well: an unrecognised marker, a `NOT_APPLICABLE` without a
+verifying quote, a `NOT_IN_INDEXED_SCOPE` without a note or carrying a quote, and
+a field claiming both a value and an absence.
+
+**Quote only the guideline's own sentences — not dismech's.** The cache body is
+not all guideline text, and the parts that are not verify just as exactly as the
+parts that are. A quote taken from dismech's own framing is a substring of the
+paragraph file, so `just check-tg-extraction` accepts it, it reads as a finding,
+and it attributes this repository's words to the OECD.
+
+Guideline text is **only** the prose under a `### 442D/<division>/<n>` heading.
+Everything else in the file was written here:
+
+| In the body | Whose words |
+|---|---|
+| prose under `### 442D/GI/1` and the other 50 paragraph headings | the guideline's — quotable |
+| the `**Scope of this record.**` paragraph | dismech's |
+| the `## Test methods` and `## Divisions` tables | dismech's |
+| the italic locator under each heading (`*General Introduction · … · PDF p. 6*`) | dismech's |
+| the `## Source` block and the licence line | dismech's |
+
+The locator line is the easiest to quote by accident, because it names the
+section and so reads like guideline text. It is a pointer this repository
+generated from the index.
+
+The test is positional, not stylistic: find the sentence in the PDF at the
+paragraph the citation key names. If it is not there, it is not the guideline's.
 
 Typography does not decide a match. `KeratinoSens`, `KeratinoSens(TM)` and
 `KeratinoSens™` all verify; `α-Sens®` folds to `alpha-sens`. A **mid-word gap**
@@ -282,19 +370,53 @@ checkably citing the same thing:
   LuSens's rat *NQO1* element in a human cell is `SPECIES_MISMATCH`; the absent
   dendritic-cell and lymph-node compartments are `BOUNDARY_OMISSION`
 
-**Evidence cannot yet come from the guideline.** `just fetch-reference
-DOI:10.1787/9789264229822-en` resolves and titles correctly but caches with
-`content_type: unavailable`, so there is no body for a snippet to match and an
-exact-quote evidence item citing that DOI cannot verify. Until a structured
-source exists for the guideline (see `docs/oecd-tg-extraction.md`), cite the
-method's **primary literature** — the validation and inter-laboratory papers the
-guideline's own reference list names — and keep the extracted record as the
-audited statement of what the guideline says.
+**Never cite the guideline in an evidence `reference:`.** `OECDTG:` is not an
+allowed evidence prefix and will fail `check_evidence_items_have_references`. This
+is deliberate, and the reason is the one thing to carry out of this step.
 
-Do not work around this by quoting another paper's introduction *as though* it
-were the guideline. Where a paper does restate a regulatory fact, that is a real
-citation and takes `quote_role: BACKGROUND`; what it is not is a substitute for
-the guideline on facts no paper states.
+A Test Guideline describes an assay in the **key-event** terms of an Adverse
+Outcome Pathway — TG 442D is titled for the AOP key event on keratinocyte
+activation, and its methods are defined as addressing KE2. A key event is not a
+dismech pathograph node. Citing the guideline on a `modeled_mechanisms` link
+therefore asserts a key-event-to-node correspondence that nothing in this
+repository records, under a citation that does not make it. See design decision
+6e in `docs/explanation/design-decisions.md`.
+
+**The guideline is a lead. Source the claim from the primary literature it names.**
+Its reference list is where to look, and the result is usually better evidence, not
+a weaker substitute: the guideline asserts that GCLM and DNAJB4 report a
+cytoprotective response, while `PMID:27965148` reports the Nrf2-siRNA knockdown
+that established it.
+
+```yaml
+# Right: the paper that built the construct.
+- reference: PMID:25172300
+  supports: SUPPORT
+  directness: DIRECT
+  evidence_source: IN_VITRO
+  snippet: >-
+    the LuSens assay, that uses a human keratinocyte cell line harbouring a
+    reporter gene construct composed of the antioxidant response element (ARE)
+    of the rat NADPH:quinone oxidoreductase 1 gene and the luciferase gene
+  explanation: The originating paper's statement of which element the reporter carries.
+
+# Wrong: OECDTG: is not an allowed evidence prefix.
+# - reference: OECDTG:442D
+```
+
+**A guideline-only fact goes in `notes:`, attributed and marked as a lead.** Some
+facts have no primary source — a method's Validated Reference Method standing, the
+guideline's judgement that a result is shown only indirectly, a construct
+description that differs from the originating paper's. Write them as prose in the
+record's `notes:`, saying they come from the guideline. `notes:` carries no
+evidence claim, which is the right strength for a fact whose only source is a
+consensus document. `Contact_Dermatitis` is the worked example; design decision
+6e records what was removed from it and what each removal was re-sourced to.
+
+Do not quote another paper's introduction *as though* it were the guideline
+either. Where a paper restates a regulatory fact, that is a real citation and takes
+`quote_role: BACKGROUND` — but a restatement is not a reason to record the fact as
+evidence when what you want is the guideline's assertion. Prefer `notes:`.
 
 Do not copy the extraction JSON into the entry. The record is the audited
 source; the entry states what that disease's curator needs from it.
