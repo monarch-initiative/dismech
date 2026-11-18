@@ -243296,6 +243296,7 @@ window.searchData = [
     "biological_processes": [
       "proteasome assembly",
       "endoplasmic reticulum unfolded protein response",
+      "cornification",
       "keratinocyte differentiation"
     ],
     "phenotypes": [
@@ -243337,7 +243338,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "22",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "9"
   },
   {
@@ -430391,6 +430392,133 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "VPS35-Related Parkinson Disease",
+    "disease_id": "MONDO:0013625",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodegenerative Disease",
+      "Movement Disorder"
+    ],
+    "creation_date": "2026-11-17T18:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "VPS35-related Parkinson disease (PARK17, PARK-VPS35) is an autosomal dominant, late-onset parkinsonism caused by the heterozygous p.Asp620Asn missense variant in VPS35, the cargo-recognition subunit of the retromer complex. The variant weakens retromer's association with the actin-nucleating WASH complex and perturbs endosome-to-Golgi retrieval of cargo such as the cation-independent mannose-6-phosphate receptor and the chaperone-mediated-autophagy receptor LAMP2A, with impaired autophagic and lysosomal degradation, enhanced LRRK2-mediated Rab phosphorylation, mitochondrial fragmentation through an increased VPS35-DLP1 interaction, and reduced synaptic receptor recycling and striatal dopamine release as the downstream cellular consequences. The clinical picture is indistinguishable from sporadic Parkinson disease apart from a median onset about a decade earlier (around 50 years), a usually milder course with fewer atypical signs, and a marked and sustained levodopa response. Penetrance is high but incomplete. The one autopsied carrier lacked Lewy bodies, and the knock-in mouse lines disagree on whether alpha-synuclein or tau pathology develops, so whether this is an alpha-synucleinopathy is unresolved.",
+    "pathophysiology": [
+      "VPS35 p.Asp620Asn Variant",
+      "Impaired Retromer-WASH Complex Association",
+      "Defective Endosome-to-Golgi Cargo Retrieval",
+      "Impaired Autophagy and Lysosomal Degradation",
+      "Mitochondrial Fragmentation via Enhanced VPS35-DLP1 Interaction",
+      "Enhanced LRRK2-Mediated Rab Phosphorylation",
+      "Impaired Synaptic Receptor Recycling and Dopamine Release",
+      "Alpha-Synuclein Accumulation",
+      "Tau Pathology",
+      "Nigrostriatal Dopaminergic Neurodegeneration",
+      "Striatal Dopamine Deficiency and Basal Ganglia Circuit Dysfunction",
+      "Parkinsonism"
+    ],
+    "cell_types": [
+      "dopaminergic neuron",
+      "medium spiny neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000700",
+      "CL:1001474"
+    ],
+    "biological_processes": [
+      "WASH-dependent actin nucleation on endosomes",
+      "retrograde endosome-to-Golgi transport",
+      "autophagy",
+      "chaperone-mediated autophagy",
+      "mitochondrial fission",
+      "mitochondrion organization",
+      "LRRK2-mediated Rab GTPase phosphorylation",
+      "Rab protein signal transduction",
+      "AMPA receptor recycling to synapses",
+      "evoked striatal dopamine release",
+      "alpha-synuclein accumulation",
+      "dopamine biosynthetic process",
+      "neuron apoptotic process",
+      "dopamine secretion",
+      "dopaminergic synaptic transmission"
+    ],
+    "phenotypes": [
+      "Resting Tremor",
+      "Bradykinesia",
+      "Rigidity",
+      "Postural Instability",
+      "Marked and Sustained Levodopa Response",
+      "Levodopa-Induced Dyskinesia and Motor Fluctuations",
+      "Depression",
+      "Schizophrenia",
+      "Psychosis",
+      "Cognitive Impairment",
+      "Hyposmia",
+      "Orthostatic Hypotension",
+      "Constipation"
+    ],
+    "phenotype_categories": [
+      "Motor",
+      "Treatment Response",
+      "Psychiatric",
+      "Cognitive",
+      "Sensory",
+      "Autonomic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002322",
+      "HP:0002067",
+      "HP:0002063",
+      "HP:0002172",
+      "HP:0002548",
+      "HP:0100660",
+      "HP:0000716",
+      "HP:0100753",
+      "HP:0000709",
+      "HP:0100543",
+      "HP:0004409",
+      "HP:0001278",
+      "HP:0002019"
+    ],
+    "frequencies": [
+      "VERY_RARE",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "VPS35"
+    ],
+    "treatments": [
+      "Levodopa with Peripheral Decarboxylase Inhibitor",
+      "Dopamine Receptor Agonists",
+      "Adjunctive Antiparkinsonian Pharmacotherapy",
+      "Subthalamic Deep Brain Stimulation and Apomorphine Therapy",
+      "Physical, Occupational and Speech Therapy",
+      "Antipsychotic Management of Psychosis",
+      "Depression Management",
+      "Orthostatic Hypotension Management",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "LRRK2-phosphorylated Rab10 in peripheral blood cells"
+    ],
+    "source_file": "VPS35-Related_Parkinson_Disease.yaml",
+    "page_url": "../pages/disorders/VPS35-Related_Parkinson_Disease.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 12,
+    "num_genes": 1,
+    "num_treatments": 9,
+    "causal_graph_edges": "44",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "VPS4A-Related Neurodevelopmental Syndrome",
     "disease_id": "MONDO:0035819",
     "category": "Mendelian",
@@ -445580,17 +445708,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4103,
+  "total_disorder_pages": 4104,
   "total_subtypes": 5096,
-  "total_disorders_and_subtypes": 9199,
-  "total_unique_evidence_sources": 61289,
-  "total_unique_publications": 57269,
+  "total_disorders_and_subtypes": 9200,
+  "total_unique_evidence_sources": 61306,
+  "total_unique_publications": 57286,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4101,
-  "total_unique_pathological_events": 27075,
+  "total_pathographs": 4102,
+  "total_unique_pathological_events": 27084,
   "total_modules": 236,
-  "total_research_reports": 4206,
+  "total_research_reports": 4207,
   "total_classifications": 21,
   "total_comorbidities": 57,
   "total_groupings": 137
