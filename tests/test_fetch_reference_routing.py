@@ -37,6 +37,7 @@ def _fetch_reference_recipe() -> str:
         ("ORPHA", "orphanet"),
         ("ICEES", "icees"),
         ("NCIT", "ncit"),
+        ("OECDTG", "oecd-tg"),
     ],
 )
 def test_fetch_reference_routes_structured_prefix_to_its_rebuild(
@@ -55,7 +56,12 @@ def test_fetch_reference_routes_structured_prefix_to_its_rebuild(
 def test_fetch_reference_has_no_lowercase_structured_arms():
     """The serializers accept `CGGV:`/`ORPHA:`/... (and `Orphanet:`), never
     lowercase prefixes, so a lowercase arm can only route an id into a
-    KeyError (review on #13766)."""
+    KeyError (review on #13766).
+
+    `oecdtg` is deliberately NOT in the set below, and must not be added: the
+    OECD TG source normalizes its own identifier, so the lowercase arm resolves
+    instead of raising. `test_oecd_tg_lowercase_arm_is_deliberate` pins that.
+    """
     recipe = _fetch_reference_recipe()
     arms = re.findall(r"^\s*([A-Za-z_|:*]+)\)\n", recipe, re.MULTILINE)
     lowercase = [
@@ -133,3 +139,21 @@ def test_flags_without_an_identifier_fail(tmp_path):
     result = _run_recipe(tmp_path, "--force")
     assert result.returncode != 0
     assert "LRV:" not in result.stdout
+
+
+def test_oecd_tg_lowercase_arm_is_deliberate():
+    """`OECDTG:` is the one structured prefix whose lowercase arm is correct.
+
+    The other serializers key on the exact uppercase prefix, so routing
+    `cggv:...` to one only produces a KeyError -- which is what the test above
+    prevents. `dismech.structured_sources.oecd_tg._normalize_identifier` instead
+    accepts `oecdtg:442d` and upper-cases the guideline number, because the
+    suffix letter is part of it (`442D` is not `442C`). So the lowercase arm
+    reaches a record rather than an error, and removing it would reject a
+    spelling the source supports.
+    """
+    from dismech.structured_sources.oecd_tg import _normalize_identifier
+
+    assert _normalize_identifier("oecdtg:442d") == "OECDTG:442D"
+    assert _normalize_identifier("OECDTG:442D") == "OECDTG:442D"
+    assert "oecdtg:*" in _fetch_reference_recipe()
