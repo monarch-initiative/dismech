@@ -2273,6 +2273,27 @@ evidence:
     explanation: "Why this evidence supports/refutes the claim"
 ```
 
+#### A regulatory test guideline is a lead, never an evidence reference
+
+An OECD Test Guideline, and any comparable regulatory consensus document, must
+not appear in an evidence `reference:`. `OECDTG:` is deliberately absent from
+`ALLOWED_REFERENCE_PREFIXES` in `tests/test_data.py`, as `AOP:` always has been,
+and `check_evidence_items_have_references` fails on it.
+
+A guideline describes an assay in the **key-event** terms of an Adverse Outcome
+Pathway — TG 442D is titled for the AOP key event on keratinocyte activation. A
+key event is not a pathograph node, and nothing here records the correspondence
+between any particular pair. So a guideline citation on a `modeled_mechanisms`
+link asserts that step silently, under a citation that does not make it.
+
+Cache it, read it, and source the claim from the primary literature its reference
+list names — which is often better evidence rather than a weaker substitute. A
+fact with no primary source (a method's Validated Reference Method standing, the
+guideline's own judgement about a result) goes in `notes:`, attributed to the
+guideline and marked as a lead. `Contact_Dermatitis` is the worked example; see
+design decisions §6e, which records what was removed from it and what each
+removal was re-sourced to, and the `extract-tg-method` skill.
+
 #### `supports` is direction; `directness` is a separate axis
 
 `supports` records **which way** the cited evidence cuts, and nothing else:
@@ -4318,7 +4339,12 @@ Non-negotiable rules:
   entry with `just fetch-reference <ID>`.
 - Never create or hand-edit `signed_excerpts/*.yaml`; those bundles are verified
   against full-text PDFs in the private `monarch-initiative/claimstore`
-  repository and synced from there (design decisions §6d).
+  repository and synced from there with `just sync-signed-excerpts`, which needs
+  claimstore read access (design decisions §6d).
+- A `file:` reference (a committed supplement, cited by a repo-relative path
+  such as `file:data/literature_supplements/<name>.md`) is read from disk on
+  every run and, since linkml-reference-validator 0.8.0, never cached. Do not
+  commit a `references_cache/file_*.md` entry for one.
 - Validation is read-only for committed caches. `just validate`,
   `validate-kb-references` and `validate-disorders` may *create* a cache file
   for a newly cited reference (commit it), but they never rewrite a tracked one:
@@ -4981,6 +5007,15 @@ as evidence `snippet:` values.
 | `ICEES:` | ICEES Knowledge Graph (KGX, RENCI/UNC) | One record per disease/phenotype comorbidity pair (MONDO/HP both sides), with per-cohort chi-square rows | ICEES terms |
 | `NCIT:` | NCI Thesaurus selected predicate edges (via OAK `sqlite:obo:ncit`) | One record per subject carrying a selected predicate; currently `NCIT:P302` (Accepted_Therapeutic_Use_For), 796 drug→indication assertions | NCIT terms |
 | `ICTRP:` | WHO International Clinical Trials Registry Platform search portal | One record per trial, fetched per identifier on demand (no bulk file) | WHO ICTRP terms |
+| `OECDTG:` | OECD Test Guideline PDFs, pinned by sha256 in `data/oecd_tg/MANIFEST.yaml` | One record per guideline; currently TG 442D, 51 paragraphs — the General Introduction plus each appendix's `Initial Considerations` and `Principle of the Test` | CC BY 4.0 |
+
+**`OECDTG:` is the one prefix in this table that is cache-only.** Unlike every
+other row, it may *not* appear in an evidence `reference:` — it is absent from
+`ALLOWED_REFERENCE_PREFIXES` and `check_evidence_items_have_references` rejects
+it. A Test Guideline describes an assay in the key-event terms of an Adverse
+Outcome Pathway, and a key event is not a pathograph node, so citing one asserts
+a correspondence nothing here records. The cache is for reading the guideline
+and for auditing the method extraction against it. See design decisions §6e.
 
 **Citing an NCIT P302 (Accepted_Therapeutic_Use_For) treatment indication:**
 
