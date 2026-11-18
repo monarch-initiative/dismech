@@ -434,6 +434,17 @@ Record the outcome in the review body — e.g. "12 new evidence items, all title
 After completing the review, you MUST submit a formal GitHub review (not just a comment).
 Use `gh pr review` with one of the three events below.
 
+**Every review run ends in a submitted review, including a re-review.** Never
+decline because the PR "was already reviewed". In particular, do not read a
+review's `commit_id` as the commit it reviewed: GitHub reports it as the PR's
+*current* head, so after a rebase every earlier review appears to be a review
+of the new head (dismech#18298). To tell whether an earlier review covers the
+head, compare that review's `submitted_at` with the head commit's committer
+date — a review submitted before the commit existed cannot be a review of it —
+and read `gh pr diff` rather than commit ids. If nothing material changed,
+submit the same verdict again (re-approve, or re-request the outstanding
+changes); a run with no verdict leaves a red check that nothing can clear.
+
 ### APPROVE
 Submit `--approve` when **all** of the following hold:
 - No fabricated snippets or wrong PMIDs detected through spot-checking
