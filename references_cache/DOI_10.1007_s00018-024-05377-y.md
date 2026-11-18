@@ -1,0 +1,26 @@
+---
+reference_id: DOI:10.1007/s00018-024-05377-y
+extractor_version: 1
+title: "SLC30A9: an evolutionarily conserved mitochondrial zinc transporter essential for mammalian early embryonic development"
+authors:
+- Jing Ge
+- Huihui Li
+- Xin Liang
+- Bing Zhou
+journal: Cellular and Molecular Life Sciences
+year: '2024'
+doi: 10.1007/s00018-024-05377-y
+content_type: abstract_only
+is_preprint: false
+---
+
+# SLC30A9: an evolutionarily conserved mitochondrial zinc transporter essential for mammalian early embryonic development
+**Authors:** Jing Ge, Huihui Li, Xin Liang, Bing Zhou
+**Journal:** Cellular and Molecular Life Sciences (2024)
+**DOI:** [10.1007/s00018-024-05377-y](https://doi.org/10.1007/s00018-024-05377-y)
+
+## Content
+
+Abstract
+
+SLC30A9 (ZnT9) is a mitochondria-resident zinc transporter. Mutations in SLC30A9 have been reported in human patients with a novel cerebro-renal syndrome. Here, we show that ZnT9 is an evolutionarily highly conserved protein, with many regions extremely preserved among evolutionarily distant organisms. In Drosophila melanogaster (the fly), ZnT9 (ZnT49B) knockdown results in acutely impaired movement and drastic mitochondrial deformation. Severe Drosophila ZnT9 (dZnT9) reduction and ZnT9-null mutant flies are pupal lethal. The phenotype of dZnT9 knockdown can be partially rescued by mouse ZnT9 expression or zinc chelator TPEN, indicating the defect of dZnT9 loss is indeed a result of zinc dyshomeostasis. Interestingly, in the mouse, germline loss of Znt9 produces even more extreme phenotypes: the mutant embryos exhibit midgestational lethality with severe development abnormalities. Targeted mutagenesis of Znt9 in the mouse brain leads to serious dwarfism and physical incapacitation, followed by death shortly. Strikingly, the GH/IGF-1 signals are almost non-existent in these tissue-specific knockout mice, consistent with the medical finding in some human patients with severe mitochondrial deficiecny. ZnT9 mutations cause mitochondrial zinc dyshomeostasis, and we demonstrate mechanistically that mitochondrial zinc elevation quickly and potently inhibits the activities of respiration complexes. These results reveal the critical role of ZnT9 and mitochondrial zinc homeostasis in mammalian development. Based on our functional analyses, we finally discussed the possible nature of the so far identified human SLC30A9 mutations.
