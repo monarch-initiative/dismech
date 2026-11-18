@@ -168,3 +168,30 @@ def test_background_tasks_are_disabled_for_the_review_agent():
     steps = safe_load_path(WORKFLOW)["jobs"]["claude-review"]["steps"]
     agent = next(s for s in steps if s.get("name") == "Run Claude Code Review")
     assert agent["env"]["CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"] == "1"
+
+
+def test_reruns_get_a_sound_prior_review_summary_and_must_end_in_a_verdict():
+    """A rebased PR must still be reviewed (dismech#18298).
+
+    GitHub reports a review's ``commit_id`` as the PR's current head, so an
+    agent comparing it with the head always concludes it has already reviewed
+    the head, declines, and leaves a red verdict check no event can re-run.
+    The workflow hands the agent a ``submitted_at`` vs committer-date summary
+    before it runs, and the prompt forbids ending without a verdict.
+    """
+    steps = safe_load_path(WORKFLOW)["jobs"]["claude-review"]["steps"]
+    names = [s.get("name", "") for s in steps]
+    summary = names.index("Summarise prior reviews against the head commit")
+    agent = names.index("Run Claude Code Review")
+    assert summary < agent
+
+    run = steps[summary]["run"]
+    assert "commit.committer.date" in run
+    assert "submitted_at <" in run
+    # Fails open rather than failing the job.
+    assert "|| summary=" in run
+
+    prompt = steps[agent]["with"]["prompt"]
+    assert "${{ steps.prior-reviews.outputs.text }}" in prompt
+    assert "EVERY RUN MUST END IN A SUBMITTED REVIEW" in prompt
+    assert "commit_id" in prompt
