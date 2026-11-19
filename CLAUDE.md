@@ -5146,8 +5146,9 @@ predicate for the same source but is not yet ingested.
 
 An IMPC record holds what the International Mouse Phenotyping Consortium found
 for one mouse gene's knockout lines in the pinned data release, in three
-tables: viability, **phenotyping coverage** (the top-level MP systems each
-colony was tested for, and which of them gave a significant call), and every
+tables: viability, **phenotyping coverage** (the procedures each colony went
+through, the top-level MP systems tested, and which of them gave a significant
+call), and every
 significant call (`| MP term | MP name | Procedure | Parameter | Zygosity | Sex
 | p-value | Effect size | Centre | Allele | Resource |`). Build it with
 `just fetch-reference IMPC:MGI:<n>` (or `just impc-rebuild --id ...`); only

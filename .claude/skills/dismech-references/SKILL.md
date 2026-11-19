@@ -529,6 +529,7 @@ mixed case is normal and none of it is a typo:
 | `url` | 116 | Web page |
 | `MYGENESET` | 100 | MyGeneset |
 | `STRCHIVE` | 73 | STRchive |
+| `IMPC` | 17 | IMPC knockout phenotyping, one record per mouse gene |
 | `PPR` | 25 | Europe PMC preprint |
 | `CIVIC` | 15 | CIViC assertions and evidence |
 | `ICTRP` | 7 | WHO ICTRP (non-NCT trial registries) |

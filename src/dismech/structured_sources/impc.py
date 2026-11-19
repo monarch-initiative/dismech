@@ -109,6 +109,7 @@ class _Coverage:
     tested: tuple[str, ...]
     significant: tuple[str, ...]
     procedures_tested: int
+    procedures: tuple[str, ...] = ()
 
     def row(self) -> str:
         cells = [
@@ -118,6 +119,7 @@ class _Coverage:
             self.life_stage,
             self.center,
             str(self.procedures_tested),
+            "; ".join(self.procedures) or "none",
             "; ".join(self.tested) or "none",
             "; ".join(self.significant) or "none",
         ]
@@ -264,6 +266,7 @@ class IMPCSource(StructuredSource):
                     tested=_systems(r.get("Top-level MP Name: Successful")),
                     significant=_systems(r.get("Top-level MP Name: Significant")),
                     procedures_tested=_int(r.get("Procedure Count: Successful")),
+                    procedures=_systems(r.get("Procedure Name: Successful")),
                 )
             )
 
@@ -339,14 +342,14 @@ class IMPCSource(StructuredSource):
             "",
             "## Phenotyping coverage",
             "",
-            "Top-level MP systems with at least one successfully processed "
-            "parameter (tested) and with at least one significant call "
-            "(significant), per colony, zygosity and life stage.",
+            "Procedures successfully run, top-level MP systems with at least one "
+            "successfully processed parameter (tested) and with at least one "
+            "significant call (significant), per colony, zygosity and life stage.",
             "",
         ]
         if g.coverage:
             lines.append(
-                "| Allele | Colony | Zygosity | Life stage | Centre | Procedures tested | Systems tested | Systems significant |"
+                "| Allele | Colony | Zygosity | Life stage | Centre | Procedures tested | Procedures | Systems tested | Systems significant |"
             )
             for c in sorted(g.coverage, key=lambda x: x.sort_key()):
                 lines.append(c.row())

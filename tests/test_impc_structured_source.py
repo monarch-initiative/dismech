@@ -52,6 +52,7 @@ COMPLETENESS_HEADER = [
     "Zygosity",
     "Life Stage",
     "Procedure Count: Successful",
+    "Procedure Name: Successful",
     "Top-level MP Name: Successful",
     "Top-level MP Name: Significant",
 ]
@@ -89,9 +90,9 @@ def fixture_source(tmp_path: Path) -> IMPCSource:
         tmp_path / "procedureCompletenessAndPhenotypeHits.csv.gz",
         COMPLETENESS_HEADER,
         [
-            ["Abc1", "MGI:12", allele, "C1", "WTSI", "homozygote", "Early adult", "14",
+            ["Abc1", "MGI:12", allele, "C1", "WTSI", "homozygote", "Early adult", "14", "Hematology|Eye Morphology",
              "vision/eye phenotype|hematopoietic system phenotype", "hematopoietic system phenotype"],
-            ["Def2", "MGI:3", "Def2<em1(IMPC)J>", "C2", "JAX", "homozygote", "Early adult", "12",
+            ["Def2", "MGI:3", "Def2<em1(IMPC)J>", "C2", "JAX", "homozygote", "Early adult", "12", "Eye Morphology",
              "vision/eye phenotype", "None"],
         ],
     )
@@ -133,13 +134,13 @@ def test_record_has_quotable_rows(fixture_source: IMPCSource):
     assert text.count("| MP:0003179 | thrombocytopenia | Hematology | Platelet count | homozygote | male |") == 1
     assert "| Abc1<tm1b(KOMP)Wtsi> | C1 | homozygote | viable | 90 | 0.24 | WTSI |" in text
     # Systems are sorted, so the tested list is stable across releases.
-    assert "| hematopoietic system phenotype; vision/eye phenotype | hematopoietic system phenotype |" in text
+    assert "| 14 | Eye Morphology; Hematology | hematopoietic system phenotype; vision/eye phenotype | hematopoietic system phenotype |" in text
     assert "- Data release: 99.0 (2026-01-01)" in text
 
 
 def test_tested_without_call_is_explicit(fixture_source: IMPCSource):
     text = fixture_source.serialize("MGI:3").render()
-    assert "| Def2<em1(IMPC)J> | C2 | homozygote | Early adult | JAX | 12 | vision/eye phenotype | none |" in text
+    assert "| Def2<em1(IMPC)J> | C2 | homozygote | Early adult | JAX | 12 | Eye Morphology | vision/eye phenotype | none |" in text
     assert "No significant phenotype call in this release." in text
     assert "No viability record in this release." in text
 
