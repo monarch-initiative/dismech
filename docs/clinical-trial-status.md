@@ -101,14 +101,32 @@ into `UNKNOWN`.
 
 | Registry `phases` | dismech `ClinicalTrialPhaseEnum` |
 |---|---|
-| `EARLY_PHASE1` | `PHASE_I` (approximate — dismech has no Early Phase 1 value) |
+| `EARLY_PHASE1` | `EARLY_PHASE_I` |
 | `PHASE1` / `PHASE2` / `PHASE3` / `PHASE4` | `PHASE_I` / `PHASE_II` / `PHASE_III` / `PHASE_IV` |
+| `PHASE1` + `PHASE2` | `PHASE_I_II` |
+| `PHASE2` + `PHASE3` | `PHASE_II_III` |
 | `NA` | `NOT_APPLICABLE` |
 
-A registry record listing several phases (`PHASE1|PHASE2`) matches a curated value
-equal to **any** of them, so multi-phase trials do not produce spurious drift.
-Tests assert that every mapping target is a real permissible value in
-`dismech.yaml`, so the tables cannot drift away from the schema unnoticed.
+A registry record listing two phases is one combined-phase design, and dismech has
+a value for it (#15385). `PHASE1|PHASE2` and `PHASE2|PHASE3` therefore accept the
+combined value, which is also what `missing_phase` and `phase_drift` print in
+`live` -- the value a curator should write rather than a pair to choose from. The
+mapping is keyed on the exact component set, so an unregistered combination such as
+`PHASE1|PHASE3` falls through to the per-component comparison instead of asserting
+a design the registry did not register.
+
+**A rounded value is tolerated, and that is not agreement.** Before the combined
+and early values existed, curators had to round (or omit `phase`), and ~16 entries
+say so in their own `notes:`. Those spellings -- `PHASE_I` or `PHASE_II` against
+`PHASE1|PHASE2`, `PHASE_II` or `PHASE_III` against `PHASE2|PHASE3`, `PHASE_I`
+against `EARLY_PHASE1` -- are deliberately **not** reported as drift, because
+migrating one means re-reading its registry phase and this audit is advisory.
+Silence on such a row means "not yet migrated", not "verified correct". The
+combined value is the precise answer; its components are legacy.
+
+Tests assert that every mapping target, on both sides of the combined and legacy
+tables, is a real permissible value in `dismech.yaml`, so the tables cannot drift
+away from the schema unnoticed.
 
 ## Why it is advisory and not in `just qc`
 
