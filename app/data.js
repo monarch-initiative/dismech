@@ -220235,6 +220235,133 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Idiopathic CD4 Lymphocytopenia",
+    "disease_id": "MONDO:0014226",
+    "category": "Complex",
+    "parents": [
+      "Immunodeficiency Disease"
+    ],
+    "creation_date": "2026-11-16T21:58:59Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A clinical syndrome of persistent CD4-positive T cell depletion below 300 cells per cubic millimetre, diagnosed by exclusion once HIV-1, HIV-2, HTLV infection, another defined immunodeficiency and lymphodepleting therapy have all been ruled out. The depleted CD4 compartment leaves cell-mediated immunity unable to control a characteristic set of pathogens: human papillomavirus, Cryptococcus, molluscum contagiosum virus, nontuberculous mycobacteria and JC virus. Virus-driven and other cancers are commoner than in the general population, and about a third of patients carry an autoimmune condition. CD8, natural killer and B cell counts are reduced in many patients, so the deficit is often broader than the CD4 lineage alone. No cause is established in most patients, and the upstream mechanisms recorded here are competing candidates rather than one agreed lesion.",
+    "pathophysiology": [
+      "Blunted Interleukin-7 Homeostatic Response",
+      "Anti-CD4 T Cell Autoantibody-Mediated Lymphocyte Destruction",
+      "Accelerated Fas-Mediated CD4 T Cell Apoptosis",
+      "Defective Surface CXCR4 Expression on CD4 T Cells",
+      "Persistent CD4-Positive T Cell Depletion",
+      "Failure of CD4-Dependent Cell-Mediated Immunity",
+      "Impaired Immunosurveillance of Virus-Associated Malignancy",
+      "Lymphopenia-Associated Breakdown of Self-Tolerance",
+      "Impaired Primary Antibody Response to Novel Antigen"
+    ],
+    "cell_types": [
+      "CD4-positive T cell",
+      "naive CD4-positive T cell",
+      "CD8-positive T cell",
+      "natural killer cell",
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000624",
+      "CL:0000895",
+      "CL:0000625",
+      "CL:0000623",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "interleukin-7-mediated signaling pathway",
+      "T cell homeostasis",
+      "antibody-dependent cellular cytotoxicity",
+      "complement activation, classical pathway",
+      "T cell apoptotic process",
+      "extrinsic apoptotic signaling pathway",
+      "protein localization to plasma membrane",
+      "CXCL12-activated CXCR4 signaling pathway",
+      "T cell chemotaxis",
+      "T cell mediated immunity",
+      "adaptive immune response",
+      "T cell proliferation"
+    ],
+    "phenotypes": [
+      "Decreased total CD4+ T cell count",
+      "Decreased total CD8+ T cell count",
+      "Reduced total natural killer cell count",
+      "Decreased total B cell count",
+      "Recurrent infections",
+      "Persistent human papillomavirus infection",
+      "Cryptococcal meningitis",
+      "Unusual molluscum contagiosum",
+      "Disseminated nontuberculous mycobacterial infection",
+      "JC encephalitis",
+      "Autoimmunity",
+      "Squamous cell carcinoma",
+      "Non-Hodgkin lymphoma",
+      "Kaposi sarcoma",
+      "Papillary thyroid carcinoma",
+      "Decreased specific antibody response to vaccination"
+    ],
+    "phenotype_categories": [
+      "Immunological",
+      "Neurological",
+      "Dermatological",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Endocrine",
+      "Immune",
+      "Integument",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:5210418",
+      "HP:5210426",
+      "HP:0040218",
+      "HP:0010976",
+      "HP:0002719",
+      "HP:0020114",
+      "HP:0032160",
+      "HP:0032163",
+      "HP:0032283",
+      "HP:5210336",
+      "HP:0002960",
+      "HP:0002860",
+      "HP:0012539",
+      "HP:0100726",
+      "HP:0002895",
+      "HP:0032140"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "UNC119"
+    ],
+    "treatments": [
+      "Antimicrobial prophylaxis",
+      "Recombinant interleukin-7",
+      "Interleukin-2",
+      "Allogeneic hematopoietic stem cell transplantation",
+      "Human papillomavirus vaccination"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Idiopathic_CD4_Lymphocytopenia.yaml",
+    "page_url": "../pages/disorders/Idiopathic_CD4_Lymphocytopenia.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Idiopathic Gastroparesis",
     "disease_id": "MONDO:0034150",
     "category": "Complex",
@@ -446560,17 +446687,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4113,
+  "total_disorder_pages": 4114,
   "total_subtypes": 5100,
-  "total_disorders_and_subtypes": 9213,
-  "total_unique_evidence_sources": 61380,
-  "total_unique_publications": 57352,
+  "total_disorders_and_subtypes": 9214,
+  "total_unique_evidence_sources": 61400,
+  "total_unique_publications": 57366,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4111,
-  "total_unique_pathological_events": 27133,
+  "total_pathographs": 4112,
+  "total_unique_pathological_events": 27142,
   "total_modules": 236,
-  "total_research_reports": 4216,
+  "total_research_reports": 4217,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 139
