@@ -8,6 +8,7 @@ Exposes operations to refresh bulk data and (re)build cache files.
     uv run python -m dismech.structured_sources.cli rebuild clingen --id CGGV:assertion_...
     uv run python -m dismech.structured_sources.cli rebuild clingen-dosage --id HGNC:25662
     uv run python -m dismech.structured_sources.cli rebuild civic --id CIVIC_EID:260
+    uv run python -m dismech.structured_sources.cli rebuild impc --id IMPC:MGI:1353510
 
 ``data/``, ``references_cache/`` and ``kb/disorders/`` default to the checkout
 containing the working directory, or to ``$DISMECH_ROOT`` when that is set
@@ -38,6 +39,7 @@ from dismech.structured_sources.clingen_yaml_audit import (
 )
 from dismech.structured_sources.icees import ICEESSource
 from dismech.structured_sources.ictrp import ICTRPSource
+from dismech.structured_sources.impc import IMPCSource
 from dismech.structured_sources.mygeneset import MyGenesetSource
 from dismech.structured_sources.oecd_tg import OECDTestGuidelineSource
 from dismech.structured_sources.ontology_edges import OntologyEdgeSource
@@ -90,6 +92,8 @@ _MANIFEST_DIRS: dict[str, str] = {
     "icees": "icees-kg",
     "icees-kg": "icees-kg",
     "icees_kg": "icees-kg",
+    "impc": "impc",
+    "mousephenotype": "impc",
     "strchive": "strchive",
     "str": "strchive",
     "strchive-loci": "strchive",
@@ -155,6 +159,11 @@ def _get_source(name: str) -> StructuredSource:
         if manifest.exists():
             StrchiveSource.load_manifest(manifest)
         return StrchiveSource(data_dir / "strchive")
+    if name in {"impc", "mousephenotype"}:
+        manifest = data_dir / "impc" / "MANIFEST.yaml"
+        if manifest.exists():
+            IMPCSource.load_manifest(manifest)
+        return IMPCSource(data_dir / "impc")
     if name in {"ictrp", "who-ictrp", "chictr"}:
         # No bulk file: ICTRP records are fetched per identifier on demand, so
         # the cache directory *is* the index of what this source knows about.

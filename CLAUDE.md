@@ -5085,6 +5085,7 @@ as evidence `snippet:` values.
 | `ICEES:` | ICEES Knowledge Graph (KGX, RENCI/UNC) | One record per disease/phenotype comorbidity pair (MONDO/HP both sides), with per-cohort chi-square rows | ICEES terms |
 | `NCIT:` | NCI Thesaurus selected predicate edges (via OAK `sqlite:obo:ncit`) | One record per subject carrying a selected predicate; currently `NCIT:P302` (Accepted_Therapeutic_Use_For), 796 drug→indication assertions | NCIT terms |
 | `ICTRP:` | WHO International Clinical Trials Registry Platform search portal | One record per trial, fetched per identifier on demand (no bulk file) | WHO ICTRP terms |
+| `IMPC:` | IMPC per-release reports (significant calls, phenotyping coverage, viability), pinned by `data/impc/MANIFEST.yaml` | One record per mouse gene (`IMPC:MGI:<n>`), built on demand for cited genes | CC BY 4.0 |
 | `OECDTG:` | OECD Test Guideline PDFs, pinned by sha256 in `data/oecd_tg/MANIFEST.yaml` | One record per guideline; currently TG 442D, 51 paragraphs — the General Introduction plus each appendix's `Initial Considerations` and `Principle of the Test` | CC BY 4.0 |
 
 **`OECDTG:` is the one prefix in this table that is cache-only.** Unlike every
@@ -5140,6 +5141,48 @@ just ncit-p302-audit --format summary   # advisory treatment-coverage audit
 See `projects/NCIT_TREATMENT_INDICATIONS.md` for the completeness project. The
 coded molecular-target relation `NCIT:A7` (`Has_Target`) is a natural follow-on
 predicate for the same source but is not yet ingested.
+
+**Citing an IMPC knockout record (`IMPC:MGI:<n>`):**
+
+An IMPC record holds what the International Mouse Phenotyping Consortium found
+for one mouse gene's knockout lines in the pinned data release, in three
+tables: viability, **phenotyping coverage** (the top-level MP systems each
+colony was tested for, and which of them gave a significant call), and every
+significant call (`| MP term | MP name | Procedure | Parameter | Zygosity | Sex
+| p-value | Effect size | Centre | Allele | Resource |`). Build it with
+`just fetch-reference IMPC:MGI:<n>` (or `just impc-rebuild --id ...`); only
+cited genes are committed.
+
+```yaml
+animal_models:
+- name: Arhgef1 tm1a(EUCOMM)Wtsi knockout mouse (IMPC)
+  species: Mouse
+  genes:
+  - preferred_term: Arhgef1
+    term: {id: MGI:1353510, label: Arhgef1}
+  modeled_mechanisms:
+  - target: <pathophysiology node>
+    relationship: PARTIALLY_RECAPITULATES
+    model_scale: CELLULAR
+    evidence:
+    - reference: IMPC:MGI:1353510
+      supports: SUPPORT
+      evidence_source: MODEL_ORGANISM
+      snippet: "MP:0003131 | increased erythrocyte cell number | Hematology | Red blood cell count | homozygote"
+```
+
+Rules specific to this source:
+
+- **It is model-organism evidence about a null allele**, so it belongs on an
+  `animal_models` record (`evidence_source: MODEL_ORGANISM`), never as the only
+  support for a human phenotype, and its `limitations` should say what the
+  allele and zygosity are relative to the patients' variants.
+- **A significant call is a finding; an absent one is not, unless the system
+  was tested.** Quote a `## Phenotyping coverage` row to show a system was
+  tested without a call before writing `FAILS_TO_RECAPITULATE`.
+- **Set `model_scale` from what the procedure measured** (blood counts are
+  `CELLULAR`, organ weights and histology `TISSUE`, behaviour and survival
+  `ORGANISM`), not from the node it is cited for.
 
 **Citing an Orphanet entry:**
 

@@ -450,7 +450,7 @@ def find_claims_in_text(
 # --------------------------------------------------------------------------
 
 INLINE_REFERENCE = re.compile(
-    r"\b(PMID|PMC|DOI|ORPHA|NCT|ICTRP|CGGV|CGDS|ICEES|STRCHIVE|NCIT)\s*:\s*"
+    r"\b(PMID|PMC|DOI|ORPHA|NCT|ICTRP|CGGV|CGDS|ICEES|STRCHIVE|NCIT|IMPC)\s*:\s*"
     r"(?P<id>[^\s,;)\]]+)",
     re.IGNORECASE,
 )
