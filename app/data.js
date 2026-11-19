@@ -210506,7 +210506,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "4"
   },
   {
@@ -344099,7 +344099,8 @@ window.searchData = [
     "frequencies": [],
     "genes": [],
     "treatments": [
-      "Early antibiotic therapy"
+      "Early antibiotic therapy",
+      "Post-exposure antibiotic prophylaxis for pneumonic plague contacts"
     ],
     "environmental": [],
     "biochemical": [],
@@ -344108,9 +344109,9 @@ window.searchData = [
     "num_phenotypes": 9,
     "num_pathophysiology": 4,
     "num_genes": 0,
-    "num_treatments": 1,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 2,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Pneumonic Tularemia",
@@ -447799,8 +447800,8 @@ window.searchMetrics = {
   "total_disorder_pages": 4125,
   "total_subtypes": 5103,
   "total_disorders_and_subtypes": 9228,
-  "total_unique_evidence_sources": 61483,
-  "total_unique_publications": 57442,
+  "total_unique_evidence_sources": 61486,
+  "total_unique_publications": 57445,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4123,
