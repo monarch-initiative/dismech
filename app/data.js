@@ -36668,6 +36668,89 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Auditory Neuropathy-Optic Atrophy Syndrome",
+    "disease_id": "MONDO:0060582",
+    "category": "Mendelian",
+    "parents": [
+      "FDXR-related mitochondriopathy",
+      "Mitochondrial iron-sulfur cluster assembly disorder"
+    ],
+    "creation_date": "2026-11-19T04:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Auditory neuropathy-optic atrophy syndrome is an autosomal recessive mitochondrial disorder caused by biallelic hypomorphic variants in FDXR, the sole human ferredoxin reductase. FDXR passes electrons from NADPH to ferredoxin, which supplies the reducing equivalents that mitochondrial iron-sulfur cluster assembly consumes, so the lesion sits at the electron-supply step of the pathway rather than at a scaffold, a transfer or an export step. Cluster-dependent enzymes lose activity, cells read themselves as iron-starved, and mitochondrial iron overloads. The clinical picture is sensory-predominant: bilateral auditory neuropathy, in which brainstem responses are severely impaired while cochlear outer hair cell function is preserved, together with optic atrophy that is sometimes detectable only on electrophysiology, and in several cohorts a retinal dystrophy with attenuated and occluded retinal vessels. This entry is the milder, sensory end of one FDXR spectrum whose severe end is curated separately as multiple mitochondrial dysfunctions syndrome 9B.\n",
+    "pathophysiology": [
+      "Biallelic Hypomorphic FDXR Variants",
+      "Reduced Ferredoxin Reductase Activity",
+      "Reduced Electron Supply to Ferredoxin",
+      "Impaired Mitochondrial Iron-Sulfur Cluster Biogenesis",
+      "Deficient Respiratory Chain and Cluster-Dependent Enzyme Activity",
+      "Iron-Starvation Signalling",
+      "Mitochondrial Iron Overload",
+      "Oxidative Stress and Mitochondrial Depolarization",
+      "Sensory Neuron and Axonal Transport Failure",
+      "Retinal Degeneration With Vascular Attenuation"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "retinal ganglion cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000740"
+    ],
+    "biological_processes": [
+      "iron-sulfur cluster assembly",
+      "oxidative phosphorylation",
+      "intracellular iron ion homeostasis",
+      "response to oxidative stress"
+    ],
+    "phenotypes": [
+      "Abnormal auditory evoked potentials",
+      "Optic atrophy",
+      "Retinal dystrophy",
+      "Attenuation of retinal blood vessels",
+      "Peripheral neuropathy",
+      "Ataxia"
+    ],
+    "phenotype_categories": [
+      "Auditory",
+      "Ophthalmological",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0006958",
+      "HP:0000648",
+      "HP:0000556",
+      "HP:0007843",
+      "HP:0009830",
+      "HP:0001251"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FDXR"
+    ],
+    "treatments": [
+      "Auditory and low-vision rehabilitation",
+      "AAV-mediated FDXR gene replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Auditory_Neuropathy-Optic_Atrophy_Syndrome.yaml",
+    "page_url": "../pages/disorders/Auditory_Neuropathy-Optic_Atrophy_Syndrome.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Auditory Neuropathy",
     "disease_id": "MONDO:0021944",
     "category": "Genetic",
@@ -446801,17 +446884,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4115,
+  "total_disorder_pages": 4116,
   "total_subtypes": 5101,
-  "total_disorders_and_subtypes": 9216,
-  "total_unique_evidence_sources": 61406,
-  "total_unique_publications": 57372,
+  "total_disorders_and_subtypes": 9217,
+  "total_unique_evidence_sources": 61407,
+  "total_unique_publications": 57373,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4113,
-  "total_unique_pathological_events": 27147,
+  "total_pathographs": 4114,
+  "total_unique_pathological_events": 27155,
   "total_modules": 236,
-  "total_research_reports": 4218,
+  "total_research_reports": 4219,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 139
