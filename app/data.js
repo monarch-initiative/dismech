@@ -130736,6 +130736,120 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "DNAJC6-Related Parkinson Disease",
+    "disease_id": "MONDO:0014231",
+    "category": "Mendelian",
+    "parents": [
+      "Movement Disorder",
+      "Autosomal Recessive Early-Onset Parkinsonism"
+    ],
+    "creation_date": "2026-11-18T22:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "PARK19B"
+    ],
+    "description": "DNAJC6-related Parkinson disease (PARK19) is an autosomal-recessive form of parkinsonism caused by biallelic loss-of-function variants in DNAJC6, which encodes auxilin, the neuron-specific clathrin-uncoating co-chaperone. Auxilin works with the constitutive heat-shock protein HSC70 to disassemble the clathrin coat from newly endocytosed synaptic vesicles, so loss of its activity impairs clathrin uncoating, synaptic-vesicle endocytosis and recycling at the nerve terminal, and presynaptic dopamine handling. This places the disease on the presynaptic, endocytic arm of Parkinson pathophysiology alongside SYNJ1 (PARK20), rather than on the mitochondrial arm of PRKN/PINK1. The phenotype spans a juvenile-onset form (PARK19A) whose core features are parkinsonism (bradykinesia, resting tremor, rigidity, postural instability) but in which developmental delay, intellectual disability, seizures and other movement disorders usually come first, and a milder early-onset form (PARK19B) presenting as parkinsonism in the third to fifth decade without the additional neurologic features. The two ends are one gene and one mechanism class and are curated here as one entry, with PARK19B as a subtype.",
+    "pathophysiology": [
+      "Auxilin Loss of Function",
+      "Clathrin Coat Disassembly Failure",
+      "Impaired Synaptic Vesicle Endocytosis and Recycling",
+      "Striatal Dopamine Dyshomeostasis",
+      "Nigrostriatal Dopaminergic Neurodegeneration",
+      "Striatal Dopamine Deficiency and Basal Ganglia Circuit Dysfunction",
+      "Parkinsonian Motor Syndrome",
+      "Impaired Midbrain Dopaminergic Neurodevelopment"
+    ],
+    "cell_types": [
+      "dopaminergic neuron",
+      "neuron",
+      "substantia nigra dopaminergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000700",
+      "CL:0000540",
+      "CL:4042025"
+    ],
+    "biological_processes": [
+      "clathrin coat disassembly",
+      "synaptic vesicle endocytosis",
+      "synaptic vesicle recycling",
+      "dopamine secretion",
+      "dopamine reuptake",
+      "neuron apoptotic process",
+      "neuron differentiation"
+    ],
+    "phenotypes": [
+      "Parkinsonism",
+      "Bradykinesia",
+      "Resting Tremor",
+      "Rigidity",
+      "Postural Instability",
+      "Dystonia",
+      "Spasticity",
+      "Myoclonus",
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Seizures",
+      "Neuropsychiatric Features",
+      "Cognitive Decline",
+      "Dysphagia",
+      "Sialorrhea",
+      "Gastrointestinal Dysmotility"
+    ],
+    "phenotype_categories": [
+      "Motor",
+      "Neurologic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001300",
+      "HP:0002067",
+      "HP:0002322",
+      "HP:0002063",
+      "HP:0002172",
+      "HP:0001332",
+      "HP:0001257",
+      "HP:0001336",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0000708",
+      "HP:0001268",
+      "HP:0002015",
+      "HP:0002307",
+      "HP:0002579"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DNAJC6"
+    ],
+    "treatments": [
+      "Levodopa",
+      "Dopamine Agonist and Anticholinergic Therapy",
+      "Anti-seizure Medication",
+      "Myoclonus Pharmacotherapy",
+      "Pallidal Deep Brain Stimulation",
+      "Multidisciplinary Supportive Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "DNAJC6-Related_Parkinson_Disease.yaml",
+    "page_url": "../pages/disorders/DNAJC6-Related_Parkinson_Disease.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "DNASE2 Deficiency",
     "disease_id": "MONDO:0800132",
     "category": "Mendelian",
@@ -405034,7 +405148,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "15",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "4"
   },
   {
@@ -446687,17 +446801,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4114,
-  "total_subtypes": 5100,
-  "total_disorders_and_subtypes": 9214,
-  "total_unique_evidence_sources": 61400,
-  "total_unique_publications": 57366,
+  "total_disorder_pages": 4115,
+  "total_subtypes": 5101,
+  "total_disorders_and_subtypes": 9216,
+  "total_unique_evidence_sources": 61406,
+  "total_unique_publications": 57372,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4112,
-  "total_unique_pathological_events": 27142,
+  "total_pathographs": 4113,
+  "total_unique_pathological_events": 27147,
   "total_modules": 236,
-  "total_research_reports": 4217,
+  "total_research_reports": 4218,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 139
