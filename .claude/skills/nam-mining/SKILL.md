@@ -253,7 +253,8 @@ decide it once and write the decision down.
 ## The procedure
 
 1. **Triage** against the gate. If the answer is registry-only or set-aside, stop
-   here, record the decision and its reason, and report it. Do not author a spec.
+   here: record the decision in the registry (step 11, which for these outcomes
+   follows directly) and report it. Do not author a spec.
 2. **Cache** the paper.
 3. **Read** it. The abstract if that is all there is; the full text when there is
    one, and say which the spec's claims came from.
@@ -279,6 +280,50 @@ decide it once and write the decision down.
 10. **Report** what the run produced, including its negatives and the mechanisms
     it found no node for. Those become gap issues; a mechanism dropped here is
     lost.
+11. **Record** the paper in the registry and open the pull request there,
+    without waiting to be asked. Every outcome ends here, including a set-aside
+    at step 1. See below.
+
+## Recording the outcome in the registry
+
+The review log for a paper corpus lives in the NAM registry
+([monarch-initiative/nams-registry](https://github.com/monarch-initiative/nams-registry)),
+not here: for the Complement-ARIE corpus it is
+`projects/COMPLEMENT_ARIE_DISEASE_PAPERS/review-log.tsv`, which that project
+calls the one log for the project in both repositories. A paper is not finished
+until its row is updated there **and a pull request carrying the change is open
+in `monarch-initiative/nams-registry`**. Pushing a branch without the pull
+request is not finished; nobody else sees a branch.
+
+Which columns to fill, and what each holds, is defined on the registry's
+project page
+([projects/COMPLEMENT_ARIE_DISEASE_PAPERS.md, "Review log columns"](https://github.com/monarch-initiative/nams-registry/blob/main/projects/COMPLEMENT_ARIE_DISEASE_PAPERS.md#review-log-columns)).
+Read it there rather than from a copy here, so the two cannot drift. In outline:
+
+- **Set aside or registry-only (stopped at step 1):** the screening columns,
+  including in `screen_reason` whether the abstract alone decided it, plus
+  `note` and `updated_on`. Commit the paper's cached reference
+  (`references_cache/`) in the registry alongside the row, and for a
+  registry-only paper the record itself in `nams/`.
+- **Full run (after step 10):** the same, plus the DisMech columns (the paper's
+  issue, the entries and modules changed, the gap issues, the pull requests),
+  `registry_outcome` and `nam_ids`. Fill this once the DisMech pull requests
+  exist. When the paper's NAM records go into `nams/` in the same registry
+  pull request, one pull request covers the row and the records.
+
+Follow the registry's `CLAUDE.md` for the branch and the pull request: never
+commit to `main`, run `just test` there before pushing (and
+`just validate-resources` when records changed), and open its pull-request body
+with the attribution line it specifies. Write the body under
+`github-communication`, as for any GitHub prose.
+
+**The TSV is what a session updates, not the shared review log page.** The
+Complement-ARIE project page names a shared review-log page as the working copy
+for its first round, brought up to date into the TSV at the end of the round.
+That page is the team's, so a session does not edit it on its own. Update the
+TSV through the pull request, and say in the report that the shared page does
+not yet carry the row, so whoever keeps the page can add it. If the registry's
+project page changes which copy is authoritative, follow the project page.
 
 ## What the run cannot be asked to settle
 
@@ -301,4 +346,5 @@ human and must be surfaced rather than resolved in the spec:
 - `ker-evidence-triage` for the same prioritization question applied to AOP-Wiki
   Key Event Relationships, and `mie-ker-capture` for turning Key Events into
   edges. Both are the AOP-side analogue of this skill.
-- `github-communication` before posting the triage decision or a gap issue.
+- `github-communication` before posting the triage decision, a gap issue, or the
+  registry pull request.
