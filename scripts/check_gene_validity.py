@@ -33,6 +33,22 @@ usually a broader ClinGen lumping (``ALPK3-Related_Hypertrophic_Cardiomyopathy``
 cites ClinGen's generic hypertrophic cardiomyopathy) or the gene's second
 disease. Those never feed ``backfill``.
 
+**One exception: a panel that files locus-level curations under a generic
+term.** The ClinGen Hearing Loss expert panel classifies most genes against
+"nonsyndromic genetic hearing loss" and its dominant and recessive children,
+and tells the loci apart by gene and mode of inheritance, where dismech and
+MONDO have one disease per locus (KCNQ4 / DFNA2A). There the generic record is
+the locus's own classification under a different filing convention, not a
+broader claim. Such an assertion counts as the entry's own when all three hold:
+its MONDO term is in ``PANEL_LUMPED_DISEASES``; the entry declares that term in
+``mappings.mondo_mappings`` with ``mapping_predicate: skos:broadMatch``; and its
+mode of inheritance is one the entry's own ``inheritance`` blocks bind. The
+mapping is the curator's statement that the entry is a locus inside that class,
+and the inheritance check keeps a dominant record off a recessive locus of the
+same gene (TECTA, COL11A2). Adding a term to ``PANEL_LUMPED_DISEASES`` is a
+policy change: it is right only for a panel whose generic records are
+locus-level, which generic hypertrophic cardiomyopathy is not.
+
 Finding classes
 ---------------
 ``conflict``  (gates, exit 1)
@@ -115,6 +131,26 @@ CLINGEN_TO_ENUM = {
 }
 # What `relationship_type: CAUSATIVE` claims, per its schema description.
 CAUSATIVE_TIERS = frozenset({"DEFINITIVE", "STRONG"})
+
+# Generic disease terms under which a ClinGen panel files locus-level
+# curations (module docstring). All three are used by the Hearing Loss Gene
+# Curation Expert Panel.
+PANEL_LUMPED_DISEASES = frozenset(
+    {
+        "MONDO:0019497",  # nonsyndromic genetic hearing loss
+        "MONDO:0019587",  # autosomal dominant nonsyndromic hearing loss
+        "MONDO:0019588",  # hearing loss, autosomal recessive
+    }
+)
+# HPO mode-of-inheritance term -> ClinGen's MOI code in the cached row.
+INHERITANCE_TO_MOI = {
+    "HP:0000006": "AD",
+    "HP:0000007": "AR",
+    "HP:0001417": "XL",
+    "HP:0001419": "XL",
+    "HP:0001423": "XL",
+    "HP:0001427": "MT",
+}
 
 CGGV_RE = re.compile(r"CGGV:assertion_[A-Za-z0-9._:-]+")
 
@@ -241,6 +277,36 @@ def entry_diseases(data: dict[str, Any]) -> set[str]:
     return ids
 
 
+def panel_lumped_scope(data: dict[str, Any]) -> tuple[set[str], set[str]]:
+    """Generic panel terms the entry declares itself a locus of, and its MOI codes.
+
+    Returns ``(terms, mois)``: the ``PANEL_LUMPED_DISEASES`` members the entry
+    maps with ``skos:broadMatch``, and the ClinGen MOI codes of the
+    mode-of-inheritance terms its top-level ``inheritance`` blocks bind.
+    """
+    terms: set[str] = set()
+    mappings = data.get("mappings")
+    if isinstance(mappings, dict):
+        for mapping in mappings.get("mondo_mappings") or []:
+            if not isinstance(mapping, dict):
+                continue
+            term = mapping.get("term")
+            curie = str(term.get("id") or "") if isinstance(term, dict) else ""
+            if (
+                mapping.get("mapping_predicate") == "skos:broadMatch"
+                and curie in PANEL_LUMPED_DISEASES
+            ):
+                terms.add(curie)
+    mois: set[str] = set()
+    for block in data.get("inheritance") or []:
+        holder = block.get("inheritance_term") if isinstance(block, dict) else None
+        term = holder.get("term") if isinstance(holder, dict) else None
+        curie = str(term.get("id") or "") if isinstance(term, dict) else ""
+        if curie in INHERITANCE_TO_MOI:
+            mois.add(INHERITANCE_TO_MOI[curie])
+    return terms, mois
+
+
 def assertions_for(
     record: dict[str, Any], assertions: list[Assertion]
 ) -> list[Assertion]:
@@ -277,6 +343,11 @@ def assess(
     by_curie = {a.curie: a for a in assertions}
 
     own = entry_diseases(data)
+    lumped_terms, entry_mois = panel_lumped_scope(data)
+
+    def is_own(a: Assertion) -> bool:
+        return a.mondo in own or (a.mondo in lumped_terms and a.moi in entry_mois)
+
     records = [r for r in data.get("genetic") or [] if isinstance(r, dict)]
 
     # Attribute each assertion to the record(s) it describes (module docstring).
@@ -287,7 +358,7 @@ def assess(
         owners = citing or (candidates if len(candidates) == 1 else [])
         for r in owners:
             owned[id(r)].append(a)
-        if candidates and not owners and a.mondo in own:
+        if candidates and not owners and is_own(a):
             findings.append(
                 Finding(
                     display,
@@ -343,7 +414,7 @@ def assess(
         matched = owned[id(record)]
         if not matched:
             continue
-        same = [a for a in matched if a.mondo in own]
+        same = [a for a in matched if is_own(a)]
         if not same:
             if not recorded:
                 findings.append(
