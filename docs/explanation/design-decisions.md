@@ -98,6 +98,18 @@ the condition has a distinct MONDO identity and a substantially independent mech
 otherwise prefer a subtype. See the subtype naming conventions in
 [`CLAUDE.md`](https://github.com/monarch-initiative/dismech/blob/main/CLAUDE.md).
 
+**OMIM phenotypic series have explicit mapping scope (2026-11-18).**
+`mappings.omimps_mappings` applies to Disease, Subtype, and Grouping records.
+Its separate type validates `OMIMPS:` identifiers against OMIM and prevents
+confusion with an individual `OMIM:` record sharing the same six-digit number.
+It also preserves a direct source alignment when a MONDO crosswalk has a
+different scope. A series can correspond to one syndrome Disease (BBS), a
+curated union of distinct diseases (hereditary tyrosinemias), or a susceptibility
+locus collection related to a complex Disease (celiac disease). The required
+justification explains that choice and the mapping predicate. Neither a
+series mapping nor its numbered members automatically establishes Mendelian
+inheritance, complete member curation, or a disease-grouping boundary.
+
 **Mechanism modules are conformance, not inheritance.** Modules in
 [`kb/modules/`](https://github.com/monarch-initiative/dismech/tree/main/kb/modules)
 capture conserved pathological processes (e.g. the fibrotic response) that recur across
@@ -1274,12 +1286,72 @@ repository and synced into `signed_excerpts/<REF_ID>.yaml`.
   normalization) a verified entry in `signed_excerpts/<REF_ID>.yaml`. Any local edit or
   paraphrase of a signed excerpt fails the exact-match check and falls through to normal
   `references_cache/` substring matching, failing validation.
+- **Synced with `just sync-signed-excerpts`.** The recipe runs
+  `linkml-reference-validator excerpts sync` against a local claimstore clone
+  (`../claimstore` or `$CLAIMSTORE_DIR`), so only people with claimstore read access can
+  run it; CI only validates the committed copy. The `signed_excerpts_sync` section of
+  `conf/reference_validator_config.yaml` selects a bundle if an excerpt is tagged
+  `target_repo: dismech:...` or its reference is cited anywhere under `kb/`, copies it
+  byte-for-byte, and prunes bundles no longer selected. `--check` reports drift without
+  writing.
 - **Never hand-authored in `dismech`.** `signed_excerpts/*.yaml` files are synced from
   `claimstore` and are governed by the same no-hand-editing rule as `references_cache/*.md`.
   `tests/test_signed_excerpts.py` enforces provenance metadata (`reference_id`,
   `source_md_sha256`, `source_pdf_sha256`, `source_char_count`), per-excerpt `sha256` and
   `char_count` integrity, and fair-use bounds on every committed bundle, and `signed_excerpts/`
   is excluded from the routine curation PR scope allowlist in `.github/workflows/main.yaml`.
+
+
+### 6e. Regulatory test guidelines are leads, not evidence (2026-11-16)
+
+**Decision.** An OECD Test Guideline, and any comparable regulatory consensus
+document, may not be cited in an evidence `reference:`. It is a lead, on the same
+footing as AOP-Wiki: it points at a claim, and the claim is then sourced from the
+primary literature. `OECDTG:` is deliberately absent from
+`ALLOWED_REFERENCE_PREFIXES` in `tests/test_data.py`, as `AOP:` always has been.
+
+**Why.** A Test Guideline describes what an assay measures in the **key-event**
+terms of an Adverse Outcome Pathway. TG 442D is titled for the AOP key event on
+keratinocyte activation, and its methods are defined as addressing KE2 of the skin
+sensitisation AOP. A key event is not a dismech pathograph node. The two are
+different objects at different granularity, written by different communities for
+different purposes, and nothing in this repository records the correspondence
+between any particular pair of them.
+
+So an evidence item on a `modeled_mechanisms` link citing a guideline asserts that
+correspondence silently, under a citation that does not make it. The guideline
+says the assay reads KE2; the entry says the model recapitulates a named node; the
+step between is the curator's, and a reader following the citation finds no trace
+of it. That is a provenance skip, and it falls on exactly the claim a guideline is
+least entitled to support.
+
+EnviroMech already treats this step as something that must be written down rather
+than assumed: a `KeyEventAggregation` record carries an explicit
+`aggregation_relation`, a rationale, and any level mismatch between the key event
+and the node it is mapped onto. A guideline citation in `evidence` is the same
+step taken without any of that.
+
+**What this does not say.** A guideline is still worth reading, caching and
+recording. `references_cache/OECDTG_442D.md` and the committed paragraph index stay,
+and `just fetch-reference OECDTG:442D` still works — they are how a curator reads
+the guideline, and how `data/oecd_tg/*-methods.json` extraction is audited. What
+changes is only that the cached text may not appear behind an evidence
+`reference:`.
+
+**Where guideline-only facts go.** Some facts have no primary source: a method's
+Validated Reference Method standing, a guideline's own judgement that a result is
+shown only indirectly, a construct description that differs from the originating
+paper's. Record these in the record's `notes:`, attributed to the guideline and
+marked as a lead. `notes:` is curator prose and carries no evidence claim, which is
+the correct strength for a fact whose only source is a consensus document.
+
+**Worked example.** `Contact_Dermatitis`, which carries the TG 442D methods. The
+branch adding the last two of them (#18286) first cited `OECDTG:442D` in eleven
+evidence items; under this decision all eleven were removed. Two re-sourced to
+something stronger than the guideline — the marker-gene-to-response mapping behind
+EpiSensA and Epi2SensA now cites `PMID:27965148`, which reports the P2X7-antagonist
+and Nrf2-siRNA knockdowns that established it rather than asserting it — and the
+rest moved to `notes:`.
 
 
 ## 7. Curation process & governance

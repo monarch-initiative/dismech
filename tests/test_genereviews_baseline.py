@@ -628,14 +628,23 @@ def test_online_hit_missing_from_index_returns_a_verdict(
 
 
 class _RecordingNcbiClient:
-    """Records each esearch ``term`` and answers with a canned ``esearchresult``."""
+    """Records each esearch ``term`` and answers with a canned ``esearchresult``.
 
-    def __init__(self, esearch: dict):
+    ``esummary`` is answered only when a canned record set is supplied; without
+    one, being asked for a summary means the search was not discarded when the
+    test expected it to be.
+    """
+
+    def __init__(self, esearch: dict, esummary: dict | None = None):
         self.esearch = esearch
+        self.esummary = esummary
         self.terms: list[str] = []
 
     def call(self, endpoint: str, **params: str) -> dict:
-        assert endpoint == "esearch.fcgi", "no hit, so esummary is never called"
+        if endpoint == "esummary.fcgi":
+            assert self.esummary is not None, "no hit, so esummary is never called"
+            return self.esummary
+        assert endpoint == "esearch.fcgi"
         self.terms.append(params["term"])
         return {"esearchresult": self.esearch}
 
@@ -666,6 +675,77 @@ def test_online_search_skips_a_rewritten_query(index, capsys):
     )
     assert _online(index, client).search(["mesiodens-cataract syndrome"]) == []
     assert "PubMed rewrote" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("phrase", "translation"),
+    [
+        # The case from #17228: PubMed drops the comma inside the quotes.
+        (
+            "platyspondylic skeletal dysplasia, Torrance type",
+            (
+                '"platyspondylic skeletal dysplasia torrance type"[Title] '
+                'AND "genereviews"[Book]'
+            ),
+        ),
+        # The other shapes a MONDO label takes.
+        (
+            "spastic paraplegia 4, autosomal dominant",
+            '"spastic paraplegia 4 autosomal dominant"[Title]',
+        ),
+        # A hyphen folds to a space on both sides, as it does in the index.
+        ("Alpha-Thalassemia", '"alpha thalassemia"[Title]'),
+        # No punctuation at all: unchanged behaviour.
+        ("Usher Syndrome", '"usher syndrome"[Title] AND "genereviews"[Book]'),
+    ],
+)
+def test_phrase_searched_verbatim_accepts_pubmeds_punctuation_folding(
+    phrase, translation
+):
+    """PubMed ignores punctuation inside a quoted phrase; that is not a rewrite."""
+    assert cgb.phrase_searched_verbatim(phrase, translation)
+
+
+@pytest.mark.parametrize(
+    ("phrase", "translation"),
+    [
+        # The #14213 rewrite the guard exists for: quotes gone, phrase split.
+        (
+            "mesiodens-cataract syndrome",
+            '"syndrome"[Title] AND "genereviews"[Book]',
+        ),
+        ("mesiodens-cataract syndrome", "mesiodens[All Fields] AND cataract[All Fields]"),
+        # A longer quoted phrase is not the phrase that was asked for.
+        ("Usher Syndrome", '"usher syndrome type 2"[Title]'),
+        # Nor is a shorter one.
+        ("Usher Syndrome Type 2", '"usher syndrome"[Title]'),
+    ],
+)
+def test_phrase_searched_verbatim_still_rejects_a_real_rewrite(phrase, translation):
+    assert not cgb.phrase_searched_verbatim(phrase, translation)
+
+
+def test_online_search_keeps_a_comma_bearing_name(index):
+    """A comma alone must not discard the search (#17228)."""
+    client = _RecordingNcbiClient(
+        {
+            "idlist": ["99999997"],
+            "querytranslation": '"mesiodens cataract syndrome type 2"[Title] '
+            'AND "genereviews"[Book]',
+        },
+        esummary={
+            "result": {
+                "99999997": {
+                    "title": "Mesiodens-Cataract Syndrome, Type 2.",
+                    "articleids": [
+                        {"idtype": "bookaccession", "value": "NBK999997"}
+                    ],
+                }
+            }
+        },
+    )
+    found = _online(index, client).search(["mesiodens-cataract syndrome, type 2"])
+    assert [(m.chapter.pmid, m.kind) for m in found] == [("99999997", "ONLINE")]
 
 
 def test_online_hit_ranks_after_index_title_matches(tmp_path, index):
