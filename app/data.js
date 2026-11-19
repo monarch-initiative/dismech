@@ -156006,6 +156006,75 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Enterobiasis",
+    "disease_id": "MONDO:0005746",
+    "category": "Infectious Disease",
+    "parents": [
+      "Helminth infection",
+      "Gastrointestinal infection"
+    ],
+    "creation_date": "2026-11-14T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Enterobiasis, or pinworm infection, is a fecal-orally transmitted intestinal nematode infection caused by Enterobius vermicularis. Ingested infective eggs hatch in the small intestine, adult worms establish in the cecum and adjacent large intestine, and gravid females migrate to the perianal skin at night to deposit adhesive eggs that become infective within hours. That nocturnal perianal oviposition drives the characteristic perianal pruritus, scratch-mediated contamination of hands and fomites, autoinfection, and recurrent household spread.",
+    "pathophysiology": [
+      "Adult Cecal and Colonic Colonization",
+      "Nocturnal Female Migration and Perianal Oviposition",
+      "Scratch-Mediated Egg Dispersal and Autoinfection",
+      "Ectopic Vulvovaginal Pinworm Migration"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Perianal Pruritus",
+      "Sleep Disturbance",
+      "Nocturnal Enuresis",
+      "Diminished Daytime Concentration",
+      "Perianal Dermatitis",
+      "Dysuria",
+      "Abnormal Vaginal Discharge"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Neurologic",
+      "Genitourinary",
+      "Neurobehavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000989",
+      "HP:0002360",
+      "HP:0010677",
+      "HP:0031987",
+      "HP:0011131",
+      "HP:0100518",
+      "HP:0034269"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Two-dose benzimidazole therapy",
+      "Pyrantel or pyrvinium adulticidal therapy",
+      "Synchronized two-dose household pharmacotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Enterobiasis.yaml",
+    "page_url": "../pages/disorders/Enterobiasis.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Eosinophilia-Myalgia Syndrome",
     "disease_id": "MONDO:0004941",
     "category": "Environmental",
@@ -255415,7 +255484,7 @@ window.searchData = [
     "creation_date": "2026-07-17T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Lennox-Gastaut syndrome (LGS) is a severe childhood-onset developmental and epileptic encephalopathy defined by a triad of multiple drug-resistant seizure types (notably tonic seizures, atonic/drop attacks, and atypical absences), a characteristic interictal EEG showing diffuse slow (<2.5 Hz) spike-and-wave complexes together with sleep-activated generalized paroxysmal fast activity, and cognitive impairment with behavioural problems. Onset is typically between ages 1 and 8 years (peak 3-5). LGS is etiologically heterogeneous: roughly two-thirds of cases are symptomatic of an identifiable structural, genetic, metabolic, or acquired brain insult, a substantial subset evolves from infantile spasms (West syndrome), and the remainder are of unknown cause. It is best understood as a shared, age-dependent electroclinical final common pathway of diffuse thalamocortical network dysfunction rather than a single disease with a single mechanism.",
+    "description": "Lennox-Gastaut syndrome (LGS) is a severe childhood-onset developmental and epileptic encephalopathy. The ILAE diagnostic criteria require tonic seizures together with at least one other seizure type (atypical absence, atonic, myoclonic, focal impaired awareness, generalized tonic-clonic, epileptic spasms, or nonconvulsive status epilepticus); two interictal EEG findings, generalized slow (<2.5 Hz) spike-wave and generalized paroxysmal fast activity in sleep; onset before 18 years; and a course of drug-resistant epilepsy with intellectual impairment, which may not be present when seizures begin. The syndrome typically emerges between 18 months and 8 years of age (peak 3-5 years), often after seizures from a prior epilepsy syndrome or etiology have already started, so the age of the first seizure and the age at which LGS is recognized can differ. LGS is etiologically heterogeneous: roughly two-thirds of cases are symptomatic of an identifiable structural, genetic, metabolic, or acquired brain insult, a substantial subset evolves from infantile spasms (West syndrome), and the remainder are of unknown cause. It is best understood as a shared, age-dependent electroclinical final common pathway of diffuse thalamocortical network dysfunction rather than a single disease with a single mechanism.",
     "pathophysiology": [
       "Heterogeneous Etiologic Brain Insult",
       "Age-Dependent Evolution from Infantile Spasms",
@@ -255423,7 +255492,7 @@ window.searchData = [
       "Cortical Excitation-Inhibition Imbalance",
       "Slow Spike-and-Wave Discharge Generation",
       "Generalized Paroxysmal Fast Activity and Tonic Seizure Generation",
-      "Atonic Drop Attack Generation",
+      "Epileptic Drop Attack Generation",
       "Interictal Epileptiform Activity-Driven Cognitive Impairment",
       "Multiple Drug-Resistant Seizure Types",
       "Cognitive Impairment and Developmental Plateau"
@@ -255441,13 +255510,16 @@ window.searchData = [
     ],
     "phenotypes": [
       "Tonic Seizures",
-      "Atonic Seizures (Drop Attacks)",
+      "Atonic Seizures",
+      "Epileptic Drop Attacks",
       "Atypical Absence Seizures",
       "Epileptic Encephalopathy",
       "Intellectual Disability",
       "Myoclonic Seizures",
       "Generalized Tonic-Clonic Seizures",
       "Nonconvulsive Status Epilepticus",
+      "Generalized Slow Spike-and-Wave",
+      "Generalized paroxysmal fast activity (GPFA) in sleep",
       "Global Developmental Delay",
       "Behavioral Abnormalities"
     ],
@@ -255458,16 +255530,23 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0010818",
       "HP:0010819",
+      "HP:0002527",
       "HP:0007270",
       "HP:0200134",
       "HP:0001249",
       "HP:0032794",
       "HP:0002069",
       "HP:0031475",
+      "HP:0010847",
+      "HP:0011198",
       "HP:0001263",
       "HP:0000708"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
     "genes": [
       "Genetically heterogeneous developmental and epileptic encephalopathy genes"
     ],
@@ -255482,11 +255561,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Lennox-Gastaut_Syndrome.yaml",
     "page_url": "../pages/disorders/Lennox-Gastaut_Syndrome.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 13,
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "21",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "6"
   },
   {
@@ -447717,15 +447796,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4124,
+  "total_disorder_pages": 4125,
   "total_subtypes": 5103,
-  "total_disorders_and_subtypes": 9227,
-  "total_unique_evidence_sources": 61478,
-  "total_unique_publications": 57440,
+  "total_disorders_and_subtypes": 9228,
+  "total_unique_evidence_sources": 61483,
+  "total_unique_publications": 57442,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4122,
-  "total_unique_pathological_events": 27228,
+  "total_pathographs": 4123,
+  "total_unique_pathological_events": 27232,
   "total_modules": 236,
   "total_research_reports": 4226,
   "total_classifications": 21,
