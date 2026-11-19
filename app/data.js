@@ -110831,6 +110831,125 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Combined Oxidative Phosphorylation Deficiency 19",
+    "disease_id": "MONDO:0014269",
+    "category": "Mendelian",
+    "parents": [
+      "Combined Oxidative Phosphorylation Deficiency",
+      "Mitochondrial iron-sulfur cluster assembly disorder"
+    ],
+    "creation_date": "2026-11-19T04:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Combined oxidative phosphorylation deficiency 19 (COXPD19) is an ultra-rare autosomal recessive mitochondrial disease caused by biallelic missense variants in LYRM4, which encodes ISD11, the small LYR-motif subunit that binds and stabilizes the cysteine desulfurase NFS1 in the core mitochondrial iron-sulfur cluster (ISC) assembly complex. Weakened ISD11-NFS1 binding destabilizes NFS1, cutting the sulfur supply for de novo cluster assembly, so the defect sits at the earliest step of the ISC pathway and reaches a broad range of Fe-S client proteins. Patients show combined deficiency of respiratory chain complexes I, II and III in muscle and liver, with loss of the aconitases and ferrochelatase, and present in the newborn period or early childhood with lactic acidosis and respiratory failure. Three patients in two families are reported, and the course ranges from death as a neonate to full recovery between infection-triggered crises.\n",
+    "pathophysiology": [
+      "Homozygous LYRM4 Missense Variant",
+      "Weakened ISD11 Binding to NFS1",
+      "NFS1 Destabilization and Aggregation",
+      "Reduced NFS1 Cysteine Desulfurase Activity",
+      "Impaired Early-Step Mitochondrial Iron-Sulfur Cluster Assembly",
+      "Failure to Mature Fe-S Client Proteins",
+      "Respiratory Chain Complex I, II and III Deficiency",
+      "Aconitase Inactivation",
+      "IRP1 Activation and Cellular Iron Dysregulation",
+      "Ferrochelatase Deficiency",
+      "Glycolytic Shift and Lactate Accumulation",
+      "Energy Failure Under Catabolic Stress"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "iron-sulfur cluster assembly",
+      "oxidative phosphorylation",
+      "intracellular iron ion homeostasis",
+      "glycolytic process"
+    ],
+    "phenotypes": [
+      "Increased circulating lactate concentration",
+      "Decreased activity of mitochondrial complex I",
+      "Decreased activity of mitochondrial complex II",
+      "Decreased activity of mitochondrial complex III",
+      "Decreased activity of mitochondrial complex IV",
+      "Cardiorespiratory arrest",
+      "Lethargy",
+      "Ketonuria",
+      "3-Methylglutaconic aciduria",
+      "Respiratory failure",
+      "Elevated circulating hepatic transaminase concentration",
+      "Elevated circulating creatine kinase activity",
+      "Decreased plasma free carnitine",
+      "Increased muscle lipid content",
+      "Failure to thrive",
+      "Metabolic acidosis",
+      "Neonatal respiratory distress",
+      "Apnea"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Cardiovascular",
+      "Neurological",
+      "Respiratory",
+      "Musculoskeletal",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Cellular",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002151",
+      "HP:0011923",
+      "HP:0008314",
+      "HP:0011924",
+      "HP:0008347",
+      "HP:0006543",
+      "HP:0001254",
+      "HP:0002919",
+      "HP:0003535",
+      "HP:0002878",
+      "HP:0002910",
+      "HP:0003236",
+      "HP:0008315",
+      "HP:0009058",
+      "HP:0001508",
+      "HP:0001942",
+      "HP:0002643",
+      "HP:0002104"
+    ],
+    "frequencies": [],
+    "genes": [
+      "LYRM4"
+    ],
+    "treatments": [
+      "Acute catabolic-state management with intravenous dextrose",
+      "Oral carnitine supplementation",
+      "Sulfur donor supplementation"
+    ],
+    "environmental": [
+      "Intercurrent viral respiratory infection"
+    ],
+    "biochemical": [],
+    "source_file": "Combined_Oxidative_Phosphorylation_Deficiency_19.yaml",
+    "page_url": "../pages/disorders/Combined_Oxidative_Phosphorylation_Deficiency_19.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 12,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Combined Oxidative Phosphorylation Deficiency 28",
     "disease_id": "MONDO:0014775",
     "category": "Mendelian",
@@ -242434,7 +242553,7 @@ window.searchData = [
     "creation_date": "2026-11-11T19:45:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "The commonest non-Langerhans-cell histiocytosis, and in most children a solitary yellow-orange cutaneous papule or nodule that appears in infancy and resolves on its own. It is nevertheless a clonal myeloid neoplasm. Where it has been looked for hardest - in the rare extracutaneous form - a targetable kinase alteration was found in every one of 16 children sequenced, most often a CLTC::SYK fusion or a CSF1R mutation, with NTRK1 fusions, BRAF V600E and MAP2K1 lesions accounting for much of the rest. How far that generalises to the common solitary cutaneous lesion is not settled by anything cited here; the one cached study of solitary lesions used a copy-number assay and found a clonal alteration in two of nineteen. Extracutaneous and systemic disease, where the central nervous system, liver, lung and eye are the usual sites, carries real mortality.",
+    "description": "The commonest non-Langerhans-cell histiocytosis, and in most children a solitary yellow-orange cutaneous papule or nodule that appears in infancy and resolves on its own. It is nevertheless a clonal myeloid neoplasm. Where it has been looked for hardest - in the rare extracutaneous form - a targetable kinase alteration was found in every one of 16 children sequenced, most often a CLTC::SYK fusion or a CSF1R mutation, with BRAF V600E in one child and a TPM3::NTRK1 fusion or a MAP2K1 deletion in two. How far that generalises to the common solitary cutaneous lesion is not settled by anything cited here; the one cached study of solitary lesions used a copy-number assay and found a clonal alteration in two of nineteen. Extracutaneous and systemic disease, where the central nervous system, liver, lung and eye are the usual sites, carries real mortality.",
     "pathophysiology": [
       "Somatic Kinase Alteration in a Myeloid Precursor",
       "Kinase Pathway Activation in Lesional Histiocytes",
@@ -391316,6 +391435,75 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Sideroblastic Anemia 4",
+    "disease_id": "MONDO:0008422",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited Sideroblastic Anemia",
+      "Mitochondrial iron-sulfur cluster assembly disorder"
+    ],
+    "creation_date": "2026-11-19T04:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Sideroblastic anemia 4 is a congenital sideroblastic anemia caused by germline partial loss-of-function variants in HSPA9, the mitochondrial HSP70 chaperone also called mortalin. With its co-chaperone HSCB it carries the nascent [2Fe-2S] cluster from the ISCU scaffold to glutaredoxin 5, so the lesion sits at the transfer step of mitochondrial cluster assembly rather than at synthesis or export. Cluster deficiency leaves iron regulatory protein 1 in its RNA-binding form, which represses translation of erythroid ALAS2 and so blocks heme synthesis while iron continues to arrive at the erythroblast mitochondrion, producing the ring sideroblast. The anemia runs from mild to transfusion-dependent and is microcytic or normocytic with a raised red-cell distribution width. Inheritance is recessive, but a severe allele in trans with a common low-expression variant produces an apparently dominant pedigree, which is why the disease carries a dominant name.\n",
+    "pathophysiology": [
+      "Severe HSPA9 Loss-of-Function Allele",
+      "Low-Expression HSPA9 Allele in Trans",
+      "Reduced Mitochondrial HSPA9 Chaperone Dosage",
+      "Impaired Transfer of Nascent [2Fe-2S] Clusters to Glutaredoxin 5",
+      "Deficiency of Cluster-Dependent Erythroid Iron Sensing and Enzymes",
+      "Translational Repression of Erythroid ALAS2",
+      "Blocked Erythroid Heme Synthesis",
+      "Erythroblast Mitochondrial Iron Loading",
+      "Ineffective Erythropoiesis"
+    ],
+    "cell_types": [
+      "erythroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000765"
+    ],
+    "biological_processes": [
+      "iron-sulfur cluster assembly",
+      "heme biosynthetic process",
+      "erythrocyte differentiation"
+    ],
+    "phenotypes": [
+      "Sideroblastic anemia",
+      "Elevated bone marrow ring sideroblast count",
+      "Microcytic anemia"
+    ],
+    "phenotype_categories": [
+      "Hematological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood"
+    ],
+    "phenotype_ids": [
+      "HP:0001924",
+      "HP:0004864",
+      "HP:0001935"
+    ],
+    "frequencies": [],
+    "genes": [
+      "HSPA9"
+    ],
+    "treatments": [
+      "Red cell transfusion",
+      "Pyridoxine"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Sideroblastic_Anemia_4.yaml",
+    "page_url": "../pages/disorders/Sideroblastic_Anemia_4.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Sideroblastic Anemia with B-Cell Immunodeficiency, Periodic Fevers, and Developmental Delay",
     "disease_id": "MONDO:0014487",
     "category": "Mendelian",
@@ -441499,6 +441687,105 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "X-Linked Sideroblastic Anemia With Ataxia",
+    "disease_id": "MONDO:0010524",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited Sideroblastic Anemia",
+      "X-Linked Cerebellar Ataxia"
+    ],
+    "creation_date": "2026-11-19T04:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "X-linked sideroblastic anemia with ataxia (XLSA/A) is a very rare X-linked recessive syndrome caused by hemizygous missense variants in ABCB7, a half-type ATP-binding cassette transporter of the mitochondrial inner membrane and the functional ortholog of yeast Atm1p. ABCB7 exports a mitochondrially derived sulfur-containing metabolite that the cytosolic iron-sulfur protein assembly pathway requires, so the lesion differs from every other inherited iron-sulfur disorder: the mitochondrial assembly machinery is intact and what fails is the export step feeding the cytosol. Partial loss of function impairs cytosolic cluster maturation, leaving iron regulatory protein 1 unable to read cellular iron status, and inhibits heme synthesis, which produces mild hypochromic microcytic sideroblastic anemia with raised erythrocyte protoporphyrin. The dominant clinical problem is neurological: early-onset, largely non-progressive cerebellar ataxia with cerebellar hypoplasia, delayed walking, dysarthria and nystagmus, so the anemia is often asymptomatic and found only on testing.\n",
+    "pathophysiology": [
+      "Hemizygous ABCB7 Missense Variant",
+      "Partial Loss of ABCB7 Transporter Function",
+      "Reduced Export of the Mitochondrial Precursor for Cytosolic Cluster Assembly",
+      "Impaired Cytosolic Iron-Sulfur Protein Maturation",
+      "Loss of Iron Regulatory Protein 1 Control",
+      "Inhibited Heme Biosynthesis",
+      "Erythroid Iron Loading With Ring Sideroblast Formation",
+      "Cerebellar Developmental Failure"
+    ],
+    "cell_types": [
+      "erythroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000765"
+    ],
+    "biological_processes": [
+      "iron-sulfur cluster export from the mitochondrion",
+      "cytosolic iron-sulfur cluster assembly",
+      "intracellular iron ion homeostasis",
+      "heme biosynthetic process"
+    ],
+    "phenotypes": [
+      "Nonprogressive cerebellar ataxia",
+      "Delayed ability to walk",
+      "Dysarthria",
+      "Nystagmus",
+      "Cerebellar hypoplasia",
+      "Cerebellar atrophy",
+      "Elevated bone marrow ring sideroblast count",
+      "Hypochromic microcytic anemia",
+      "Increased erythrocyte protoporphyrin concentration",
+      "Pappenheimer bodies",
+      "Strabismus",
+      "Motor delay",
+      "Delayed speech and language development"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Hematological",
+      "Laboratory",
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Eye",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002470",
+      "HP:0031936",
+      "HP:0001260",
+      "HP:0000639",
+      "HP:0001321",
+      "HP:0001272",
+      "HP:0004864",
+      "HP:0004840",
+      "HP:0012187",
+      "HP:0020081",
+      "HP:0000486",
+      "HP:0001270",
+      "HP:0000750"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [
+      "ABCB7"
+    ],
+    "treatments": [
+      "Pyridoxine supplementation",
+      "Rehabilitative and supportive care"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Erythrocyte protoporphyrin"
+    ],
+    "source_file": "X-Linked_Sideroblastic_Anemia_With_Ataxia.yaml",
+    "page_url": "../pages/disorders/X-Linked_Sideroblastic_Anemia_With_Ataxia.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "X-Linked Spondyloepiphyseal Dysplasia Tarda",
     "disease_id": "MONDO:0010737",
     "category": "Mendelian",
@@ -447430,17 +447717,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4121,
+  "total_disorder_pages": 4124,
   "total_subtypes": 5103,
-  "total_disorders_and_subtypes": 9224,
-  "total_unique_evidence_sources": 61457,
-  "total_unique_publications": 57419,
+  "total_disorders_and_subtypes": 9227,
+  "total_unique_evidence_sources": 61478,
+  "total_unique_publications": 57440,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4119,
-  "total_unique_pathological_events": 27200,
+  "total_pathographs": 4122,
+  "total_unique_pathological_events": 27228,
   "total_modules": 236,
-  "total_research_reports": 4223,
+  "total_research_reports": 4226,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 139

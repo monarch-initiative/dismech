@@ -26416,6 +26416,75 @@ Procedure) is therefore written as <code>biolink:Treatment</code>, while its
 the node file carries both. This is the same first-section-wins behaviour that
 already gives some CHEBI ids both <code>ChemicalEntity</code> and <code>MolecularEntity</code>, and is
 not specific to the new sections.</p>
+<h2 id="gene-edges-follow-relationship_type-12320">Gene edges follow <code>relationship_type</code> (#12320)</h2>
+<p>A <code>genetic[]</code> record's predicate comes from its <code>relationship_type</code>, not from a
+single hardcoded value:</p>
+<table>
+<thead>
+<tr>
+<th><code>relationship_type</code></th>
+<th>Association class</th>
+<th>Predicate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CAUSATIVE</code>, <code>SOMATIC_DRIVER</code>, <code>COOPERATING</code>, or absent</td>
+<td><code>GeneToDiseaseAssociation</code></td>
+<td><code>biolink:contributes_to</code></td>
+</tr>
+<tr>
+<td><code>MODIFIER</code></td>
+<td><code>GeneToDiseaseAssociation</code></td>
+<td><code>biolink:affects</code></td>
+</tr>
+<tr>
+<td><code>UNKNOWN</code></td>
+<td><code>GeneToDiseaseAssociation</code></td>
+<td><code>biolink:associated_with</code></td>
+</tr>
+<tr>
+<td><code>RISK_FACTOR</code>, <code>SUSCEPTIBILITY</code></td>
+<td><code>Association</code></td>
+<td><code>biolink:associated_with_increased_likelihood_of</code></td>
+</tr>
+<tr>
+<td><code>PROTECTIVE</code></td>
+<td><code>Association</code></td>
+<td><code>biolink:associated_with_decreased_likelihood_of</code></td>
+</tr>
+<tr>
+<td><code>BIOMARKER</code></td>
+<td><code>CorrelatedGeneToDiseaseAssociation</code></td>
+<td><code>biolink:biomarker_for</code></td>
+</tr>
+<tr>
+<td><code>DISPUTED</code>, <code>REFUTED</code></td>
+<td>no edge (#16952)</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>The class changes with the predicate because Biolink 4.4 limits
+<code>GeneToDiseaseAssociation</code> to <code>contributes_to</code>, <code>associated_with</code> and <code>affects</code>.
+The two likelihood predicates are the strings the exposure exporter already
+emits for a polarised exposure, so a protective gene and a protective exposure
+read the same way. <code>test_every_relationship_type_in_the_schema_is_handled</code> fails
+when a value is added to <code>GeneDiseaseRelationshipEnum</code> without a decision here.</p>
+<h2 id="subtype-scoped-items-12316">Subtype-scoped items (#12316)</h2>
+<p>Every <code>has_subtypes[]</code> row with a bound <code>subtype_term</code> becomes a
+<code>biolink:Disease</code> node, linked to the entry's own <code>disease_term</code> by
+<code>biolink:subclass_of</code>. A <code>genetic[]</code>, <code>phenotypes[]</code>, <code>biochemical[]</code> or
+<code>histopathology[]</code> item whose <code>subtype:</code> key names such a row is exported
+against the subtype's term rather than the parent's. An item keyed to a subtype
+with no bound term, or carrying no <code>subtype:</code> key, stays on the parent.</p>
+<p>The <code>subclass_of</code> edge carries the <code>has_subtypes[]</code> row's own <code>evidence:</code> as its
+publications and supporting text; two subtypes bound to one term are written as
+one edge with both rows' evidence.</p>
+<p>This applies to the disease-level <code>has_subtypes</code> only. The taxonomic
+<code>infectious_agents[].has_subtypes</code> (organism strata, bound to <code>NCBITaxon:</code>) is
+not read, so no organism taxon becomes a <code>biolink:Disease</code> node or a
+<code>subclass_of</code> child of a disease.</p>
 <h2 id="what-is-not-exported">What is not exported</h2>
 <ul>
 <li><code>cellular_components[].modifier</code> — <code>cellular_component_to_edge</code> never reads
@@ -26430,6 +26499,11 @@ not specific to the new sections.</p>
   HTML card only.</li>
 <li><code>diagnosis[].measurements</code> (LOINC). Only the NCIT <code>diagnosis_term</code> is exported.</li>
 <li><code>datasets[].findings</code>. A dataset exports as one node and one edge.</li>
+<li>An entry with no <code>disease_term</code> exports no edges at all. Neither does a
+  <code>skos:exactMatch</code> term in <code>mappings.mondo_mappings</code>: edges are anchored on
+  <code>disease_term</code> and its subtypes only.</li>
+<li>The <code>subtype:</code> key on <code>imaging_findings[]</code>, <code>prevalence[]</code> and <code>progression[]</code>.
+  Those sections have no KGX edges to route.</li>
 <li>A causal <code>target</code> that resolves to nothing (<code>just check-causal-targets</code>), or
   to a phenotype with no bound term. The edge is skipped; it is never given an
   invented id. Its SEPIO statement is still written, so these are the sidecar
