@@ -295,6 +295,15 @@ until its row is updated there **and a pull request carrying the change is open
 in `monarch-initiative/nams-registry`**. Pushing a branch without the pull
 request is not finished; nobody else sees a branch.
 
+**If the pull request cannot be opened, the paper is still not finished, and
+the report must say so.** The usual blockers are no write access to
+`nams-registry` from this session, a push that is refused, or `just test`
+failing there. Do not work around one (no commit to `main`, no skipped test, no
+pull request from a fork). Push the branch if you can, and end the report with
+the branch name, the exact blocker and the failing output, and what would
+unblock it, so the user can open the pull request or fix the failure. Do not
+describe the paper as recorded until the pull request exists.
+
 Which columns to fill, and what each holds, is defined on the registry's
 project page
 ([projects/COMPLEMENT_ARIE_DISEASE_PAPERS.md, "Review log columns"](https://github.com/monarch-initiative/nams-registry/blob/main/projects/COMPLEMENT_ARIE_DISEASE_PAPERS.md#review-log-columns)).
