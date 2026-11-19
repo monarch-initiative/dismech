@@ -25262,7 +25262,16 @@ window.searchData = [
       "NLRP3",
       "PYCARD",
       "LRP1",
-      "ADAM10"
+      "ADAM10",
+      "SORL1",
+      "ABCA7",
+      "CLU",
+      "PICALM",
+      "CR1",
+      "MS4A6A",
+      "CD33",
+      "EPHA1",
+      "PLCG2"
     ],
     "treatments": [
       "Cholinesterase Inhibitors",
@@ -25287,7 +25296,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Alzheimer_Disease.html",
     "num_phenotypes": 15,
     "num_pathophysiology": 29,
-    "num_genes": 10,
+    "num_genes": 19,
     "num_treatments": 7,
     "causal_graph_edges": "74",
     "causal_graph_longest_path": "10"
@@ -39463,6 +39472,112 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "21",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Autoinflammatory Disease Multisystem With Immune Dysregulation X-linked",
+    "disease_id": "MONDO:0957494",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn Error of Immunity",
+      "Actinopathy"
+    ],
+    "creation_date": "2026-11-19T03:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Complete Deficiency",
+      "Partial Deficiency"
+    ],
+    "description": "An X-linked recessive inborn error of immunity caused by hemizygous loss-of-function variants in DOCK11, which encodes an atypical guanine nucleotide exchange factor that loads GTP onto the Rho GTPase CDC42. It belongs to the actinopathies, the group of inborn errors in which a defect in an actin-cytoskeleton regulator produces immunodeficiency, autoinflammation and autoimmunity together rather than any one of them alone.\nThe lesion is a failure of nucleotide exchange. Patient cells show impaired CDC42 activation whether the allele abolishes DOCK11 protein or merely reduces it, and the cellular consequence is cytoskeletal: patient T cells do not form filopodia and migrate abnormally through confined channels. Four cryo-EM structures of full-length human DOCK11 show why reduced protein is as damaging as none, in that activated CDC42 binds a distal armadillo-repeat site and thereby raises the exchange activity of the catalytic domain, so DOCK11 is a feedback switch rather than a linear enzyme.\nFrom that single cytoskeletal failure the disease fans out along lineage branches that are separately demonstrated. Patient and Dock11-knockout mouse T cells are overtly activated and produce proinflammatory cytokines with increased NFATc1 nuclear translocation, which is the autoinflammatory arm. Regulatory T cells lose FOXP3 and IKZF2 expression and IL-2-driven STAT5B phosphorylation is impaired, which is the autoantibody arm. Mouse Dock11 knockouts fail to form splenic marginal zone B cells and mount impaired secondary humoral responses, which is the antibody-deficiency arm. A dock11-knockout zebrafish reproduces the anaemia and the abnormal red cell morphology, and the anaemia is rescued by constitutively active CDC42.\nAllele class, not gene identity, predicts which arm dominates. On re-evaluation of every published patient, alleles that abolish DOCK11 expression track with autoinflammation and recurrent pneumonia while missense alleles that only reduce protein track with autoantibody-driven autoimmunity. That correlation is the basis of the two subtypes recorded here and of the two disease concepts MONDO files beneath this term; it rests on thirteen patients and should be read as a prognostic hypothesis rather than a settled rule.",
+    "pathophysiology": [
+      "Hemizygous DOCK11 Loss-of-Function Allele",
+      "Reduced or Absent DOCK11 Protein",
+      "Failure of CDC42 Nucleotide Exchange",
+      "Collapse of the CDC42-GTP Positive Feedback Loop",
+      "Failure of Filopodium Assembly and Confined Migration",
+      "T Cell Hyperactivation with NFATc1 Nuclear Translocation",
+      "Regulatory T Cell Identity Loss",
+      "Marginal Zone B Cell Development Failure",
+      "Erythroid Morphogenesis Defect",
+      "Systemic Autoinflammation",
+      "Autoantibody-Mediated Autoimmunity",
+      "Impaired Humoral Response and Antibody Deficiency",
+      "Chronic Inflammatory Burden on Development"
+    ],
+    "cell_types": [
+      "T cell",
+      "monocyte-derived dendritic cell",
+      "regulatory T cell",
+      "marginal zone B cell",
+      "erythrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000451",
+      "CL:0000815",
+      "CL:0000845",
+      "CL:0000232"
+    ],
+    "biological_processes": [
+      "positive regulation of filopodium assembly",
+      "leukocyte migration",
+      "positive regulation of T cell activation",
+      "regulatory T cell differentiation",
+      "marginal zone B cell differentiation",
+      "erythrocyte differentiation"
+    ],
+    "phenotypes": [
+      "Anisocytosis",
+      "Autoimmune cytopenia",
+      "Systemic lupus erythematosus",
+      "Colitis",
+      "Lymphoproliferative disorder",
+      "Recurrent pneumonia",
+      "Bronchiectasis",
+      "Global developmental delay"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Immunologic",
+      "Gastrointestinal",
+      "Respiratory",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Immune",
+      "Neoplasm",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0011273",
+      "HP:5210419",
+      "HP:0002725",
+      "HP:0002583",
+      "HP:0005523",
+      "HP:0006532",
+      "HP:0002110",
+      "HP:0001263"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DOCK11"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Immunoglobulin Replacement and Antimicrobial Prophylaxis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autoinflammatory_Disease_Multisystem_With_Immune_Dysregulation_X-linked.yaml",
+    "page_url": "../pages/disorders/Autoinflammatory_Disease_Multisystem_With_Immune_Dysregulation_X-linked.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Autosomal Agammaglobulinemia",
@@ -161257,6 +161372,98 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "FBXO7-Related Parkinsonian-Pyramidal Syndrome",
+    "disease_id": "MONDO:0009830",
+    "category": "Mendelian",
+    "parents": [
+      "Movement Disorder",
+      "Autosomal Recessive Early-Onset Parkinsonism"
+    ],
+    "creation_date": "2026-11-19T04:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "FBXO7-related parkinsonian-pyramidal syndrome (PARK15; OMIM #260300) is an autosomal-recessive, early-onset neurodegenerative disorder caused by biallelic variants in FBXO7, the gene encoding F-box only protein 7, the substrate-recognition subunit of an SCF-type E3 ubiquitin-ligase complex. Its defining clinical feature is the combination of early-onset, progressive parkinsonism with pyramidal (corticospinal) tract signs - the pallido-pyramidal or parkinsonian-pyramidal syndrome first described by Davison in 1954. FBXO7 sits on the mitochondrial-quality-control arm of Parkinson biology alongside PRKN and PINK1, but its disease mechanism is still being resolved. The best-supported in-vivo route is proteasomal: FBXO7-SCF ubiquitinates the proteasome subunit PSMA2 and is needed for proteasome assembly, and FBXO7-knockout mice have reduced proteasome activity with motor deficits. A dopamine-neuron-specific knockout produces early striatal dopamine loss and slow nigral degeneration through an RPL23-MDM2-p53 pro-apoptotic axis. An earlier-proposed role in PINK1/Parkin-mediated mitophagy is contested - reported in FBXO7-knockdown cells but not reproduced in clean FBXO7 knockouts - so it is modelled here as a provisional branch. All routes converge on nigrostriatal dopaminergic degeneration and variably levodopa-responsive parkinsonism, with concurrent pyramidal involvement.",
+    "pathophysiology": [
+      "FBXO7 Loss of Function",
+      "Impaired Proteasome Assembly and Proteostasis",
+      "Impaired PINK1/Parkin-Mediated Mitophagy",
+      "Nigrostriatal Dopaminergic Neurodegeneration",
+      "Striatal Dopamine Deficiency and Basal Ganglia Circuit Dysfunction",
+      "Pyramidal System Degeneration",
+      "Parkinsonian-Pyramidal Motor Syndrome"
+    ],
+    "cell_types": [
+      "dopaminergic neuron",
+      "substantia nigra dopaminergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000700",
+      "CL:4042025"
+    ],
+    "biological_processes": [
+      "proteasome-mediated ubiquitin-dependent protein catabolic process",
+      "proteasome assembly",
+      "protein ubiquitination",
+      "autophagy of mitochondrion",
+      "neuron apoptotic process",
+      "dopamine secretion"
+    ],
+    "phenotypes": [
+      "Parkinsonism",
+      "Bradykinesia",
+      "Postural Instability",
+      "Hyperreflexia",
+      "Babinski Sign",
+      "Spasticity",
+      "Dystonia",
+      "Cognitive Decline",
+      "Dysarthria",
+      "Dysphagia",
+      "Psychiatric Symptoms"
+    ],
+    "phenotype_categories": [
+      "Motor",
+      "Neurologic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001300",
+      "HP:0002067",
+      "HP:0002172",
+      "HP:0001347",
+      "HP:0003487",
+      "HP:0001257",
+      "HP:0001332",
+      "HP:0001268",
+      "HP:0001260",
+      "HP:0002015",
+      "HP:0000708"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FBXO7"
+    ],
+    "treatments": [
+      "Levodopa",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "FBXO7-Related_Parkinsonian-Pyramidal_Syndrome.yaml",
+    "page_url": "../pages/disorders/FBXO7-Related_Parkinsonian-Pyramidal_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "FBXW7-Related Neurodevelopmental Disorder",
     "disease_id": "MONDO:0859280",
     "category": "Mendelian",
@@ -177078,6 +177285,161 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "22",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "GATAD2B-Associated Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0014034",
+    "category": "Mendelian",
+    "parents": [
+      "Mendelian Neurodevelopmental Disorder",
+      "NuRD-Associated Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-11-19T03:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant neurodevelopmental disorder caused by de novo heterozygous loss-of-function variants in GATAD2B, which encodes p66-beta, a subunit of the nucleosome remodeling and deacetylase (NuRD) complex. It presents with infantile hypotonia, global developmental delay, moderate to severe intellectual disability, a speech impairment disproportionate to the cognitive delay, macrocephaly in about half of patients, and a recognisable facial gestalt of broad forehead, deeply set eyes, hypertelorism, wide nasal base and pointed chin.\nThe lesion is a failure of bridging rather than of catalysis. p66-beta holds two conserved regions: CR1 contacts MBD2 and MBD3, and CR2 is the surface the CHD3 and CHD4 ATPase subunits need in order to join the rest of NuRD. Both allele classes converge on that failure from opposite directions. Truncating variants, which are the large majority, leave roughly half-normal protein; the missense variants, which cluster in CR1 and CR2, leave full-length protein at normal abundance that cannot bind its NuRD partners. The consequence is a complex that assembles its deacetylase core but is uncoupled from the remodelling module it is supposed to recruit.\nWhat that costs is read out in the developing cortex. Single-cell transcriptomics of embryonic cortex in Gatad2b mutant mice shows misexpression of corticogenesis regulators including Bcl11b, Nfia, H3f3b and Sox5, with abnormal cortical patterning and altered cellular proportions; neuronal knockdown of the Drosophila orthologue simj gives impaired learning and altered synapse morphology. Haploinsufficient mice show behavioural abnormalities resembling the human disorder while homozygous mutants die perinatally, which is the model-organism counterpart of a disease that exists only in the heterozygous state.\nGAND belongs with CHD3-related Snijders Blok-Campeau syndrome and CHD4-related Sifrim-Hitz-Weiss syndrome in the NuRD-associated class of macrocephaly neurodevelopmental disorders, and the three overlap closely enough that molecular testing rather than examination separates them.",
+    "pathophysiology": [
+      "De Novo Heterozygous GATAD2B Lesion",
+      "Reduced p66-beta Abundance",
+      "p66-beta That Cannot Bind Its NuRD Partners",
+      "Failure of NuRD Bridging by p66-beta",
+      "Catalytic Uncoupling of the NuRD Remodelling Module",
+      "Misexpression of Corticogenesis Regulators",
+      "Abnormal Cortical Patterning",
+      "Synaptic Undergrowth and Altered Synapse Morphology",
+      "Impaired Learning and Behavioural Abnormality",
+      "Macrocephaly Development",
+      "Craniofacial and Ocular Developmental Patterning Defect",
+      "Cardiac Outflow Tract Patterning Defect",
+      "Infantile Hypotonia"
+    ],
+    "cell_types": [
+      "cortical neuron",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "chromatin remodeling",
+      "loss of NuRD-mediated transcriptional damping",
+      "cerebral cortex development",
+      "positive regulation of synapse assembly"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Severe intellectual disability",
+      "Delayed speech and language development",
+      "Speech apraxia",
+      "Macrocephaly",
+      "Floppy infant",
+      "Feeding difficulties",
+      "Drooling",
+      "Polyhydramnios",
+      "Broad-based gait",
+      "Seizure",
+      "Ventriculomegaly",
+      "Abnormal cerebral white matter morphology",
+      "Strabismus",
+      "Astigmatism",
+      "Hypermetropia",
+      "Myopia",
+      "Anisocoria",
+      "Bicuspid aortic valve",
+      "Broad forehead",
+      "Hypertelorism",
+      "Broad nasal tip",
+      "Pointed chin",
+      "Prominent supraorbital ridges",
+      "Posteriorly rotated ears",
+      "Downslanted palpebral fissures",
+      "Deeply set eye",
+      "Short philtrum",
+      "Wide nasal bridge",
+      "Epicanthus",
+      "Micrognathia",
+      "Sparse hair"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Growth",
+      "Musculoskeletal",
+      "Gastrointestinal",
+      "Prenatal",
+      "Ophthalmologic",
+      "Cardiovascular",
+      "Craniofacial",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0010864",
+      "HP:0000750",
+      "HP:0011098",
+      "HP:0000256",
+      "HP:0008947",
+      "HP:0011968",
+      "HP:0002307",
+      "HP:0001561",
+      "HP:0002136",
+      "HP:0001250",
+      "HP:0002119",
+      "HP:0002500",
+      "HP:0000486",
+      "HP:0000483",
+      "HP:0000540",
+      "HP:0000545",
+      "HP:0009916",
+      "HP:0001647",
+      "HP:0000337",
+      "HP:0000316",
+      "HP:0000455",
+      "HP:0000307",
+      "HP:0000336",
+      "HP:0000358",
+      "HP:0000494",
+      "HP:0000490",
+      "HP:0000322",
+      "HP:0000431",
+      "HP:0000286",
+      "HP:0000347",
+      "HP:0008070"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GATAD2B"
+    ],
+    "treatments": [
+      "Speech and Language Therapy",
+      "Antiseizure Medication",
+      "Multidisciplinary Surveillance at Diagnosis",
+      "Physical and Occupational Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "GATAD2B-Associated_Neurodevelopmental_Disorder.yaml",
+    "page_url": "../pages/disorders/GATAD2B-Associated_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 32,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "59",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "GFI1B-related platelet-type bleeding disorder",
@@ -226437,6 +226799,113 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 3,
     "causal_graph_edges": "23",
+    "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Immunodeficiency 73C",
+    "disease_id": "MONDO:0033555",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn Error of Immunity",
+      "Predominantly Antibody Deficiency"
+    ],
+    "creation_date": "2026-11-19T03:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "The autosomal recessive arm of RAC2 disease, caused by biallelic loss-of-function variants in RAC2, the haematopoietic-restricted Rho GTPase. It presents as a combined immunodeficiency with a phagocyte defect: recurrent respiratory infection, progressive hypogammaglobulinemia, B lymphopenia, reduced T cell receptor excision circles, and neutrophils that are both chemotactically defective and abnormally granulated.\nRAC2 disease is an allele-class spectrum in which the biochemistry of the variant, not the identity of the gene, predicts the syndrome, and this entry is the third of its three arms. Dominant-negative alleles cause the neonatal-onset neutrophil immunodeficiency syndrome and dominant-activating alleles cause a later combined immunodeficiency; both are curated separately. The index report draws the mechanistic distinction itself: a dominant-negative protein sequesters exchange factors and so impairs the GTPase activity of RAC1 as well as RAC2, whereas a clean recessive null removes RAC2 alone. That is why these patients, unlike the dominant-negative ones, had no catastrophic neonatal presentation and were instead labelled clinically as common variable immunodeficiency for years.\nThe lesion is a single absence that branches three ways, because RAC2 sits at a three-module hub. Without membrane-targeted RAC2-GTP the NADPH oxidase is predicted not to assemble, since p67phox requires RacGTP binding to undergo the conformational change that engages NOX2 - although that prediction is not borne out in the one patient measurement available, a normal nitroblue tetrazolium test in the proband, and holds in only one of two neutrophil compartments in the null mouse. Without it the PAK and WAVE effectors are not engaged, so there is no polarised lamellipodium and no directed migration. And without it the lymphocyte guanine-nucleotide-exchange module has no downstream output, so T and B cell development and antibody production fail. The ubiquitous paralogue RAC1 does not compensate, because RAC2 supplies the great majority of Rac protein in the neutrophil.\nThe clinical description rests on two siblings of one consanguineous family, homozygous for p.Trp56Ter, so every frequency in this entry would have a denominator of two and none is recorded. A second nonsense proband is included in ClinGen's curation, from a large exome series in a consanguineous population whose abstract carries no RAC2 phenotype detail.",
+    "pathophysiology": [
+      "Biallelic RAC2 Null Alleles",
+      "Absence of RAC2 Protein Uncompensated by RAC1",
+      "Failure of NADPH Oxidase Assembly",
+      "Failure of Lamellipodium Formation and Directed Migration",
+      "Abnormal Neutrophil Granule Formation",
+      "Loss of Rac-Dependent Lymphocyte Signalling Output",
+      "Neutrophil Effector Failure",
+      "Progressive Antibody Deficiency",
+      "Immune Dysregulation"
+    ],
+    "cell_types": [
+      "neutrophil",
+      "T cell",
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:0000084",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "superoxide anion generation",
+      "positive regulation of neutrophil chemotaxis"
+    ],
+    "phenotypes": [
+      "Recurrent respiratory infections",
+      "Bronchiectasis",
+      "Decreased circulating IgG concentration",
+      "Decreased circulating IgM concentration",
+      "Decreased circulating IgA concentration",
+      "Reduced factor XI activity",
+      "Urticaria",
+      "Hyperparathyroidism",
+      "Decreased response to growth hormone stimulation test",
+      "Decreased total B cell count",
+      "Abnormally low T cell receptor excision circle level",
+      "Glomerulonephritis",
+      "Hypothyroidism"
+    ],
+    "phenotype_categories": [
+      "Immunologic",
+      "Respiratory",
+      "Hematologic",
+      "Dermatologic",
+      "Endocrine",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Endocrine",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002205",
+      "HP:0002110",
+      "HP:0004315",
+      "HP:0002850",
+      "HP:0002720",
+      "HP:0001929",
+      "HP:0001025",
+      "HP:0000843",
+      "HP:0000824",
+      "HP:0010976",
+      "HP:0031545",
+      "HP:0000099",
+      "HP:0000821"
+    ],
+    "frequencies": [],
+    "genes": [
+      "RAC2"
+    ],
+    "treatments": [
+      "Immunoglobulin Replacement",
+      "Antimicrobial Prophylaxis",
+      "Thyroid Hormone Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Immunodeficiency_73C.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_73C.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "31",
     "causal_graph_longest_path": "7"
   },
   {
@@ -358671,6 +359140,83 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "RAD51D-Related Cancer Predisposition",
+    "disease_id": "MONDO:0700274",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Neoplastic Syndrome",
+      "Homologous Recombination Repair Deficiency Syndrome"
+    ],
+    "creation_date": "2026-11-19T03:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant, moderate-penetrance, adult-onset cancer predisposition caused by germline loss-of-function alleles of RAD51D, one of the four subunits of the BCDX2 RAD51-paralog complex (RAD51B-RAD51C-RAD51D-XRCC2). The dominant manifestation is high-grade serous tubo-ovarian carcinoma arising in the distal fallopian tube, with a smaller breast cancer risk that is confined to the oestrogen-receptor-negative and triple-negative subtype.\nCarriers have no constitutional phenotype. One functional RAD51D allele supports enough homologous recombination for normal development, so the disease is defined by risk and found by sequencing rather than by examination, and the entry's phenotypes are tumours rather than physical findings. Carcinoma arises only in a cell that has lost the second allele, and fallopian tube organoid work fixes the order of the hits: RAD51D deletion alone impairs homologous recombination and arrests the cell, while concurrent TP53 deletion rescues the proliferation and senescence defects and lets the double-mutant clone survive. TP53 loss therefore precedes and permits the consequences of RAD51D loss.\nWhere the lesion bites is the BCDX2 complex rather than RAD51D in isolation. RAD51D interacts specifically with XRCC2 and RAD51C among the five paralogs, so its absence leaves the complex unable to support RAD51 filament nucleation on resected single-stranded DNA and unable to protect reversed replication forks from MRE11 and EXO1. The resulting homologous recombination deficiency is what makes the tumour platinum- and PARP-inhibitor-sensitive, and secondary mutations that restore the RAD51D reading frame are the documented route to acquired resistance.\nThe risk profile is asymmetric and late-accruing, which is what the management recommendation turns on: risk-reducing salpingo-oophorectomy is offered close to the age of menopause rather than in the fourth decade, and risk-reducing mastectomy is generally not recommended.",
+    "pathophysiology": [
+      "Germline RAD51D Loss of Function",
+      "Somatic Loss of the Wild-Type RAD51D Allele",
+      "Failure of BCDX2-Mediated RAD51 Loading and Fork Protection",
+      "Homologous Recombination Deficiency and Genomic Instability",
+      "TP53-Dependent Arrest Eliminating the RAD51D-Null Clone",
+      "Checkpoint Escape in a TP53-Inactivated Cell",
+      "Serous Tubal Intraepithelial Carcinoma",
+      "Platinum and PARP-Inhibitor Sensitivity",
+      "Reversion Mutation Restoring the RAD51D Reading Frame"
+    ],
+    "cell_types": [
+      "fallopian tube secretory epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:4030006"
+    ],
+    "biological_processes": [
+      "double-strand break repair via homologous recombination",
+      "replication fork processing",
+      "DNA recombination",
+      "interstrand cross-link repair"
+    ],
+    "phenotypes": [
+      "Ovarian carcinoma",
+      "Fallopian tube carcinoma",
+      "Breast carcinoma",
+      "Primary peritoneal carcinoma"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Digestive",
+      "Genitourinary",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0025318",
+      "HP:0030394",
+      "HP:0003002",
+      "HP:0030406"
+    ],
+    "frequencies": [],
+    "genes": [
+      "RAD51D"
+    ],
+    "treatments": [
+      "Risk-Reducing Salpingo-Oophorectomy",
+      "Platinum-Based Chemotherapy",
+      "PARP Inhibitor Therapy",
+      "Enhanced Breast Surveillance"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "RAD51D-Related_Cancer_Predisposition.yaml",
+    "page_url": "../pages/disorders/RAD51D-Related_Cancer_Predisposition.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "RARB-related syndromic microphthalmia",
     "disease_id": "MONDO:0014229",
     "category": "Mendelian",
@@ -446884,17 +447430,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4116,
-  "total_subtypes": 5101,
-  "total_disorders_and_subtypes": 9217,
-  "total_unique_evidence_sources": 61407,
-  "total_unique_publications": 57373,
+  "total_disorder_pages": 4121,
+  "total_subtypes": 5103,
+  "total_disorders_and_subtypes": 9224,
+  "total_unique_evidence_sources": 61457,
+  "total_unique_publications": 57419,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4114,
-  "total_unique_pathological_events": 27155,
+  "total_pathographs": 4119,
+  "total_unique_pathological_events": 27200,
   "total_modules": 236,
-  "total_research_reports": 4219,
+  "total_research_reports": 4223,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 139
