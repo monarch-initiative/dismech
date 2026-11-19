@@ -127446,11 +127446,14 @@ window.searchData = [
       "Hepatic cyst formation",
       "Pulmonary cyst formation",
       "Hepatic Cyst Rupture",
+      "IgE-Mediated Hypersensitivity to Hydatid Antigen",
       "Secondary Hydatidosis"
     ],
     "cell_types": [],
     "cell_type_ids": [],
-    "biological_processes": [],
+    "biological_processes": [
+      "type I hypersensitivity"
+    ],
     "phenotypes": [
       "Hepatic cysts",
       "Pulmonary cysts",
@@ -127491,11 +127494,11 @@ window.searchData = [
     "source_file": "Cystic_Echinococcosis.yaml",
     "page_url": "../pages/disorders/Cystic_echinococcosis.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Cystic Fibrosis",
@@ -130730,6 +130733,120 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 6,
     "causal_graph_edges": "30",
+    "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "DNAJC6-Related Parkinson Disease",
+    "disease_id": "MONDO:0014231",
+    "category": "Mendelian",
+    "parents": [
+      "Movement Disorder",
+      "Autosomal Recessive Early-Onset Parkinsonism"
+    ],
+    "creation_date": "2026-11-18T22:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "PARK19B"
+    ],
+    "description": "DNAJC6-related Parkinson disease (PARK19) is an autosomal-recessive form of parkinsonism caused by biallelic loss-of-function variants in DNAJC6, which encodes auxilin, the neuron-specific clathrin-uncoating co-chaperone. Auxilin works with the constitutive heat-shock protein HSC70 to disassemble the clathrin coat from newly endocytosed synaptic vesicles, so loss of its activity impairs clathrin uncoating, synaptic-vesicle endocytosis and recycling at the nerve terminal, and presynaptic dopamine handling. This places the disease on the presynaptic, endocytic arm of Parkinson pathophysiology alongside SYNJ1 (PARK20), rather than on the mitochondrial arm of PRKN/PINK1. The phenotype spans a juvenile-onset form (PARK19A) whose core features are parkinsonism (bradykinesia, resting tremor, rigidity, postural instability) but in which developmental delay, intellectual disability, seizures and other movement disorders usually come first, and a milder early-onset form (PARK19B) presenting as parkinsonism in the third to fifth decade without the additional neurologic features. The two ends are one gene and one mechanism class and are curated here as one entry, with PARK19B as a subtype.",
+    "pathophysiology": [
+      "Auxilin Loss of Function",
+      "Clathrin Coat Disassembly Failure",
+      "Impaired Synaptic Vesicle Endocytosis and Recycling",
+      "Striatal Dopamine Dyshomeostasis",
+      "Nigrostriatal Dopaminergic Neurodegeneration",
+      "Striatal Dopamine Deficiency and Basal Ganglia Circuit Dysfunction",
+      "Parkinsonian Motor Syndrome",
+      "Impaired Midbrain Dopaminergic Neurodevelopment"
+    ],
+    "cell_types": [
+      "dopaminergic neuron",
+      "neuron",
+      "substantia nigra dopaminergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000700",
+      "CL:0000540",
+      "CL:4042025"
+    ],
+    "biological_processes": [
+      "clathrin coat disassembly",
+      "synaptic vesicle endocytosis",
+      "synaptic vesicle recycling",
+      "dopamine secretion",
+      "dopamine reuptake",
+      "neuron apoptotic process",
+      "neuron differentiation"
+    ],
+    "phenotypes": [
+      "Parkinsonism",
+      "Bradykinesia",
+      "Resting Tremor",
+      "Rigidity",
+      "Postural Instability",
+      "Dystonia",
+      "Spasticity",
+      "Myoclonus",
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Seizures",
+      "Neuropsychiatric Features",
+      "Cognitive Decline",
+      "Dysphagia",
+      "Sialorrhea",
+      "Gastrointestinal Dysmotility"
+    ],
+    "phenotype_categories": [
+      "Motor",
+      "Neurologic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001300",
+      "HP:0002067",
+      "HP:0002322",
+      "HP:0002063",
+      "HP:0002172",
+      "HP:0001332",
+      "HP:0001257",
+      "HP:0001336",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0000708",
+      "HP:0001268",
+      "HP:0002015",
+      "HP:0002307",
+      "HP:0002579"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DNAJC6"
+    ],
+    "treatments": [
+      "Levodopa",
+      "Dopamine Agonist and Anticholinergic Therapy",
+      "Anti-seizure Medication",
+      "Myoclonus Pharmacotherapy",
+      "Pallidal Deep Brain Stimulation",
+      "Multidisciplinary Supportive Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "DNAJC6-Related_Parkinson_Disease.yaml",
+    "page_url": "../pages/disorders/DNAJC6-Related_Parkinson_Disease.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "25",
     "causal_graph_longest_path": "9"
   },
   {
@@ -143521,8 +143638,8 @@ window.searchData = [
     "num_pathophysiology": 16,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "24",
-    "causal_graph_longest_path": "9"
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Disabling Pansclerotic Morphea of Childhood",
@@ -147334,6 +147451,77 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 3,
     "num_treatments": 4,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Dyschromatosis Universalis Hereditaria 3",
+    "disease_id": "MONDO:0014169",
+    "category": "Mendelian",
+    "parents": [
+      "dyschromatosis universalis hereditaria"
+    ],
+    "creation_date": "2026-11-18T11:48:17Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dyschromatosis universalis hereditaria 3 (DUH3) is an autosomal dominant pigmentary genodermatosis caused by heterozygous missense or frameshift variants in ABCB6, which encodes an ATP-binding cassette transporter of the melanosome and endosome membrane. Irregular hyperpigmented and hypopigmented macules appear in a mottled pattern over the trunk and limbs in infancy or early childhood, spread, and then stop progressing after adolescence. The two kinds of macule sit side by side because melanosome maturation fails unevenly: melanocytes under hyperpigmented skin carry more mature melanized melanosomes, while those under hypopigmented skin carry empty immature ones. Disease variants mislocalise the transporter, which is normally found in an endosome-like compartment and at dendrite tips, to the Golgi. ABCB6 variants also cause ocular coloboma, and ophthalmological examination of DUH carriers found ocular abnormalities, so the two phenotypes are connected rather than separate uses of one gene. The skin disease is cosmetic; no treatment is established.",
+    "pathophysiology": [
+      "Heterozygous ABCB6 Variant",
+      "Mislocalisation of ABCB6 to the Golgi Apparatus",
+      "Failure of Early Melanosome Maturation",
+      "Uneven Melanosome Content Between Neighbouring Melanocytes"
+    ],
+    "cell_types": [
+      "melanocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000148"
+    ],
+    "biological_processes": [
+      "melanosome organization",
+      "pigmentation"
+    ],
+    "phenotypes": [
+      "Mottled pigmentation",
+      "Macular hyperpigmentation",
+      "Hypopigmented macule",
+      "Iris abnormality",
+      "Ocular hypertension"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0001070",
+      "HP:0011509",
+      "HP:0020073",
+      "HP:0000525",
+      "HP:0007906"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ABCB6"
+    ],
+    "treatments": [
+      "Narrowband UVB Phototherapy",
+      "Laser Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dyschromatosis_Universalis_Hereditaria_3.yaml",
+    "page_url": "../pages/disorders/Dyschromatosis_Universalis_Hereditaria_3.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "6"
   },
@@ -203829,6 +204017,70 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Heterotaxy Visceral 12 Autosomal",
+    "disease_id": "MONDO:0859222",
+    "category": "Mendelian",
+    "parents": [
+      "visceral heterotaxy"
+    ],
+    "creation_date": "2026-11-18T11:48:17Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Visceral heterotaxy 12 is an autosomal recessive laterality disorder caused by biallelic loss-of-function variants in CIROP, which encodes a putative extracellular protease named ciliated left-right organizer metallopeptide. CIROP was found by asking which genes disappeared from the vertebrate lineages whose left-right organizer lacks motile cilia, and it is expressed specifically in ciliated left-right organizers. In zebrafish and Xenopus it is required on the left side only, downstream of the leftward cilia-driven flow but upstream of DAND5, the first gene to be expressed asymmetrically. Losing it therefore leaves the flow intact but breaks the step that converts the flow into an asymmetric signal, and the embryo cannot reliably tell left from right. Twenty-one patients with recessive situs anomalies have been reported.",
+    "pathophysiology": [
+      "Biallelic CIROP Loss of Function",
+      "Loss of CIROP Activity at the Ciliated Left-Right Organizer",
+      "Failure of Left-Sided Signal Transduction Downstream of Leftward Flow",
+      "Failure to Establish Asymmetric Nodal Signalling",
+      "Failure of Left-Right Axis Determination"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "detection of nodal flow",
+      "nodal signaling pathway",
+      "determination of left/right symmetry"
+    ],
+    "phenotypes": [
+      "Heterotaxy",
+      "Congenital heart defect",
+      "Situs inversus totalis",
+      "Dextrocardia"
+    ],
+    "phenotype_categories": [
+      "Multisystem",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Growth"
+    ],
+    "phenotype_ids": [
+      "HP:0030853",
+      "HP:0001627",
+      "HP:0001696",
+      "HP:0001651"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "CIROP"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Heterotaxy_Visceral_12_Autosomal.yaml",
+    "page_url": "../pages/disorders/Heterotaxy_Visceral_12_Autosomal.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Visceral Heterotaxy 14",
     "disease_id": "MONDO:0976135",
     "category": "Mendelian",
@@ -220094,6 +220346,133 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 0,
     "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Idiopathic CD4 Lymphocytopenia",
+    "disease_id": "MONDO:0014226",
+    "category": "Complex",
+    "parents": [
+      "Immunodeficiency Disease"
+    ],
+    "creation_date": "2026-11-16T21:58:59Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A clinical syndrome of persistent CD4-positive T cell depletion below 300 cells per cubic millimetre, diagnosed by exclusion once HIV-1, HIV-2, HTLV infection, another defined immunodeficiency and lymphodepleting therapy have all been ruled out. The depleted CD4 compartment leaves cell-mediated immunity unable to control a characteristic set of pathogens: human papillomavirus, Cryptococcus, molluscum contagiosum virus, nontuberculous mycobacteria and JC virus. Virus-driven and other cancers are commoner than in the general population, and about a third of patients carry an autoimmune condition. CD8, natural killer and B cell counts are reduced in many patients, so the deficit is often broader than the CD4 lineage alone. No cause is established in most patients, and the upstream mechanisms recorded here are competing candidates rather than one agreed lesion.",
+    "pathophysiology": [
+      "Blunted Interleukin-7 Homeostatic Response",
+      "Anti-CD4 T Cell Autoantibody-Mediated Lymphocyte Destruction",
+      "Accelerated Fas-Mediated CD4 T Cell Apoptosis",
+      "Defective Surface CXCR4 Expression on CD4 T Cells",
+      "Persistent CD4-Positive T Cell Depletion",
+      "Failure of CD4-Dependent Cell-Mediated Immunity",
+      "Impaired Immunosurveillance of Virus-Associated Malignancy",
+      "Lymphopenia-Associated Breakdown of Self-Tolerance",
+      "Impaired Primary Antibody Response to Novel Antigen"
+    ],
+    "cell_types": [
+      "CD4-positive T cell",
+      "naive CD4-positive T cell",
+      "CD8-positive T cell",
+      "natural killer cell",
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000624",
+      "CL:0000895",
+      "CL:0000625",
+      "CL:0000623",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "interleukin-7-mediated signaling pathway",
+      "T cell homeostasis",
+      "antibody-dependent cellular cytotoxicity",
+      "complement activation, classical pathway",
+      "T cell apoptotic process",
+      "extrinsic apoptotic signaling pathway",
+      "protein localization to plasma membrane",
+      "CXCL12-activated CXCR4 signaling pathway",
+      "T cell chemotaxis",
+      "T cell mediated immunity",
+      "adaptive immune response",
+      "T cell proliferation"
+    ],
+    "phenotypes": [
+      "Decreased total CD4+ T cell count",
+      "Decreased total CD8+ T cell count",
+      "Reduced total natural killer cell count",
+      "Decreased total B cell count",
+      "Recurrent infections",
+      "Persistent human papillomavirus infection",
+      "Cryptococcal meningitis",
+      "Unusual molluscum contagiosum",
+      "Disseminated nontuberculous mycobacterial infection",
+      "JC encephalitis",
+      "Autoimmunity",
+      "Squamous cell carcinoma",
+      "Non-Hodgkin lymphoma",
+      "Kaposi sarcoma",
+      "Papillary thyroid carcinoma",
+      "Decreased specific antibody response to vaccination"
+    ],
+    "phenotype_categories": [
+      "Immunological",
+      "Neurological",
+      "Dermatological",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Endocrine",
+      "Immune",
+      "Integument",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:5210418",
+      "HP:5210426",
+      "HP:0040218",
+      "HP:0010976",
+      "HP:0002719",
+      "HP:0020114",
+      "HP:0032160",
+      "HP:0032163",
+      "HP:0032283",
+      "HP:5210336",
+      "HP:0002960",
+      "HP:0002860",
+      "HP:0012539",
+      "HP:0100726",
+      "HP:0002895",
+      "HP:0032140"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "UNC119"
+    ],
+    "treatments": [
+      "Antimicrobial prophylaxis",
+      "Recombinant interleukin-7",
+      "Interleukin-2",
+      "Allogeneic hematopoietic stem cell transplantation",
+      "Human papillomavirus vaccination"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Idiopathic_CD4_Lymphocytopenia.yaml",
+    "page_url": "../pages/disorders/Idiopathic_CD4_Lymphocytopenia.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "4"
   },
   {
@@ -292098,6 +292477,138 @@ window.searchData = [
     "causal_graph_longest_path": "10"
   },
   {
+    "name": "Multiple Mitochondrial Dysfunctions Syndrome 7",
+    "disease_id": "MONDO:0957382",
+    "category": "Mendelian",
+    "parents": [
+      "Nonketotic Hyperglycinemia",
+      "Mitochondrial lipoylation defect"
+    ],
+    "creation_date": "2026-11-18T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Multiple mitochondrial dysfunctions syndrome 7 (MMDS7) is an ultra-rare autosomal recessive disorder caused by biallelic pathogenic variants in GCSH, which encodes the H-protein of the mitochondrial glycine cleavage system. The H-protein is a moonlighting lipoyl carrier: it carries the lipoyl arm that shuttles the aminomethyl intermediate within the glycine cleavage system, and it is also the lipoyl donor from which LIPT1 lipoylates the E2 subunits of pyruvate dehydrogenase and 2-ketoglutarate dehydrogenase. Hypomorphic GCSH variants therefore combine nonketotic hyperglycinemia (raised CSF and plasma glycine with glycine encephalopathy) with a lipoylation defect that lowers pyruvate dehydrogenase activity and mitochondrial respiratory reserve. The clinical spectrum runs from fatal neonatal apneic coma with burst-suppression seizures to an attenuated course of developmental delay, hyperactivity, behavioral problems, limited epilepsy and dystonia.\n",
+    "pathophysiology": [
+      "GCSH H-protein Deficiency",
+      "Glycine Cleavage System Deficiency",
+      "Systemic and CNS Glycine Accumulation",
+      "Deficient Lipoylation of 2-Oxoacid Dehydrogenase E2 Subunits",
+      "Pyruvate Dehydrogenase and 2-Ketoglutarate Dehydrogenase Deficiency"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "glycine decarboxylation via glycine cleavage system",
+      "protein lipoylation",
+      "pyruvate decarboxylation to acetyl-CoA",
+      "tricarboxylic acid cycle"
+    ],
+    "phenotypes": [
+      "Increased CSF glycine",
+      "Hyperglycinemia",
+      "Seizure",
+      "Infantile spasms",
+      "Hypsarrhythmia",
+      "EEG with burst suppression",
+      "Myoclonus",
+      "Coma",
+      "Apnea",
+      "Respiratory insufficiency",
+      "Lethargy",
+      "Neonatal hypotonia",
+      "Feeding difficulties",
+      "Hypoglycemia",
+      "Global developmental delay",
+      "Delayed speech and language development",
+      "Hyperactivity",
+      "Aggressive behavior",
+      "Generalized dystonia",
+      "Hypoplasia of the corpus callosum",
+      "Myoclonic seizure",
+      "Developmental regression",
+      "Microcephaly",
+      "Thin corpus callosum",
+      "NKH-type diffusion restriction on brain MRI",
+      "Leigh-like basal ganglia lesions",
+      "Thalamic lesion",
+      "Reduced caudate nucleus volume",
+      "Lactic acidosis",
+      "Elevated brain lactate level by MRS"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Neurological",
+      "Respiratory",
+      "Gastrointestinal",
+      "Metabolic",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0500230",
+      "HP:0002154",
+      "HP:0001250",
+      "HP:0012469",
+      "HP:0002521",
+      "HP:0010851",
+      "HP:0001336",
+      "HP:0001259",
+      "HP:0002104",
+      "HP:0002093",
+      "HP:0001254",
+      "HP:0001319",
+      "HP:0011968",
+      "HP:0001943",
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0000752",
+      "HP:0000718",
+      "HP:0007325",
+      "HP:0002079",
+      "HP:0032794",
+      "HP:0002376",
+      "HP:0000252",
+      "HP:0033725",
+      "HP:0032615",
+      "HP:0012751",
+      "HP:0012696",
+      "HP:0002339",
+      "HP:0003128",
+      "HP:0012707"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "GCSH"
+    ],
+    "treatments": [
+      "Sodium benzoate therapy",
+      "Dextromethorphan (NMDA receptor antagonist)",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "CSF glycine",
+      "Lipoylated mitochondrial proteins"
+    ],
+    "source_file": "Multiple_Mitochondrial_Dysfunctions_Syndrome_7.yaml",
+    "page_url": "../pages/disorders/Multiple_Mitochondrial_Dysfunctions_Syndrome_7.html",
+    "num_phenotypes": 30,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Multiple Mitochondrial Dysfunctions Syndrome 9B",
     "disease_id": "MONDO:0971174",
     "category": "Genetic",
@@ -292605,7 +293116,8 @@ window.searchData = [
     "treatments": [
       "Surgical Excision",
       "Oral Retinoid Therapy",
-      "Intralesional Triamcinolone"
+      "Intralesional Triamcinolone",
+      "Genetic Counseling"
     ],
     "environmental": [
       "Radiotherapy to the skin"
@@ -292616,7 +293128,7 @@ window.searchData = [
     "num_phenotypes": 2,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 3,
+    "num_treatments": 4,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "5"
   },
@@ -321442,7 +321954,13 @@ window.searchData = [
       "White Sclerae (Blue Sclerae Characteristically Absent)",
       "Normal Dentition (Dentinogenesis Imperfecta Characteristically Absent)"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Growth",
+      "Neurological",
+      "Ophthalmological",
+      "Dental"
+    ],
     "phenotype_hpo_categories": [
       "Eye",
       "Growth",
@@ -321481,8 +321999,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Osteogenesis Imperfecta Type XVI",
@@ -358001,6 +358519,75 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "RAD51C-Related Cancer Predisposition",
+    "disease_id": "MONDO:0700273",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary neoplastic syndrome"
+    ],
+    "creation_date": "2026-11-12T23:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant hereditary cancer predisposition caused by heterozygous germline loss-of-function variants in RAD51C, a RAD51 paralog that acts in the BCDX2 and CX3 subcomplexes to load RAD51 onto single-stranded DNA and to protect stalled replication forks. The risk profile is markedly asymmetric and that asymmetry is the clinically important fact: tubo-ovarian carcinoma carries a relative risk of 7.55 and a cumulative risk to age 80 of 11%, while breast cancer carries a relative risk of about 2 and is weighted toward oestrogen-receptor-negative and triple-negative disease. ClinGen re-curated the pair as Definitive for this combined entity in 2024, having previously classified it Definitive for familial ovarian cancer and Disputed for hereditary breast carcinoma. Tumours arise by a somatic second hit on the wild-type allele, which can be a mutation, a deletion, or promoter hypermethylation; the resulting homologous-recombination deficiency is the therapeutic target of PARP inhibitors. This entry covers the monoallelic predisposition only; biallelic RAD51C causes Fanconi anemia complementation group O, which ClinGen curates separately and rates only Limited.",
+    "pathophysiology": [
+      "Germline RAD51C Loss of Function",
+      "Somatic Second-Hit Inactivation Including Promoter Hypermethylation",
+      "Failure of BCDX2-Mediated RAD51 Loading and Fork Protection",
+      "Homologous Recombination Deficiency and Signature 3 Genomic Instability",
+      "TP53 Loss and Checkpoint Escape",
+      "Clonal Expansion and Tumor Initiation",
+      "PARP-Inhibitor Sensitivity"
+    ],
+    "cell_types": [
+      "fallopian tube secretory epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:4030006"
+    ],
+    "biological_processes": [
+      "double-strand break repair via homologous recombination",
+      "DNA repair"
+    ],
+    "phenotypes": [
+      "Ovarian carcinoma",
+      "Breast carcinoma"
+    ],
+    "phenotype_categories": [
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Genitourinary",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0025318",
+      "HP:0003002"
+    ],
+    "frequencies": [
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RAD51C"
+    ],
+    "treatments": [
+      "Risk-reducing salpingo-oophorectomy",
+      "Enhanced breast surveillance",
+      "PARP-inhibitor therapy",
+      "Genetic counseling and cascade testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "RAD51C-Related_Cancer_Predisposition.yaml",
+    "page_url": "../pages/disorders/RAD51C-Related_Cancer_Predisposition.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "RARB-related syndromic microphthalmia",
     "disease_id": "MONDO:0014229",
     "category": "Mendelian",
@@ -361284,7 +361871,7 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 0,
     "num_treatments": 7,
-    "causal_graph_edges": "15",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "8"
   },
   {
@@ -374701,6 +375288,118 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "SNCA-Related Parkinson Disease",
+    "disease_id": "MONDO:0008200",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodegenerative Disease",
+      "Movement Disorder"
+    ],
+    "creation_date": "2026-11-17T04:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "PARK1",
+      "PARK4"
+    ],
+    "description": "SNCA-related Parkinson disease (PARK1 and PARK4, PARK-SNCA) is autosomal dominant parkinsonism caused by heterozygous variation in SNCA, the gene encoding alpha-synuclein, the protein that forms Lewy bodies. Two classes of lesion produce it: missense variants in the N-terminal membrane-binding repeats (p.Ala53Thr, p.Ala30Pro, p.Glu46Lys, p.His50Gln, p.Gly51Asp, p.Ala53Glu) and multiplications of the wild-type locus (duplication, triplication), which raise the amount of normal protein. Both drive alpha-synuclein toward oligomers and amyloid fibrils, block its degradation by chaperone-mediated autophagy, impair synaptic vesicle recycling and neurotransmitter release, fragment mitochondria and seed Lewy pathology that propagates through connected circuits, with degeneration of nigrostriatal dopaminergic neurons and a widespread cortical, limbic and autonomic synucleinopathy. Onset is earlier than in sporadic disease (mean about 48 years for duplications, mid-30s for triplications), severity tracks gene dosage, and dementia, visual hallucinations, REM sleep behaviour disorder and dysautonomia are frequent; a p.Gly51Asp kindred adds pyramidal signs and pathology overlapping multiple system atrophy. Duplication carriers can be clinically indistinguishable from idiopathic Parkinson disease and penetrance of duplications is incomplete.",
+    "pathophysiology": [
+      "Increased Alpha-Synuclein Gene Dosage",
+      "Alpha-Synuclein Missense Substitution",
+      "Alpha-Synuclein Oligomerization and Amyloid Fibril Formation",
+      "Impaired Chaperone-Mediated Autophagy and Protein Degradation",
+      "Impaired Synaptic Vesicle Recycling and Dopamine Release",
+      "Mitochondrial Fragmentation and Bioenergetic Failure",
+      "Prion-like Propagation of Alpha-Synuclein Pathology",
+      "Lewy Body and Lewy Neurite Formation",
+      "Nigrostriatal Dopaminergic Neurodegeneration",
+      "Striatal Dopamine Deficiency and Basal Ganglia Circuit Dysfunction",
+      "Parkinsonism",
+      "Cortical and Limbic Synucleinopathy",
+      "Cardiac Sympathetic Denervation"
+    ],
+    "cell_types": [
+      "dopaminergic neuron",
+      "substantia nigra dopaminergic neuron",
+      "neuron",
+      "sympathetic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000700",
+      "CL:4042025",
+      "CL:0000540",
+      "CL:0011103"
+    ],
+    "biological_processes": [
+      "alpha-synuclein amyloid fibril formation",
+      "chaperone-mediated autophagy",
+      "synaptic vesicle recycling",
+      "mitochondrial fission",
+      "inclusion body assembly",
+      "neuron apoptotic process",
+      "dopamine secretion"
+    ],
+    "phenotypes": [
+      "Bradykinesia",
+      "Rigidity",
+      "Resting Tremor",
+      "Postural Instability",
+      "Levodopa-Responsive Parkinsonism",
+      "Dementia",
+      "Visual Hallucinations",
+      "Depression",
+      "REM Sleep Behavior Disorder",
+      "Dysautonomia",
+      "Orthostatic Hypotension",
+      "Pyramidal Signs"
+    ],
+    "phenotype_categories": [
+      "Motor",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002067",
+      "HP:0002063",
+      "HP:0002322",
+      "HP:0002172",
+      "HP:0002548",
+      "HP:0000726",
+      "HP:0002367",
+      "HP:0000716",
+      "HP:5200291",
+      "HP:0012332",
+      "HP:0001278",
+      "HP:0003487"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SNCA"
+    ],
+    "treatments": [
+      "Levodopa with Peripheral Decarboxylase Inhibitor",
+      "Subthalamic Deep Brain Stimulation",
+      "Antipsychotic Management of Visual Hallucinations and Psychosis",
+      "Management of Orthostatic Hypotension and Dysautonomia",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Alpha-synuclein protein level in blood and brain (SNCA triplication)"
+    ],
+    "source_file": "SNCA-Related_Parkinson_Disease.yaml",
+    "page_url": "../pages/disorders/SNCA-Related_Parkinson_Disease.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "44",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "SNF8-Related Neurodevelopmental Disorder",
@@ -392441,7 +393140,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "4"
   },
   {
@@ -404449,7 +405148,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "15",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "4"
   },
   {
@@ -410328,6 +411027,125 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "TCR-alpha-beta-positive T-cell Deficiency",
+    "disease_id": "MONDO:0014160",
+    "category": "Mendelian",
+    "parents": [
+      "combined immunodeficiency"
+    ],
+    "creation_date": "2026-11-18T11:48:17Z",
+    "updated_date": null,
+    "subtypes": [
+      "Complete",
+      "Partial"
+    ],
+    "description": "TCR\u03b1 chain deficiency is an autosomal recessive inborn error of immunity in which biallelic TRAC variants stop the T cell receptor alpha constant region from assembling a surface TCR\u03b1\u03b2 complex. Thymocytes cannot complete alpha-beta selection, so TCR\u03b1\u03b2-positive T cells are absent from blood while \u03b3\u03b4 T cells, B cells and NK cells are preserved and the \u03b3\u03b4 compartment expands. The severity tracks how much residual TCR\u03b1\u03b2 the allele leaves. A hypomorphic splice allele leaves a small CD3-low TCR\u03b1\u03b2-low subset and produces a combined immunodeficiency with recurrent sinopulmonary and viral infection, bronchiectasis, warts, lymphoproliferation, autoimmunity and a risk of lymphoma, with survival into the second decade. Premature stop codons leave none, and produce a SCID-like illness with disseminated BCG infection and death in infancy or early childhood. Fewer than a dozen patients have been reported.",
+    "pathophysiology": [
+      "Biallelic TRAC Loss-of-Function or Hypomorphic Variant",
+      "Failure to Assemble a Surface TCR-alpha-beta Complex",
+      "Arrest of Alpha-Beta Thymocyte Selection",
+      "Loss of Alpha-Beta T Cell Adaptive Immunity",
+      "Immune Dysregulation and Loss of Tolerance"
+    ],
+    "cell_types": [
+      "alpha-beta T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000789"
+    ],
+    "biological_processes": [
+      "alpha-beta T cell differentiation",
+      "T cell receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Combined immunodeficiency",
+      "Increased gamma-delta T cell proportion",
+      "Recurrent respiratory infections",
+      "Recurrent viral infections",
+      "BCGosis",
+      "Hepatosplenomegaly",
+      "Chronic diarrhea",
+      "Failure to thrive",
+      "Recurrent otitis media",
+      "Vitiligo",
+      "Alopecia areata",
+      "Chronic oral candidiasis",
+      "Bronchiectasis",
+      "Verrucae",
+      "Lymphadenopathy",
+      "Non-Hodgkin lymphoma",
+      "Autoimmune hemolytic anemia",
+      "Increased circulating IgE concentration",
+      "Increased total eosinophil count",
+      "Eczematoid dermatitis",
+      "Pulmonary arterial hypertension"
+    ],
+    "phenotype_categories": [
+      "Immunologic",
+      "Gastrointestinal",
+      "Growth",
+      "Dermatologic",
+      "Respiratory",
+      "Neoplastic",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Ear",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0005387",
+      "HP:0500270",
+      "HP:0002205",
+      "HP:0004429",
+      "HP:0020087",
+      "HP:0001433",
+      "HP:0002028",
+      "HP:0001508",
+      "HP:0000403",
+      "HP:0001045",
+      "HP:0002232",
+      "HP:0009098",
+      "HP:0002110",
+      "HP:0200043",
+      "HP:0002716",
+      "HP:0012539",
+      "HP:0001890",
+      "HP:0003212",
+      "HP:0001880",
+      "HP:0000964",
+      "HP:0002092"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TRAC"
+    ],
+    "treatments": [
+      "Hematopoietic Stem Cell Transplantation",
+      "Immunoglobulin Replacement and Antimicrobial Prophylaxis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "TCR-alpha-beta-positive_T-cell_Deficiency.yaml",
+    "page_url": "../pages/disorders/TCR-alpha-beta-positive_T-cell_Deficiency.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "TEX11-related spermatogenic failure",
@@ -445983,19 +446801,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4107,
-  "total_subtypes": 5096,
-  "total_disorders_and_subtypes": 9203,
-  "total_unique_evidence_sources": 61315,
-  "total_unique_publications": 57294,
+  "total_disorder_pages": 4115,
+  "total_subtypes": 5101,
+  "total_disorders_and_subtypes": 9216,
+  "total_unique_evidence_sources": 61406,
+  "total_unique_publications": 57372,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4105,
-  "total_unique_pathological_events": 27100,
+  "total_pathographs": 4113,
+  "total_unique_pathological_events": 27147,
   "total_modules": 236,
-  "total_research_reports": 4210,
+  "total_research_reports": 4218,
   "total_classifications": 21,
-  "total_comorbidities": 57,
-  "total_groupings": 138
+  "total_comorbidities": 58,
+  "total_groupings": 139
 };
 window.dispatchEvent(new Event('searchDataReady'));
