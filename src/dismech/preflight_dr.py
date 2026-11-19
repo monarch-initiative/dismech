@@ -95,6 +95,8 @@ from collections import Counter
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from dismech.research_reports import report_is_unsuccessful
+
 # MONDO's "disease has basis in dysfunction of" relation, which links a disease
 # term to the HGNC gene(s) whose disruption causes it.
 GENE_RELATION = "RO:0004003"
@@ -1598,6 +1600,18 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.no_hgnc and args.require_hgnc:
         parser.error("--no-hgnc and --require-hgnc are mutually exclusive")
+
+    # A run that produced no report (deep-research-client exit 4) has nothing
+    # to vet: its text is a from-memory answer, a refusal, or a self-declared
+    # incomplete draft. Refuse before opening MONDO, as with the other
+    # can't-give-a-verdict cases.
+    if report_is_unsuccessful(Path(args.report)):
+        parser.exit(
+            2,
+            f"error: {args.report} is marked answer_status: unsuccessful -- the "
+            "provider did not produce a report. Delete it and re-run, or use "
+            "another provider.\n",
+        )
 
     # Open MONDO first (the local build, or OLS without it): without it there
     # is no verdict to give, and failing here also stops the HGNC lexicon below
