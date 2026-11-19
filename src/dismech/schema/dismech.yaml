@@ -36,6 +36,7 @@ prefixes:
   UBERON: http://purl.obolibrary.org/obo/UBERON_
   CL: http://purl.obolibrary.org/obo/CL_
   MONDO: http://purl.obolibrary.org/obo/MONDO_
+  OMIMPS: https://omim.org/phenotypicSeries/PS
   ICD10CM: http://purl.obolibrary.org/obo/ICD10CM_
   icd11f: http://purl.obolibrary.org/obo/icd11f_
   NCIT: http://purl.obolibrary.org/obo/NCIT_
@@ -1529,6 +1530,11 @@ enums:
     comments:
       - Uses HGNC gene nomenclature committee identifiers
       - Validation requires exact label match with HGNC database
+  OMIMPSTerm:
+    description: >-
+      An OMIM phenotypic series. Validates identifier existence and the canonical
+      label through the OMIM OAK adapter, without a disease-hierarchy constraint.
+      A series may describe a Mendelian disease family or susceptibility loci.
   LoincTerm:
     description: >-
       A LOINC code for a clinical measurement, panel, or LOINC Part. No
@@ -1994,6 +2000,12 @@ enums:
         aliases:
           - Puerpural onset
         meaning: HP:4000040
+      PERIMENOPAUSAL:
+        description: Perimenopausal onset
+        meaning: HP:6000314
+      POSTMENOPAUSAL:
+        description: Postmenopausal onset
+        meaning: HP:6000315
   ZygosityEnum:
     description: Zygosity categories from GENO
     permissible_values:
@@ -2231,9 +2243,10 @@ enums:
       to establish which kinds are shared -- see
       docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md. A single
       link usually carries more than one, which is why `divergences` is
-      multivalued. The set is deliberately computational-model-first; extending
-      it to animal models would add supraphysiological expression and incomplete
-      phenotype, each already evidenced in that set.
+      multivalued. The set was deliberately computational-model-first;
+      INCOMPLETE_PHENOTYPE was added when the animal set it was predicted from
+      became the dominant population (#11743). SUPRAPHYSIOLOGICAL_EXPRESSION
+      remains the other predicted addition and has not been added.
     see_also:
       - PMID:32993675
     permissible_values:
@@ -2299,7 +2312,27 @@ enums:
         description: >-
           The model, or the data behind it, derives from a non-human system.
           Marginal among computational models and dominant among animal models,
-          where it is the principal translational caveat.
+          where it is the principal translational caveat. Use it when the
+          organism structurally cannot express the node -- a mouse has no IgG4
+          subclass, Drosophila has no thalamus. Contrast INCOMPLETE_PHENOTYPE,
+          where the organism could express it and the model does not.
+      INCOMPLETE_PHENOTYPE:
+        title: Incomplete phenotype
+        description: >-
+          The model reproduces part of the disease phenotype and not the rest,
+          and nothing about the organism explains the missing part. A mouse can
+          have seizures; a model that does not show them is incomplete rather
+          than species-mismatched. It also covers a feature the model's reports
+          are simply silent on, which is the commoner case: "not shown" and "not
+          looked for" are rarely separable from a publication, and both leave the
+          phenotype incomplete. The distinction from SPECIES_MISMATCH carries a
+          consequence for a reader deciding what the model is worth: a
+          species-structural gap will never close in that organism, while an
+          incomplete phenotype may be a matter of background strain, age at
+          assay, penetrance, or an assay nobody ran. Both can
+          apply to one model for different features, which is why `divergences`
+          is multivalued -- record each against the feature it concerns rather
+          than choosing between them.
       POPULATION_MISMATCH:
         title: Population mismatch
         description: >-
@@ -2391,12 +2424,23 @@ enums:
         description: File modification
 
   ClinicalTrialPhaseEnum:
-    description: Clinical trial phase categories per FDA/NIH standards
+    description: >-
+      Clinical trial phase categories per FDA/NIH standards, plus the
+      combined-phase designs ClinicalTrials.gov registers in its own
+      vocabulary. A combined-phase trial takes the combined value rather than
+      either component: rounding it to one phase makes a query for "phase III
+      trials in X" include some phase 2/3 trials and silently exclude others.
     permissible_values:
+      EARLY_PHASE_I:
+        description: Early Phase I - exploratory first-in-human or pharmacodynamic study (ClinicalTrials.gov EARLY_PHASE1, formerly Phase 0)
       PHASE_I:
         description: Phase I - Initial safety and dosage assessment in small group (20-100 participants)
+      PHASE_I_II:
+        description: Combined Phase I/II design, registered by ClinicalTrials.gov as PHASE1|PHASE2
       PHASE_II:
         description: Phase II - Efficacy and side effects assessment in larger group (100-500 participants)
+      PHASE_II_III:
+        description: Combined Phase II/III design, registered by ClinicalTrials.gov as PHASE2|PHASE3
       PHASE_III:
         description: Phase III - Efficacy confirmation and monitoring in large population (1000-5000 participants)
       PHASE_IV:
@@ -6208,6 +6252,16 @@ slots:
     multivalued: true
     range: MondoMapping
     inlined_as_list: true
+  omimps_mappings:
+    description: >-
+      Mappings to OMIM phenotypic series, with an explicit scope relationship.
+      Use exactMatch only for the same disease or disease-family concept;
+      use relatedMatch when a series of susceptibility loci concerns this
+      disease but is not a union of its disease subtypes. A mapping does not
+      assert complete member coverage or Mendelian inheritance.
+    multivalued: true
+    range: OMIMPSMapping
+    inlined_as_list: true
   ncit_mappings:
     description: NCIT disease, subtype, or disease/finding mappings
     multivalued: true
@@ -6717,6 +6771,15 @@ classes:
     slot_usage:
       id:
         pattern: "^LOINC:(LP|LG)?[0-9]+-[0-9]$"
+
+  OMIMPSCode:
+    is_a: Term
+    description: >-
+      An OMIM phenotypic-series identifier, distinct from an individual OMIM
+      phenotype or gene record even when their six-digit numbers coincide.
+    slot_usage:
+      id:
+        pattern: "^OMIMPS:[0-9]{6}$"
 
   # Base descriptor class for structured term references
   Descriptor:
@@ -7677,10 +7740,14 @@ classes:
       phase:
         range: ClinicalTrialPhaseEnum
         description: >-
-          Trial phase. Enum-bound: use PHASE_I, PHASE_II, PHASE_III, PHASE_IV, or
-          NOT_APPLICABLE, not the prose spellings ("Phase III").
+          Trial phase. Enum-bound: use EARLY_PHASE_I, PHASE_I, PHASE_I_II,
+          PHASE_II, PHASE_II_III, PHASE_III, PHASE_IV or NOT_APPLICABLE, not
+          the prose spellings ("Phase III"). A trial the registry records as
+          PHASE1|PHASE2 or PHASE2|PHASE3 takes the combined value, not either
+          component.
         examples:
           - value: PHASE_III
+          - value: PHASE_II_III
           - value: NOT_APPLICABLE
         recommended: true
       status:
@@ -8579,8 +8646,12 @@ classes:
           entry's subtypes are classified separately (ATP7A: Menkes disease
           and X-linked distal SMA).
   ProgressionInfo:
+    description: >-
+      One phase of a disease's natural history: what happens during it, how
+      long it lasts, and the age or incubation interval at which it occurs.
     slots:
       - phase
+      - description
       - subtype
       - age_range
       - evidence
@@ -8590,6 +8661,16 @@ classes:
       - notes
       - duration_days
       - duration
+    slot_usage:
+      description:
+        description: >-
+          What happens during this phase. This is the phase's own account of
+          the disease and belongs here rather than in `notes`, which is for
+          the caveats and qualifications that account needs.
+        examples:
+          - value: >-
+              Fetal thrombocytopenia can begin in the second trimester and is
+              detectable on cordocentesis before any clinical bleeding.
   ClinicalBurden:
     description: >-
       Disease-level assessment of the typical clinical burden imposed by a
@@ -9688,6 +9769,19 @@ classes:
             range: NCITDiseaseOrFindingTerm
             obligation_level: REQUIRED
 
+  OMIMPSMapping:
+    is_a: TermMapping
+    description: Mapping to an OMIM phenotypic series, not an individual OMIM record
+    slot_usage:
+      term:
+        range: OMIMPSCode
+        bindings:
+          - binds_value_of: id
+            range: OMIMPSTerm
+            obligation_level: REQUIRED
+      mapping_justification:
+        required: true
+
   MappingConsistency:
     description: Consistency assertion for a mapping relative to another source
     slots:
@@ -9708,6 +9802,7 @@ classes:
       - icd10cm_mappings
       - icd11f_mappings
       - mondo_mappings
+      - omimps_mappings
       - ncit_mappings
 
   ConditionDescriptor:
