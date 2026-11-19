@@ -24,6 +24,49 @@ unknown_prefix_severity: ERROR
 # rebuilds it -- not something re-decided on every validation run.
 trust_cached_entries: true
 
+# signed_excerpts_dir: directory of fair-use excerpt bundles synced from the
+# private monarch-initiative/claimstore repository, where full-text PDFs and
+# Markdowns are verified with linkml-reference-validator and linkml-term-validator.
+# A snippet is trusted if it either substring-matches references_cache/ OR
+# exact-matches (after whitespace normalization) a verified excerpt in
+# signed_excerpts/<REF_ID>.yaml. Any deviation from the signed excerpt fails the
+# fallback and is reported as a missing substring against references_cache/.
+# Fair-use length and fraction caps (max_excerpt_part_length: 250,
+# max_excerpt_length: 450, max_total_chars_per_reference: 1500,
+# max_reference_fraction: 0.05) are enforced in claimstore and on
+# signed_excerpts/*.yaml by tests/test_signed_excerpts.py rather than globally
+# across kb/disorders/ (where existing abstract/PMC-OA quotes are unrestricted).
+signed_excerpts_dir: signed_excerpts
+
+# signed_excerpts_require_verification (linkml-reference-validator >=0.8.0) is
+# deliberately left at its default, false. When true, the validator ignores any
+# bundle without a `verification.source_sha256` record -- which `excerpts sign`
+# writes -- and none of the committed bundles has one: claimstore records its
+# provenance as `source_md_sha256` / `source_pdf_sha256`, checked by
+# tests/test_signed_excerpts.py. Turning it on today would silently drop every
+# signed excerpt and fail the snippets that rely on them. Revisit once claimstore
+# emits the `verification` block.
+#
+# local_full_text / local_full_text_dir (>=0.8.0) are also deliberately unset.
+# They match quotes against a private local file when it exists and change
+# nothing when it does not -- so a quote verified that way passes on the
+# curator's machine and fails in CI. The route to a CI-verifiable full-text quote
+# here is still claimstore -> `just sync-signed-excerpts` (design decisions §6d).
+# A curator may set them in a personal config for drafting, never in this file.
+
+# signed_excerpts_sync: how `just sync-signed-excerpts` selects bundles from a
+# local claimstore checkout. A bundle is copied if an excerpt is tagged
+# `target_repo: dismech:...` OR its reference is cited anywhere under kb/
+# (disorders, modules, comorbidities, ... all validate against
+# signed_excerpts/). Bundles no longer selected are removed, so the glob must
+# cover every directory that quotes them. The claimstore path is per-user, so
+# it is passed by the recipe (CLAIMSTORE_DIR) rather than set here.
+signed_excerpts_sync:
+  target_repo: dismech
+  referenced_in:
+    - kb/**/*.yaml
+  prune: true
+
 # literal_bracket_patterns: regexes matched against the text *inside* square
 # brackets. Content matching any of them is kept as literal source text; content
 # matching none of them is stripped before the snippet is compared with the
