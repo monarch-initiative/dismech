@@ -72,13 +72,54 @@ STATUS_MAP = {
 
 # ClinicalTrials.gov `phases` tokens -> dismech ClinicalTrialPhaseEnum.
 PHASE_MAP = {
-    "EARLY_PHASE1": "PHASE_I",  # approximate: dismech has no Early Phase 1 value
+    "EARLY_PHASE1": "EARLY_PHASE_I",
     "PHASE1": "PHASE_I",
     "PHASE2": "PHASE_II",
     "PHASE3": "PHASE_III",
     "PHASE4": "PHASE_IV",
     "NA": "NOT_APPLICABLE",
 }
+
+#: A registry record carrying two phase tokens is one combined-phase design,
+#: and dismech has a value for it (#15385). Keyed on the exact component set,
+#: so an unexpected combination falls through to the per-component comparison
+#: rather than being asserted as a design the registry did not register.
+COMBINED_PHASES = {
+    frozenset({"PHASE_I", "PHASE_II"}): "PHASE_I_II",
+    frozenset({"PHASE_II", "PHASE_III"}): "PHASE_II_III",
+}
+
+#: Values that were the sanctioned workaround before the combined and early
+#: values existed, and are therefore not reported as drift against the registry
+#: record they were curated from. Rounding is what #15385 is about: the point
+#: is to stop *new* rounding, not to turn an advisory audit loud over a backlog
+#: whose migration needs each registry phase re-read.
+LEGACY_PHASE_SPELLINGS = {
+    "EARLY_PHASE_I": {"PHASE_I"},
+    "PHASE_I_II": {"PHASE_I", "PHASE_II"},
+    "PHASE_II_III": {"PHASE_II", "PHASE_III"},
+}
+
+
+def acceptable_phases(live_phases: set[str]) -> set[str]:
+    """Curated values that agree with a registry record's phase tokens.
+
+    The combined value is the precise answer; its components stay acceptable
+    because they are what the enum forced curators to write until now.
+    """
+    accepted = set(live_phases)
+    combined = COMBINED_PHASES.get(frozenset(live_phases))
+    if combined:
+        accepted.add(combined)
+    for value in list(accepted):
+        accepted |= LEGACY_PHASE_SPELLINGS.get(value, set())
+    return accepted
+
+
+def registry_phase(live_phases: set[str]) -> str:
+    """How a registry record's phase reads in dismech's own vocabulary."""
+    combined = COMBINED_PHASES.get(frozenset(live_phases))
+    return combined if combined else "|".join(sorted(live_phases))
 
 # Statuses that usually mean more than a one-field edit is warranted.
 CURATION_SIGNAL_STATUSES = {"TERMINATED", "WITHDRAWN", "SUSPENDED"}
@@ -318,14 +359,12 @@ def audit_trials(
                         location=trial.location,
                         nct_id=trial.nct_id,
                         name=trial.name,
-                        live="|".join(sorted(live_phases)),
+                        live=registry_phase(live_phases),
                         detail="no curated phase; registry value available",
                         last_update=last_update,
                     )
                 )
-        elif live_phases and trial.phase not in live_phases:
-            # A multi-phase registry record (e.g. PHASE1|PHASE2) matches if the
-            # curated value is any one of its phases.
+        elif live_phases and trial.phase not in acceptable_phases(live_phases):
             findings.append(
                 TrialFinding(
                     kind="phase_drift",
@@ -333,7 +372,7 @@ def audit_trials(
                     nct_id=trial.nct_id,
                     name=trial.name,
                     curated=trial.phase,
-                    live="|".join(sorted(live_phases)),
+                    live=registry_phase(live_phases),
                     last_update=last_update,
                 )
             )
