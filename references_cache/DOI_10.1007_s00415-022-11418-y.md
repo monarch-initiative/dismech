@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00415-022-11418-y
+extractor_version: 1
 title: "Comorbidities and clinical outcomes in adult- and juvenile-onset Huntington’s disease: a study of linked Swedish National Registries (2002–2019)"
 authors:
 - Hannah Furby
@@ -24,4 +25,24 @@ is_preprint: false
 
 ## Content
 
-AbstractBackgroundHuntington’s disease (HD) is a rare, neurodegenerative disease and its complex motor, cognitive and psychiatric symptoms exert a lifelong clinical burden on both patients and their families.ObjectiveTo describe the clinical burden and natural history of HD.MethodsThis longitudinal cohort study used data from the linked Swedish national registries to describe the occurrence of comorbidities (acute and chronic), symptomatic treatments and mortality in an incident cohort of individuals who either received the first diagnosis of HD above (adult onset HD; AoHD) or below (juvenile-onset HD; JoHD) 20 years of age, compared with a matched cohort without HD from the general population. Disease burden of all individuals alive in Sweden was described during a single calendar year (2018), including the occurrence of key symptoms, treatments and hospitalizations.ResultsThe prevalence of HD in 2018 was approximately 10.2 per 100,000. Of 1492 individuals with a diagnosis of HD during 2002 and 2018, 1447 had AoHD and 45 had JoHD. Individuals with AoHD suffered a higher incidence of obsessive–compulsive disorder, acute psychotic episodes, pneumonia, constipation and fractures compared with matched controls. Individuals with JoHD had higher incidence rates of epilepsy, constipation and acute respiratory symptoms. Median time to all-cause mortality in AoHD was 12.1 years from diagnosis. Patients alive with HD in Sweden in 2018 displayed a pattern of increased clinical burden for a number of years since diagnosis.ConclusionsThis study demonstrates the significant and progressive clinical burden in individuals with HD and presents novel insights into the natural history of JoHD.
+Abstract
+
+Background
+
+Huntington’s disease (HD) is a rare, neurodegenerative disease and its complex motor, cognitive and psychiatric symptoms exert a lifelong clinical burden on both patients and their families.
+
+Objective
+
+To describe the clinical burden and natural history of HD.
+
+Methods
+
+This longitudinal cohort study used data from the linked Swedish national registries to describe the occurrence of comorbidities (acute and chronic), symptomatic treatments and mortality in an incident cohort of individuals who either received the first diagnosis of HD above (adult onset HD; AoHD) or below (juvenile-onset HD; JoHD) 20 years of age, compared with a matched cohort without HD from the general population. Disease burden of all individuals alive in Sweden was described during a single calendar year (2018), including the occurrence of key symptoms, treatments and hospitalizations.
+
+Results
+
+The prevalence of HD in 2018 was approximately 10.2 per 100,000. Of 1492 individuals with a diagnosis of HD during 2002 and 2018, 1447 had AoHD and 45 had JoHD. Individuals with AoHD suffered a higher incidence of obsessive–compulsive disorder, acute psychotic episodes, pneumonia, constipation and fractures compared with matched controls. Individuals with JoHD had higher incidence rates of epilepsy, constipation and acute respiratory symptoms. Median time to all-cause mortality in AoHD was 12.1 years from diagnosis. Patients alive with HD in Sweden in 2018 displayed a pattern of increased clinical burden for a number of years since diagnosis.
+
+Conclusions
+
+This study demonstrates the significant and progressive clinical burden in individuals with HD and presents novel insights into the natural history of JoHD.

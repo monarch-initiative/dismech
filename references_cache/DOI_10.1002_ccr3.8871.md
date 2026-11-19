@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1002/ccr3.8871
+extractor_version: 1
 title: Arterial stroke in a child with Seckel syndrome with a pattern of non‐moyamoya vasculopathy
 authors:
 - Samin Alavi
@@ -11,6 +12,7 @@ journal: Clinical Case Reports
 year: '2024'
 doi: 10.1002/ccr3.8871
 content_type: abstract_only
+is_preprint: false
 full_text_attempted: true
 ---
 
@@ -21,4 +23,6 @@ full_text_attempted: true
 
 ## Content
 
-Key Clinical MessageSeckel syndrome is a rare autosomal recessive disorder, characterized by growth retardation and multiple anomalies associated with CNS vasculopathy. We describe a child with Seckel syndrome who developed a stroke due to non‐moyamoya vasculopathy.
+Key Clinical Message
+
+Seckel syndrome is a rare autosomal recessive disorder, characterized by growth retardation and multiple anomalies associated with CNS vasculopathy. We describe a child with Seckel syndrome who developed a stroke due to non‐moyamoya vasculopathy.

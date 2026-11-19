@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41388-023-02611-y
+extractor_version: 1
 title: Transgenic IDH2R172K and IDH2R140Q zebrafish models recapitulated features of human acute myeloid leukemia
 authors:
 - Dandan Wang
@@ -17,12 +18,14 @@ journal: Oncogene
 year: '2023'
 doi: 10.1038/s41388-023-02611-y
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41388-023-02611-y.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41388-023-02611-y.pdf
+full_text_access_type: open
 ---
 
 # Transgenic IDH2R172K and IDH2R140Q zebrafish models recapitulated features of human acute myeloid leukemia
@@ -32,7 +35,9 @@ local_pdf_path: files/DOI_10.1038_s41388-023-02611-y.pdf
 
 ## Content
 
-AbstractIsocitrate dehydrogenase 2 (IDH2) mutations occur in more than 15% of cytogenetically normal acute myeloid leukemia (CN-AML) but comparative studies of their roles in leukemogenesis have been scarce. We generated zebrafish models ofIDH2R172KandIDH2R140QAML and reported their pathologic, functional and transcriptomic features and therapeutic responses to target therapies. Transgenic embryos co-expressingFLT3ITDandIDH2mutations showed accentuation of myelopoiesis. As these embryos were raised to adulthood, full-blown leukemia ensued with multi-lineage dysplasia, increase in myeloblasts and marrow cellularity and splenomegaly. The leukemia cells were transplantable into primary and secondary recipients and resulted in more aggressive disease. Tg(Runx1:FLT3ITDIDH2R172K) but not Tg(Runx1:FLT3ITDIDH2R140Q) zebrafish showed an increase in T-cell development at embryonic and adult stages. Single-cell transcriptomic analysis revealed increased myeloid skewing, differentiation blockade and enrichment of leukemia-associated gene signatures in both zebrafish models. Tg(Runx1:FLT3ITDIDH2R172K) but not Tg(Runx1:FLT3ITDIDH2R140Q) zebrafish showed an increase in interferon signals at the adult stage. Leukemic phenotypes in both zebrafish could be ameliorated by quizartinib and enasidenib. In conclusion, the zebrafish models ofIDH2mutated AML recapitulated the morphologic, clinical, functional and transcriptomic characteristics of human diseases, and provided the prototype for developing zebrafish leukemia models of other genotypes that would become a platform for high throughput drug screening.
+Abstract
+
+Isocitrate dehydrogenase 2 (IDH2) mutations occur in more than 15% of cytogenetically normal acute myeloid leukemia (CN-AML) but comparative studies of their roles in leukemogenesis have been scarce. We generated zebrafish models ofIDH2R172KandIDH2R140QAML and reported their pathologic, functional and transcriptomic features and therapeutic responses to target therapies. Transgenic embryos co-expressingFLT3ITDandIDH2mutations showed accentuation of myelopoiesis. As these embryos were raised to adulthood, full-blown leukemia ensued with multi-lineage dysplasia, increase in myeloblasts and marrow cellularity and splenomegaly. The leukemia cells were transplantable into primary and secondary recipients and resulted in more aggressive disease. Tg(Runx1:FLT3ITDIDH2R172K) but not Tg(Runx1:FLT3ITDIDH2R140Q) zebrafish showed an increase in T-cell development at embryonic and adult stages. Single-cell transcriptomic analysis revealed increased myeloid skewing, differentiation blockade and enrichment of leukemia-associated gene signatures in both zebrafish models. Tg(Runx1:FLT3ITDIDH2R172K) but not Tg(Runx1:FLT3ITDIDH2R140Q) zebrafish showed an increase in interferon signals at the adult stage. Leukemic phenotypes in both zebrafish could be ameliorated by quizartinib and enasidenib. In conclusion, the zebrafish models ofIDH2mutated AML recapitulated the morphologic, clinical, functional and transcriptomic characteristics of human diseases, and provided the prototype for developing zebrafish leukemia models of other genotypes that would become a platform for high throughput drug screening.
 
 ARTICLE OPEN
 Transgenic IDH2R172K and IDH2R140Q zebraﬁsh models

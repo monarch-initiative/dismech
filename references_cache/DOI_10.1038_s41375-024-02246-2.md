@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41375-024-02246-2
+extractor_version: 1
 title: Management of isocitrate dehydrogenase 1/2 mutated acute myeloid leukemia
 authors:
 - Harry Fruchtman
@@ -11,12 +12,14 @@ journal: Leukemia
 year: '2024'
 doi: 10.1038/s41375-024-02246-2
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41375-024-02246-2.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41375-024-02246-2.pdf
+full_text_access_type: open
 ---
 
 # Management of isocitrate dehydrogenase 1/2 mutated acute myeloid leukemia
@@ -26,7 +29,9 @@ local_pdf_path: files/DOI_10.1038_s41375-024-02246-2.pdf
 
 ## Content
 
-AbstractThe emergence of next generation sequencing and widespread use of mutational profiling in acute myeloid leukemia (AML) has broadened our understanding of the heterogeneous molecular basis of the disease. Since genetic sequencing has become a standard practice, several driver mutations have been identified. Accordingly, novel targeted therapeutic agents have been developed and are now approved for the treatment of subsets of patients that carry mutations in FLT3, IDH1, and IDH2 [1, 2]. The emergence of these novel agents in AML offers patients a new modality of therapy, and shifts treatment paradigms toward individualized medicine. In this review, we outline the role of IDH mutations in malignant transformation, focus in on a novel group of targeted therapeutic agents directed toward IDH1- and IDH2-mutant AML, and explore their impact on prognosis in patients with AML.
+Abstract
+
+The emergence of next generation sequencing and widespread use of mutational profiling in acute myeloid leukemia (AML) has broadened our understanding of the heterogeneous molecular basis of the disease. Since genetic sequencing has become a standard practice, several driver mutations have been identified. Accordingly, novel targeted therapeutic agents have been developed and are now approved for the treatment of subsets of patients that carry mutations in FLT3 , IDH1 , and IDH2 [1, 2]. The emergence of these novel agents in AML offers patients a new modality of therapy, and shifts treatment paradigms toward individualized medicine. In this review, we outline the role of IDH mutations in malignant transformation, focus in on a novel group of targeted therapeutic agents directed toward IDH1 - and IDH2 -mutant AML, and explore their impact on prognosis in patients with AML.
 
 REVIEW ARTICLE OPEN
 ACUTE MYELOID LEUKEMIA

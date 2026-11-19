@@ -21,6 +21,7 @@ diseases:
 - Parkinsons_Disease
 - Migraine
 - Migraine_with_Aura
+- Familial_Hemiplegic_Migraine
 - pseudotumor_cerebri
 - Restless_Legs_Syndrome
 - Peripartum_Cardiomyopathy
@@ -84,6 +85,7 @@ modules:
 - muscarinic_receptor_antagonism
 - casr_positive_allosteric_modulation
 - p2y12_receptor_antagonism
+- migraine_neurovascular_mechanism
 ---
 
 # GPCRs: Drug Mechanisms and Disease Modules
@@ -364,6 +366,13 @@ mechanism-level rather than disease-level.
         that a grep for drug names alone returns thirteen entries, not fourteen:
         `Platelet-type_Bleeding_Disorder_16` names only "P2Y12 inhibitors" as a class, so searching
         for `p2y12` as well as the drug names is what makes the two counts agree
+  - [x] Nine nodes across the three migraine entries, in #15934: `Migraine` at four,
+        `Familial_Hemiplegic_Migraine` at three and `Migraine_with_Aura` at two, against
+        `migraine_neurovascular_mechanism`. This one adds no nodes at all — every node it
+        conforms was already in the entry, which is what makes it the cheapest kind of
+        conformance and the clearest demonstration of what conformance is for: the three
+        entries had modelled the same chain under different names, and nothing could compare
+        them until the module existed
 - [ ] Remaining Workstream A modules
   - [x] D2 receptor antagonism — `d2_receptor_antagonism` (#15299)
   - [x] AT1 receptor blockade — `at1_receptor_blockade` (#15271)
@@ -382,11 +391,19 @@ mechanism-level rather than disease-level.
   - [x] P2Y12 receptor antagonism — `p2y12_receptor_antagonism` (#15928)
   - [ ] V2 receptor antagonism
   - [ ] MC4R agonism
-  - [ ] migraine neurovascular mechanism — a *disease* module, not a drug one, factoring
-        the cortical spreading depolarization → trigeminovascular activation → central
-        sensitization chain out of `Migraine`, `Migraine_with_Aura` and
-        `Familial_Hemiplegic_Migraine`, which currently each re-derive it. Added from the
-        resolution of the CGRP open question below
+  - [x] migraine neurovascular mechanism — `migraine_neurovascular_mechanism` (#15934). A
+        *disease* module, not a drug one, factoring the cortical spreading depolarization →
+        trigeminovascular activation → central sensitization chain out of `Migraine`,
+        `Migraine_with_Aura` and `Familial_Hemiplegic_Migraine`, which each re-derived it under
+        different node namings. Added from the resolution of the CGRP open question below. It
+        carries no treatments block: the migraine pharmacology is already in
+        `serotonin_1b_1d_receptor_agonism` and `cgrp_receptor_antagonism`, and the conformers
+        that use those drugs reach them through their own `therapeutic_vulnerability` nodes.
+        `Migraine` conforms to both, `Migraine_with_Aura` to the 5-HT1B/1D module only, and
+        `Familial_Hemiplegic_Migraine` to neither, because triptans and ergots are
+        contraindicated there for their vasoconstrictive effects. That last case is a second
+        reason the shared module carries no drug arm: it would attach a therapy to a conformer
+        that must avoid it
 - [ ] Gs alpha defect module
 
 ## Decisions

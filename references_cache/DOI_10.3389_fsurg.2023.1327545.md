@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3389/fsurg.2023.1327545
+extractor_version: 1
 title: "Meckel's diverticulum: analysis of 27 cases in an adult population"
 authors:
 - Juan David Hernández
@@ -15,12 +16,14 @@ journal: Frontiers in Surgery
 year: '2023'
 doi: 10.3389/fsurg.2023.1327545
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.frontiersin.org/articles/10.3389/fsurg.2023.1327545/pdf?isPublishedV2=False"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.3389_fsurg.2023.1327545.pdf
+full_text_access_type: open
 ---
 
 # Meckel's diverticulum: analysis of 27 cases in an adult population
@@ -30,7 +33,21 @@ local_pdf_path: files/DOI_10.3389_fsurg.2023.1327545.pdf
 
 ## Content
 
-BackgroundMeckel's diverticulum is a rare congenital pathology among newborns. Nevertheless, it is an uncommon abdominal pathology in the adult population. Therefore, we aim to provide a detailed account of our surgical approach in treating 27 cases of Meckel's diverticulum.MethodsThis study is a cross-sectional analysis that utilized a database with prospectively collected data from 2004 to 2022. All patients under the age of 18 were excluded from the population. We described the population’s demographic characteristics, symptoms, anatomopathological study, surgical technique, complications, morbidity, and mortality. A subgroup analysis was performed between the symptomatic and asymptomatic patients.ResultsA total of 27 patients who underwent surgical resection for a posteriorly diagnosed Meckel's diverticulum were included. The male population accounted for 81.4% (n = 22) of the sample size. The symptomatic group consisted of 18 male and four female patients. Abdominal pain was the predominant symptom in 85% of the patients. Out of the 22 symptomatic patients, only 9% had a positive perioperative diagnosis of Meckel's diverticulum. All 27 patients with diverticulum diagnosis received the resection through diverticulectomy (n = 6), small bowel resection with end-to-end anastomosis (n = 6), and small bowel resection with lateral to lateral anastomosis (n = 15). The mean distance between the diverticulum and the ileocecal valve was 63.4 cm. The symptomatic group had an average diverticulum length of 3.54 cm, with an average base width of 2.47 cm. In the other group, the values were 2.75 and 1.61 cm. The average length of hospital stay in the symptomatic group was 7.3 days.ConclusionsMeckel's diverticulum is a rare pathology in the adult population. Its presentation varies from asymptomatic to symptomatic patients, and surgery is the cornerstone treatment for this pathology.
+Background
+
+Meckel's diverticulum is a rare congenital pathology among newborns. Nevertheless, it is an uncommon abdominal pathology in the adult population. Therefore, we aim to provide a detailed account of our surgical approach in treating 27 cases of Meckel's diverticulum.
+
+Methods
+
+This study is a cross-sectional analysis that utilized a database with prospectively collected data from 2004 to 2022. All patients under the age of 18 were excluded from the population. We described the population’s demographic characteristics, symptoms, anatomopathological study, surgical technique, complications, morbidity, and mortality. A subgroup analysis was performed between the symptomatic and asymptomatic patients.
+
+Results
+
+A total of 27 patients who underwent surgical resection for a posteriorly diagnosed Meckel's diverticulum were included. The male population accounted for 81.4% (n = 22) of the sample size. The symptomatic group consisted of 18 male and four female patients. Abdominal pain was the predominant symptom in 85% of the patients. Out of the 22 symptomatic patients, only 9% had a positive perioperative diagnosis of Meckel's diverticulum. All 27 patients with diverticulum diagnosis received the resection through diverticulectomy (n = 6), small bowel resection with end-to-end anastomosis (n = 6), and small bowel resection with lateral to lateral anastomosis (n = 15). The mean distance between the diverticulum and the ileocecal valve was 63.4 cm. The symptomatic group had an average diverticulum length of 3.54 cm, with an average base width of 2.47 cm. In the other group, the values were 2.75 and 1.61 cm. The average length of hospital stay in the symptomatic group was 7.3 days.
+
+Conclusions
+
+Meckel's diverticulum is a rare pathology in the adult population. Its presentation varies from asymptomatic to symptomatic patients, and surgery is the cornerstone treatment for this pathology.
 
 EDITED BY
 Atalel Fentahun Awedew,

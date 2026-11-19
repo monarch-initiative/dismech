@@ -239,6 +239,28 @@ _SECTION_LABEL_RE = re.compile(
     r"^(?P<label>[A-Z][A-Z0-9 ,/&'()\-]{2,60}):[ \t]+", re.MULTILINE
 )
 
+#: A label from the documented vocabulary appearing mid-line, after the end of a
+#: sentence.
+#:
+#: Cached abstracts are hard-wrapped at about 80 columns, so whether a given
+#: label begins a line is an accident of where the wrap fell. The anchor above
+#: sees only the ones that do, and the text after every label it misses is
+#: attributed to the preceding label's zone instead -- so a sentence quoted from
+#: ``CONCLUSIONS:`` reports as sitting in ``BACKGROUND``, which is the one thing
+#: a deterministic tier must not do (#16234).
+#:
+#: Unlike the line-start pattern this accepts only :data:`SECTION_ZONES` keys,
+#: never an arbitrary all-caps run. A sentence can end and be followed by
+#: capitals and a colon without a section having started (``GROUP ASSIGNMENT WAS
+#: AS FOLLOWS:``), and promoting that to a boundary would trade one wrong zone
+#: for another. The cost is that a publisher's own label is still missed
+#: mid-line; the remedy is to add it to the map, which is what that map is for.
+_MID_LINE_LABEL_RE = re.compile(
+    r"(?<=[.;?!])[ \t]+(?P<label>"
+    + "|".join(re.escape(label) for label in sorted(SECTION_ZONES, key=len, reverse=True))
+    + r"):[ \t]+"
+)
+
 _TIERS = ("A", "B", "C")
 
 #: Column order of the ``--format tsv`` detail mode, in one place so the header
@@ -318,7 +340,14 @@ def split_sections(body: str) -> list[tuple[str, str]]:
     the honest answer for a full-text body: parsing its real section headings is
     a separate problem (#9711).
     """
-    matches = list(_SECTION_LABEL_RE.finditer(body))
+    matches = sorted(
+        {
+            match.start("label"): match
+            for pattern in (_SECTION_LABEL_RE, _MID_LINE_LABEL_RE)
+            for match in pattern.finditer(body)
+        }.values(),
+        key=lambda match: match.start("label"),
+    )
     if not matches:
         return []
     sections: list[tuple[str, str]] = []

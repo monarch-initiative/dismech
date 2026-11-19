@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41392-023-01430-7
+extractor_version: 1
 title: "Signaling pathways in vascular function and hypertension: molecular mechanisms and therapeutic interventions"
 authors:
 - Jun Ma
@@ -17,12 +18,14 @@ journal: Signal Transduction and Targeted Therapy
 year: '2023'
 doi: 10.1038/s41392-023-01430-7
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41392-023-01430-7.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41392-023-01430-7.pdf
+full_text_access_type: open
 ---
 
 # Signaling pathways in vascular function and hypertension: molecular mechanisms and therapeutic interventions
@@ -32,7 +35,9 @@ local_pdf_path: files/DOI_10.1038_s41392-023-01430-7.pdf
 
 ## Content
 
-AbstractHypertension is a global public health issue and the leading cause of premature death in humans. Despite more than a century of research, hypertension remains difficult to cure due to its complex mechanisms involving multiple interactive factors and our limited understanding of it. Hypertension is a condition that is named after its clinical features. Vascular function is a factor that affects blood pressure directly, and it is a main strategy for clinically controlling BP to regulate constriction/relaxation function of blood vessels. Vascular elasticity, caliber, and reactivity are all characteristic indicators reflecting vascular function. Blood vessels are composed of three distinct layers, out of which the endothelial cells in intima and the smooth muscle cells in media are the main performers of vascular function. The alterations in signaling pathways in these cells are the key molecular mechanisms underlying vascular dysfunction and hypertension development. In this manuscript, we will comprehensively review the signaling pathways involved in vascular function regulation and hypertension progression, including calcium pathway, NO-NOsGC-cGMP pathway, various vascular remodeling pathways and some important upstream pathways such as renin-angiotensin-aldosterone system, oxidative stress-related signaling pathway, immunity/inflammation pathway, etc. Meanwhile, we will also summarize the treatment methods of hypertension that targets vascular function regulation and discuss the possibility of these signaling pathways being applied to clinical work.
+Abstract
+
+Hypertension is a global public health issue and the leading cause of premature death in humans. Despite more than a century of research, hypertension remains difficult to cure due to its complex mechanisms involving multiple interactive factors and our limited understanding of it. Hypertension is a condition that is named after its clinical features. Vascular function is a factor that affects blood pressure directly, and it is a main strategy for clinically controlling BP to regulate constriction/relaxation function of blood vessels. Vascular elasticity, caliber, and reactivity are all characteristic indicators reflecting vascular function. Blood vessels are composed of three distinct layers, out of which the endothelial cells in intima and the smooth muscle cells in media are the main performers of vascular function. The alterations in signaling pathways in these cells are the key molecular mechanisms underlying vascular dysfunction and hypertension development. In this manuscript, we will comprehensively review the signaling pathways involved in vascular function regulation and hypertension progression, including calcium pathway, NO-NOsGC-cGMP pathway, various vascular remodeling pathways and some important upstream pathways such as renin-angiotensin-aldosterone system, oxidative stress-related signaling pathway, immunity/inflammation pathway, etc. Meanwhile, we will also summarize the treatment methods of hypertension that targets vascular function regulation and discuss the possibility of these signaling pathways being applied to clinical work.
 
 REVIEW ARTICLE OPEN
 Signaling pathways in vascular function and hypertension:

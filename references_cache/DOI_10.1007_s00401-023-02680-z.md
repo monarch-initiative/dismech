@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00401-023-02680-z
+extractor_version: 1
 title: Mitochondrial damage and impaired mitophagy contribute to disease progression in SCA6
 authors:
 - Tsz Chui Sophia Leung
@@ -14,12 +15,14 @@ journal: Acta Neuropathologica
 year: '2024'
 doi: 10.1007/s00401-023-02680-z
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00401-023-02680-z.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s00401-023-02680-z.pdf
+full_text_access_type: open
 ---
 
 # Mitochondrial damage and impaired mitophagy contribute to disease progression in SCA6
@@ -29,7 +32,9 @@ local_pdf_path: files/DOI_10.1007_s00401-023-02680-z.pdf
 
 ## Content
 
-AbstractSpinocerebellar ataxia type 6 (SCA6) is a neurodegenerative disease that manifests in midlife and progressively worsens with age. SCA6 is rare, and many patients are not diagnosed until long after disease onset. Whether disease-causing cellular alterations differ at different disease stages is currently unknown, but it is important to answer this question in order to identify appropriate therapeutic targets across disease duration. We used transcriptomics to identify changes in gene expression at disease onset in a well-established mouse model of SCA6 that recapitulates key disease features. We observed both up- and down-regulated genes with the major down-regulated gene ontology terms suggesting mitochondrial dysfunction. We explored mitochondrial function and structure and observed that changes in mitochondrial structure preceded changes in function, and that mitochondrial function was not significantly altered at disease onset but was impaired later during disease progression. We also detected elevated oxidative stress in cells at the same disease stage. In addition, we observed impairment in mitophagy that exacerbates mitochondrial dysfunction at late disease stages. In post-mortem SCA6 patient cerebellar tissue, we observed metabolic changes that are consistent with mitochondrial impairments, supporting our results from animal models being translatable to human disease. Our study reveals that mitochondrial dysfunction and impaired mitochondrial degradation likely contribute to disease progression in SCA6 and suggests that these could be promising targets for therapeutic interventions in particular for patients diagnosed after disease onset.
+Abstract
+
+Spinocerebellar ataxia type 6 (SCA6) is a neurodegenerative disease that manifests in midlife and progressively worsens with age. SCA6 is rare, and many patients are not diagnosed until long after disease onset. Whether disease-causing cellular alterations differ at different disease stages is currently unknown, but it is important to answer this question in order to identify appropriate therapeutic targets across disease duration. We used transcriptomics to identify changes in gene expression at disease onset in a well-established mouse model of SCA6 that recapitulates key disease features. We observed both up- and down-regulated genes with the major down-regulated gene ontology terms suggesting mitochondrial dysfunction. We explored mitochondrial function and structure and observed that changes in mitochondrial structure preceded changes in function, and that mitochondrial function was not significantly altered at disease onset but was impaired later during disease progression. We also detected elevated oxidative stress in cells at the same disease stage. In addition, we observed impairment in mitophagy that exacerbates mitochondrial dysfunction at late disease stages. In post-mortem SCA6 patient cerebellar tissue, we observed metabolic changes that are consistent with mitochondrial impairments, supporting our results from animal models being translatable to human disease. Our study reveals that mitochondrial dysfunction and impaired mitochondrial degradation likely contribute to disease progression in SCA6 and suggests that these could be promising targets for therapeutic interventions in particular for patients diagnosed after disease onset.
 
 Vol.:(0123456789)
 Acta Neuropathologica          (2024) 147:26  

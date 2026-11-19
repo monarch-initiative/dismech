@@ -9,12 +9,23 @@ how #9618 nearly landed three duplicate entries.
 Sharing a term is sometimes deliberate. Design decisions §3a lets a promoted
 cancer stratum (EGFR-mutant NSCLC) anchor ``disease_term`` to its parent's MONDO
 term when MONDO has no class for the stratum, provided the entry records
-``skos:narrowMatch`` to that term in ``mappings.mondo_mappings`` -- "never a bare
-parent-term reuse presented as exact". This script states that rule as a check:
+``skos:broadMatch`` to that term in ``mappings.mondo_mappings`` -- "never a bare
+parent-term reuse presented as exact". SKOS mapping predicates read subject to
+object, so the narrower stratum (the subject) records its broader parent as
+``broadMatch``, not ``narrowMatch`` -- see CLAUDE.md's "Shared `disease_term`
+anchors read subject to object". This script states that rule as a check:
 
     Every entry sharing a ``disease_term`` must carry a ``mondo_mappings`` row
     for that CURIE whose ``mapping_predicate`` is ``skos:exactMatch`` or
-    ``skos:narrowMatch``. At most one entry in the group may say exactMatch.
+    ``skos:broadMatch``. At most one entry in the group may say exactMatch.
+
+``skos:narrowMatch`` is also accepted on an existing entry: a number of
+cancer strata and groupings were written under an earlier, internally
+consistent but non-standard reading of the predicate (the entry describing its
+own narrower/broader relationship to the mapped term, rather than the term's
+relationship to the entry). New curation should write ``broadMatch``; migrating
+the legacy ``narrowMatch`` rows is tracked separately (dismech#10165,
+dismech#16243), not enforced here.
 
 Zero exactMatch rows is legal: it means the parent rung has no entry of its own
 yet (there is no ``Lung_Adenocarcinoma`` for the five lung-adenocarcinoma
@@ -28,8 +39,8 @@ grandfathered group still fails:
 ``missing``
     The entry shares the term but records no ``mondo_mappings`` row for it.
 ``bad_predicate``
-    It records a row, but with a predicate other than the two canonical
-    spellings (``skos:closeMatch``, or ``skos:narrowmatch`` in the wrong case).
+    It records a row, but with a predicate other than the permitted spellings
+    (``skos:closeMatch``, or ``skos:narrowmatch`` in the wrong case).
     ``mapping_predicate`` is a ``uriorcurie`` with no enum, so nothing else
     catches this.
 ``conflicting``
@@ -47,9 +58,9 @@ Relationship to ``just check-granularity``
 ------------------------------------------
 ``scripts/check_granularity.py`` reports ``DUPLICATE_ANCHOR`` for infectious
 entries (all entries under ``--scope all``) when an entry shares a term and has
-no narrowMatch. That is report-only and weaker: it accepts a bare shared term as
-long as one entry in the group has narrowMatch, and does not limit exact claims.
-This script is the gate.
+no broadMatch (or legacy narrowMatch). That is report-only and weaker: it
+accepts a bare shared term as long as one entry in the group has the anchor
+predicate, and does not limit exact claims. This script is the gate.
 
 Usage
 -----
@@ -78,8 +89,9 @@ BASELINE_PATH = ROOT / "tests" / "shared_disease_term_baseline.txt"
 DISORDERS_DIR = ROOT / "kb" / "disorders"
 
 EXACT = "skos:exactMatch"
-NARROW = "skos:narrowMatch"
-PERMITTED = (EXACT, NARROW)
+BROAD = "skos:broadMatch"
+NARROW = "skos:narrowMatch"  # legacy spelling, still accepted (dismech#10165, #16243)
+PERMITTED = (EXACT, BROAD, NARROW)
 
 KINDS = ("missing", "bad_predicate", "conflicting", "extra_exact")
 
@@ -170,7 +182,7 @@ def assess_group(curie: str, members: list[Member]) -> list[Finding]:
             hint = (
                 f"write {canonical}"
                 if canonical
-                else f"use {NARROW} (or {EXACT} for the one entry that is the class)"
+                else f"use {BROAD} (or {EXACT} for the one entry that is the class)"
             )
             findings.append(
                 Finding(
@@ -242,7 +254,8 @@ def write_baseline(findings: list[Finding]) -> int:
         "# Grandfathered shared disease_term findings "
         "(see scripts/check_shared_disease_terms.py, #10113).\n"
         "# Each line is `curie<TAB>path<TAB>kind`. Two entries sharing a\n"
-        "# disease_term must each record skos:exactMatch or skos:narrowMatch to it\n"
+        "# disease_term must each record skos:exactMatch or skos:broadMatch to it\n"
+        "# (legacy skos:narrowMatch is also accepted, see dismech#10165/#16243)\n"
         "# in mappings.mondo_mappings, with at most one exactMatch per term.\n"
         "# New findings NOT listed here fail the guard. Remove rows as the\n"
         "# backlog is fixed; do not add new ones.\n"
@@ -335,10 +348,12 @@ def main(argv: list[str] | None = None) -> int:
     print(
         "When two disorder entries use the same disease_term, each must record\n"
         "that CURIE in mappings.mondo_mappings as skos:exactMatch (the entry that\n"
-        "IS the class; at most one) or skos:narrowMatch (an entry narrower than\n"
-        "it, such as a promoted cancer stratum; design decisions section 3a).\n"
-        "If your entry is not narrower than the existing one, it may be a\n"
-        "duplicate: read the other entry before adding a mapping.\n"
+        "IS the class; at most one) or skos:broadMatch (an entry narrower than\n"
+        "it, anchoring to its broader parent; such as a promoted cancer stratum,\n"
+        "design decisions section 3a; the legacy skos:narrowMatch spelling is\n"
+        "also accepted on existing entries). If your entry is not narrower than\n"
+        "the existing one, it may be a duplicate: read the other entry before\n"
+        "adding a mapping.\n"
     )
     new_curies = sorted({f.curie for f in new})
     for curie in new_curies:

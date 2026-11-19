@@ -1,5 +1,6 @@
 ---
-reference_id: "DOI:10.1038/s41467-022-31048-2"
+reference_id: DOI:10.1038/s41467-022-31048-2
+extractor_version: 1
 title: The structure of EXTL3 helps to explain the different roles of bi-domain exostosins in heparan sulfate synthesis
 authors:
 - L. F. L. Wilson
@@ -24,6 +25,7 @@ full_text_url: "https://www.nature.com/articles/s41467-022-31048-2.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41467-022-31048-2.pdf
+full_text_access_type: open
 ---
 
 # The structure of EXTL3 helps to explain the different roles of bi-domain exostosins in heparan sulfate synthesis
@@ -33,7 +35,9 @@ local_pdf_path: files/DOI_10.1038_s41467-022-31048-2.pdf
 
 ## Content
 
-AbstractHeparan sulfate is a highly modified O-linked glycan that performs diverse physiological roles in animal tissues. Though quickly modified, it is initially synthesised as a polysaccharide of alternating β-d-glucuronosyl and N-acetyl-α-d-glucosaminyl residues by exostosins. These enzymes generally possess two glycosyltransferase domains (GT47 and GT64)—each thought to add one type of monosaccharide unit to the backbone. Although previous structures of murine exostosin-like 2 (EXTL2) provide insight into the GT64 domain, the rest of the bi-domain architecture is yet to be characterised; hence, how the two domains co-operate is unknown. Here, we report the structure of human exostosin-like 3 (EXTL3) in apo and UDP-bound forms. We explain the ineffectiveness of EXTL3’s GT47 domain to transfer β-d-glucuronosyl units, and we observe that, in general, the bi-domain architecture would preclude a processive mechanism of backbone extension. We therefore propose that heparan sulfate backbone polymerisation occurs by a simple dissociative mechanism.
+Abstract
+
+Heparan sulfate is a highly modified O-linked glycan that performs diverse physiological roles in animal tissues. Though quickly modified, it is initially synthesised as a polysaccharide of alternating β-d-glucuronosyl and N-acetyl-α-d-glucosaminyl residues by exostosins. These enzymes generally possess two glycosyltransferase domains (GT47 and GT64)—each thought to add one type of monosaccharide unit to the backbone. Although previous structures of murine exostosin-like 2 (EXTL2) provide insight into the GT64 domain, the rest of the bi-domain architecture is yet to be characterised; hence, how the two domains co-operate is unknown. Here, we report the structure of human exostosin-like 3 (EXTL3) in apo and UDP-bound forms. We explain the ineffectiveness of EXTL3’s GT47 domain to transfer β-d-glucuronosyl units, and we observe that, in general, the bi-domain architecture would preclude a processive mechanism of backbone extension. We therefore propose that heparan sulfate backbone polymerisation occurs by a simple dissociative mechanism.
 
 ARTICLE
 The structure of EXTL3 helps to explain the

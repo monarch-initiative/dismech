@@ -37,6 +37,7 @@ from dismech.graph import (
     graph_to_json,
     iter_variant_items,
 )
+from dismech.model_links import EXPERIMENT_MODEL_SLOTS
 from dismech.model_pages import render_all_model_pages
 from dismech.model_registry import BROWSER_RUNNER_NAME, SPEC_NAME, model_dir
 from dismech.module_collections import (
@@ -120,6 +121,12 @@ def _get_shared_env(template_dir_str: str) -> Environment:
     # into the template so the vocabulary and its prose stay in one place, the
     # same rule `module_categories` follows.
     env.globals["quote_role_tooltip"] = quote_role_tooltip
+    # Enum values shown on a page (#16531). `title` would lowercase an acronym
+    # (MRI -> Mri), so labels come from the schema instead. Registered here for
+    # the same reason as `basename` below: _evidence.html.j2 is compiled into
+    # module pages too.
+    env.filters["enum_label"] = enum_label
+    env.globals["enum_tooltip"] = enum_tooltip
     # File name of an evidence artifact image, for its caption. Registered here
     # rather than by the disorder renderer because the evidence partial
     # (_evidence.html.j2) is compiled into module pages too (#10329), and a
@@ -1207,15 +1214,18 @@ def _annotate_proposed_experiment_model_links(
         for experiment in discussion.get("proposed_experiments") or []:
             if not isinstance(experiment, dict):
                 continue
-            # Controls carry their own model systems with the same shape.
-            model_holders = [experiment]
-            model_holders.extend(
-                control
+            # The experiment carries three model lists; each control carries
+            # model systems with the same shape.
+            model_lists = [experiment.get(slot) for slot in EXPERIMENT_MODEL_SLOTS]
+            model_lists.extend(
+                control.get("model_systems")
                 for control in experiment.get("controls") or []
                 if isinstance(control, dict)
             )
-            for holder in model_holders:
-                for model in holder.get("model_systems") or []:
+            for models in model_lists:
+                if not isinstance(models, list):
+                    continue
+                for model in models:
                     if not isinstance(model, dict):
                         continue
                     resolved_links: list[dict] = []
@@ -2287,6 +2297,19 @@ DEEP_RESEARCH_PROVIDERS: list[_ProviderEntry] = [
             "(WebSearch/WebFetch only); no separate API key required."
         ),
         "pill": {"border": "#f3c2b3", "background": "#fdf2ee", "color": "#b8451f"},
+    },
+    {
+        "key": "antigravity",
+        "name": "Antigravity",
+        "match_keys": ("antigravity",),
+        "humanize": {},
+        "url": "https://antigravity.google/",
+        "prefix": "",
+        "description": (
+            "Web-grounded agentic deep research run via the local Google "
+            "Antigravity CLI (agy); no separate API key required."
+        ),
+        "pill": {"border": "#99f6e4", "background": "#f0fdfa", "color": "#0f766e"},
     },
     {
         "key": "fallback",
@@ -6120,6 +6143,90 @@ def quote_role_tooltip(value: str | None) -> str:
     if not description:
         return str(value)
     return _QUOTE_ROLE_PREAMBLE + description
+
+
+# Page labels for enums whose schema `title` cannot be the page label. A title on
+# a value with a `meaning` must equal the ontology's label (`just
+# validate-terms-schema`), and NCIT's "Single Photon Emission Computed Tomography"
+# or "Therapeutic Procedure" is not how a pill should read. Acronyms stay acronyms
+# here, and `enum_tooltip` spells them out. Everything else takes its label from
+# the schema.
+_ENUM_LABEL_OVERRIDES: dict[str, dict[str, str]] = {
+    "ImagingModalityEnum": {
+        "MRI": "MRI",
+        "FUNCTIONAL_MRI": "Functional MRI",
+        "CT": "CT",
+        "MICRO_CT": "Micro-CT",
+        "PET": "PET",
+        "SPECT": "SPECT",
+        "ULTRASOUND": "Ultrasound",
+        "XRAY": "X-ray",
+        "MAMMOGRAPHY": "Mammography",
+        "ANGIOGRAPHY": "Angiography",
+        "OCT": "OCT",
+        "OTHER": "Other",
+    },
+    "RegulatoryVariantCategoryEnum": {
+        "LOE": "LOE",
+        "mLOE": "mLOE",
+        "GOE": "GOE",
+        "LOF": "LOF",
+        "GOF": "GOF",
+        "DN": "DN",
+    },
+    "MedicalActionCategoryEnum": {
+        "THERAPEUTIC": "Therapeutic",
+        "DIAGNOSTIC": "Diagnostic",
+        "SCREENING": "Screening",
+        "MONITORING": "Monitoring",
+        "COUNSELING_INFORMATIONAL": "Counseling / Informational",
+    },
+}
+
+
+@cache
+def _enum_permissible_values(enum_name: str) -> dict:
+    """One enum's permissible values from the schema, or {} if it is absent."""
+    enum_def = (_load_schema().get("enums") or {}).get(enum_name) or {}
+    return enum_def.get("permissible_values") or {}
+
+
+def enum_label(value: object, enum_name: str) -> str:
+    """Display label for an enum value, keeping the casing the schema gives it.
+
+    An unrecognized value still renders, because hiding it would hide a curation
+    error behind a page that looks fine. It is only tidied, never title-cased.
+    """
+    if value is None or value == "":
+        return ""
+    key = str(value)
+    override = _ENUM_LABEL_OVERRIDES.get(enum_name, {}).get(key)
+    if override:
+        return override
+    meta = _enum_permissible_values(enum_name).get(key)
+    title = meta.get("title") if isinstance(meta, dict) else None
+    if title:
+        return str(title)
+    text = key.replace("_", " ")
+    return text.capitalize() if text.isupper() else text
+
+
+def enum_tooltip(value: object, enum_name: str) -> str:
+    """Hover text for an enum pill, or empty for a value the schema does not have.
+
+    A pill shortened from its schema title spells that title out (`MRI` shows
+    "Magnetic Resonance Imaging"). Any other pill already reads as its title, so
+    it shows the value's `description`.
+    """
+    key = str(value)
+    meta = _enum_permissible_values(enum_name).get(key)
+    if not isinstance(meta, dict):
+        return ""
+    title = meta.get("title")
+    override = _ENUM_LABEL_OVERRIDES.get(enum_name, {}).get(key)
+    if title and override and override != title:
+        return str(title)
+    return _collapse_whitespace(meta.get("description"))
 
 
 def _find_enum_for_value(value: str, enums: dict) -> str | None:

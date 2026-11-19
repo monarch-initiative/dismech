@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s10741-022-10237-7
+extractor_version: 1
 title: Amyloid seeding as a disease mechanism and treatment target in transthyretin cardiac amyloidosis
 authors:
 - Paolo Morfino
@@ -11,12 +12,14 @@ journal: Heart Failure Reviews
 year: '2022'
 doi: 10.1007/s10741-022-10237-7
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s10741-022-10237-7.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s10741-022-10237-7.pdf
+full_text_access_type: open
 ---
 
 # Amyloid seeding as a disease mechanism and treatment target in transthyretin cardiac amyloidosis
@@ -26,7 +29,9 @@ local_pdf_path: files/DOI_10.1007_s10741-022-10237-7.pdf
 
 ## Content
 
-AbstractTransthyretin (TTR) is a tetrameric transport protein mainly synthesized by the liver and choroid plexus. ATTR amyloidosis is characterized by the misfolding of TTR monomers and their accumulation within tissues as amyloid fibres. Current therapeutic options rely on the blockade of TTR production, TTR stabilization to maintain the native structure of TTR, amyloid degradation, or induction of amyloid removal from tissues. “Amyloid seeds” are defined as small fibril fragments that induce amyloid precursors to assume a structure rich in β-sheets, thus promoting fibrillogenesis. Amyloid seeds are important to promote the amplification and spread of amyloid deposits. Further studies are needed to better understand the molecular structure of ATTR seeds (i.e. the characteristics of the most amyloidogenic species), and the conditions that promote the formation and multiplication of seeds in vivo. The pathological cascade may begin months to years before symptom onset, suggesting that seeds in tissues might potentially be used as biomarkers for the early disease stages. Inhibition of amyloid aggregation by anti-seeding peptides may represent a disease mechanism and treatment target in ATTR amyloidosis, with an additional benefit over current therapies.
+Abstract
+
+Transthyretin (TTR) is a tetrameric transport protein mainly synthesized by the liver and choroid plexus. ATTR amyloidosis is characterized by the misfolding of TTR monomers and their accumulation within tissues as amyloid fibres. Current therapeutic options rely on the blockade of TTR production, TTR stabilization to maintain the native structure of TTR, amyloid degradation, or induction of amyloid removal from tissues. “Amyloid seeds” are defined as small fibril fragments that induce amyloid precursors to assume a structure rich in β-sheets, thus promoting fibrillogenesis. Amyloid seeds are important to promote the amplification and spread of amyloid deposits. Further studies are needed to better understand the molecular structure of ATTR seeds (i.e. the characteristics of the most amyloidogenic species), and the conditions that promote the formation and multiplication of seeds in vivo. The pathological cascade may begin months to years before symptom onset, suggesting that seeds in tissues might potentially be used as biomarkers for the early disease stages. Inhibition of amyloid aggregation by anti-seeding peptides may represent a disease mechanism and treatment target in ATTR amyloidosis, with an additional benefit over current therapies.
 
 Vol.:(0123456789)1 3
 h

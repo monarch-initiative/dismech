@@ -22,6 +22,10 @@
 # reports "Successfully cached" for a record with no quotable text, and nothing
 # else says so. Advisory only; the exit code is unchanged. Set
 # DISMECH_SKIP_EMPTY_CACHE_WARNING=1 to suppress it.
+#
+# The same hook warns when the record is a GeneReviews chapter that cannot be a
+# phenotype baseline (issue #11848): one whose PubMed abstract is an
+# Overview-format statement of purpose, or one GeneReviews has retired.
 
 set -euo pipefail
 

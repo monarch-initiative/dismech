@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3389/fnagi.2025.1617106
+extractor_version: 1
 title: "Understanding Parkinson’s disease: current trends and its multifaceted complications"
 authors:
 - Sameer A. Chaudhary
@@ -9,12 +10,14 @@ journal: Frontiers in Aging Neuroscience
 year: '2025'
 doi: 10.3389/fnagi.2025.1617106
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.frontiersin.org/journals/aging-neuroscience/articles/10.3389/fnagi.2025.1617106/pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.3389_fnagi.2025.1617106.pdf
+full_text_access_type: open
 ---
 
 # Understanding Parkinson’s disease: current trends and its multifaceted complications
@@ -24,7 +27,25 @@ local_pdf_path: files/DOI_10.3389_fnagi.2025.1617106.pdf
 
 ## Content
 
-BackgroundParkinson’s disease (PD) is a multifactorial, progressive neurodegenerative disorder that primarily affects dopaminergic neurons in the substantia nigra. In addition to hallmark motor symptoms, it manifests a wide range of nonmotor complications, including cognitive decline, neuropsychiatric symptoms, autonomic dysfunction, and comorbid metabolic and infectious diseases.ObjectivesThis review aims to elucidate the molecular and cellular mechanisms underlying PD, explore the influence of genetic and environmental factors, evaluate current treatment limitations, and assess the clinical and socioeconomic burden globally. Emphasis is placed on emerging therapeutic avenues and innovative research directions.MethodsA structured literature review was conducted using PubMed, Scopus, and Web of Science databases. The search included articles published between 2010 and 2025, using keywords: “Parkinson’s disease,” “α-synuclein,” “dopaminergic degeneration,” “ferroptosis,” “deep brain stimulation,” “stem cell therapy,” and “AI in PD diagnosis.”ResultsThe review highlights a multifactorial etiology involving α-synuclein pathology, oxidative stress, mitochondrial dysfunction, genetic mutations (SNCA, LRRK2, VPS35), environmental toxins, and gut dysbiosis. Comorbidities such as HIV, diabetes, and cardiovascular disorders exacerbate disease burden. While Levodopa remains the gold standard, its limitations necessitate combination therapy and adjunct modalities such as deep brain stimulation and nanocarrier-based drug delivery. Emerging approaches—stem cell therapy, CRISPR-Cas9, and AI-enhanced diagnostics—show promise.ConclusionPD management requires a paradigm shift toward precision medicine. Advancing research into biomarkers, immunotherapy, and systems biology, coupled with equitable access to care and early diagnosis tools, is critical to mitigating the global impact of PD.
+Background
+
+Parkinson’s disease (PD) is a multifactorial, progressive neurodegenerative disorder that primarily affects dopaminergic neurons in the substantia nigra. In addition to hallmark motor symptoms, it manifests a wide range of nonmotor complications, including cognitive decline, neuropsychiatric symptoms, autonomic dysfunction, and comorbid metabolic and infectious diseases.
+
+Objectives
+
+This review aims to elucidate the molecular and cellular mechanisms underlying PD, explore the influence of genetic and environmental factors, evaluate current treatment limitations, and assess the clinical and socioeconomic burden globally. Emphasis is placed on emerging therapeutic avenues and innovative research directions.
+
+Methods
+
+A structured literature review was conducted using PubMed, Scopus, and Web of Science databases. The search included articles published between 2010 and 2025, using keywords: “Parkinson’s disease,” “ α -synuclein,” “dopaminergic degeneration,” “ferroptosis,” “deep brain stimulation,” “stem cell therapy,” and “AI in PD diagnosis.”
+
+Results
+
+The review highlights a multifactorial etiology involving α -synuclein pathology, oxidative stress, mitochondrial dysfunction, genetic mutations (SNCA, LRRK2, VPS35), environmental toxins, and gut dysbiosis. Comorbidities such as HIV, diabetes, and cardiovascular disorders exacerbate disease burden. While Levodopa remains the gold standard, its limitations necessitate combination therapy and adjunct modalities such as deep brain stimulation and nanocarrier-based drug delivery. Emerging approaches—stem cell therapy, CRISPR-Cas9, and AI-enhanced diagnostics—show promise.
+
+Conclusion
+
+PD management requires a paradigm shift toward precision medicine. Advancing research into biomarkers, immunotherapy, and systems biology, coupled with equitable access to care and early diagnosis tools, is critical to mitigating the global impact of PD.
 
 Frontiers in Aging Neuroscience 01 frontiersin.org
 Understanding Parkinson’s 

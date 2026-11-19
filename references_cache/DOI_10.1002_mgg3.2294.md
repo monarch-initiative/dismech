@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1002/mgg3.2294
+extractor_version: 1
 title: "Genotypic variants of the tetrahydrobiopterin (<scp>BH4</scp>) biosynthesis genes in patients with hyperphenylalaninemia from different regions of Iran"
 authors:
 - Seyed Reza Kazemi Nezhad
@@ -14,6 +15,7 @@ journal: "Molecular Genetics &amp; Genomic Medicine"
 year: '2024'
 doi: 10.1002/mgg3.2294
 content_type: abstract_only
+is_preprint: false
 full_text_attempted: true
 ---
 
@@ -24,4 +26,20 @@ full_text_attempted: true
 
 ## Content
 
-AbstractBackgroundHyperphenylalaninemia (HPA) is a metabolic disorder classified into phenylalanine‐4‐hydroxylase (PAH) and non‐PAH deficiency. The latter is produced by mutations in genes involved in the tetrahydrobiopterin (BH4) biosynthesis pathway and DNAJC12 pathogenetic variants. The BH4 metabolism, including de novo biosynthesis involved genes (i.e., guanosine 5′‐triphosphate cyclohydrolase I (GTPCH/GCH1), sepiapterin reductase (SR/SPR), 6‐pyruvoyl‐tetrahydropterin synthase (PTPS/PTS)), and two genes that play roles in cofactor regeneration pathway (i.e., dihydropteridine reductase (DHPR/QDPR) and pterin‐4α‐carbinolamine dehydratase (PCD/PCBD1)). The subsequent systemic hyperphenylalaninemia and monoamine neurotransmitter deficiency lead to neurological consequences. The high rate of consanguineous marriages in Iran substantially increases the incidence of BH4 deficiency.MethodsWe utilized the Sanger sequencing technique in this study to investigate 14 Iranian patients with non‐PAH deficiency. All affected subjects in this study had HPA and no mutation was detected in their PAH gene.ResultsWe successfully identified six mutant alleles in BH4‐deficiency‐associated genes, including three novel mutations: one in QDPR, one in PTS, and one in the PCBD1 gene, thus giving a definite diagnosis to these patients.ConclusionIn this light, appropriate patient management may follow. The clinical effect of reported variants is essential for genetic counseling and prenatal diagnosis in the patients' families and significant for the improvement of precision medicine.
+Abstract
+
+Background
+
+Hyperphenylalaninemia (HPA) is a metabolic disorder classified into phenylalanine‐4‐hydroxylase (PAH) and non‐PAH deficiency. The latter is produced by mutations in genes involved in the tetrahydrobiopterin (BH4) biosynthesis pathway and DNAJC12 pathogenetic variants. The BH4 metabolism, including de novo biosynthesis involved genes (i.e., guanosine 5′‐triphosphate cyclohydrolase I (GTPCH/GCH1), sepiapterin reductase (SR/SPR), 6‐pyruvoyl‐tetrahydropterin synthase (PTPS/PTS)), and two genes that play roles in cofactor regeneration pathway (i.e., dihydropteridine reductase (DHPR/QDPR) and pterin‐4α‐carbinolamine dehydratase (PCD/PCBD1)). The subsequent systemic hyperphenylalaninemia and monoamine neurotransmitter deficiency lead to neurological consequences. The high rate of consanguineous marriages in Iran substantially increases the incidence of BH4 deficiency.
+
+Methods
+
+We utilized the Sanger sequencing technique in this study to investigate 14 Iranian patients with non‐PAH deficiency. All affected subjects in this study had HPA and no mutation was detected in their PAH gene.
+
+Results
+
+We successfully identified six mutant alleles in BH4‐deficiency‐associated genes, including three novel mutations: one in QDPR, one in PTS, and one in the PCBD1 gene, thus giving a definite diagnosis to these patients.
+
+Conclusion
+
+In this light, appropriate patient management may follow. The clinical effect of reported variants is essential for genetic counseling and prenatal diagnosis in the patients' families and significant for the improvement of precision medicine.

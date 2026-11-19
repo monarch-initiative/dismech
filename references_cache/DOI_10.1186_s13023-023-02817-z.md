@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1186/s13023-023-02817-z
+extractor_version: 1
 title: "Itch in recessive dystrophic epidermolysis bullosa: findings of PEBLES, a prospective register study"
 authors:
 - Jemima E. Mellerio
@@ -16,12 +17,14 @@ journal: Orphanet Journal of Rare Diseases
 year: '2023'
 doi: 10.1186/s13023-023-02817-z
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://ojrd.biomedcentral.com/counter/pdf/10.1186/s13023-023-02817-z"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1186_s13023-023-02817-z.pdf
+full_text_access_type: open
 ---
 
 # Itch in recessive dystrophic epidermolysis bullosa: findings of PEBLES, a prospective register study
@@ -31,7 +34,27 @@ local_pdf_path: files/DOI_10.1186_s13023-023-02817-z.pdf
 
 ## Content
 
-AbstractBackgroundItch is common and distressing in epidermolysis bullosa (EB) but has not previously been studied in depth in different recessive dystrophic EB (RDEB) subtypes.ObjectivesAs part of a prospective register study of the natural history of RDEB we explored features of itch, medications used, and correlation with disease severity and quality of life.MethodsFifty individuals with RDEB aged 8 years and above completed the Leuven Itch Scale (LIS) (total 243 reviews over a 7-year period). Data included itch frequency, severity, duration, distress, circumstances, consequences, itch surface area and medications for itch. The iscorEB disease severity score and the validated EB quality of life tool, QOLEB, were compared to LIS domains and analysed by RDEB subtype.ResultsItch was frequent, present in the preceding month in 93% of reviews. Itch severity and distress were significantly greater in severe (RDEB-S) and pruriginosa (RDEB-Pru) subtypes compared to intermediate RDEB (RDEB-I). Itch medications were reported in just over half of reviews including emollients, topical corticosteroids and antihistamines; the proportion of participants not using medication despite frequent pruritus suggests limited efficacy. In inversa RDEB (RDEB-Inv) and RDEB-I, LIS domains correlated with iscorEB and QOLEB. In contrast to previous studies, correlations were lacking in RDEB-S suggesting that global disease burden relatively reduces the contribution of itch.ConclusionsThis comprehensive study of RDEB-associated itch highlights differences between RDEB subtypes, suggests an unmet need for effective treatments and could serve as control data for future clinical trials incorporating itch as an endpoint.
+Abstract
+
+Background
+
+Itch is common and distressing in epidermolysis bullosa (EB) but has not previously been studied in depth in different recessive dystrophic EB (RDEB) subtypes.
+
+Objectives
+
+As part of a prospective register study of the natural history of RDEB we explored features of itch, medications used, and correlation with disease severity and quality of life.
+
+Methods
+
+Fifty individuals with RDEB aged 8 years and above completed the Leuven Itch Scale (LIS) (total 243 reviews over a 7-year period). Data included itch frequency, severity, duration, distress, circumstances, consequences, itch surface area and medications for itch. The iscorEB disease severity score and the validated EB quality of life tool, QOLEB, were compared to LIS domains and analysed by RDEB subtype.
+
+Results
+
+Itch was frequent, present in the preceding month in 93% of reviews. Itch severity and distress were significantly greater in severe (RDEB-S) and pruriginosa (RDEB-Pru) subtypes compared to intermediate RDEB (RDEB-I). Itch medications were reported in just over half of reviews including emollients, topical corticosteroids and antihistamines; the proportion of participants not using medication despite frequent pruritus suggests limited efficacy. In inversa RDEB (RDEB-Inv) and RDEB-I, LIS domains correlated with iscorEB and QOLEB. In contrast to previous studies, correlations were lacking in RDEB-S suggesting that global disease burden relatively reduces the contribution of itch.
+
+Conclusions
+
+This comprehensive study of RDEB-associated itch highlights differences between RDEB subtypes, suggests an unmet need for effective treatments and could serve as control data for future clinical trials incorporating itch as an endpoint.
 
 RESEARCH Open Access
 © The Author(s) 2023. Open Access  This article is licensed under a Creative Commons Attribution 4.0 International License, which permits use, 

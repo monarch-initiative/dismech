@@ -132,11 +132,17 @@ jobs:
               # tests/test_classify_offline_term_results.py (#12658).
               - 'scripts/classify_offline_term_results.py'
               - '.claude/hooks/validate_disorder_hook.py'
+              # Tier A's section parsing is the deterministic half of the
+              # background-citation worklist, and a label it fails to see
+              # silently reattributes every later sentence. Guarded by
+              # tests/test_quote_role.py (#16234).
+              - 'scripts/check_background_citations.py'
               # The reference gate's negative controls must run when its policy
               # changes, not only when Python changes (issue #7514).
               - 'scripts/run_reference_validator.sh'
               - 'conf/reference_validator_config.yaml'
               - '.linkml-reference-validator.yaml'
+              - 'signed_excerpts/**'
               - 'tests/**/*.py'
               - 'pyproject.toml'
               - 'uv.lock'
@@ -441,8 +447,26 @@ jobs:
           echo "Validating changed grouping KB files..."
           just validate-grouping-batch ${{ steps.changes.outputs.kb_groupings_files }}
 
+      # The per-entry structural checks in tests/test_data.py (evidence
+      # reference prefixes, subtype and mechanism-target foreign keys, model
+      # links, conforms_to) carry the `kb_data` marker, and the whole-KB sweep
+      # that runs them is gated on schema changes and merge_group. None of them
+      # is in `validate-disorders`, so a kb/-only PR never ran them and an
+      # entry-local defect surfaced only as a merge-queue ejection (#18313,
+      # #18286). This runs just the changed entries' items: seconds, not the
+      # sweep's ~17 minutes. Cross-file breakage stays with the queue.
+      # Filter-gated on merge_group like the steps above, since it consumes
+      # the filter's file lists; the queue runs the full sweep anyway.
+      - name: Test changed KB entries
+        if: steps.changes.outputs.kb_disorders == 'true' || steps.changes.outputs.kb_modules == 'true' || steps.changes.outputs.kb_comorbidities == 'true'
+        run: |
+          just test-kb-files ${{ steps.changes.outputs.kb_disorders_files }} ${{ steps.changes.outputs.kb_modules_files }} ${{ steps.changes.outputs.kb_comorbidities_files }}
+
+      # `uv run`, not `uvx`: the version comes from the dev dependency group
+      # (pinned with [tool.ruff] required-version), so CI lints with the same
+      # ruff a contributor gets locally and the review agent can run (#9964).
       - name: Lint with ruff
-        run: uvx ruff check .
+        run: uv run ruff check .
 
       # Ungated: older curation PRs can restore the retired shared blob without
       # touching Python. This inspects Git metadata, never the JSON contents.
@@ -533,6 +557,16 @@ jobs:
           # src/tests changes). Deterministic, offline, and sub-second.
           Check term cache structural integrity :: uv run python -m dismech.term_cache_integrity cache
 
+          # Ungated and whole-tree for the same reason, and the cache's other
+          # merge-shaped failure. Rows appended at end-of-file instead of in
+          # canonical CURIE order put every concurrent curation PR's cache change
+          # in the same terminal hunk, and any later PR that runs `just
+          # normalize-cache` inherits the re-sort as unrelated churn (#7753). The
+          # merge_group run catches two individually sorted PRs whose union is
+          # not. This is the same order `just normalize-cache` writes, so a
+          # failure means "run it and commit the result". Offline, sub-second.
+          Check cache rows are in canonical order :: uv run python -m dismech.enum_cache --cache-dir cache --check-order --strict-order
+
           # Ungated and whole-KB on purpose, for the same reason as the cache check
           # above: this fires on kb/-only curation PRs, which no src/tests path
           # filter would catch. An RGD `Not4Curation` term exists, matches its
@@ -585,12 +619,26 @@ jobs:
           # lane would skip them. <1s, offline.
           Check for case-colliding paths :: uv run python scripts/check_case_collisions.py
 
+          # Ungated and whole-tree for the same reason: a deep-research run that
+          # produced no report (deep-research-client exit 4, answer_status:
+          # unsuccessful) is still placed in research/, and the PR that commits it
+          # touches only research/ and kb/. ~2s, offline.
+          Check research/ for unsuccessful deep-research runs :: uv run python scripts/check_unsuccessful_research.py
+
           # Ungated and whole-tree for the same reason as the case-collision step:
           # the PRs that add a reference cache file touch only kb/ and
           # references_cache/. PDF text extraction writes an unmapped ligature glyph
           # as a NUL byte, and one NUL makes grep classify the file as binary and
           # silently drop it from every count (#12543). ~2s, offline.
           Check reference cache for NUL bytes :: uv run python scripts/check_reference_cache_nul_bytes.py
+
+          # Ungated and whole-tree for the same reason as the NUL-byte step. A cache
+          # file written before linkml-reference-validator 0.5.1 can carry an
+          # abstract heading welded onto the next word ("AbstractCastleman"), and
+          # whole-word matching then fails an accurate quote of that sentence
+          # (#16621). Files a re-fetch cannot fix are grandfathered in
+          # tests/welded_headings_baseline.txt. ~3s, offline.
+          Check reference cache for welded headings :: uv run python scripts/check_reference_cache_welded_headings.py
 
           # Ungated and whole-KB on purpose, and for the same merge-shaped reason as
           # the duplicate-key step above -- this is its schema-narrowing twin.
@@ -676,6 +724,12 @@ jobs:
           # gates new breakage only.
           Check pathograph targets resolve :: uv run python scripts/check_causal_targets.py
 
+          # Ungated and whole-KB for the same reason as the target check above.
+          # Two rows sharing a `name` become one pathograph node and every row
+          # but the last silently drops out of the graph (#15443). Only the
+          # UNSTRATIFIED class gates; the backlog is grandfathered, shrink-only.
+          Check pathograph node names do not collide :: uv run python scripts/check_name_collisions.py
+
           # Two disorder entries on one `disease_term` must each record it in
           # `mappings.mondo_mappings` as skos:exactMatch (at most one) or
           # skos:narrowMatch (design decisions section 3a). Without this, two
@@ -743,6 +797,13 @@ jobs:
           # Ungated and whole-KB for the same reason as its neighbours.
           Check node-class tree examples resolve :: uv run python -m dismech.node_classes --verify-kb
 
+          # The tree's classes are also the values of Pathophysiology.node_class,
+          # through an enum generated into src/dismech/schema/. A class or gloss
+          # edit in a kb/-only PR would leave the enum stale without entering the
+          # python lane, and the first PR to enter it would fail for a change it
+          # did not make. Offline and instant.
+          Check node_class enum matches the tree :: uv run python -m dismech.node_classes --check-enum
+
           # The third target grammar, and the one nothing else sees. A
           # `proposed_experiments[].{perturbations,readouts}[].target` uses the
           # `<kind>#<name>` entity-reference form, but a bare name there is skipped
@@ -795,6 +856,13 @@ jobs:
           # each label against the committed cache/<prefix>/terms.csv. Terms absent
           # from the caches are reported, not gated -- see the script docstring.
           Check qualifier ontology terms :: uv run python scripts/check_qualifier_terms.py
+
+          # Ungated for the reason the gates above are: the PRs that bind a model
+          # gene to a MOD (MGI:, ZFIN:, ...), NCBIGene: or UniProtKB: are curation
+          # PRs touching only kb/, and nothing else checks a MOD or NCBIGene label
+          # (no OAK adapter serves them, so validate-terms passes any label).
+          # Offline, whole-KB, hard gate.
+          Check gene namespaces :: uv run python scripts/check_gene_namespaces.py
 
           # Ungated for the same reason as the entity-ref step above, and the
           # argument is if anything sharper. The contract IS covered by pytest
@@ -956,8 +1024,9 @@ jobs:
       # flips the validity of a file still in flight on another branch: those
       # PRs touch no schema, so this filter never fires for them (issue #10061).
       # The ungated `check_enum_values.py` step above covers that half of the
-      # window for enum values specifically. Parallelized with xdist inside
-      # `just test-kb`.
+      # window for enum values specifically. The "Test changed KB entries" step
+      # runs this sweep's per-entry items on the files a PR changes (#18313).
+      # Parallelized with xdist inside `just test-kb`.
       - name: Run whole-KB schema-conformance sweep
         if: github.event_name == 'merge_group' || steps.changes.outputs.schema == 'true'
         run: just test-kb

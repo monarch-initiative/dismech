@@ -828,6 +828,25 @@ scale value.
 
 ---
 
+## The skin sensitization assay-to-Key-Event use case
+
+This third pilot has its own page:
+[AOP_40_SKIN_SENSITIZATION](AOP_40_SKIN_SENSITIZATION.md).
+
+It targets [AOP 40](https://aopwiki.org/aops/40), *Covalent Protein binding leading to
+Skin Sensitisation*, and is the inverse shape of the liver fibrosis case: a whole OECD
+test-guideline battery exists in which each guideline is aligned to a *single* Key Event,
+and the integration happens in a layer above the assays. It is the worked instance of the
+`Assay / NAM` row in [What enables integration now](#what-enables-integration-now), and it
+bears on
+[question 1](#1-should-a-pathophysiology-node-be-able-to-carry-a-key-event-cross-reference).
+
+It moved to its own page because it stopped being only an alignment exercise. One assay in
+the battery — the IL-8 Luc assay, aligned to KE3 — is flagged by the source review as
+possibly reading out KE2 biology instead, and dismech's own curated IL-8 content turns out
+to bear on that question. That is the first case here running from dismech *toward* an AOP
+rather than the other way round, and it needs more room than a section.
+
 ## Open schema questions
 
 Six things this project has surfaced that dismech's schema currently cannot express.

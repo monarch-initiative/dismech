@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1093/jnci/djad012
+extractor_version: 1
 title: Recommendations for Epstein-Barr virus–based screening for nasopharyngeal cancer in high- and intermediate-risk regions
 authors:
 - W K Jacky Lam
@@ -41,6 +42,7 @@ journal: "JNCI: Journal of the National Cancer Institute"
 year: '2023'
 doi: 10.1093/jnci/djad012
 content_type: abstract_only
+is_preprint: false
 full_text_attempted: true
 ---
 
@@ -51,4 +53,6 @@ full_text_attempted: true
 
 ## Content
 
-AbstractA meeting of experts was held in November 2021 to review and discuss available data on performance of Epstein-Barr virus (EBV)–based approaches to screen for early stage nasopharyngeal carcinoma (NPC) and methods for the investigation and management of screen-positive individuals. Serum EBV antibody and plasma EBV DNA testing methods were considered. Both approaches were found to have favorable performance characteristics and to be cost-effective in high-risk populations. In addition to endoscopy, use of magnetic resonance imaging (MRI) to investigate screen-positive individuals was found to increase the sensitivity of NPC detection with minimal impact on cost-effectiveness of the screening program.
+Abstract
+
+A meeting of experts was held in November 2021 to review and discuss available data on performance of Epstein-Barr virus (EBV)–based approaches to screen for early stage nasopharyngeal carcinoma (NPC) and methods for the investigation and management of screen-positive individuals. Serum EBV antibody and plasma EBV DNA testing methods were considered. Both approaches were found to have favorable performance characteristics and to be cost-effective in high-risk populations. In addition to endoscopy, use of magnetic resonance imaging (MRI) to investigate screen-positive individuals was found to increase the sensitivity of NPC detection with minimal impact on cost-effectiveness of the screening program.

@@ -319,8 +319,15 @@ the fallback as a completed computational analysis.
 To skip it — quick iteration, or no network:
 
 ```bash
-just dr_validation='' research-disorder falcon Marfan_Syndrome
+just dr_validation='--no-validate-references' research-disorder falcon Marfan_Syndrome
 ```
+
+Since deep-research-client 0.2.15 the client validates references by default,
+so emptying the variable (`dr_validation=''`) no longer skips anything: it
+only drops `--validation-cache-dir`, and the run then validates into the
+client's own `~/.deep_research_cache/references` instead of `references_cache/`.
+Pass `--no-validate-references` to turn it off. Term validation is still
+opt-in, so `dr_term_validation=''` does still skip it.
 
 The flags live in one place, the `dr_validation` variable in `project.justfile`:
 

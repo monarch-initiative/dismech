@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1186/s12964-023-01411-x
+extractor_version: 1
 title: "KIT mutations and expression: current knowledge and new insights for overcoming IM resistance in GIST"
 authors:
 - Shishan Zhou
@@ -14,12 +15,14 @@ journal: Cell Communication and Signaling
 year: '2024'
 doi: 10.1186/s12964-023-01411-x
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://biosignaling.biomedcentral.com/counter/pdf/10.1186/s12964-023-01411-x"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1186_s12964-023-01411-x.pdf
+full_text_access_type: open
 ---
 
 # KIT mutations and expression: current knowledge and new insights for overcoming IM resistance in GIST
@@ -29,7 +32,9 @@ local_pdf_path: files/DOI_10.1186_s12964-023-01411-x.pdf
 
 ## Content
 
-AbstractGastrointestinal stromal tumor (GIST) is the most common sarcoma located in gastrointestinal tract and derived from the interstitial cell of Cajal (ICC) lineage. Both ICC and GIST cells highly rely on KIT signal pathway. Clinically, about 80-90% of treatment-naive GIST patients harbor primary KIT mutations, and special KIT-targeted TKI, imatinib (IM) showing dramatic efficacy but resistance invariably occur, 90% of them was due to the second resistance mutations emerging within the KIT gene. Although there are multiple variants of KIT mutant which did not show complete uniform biologic characteristics, most of them have high KIT expression level. Notably, the high expression level of KIT gene is not correlated to its gene amplification. Recently, accumulating evidences strongly indicated that the gene coding, epigenetic regulation, and pre- or post- protein translation of KIT mutants in GIST were quite different from that of wild type (WT) KIT. In this review, we elucidate the biologic mechanism of KIT variants and update the underlying mechanism of the expression of KIT gene, which are exclusively regulated in GIST, providing a promising yet evidence-based therapeutic landscape and possible target for the conquer of IM resistance.
+Abstract
+
+Gastrointestinal stromal tumor (GIST) is the most common sarcoma located in gastrointestinal tract and derived from the interstitial cell of Cajal (ICC) lineage. Both ICC and GIST cells highly rely on KIT signal pathway. Clinically, about 80-90% of treatment-naive GIST patients harbor primary KIT mutations, and special KIT-targeted TKI, imatinib (IM) showing dramatic efficacy but resistance invariably occur, 90% of them was due to the second resistance mutations emerging within the KIT gene. Although there are multiple variants of KIT mutant which did not show complete uniform biologic characteristics, most of them have high KIT expression level. Notably, the high expression level of KIT gene is not correlated to its gene amplification. Recently, accumulating evidences strongly indicated that the gene coding, epigenetic regulation, and pre- or post- protein translation of KIT mutants in GIST were quite different from that of wild type (WT) KIT. In this review, we elucidate the biologic mechanism of KIT variants and update the underlying mechanism of the expression of KIT gene, which are exclusively regulated in GIST, providing a promising yet evidence-based therapeutic landscape and possible target for the conquer of IM resistance.
 
 Zhou et al. Cell Communication and Signaling          (2024) 22:153  
 https://doi.org/10.1186/s12964-023-01411-x

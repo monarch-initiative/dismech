@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1186/s41120-024-00094-z
+extractor_version: 1
 title: Recent progress of small-molecule of RET inhibitors against Non-small cell lung cancer
 authors:
 - Jiayi Shen
@@ -12,12 +13,14 @@ journal: AAPS Open
 year: '2024'
 doi: 10.1186/s41120-024-00094-z
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1186/s41120-024-00094-z.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1186_s41120-024-00094-z.pdf
+full_text_access_type: open
 ---
 
 # Recent progress of small-molecule of RET inhibitors against Non-small cell lung cancer
@@ -27,7 +30,9 @@ local_pdf_path: files/DOI_10.1186_s41120-024-00094-z.pdf
 
 ## Content
 
-AbstractSince the oncogenic rearranged during transfection (RET) gene fusion was discovered in non-small cell lung cancer (NSCLC) in 2012, multiple-targeted kinase inhibitors (MKIs) cabozantinib and vandetanib have been explored in the clinic for RET positive NSCLC patients. As the nonselective nature of these inhibitors, patients have off-target adverse effects. The discovery of highly potent selective RET inhibitors such as pralsetinib and selpercatinib improve the clinic efficiency and more favorable toxicity profile. However, acquired resistance mediated by secondary mutations in the solvent-front region of the kinase (e.g. G810C/S/R) become a new challenge for selective RET inhibitor therapies. In this review, we highlight typical RET inhibitors developed during these years and provide a reference for more potential RET inhibitors exploration in the future.
+Abstract
+
+Since the oncogenic rearranged during transfection (RET) gene fusion was discovered in non-small cell lung cancer (NSCLC) in 2012, multiple-targeted kinase inhibitors (MKIs) cabozantinib and vandetanib have been explored in the clinic for RET positive NSCLC patients. As the nonselective nature of these inhibitors, patients have off-target adverse effects. The discovery of highly potent selective RET inhibitors such as pralsetinib and selpercatinib improve the clinic efficiency and more favorable toxicity profile. However, acquired resistance mediated by secondary mutations in the solvent-front region of the kinase (e.g. G810C/S/R) become a new challenge for selective RET inhibitor therapies. In this review, we highlight typical RET inhibitors developed during these years and provide a reference for more potential RET inhibitors exploration in the future.
 
 Shen et al. AAPS Open            (2024) 10:6  
 https://doi.org/10.1186/s41120-024-00094-z

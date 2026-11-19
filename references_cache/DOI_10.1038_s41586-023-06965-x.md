@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41586-023-06965-x
+extractor_version: 1
 title: Redefining the treponemal history through pre-Columbian genomes from Brazil
 authors:
 - Kerttu Majander
@@ -15,12 +16,14 @@ journal: Nature
 year: '2024'
 doi: 10.1038/s41586-023-06965-x
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41586-023-06965-x.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41586-023-06965-x.pdf
+full_text_access_type: open
 ---
 
 # Redefining the treponemal history through pre-Columbian genomes from Brazil
@@ -30,7 +33,9 @@ local_pdf_path: files/DOI_10.1038_s41586-023-06965-x.pdf
 
 ## Content
 
-AbstractThe origins of treponemal diseases have long remained unknown, especially considering the sudden onset of the first syphilis epidemic in the late 15th century in Europe and its hypothesized arrival from the Americas with Columbus’ expeditions1,2. Recently, ancient DNA evidence has revealed various treponemal infections circulating in early modern Europe and colonial-era Mexico3–6. However, there has been to our knowledge no genomic evidence of treponematosis recovered from either the Americas or the Old World that can be reliably dated to the time before the first trans-Atlantic contacts. Here, we present treponemal genomes from nearly 2,000-year-old human remains from Brazil. We reconstruct four ancient genomes of a prehistoric treponemal pathogen, most closely related to the bejel-causing agent Treponema pallidum endemicum. Contradicting the modern day geographical niche of bejel in the arid regions of the world, the results call into question the previous palaeopathological characterization of treponeme subspecies and showcase their adaptive potential. A high-coverage genome is used to improve molecular clock date estimations, placing the divergence of modern T. pallidum subspecies firmly in pre-Columbian times. Overall, our study demonstrates the opportunities within archaeogenetics to uncover key events in pathogen evolution and emergence, paving the way to new hypotheses on the origin and spread of treponematoses.
+Abstract
+
+The origins of treponemal diseases have long remained unknown, especially considering the sudden onset of the first syphilis epidemic in the late 15th century in Europe and its hypothesized arrival from the Americas with Columbus’ expeditions1,2. Recently, ancient DNA evidence has revealed various treponemal infections circulating in early modern Europe and colonial-era Mexico3–6. However, there has been to our knowledge no genomic evidence of treponematosis recovered from either the Americas or the Old World that can be reliably dated to the time before the first trans-Atlantic contacts. Here, we present treponemal genomes from nearly 2,000-year-old human remains from Brazil. We reconstruct four ancient genomes of a prehistoric treponemal pathogen, most closely related to the bejel-causing agent Treponema pallidum endemicum. Contradicting the modern day geographical niche of bejel in the arid regions of the world, the results call into question the previous palaeopathological characterization of treponeme subspecies and showcase their adaptive potential. A high-coverage genome is used to improve molecular clock date estimations, placing the divergence of modern T. pallidum subspecies firmly in pre-Columbian times. Overall, our study demonstrates the opportunities within archaeogenetics to uncover key events in pathogen evolution and emergence, paving the way to new hypotheses on the origin and spread of treponematoses.
 
 182 | Nature | Vol 627 | 7 March 2024
 Article

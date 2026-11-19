@@ -538,9 +538,30 @@ def test_a_clean_occurrence_anywhere_clears_the_quote():
     assert boundary_defect(index, _pair("cardiac")) is None
 
 
-def test_boundary_check_is_off_by_default():
-    path = ROOT / "kb" / "disorders" / "GNPTG-Mucolipidosis.yaml"
-    if not path.exists():  # pragma: no cover - entry renamed or retired
-        pytest.skip("GNPTG-Mucolipidosis.yaml no longer present")
-    assert audit_files([path]).boundary_suspect == []
-    assert audit_files([path], check_boundaries=True).boundary_suspect
+def test_boundary_check_is_off_by_default(tmp_path):
+    """A mid-word fragment is reported only when the boundary check is asked for.
+
+    Builds its own entry and cache, rather than pointing at a live KB entry
+    that happens to carry a cut snippet: once that entry is re-quoted, which
+    is the point of reporting it, a live fixture stops exercising the check.
+    """
+    cache = tmp_path / "references_cache"
+    cache.mkdir()
+    (cache / "PMID_1.md").write_text(
+        "---\nreference_id: PMID:1\ncontent_type: abstract_only\n---\n\n"
+        "## Content\n\ncarpal tunnel syndrome may require surgical release\n",
+        encoding="utf-8",
+    )
+    entry = tmp_path / "Fixture.yaml"
+    entry.write_text(
+        "name: Fixture\n"
+        "phenotypes:\n"
+        "- name: Carpal tunnel syndrome\n"
+        "  evidence:\n"
+        "  - reference: PMID:1\n"
+        "    supports: SUPPORT\n"
+        "    snippet: carpal tunnel syndrome may require surgica\n",
+        encoding="utf-8",
+    )
+    assert audit_files([entry], cache_dir=cache).boundary_suspect == []
+    assert audit_files([entry], cache_dir=cache, check_boundaries=True).boundary_suspect

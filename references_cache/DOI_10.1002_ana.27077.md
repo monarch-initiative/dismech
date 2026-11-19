@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1002/ana.27077
+extractor_version: 1
 title: "Loss‐of‐Function Variants in <scp><i>CUL3</i></scp> Cause a Syndromic Neurodevelopmental Disorder"
 authors:
 - Patrick R. Blackburn
@@ -86,6 +87,7 @@ year: '2025'
 doi: 10.1002/ana.27077
 content_type: abstract_only
 is_preprint: false
+full_text_declined: "access_type:publisher_free"
 ---
 
 # Loss‐of‐Function Variants in <scp><i>CUL3</i></scp> Cause a Syndromic Neurodevelopmental Disorder
@@ -95,4 +97,18 @@ is_preprint: false
 
 ## Content
 
-ObjectiveDe novo variants in cullin‐3 ubiquitin ligase (CUL3) have been strongly associated with neurodevelopmental disorders (NDDs), but no large case series have been reported so far. Here, we aimed to collect sporadic cases carrying rare variants in CUL3, describe the genotype–phenotype correlation, and investigate the underlying pathogenic mechanism.MethodsGenetic data and detailed clinical records were collected via multicenter collaboration. Dysmorphic facial features were analyzed using GestaltMatcher. Variant effects on CUL3 protein stability were assessed using patient‐derived T‐cells.ResultsWe assembled a cohort of 37 individuals with heterozygous CUL3 variants presenting a syndromic NDD characterized by intellectual disability with or without autistic features. Of these, 35 have loss‐of‐function (LoF) and 2 have missense variants. CUL3 LoF variants in patients may affect protein stability leading to perturbations in protein homeostasis, as evidenced by decreased ubiquitin‐protein conjugates in vitro. Notably, we show that 4E‐BP1 (EIF4EBP1), a prominent substrate of CUL3, fails to be targeted for proteasomal degradation in patient‐derived cells.InterpretationOur study further refines the clinical and mutational spectrum of CUL3‐associated NDDs, expands the spectrum of cullin RING E3 ligase‐associated neuropsychiatric disorders, and suggests haploinsufficiency via LoF variants is the predominant pathogenic mechanism. ANN NEUROL 2025;97:76–89
+Objective
+
+De novo variants in cullin‐3 ubiquitin ligase (CUL3) have been strongly associated with neurodevelopmental disorders (NDDs), but no large case series have been reported so far. Here, we aimed to collect sporadic cases carrying rare variants in CUL3, describe the genotype–phenotype correlation, and investigate the underlying pathogenic mechanism.
+
+Methods
+
+Genetic data and detailed clinical records were collected via multicenter collaboration. Dysmorphic facial features were analyzed using GestaltMatcher. Variant effects on CUL3 protein stability were assessed using patient‐derived T‐cells.
+
+Results
+
+We assembled a cohort of 37 individuals with heterozygous CUL3 variants presenting a syndromic NDD characterized by intellectual disability with or without autistic features. Of these, 35 have loss‐of‐function (LoF) and 2 have missense variants. CUL3 LoF variants in patients may affect protein stability leading to perturbations in protein homeostasis, as evidenced by decreased ubiquitin‐protein conjugates in vitro. Notably, we show that 4E‐BP1 (EIF4EBP1), a prominent substrate of CUL3, fails to be targeted for proteasomal degradation in patient‐derived cells.
+
+Interpretation
+
+Our study further refines the clinical and mutational spectrum of CUL3‐associated NDDs, expands the spectrum of cullin RING E3 ligase‐associated neuropsychiatric disorders, and suggests haploinsufficiency via LoF variants is the predominant pathogenic mechanism. ANN NEUROL 2025;97:76–89

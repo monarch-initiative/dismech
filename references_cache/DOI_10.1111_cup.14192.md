@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1111/cup.14192
+extractor_version: 1
 title: "Cutaneous collagenous vasculopathy: A report of three cases"
 authors:
 - Marc E. Grossman
@@ -11,6 +12,7 @@ journal: Journal of Cutaneous Pathology
 year: '2022'
 doi: 10.1111/cup.14192
 content_type: abstract_only
+is_preprint: false
 full_text_attempted: true
 ---
 
@@ -21,4 +23,6 @@ full_text_attempted: true
 
 ## Content
 
-AbstractCutaneous collagenous vasculopathy is a rare pauci‐inflammatory, superficial, cutaneous vasculopathy characterized by progressive fine‐branching telangiectasias clinically, while light microscopically one observes dilated venules and capillaries within the superficial dermis exhibiting excessive Type IV collagen within the vessel wall. We present three cases of collagenous vasculopathy. Two cases were associated with certain autoimmune stigmata, including a positive serologic anti‐endothelial cell antibody assay and positive lupus anticoagulant in one, while the third case had positive anti‐ribonucleoprotein (RNP) antibodies. The latter case was associated with chronic hydroxyurea therapy for an underlying myeloproliferative disorder. We explore the role of immune‐ and non‐immune‐based endothelial cell injury in the pathogenesis of collagenous vasculopathy.
+Abstract
+
+Cutaneous collagenous vasculopathy is a rare pauci‐inflammatory, superficial, cutaneous vasculopathy characterized by progressive fine‐branching telangiectasias clinically, while light microscopically one observes dilated venules and capillaries within the superficial dermis exhibiting excessive Type IV collagen within the vessel wall. We present three cases of collagenous vasculopathy. Two cases were associated with certain autoimmune stigmata, including a positive serologic anti‐endothelial cell antibody assay and positive lupus anticoagulant in one, while the third case had positive anti‐ribonucleoprotein (RNP) antibodies. The latter case was associated with chronic hydroxyurea therapy for an underlying myeloproliferative disorder. We explore the role of immune‐ and non‐immune‐based endothelial cell injury in the pathogenesis of collagenous vasculopathy.

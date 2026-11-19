@@ -13,8 +13,9 @@ Deterministic classes (``--strict`` gates on them)
     binding, no ``transmission`` block, an entry anchored to ``MONDO:0005550``
     *infectious disease* itself, a subtype naming a disease that already has
     its own entry without saying so, two entries sharing a ``disease_term``
-    with no ``skos:narrowMatch`` between them, two agents in one entry bound
-    to the same taxon, a ``curated_in`` pointer at a file that does not exist.
+    with no ``skos:broadMatch`` (or legacy ``skos:narrowMatch``) between them,
+    two agents in one entry bound to the same taxon, a ``curated_in`` pointer
+    at a file that does not exist.
 
 Advisory classes (never gate)
     A finding here is a *question* the ladder asks a curator, not an answer. An
@@ -434,14 +435,21 @@ def lump_waiver_recorded(review_notes: object) -> bool:
     return False
 
 
-def _narrow_match_targets(doc: dict) -> set[str]:
-    """MONDO CURIEs this entry maps to with ``skos:narrowMatch`` (the §3a anchor)."""
+#: ``skos:broadMatch`` is the canonical anchor spelling (the stratum, as
+#: subject, records its broader parent as broadMatch); the legacy
+#: ``skos:narrowMatch`` spelling is still accepted on existing entries while
+#: that backlog migrates (dismech#10165, dismech#16243).
+_ANCHOR_PREDICATES = frozenset({"skos:broadMatch", "skos:narrowMatch"})
+
+
+def _anchor_targets(doc: dict) -> set[str]:
+    """MONDO CURIEs this entry anchors to via §3a/§3e (broadMatch, or legacy narrowMatch)."""
     mappings = doc.get("mappings")
     if not isinstance(mappings, dict):
         return set()
     out: set[str] = set()
     for m in _as_dicts(mappings.get("mondo_mappings")):
-        if m.get("mapping_predicate") == "skos:narrowMatch":
+        if m.get("mapping_predicate") in _ANCHOR_PREDICATES:
             term_id = _term_id(m)
             if term_id:
                 out.add(term_id)
@@ -561,12 +569,12 @@ def _assess_cross_entry(
     mondo_id = report.mondo_id
     if mondo_id:
         others = [s for s in index.by_term.get(mondo_id, []) if s != slug]
-        if others and mondo_id not in _narrow_match_targets(doc):
+        if others and mondo_id not in _anchor_targets(doc):
             report.findings.append(
                 Finding(
                     slug,
                     DUPLICATE_ANCHOR,
-                    f"{mondo_id} is also the disease_term of {', '.join(sorted(others))}; no skos:narrowMatch recorded here",
+                    f"{mondo_id} is also the disease_term of {', '.join(sorted(others))}; no skos:broadMatch (or skos:narrowMatch) recorded here",
                 )
             )
 

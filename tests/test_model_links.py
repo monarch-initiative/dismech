@@ -60,6 +60,29 @@ def test_proposed_experiment_model_systems_are_walked():
     assert sites[0].proposed is True
 
 
+@pytest.mark.parametrize("slot", ["animal_models", "computational_models"])
+def test_proposed_experiment_animal_and_computational_models_are_walked(slot):
+    """The experiment-level mirror of the disease-level three-way model split.
+
+    A link under these slots must reach the divergence, scale, readout-target
+    and caveat gates, exactly as one under ``model_systems`` does.
+    """
+    data = _entry(
+        discussions=[
+            {
+                "discussion_id": "g",
+                "proposed_experiments": [{"experiment_id": "e", slot: [_model()]}],
+            }
+        ]
+    )
+    sites = list(iter_model_links(data))
+    assert [s.path_prefix for s in sites] == [
+        f"discussions[0].proposed_experiments[0].{slot}"
+    ]
+    assert sites[0].proposed is True
+    assert list(iter_model_links(data, include_proposed=False)) == []
+
+
 def test_experiment_control_model_systems_are_walked():
     """A control carries model systems with the same shape as its experiment."""
     data = _entry(

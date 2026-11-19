@@ -42,6 +42,55 @@ The queue would never drain and the reports would pile up.
 
 Turning it on for a single run you are watching is the case it is built for.
 
+## Who takes over
+
+With a bare `--fallback`, the client tries the other providers in the order it
+registers them, skipping any that are not available and any that do not write
+real reports (the mock provider). As of 0.2.15 that order is:
+
+openai, falcon, asta, perplexity, consensus, openscientist, cyberian, biomni,
+tooluniverse, claude_code, antigravity, rss_agent
+
+so on a machine with only the local CLI providers, `claude_code` is chosen
+before `antigravity`. `rss_agent` registers only when its local checkout is
+configured, so on most machines the list ends at `antigravity`, as it did in
+0.2.14.
+
+`claude_managed` (Claude Managed Agents, new in 0.2.15) is **never** chosen by a
+bare `--fallback`, even though it registers whenever `ANTHROPIC_API_KEY` is set,
+which it is in this repository's agent workflows. The client marks it as too
+costly to stand in for another provider (`automatic_fallback = False`); name it
+with `--provider` or `--fallback-provider` to use it. The `deeper_med` and
+`toxindex` stubs are registered but never available, so they are never chosen
+either. Biomni stays out of the list unless `DISMECH_ENABLE_BIOMNI=1`
+is set. Name the order with `--fallback-provider` when it matters which one runs.
+
+## An unsuccessful answer is not a fallback
+
+From 0.2.14, `claude_code` and `antigravity` mark a run unsuccessful when the
+agent answered from memory without retrieving anything, declined the task, or
+wrote a line beginning `**Incomplete report:**`. Such a run is not handed to
+another provider, because the provider did run; it just did not produce a
+report. The client still writes the output, so the recipe still places it in
+`research/`, but:
+
+- the command exits with code 4, which the recipe passes through;
+- the report's frontmatter carries `answer_status: unsuccessful` and its first
+  line is a warning saying it is not a finished report;
+- the result is not cached, so re-running asks the provider again.
+
+Do not commit such a file as an entry's deep-research report. Delete it, with
+its `.citations.md` sidecar and any `_artifacts/` directory, and re-run or run
+another provider. Do not edit `answer_status` away: it is the provider's record
+of what happened. The repository reads the field in four places:
+
+| Where | What it does with an unsuccessful run |
+|---|---|
+| `just check-unsuccessful-research` (in `just qc`, and an ungated CI step) | fails while one is anywhere under `research/` |
+| `just research-status` / `research-missing-provider` | does not count it for its provider; lists it in the `unsuccessful_reports` column, so the missing-provider sweep runs that provider again, and labels a run that exits 4 `UNSUCCESSFUL` |
+| `just qc-deep-research` | leaves it, and its citations sidecar, out of provider coverage |
+| `just preflight-dr` | refuses it with exit code 2 before any lookup: there is no report to vet |
+
 ## What the repository does afterwards
 
 The provider is in the filename — `<Disorder>-deep-research-<provider>.md` — and

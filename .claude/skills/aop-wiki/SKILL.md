@@ -14,8 +14,13 @@ description: >
 `aop-wiki-cli` is an installable module —
 [gingin77/aop_wiki_cli](https://github.com/gingin77/aop_wiki_cli). It owns the
 XML download, the parsers, and the entity model; **do not add downloading or
-parsing code to dismech**, and do not have dismech code read its XML or cache
-files. If a query needs something the CLI cannot do, add a command there.
+parsing code to dismech**, and do not have dismech code read its XML. dismech
+code may read the parsed cache JSON it writes
+(`<data-dir>/outputs/cache/<MM-DD-YYYY>/all_*.json`), given the data directory
+and the date explicitly, never a path it guesses; `scripts/aop_dismech_crosswalk.py`
+is the example. Tests use a small extract of the cache under `tests/data/`,
+never a live data directory. If a query needs something the CLI cannot do, add
+a command there.
 
 ```bash
 uvx --from git+https://github.com/gingin77/aop_wiki_cli aop-wiki-cli --help
@@ -88,8 +93,29 @@ is the cache every KER command shares, not a report.
 `show-entity`, no `show-aop-graph`. To find records by term, use
 `search-with-config`. To read one record, open the cache JSON in the data
 directory (`<data-dir>/outputs/cache/<MM-DD-YYYY>/all_events_*.json`, keyed by
-AOP-Wiki ID as a string) as a one-off — an ad-hoc read while working there, which
-does not license dismech code to reach into those files.
+AOP-Wiki ID as a string). A script that reads it follows the rule at the top:
+the data directory and the date are arguments.
+
+### Matching Key Events to pathograph nodes
+
+`scripts/aop_dismech_crosswalk.py` reports which nodes and phenotypes of chosen
+entries match each Key Event of an AOP (or of a list of Key Event ids), on what
+basis (a shared component term, a `conforms_to` module node, a cell-type or
+location label, or the Event title's words), and whether the node's
+`biological_scale` agrees with the Event's level; and, for the Key Event
+Relationships among those Events, whether the entry's edges assert them.
+
+```bash
+python scripts/aop_dismech_crosswalk.py --data-dir ~/aop-data --date 10-03-2026 \
+    --aop 40 --entry Contact_Dermatitis
+```
+
+A match is a candidate, not a mapping: a label or name match is weak, and a
+Key Event whose components AOP-Wiki left empty (KE1543) matches nothing
+automatically. Hand-written rules for a set of Key Events go in a file under
+`conf/aop_crosswalk/` and are passed with `--rules`; `parkinsonism.yaml` carries
+the rules behind `scripts/aop_parkinsonism_crosswalk.py` and its 2026-10-25
+report, and reproduces that script's matches.
 
 Its matcher is word-boundary, case-insensitive, HTML-stripped, with
 sentence-bounded snippets. Because word-boundary matching allows flexible

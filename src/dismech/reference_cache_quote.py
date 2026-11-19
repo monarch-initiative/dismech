@@ -30,14 +30,21 @@ restore the naive ``c in value`` colon test.
 Frontmatter replacement uses match offsets into the original text so a literal
 ``---`` in the body is never mistaken for the closing delimiter. Double-quoted
 rewrites escape backslashes before quotes so values such as ``C:\\study`` remain
-valid YAML and round-trip unchanged. The sweep also trims generated line-end
-spaces and tabs from the scoped cache body so fresh full-text fetches cannot
-leave commits that fail ``git diff --check``.
+valid YAML and round-trip unchanged.
+
+The scoped sweep also trims line-end spaces and tabs, so a freshly fetched record
+cannot leave a commit that fails ``git diff --check``. It does that only for cache
+files git does not track yet. Most committed PubMed records carry the trailing
+spaces PubMed itself emits, so trimming every *cited* file turned each validation
+run into a rewrite of committed caches the curator never touched -- the churn
+issue #9963 reports. A committed record is never rewritten for whitespace; outside
+a git checkout every scoped file is treated as new.
 """
 
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from collections.abc import Iterable, Iterator
 from pathlib import Path
@@ -45,6 +52,7 @@ from typing import Any
 
 import yaml
 
+from dismech.reference_cache_names import cache_stems
 from dismech.yaml_io import safe_load_path
 
 __all__ = [
@@ -87,15 +95,6 @@ def iter_reference_ids(value: Any) -> Iterator[str]:
             yield from iter_reference_ids(child)
 
 
-def _safe_cache_stem(reference_id: str) -> str:
-    return (
-        reference_id.replace(":", "_")
-        .replace("/", "_")
-        .replace("?", "_")
-        .replace("=", "_")
-    )
-
-
 def _cache_index(cache_dir: Path) -> tuple[dict[str, Path], dict[str, Path | None]]:
     by_stem: dict[str, Path] = {}
     by_bare_id: dict[str, Path | None] = {}
@@ -118,12 +117,12 @@ def resolve_cache_paths(cache_dir: Path, data_files: Iterable[Path]) -> list[Pat
         except (OSError, yaml.YAMLError):
             continue
         for reference_id in iter_reference_ids(data):
-            key = _safe_cache_stem(reference_id).casefold()
-            path = by_stem.get(key)
+            stems = [stem.casefold() for stem in cache_stems(reference_id)]
+            path = next((by_stem[k] for k in stems if k in by_stem), None)
             if path is None:
                 # Bare identifiers such as NCT06087757 are cached under the
                 # source's canonical prefix (clinicaltrials_NCT06087757.md).
-                path = by_bare_id.get(key)
+                path = by_bare_id.get(stems[0])
             if path is not None:
                 resolved.add(path)
     return sorted(resolved)
@@ -205,6 +204,41 @@ def _iter_cache_files(cache_dir: Path, data_files: Iterable[Path] = ()):
         yield md_file, content, match
 
 
+def _tracked_paths(paths: Iterable[Path]) -> set[Path] | None:
+    """Return the subset of ``paths`` git tracks, or None outside a git checkout.
+
+    Lists each containing directory once rather than passing every path on the
+    command line, so a whole-KB run cannot overflow the argument limit.
+    """
+    candidates = {path.resolve() for path in paths}
+    tracked: set[Path] = set()
+    for directory in sorted({path.parent for path in candidates}):
+        try:
+            result = subprocess.run(
+                ["git", "ls-files", "-z", "--", "."],
+                cwd=directory,
+                capture_output=True,
+                check=True,
+            )
+        except (OSError, subprocess.CalledProcessError):
+            return None
+        tracked.update(
+            (directory / name).resolve()
+            for name in result.stdout.decode("utf-8").split("\0")
+            if name
+        )
+    return tracked & candidates
+
+
+def _untracked(paths: Iterable[Path]) -> set[Path]:
+    """Resolved paths of ``paths`` that git does not track (all of them outside git)."""
+    resolved = [path.resolve() for path in paths]
+    tracked = _tracked_paths(resolved)
+    if tracked is None:
+        return set(resolved)
+    return {path for path in resolved if path not in tracked}
+
+
 def files_needing_requote(
     cache_dir: str | Path, data_files: Iterable[Path] = ()
 ) -> list[str]:
@@ -213,11 +247,13 @@ def files_needing_requote(
     if not cache_dir.exists():
         return []
     inputs = list(data_files)
+    records = list(_iter_cache_files(cache_dir, inputs))
+    strippable = _untracked(path for path, _, _ in records) if inputs else set()
     return [
         md_file.name
-        for md_file, _content, match in _iter_cache_files(cache_dir, inputs)
+        for md_file, content, match in records
         if requote_frontmatter(match.group("frontmatter"))[1]
-        or (inputs and _strip_line_end_whitespace(_content)[1])
+        or (md_file.resolve() in strippable and _strip_line_end_whitespace(content)[1])
     ]
 
 
@@ -235,7 +271,10 @@ def normalize_reference_cache(
     if not cache_dir.exists():
         return rewritten
     inputs = list(data_files)
-    for md_file, content, match in _iter_cache_files(cache_dir, inputs):
+    records = list(_iter_cache_files(cache_dir, inputs))
+    # Whitespace is trimmed only on records git does not track yet (#9963).
+    strippable = _untracked(path for path, _, _ in records) if inputs else set()
+    for md_file, content, match in records:
         new_frontmatter, modified = requote_frontmatter(match.group("frontmatter"))
         normalized = content
         if modified:
@@ -245,7 +284,7 @@ def normalize_reference_cache(
                 + content[match.end("frontmatter") :]
             )
         whitespace_modified = False
-        if inputs:
+        if md_file.resolve() in strippable:
             normalized, whitespace_modified = _strip_line_end_whitespace(normalized)
         if modified or whitespace_modified:
             md_file.write_text(normalized, encoding="utf-8")

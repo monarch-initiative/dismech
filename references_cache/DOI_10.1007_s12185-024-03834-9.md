@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s12185-024-03834-9
+extractor_version: 1
 title: "Tazemetostat for relapsed/refractory B-cell non-Hodgkin lymphoma with EZH2 mutation in Japan: 3-year follow-up for a phase II study"
 authors:
 - Koji Izutsu
@@ -20,12 +21,14 @@ journal: International Journal of Hematology
 year: '2024'
 doi: 10.1007/s12185-024-03834-9
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s12185-024-03834-9.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s12185-024-03834-9.pdf
+full_text_access_type: open
 ---
 
 # Tazemetostat for relapsed/refractory B-cell non-Hodgkin lymphoma with EZH2 mutation in Japan: 3-year follow-up for a phase II study
@@ -35,7 +38,9 @@ local_pdf_path: files/DOI_10.1007_s12185-024-03834-9.pdf
 
 ## Content
 
-AbstractPreviously, we reported the efficacy and safety of tazemetostat in Japanese patients with relapsed/refractory follicular lymphoma (FL) and diffuse large B-cell lymphoma (DLBCL) harboring the EZH2 mutation in a multicenter, open-label, phase II study. Here, we present a follow-up analysis of tazemetostat at a long-term median follow-up of 35.0 months. Twenty patients were enrolled: 17 in the FL cohort and three in the DLBCL cohort. In the FL cohort, the objective response rate was 70.6%, consistent with the primary analysis, and the median progression-free survival (PFS) was not reached. The 24-month and 36-month PFS rates were 72.1% (95% confidence interval [CI] 41.5%–88.6%) and 64.1% (95% CI 33.7%–83.4%), respectively. The median duration of treatment was 30.2 months. After the primary analysis at a median follow-up of 12.9 months, grade 1–2 urinary tract infection, peripheral motor neuropathy, and hypogammaglobulinemia newly emerged, but the incidence of adverse events (AEs) did not increase notably during this follow-up period. No unexpected grade ≥ 3 treatment-related AEs were reported. Long-term oral monotherapy with tazemetostat showed favorable efficacy and safety profiles, indicating that it may be a useful third-line or later treatment option for patients with relapsed/refractory FL harboring the EZH2 mutation. Trial registration: ClinicalTrials.gov: NCT03456726.
+Abstract
+
+Previously, we reported the efficacy and safety of tazemetostat in Japanese patients with relapsed/refractory follicular lymphoma (FL) and diffuse large B-cell lymphoma (DLBCL) harboring the EZH2 mutation in a multicenter, open-label, phase II study. Here, we present a follow-up analysis of tazemetostat at a long-term median follow-up of 35.0 months. Twenty patients were enrolled: 17 in the FL cohort and three in the DLBCL cohort. In the FL cohort, the objective response rate was 70.6%, consistent with the primary analysis, and the median progression-free survival (PFS) was not reached. The 24-month and 36-month PFS rates were 72.1% (95% confidence interval [CI] 41.5%–88.6%) and 64.1% (95% CI 33.7%–83.4%), respectively. The median duration of treatment was 30.2 months. After the primary analysis at a median follow-up of 12.9 months, grade 1–2 urinary tract infection, peripheral motor neuropathy, and hypogammaglobulinemia newly emerged, but the incidence of adverse events (AEs) did not increase notably during this follow-up period. No unexpected grade ≥ 3 treatment-related AEs were reported. Long-term oral monotherapy with tazemetostat showed favorable efficacy and safety profiles, indicating that it may be a useful third-line or later treatment option for patients with relapsed/refractory FL harboring the EZH2 mutation. Trial registration: ClinicalTrials.gov: NCT03456726.
 
 Vol.:(0123456789)
 International Journal of Hematology (2024) 120:621–630 

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1017/erm.2024.18
+extractor_version: 1
 title: "Thrombocytopenia in dengue infection: mechanisms and a potential application"
 authors:
 - Ahmad Suhail Khazali
@@ -11,12 +12,14 @@ journal: Expert Reviews in Molecular Medicine
 year: '2024'
 doi: 10.1017/erm.2024.18
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.cambridge.org/core/services/aop-cambridge-core/content/view/E7CF2A05E263413F71587B8BCA881844/S1462399424000188a.pdf/div-class-title-thrombocytopenia-in-dengue-infection-mechanisms-and-a-potential-application-div.pdf"
-oa_status: diamond
+oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1017_erm.2024.18.pdf
+full_text_access_type: open
 ---
 
 # Thrombocytopenia in dengue infection: mechanisms and a potential application
@@ -26,7 +29,9 @@ local_pdf_path: files/DOI_10.1017_erm.2024.18.pdf
 
 ## Content
 
-AbstractThrombocytopenia is a common symptom and one of the warning signs of dengue virus (DENV) infection. Platelet depletion is critical as it may lead to other severe dengue symptoms. Understanding the molecular events of this condition during dengue infection is challenging because of the multifaceted factors involved in DENV infection and the dynamics of the disease progression. Platelet levels depend on the balance between platelet production and platelet consumption or clearance. Megakaryopoiesis and thrombopoiesis, two interdependent processes in platelet production, are hampered during dengue infection. Conversely, platelet elimination via platelet activation, apoptosis and clearance processes are elevated. Together, these anomalies contribute to thrombocytopenia in dengue patients. Targeting the molecular events of dengue-mediated thrombocytopenia shows great potential but still requires further investigation. Nonetheless, the application of new knowledge in this field, such as immature platelet fraction analysis, may facilitate physicians in monitoring the progression of the disease.
+Abstract
+
+Thrombocytopenia is a common symptom and one of the warning signs of dengue virus (DENV) infection. Platelet depletion is critical as it may lead to other severe dengue symptoms. Understanding the molecular events of this condition during dengue infection is challenging because of the multifaceted factors involved in DENV infection and the dynamics of the disease progression. Platelet levels depend on the balance between platelet production and platelet consumption or clearance. Megakaryopoiesis and thrombopoiesis, two interdependent processes in platelet production, are hampered during dengue infection. Conversely, platelet elimination via platelet activation, apoptosis and clearance processes are elevated. Together, these anomalies contribute to thrombocytopenia in dengue patients. Targeting the molecular events of dengue-mediated thrombocytopenia shows great potential but still requires further investigation. Nonetheless, the application of new knowledge in this field, such as immature platelet fraction analysis, may facilitate physicians in monitoring the progression of the disease.
 
 Expert Reviews in Molecular
 Medicine

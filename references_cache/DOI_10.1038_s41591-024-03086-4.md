@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41591-024-03086-4
+extractor_version: 1
 title: "Cabozantinib and nivolumab with or without live bacterial supplementation in metastatic renal cell carcinoma: a randomized phase 1 trial"
 authors:
 - Hedyeh Ebrahimi
@@ -35,12 +36,14 @@ journal: Nature Medicine
 year: '2024'
 doi: 10.1038/s41591-024-03086-4
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41591-024-03086-4.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41591-024-03086-4.pdf
+full_text_access_type: open
 ---
 
 # Cabozantinib and nivolumab with or without live bacterial supplementation in metastatic renal cell carcinoma: a randomized phase 1 trial
@@ -50,7 +53,11 @@ local_pdf_path: files/DOI_10.1038_s41591-024-03086-4.pdf
 
 ## Content
 
-AbstractSupplementation with CBM588, a bifidogenic live bacterial product, has been associated with improved clinical outcomes in persons with metastatic renal cell carcinoma (mRCC) receiving nivolumab and ipilimumab. However, its effect on those receiving tyrosine kinase inhibitor-based combinations is unknown. In this open-label, randomized, investigator-initiated, phase 1 study, 30 participants with locally advanced or mRCC with histological confirmation of clear cell, papillary or sarcomatoid component were randomized in a 2:1 fashion to receive cabozantinib (an inhibitor of vascular endothelial growth factor receptor, MET and AXL) and nivolumab (anti-programmed cell death protein 1) with or without CBM588 as first-line treatment. Metagenomic sequencing was performed on stool samples to characterize their gut microbiome at baseline and 13 weeks into treatment. The primary endpoint was a change in the relative abundance of Bifidobacterium spp.; secondary endpoints included objective response rate (ORR), progression-free survival (PFS) and toxicity profile. The primary endpoint of the study was not met and the addition of CBM588 to cabozantinib and nivolumab did not result in a difference in the relative abundance of Bifidobacterium spp. or alpha diversity (as measured by the Shannon index). However, ORR was significantly higher in participants treated with CBM588 compared to those in the control arm (14 of 19, 74% versus 2 of 10, 20%; P = 0.01). PFS at 6 months was 84% (16 of 19) and 60% (6 of 10) in the experimental and control arms, respectively. No significant difference in toxicity profile was seen between the study arms. Our results provide a preliminary signal of improved clinical activity with CBM588 in treatment-naive participants with mRCC receiving cabozantinib and nivolumab. Further investigation is needed to confirm these findings and better characterize the underlying mechanism driving this effect.ClinicalTrials.gov identifier: NCT05122546
+Abstract
+
+Supplementation with CBM588, a bifidogenic live bacterial product, has been associated with improved clinical outcomes in persons with metastatic renal cell carcinoma (mRCC) receiving nivolumab and ipilimumab. However, its effect on those receiving tyrosine kinase inhibitor-based combinations is unknown. In this open-label, randomized, investigator-initiated, phase 1 study, 30 participants with locally advanced or mRCC with histological confirmation of clear cell, papillary or sarcomatoid component were randomized in a 2:1 fashion to receive cabozantinib (an inhibitor of vascular endothelial growth factor receptor, MET and AXL) and nivolumab (anti-programmed cell death protein 1) with or without CBM588 as first-line treatment. Metagenomic sequencing was performed on stool samples to characterize their gut microbiome at baseline and 13 weeks into treatment. The primary endpoint was a change in the relative abundance of Bifidobacterium spp.; secondary endpoints included objective response rate (ORR), progression-free survival (PFS) and toxicity profile. The primary endpoint of the study was not met and the addition of CBM588 to cabozantinib and nivolumab did not result in a difference in the relative abundance of Bifidobacterium spp. or alpha diversity (as measured by the Shannon index). However, ORR was significantly higher in participants treated with CBM588 compared to those in the control arm (14 of 19, 74% versus 2 of 10, 20%; P = 0.01). PFS at 6 months was 84% (16 of 19) and 60% (6 of 10) in the experimental and control arms, respectively. No significant difference in toxicity profile was seen between the study arms. Our results provide a preliminary signal of improved clinical activity with CBM588 in treatment-naive participants with mRCC receiving cabozantinib and nivolumab. Further investigation is needed to confirm these findings and better characterize the underlying mechanism driving this effect.
+
+ClinicalTrials.gov identifier: NCT05122546
 
 Nature Medicine | Volume 30 | September 2024 | 2576–2585 2576
 nature medicine

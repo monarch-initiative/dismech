@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1002/jimd.12697
+extractor_version: 1
 title: Gene therapy for neurotransmitter‐related disorders
 authors:
 - Wing Sum Chu
@@ -10,7 +11,8 @@ journal: Journal of Inherited Metabolic Disease
 year: '2024'
 doi: 10.1002/jimd.12697
 content_type: abstract_only
-full_text_attempted: true
+is_preprint: false
+full_text_declined: landing_page_only
 ---
 
 # Gene therapy for neurotransmitter‐related disorders
@@ -20,4 +22,6 @@ full_text_attempted: true
 
 ## Content
 
-AbstractInborn errors of neurotransmitter (NT) metabolism are a group of rare, heterogenous diseases with predominant neurological features, such as movement disorders, autonomic dysfunction, and developmental delay. Clinical overlap with other disorders has led to delayed diagnosis and treatment, and some conditions are refractory to oral pharmacotherapies. Gene therapies have been developed and translated to clinics for paediatric inborn errors of metabolism, with 38 interventional clinical trials ongoing to date. Furthermore, efforts in restoring dopamine synthesis and neurotransmission through viral gene therapy have been developed for Parkinson's disease. Along with the recent European Medicines Agency (EMA) and Medicines and Healthcare Products Regulatory Agency (MHRA) approval of an AAV2 gene supplementation therapy for AADC deficiency, promising efficacy and safety profiles can be achieved in this group of diseases. In this review, we present preclinical and clinical advances to address NT‐related diseases, and summarise potential challenges that require careful considerations for NT gene therapy studies.
+Abstract
+
+Inborn errors of neurotransmitter (NT) metabolism are a group of rare, heterogenous diseases with predominant neurological features, such as movement disorders, autonomic dysfunction, and developmental delay. Clinical overlap with other disorders has led to delayed diagnosis and treatment, and some conditions are refractory to oral pharmacotherapies. Gene therapies have been developed and translated to clinics for paediatric inborn errors of metabolism, with 38 interventional clinical trials ongoing to date. Furthermore, efforts in restoring dopamine synthesis and neurotransmission through viral gene therapy have been developed for Parkinson's disease. Along with the recent European Medicines Agency (EMA) and Medicines and Healthcare Products Regulatory Agency (MHRA) approval of an AAV2 gene supplementation therapy for AADC deficiency, promising efficacy and safety profiles can be achieved in this group of diseases. In this review, we present preclinical and clinical advances to address NT‐related diseases, and summarise potential challenges that require careful considerations for NT gene therapy studies.

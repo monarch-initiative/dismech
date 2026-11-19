@@ -199,6 +199,122 @@ def test_an_unlabelled_body_is_not_eligible_for_the_deterministic_tier() -> None
     assert split_sections("A perfectly ordinary unstructured abstract.") == []
 
 
+# A structured abstract wrapped the way the reference cache stores one: only the
+# first label begins a line and the rest fall mid-line after a sentence period.
+# Shaped after references_cache/PMID_23039796.md, where one label of five was
+# found and the single BACKGROUND section absorbed the whole abstract (#16234).
+WRAPPED_ABSTRACT = """\
+BACKGROUND: Atopic dermatitis (AD) and loss-of-function mutations in the
+filaggrin gene (FLG) are both associated with chronic irritant contact
+dermatitis (ICD). OBJECTIVES: To investigate the relative contribution and
+interaction of FLG mutations and AD in German patients. METHODS: A total of 634
+patients and 393 controls were genotyped for four variants. RESULTS: FLG
+mutations were found in 15.9% of the patients with ICD and 8.3% of the
+controls. CONCLUSIONS: Our results indicate that both FLG mutations and AD
+increase the risk of ICD.
+"""
+
+
+def test_a_label_is_found_even_when_the_wrap_puts_it_mid_line() -> None:
+    """Four of these five labels do not begin a line.
+
+    Cached abstracts are hard-wrapped at about 80 columns, so whether a label
+    lands at the start of a line is an accident of where the wrap fell. A label
+    that is missed does not merely go unreported: every sentence after it is
+    attributed to the preceding label's zone instead.
+    """
+    assert [label for label, _ in split_sections(WRAPPED_ABSTRACT)] == [
+        "BACKGROUND",
+        "OBJECTIVES",
+        "METHODS",
+        "RESULTS",
+        "CONCLUSIONS",
+    ]
+
+
+def test_a_conclusions_sentence_is_placed_in_the_finding_zone() -> None:
+    """The consequence the zone attribution exists to get right.
+
+    This is the sentence that reached review graded as a BACKGROUND candidate.
+    It opens "Our results indicate", so a BACKGROUND verdict is not a close
+    call -- and it was reported confidently, out of the deterministic tier.
+    """
+    placed = {
+        label: zone_of(label)
+        for label, text in split_sections(WRAPPED_ABSTRACT)
+        if "Our results indicate" in text
+    }
+
+    assert placed == {"CONCLUSIONS": "FINDING"}
+
+
+def test_a_results_sentence_is_not_attributed_to_the_aim_zone() -> None:
+    """The partial-parse shape, where only some labels are lost.
+
+    With RESULTS unseen its text falls into OBJECTIVES, whose AIM zone suggests
+    no `quote_role` at all -- so that misplacement is invisible in the report
+    rather than merely wrong, and no Tier C conflict can surface it either.
+    """
+    sections = dict(split_sections(WRAPPED_ABSTRACT))
+
+    assert "15.9%" in sections["RESULTS"]
+    assert "15.9%" not in sections.get("OBJECTIVES", "")
+
+
+def test_an_all_caps_phrase_in_prose_does_not_open_a_section() -> None:
+    """Seeing a mid-line label must not promote arbitrary prose to a boundary.
+
+    A sentence can end and be followed by capitals and a colon without a
+    section having started. Only the documented vocabulary is recognised
+    mid-line, because inventing a boundary here would trade one wrong zone for
+    another.
+    """
+    body = (
+        "BACKGROUND: We studied this. The groups were split as follows. "
+        "GROUP ASSIGNMENT WAS AS FOLLOWS: arm one and arm two. "
+        "RESULTS: Both arms improved.\n"
+    )
+
+    assert [label for label, _ in split_sections(body)] == ["BACKGROUND", "RESULTS"]
+
+
+def test_a_mid_line_label_needs_sentence_punctuation_before_it() -> None:
+    """A vocabulary word appearing mid-sentence is not a section boundary."""
+    body = "BACKGROUND: We report no difference in RESULTS: nothing changed.\n"
+
+    assert [label for label, _ in split_sections(body)] == ["BACKGROUND"]
+
+
+def test_an_unknown_label_at_line_start_is_still_a_section() -> None:
+    """The line-start path is unchanged, including for labels not in the map.
+
+    `split_sections` documents that an unrecognised label still ends the
+    preceding section, so it degrades to OTHER instead of swallowing the next
+    paragraph. Only the mid-line path is restricted to the known vocabulary.
+    """
+    body = "BACKGROUND: Known.\nTRIAL REGISTRATION: NCT00000000 applies.\n"
+
+    assert [label for label, _ in split_sections(body)] == [
+        "BACKGROUND",
+        "TRIAL REGISTRATION",
+    ]
+
+
+def test_the_cache_that_motivated_the_mid_line_fix_parses_fully() -> None:
+    """The real record from #16234, if still cached in this checkout.
+
+    Skipped rather than failed when absent, since a re-fetch can replace a
+    cache file; the fixture above carries the regression on its own.
+    """
+    path = ROOT / "references_cache" / "PMID_23039796.md"
+    if not path.exists():
+        pytest.skip("PMID_23039796 is not in references_cache on this checkout")
+
+    found = {label for label, _ in split_sections(path.read_text(encoding="utf-8"))}
+
+    assert {"BACKGROUND", "OBJECTIVES", "METHODS", "RESULTS", "CONCLUSIONS"} <= found
+
+
 def test_the_last_section_stops_at_the_abstract(tmp_path: Path) -> None:
     """A full text's own prose must not be swallowed by the final label.
 

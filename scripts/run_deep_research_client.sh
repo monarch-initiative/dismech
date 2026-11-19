@@ -15,6 +15,13 @@
 # deep-research-client resolves a report's references by calling
 # linkml-reference-validator in-process, which reads and writes
 # references_cache/. Those repairs are upstream now (dismech#11849).
+#
+# It also installs the Perplexity request patch (dismech#9357): the upstream
+# provider holds one POST open while sonar-deep-research works, and the model
+# sends no bytes for minutes (even when streaming, until its search phase ends),
+# so a proxy idle timeout drops the request. The patch submits the request to
+# Perplexity's async API and polls for the result instead;
+# DISMECH_PERPLEXITY_TRANSPORT=stream selects the older streaming path.
 
 set -euo pipefail
 
@@ -34,10 +41,17 @@ if not biomni_opted_in and requests_biomni_research(sys.argv[1:]):
     raise SystemExit(2)
 
 from deep_research_client.cli import app
-from deep_research_client.client import REGISTRATION_GATES
+from deep_research_client.providers.biomni import BiomniProvider
 
+# Explain the opt-in policy wherever the client says why Biomni is unavailable.
 if not biomni_opted_in:
-    REGISTRATION_GATES['biomni'] = BIOMNI_DISABLED_DETAIL
+    BiomniProvider.registration_requirement = BIOMNI_DISABLED_DETAIL
+
+# Submit Perplexity requests as async jobs so an idle-timeout proxy does not
+# drop a multi-minute sonar-deep-research request (dismech#9357).
+from dismech.perplexity_streaming import install as install_perplexity_streaming
+
+install_perplexity_streaming()
 
 app()
 " "$@"

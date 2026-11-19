@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1002/ijgo.14442
+extractor_version: 1
 title: "Prognosis determination of endocervical adenocarcinomas morphologically reclassified as <scp>HPV</scp> associated or <scp>HPV</scp> independent"
 authors:
 - Carla Fabrine Carvalho
@@ -12,6 +13,7 @@ journal: "International Journal of Gynecology &amp; Obstetrics"
 year: '2023'
 doi: 10.1002/ijgo.14442
 content_type: abstract_only
+is_preprint: false
 full_text_attempted: true
 ---
 
@@ -22,4 +24,20 @@ full_text_attempted: true
 
 ## Content
 
-AbstractObjectiveTo evaluate the prognosis of endocervical adenocarcinomas after reclassification according to the morphologic type based on the 2020 World Health Organization Classification.MethodsA retrospective longitudinal study with cases admitted at the University of Campinas, Brazil, from 2013 to 2020. The sample included 140 cases morphologically reclassified: 100 cases as adenocarcinoma HPV‐associated (HPVA), 17 as HPV‐independent (HPVI), and 23 non‐HPVA/HPVI. Clinic and pathologic variables were evaluated. Analyses were performed by χ2, Fisher exact, and Mann–Whitney U tests, Kaplan–Meier curves, Log‐rank test, and Cox regression.ResultsCompared with the HPVA group, advanced stage (FIGO Stage II+) was more frequent in the HPVI group (P = 0.009), which also showed older patients (P = 0.032), and a higher proportion of deaths (P = 0.006). The median overall survival (OS) differed between groups: 73.3 months in HPVA and 42.4 months in HPVI (P = 0.005). At the multivariate analysis, the risk of death was 6.7 (95% confidence interval 1.9–23.0) times higher in patients diagnosed in advanced stages.ConclusionHPVI cases were more frequent in older patients, presenting at more advanced stages and with worse OS. The morphology‐based approach of the new WHO classification appears to be prognostically valuable and applicable in lower‐ and middle‐income settings.
+Abstract
+
+Objective
+
+To evaluate the prognosis of endocervical adenocarcinomas after reclassification according to the morphologic type based on the 2020 World Health Organization Classification.
+
+Methods
+
+A retrospective longitudinal study with cases admitted at the University of Campinas, Brazil, from 2013 to 2020. The sample included 140 cases morphologically reclassified: 100 cases as adenocarcinoma HPV‐associated (HPVA), 17 as HPV‐independent (HPVI), and 23 non‐HPVA/HPVI. Clinic and pathologic variables were evaluated. Analyses were performed by χ2, Fisher exact, and Mann–Whitney U tests, Kaplan–Meier curves, Log‐rank test, and Cox regression.
+
+Results
+
+Compared with the HPVA group, advanced stage (FIGO Stage II+) was more frequent in the HPVI group (P = 0.009), which also showed older patients (P = 0.032), and a higher proportion of deaths (P = 0.006). The median overall survival (OS) differed between groups: 73.3 months in HPVA and 42.4 months in HPVI (P = 0.005). At the multivariate analysis, the risk of death was 6.7 (95% confidence interval 1.9–23.0) times higher in patients diagnosed in advanced stages.
+
+Conclusion
+
+HPVI cases were more frequent in older patients, presenting at more advanced stages and with worse OS. The morphology‐based approach of the new WHO classification appears to be prognostically valuable and applicable in lower‐ and middle‐income settings.

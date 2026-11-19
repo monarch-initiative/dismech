@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3389/fneur.2024.1471010
+extractor_version: 1
 title: "Comparative efficacy of intratympanic gentamicin and intratympanic corticosteroid in the treatment of Meniere’s disease: a systematic review and meta-analysis"
 authors:
 - Xuanmei Wu
@@ -13,12 +14,14 @@ journal: Frontiers in Neurology
 year: '2024'
 doi: 10.3389/fneur.2024.1471010
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://public-pages-files-2025.frontiersin.org/journals/neurology/articles/10.3389/fneur.2024.1471010/pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.3389_fneur.2024.1471010.pdf
+full_text_access_type: open
 ---
 
 # Comparative efficacy of intratympanic gentamicin and intratympanic corticosteroid in the treatment of Meniere’s disease: a systematic review and meta-analysis
@@ -28,7 +31,21 @@ local_pdf_path: files/DOI_10.3389_fneur.2024.1471010.pdf
 
 ## Content
 
-PurposeWe aimed to evaluate the efficacy of gentamicin compared to corticosteroids for the treatment of Meniere’s disease.MethodsAn extensive search was conducted in PubMed, Embase, and Web of Science until May 2024. For continuous outcomes, pooled effect estimates were determined by calculating the weighted mean difference (WMD), while for binary outcomes, the risk ratio (RR) was used, each accompanied by their respective 95% confidence intervals (CIs). Heterogeneity among the studies was assessed using Cochran’s I2 and Q statistics.ResultsA total of 12 studies were selected, involving 694 patients. Our analysis found that the gentamicin group demonstrates superior vertigo control rates compared to the corticosteroid group (RR: 1.36, 95% CI: 1.13 to 1.65, p &lt; 0.001). In subgroup analysis, the gentamicin group showed a higher vertigo control rates at 6 months compared to the corticosteroid group (RR: 1.69, 95% CI: 1.28 to 2.24, p &lt; 0.001); however, there was no statistically significant difference between the two groups at 12 months (RR: 1.48, 95% CI: 0.88 to 2.49, p = 0.14). Regarding changes in pure tone average, the corticosteroid group was superior to the gentamicin group (WMD: 4.41, 95% CI: 3.31 to 5.52, p &lt; 0.001).ConclusionOur study suggests that the intratympanic gentamicin group achieves higher vertigo control rates, whereas the corticosteroid group demonstrates better improvement in pure tone averages. However, the high heterogeneity in vertigo control rates warrants caution. Larger sample-sized randomized controlled trials are needed to further validate these findings.
+Purpose
+
+We aimed to evaluate the efficacy of gentamicin compared to corticosteroids for the treatment of Meniere’s disease.
+
+Methods
+
+An extensive search was conducted in PubMed, Embase, and Web of Science until May 2024. For continuous outcomes, pooled effect estimates were determined by calculating the weighted mean difference (WMD), while for binary outcomes, the risk ratio (RR) was used, each accompanied by their respective 95% confidence intervals (CIs). Heterogeneity among the studies was assessed using Cochran’s I2 and Q statistics.
+
+Results
+
+A total of 12 studies were selected, involving 694 patients. Our analysis found that the gentamicin group demonstrates superior vertigo control rates compared to the corticosteroid group (RR: 1.36, 95% CI: 1.13 to 1.65, p &lt; 0.001). In subgroup analysis, the gentamicin group showed a higher vertigo control rates at 6 months compared to the corticosteroid group (RR: 1.69, 95% CI: 1.28 to 2.24, p &lt; 0.001); however, there was no statistically significant difference between the two groups at 12 months (RR: 1.48, 95% CI: 0.88 to 2.49, p = 0.14). Regarding changes in pure tone average, the corticosteroid group was superior to the gentamicin group (WMD: 4.41, 95% CI: 3.31 to 5.52, p &lt; 0.001).
+
+Conclusion
+
+Our study suggests that the intratympanic gentamicin group achieves higher vertigo control rates, whereas the corticosteroid group demonstrates better improvement in pure tone averages. However, the high heterogeneity in vertigo control rates warrants caution. Larger sample-sized randomized controlled trials are needed to further validate these findings.
 
 Frontiers in Neurology 01 frontiersin.org
 Comparative efficacy of 

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41368-023-00258-9
+extractor_version: 1
 title: Spatiotemporal cellular dynamics and molecular regulation of tooth root ontogeny
 authors:
 - Pengcheng Rao
@@ -10,12 +11,14 @@ journal: International Journal of Oral Science
 year: '2023'
 doi: 10.1038/s41368-023-00258-9
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41368-023-00258-9.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41368-023-00258-9.pdf
+full_text_access_type: open
 ---
 
 # Spatiotemporal cellular dynamics and molecular regulation of tooth root ontogeny
@@ -25,7 +28,9 @@ local_pdf_path: files/DOI_10.1038_s41368-023-00258-9.pdf
 
 ## Content
 
-AbstractTooth root development involves intricate spatiotemporal cellular dynamics and molecular regulation. The initiation of Hertwig’s epithelial root sheath (HERS) induces odontoblast differentiation and the subsequent radicular dentin deposition. Precisely controlled signaling pathways modulate the behaviors of HERS and the fates of dental mesenchymal stem cells (DMSCs). Disruptions in these pathways lead to defects in root development, such as shortened roots and furcation abnormalities. Advances in dental stem cells, biomaterials, and bioprinting show immense promise for bioengineered tooth root regeneration. However, replicating the developmental intricacies of odontogenesis has not been resolved in clinical treatment and remains a major challenge in this field. Ongoing research focusing on the mechanisms of root development, advanced biomaterials, and manufacturing techniques will enable next-generation biological root regeneration that restores the physiological structure and function of the tooth root. This review summarizes recent discoveries in the underlying mechanisms governing root ontogeny and discusses some recent key findings in developing of new biologically based dental therapies.
+Abstract
+
+Tooth root development involves intricate spatiotemporal cellular dynamics and molecular regulation. The initiation of Hertwig’s epithelial root sheath (HERS) induces odontoblast differentiation and the subsequent radicular dentin deposition. Precisely controlled signaling pathways modulate the behaviors of HERS and the fates of dental mesenchymal stem cells (DMSCs). Disruptions in these pathways lead to defects in root development, such as shortened roots and furcation abnormalities. Advances in dental stem cells, biomaterials, and bioprinting show immense promise for bioengineered tooth root regeneration. However, replicating the developmental intricacies of odontogenesis has not been resolved in clinical treatment and remains a major challenge in this field. Ongoing research focusing on the mechanisms of root development, advanced biomaterials, and manufacturing techniques will enable next-generation biological root regeneration that restores the physiological structure and function of the tooth root. This review summarizes recent discoveries in the underlying mechanisms governing root ontogeny and discusses some recent key findings in developing of new biologically based dental therapies.
 
 REVIEW ARTICLE OPEN
 Spatiotemporal cellular dynamics and molecular regulation of

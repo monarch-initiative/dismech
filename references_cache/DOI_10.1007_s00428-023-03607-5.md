@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00428-023-03607-5
+extractor_version: 1
 title: "Follicular helper T-cell lymphomas: disease spectrum, relationship with clonal hematopoiesis, and mimics. A report of the 2022 EA4HP/SH lymphoma workshop"
 authors:
 - Sarah L Ondrejka
@@ -17,12 +18,14 @@ journal: Virchows Archiv
 year: '2023'
 doi: 10.1007/s00428-023-03607-5
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00428-023-03607-5.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s00428-023-03607-5.pdf
+full_text_access_type: open
 ---
 
 # Follicular helper T-cell lymphomas: disease spectrum, relationship with clonal hematopoiesis, and mimics. A report of the 2022 EA4HP/SH lymphoma workshop
@@ -32,7 +35,9 @@ local_pdf_path: files/DOI_10.1007_s00428-023-03607-5.pdf
 
 ## Content
 
-AbstractFollicular helper T-cell lymphomas (TFH lymphomas) were discussed in session V of the lymphoma workshop of the European Association for Haematopathology (EA4HP)/Society for Hematopathology (SH) 2022 meeting in Florence, Italy. The session focused on the morphologic spectrum of TFH lymphoma, including its three subtypes: angioimmunoblastic-type (AITL), follicular-type, and not otherwise specified (NOS). The submitted cases encompassed classic examples of TFH lymphoma and unusual cases such as those with early or indolent presentations, associated B-cell proliferations, or Hodgkin/Reed–Sternberg-like cells. The relationship between TFH lymphoma and clonal hematopoiesis was highlighted by several cases documenting divergent evolution of myeloid neoplasm and AITL from shared clonal mutations. The distinction between TFH lymphoma and peripheral T-cell lymphoma, not otherwise specified (PTCL, NOS), was stressed, and many challenging examples were presented. Various cases highlighted the difficulties of differentiating TFH lymphoma from other established types of lymphoma and reactive conditions. Cutaneous T-cell lymphoma expressing TFH markers, particularly when resulting in lymph node involvement, should be distinguished from TFH lymphomas. Additional immunophenotyping and next-generation sequencing studies were performed on various cases in this session, highlighting the importance of these technologies to our current understanding and classification of TFH lymphomas.
+Abstract
+
+Follicular helper T-cell lymphomas (TFH lymphomas) were discussed in session V of the lymphoma workshop of the European Association for Haematopathology (EA4HP)/Society for Hematopathology (SH) 2022 meeting in Florence, Italy. The session focused on the morphologic spectrum of TFH lymphoma, including its three subtypes: angioimmunoblastic-type (AITL), follicular-type, and not otherwise specified (NOS). The submitted cases encompassed classic examples of TFH lymphoma and unusual cases such as those with early or indolent presentations, associated B-cell proliferations, or Hodgkin/Reed–Sternberg-like cells. The relationship between TFH lymphoma and clonal hematopoiesis was highlighted by several cases documenting divergent evolution of myeloid neoplasm and AITL from shared clonal mutations. The distinction between TFH lymphoma and peripheral T-cell lymphoma, not otherwise specified (PTCL, NOS), was stressed, and many challenging examples were presented. Various cases highlighted the difficulties of differentiating TFH lymphoma from other established types of lymphoma and reactive conditions. Cutaneous T-cell lymphoma expressing TFH markers, particularly when resulting in lymph node involvement, should be distinguished from TFH lymphomas. Additional immunophenotyping and next-generation sequencing studies were performed on various cases in this session, highlighting the importance of these technologies to our current understanding and classification of TFH lymphomas.
 
 Vol.:(0123456789)1 3
 h

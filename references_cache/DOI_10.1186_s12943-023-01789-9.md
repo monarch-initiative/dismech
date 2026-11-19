@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1186/s12943-023-01789-9
+extractor_version: 1
 title: CXCR2 expression during melanoma tumorigenesis controls transcriptional programs that facilitate tumor growth
 authors:
 - J. Yang
@@ -23,12 +24,14 @@ journal: Molecular Cancer
 year: '2023'
 doi: 10.1186/s12943-023-01789-9
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://molecular-cancer.biomedcentral.com/counter/pdf/10.1186/s12943-023-01789-9"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1186_s12943-023-01789-9.pdf
+full_text_access_type: open
 ---
 
 # CXCR2 expression during melanoma tumorigenesis controls transcriptional programs that facilitate tumor growth
@@ -38,7 +41,23 @@ local_pdf_path: files/DOI_10.1186_s12943-023-01789-9.pdf
 
 ## Content
 
-AbstractBackgroundThough the CXCR2 chemokine receptor is known to play a key role in cancer growth and response to therapy, a direct link between expression of CXCR2 in tumor progenitor cells during induction of tumorigenesis has not been established.MethodsTo characterize the role of CXCR2 during melanoma tumorigenesis, we generated tamoxifen-inducible tyrosinase-promoter drivenBrafV600E/Pten−/−/Cxcr2−/−andNRasQ61R/INK4a−/−/Cxcr2−/−melanoma models. In addition, the effects of a CXCR1/CXCR2 antagonist, SX-682, on melanoma tumorigenesis were evaluated inBrafV600E/Pten−/−andNRasQ61R/INK4a−/−mice and in melanoma cell lines. Potential mechanisms by whichCxcr2affects melanoma tumorigenesis in these murine models were explored using RNAseq, mMCP-counter, ChIPseq, and qRT-PCR; flow cytometry, and reverse phosphoprotein analysis (RPPA).ResultsGenetic loss ofCxcr2or pharmacological inhibition of CXCR1/CXCR2 during melanoma tumor induction resulted in key changes in gene expression that reduced tumor incidence/growth and increased anti-tumor immunity. Interestingly, afterCxcr2ablation,Tfcp2l1, a key tumor suppressive transcription factor, was the only gene significantly induced with a log2fold-change greater than 2 in these three different melanoma models.ConclusionsHere, we provide novel mechanistic insight revealing how loss ofCxcr2expression/activity in melanoma tumor progenitor cells results in reduced tumor burden and creation of an anti-tumor immune microenvironment. This mechanism entails an increase in expression of the tumor suppressive transcription factor,Tfcp2l1,along with alteration in the expression of genes involved in growth regulation, tumor suppression, stemness, differentiation, and immune modulation. These gene expression changes are coincident with reduction in the activation of key growth regulatory pathways, including AKT and mTOR.
+Abstract
+
+Background
+
+Though the CXCR2 chemokine receptor is known to play a key role in cancer growth and response to therapy, a direct link between expression of CXCR2 in tumor progenitor cells during induction of tumorigenesis has not been established.
+
+Methods
+
+To characterize the role of CXCR2 during melanoma tumorigenesis, we generated tamoxifen-inducible tyrosinase-promoter drivenBrafV600E/Pten−/−/Cxcr2−/−andNRasQ61R/INK4a−/−/Cxcr2−/−melanoma models. In addition, the effects of a CXCR1/CXCR2 antagonist, SX-682, on melanoma tumorigenesis were evaluated inBrafV600E/Pten−/−andNRasQ61R/INK4a−/−mice and in melanoma cell lines. Potential mechanisms by whichCxcr2affects melanoma tumorigenesis in these murine models were explored using RNAseq, mMCP-counter, ChIPseq, and qRT-PCR; flow cytometry, and reverse phosphoprotein analysis (RPPA).
+
+Results
+
+Genetic loss ofCxcr2or pharmacological inhibition of CXCR1/CXCR2 during melanoma tumor induction resulted in key changes in gene expression that reduced tumor incidence/growth and increased anti-tumor immunity. Interestingly, afterCxcr2ablation,Tfcp2l1, a key tumor suppressive transcription factor, was the only gene significantly induced with a log2fold-change greater than 2 in these three different melanoma models.
+
+Conclusions
+
+Here, we provide novel mechanistic insight revealing how loss ofCxcr2expression/activity in melanoma tumor progenitor cells results in reduced tumor burden and creation of an anti-tumor immune microenvironment. This mechanism entails an increase in expression of the tumor suppressive transcription factor,Tfcp2l1,along with alteration in the expression of genes involved in growth regulation, tumor suppression, stemness, differentiation, and immune modulation. These gene expression changes are coincident with reduction in the activation of key growth regulatory pathways, including AKT and mTOR.
 
 Yang et al. Molecular Cancer           (2023) 22:92  
 https://doi.org/10.1186/s12943-023-01789-9

@@ -10,7 +10,8 @@ Fully local & deterministic. For each kb/disorders/*.yaml this reports:
        - LABEL_DRIFT : stored ``term.label`` != Mondo's canonical label
   3. Whether an unanchored entry references MONDO anywhere else in the file
      (=> "promote the anchor", a modeling fix) or nowhere (=> Mondo new-term candidate).
-  4. ``mondo_mappings`` skos-predicate breakdown (narrow/broad = granularity mismatch).
+  4. ``mondo_mappings`` skos-predicate breakdown (narrow/broad = granularity mismatch,
+     read subject to object with the dismech entry as the subject).
 
 Usage:
     uv run python scripts/mondo_anchor_audit.py            # human summary to stdout
@@ -152,10 +153,13 @@ def main():
         p(f"     - {name}  [{state}]  {','.join(mondos)}")
 
     p("\n## mondo_mappings granularity mismatch")
-    p(f"  narrowMatch (dismech finer than mapped Mondo): {len(narrow)}")
+    p("## (SKOS predicates read subject to object: the dismech entry is the")
+    p("## subject, so narrowMatch means the mapped Mondo term is narrower, and")
+    p("## broadMatch means it is broader)")
+    p(f"  narrowMatch (mapped Mondo narrower than dismech): {len(narrow)}")
     for name, cnt in sorted(narrow):
         p(f"     - {name}  x{cnt}")
-    p(f"  broadMatch (dismech broader than mapped Mondo): {len(broad)}")
+    p(f"  broadMatch (mapped Mondo broader than dismech): {len(broad)}")
     for name, cnt in sorted(broad):
         p(f"     - {name}  x{cnt}")
 
