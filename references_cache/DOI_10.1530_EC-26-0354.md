@@ -1,0 +1,33 @@
+---
+reference_id: DOI:10.1530/EC-26-0354
+extractor_version: 1
+title: "Long-term health outcomes and comorbidities in cytochrome P450 oxidoreductase (POR) deficiency: a scoping review of evidence and knowledge gaps"
+authors:
+- Chrysanthi Kouri
+- Asmitha Thirukkumar
+- Christa E Flück
+journal: Endocrine Connections
+year: '2026'
+doi: 10.1530/EC-26-0354
+content_type: abstract_only
+is_preprint: false
+---
+
+# Long-term health outcomes and comorbidities in cytochrome P450 oxidoreductase (POR) deficiency: a scoping review of evidence and knowledge gaps
+**Authors:** Chrysanthi Kouri, Asmitha Thirukkumar, Christa E Flück
+**Journal:** Endocrine Connections (2026)
+**DOI:** [10.1530/EC-26-0354](https://doi.org/10.1530/EC-26-0354)
+
+## Content
+
+Abstract
+
+Graphical Abstract
+
+Abstract
+
+P450 oxidoreductase deficiency (PORD) is a rare congenital disorder of steroidogenesis caused by pathogenic variants in POR, the obligate electron donor to all microsomal cytochrome P450 (CYP) enzymes. While the early clinical presentation of PORD – characterized by adrenal insufficiency, differences of sex development, and Antley–Bixler-like skeletal malformations – is well established, its long-term consequences remain poorly defined. This scoping review synthesizes current evidence on multisystem outcomes in PORD and integrates insights from the broader biology of POR-dependent enzymes to inform potential long-term risks. Across 51 known POR-partner enzymes, numerous polymorphisms have been associated with cardiovascular, metabolic, reproductive, skeletal, neurological, inflammatory, and oncological phenotypes in the general population. Although many of these conditions have not yet been reported in PORD, their mechanistic plausibility highlights important gaps in surveillance. Emerging clinical observations, including hypertension, altered drug metabolism, impaired fertility, and reduced bone health, further underscore the need for systematic long-term follow-up. Experimental models additionally suggest vulnerabilities related to lipid accumulation, bile acid dysregulation, and hepatocellular injury. Despite these concerns, no evidence-based guidelines exist for the lifelong management of PORD, and psychosocial outcomes remain entirely unexplored. Collectively, the available data indicate that PORD is a multisystem disorder with potential age-dependent manifestations extending beyond childhood. Prospective longitudinal studies, mechanistic investigations, and coordinated international registry efforts are essential to define the true long-term phenotype and to develop standardized monitoring and management strategies for affected individuals.
+
+Lay summary
+
+P450 oxidoreductase deficiency (PORD) is a rare genetic condition that affects many body systems because the POR enzyme supports dozens of important metabolic pathways. Most research has focused on early symptoms, such as hormone problems, differences in sex development, and bone abnormalities. Much less is known about how PORD affects people later in life. This review brings together current evidence and highlights possible long-term risks, including high blood pressure, liver and metabolic problems, reduced fertility, and bone health issues. Longer-term studies are urgently needed to understand these risks and to guide better care for individuals with PORD.
