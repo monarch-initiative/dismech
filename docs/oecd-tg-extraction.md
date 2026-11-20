@@ -56,6 +56,17 @@ A field holding `"key_event": 2` is a paraphrase. It may well be right, and noth
 check it. The same field carrying the sentence it came from and `442D/IA/1` can be
 checked by a script and by any reader with the PDF.
 
+**A field may record an absence instead of a value**, because omitting the key can
+only say "nobody extracted this". `absent: NOT_APPLICABLE` says the method has no
+such thing and is sourced like any other claim, with a quote and a paragraph:
+EpiSensA has no reporter construct, and the sentence naming its four endogenous
+marker genes is what establishes that. `absent: NOT_IN_INDEXED_SCOPE` says no
+in-scope paragraph states the fact, carries a note and is refused a quote — it is
+a claim about the committed index, deliberately not about the PDF, because whether
+the fact sits in `PROCEDURE` or is missing from the guideline altogether cannot be
+told from the extracted sections. The vocabulary is closed; `absent: UNKNOWN` is
+rejected, since an omitted key already means that.
+
 **Paragraph numbering restarts in every division**, so a bare paragraph number is
 ambiguous across the five methods TG 442D describes. A citation key names both:
 `442D/IA/3` is paragraph 3 of Appendix IA, not paragraph 3 of the guideline. The
@@ -154,9 +165,10 @@ decision rule (one marker gene versus two) following from it.
 "HaCaT" appears nowhere in its 98 pages, and neither does "monolayer": the host line of
 KeratinoSens™ and LuSens is only ever "an immortalised adherent cell line derived from
 human keratinocytes", and the 2D format is implicit. The records leave both unstated
-rather than supplying the familiar answer from memory, and say so in a note. An absent
-fact recorded as absent is a curation gap someone can close; one filled in from recall
-is a false statement about a source.
+rather than supplying the familiar answer from memory, and say so in a note — which is
+what the `absent` markers above now make structural rather than prose. An absent fact
+recorded as absent is a curation gap someone can close; one filled in from recall is a
+false statement about a source.
 
 **Performance figures are mostly agreement with a mouse assay.** All five methods report
 accuracy against the LLNA; only EpiSensA and α-Sens® also report it against human data,
@@ -165,32 +177,59 @@ human results. The comparator is therefore part of the field name
 (`performance_vs_llna`, `performance_vs_human`), not a neighbouring field that can be
 dropped while the number survives.
 
-## Citing a guideline from a KB entry
+## Using a guideline from a KB entry
 
-Cite `OECDTG:442D` and quote a sentence of the guideline:
+**A guideline is a lead, not an evidence reference.** `OECDTG:` is not an allowed
+evidence prefix: it is absent from `ALLOWED_REFERENCE_PREFIXES` in
+`tests/test_data.py`, and `check_evidence_items_have_references` rejects an entry
+that cites it. This is deliberate.
+
+A Test Guideline describes an assay in the **key-event** terms of an Adverse
+Outcome Pathway — TG 442D is titled for the AOP key event on keratinocyte
+activation, and its methods are defined as addressing KE2. A key event is not a
+dismech pathograph node, and nothing in this repository records the correspondence
+between any particular pair. A guideline citation on a `modeled_mechanisms` link
+therefore asserts that step silently, under a citation that does not make it. See
+design decision §6e in `docs/explanation/design-decisions.md`.
+
+**So source the claim from the primary literature the guideline names.** Its
+reference list is where to look, and the result is usually better evidence rather
+than a weaker substitute — the guideline asserts that GCLM and DNAJB4 report a
+cytoprotective response, while `PMID:27965148` reports the Nrf2-siRNA knockdown
+that established it:
 
 ```yaml
 evidence:
-- reference: OECDTG:442D
+- reference: PMID:25172300
   supports: SUPPORT
-  evidence_source: OTHER
-  snippet: "a luciferase reporter gene under the control of the antioxidant response element of the human AKR1C2 gene"
-  explanation: TG 442D states which regulatory element the KeratinoSens reporter carries.
+  directness: DIRECT
+  evidence_source: IN_VITRO
+  snippet: >-
+    the LuSens assay, that uses a human keratinocyte cell line harbouring a
+    reporter gene construct composed of the antioxidant response element (ARE)
+    of the rat NADPH:quinone oxidoreductase 1 gene and the luciferase gene
+  explanation: The originating paper's statement of which element the reporter carries.
 ```
 
-`evidence_source: OTHER` is right here: a Test Guideline is a regulatory consensus
-document, not a study. Where the guideline reports a method's performance it is
-restating validation work done elsewhere, so such a quote also takes
-`quote_role: REVIEW_SYNTHESIS`.
+**A guideline-only fact goes in `notes:`.** Some facts have no primary source: a
+method's Validated Reference Method standing, the guideline's own judgement that a
+result is shown only indirectly, a construct description that differs from the
+originating paper's. Write those as prose in the record's `notes:`, attributed to
+the guideline and marked as a lead. `notes:` carries no evidence claim, which is
+the right strength for a fact whose only source is a consensus document.
+`Contact_Dermatitis` is the worked example (dismech PR 18286).
 
-**The DOI does not work for this, which is why the prefix exists.** `just
-fetch-reference DOI:10.1787/9789264229822-en` resolves and titles correctly — "Test
-No. 442D: In Vitro Skin Sensitisation" — but caches with `content_type: unavailable`,
-because the OECD iLibrary landing page carries no abstract. There is no body for
-`linkml-reference-validator` to match a quote against. The workaround already visible
-in `kb/` was to cite a method's own primary paper and quote *its* introduction for a
-fact about the guideline, under `quote_role: BACKGROUND` — which attributes a
-regulatory statement to a research article that was only mentioning it.
+**Then what is the cache for?** Reading the guideline, and auditing the method
+extraction against it. `just check-tg-extraction` verifies every quoted fact in
+`data/oecd_tg/*-methods.json` against the paragraph it names, and that check is
+the reason the body has to exist as text.
+
+**The DOI caches with no body**, which is why the cache is rendered from the index
+rather than fetched. `just fetch-reference DOI:10.1787/9789264229822-en` resolves
+and titles correctly — "Test No. 442D: In Vitro Skin Sensitisation" — but caches
+with `content_type: unavailable`, because the OECD iLibrary landing page carries no
+abstract. That is background on why this source exists; it is not a reason to cite
+the rendered cache instead, which §6e forbids on its own grounds.
 
 `OECDTestGuidelineSource` renders the committed paragraph index into
 `references_cache/OECDTG_442D.md`, the way `ORPHA:`, `CGGV:`, `ICEES:` and `NCIT:`
@@ -210,11 +249,11 @@ only way to change the body is to re-extract from the pinned PDF. If an edit to 
 renderer leaves the committed file stale,
 `test_committed_cache_file_matches_a_fresh_render` fails and names the recipe.
 
-**Two limits before you quote it.** The body carries only the in-scope sections (see
+**Two limits on the body itself.** It carries only the in-scope sections (see
 *Scope* above), so a licence term or a cell-line supplier — all of which sit in
-PROCEDURE — cannot be quoted from it at all. And a quote being verbatim says nothing
-about whether it supports the claim it is attached to, which is the same limitation
-the checker has, below.
+PROCEDURE — is not in it at all, and a fact that lives only there cannot be recorded
+from this cache. And a quote being verbatim says nothing about whether it supports
+the claim it is attached to, which is the same limitation the checker has, below.
 
 ## What the checker does and does not establish
 

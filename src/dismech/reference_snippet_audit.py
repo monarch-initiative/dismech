@@ -60,6 +60,7 @@ its "only abstract available" note to a result whose severity stays ``ERROR``.
 from __future__ import annotations
 
 import argparse
+import logging
 import re
 import unicodedata
 from collections import OrderedDict
@@ -75,6 +76,8 @@ from linkml_reference_validator.matching import split_supporting_text
 from dismech.frontmatter import split_frontmatter
 from dismech.reference_cache_names import cache_stems
 from dismech.yaml_io import safe_load
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_SCHEMA = Path("src/dismech/schema/dismech.yaml")
 DEFAULT_CONFIG = Path("conf/reference_validator_config.yaml")
@@ -423,7 +426,13 @@ class CachedReferenceIndex:
             from linkml_reference_validator.models import ReferenceValidationConfig
         except ImportError:  # pragma: no cover - validator always installed here
             return None
-        return ReferenceFetcher(ReferenceValidationConfig(cache_dir=cache_dir))
+        # ``file:`` references are resolved against the checkout that holds the
+        # cache, as the validator resolves them against ``reference_base_dir``.
+        return ReferenceFetcher(
+            ReferenceValidationConfig(
+                cache_dir=cache_dir, reference_base_dir=cache_dir.resolve().parent
+            )
+        )
 
     @staticmethod
     def normalize(text: str) -> str:
@@ -599,6 +608,31 @@ class CachedReferenceIndex:
                 return match
         return self._by_bare_id.get(stems[0].casefold())
 
+    def _read_local_file(self, reference_id: str) -> str | None:
+        """Read a ``file:`` reference from disk, as the validator does.
+
+        Since linkml-reference-validator 0.8.0 a ``file:`` reference is read
+        directly on every run and no longer written to ``references_cache/``
+        (upstream #173): the validator never read those entries back, and the
+        file is often one the project may not redistribute. Reading the file
+        here keeps this audit in agreement with the validator for a reference
+        that has no cache entry. A legacy ``file_*.md`` cache entry, if present,
+        is still used when the source file is missing.
+        """
+        if self._fetcher is None:
+            return None
+        try:
+            fetched = self._fetcher.fetch(reference_id)
+        except Exception as exc:  # missing/unreadable file, or upstream API drift
+            # Advisory counter: degrade to the cache lookup, but say why, so a
+            # "not cached locally" result for a file: reference can be traced.
+            logger.debug("could not read %s from disk: %s", reference_id, exc)
+            return None
+        if fetched is None or not fetched.content:
+            logger.debug("%s read from disk with no text", reference_id)
+            return None
+        return fetched.content
+
     @staticmethod
     def extract_body(text: str) -> str:
         """Strip YAML frontmatter and pre-content headers, as the fetcher does.
@@ -619,6 +653,10 @@ class CachedReferenceIndex:
         return body
 
     def _read_body(self, reference_id: str) -> str | None:
+        if reference_id.casefold().startswith("file:"):
+            local = self._read_local_file(reference_id)
+            if local is not None:
+                return local
         if self._fetcher is not None:
             try:
                 cached = self._fetcher._load_from_disk(
