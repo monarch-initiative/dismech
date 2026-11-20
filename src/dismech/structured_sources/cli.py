@@ -39,6 +39,7 @@ from dismech.structured_sources.clingen_yaml_audit import (
 from dismech.structured_sources.icees import ICEESSource
 from dismech.structured_sources.ictrp import ICTRPSource
 from dismech.structured_sources.mygeneset import MyGenesetSource
+from dismech.structured_sources.oecd_tg import OECDTestGuidelineSource
 from dismech.structured_sources.ontology_edges import OntologyEdgeSource
 from dismech.structured_sources.orphanet import OrphanetSource
 from dismech.structured_sources.strchive import StrchiveSource
@@ -92,6 +93,10 @@ _MANIFEST_DIRS: dict[str, str] = {
     "strchive": "strchive",
     "str": "strchive",
     "strchive-loci": "strchive",
+    "oecd": "oecd_tg",
+    "oecd-tg": "oecd_tg",
+    "oecd_tg": "oecd_tg",
+    "oecdtg": "oecd_tg",
     "ncit": "ncit-edges",
     "ncit-edges": "ncit-edges",
     "ncit_edges": "ncit-edges",
@@ -135,6 +140,11 @@ def _get_source(name: str) -> StructuredSource:
         if manifest.exists():
             MyGenesetSource.load_manifest(manifest)
         return MyGenesetSource(data_dir / "genesets")
+    if name in {"oecd", "oecd-tg", "oecd_tg", "oecdtg"}:
+        manifest = data_dir / "oecd_tg" / "MANIFEST.yaml"
+        if manifest.exists():
+            OECDTestGuidelineSource.load_manifest(manifest)
+        return OECDTestGuidelineSource(data_dir / "oecd_tg")
     if name in {"icees", "icees-kg", "icees_kg"}:
         manifest = data_dir / "icees-kg" / "MANIFEST.yaml"
         if manifest.exists():
