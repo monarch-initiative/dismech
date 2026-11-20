@@ -685,12 +685,12 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             {
                 (
                     "FLNA Loss-of-Function Variants",
-                    "FLNA Deficiency and Enteric Neuron Development Failure",
+                    "FLNA Long-Isoform Loss-of-Function and Cytoskeletal Disorganization",
                 )
             },
             {"FLNA Loss-of-Function Variants": "genetic"},
             {
-                "FLNA Deficiency and Enteric Neuron Development Failure": [
+                "FLNA Long-Isoform Loss-of-Function and Cytoskeletal Disorganization": [
                     "actin filament binding"
                 ]
             },
