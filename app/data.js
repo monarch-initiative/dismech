@@ -6277,7 +6277,11 @@ window.searchData = [
     "genes": [
       "ADAM9"
     ],
-    "treatments": [],
+    "treatments": [
+      "Supportive low-vision management",
+      "Genetic counseling",
+      "ADAM9 Gene Augmentation Therapy (Proposed)"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "ADAM9-Related_Retinopathy.yaml",
@@ -6285,8 +6289,8 @@ window.searchData = [
     "num_phenotypes": 12,
     "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "25",
+    "num_treatments": 3,
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "6"
   },
   {
@@ -51271,7 +51275,10 @@ window.searchData = [
     "name": "BARD1-related Cancer Predisposition",
     "disease_id": "MONDO:0700267",
     "category": "Mendelian",
-    "parents": [],
+    "parents": [
+      "hereditary neoplastic syndrome",
+      "Genetic Disease"
+    ],
     "creation_date": "2026-10-13T20:15:40Z",
     "updated_date": null,
     "subtypes": [],
@@ -51283,10 +51290,19 @@ window.searchData = [
       "Genomic Instability and Homologous-Recombination Deficiency",
       "PARP-Inhibitor and Platinum Sensitivity"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "mammary gland epithelial cell",
+      "neural crest derived neuroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0002327",
+      "CL:0002676"
+    ],
     "biological_processes": [
-      "double-strand break repair via homologous recombination"
+      "DNA damage response",
+      "double-strand break repair via homologous recombination",
+      "DNA repair",
+      "chromosome segregation"
     ],
     "phenotypes": [
       "Breast carcinoma",
@@ -51321,7 +51337,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
   },
   {
@@ -133368,16 +133384,20 @@ window.searchData = [
       "Lysosomal DNA Editing and TLR9 Immune Sensing"
     ],
     "cell_types": [
-      "vascular endothelial cell",
       "monocyte",
       "macrophage",
-      "neutrophil"
+      "vascular endothelial cell",
+      "neutrophil",
+      "hematopoietic stem cell",
+      "plasmacytoid dendritic cell"
     ],
     "cell_type_ids": [
-      "CL:0002139",
       "CL:0000576",
       "CL:0000235",
-      "CL:0000775"
+      "CL:0002139",
+      "CL:0000775",
+      "CL:0000037",
+      "CL:0000784"
     ],
     "biological_processes": [
       "adenosine catabolic process",
@@ -133406,7 +133426,14 @@ window.searchData = [
       "Arthritis"
     ],
     "phenotype_categories": [
-      "Phenotypic abnormality"
+      "Constitutional",
+      "Integument",
+      "Nervous System",
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Blood",
+      "Musculoskeletal"
     ],
     "phenotype_hpo_categories": [
       "Blood",
@@ -133455,8 +133482,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Deficiency of the Interleukin-1 Receptor Antagonist",
@@ -162963,7 +162990,7 @@ window.searchData = [
   {
     "name": "FLNA Intestinal Pseudoobstruction",
     "disease_id": "MONDO:0010232",
-    "category": "Genetic",
+    "category": "Mendelian",
     "parents": [
       "Gastrointestinal Motility Disorder",
       "Enteric Neuropathy"
@@ -162971,67 +162998,80 @@ window.searchData = [
     "creation_date": "2026-04-04T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "X-linked chronic idiopathic intestinal pseudo-obstruction (CIIPX) caused by loss-of-function mutations in FLNA is a severe gastrointestinal motility disorder primarily affecting males. The condition results from impaired enteric neuron development due to disruption of the filamin A N-terminal region, which is crucial for proper enteric nervous system formation. Affected males present with intestinal pseudo-obstruction, often with bladder dysfunction and central nervous system involvement including periventricular nodular heterotopia. The disorder can also result from Xq28 duplications encompassing FLNA. FLNA duplication may contribute to bowel and bladder dysfunction through a distinct dosage-sensitive mechanism.",
+    "description": "FLNA-related X-linked chronic idiopathic intestinal pseudo-obstruction (CIIPX) is a severe congenital visceral dysmotility disorder predominantly affecting hemizygous males carrying loss-of-function variants or intragenic duplications in FLNA on Xq28. In classic isolated intestinal disease, 5-prime frameshift variants between the ATG+1 and ATG+82 translation initiation codons selectively abolish the long FLNA isoform that predominates in developing intestinal smooth muscle while preserving the shorter ATG+82 isoform required for embryonic survival, producing diffuse abnormal layering of the small intestinal muscularis propria, enteric neuromuscular dysfunction, congenital short bowel or malrotation, and chronic intestinal pseudo-obstruction. Variants that reduce both isoforms cause compound phenotypes combining intestinal dysmotility with periventricular nodular heterotopia, congenital heart defects such as patent ductus arteriosus, and bladder dysfunction.",
     "pathophysiology": [
-      "FLNA Deficiency and Enteric Neuron Development Failure",
-      "Intestinal Pseudo-obstruction and Dysmotility"
+      "FLNA Long-Isoform Loss-of-Function and Cytoskeletal Disorganization",
+      "Diffuse Abnormal Layering of Small Intestinal Muscularis Propria",
+      "Intestinal Pseudo-obstruction and Dysmotility",
+      "Impaired Cerebral Neuronal Migration"
     ],
     "cell_types": [
-      "Enteric neuron",
-      "Enteric smooth muscle cell"
+      "enteric smooth muscle cell",
+      "enteric neuron",
+      "neuron"
     ],
     "cell_type_ids": [
+      "CL:0002504",
       "CL:0007011",
-      "CL:0002504"
+      "CL:0000540"
     ],
     "biological_processes": [
-      "Actin cytoskeleton organization",
-      "Enteric nervous system development",
-      "Smooth muscle contraction"
+      "actin cytoskeleton organization",
+      "smooth muscle tissue development",
+      "enteric nervous system development",
+      "smooth muscle contraction",
+      "intestinal motility",
+      "neuron migration"
     ],
     "phenotypes": [
       "Intestinal Pseudo-obstruction",
+      "Congenital Shortened Small Intestine",
       "Bladder Dysfunction",
-      "Periventricular Nodular Heterotopia"
+      "Periventricular Nodular Heterotopia",
+      "Patent Ductus Arteriosus"
     ],
     "phenotype_categories": [
       "Gastrointestinal",
       "Urological",
-      "Neurological"
+      "Neurological",
+      "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
       "Digestive",
       "Genitourinary",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0004389",
-      "HP:0000011",
-      "HP:0032388"
+      "HP:0030889",
+      "HP:0000021",
+      "HP:0032388",
+      "HP:0001643"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT",
       "OCCASIONAL"
     ],
     "genes": [
       "FLNA Loss-of-Function Variants"
     ],
     "treatments": [
-      "Nutritional Support",
-      "Surgical Management",
+      "Parenteral and Enteral Nutritional Support",
+      "Decompressive and Reconstructive Surgical Management",
+      "Multisystem Clinical Surveillance",
       "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "FLNA_Intestinal_Pseudoobstruction.yaml",
     "page_url": "../pages/disorders/FLNA_Intestinal_Pseudoobstruction.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 4,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "FLNC-Related Dilated Cardiomyopathy",
@@ -253063,7 +253103,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "28",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "6"
   },
   {
@@ -262498,12 +262538,16 @@ window.searchData = [
     "pathophysiology": [
       "Lymphatic vessel blockage and dysfunction",
       "Lymphatic vessel remodeling and dilation",
+      "Obligate Wolbachia endosymbiosis in lymphatic filariae",
       "Wolbachia depletion impairs filarial survival and reproduction",
       "Acute dermatolymphangioadenitis episodes"
     ],
     "cell_types": [],
     "cell_type_ids": [],
-    "biological_processes": [],
+    "biological_processes": [
+      "obligate endosymbiosis with Wolbachia",
+      "response to antibiotic"
+    ],
     "phenotypes": [
       "Lymphedema",
       "Hydrocele",
@@ -262536,10 +262580,10 @@ window.searchData = [
     "source_file": "Lymphatic_Filariasis.yaml",
     "page_url": "../pages/disorders/Lymphatic_filariasis.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "7",
     "causal_graph_longest_path": "3"
   },
   {
@@ -319133,7 +319177,8 @@ window.searchData = [
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
-      "inflammatory response"
+      "inflammatory response",
+      "obligate endosymbiosis with Wolbachia"
     ],
     "phenotypes": [
       "Pruritus",
@@ -390892,41 +390937,76 @@ window.searchData = [
     "creation_date": "2026-02-13T00:31:42Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Shprintzen-Goldberg syndrome (SGS) is a rare autosomal dominant connective tissue disorder caused by mutations in SKI, encoding the SKI proto-oncoprotein, a negative regulator of TGF-beta signaling. It shares phenotypic overlap with Marfan and Loeys-Dietz syndromes but is distinguished by craniosynostosis and intellectual disability. Features include Marfanoid habitus, skeletal anomalies, craniosynostosis, and arachnodactyly, with less severe cardiovascular involvement than LDS.\n",
+    "description": "Shprintzen-Goldberg syndrome (SGS) is a rare autosomal dominant connective tissue disorder caused by heterozygous pathogenic variants in SKI, encoding the SKI proto-oncoprotein, a transcriptional co-repressor of TGF-beta/SMAD signaling. It shares phenotypic overlap with Marfan and Loeys-Dietz syndromes but is distinguished by craniosynostosis, developmental delay or intellectual disability, and C1-C2 cervical spine malformations. Features include marfanoid habitus, arachnodactyly, camptodactyly, scoliosis, pectus deformity, minimal subcutaneous fat, myopia, and aortic root dilatation, typically with milder vascular progression than Loeys-Dietz syndrome.\n",
     "pathophysiology": [
+      "Impaired SKI-SMAD Transcriptional Repression",
       "Enhanced TGF-beta Signaling",
       "Skeletal Development Disruption"
     ],
     "cell_types": [
-      "vascular associated smooth muscle cell"
+      "vascular associated smooth muscle cell",
+      "fibroblast"
     ],
     "cell_type_ids": [
-      "CL:0000359"
+      "CL:0000359",
+      "CL:0000057"
     ],
     "biological_processes": [
       "TGF-beta Signaling",
-      "Cranial Suture Closure",
       "Skeletal System Development",
-      "Ossification"
+      "Ossification",
+      "Cranial Suture Closure"
     ],
     "phenotypes": [
       "Craniosynostosis",
       "Disproportionate Tall Stature",
       "Intellectual Disability",
+      "Global Developmental Delay",
+      "Hypotonia",
+      "Dolichocephaly",
+      "Hypertelorism",
+      "Downslanted Palpebral Fissures",
+      "Telecanthus",
+      "Proptosis",
+      "Micrognathia",
+      "Retrognathia",
+      "Low-Set Ears",
+      "Posteriorly Rotated Ears",
+      "High, Narrow Palate",
+      "Hypoplasia of the Maxilla",
+      "High Forehead",
+      "Frontal Bossing",
+      "Ptosis",
+      "Strabismus",
+      "Pectus Excavatum",
+      "Pectus Carinatum",
       "Scoliosis",
       "Joint Contractures",
+      "Joint Hypermobility",
       "Arachnodactyly",
+      "Pes Planus",
       "Aortic Root Dilatation",
       "Mitral Valve Prolapse",
+      "Mitral Regurgitation",
+      "Abnormal Aortic Valve Morphology",
+      "Secundum Atrial Septal Defect",
       "Inguinal Hernia",
-      "Cervical Vertebral Anomalies"
+      "Umbilical Hernia",
+      "Cervical Vertebral Anomalies",
+      "Communicating Hydrocephalus",
+      "Chiari Type I Malformation",
+      "Myopia",
+      "Reduced Subcutaneous Adipose Tissue"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Digestive",
+      "Ear",
+      "Eye",
       "Growth",
       "Head and Neck",
+      "Integument",
       "Limbs",
       "Musculoskeletal",
       "Nervous System"
@@ -390935,34 +391015,73 @@ window.searchData = [
       "HP:0001363",
       "HP:0001519",
       "HP:0001249",
+      "HP:0001263",
+      "HP:0001252",
+      "HP:0000268",
+      "HP:0000316",
+      "HP:0000494",
+      "HP:0000506",
+      "HP:0000520",
+      "HP:0000347",
+      "HP:0000278",
+      "HP:0000369",
+      "HP:0000358",
+      "HP:0002705",
+      "HP:0000327",
+      "HP:0000348",
+      "HP:0002007",
+      "HP:0000508",
+      "HP:0000486",
+      "HP:0000767",
+      "HP:0000768",
       "HP:0002650",
       "HP:0001371",
+      "HP:0001382",
       "HP:0001166",
+      "HP:0001763",
       "HP:0002616",
       "HP:0001634",
+      "HP:0001653",
+      "HP:0001646",
+      "HP:0001684",
       "HP:0000023",
-      "HP:0003319"
+      "HP:0001537",
+      "HP:0003319",
+      "HP:0001334",
+      "HP:0007099",
+      "HP:0000545",
+      "HP:0003758"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [
-      "SKI Mutations",
       "SKI"
     ],
     "treatments": [
       "Craniosynostosis Surgery",
-      "Orthopedic Management",
-      "Cardiovascular Monitoring"
+      "Orthopedic Management and Physiotherapy",
+      "Beta-Adrenergic Blocker Therapy for Aortic Root Dilatation",
+      "Cardiovascular Monitoring",
+      "Aortic Aneurysm Surgical Repair",
+      "Surgical Repair of Abdominal Hernias",
+      "Ophthalmic Management of Myopia",
+      "Early Developmental Intervention and Special Education",
+      "Endocarditis Prophylaxis for Dental and Invasive Procedures",
+      "Avoidance of Contact Sports, Cardiovascular Stimulants, and Joint-Injuring Activities"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Shprintzen-Goldberg_Syndrome.yaml",
     "page_url": "../pages/disorders/Shprintzen-Goldberg_Syndrome.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 2,
-    "num_genes": 2,
-    "num_treatments": 3,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "2"
+    "num_phenotypes": 39,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 10,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Shwachman-Diamond syndrome",
@@ -448230,13 +448349,13 @@ window.searchMetrics = {
   "total_disorder_pages": 4129,
   "total_subtypes": 5105,
   "total_disorders_and_subtypes": 9234,
-  "total_unique_evidence_sources": 61567,
-  "total_unique_publications": 57515,
+  "total_unique_evidence_sources": 61568,
+  "total_unique_publications": 57516,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4127,
-  "total_unique_pathological_events": 27258,
-  "total_modules": 236,
+  "total_unique_pathological_events": 27262,
+  "total_modules": 237,
   "total_research_reports": 4229,
   "total_classifications": 21,
   "total_comorbidities": 58,
