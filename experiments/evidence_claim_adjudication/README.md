@@ -7,11 +7,12 @@ The checker is the Jev classifier behind `just jev-audit`
 ([`docs/jev-evidence-audit.md`](../../docs/jev-evidence-audit.md)), whose saved runs live in
 `monarch-initiative/dismech-evals` under `analysis/classification/jev/<Entry>/`. It compares each
 curated claim with the quotes cited for it and labels the match `MATCH`, `PARTIAL` or `MISMATCH`.
-On `kb/disorders/Neuroblastoma.yaml` it flagged so much of the entry — issue #16981 reports 138
-assertions with a mismatch and 196 with a partial — that the question "how many of these are real?"
+On `kb/disorders/Neuroblastoma.yaml` it flagged so much of the entry — issue #16981 reports how many
+assertions carry a mismatch and how many a partial — that the question "how many of these are real?"
 cannot be answered by reading the flags alone. Those two counts overlap rather than adding up, since
 one assertion can carry both a mismatch and a partial aspect: they are two views of the flagged set,
-not two parts of it. A run of this
+not two parts of it. The counts themselves are not given here, so that this file holds no checker
+count for an entry under adjudication. A run of this
 experiment answers it by judging every pair of the entry **without seeing the checker's labels**,
 freezing those verdicts, and only then joining them to the labels.
 
@@ -34,12 +35,13 @@ count it is.
 
 ## Runs
 
-No run has been made yet. The tooling named below (`build_frame.py`, `worklist.py`, `tally.py`) is
-specified here and is **not yet written**; it arrives with the frame.
+One run has been started: its frame is built, and its results are not yet reported. The tooling
+named below (`build_frame.py`, `worklist.py`, `tally.py`) was written with that frame, after this
+protocol and rubric were merged.
 
 | Run | Entry | Pin | Status |
 |---|---|---|---|
-| `Neuroblastoma/` | `kb/disorders/Neuroblastoma.yaml` | recorded in `FINDINGS.md` when the frame is built, as the commit and the entry's sha256 | frame not yet built |
+| `Neuroblastoma/` | `kb/disorders/Neuroblastoma.yaml` | recorded in `FINDINGS.md` when the frame is built, as the commit and the entry's sha256 | frame built; results not yet reported |
 
 ## Layout
 
@@ -52,20 +54,23 @@ evidence_claim_adjudication/
   build_frame.py            builds the frame from the checker's own extractor at a pinned commit,
                             and draws the second-pass and reviewer samples
   worklist.py               prints one assertion and its pairs for the judge
-  tally.py                  the seven tables, after the freeze
+  tally.py                  lists the pairs the two passes disagree about, for the reviewer's
+                            rulings; then, after the freeze, tables 1 to 5 (tables 6 and 7 are
+                            added with the repairs they report on)
   Neuroblastoma/
     frame_keys.tsv          one row per pair: key, section, assertion path, evidence path,
                             reference, hash. No claim text, no quote text, no verdict, no label.
     FINDINGS.md             what was measured, the seven tables, and the limits of the measurement
 ```
 
-**A complete run commits:** this file, the three scripts, `frame_keys.tsv` and `FINDINGS.md`. Only
-this file exists yet.
+**A complete run commits:** this file, the three scripts, `frame_keys.tsv` and `FINDINGS.md`. All
+of them now exist; `Neuroblastoma/FINDINGS.md` so far records only the frame.
 
 **Not committed, and outside the repository:** the verdict sheets of the judge, the second pass and
 the human reviewer, the
 sheet of excluded rows, the label file `build_frame.py` derives from the saved run published in
-dismech-evals, and `FREEZE.txt` (the sha256 of every verdict file). The sheets carry claim and quote
+dismech-evals, `BLIND.txt` (the sha256 of the reviewer's blind sample, written when it is locked) and
+`FREEZE.txt` (the sha256 of every verdict file). The sheets carry claim and quote
 text beside verdicts; `FREEZE.txt` carries only hashes and is withheld with them so that the hashes
 and the files they cover travel together. The per-pair join of verdicts to labels — the table behind
 tables 1 to 5 — is held back while an independent audit of the same pinned text
@@ -283,9 +288,9 @@ commit it read, which does not itself touch this entry — and
 `ef5a874ac801afb3d2da733b75210f0973c98bec8e6ca8b286d789f294d60c98`, which is the sha256 of the
 entry file at that commit and so is what re-identifies the text judged
 (`git show 09ce31cd7a3:kb/disorders/Clear_Cell_Sarcoma_of_Kidney.yaml | sha256sum`). Pairs were
-taken proportionally by top-level section, seed `20261117`. The sampler is not committed yet — it
-arrives with `build_frame.py`, which draws a run's own samples the same way — so the 30 are not yet
-re-derivable from the repository alone;
+taken proportionally by top-level section, seed `20261117`. The sampler was a one-off and is not
+committed: `build_frame.py` draws a run's own samples the same way but does not reproduce these 30,
+so they are not re-derivable from the repository alone;
 the saved run's own sha256 is
 `4a21f2aedcf830b4823791b1016ec2f87756edd05173774a0c0547d61d98dbe1`, which fixes the input the seed
 was applied to.
@@ -367,6 +372,67 @@ pair.
   pair count, and treats a pair the saved run never produced as not assessed rather than as
   passed.
 
+## Filling in the sheets
+
+Each reader writes only in the verdict columns of their own sheet; the other columns identify the
+row and are not changed.
+
+| Reader | File | One row per |
+|---|---|---|
+| judge | `judge_sheet.csv` | pair of the frame |
+| judge | `assertion_sheet.csv` | assertion, the ones with no quote included |
+| second pass | `second_look_verdicts.csv`, its own filled-in copy of `second_look_sheet.csv` | pair of its sample |
+| human reviewer | `user_sample_sheet.csv` | pair of the blind sample |
+| human reviewer | `fenced_sheet.csv` | pair of the excluded rows |
+| human reviewer | `rulings.csv`, with the columns `key`, `defect_class`, `severity` and `note` | pair that `tally.py --disagreements` lists for a ruling |
+
+**On a pair row:**
+
+- `q1_claim_right`, `q2_direction_right`, `q3_quote_bears` and `q4_term_level` take the answers to
+  *The four questions*, in that order: `yes`, `no`, `unsure` or `n/a`.
+- `defect_class` takes the name of one class from *Defect classes and severities*; `none`, or
+  nothing once the questions are answered, when the pair has no defect; or `not judged: <reason>`.
+- `severity` is `1`, `2` or `3` on a defect, and empty otherwise.
+- A question answered `no` or `unsure` needs a defect class or `not judged: <reason>`.
+- A pair with a defect class or `none` has all four questions answered; `n/a` is an answer. A pair
+  whose class is empty counts as judged only once all four are answered.
+- `proposed_repair`, `opened_source` and `note` are free text. `opened_source` records that the
+  cached source was opened for the pair.
+
+**On a row of `assertion_sheet.csv`:**
+
+- `clauses_covered` answers the assertion-level question of *The unit: two levels*. On a row with
+  quotes it is `yes`, `no`, `partly` or `unsure`. `no` and `partly` need a defect class and a
+  severity, and `uncovered_clauses` names the clauses. `yes` goes with no defect class. `unsure`
+  needs `not judged: <reason>` as the defect class. On a row marked `not judged: <reason>` it may
+  stay empty, and it is never `yes`.
+- On a row with no quote (`pairs` is 0), `clauses_covered` is `n/a`, and `defect_class` is either
+  `no quote at all`, with a severity, or `none`. An empty `defect_class` on such a row counts as
+  not yet judged, never as "no defect".
+
+**Not judged, and stops.** `not judged: <reason>` in `defect_class` records a pair or an assertion
+the reader could not settle. A judge's `not judged: stopped`, on a pair or on its assertion row,
+holds the whole assertion, as *What is left out* describes, and the judge's other rows of that
+assertion may then stay empty. Another reader who is stopped writes `not judged: stopped` on each of
+its rows of that assertion; `tally.py` checks this on the second reader's sheet and the reviewer's
+blind sample. Every other row needs a verdict before the freeze.
+
+A ruling takes a defect class, with its severity, or `none`.
+
+`tally.py` refuses a sheet that breaks one of these rules; case is ignored, and `no defect` or `not
+a defect` is read as `none`. Of the identifying columns it checks `key` on every sheet, and
+`assertion_path` and `pairs` where the judge's sheets and the two samples carry them; of the
+free-text columns it checks only that `uncovered_clauses` is not empty where it is needed. Before
+the freeze it names the sheet, row and column at fault, and neither what the row holds nor which
+rule it breaks. The reviewer's blind sample is locked once its sheet is complete and passes these
+checks: its sha256 is written to `BLIND.txt`. The sha256 of `BLIND.txt` is then published outside
+the run folder before the list is shown to any reader, and `tally.py` requires it, so a lock taken
+again after the sheet has changed is refused. Until the lock, a problem on another reader's row is
+reported without a row, a column or a number, and a blank row there is not counted, when the row is
+of a sampled pair, of the same or a nested assertion, or of a row shown beside a sampled pair (the
+rows its claim names: its parent rows, a subtype or hypothesis row, and an edge's endpoints and
+scope), or when its key or assertion path is not in the frame.
+
 ## The blind procedure
 
 1. The frame is built at a pinned commit of the entry, from the checker's own extractor, so that
@@ -408,8 +474,10 @@ says nothing if the frame is smaller than 200 pairs.
 
 ## The seven tables, and how each is computed
 
-Computed by `tally.py` from the frozen verdict files joined to the checker's labels, matched as step
-1 of the blind procedure describes — on assertion path, evidence path and quote text.
+Tables 1 to 5 are computed by `tally.py` from the frozen verdict files joined to the checker's
+labels, matched as step 1 of the blind procedure describes — on assertion path, evidence path and
+quote text. Tables 6 and 7 need the repair pull requests and a checker run made after them, and are
+added to the script with those.
 
 1. **Per assertion, in the unit issue #16981 counts in.** Of the assertions the checker flagged
    MISMATCH on any field, how many have a confirmed defect, how many none, how many were not judged;
