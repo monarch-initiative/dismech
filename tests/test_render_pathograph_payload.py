@@ -830,10 +830,15 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
         ),
         (
             "Penttinen_Premature_Aging_Syndrome.yaml",
-            {("PDGFRB Gain-of-Function Mutations", "Constitutive PDGFRB Activation")},
+            {
+                (
+                    "PDGFRB Gain-of-Function Mutations",
+                    "Constitutive PDGFRB Receptor Tyrosine Kinase Activation",
+                )
+            },
             {"PDGFRB Gain-of-Function Mutations": "genetic"},
             {
-                "Constitutive PDGFRB Activation": [
+                "Constitutive PDGFRB Receptor Tyrosine Kinase Activation": [
                     "platelet-derived growth factor beta-receptor activity"
                 ]
             },
