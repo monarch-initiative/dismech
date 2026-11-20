@@ -119834,6 +119834,7 @@ window.searchData = [
       "Hemodynamic Load from the Aberrant Systemic Feeder",
       "Tension Hydrothorax in the Fetus",
       "Segmental Bronchial Atresia",
+      "Accessory Lung Bud",
       "Persistent HOXB5 and Aberrant Adhesion-Molecule Expression in Lesion Tissue"
     ],
     "cell_types": [],
@@ -119891,10 +119892,10 @@ window.searchData = [
     "source_file": "Congenital_Pulmonary_Sequestration.yaml",
     "page_url": "../pages/disorders/Congenital_Pulmonary_Sequestration.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "19",
     "causal_graph_longest_path": "4"
   },
   {
@@ -210506,7 +210507,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "4"
   },
   {
@@ -241917,11 +241918,13 @@ window.searchData = [
       "Hepatomegaly",
       "Leukocytosis",
       "Anemia",
-      "Thrombocytopenia"
+      "Thrombocytopenia",
+      "Juvenile Xanthogranuloma"
     ],
     "phenotype_categories": [
       "Hematologic",
-      "Abdominal"
+      "Abdominal",
+      "Dermatologic"
     ],
     "phenotype_hpo_categories": [
       "Blood",
@@ -241935,7 +241938,8 @@ window.searchData = [
       "HP:0002240",
       "HP:0001974",
       "HP:0001903",
-      "HP:0001873"
+      "HP:0001873",
+      "MONDO:0015534"
     ],
     "frequencies": [],
     "genes": [
@@ -241960,7 +241964,7 @@ window.searchData = [
     ],
     "source_file": "Juvenile_Myelomonocytic_Leukemia.yaml",
     "page_url": "../pages/disorders/Juvenile_Myelomonocytic_Leukemia.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 7,
     "num_pathophysiology": 5,
     "num_genes": 7,
     "num_treatments": 3,
@@ -242628,6 +242632,7 @@ window.searchData = [
       "Kinase Pathway Activation in Lesional Histiocytes",
       "mTOR Activation and Cyclin D1 Expression in CLTC::SYK Fusion Lesions",
       "Histiocytic Proliferation and Tissue Infiltration",
+      "Iris Infiltration",
       "Lipid Accumulation and Touton Giant Cell Formation"
     ],
     "cell_types": [
@@ -242652,6 +242657,9 @@ window.searchData = [
       "Cutaneous xanthogranuloma",
       "Extracutaneous and systemic involvement",
       "Ocular involvement with hyphema",
+      "Secondary glaucoma",
+      "Red eye",
+      "Heterochromia iridis",
       "Central nervous system symptoms"
     ],
     "phenotype_categories": [
@@ -242673,6 +242681,9 @@ window.searchData = [
       "HP:0200036",
       "HP:0001433",
       "HP:0011886",
+      "HP:0000501",
+      "HP:0025337",
+      "HP:0001100",
       "HP:0000707"
     ],
     "frequencies": [],
@@ -242697,12 +242708,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Juvenile_Xanthogranuloma.yaml",
     "page_url": "../pages/disorders/Juvenile_Xanthogranuloma.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
     "num_genes": 7,
     "num_treatments": 6,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "KATNB1-related Cortical Malformation",
@@ -300245,7 +300256,7 @@ window.searchData = [
     "creation_date": "2026-11-11T19:45:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "A poorly differentiated carcinoma defined by rearrangement of NUTM1, arising mostly in adolescents and young adults and mostly in midline structures of the thorax and the head and neck. The fusion partner is BRD4 in most cases, BRD3 or NSD3 in most of the rest. The NUT half recruits and activates the histone acetyltransferase p300, and in BRD4-NUT - the only fusion any cached source has mapped - the complex builds megabase-scale hyperacetylated chromatin domains over a small, recurrent set of stem-cell transcription factors. The block to squamous differentiation is the one step a cached source demonstrates for a non-BRD4 partner too. It is aggressive and is widely underdiagnosed.",
+    "description": "A poorly differentiated carcinoma defined by rearrangement of NUTM1, arising mostly in adolescents and young adults and mostly in midline structures of the thorax and the head and neck. The fusion partner is BRD4 in most cases, BRD3 or NSD3 in most of the rest. The NUT half recruits and activates the histone acetyltransferase p300, and in BRD4-NUT - the only fusion any cached primary study has mapped - the complex builds megabase-scale hyperacetylated chromatin domains over a small, recurrent set of stem-cell transcription factors. The block to squamous differentiation is the one step a cached primary study demonstrates for a non-BRD4 partner too. It is aggressive and is widely underdiagnosed.",
     "pathophysiology": [
       "NUTM1 Rearrangement",
       "p300 Recruitment and Megadomain Formation",
@@ -309844,6 +309855,7 @@ window.searchData = [
     "phenotypes": [
       "Cafe-au-lait Macules",
       "Axillary and Inguinal Freckling",
+      "Juvenile Xanthogranuloma",
       "Cutaneous Neurofibromas",
       "Plexiform Neurofibromas",
       "Lisch Nodules",
@@ -309882,6 +309894,7 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0007565",
       "HP:0000997",
+      "MONDO:0015534",
       "HP:0001067",
       "HP:0009732",
       "HP:0009737",
@@ -309921,7 +309934,7 @@ window.searchData = [
     ],
     "source_file": "Neurofibromatosis_Type_1.yaml",
     "page_url": "../pages/disorders/Neurofibromatosis_Type_1.html",
-    "num_phenotypes": 17,
+    "num_phenotypes": 18,
     "num_pathophysiology": 12,
     "num_genes": 1,
     "num_treatments": 5,
@@ -344099,7 +344112,8 @@ window.searchData = [
     "frequencies": [],
     "genes": [],
     "treatments": [
-      "Early antibiotic therapy"
+      "Early antibiotic therapy",
+      "Post-exposure antibiotic prophylaxis for pneumonic plague contacts"
     ],
     "environmental": [],
     "biochemical": [],
@@ -344108,9 +344122,9 @@ window.searchData = [
     "num_phenotypes": 9,
     "num_pathophysiology": 4,
     "num_genes": 0,
-    "num_treatments": 1,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 2,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Pneumonic Tularemia",
@@ -447799,16 +447813,16 @@ window.searchMetrics = {
   "total_disorder_pages": 4125,
   "total_subtypes": 5103,
   "total_disorders_and_subtypes": 9228,
-  "total_unique_evidence_sources": 61483,
-  "total_unique_publications": 57442,
+  "total_unique_evidence_sources": 61513,
+  "total_unique_publications": 57466,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4123,
-  "total_unique_pathological_events": 27232,
+  "total_unique_pathological_events": 27234,
   "total_modules": 236,
   "total_research_reports": 4226,
   "total_classifications": 21,
   "total_comorbidities": 58,
-  "total_groupings": 139
+  "total_groupings": 140
 };
 window.dispatchEvent(new Event('searchDataReady'));
