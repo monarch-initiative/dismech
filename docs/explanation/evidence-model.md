@@ -59,15 +59,62 @@ member of the class, a management recommendation quoted as evidence that a pheno
 occurs, co-occurrence quoted for a causal direction — in each the reader must take a step
 the quote does not take for them.
 
-**A small or uncontrolled study is not `INDIRECT`.** "An uncontrolled n-of-1 observation
+**A small or uncontrolled study is not automatically `INDIRECT`.** "An uncontrolled n-of-1 observation
 cannot establish efficacy" and "five participants cannot establish safety" are statements
-about *strength*, and the quote is squarely about the claim. Those items are already
-correctly `SUPPORT`, and the model has no strength slot on purpose — see the appraisal
-layer below, and design decisions §12. Reaching for `directness` to record a sample-size
+about *strength*, and the quote is squarely about the claim. Such evidence can be
+`SUPPORT` for a finding stated within the studied scope; it does not automatically
+support a broader claim of established efficacy or safety. The model currently has no
+strength slot — see the appraisal layer below, and design decisions §12.
+Reaching for `directness` to record a sample-size
 caveat would quietly turn it into the strength grade it was defined not to be.
 
 The two can co-occur — a single-animal study quoted for a human claim is `INDIRECT` *and*
-weak — but only the first is recordable today. The second belongs in the `explanation`.
+weak. Record the inference in `directness` and discuss the limitation in `explanation`.
+
+### Recording caveats with the existing fields
+
+Keep the authors' finding and relevant qualification in `snippet` when they occur
+in one passage. Preserve an exact, contiguous quotation; do not splice sentences
+from different sections into an apparently continuous quote. Use `explanation` for
+the curator's interpretation of what the finding supports and what remains uncertain.
+If the limitation is elsewhere in the same paper, `explanation` can quote it with
+section attribution and distinguish it from the curator's own judgment. Check that
+quotation against the source: unlike `snippet`, prose in `explanation` is not
+automatically quote-validated.
+
+For example, this **fictional excerpt** illustrates the pattern (it is not a KB
+record or a quotation from a real paper):
+
+```yaml
+supports: SUPPORT
+snippet: >-
+  Marker levels were elevated in the eight participants studied. Our small
+  sample limits generalizability, and larger studies are needed.
+explanation: >-
+  Supports elevated marker levels in this study's participants. The authors'
+  sample-size caveat limits generalization to the wider disease population.
+```
+
+For an assertion that marker levels were elevated in these participants, this can
+be a `MATCH` despite limited study strength. It does not establish that every person
+with the disease has elevated levels. The classifier evaluates the assertion as
+worded; an explanation cannot silently narrow it. `explanation` is deliberately
+excluded from model input. Qualifications needed for that judgment must be visible
+in the selected excerpt or supplied source context; context may clarify the excerpt
+but cannot supply separate findings to rescue it. Correct the assertion's scope when
+needed, rather than relying on an explanatory caveat to repair overstatement.
+
+Keep these three questions separate:
+
+- `supports`: which direction does this evidence bear on the assertion?
+- `MATCH` / `PARTIAL` / `MISMATCH`: does the excerpt justify that declared relationship
+  to the assertion as worded?
+- Evidence appraisal: how convincing or generalizable is the finding? Record the
+  source's caveats and our interpretation in the existing text fields for now.
+
+A request for future work is not itself refutation or irrelevance. Nor is `PARTIAL`
+an evidence-strength grade: it describes incomplete or uncertain claim coverage.
+Dedicated limitation fields and overall strength scores remain deferred.
 
 ### Deciding `quote_role`: whose observation is this?
 
