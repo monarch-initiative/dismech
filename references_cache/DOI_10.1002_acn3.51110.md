@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1002/acn3.51110
+extractor_version: 1
 title: Demyelination in hereditary sensory neuropathy type‐1C
 authors:
 - Sadaf Saba
@@ -13,6 +14,7 @@ year: '2020'
 doi: 10.1002/acn3.51110
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Demyelination in hereditary sensory neuropathy type‐1C
@@ -22,4 +24,20 @@ is_preprint: false
 
 ## Content
 
-AbstractObjectiveSphingolipids are enriched in the nerves. Serine‐palmitoyltransferase (SPT) catalyzes the key step of sphingolipids biosynthesis. Mutations in SPT subunits (SPTLC) lead to the excessive production of neurotoxic deoxysphingolipids (DoxSLs) in patients with Hereditary Sensory Neuropathy Type‐1C (HSN1C). HSN1C is an autosomal dominant peripheral neuropathy characterized by sensory loss and distal muscle weakness. In this study, by leveraging a HSN1C family with a previously reported N177D mutation in SPTLC2, we aim to further define the spectrum of DoxSL species and the peripheral neve pathology of the disease.MethodsNext‐generation sequencing along with Sanger confirmation was performed for family members and healthy controls. LC‐MS was used for lipidomic analysis in participants’ plasma. Quantitative magnetic resonance imaging (qMRI) was performed to study sciatic nerve pathologies.ResultsA heterozygous N177D mutation in SPTLC2 was co‐segregated in individuals with sensory‐motor deficits in the limbs. Nerve conduction studies (NCS) revealed nonuniform slowing of conduction velocities. In line with the NCS, qMRI detected a pattern of nerve changes similar to those in acquired demyelinating polyneuropathies. Additionally, we detected a significant increase in multiple species of deoxysphingoid bases and deoxyceramides in patients’ plasma.InterpretationMutations in the SPTLC2 cause a demyelinating phenotype resembling those in acquired demyelinating polyneuropathy. The species of increased DoxSLs in HSN1C may be more diverse than originally thought.
+Abstract
+
+Objective
+
+Sphingolipids are enriched in the nerves. Serine‐palmitoyltransferase (SPT) catalyzes the key step of sphingolipids biosynthesis. Mutations in SPT subunits (SPTLC) lead to the excessive production of neurotoxic deoxysphingolipids (DoxSLs) in patients with Hereditary Sensory Neuropathy Type‐1C (HSN1C). HSN1C is an autosomal dominant peripheral neuropathy characterized by sensory loss and distal muscle weakness. In this study, by leveraging a HSN1C family with a previously reported N177D mutation in SPTLC2, we aim to further define the spectrum of DoxSL species and the peripheral neve pathology of the disease.
+
+Methods
+
+Next‐generation sequencing along with Sanger confirmation was performed for family members and healthy controls. LC‐MS was used for lipidomic analysis in participants’ plasma. Quantitative magnetic resonance imaging (qMRI) was performed to study sciatic nerve pathologies.
+
+Results
+
+A heterozygous N177D mutation in SPTLC2 was co‐segregated in individuals with sensory‐motor deficits in the limbs. Nerve conduction studies (NCS) revealed nonuniform slowing of conduction velocities. In line with the NCS, qMRI detected a pattern of nerve changes similar to those in acquired demyelinating polyneuropathies. Additionally, we detected a significant increase in multiple species of deoxysphingoid bases and deoxyceramides in patients’ plasma.
+
+Interpretation
+
+Mutations in the SPTLC2 cause a demyelinating phenotype resembling those in acquired demyelinating polyneuropathy. The species of increased DoxSLs in HSN1C may be more diverse than originally thought.

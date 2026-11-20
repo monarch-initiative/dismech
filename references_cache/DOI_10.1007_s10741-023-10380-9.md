@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s10741-023-10380-9
+extractor_version: 1
 title: Molecular mechanisms and emerging therapies in wild-type transthyretin amyloid cardiomyopathy
 authors:
 - Danni Wu
@@ -8,12 +9,14 @@ journal: Heart Failure Reviews
 year: '2024'
 doi: 10.1007/s10741-023-10380-9
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s10741-023-10380-9.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s10741-023-10380-9.pdf
+full_text_access_type: open
 ---
 
 # Molecular mechanisms and emerging therapies in wild-type transthyretin amyloid cardiomyopathy
@@ -23,7 +26,9 @@ local_pdf_path: files/DOI_10.1007_s10741-023-10380-9.pdf
 
 ## Content
 
-AbstractWild-type transthyretin amyloid cardiomyopathy (ATTRwt-CM) is an underrecognized cause of heart failure due to misfolded wild-type transthyretin (TTRwt) myocardial deposition. The development of wild-type TTR amyloid fibrils is a complex pathological process linked to the deterioration of homeostatic mechanisms owing to aging, plausibly implicating multiple molecular mechanisms. The components of amyloid transthyretin often include serum amyloid P, proteoglycans, and clusterin, which may play essential roles in the localization and elimination of amyloid fibrils. Oxidative stress, impaired mitochondrial function, and perturbation of intracellular calcium dynamics induced by TTR contribute to cardiac impairment. Recently, tafamidis has been the only drug approved by the U.S. Food and Drug Administration (FDA) for the treatment of ATTRwt-CM. In addition, small interfering RNAs and antisense oligonucleotides for ATTR-CM are promising therapeutic approaches and are currently in phase III clinical trials. Newly emerging therapies, such as antibodies targeting amyloid, inhibitors of seed formation, and CRISPR‒Cas9 technology, are currently in the early stages of research. The development of novel therapies is based on progress in comprehending the molecular events behind amyloid cardiomyopathy. There is still a need to further advance innovative treatments, providing patients with access to alternative and effective therapies, especially for patients diagnosed at a late stage.
+Abstract
+
+Wild-type transthyretin amyloid cardiomyopathy (ATTRwt-CM) is an underrecognized cause of heart failure due to misfolded wild-type transthyretin (TTRwt) myocardial deposition. The development of wild-type TTR amyloid fibrils is a complex pathological process linked to the deterioration of homeostatic mechanisms owing to aging, plausibly implicating multiple molecular mechanisms. The components of amyloid transthyretin often include serum amyloid P, proteoglycans, and clusterin, which may play essential roles in the localization and elimination of amyloid fibrils. Oxidative stress, impaired mitochondrial function, and perturbation of intracellular calcium dynamics induced by TTR contribute to cardiac impairment. Recently, tafamidis has been the only drug approved by the U.S. Food and Drug Administration (FDA) for the treatment of ATTRwt-CM. In addition, small interfering RNAs and antisense oligonucleotides for ATTR-CM are promising therapeutic approaches and are currently in phase III clinical trials. Newly emerging therapies, such as antibodies targeting amyloid, inhibitors of seed formation, and CRISPR‒Cas9 technology, are currently in the early stages of research. The development of novel therapies is based on progress in comprehending the molecular events behind amyloid cardiomyopathy. There is still a need to further advance innovative treatments, providing patients with access to alternative and effective therapies, especially for patients diagnosed at a late stage.
 
 Vol.:(0123456789)
 Heart Failure Reviews (2024) 29:511–521 

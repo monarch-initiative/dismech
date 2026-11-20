@@ -83,3 +83,63 @@ def test_render_discussion_proposed_experiment(tmp_path: Path) -> None:
     assert 'href="#discussions"' in html
     assert 'id="pathophysiology-missing-step"' in html
     assert html.count('href="#pathophysiology-missing-step"') >= 4
+
+
+def test_render_proposed_experiment_animal_and_computational_models(
+    tmp_path: Path,
+) -> None:
+    """Experiment-level animal and computational models render with their links.
+
+    Before these lists were rendered, a proposal that moved its mouse out of
+    ``model_systems: OTHER`` as the slot description asks would validate and
+    then vanish from the page.
+    """
+    disorder_path = tmp_path / "Gap_Disorder.yaml"
+    output_path = tmp_path / "pages" / "disorders" / "Gap_Disorder.html"
+    disorder_path.write_text(
+        yaml.safe_dump(
+            {
+                "name": "Gap Disorder",
+                "pathophysiology": [{"name": "Missing Step"}],
+                "discussions": [
+                    {
+                        "discussion_id": "gap_test",
+                        "prompt": "Is the step required?",
+                        "kind": "KNOWLEDGE_GAP",
+                        "proposed_experiments": [
+                            {
+                                "experiment_id": "exp_models",
+                                "name": "Cross-model test",
+                                "animal_models": [
+                                    {
+                                        "species": "Mouse",
+                                        "genotype": "Gene1 hypomorph",
+                                        "modeled_mechanisms": [
+                                            {
+                                                "target": "Missing Step",
+                                                "relationship": "PERTURBS",
+                                            }
+                                        ],
+                                    }
+                                ],
+                                "computational_models": [
+                                    {"name": "Step kinetics ODE model"}
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            },
+            sort_keys=False,
+        )
+    )
+
+    render_disorder(disorder_path, output_path=output_path)
+    html = output_path.read_text()
+
+    assert "Animal models" in html
+    assert "Gene1 hypomorph Mouse" in html
+    assert "Computational models" in html
+    assert "Step kinetics ODE model" in html
+    # The mouse's link resolved to the node's anchor, as a model_systems link does.
+    assert html.count('href="#pathophysiology-missing-step"') >= 1

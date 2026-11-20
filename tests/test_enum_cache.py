@@ -9,6 +9,7 @@ from pathlib import Path
 from linkml_term_validator.plugins import BindingValidationPlugin
 
 from dismech.enum_cache import (
+    CacheOrderFinding,
     canonical_curie_rows,
     current_enum_caches,
     main,
@@ -534,3 +535,35 @@ def test_mixed_warnings_and_errors_fail(tmp_path: Path, monkeypatch) -> None:
 
     rc = main(["--schema", str(schema_path), "--cache-dir", str(cache_dir)])
     assert rc == 1, "errors alongside warnings must still exit 1"
+
+
+def test_committed_caches_are_in_canonical_order() -> None:
+    """Every committed enum and term cache is in the order normalize-cache
+    writes (#7753). A failure here means: run `just normalize-cache`."""
+    repo = Path(__file__).parent.parent
+    findings = [
+        f for f in scan_cache_order(repo / "cache") if isinstance(f, CacheOrderFinding)
+    ]
+    assert not findings, "\n".join(f.format() for f in findings)
+
+
+def test_cache_order_is_gated_in_qc_and_ci() -> None:
+    """The ordering check must fail, not warn, in `just check-cache-order`, and
+    run from `just qc` and the ungated CI gate step (#7753)."""
+    repo = Path(__file__).parent.parent
+    justfile = (repo / "project.justfile").read_text()
+    recipe = re.search(r"(?m)^check-cache-order:\n((?:    .*\n)+)", justfile)
+    assert recipe is not None
+    assert "--check-order --strict-order" in recipe.group(1)
+
+    qc = re.search(r"(?m)^qc:(.*)$", justfile)
+    assert qc is not None
+    assert "check-cache-order" in qc.group(1).split()
+
+    workflow = (repo / ".github" / "workflows" / "main.yaml").read_text()
+    assert re.search(
+        r"(?m)^\s+Check cache rows are in canonical order :: "
+        r"uv run python -m dismech\.enum_cache --cache-dir cache "
+        r"--check-order --strict-order$",
+        workflow,
+    )

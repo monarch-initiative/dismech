@@ -12,8 +12,7 @@ import click
 import httpx
 
 from dismech import kb_cache
-from dismech.classifier.aspects import aspect_output_schema, aspect_prompt
-from dismech.classifier.base import ClassificationTask
+from dismech.classifier.aspects import aspect_prompt
 from dismech.classifier.cache import (
     DEFAULT_ROOT,
     ResultCache,
@@ -28,8 +27,13 @@ from dismech.classifier.claims import (
     pointer,
     schema,
 )
+from dismech.classifier.edge_reading import (
+    canonical_edge_claim,
+    edge_prompt,
+    extract_edge_claim,
+)
 from dismech.classifier.rubric import CRITERIA
-from dismech.classifier.structured import structured_claim_task
+from dismech.classifier.tasks import claim_state, tasks_for
 from dismech.classifier.typesafe import TypeSafeClassifier
 
 
@@ -59,7 +63,7 @@ def iter_assertions(document):
     yield from walk(document, [], "Disease")
 
 
-def inventory(files, sections=(), limit=0):
+def inventory(files, sections=(), limit=0, assertion_types=()):
     """Keep exact claim objects; never rewrite the KB or infer missing support."""
     count = 0
     for file in files:
@@ -85,6 +89,8 @@ def inventory(files, sections=(), limit=0):
         for path, class_name, assertion in iter_assertions(document):
             section = path.split("/")[1]
             if sections and section not in sections:
+                continue
+            if assertion_types and class_name not in assertion_types:
                 continue
             row = dict(
                 base, section=section, assertion_path=path, assertion_type=class_name
@@ -123,11 +129,25 @@ def inventory(files, sections=(), limit=0):
                             candidate.update(status="missing_snippet")
                         else:
                             try:
-                                claim = extract_claim(
-                                    document, candidate["evidence_path"]
+                                is_edge = class_name in {
+                                    "CausalEdge",
+                                    "TreatmentMechanismTarget",
+                                }
+                                extractor = (
+                                    extract_edge_claim if is_edge else extract_claim
                                 )
-                                # Validate the inference state before scheduling paid requests.
-                                structured_claim_task(claim)
+                                claim = extractor(document, candidate["evidence_path"])
+                                if is_edge:
+                                    candidate["claim_origin"] = claim["origin"]
+                                    canonical = canonical_edge_claim(claim)
+                                    candidate["evidence_annotations"] = {
+                                        k: v
+                                        for k, v in claim["selected_evidence"].items()
+                                        if k not in canonical["selected_evidence"]
+                                    }
+                                    claim = canonical
+                                # Validate before scheduling paid requests.
+                                claim_state(claim)
                                 candidate.update(status="ready", claim=claim)
                             except Exception as exc:
                                 candidate.update(status="invalid_input", error=str(exc))
@@ -137,21 +157,6 @@ def inventory(files, sections=(), limit=0):
                     return
                 count += 1
                 yield candidate
-
-
-def tasks_for(claim):
-    state = structured_claim_task(claim).state
-    prompt = aspect_prompt()
-    return [
-        ClassificationTask(
-            name=path,
-            version=prompt["version"],
-            state=state,
-            instructions=prompt["instructions"] + "\n" + spec["description"],
-            criteria=dict(CRITERIA),
-        )
-        for path, spec in aspect_output_schema(claim, fields=None)["properties"].items()
-    ]
 
 
 def classify(classifier, tasks):
@@ -284,6 +289,12 @@ def git_revision():
     help="Top-level section to include; repeatable. Default: all.",
 )
 @click.option(
+    "--assertion-type",
+    "assertion_types",
+    multiple=True,
+    help="Schema assertion class to include; repeatable. Default: all.",
+)
+@click.option(
     "--limit",
     type=click.IntRange(min=0),
     default=0,
@@ -319,6 +330,7 @@ def main(
     model,
     workers,
     sections,
+    assertion_types,
     limit,
     dry_run,
     refresh,
@@ -333,6 +345,9 @@ def main(
     """
     from dismech.classifier.audit_report import write_reports
 
+    unknown = set(assertion_types) - set(schema().all_classes())
+    if unknown:
+        raise click.BadParameter(f"Unknown assertion classes: {sorted(unknown)}")
     kb_cache.default_off()
     inputs = inputs or (Path("kb/disorders"),)
     files = sorted(
@@ -363,11 +378,14 @@ def main(
         "model": model,
         "inputs": [str(p) for p in inputs],
         "sections": list(sections),
+        "assertion_types": list(assertion_types),
         "limit": limit,
         "dry_run": dry_run,
         "refresh": refresh,
         "workers": workers,
         "prompt": aspect_prompt(),
+        "edge_prompt": edge_prompt(),
+        "edge_criteria": {label: label for label in CRITERIA},
         "criteria": CRITERIA,
         "aspect_fields": "all",
         "schema_sha256": hashlib.sha256(
@@ -386,7 +404,7 @@ def main(
     manifest.write_text(json.dumps(metadata, indent=2) + "\n")
     counts = {}
     with (output / "inventory.jsonl").open("w") as stream:
-        for row in inventory(files, sections, limit):
+        for row in inventory(files, sections, limit, assertion_types):
             counts[row["status"]] = counts.get(row["status"], 0) + 1
             stream.write(json.dumps(row, ensure_ascii=False) + "\n")
     metadata["inventory_counts"] = counts

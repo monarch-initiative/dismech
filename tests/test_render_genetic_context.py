@@ -92,7 +92,9 @@ def test_rendered_mechanism_preserves_classification_confidence(
     html = output_path.read_text()
 
     assert re.search(
-        rf'<span class="tag[^\"]*">{re.escape(expected_label)}</span>', html
+        rf'<span class="tag[^>]*>{re.escape(expected_label)}'
+        r'(?:</span>|<span class="pill-tip")',
+        html,
     )
     graph_match = re.search(r'var graphData = JSON\.parse\((".*?")\);', html, re.DOTALL)
     assert graph_match is not None

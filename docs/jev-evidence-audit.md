@@ -2,7 +2,7 @@
 
 `just jev-audit` checks the selected snippets against the structured assertions in
 all `kb/disorders/*.yaml` files, and produces a queue for recuration. It uses the
-same MATCH / MISMATCH / PARTIAL rubric as the evidence-claim-match benchmark.
+MATCH / MISMATCH / PARTIAL labels used by the evidence-claim-match benchmark.
 These are model judgments of snippet support, not curator labels, source-quality
 ratings, or judgments of whether a disease assertion is true elsewhere.
 
@@ -21,6 +21,9 @@ just jev-audit
 # A small selection before a larger run (the limit includes missing evidence).
 just jev-audit --input kb/disorders/Asthma.yaml --section phenotypes --limit 20
 
+# Only causal and treatment edges (the limit still includes missing evidence).
+just jev-audit --assertion-type CausalEdge --assertion-type TreatmentMechanismTarget --limit 20
+
 # Regenerate CSVs from saved predictions without inference.
 just jev-audit-report
 
@@ -38,7 +41,7 @@ preserving the previous response in `reassessments`.
 
 ## What gets assessed
 
-Each evidence item is paired with its owning assertion, retaining disease,
+Node evidence is paired with its owning assertion, retaining disease,
 ancestor and subtype context. The claim remains a structured object. Each request
 asks independent questions about `/` (the whole claim), `/about/disease`, each
 inherited context binding, and all present assertion fields. Term ID/label pairs
@@ -51,6 +54,27 @@ assessed through their own evidence. This includes pathophysiology downstream
 edges and phenotype sequelae. Other compound fields, such as biochemical readouts,
 remain part of the complete parent claim. A missing edge snippet cannot be
 rescued by evidence on the parent.
+
+Causal and treatment edges use the canonical v2 edge contract: `subject`,
+`relationship`, `object`, `scope`, `definitions`, and `selected_evidence`. The
+source is the containing node; the target resolves by exact name across
+pathophysiology and phenotype nodes. Referenced subtypes and mechanistic
+hypotheses are resolved from both endpoints and the edge. Missing or ambiguous
+bindings are `invalid_input`, never guessed or sent for inference.
+
+Edge questions address `/` (the complete relationship), `/scope/disease`,
+`/object/name`, and present relationship fields. Their v2 instructions, schema
+semantics and Choice options match the benchmark contract. Endpoint definitions
+provide context, not additional evidence. Citation annotations and extraction
+origins remain outside model input. Node questions and input identities are
+unchanged; other edge classes retain the generic structured-assertion route.
+
+`--assertion-type` selects schema classes and is repeatable. Selection is recorded
+in the manifest, together with both node and edge prompt configurations. Cache
+reconciliation still observes complete selected files: filtering inference does
+not retire unrelated node assessments. Historical edge inputs and responses are
+retained; successfully resolved canonical inputs receive new identities, while
+old inputs are marked inactive only after a complete extraction of the file.
 
 The excerpt is evaluated on its own. No cached reference text or evidence-item
 explanation is supplied. The declared SUPPORT / REFUTE / NO_EVIDENCE relationship
@@ -81,7 +105,16 @@ therefore appear in both counts. This is a snippet-repair queue: a different
 snippet supporting the same assertion does not cancel a mismatched snippet.
 
 Root outcomes and individual-aspect counts are separate columns. PARTIAL means
-weak, incomplete, mixed or uncertain support; it is not counted as MISMATCH.
+incomplete, mixed or uncertain claim coverage; it is not counted as MISMATCH.
+Limited study strength alone does not require PARTIAL. A small study can adequately
+support an accurately scoped finding; explicit author caveats matter when the claim
+overstates what was established. See [Recording caveats](explanation/evidence-model.md#recording-caveats-with-the-existing-fields).
+
+The caveat clarification uses rubric `three-valued-v2`, node-aspect prompt `5`,
+whole-claim prompt `4`, and edge prompt `2.1`. Edge `2.1` builds on `2`; it does not
+adopt the separate benchmark prompt `3` experiment. Earlier benchmark runs retain
+their frozen prompts and results. Prompt changes produce new assessment cache keys,
+so existing results are retained but are not reused as judgments under this rubric.
 Probabilities are retained for sorting and review, not treated as measured accuracy.
 
 Missing evidence, missing snippets and invalid input (for example, an unresolved
@@ -94,7 +127,7 @@ pairs as unassessed. No KB files are changed.
 ## Queue reviews for the curation agent
 
 The `Evidence–Claim Mismatch Issues` workflow reads the latest overall queue on
-dismech-evals `main` and opens up to five issues each Tuesday. Manual dispatch
+dismech-evals `main` and opens up to ten issues each Tuesday. Manual dispatch
 can preview or create up to 25 issues. Its schedule follows the repository's
 cron profiles, including the `off` switch.
 

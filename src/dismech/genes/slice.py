@@ -289,9 +289,8 @@ def _item_details(section: str, item: dict) -> dict[str, Any]:
             )
         if processes:
             details["biological_processes"] = processes
-    elif section == "treatments":
-        if isinstance(item.get("therapeutic_modality"), str):
-            details["therapeutic_modality"] = item["therapeutic_modality"]
+    elif section == "treatments" and isinstance(item.get("therapeutic_modality"), str):
+        details["therapeutic_modality"] = item["therapeutic_modality"]
     return details
 
 

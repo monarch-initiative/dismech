@@ -43,6 +43,7 @@ them apart:
 | `UNTAGGED_CHAPTER` | a chapter whose title, normalised, **equals** one of the entry's names exists and is not tagged | GeneReviews only |
 | `TAGGED` | at least one tagged reference is a verified, current chapter | no |
 | `TAGGED_RETIRED` | every tagged chapter is one GeneReviews has retired (below) | no |
+| `TAGGED_OVERVIEW` | a current chapter is tagged, but every current one caches as a statement of purpose (below) | no |
 | `CANDIDATE_CHAPTER` | only partial title matches, or only a retired chapter | no, by design |
 | `NO_CHAPTER` | nothing in the snapshot names this entry | only when the entry has no synonyms (below) |
 
@@ -152,6 +153,55 @@ If one does, cite and mine it, and re-quote evidence from it rather than
 carrying the retired abstract's sentences over. If none does, the retired
 chapter stays. The schema cannot yet record a source's standing (#9840), so
 say so in `notes:` when it matters to a claim.
+
+## Overview-format chapters
+
+GeneReviews publishes two kinds of chapter. A disease- or gene-specific chapter
+has a structured PubMed abstract whose `CLINICAL CHARACTERISTICS` section lists
+the phenotype, and that section is what the phenotype baseline is read from. A
+chapter in the *Overview* format does not: its PubMed abstract is the chapter's
+statement of purpose and nothing else.
+
+```
+The purpose of this overview is to: 1.. Describe the clinical characteristics of
+arrhythmogenic right ventricular cardiomyopathy (ARVC); 2.. Review the genetic
+causes of ARVC; 3.. Provide an evaluation strategy ...
+```
+
+That is what PubMed publishes for the format, so re-fetching does not change
+it. The full chapter on Bookshelf does describe the clinical picture, but
+`references_cache/` holds only the PubMed abstract. The format is not always
+named in the title (*Primary Ciliary Dyskinesia* and *Joubert Syndrome* are
+overviews), and the older retired Overviews still carry a structured abstract,
+so the check reads the cached record rather than the title: a purpose statement
+and no `CLINICAL CHARACTERISTICS` section
+(`dismech.bookshelf.is_purpose_statement_only`). In the 2026-09-10 snapshot, 48
+of the 746 cached GeneReviews chapters are like this.
+
+The report marks such a row `[purpose statement only]`. An entry whose current
+tagged chapters are all of this kind gets `TAGGED_OVERVIEW` instead of
+`TAGGED`; one disease- or gene-specific chapter tagged beside it makes the
+verdict `TAGGED` again. Retirement is decided first: an entry tagging only
+retired chapters is `TAGGED_RETIRED` whatever their abstracts hold, and an
+entry tagging a retired chapter and a current Overview is `TAGGED_OVERVIEW`,
+because a current chapter exists and the question is what it contains. The
+verdict needs the chapter's cache file, so an uncached chapter stays `TAGGED`.
+
+`TAGGED_OVERVIEW` never fails under `--strict`. The tag is correct, and for
+many diseases the Overview is the only GeneReviews coverage there is. The
+question it puts to a curator is whether a disease- or gene-specific chapter
+covers the disease (a `GENE_SCOPED` row is the usual lead). If one does, cite
+and mine it. If none does, the entry's phenotypes come from the best available
+cohort or review, and `notes:` should say that the Overview is not a usable
+baseline. Asking for an Overview to be "mined" asks for work that cannot be
+done; #8198 was filed on that premise against the ARVC Overview.
+
+`just fetch-reference` says the same thing at fetch time.
+`scripts/run_reference_validator.sh` prints a warning after caching a PMID that
+the Bookshelf index lists as a GeneReviews chapter, or whose cached body
+carries the GeneReviews citation, when the abstract is a purpose statement, and
+a second warning when the chapter is retired. Both are advisory and leave the
+exit code unchanged.
 
 ## Gene-scoped chapters
 

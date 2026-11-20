@@ -504,7 +504,7 @@ Early Late
 Vimentin protein
 ADRN CRC
 gene loss
-SE 
+SE
 rerodeling
 ADR MES
 ResistanceSensitivity

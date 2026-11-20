@@ -128,6 +128,7 @@ Depending on user preference, use one or more of the following commands
 - `just research-disorder cyberian DISORDER_NAME`
 - `just research-disorder openscientist DISORDER_NAME`
 - `just research-disorder claude_code DISORDER_NAME`
+- `just research-disorder antigravity DISORDER_NAME`
 
 Use the filesystem-friendly name here.
 
@@ -159,11 +160,39 @@ artifact. This makes it the natural default when you are already inside a Claude
 Code agentic session and just want a web-grounded report without standing up
 extra credentials. Requires `deep-research-client >= 0.2.7`.
 
+**Exit code 4 means the run did not produce a report.** Since
+`deep-research-client` 0.2.14, `claude_code` (and `antigravity`) mark a run
+unsuccessful when the agent answered from memory without retrieving anything,
+declined the task, or wrote a line beginning `**Incomplete report:**`. The
+output is still placed in `research/` so a paid run is not lost, but the
+command exits 4, the report's frontmatter says `answer_status: unsuccessful`,
+and its first line is a warning. Do not commit such a file as the entry's
+deep-research report and do not take evidence from it: delete it (with its
+`.citations.md` sidecar) and re-run, or use another provider.
+`just check-unsuccessful-research` fails while one is in `research/`, and
+`just preflight-dr` refuses it. An unsuccessful answer is not a missing
+credential, so `--fallback` does not hand it to another provider.
+
+`antigravity` drives Google's local Antigravity CLI (`agy`) the same way
+`claude_code` drives `claude`. It needs no API key: authenticate once by
+running `agy` interactively. It registers whenever `agy` is on PATH (opt out
+with `DISABLE_ANTIGRAVITY_PROVIDER=true`), runs in `agy`'s default
+`request-review` permission mode, which skips file writes and shell commands,
+and is allowed 30 minutes per run. It is not installed in CI. Requires
+`deep-research-client >= 0.2.14`. Before 0.2.15, a run started from a
+directory holding agent-instruction files (this repository's root, with its
+`CLAUDE.md`) could come back as an empty report; 0.2.15 fixes that
+(deep-research-client#113), so no empty-directory workaround is needed.
+
 `falcon` requires `EDISON_API_KEY` **or** `FUTUREHOUSE_API_KEY` to be exported
 in the environment — both names refer to the same key and are accepted
 interchangeably by `deep-research-client`.  The provider was originally named
 "FutureHouse Falcon" and later rebranded as "Edison Scientific"; the `falcon`
-provider slug in `just research-disorder` is unchanged.  Use whichever key name
+provider slug in `just research-disorder` is unchanged.  Since
+`deep-research-client` 0.2.14 the Edison client libraries are an optional
+`edison` extra; dismech's dev dependencies request it, so `just install` covers
+it, but a hand-built environment without it reports falcon as not installed
+even with the key set.  Use whichever key name
 your environment/secrets manager provides; if you have `FUTUREHOUSE_API_KEY`
 that is sufficient.  Edison is a large-scale literature agent that performs
 deep bibliographic research.  `falcon` runs may take 20 minutes or longer.
@@ -223,6 +252,8 @@ Timing varies by provider. As a rule of thumb:
   and cost ~$2 in Claude Code usage. The report's YAML frontmatter records this
   provenance under `run_metadata` (models used, `web_search_requests`,
   `num_turns`, `total_cost_usd`, `session_id`).
+- `antigravity` is a single agentic session like `claude_code`, capped at 30
+  minutes; there is no representative dismech timing yet.
 
 On completion, this will create a file here:
 
@@ -395,7 +426,9 @@ GeneReviews (https://www.ncbi.nlm.nih.gov/books/NBK1116/) is the authoritative
 expert-curated clinical reference for Mendelian disorders. Before curating
 phenotypes, you MUST check whether a GeneReviews article exists for the disease.
 If one exists, it is the mandatory phenotype baseline — not just a convenient
-source.
+source. The step has three outcomes, not two: a chapter that carries clinical
+characteristics (items 2–6), a chapter that exists but carries none (item 7),
+and no chapter (item 8).
 
 > **Scope:** This step applies primarily to **Mendelian (single-gene) disorders**.
 > For complex, multifactorial, infectious, or cancer entries where GeneReviews
@@ -415,7 +448,9 @@ just check-genereviews --online kb/disorders/<Entry>.yaml
 `UNTAGGED_CHAPTER` or `CITED_UNTAGGED` on the `GeneReviews` line names the
 chapter (PMID and title); `TAGGED_RETIRED` means the only chapter you tagged is
 one GeneReviews has retired, so look for a current chapter that covers the
-disease before relying on it; `CANDIDATE_CHAPTER` lists partial title matches and
+disease before relying on it; `TAGGED_OVERVIEW` means every current chapter you
+tagged caches as a statement of purpose (`[purpose statement only]`), so item 7
+applies; `CANDIDATE_CHAPTER` lists partial title matches and
 chapters scoped to one of the entry's causal genes (`GENE_SCOPED`) for you to
 read; `NO_CHAPTER` means none names the disease. If the report adds
 `note: entry has no synonyms`, the check matched only the name and
@@ -504,7 +539,9 @@ abstract and writes the top-level tag automatically.
 > *Clinical Characteristics* section in the chapter body often lists additional
 > phenotypes not in the abstract. Cross-reference the deep-research artifact
 > (from Step 3) for comprehensive coverage — treat the abstract as the minimum
-> baseline, not the ceiling.
+> baseline, not the ceiling. That is for a disease- or gene-specific chapter.
+> An *Overview*-format chapter's abstract carries no clinical characteristics
+> at all, so there is no minimum to work from: see item 7.
 
 #### 5. Capture drug-safety warnings
 
@@ -526,7 +563,39 @@ GeneReviews uses narrative frequency language. Map to the enum as follows:
 
 When frequency is ambiguous, **omit `frequency:`** rather than guessing.
 
-#### 7. No GeneReviews article? Document it
+#### 7. A chapter that is not a baseline: Overview-format and retired chapters
+
+**A GeneReviews chapter in the *Overview* format is not a phenotype
+baseline.** Its PubMed abstract, which is all `references_cache/` holds, is the
+chapter's statement of purpose ("The purpose of this overview is to: 1..
+Describe the clinical characteristics of …") and lists no clinical
+characteristics, so item 4 has nothing to cross-reference and nothing to
+quote. This is what PubMed publishes for the format, so re-fetching does not
+change it. The format is not always in the title: *Primary Ciliary Dyskinesia*
+and *Joubert Syndrome* are written as overviews too.
+
+You do not have to read the file to find out. `just fetch-reference` prints a
+`WARNING: PMID:… is a GeneReviews chapter in the Overview format` line, and
+`just check-genereviews` marks the row `[purpose statement only]` and reports
+`TAGGED_OVERVIEW` when every current chapter you tagged is one (#11848).
+
+When that happens:
+
+- Still tag the chapter `GeneReviews` if you cite it. The tag records the
+  source type, which is correct.
+- Look for a disease- or gene-specific chapter first: a `GENE_SCOPED` row, or
+  the `[TIAB]` gene search in item 1. If one exists, it is the baseline.
+- Otherwise take the baseline from the best available cohort or review, and
+  record in `notes:` that the Overview is not usable as a baseline and where
+  the phenotypes came from instead.
+
+The same applies to a chapter whose title ends `RETIRED CHAPTER, FOR
+HISTORICAL REFERENCE ONLY` (`TAGGED_RETIRED`; the fetch prints a retired-chapter
+warning too). A retired chapter may still carry a structured abstract and be
+the fullest description of its disease, so read it before setting it aside;
+but look for a current chapter first, and say in `notes:` why you kept it.
+
+#### 8. No GeneReviews article? Document it
 
 If no GeneReviews article exists for the disease, proceed to Step 4
 without this baseline. No action needed — the absence itself is not a
@@ -1125,6 +1194,7 @@ Before finalizing a new disorder file, verify:
   - [ ] If found: PMID fetched, cached, and tagged `GeneReviews` in top-level `references:`
   - [ ] If found: all Clinical Characteristics phenotypes either captured in YAML or explicitly noted as out of scope
   - [ ] If found: any drug-safety warnings (Agents to Avoid) reflected in relevant treatment entries
+  - [ ] If the only chapter is an Overview-format (`TAGGED_OVERVIEW`) or retired one: a specific chapter looked for, and `notes:` says where the phenotype baseline came from instead
   - [ ] If not found: no action needed
 - [ ] All PMIDs exist and are for relevant papers
 - [ ] All snippets are exact quotes from abstracts

@@ -77,12 +77,15 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                  'classifications/iuis_immunodeficiency',
                  'classifications/channelopathies',
                  'classifications/phenotype_category',
+                 'classifications/coarse_phenotype_terms',
                  'classifications/icimd',
                  'classifications/isds_skeletal_nosology',
+                 'classifications/gene_table_nmd',
                  'classifications/nih_research_priorities',
                  'classifications/ilo_occupational_diseases',
                  'classifications/eu_occupational_schedule',
-                 'classifications/exposure_classification'],
+                 'classifications/exposure_classification',
+                 'pathograph_node_class'],
      'license': 'BSD-3-Clause',
      'name': 'dismech',
      'prefixes': {'CHEBI': {'prefix_prefix': 'CHEBI',
@@ -99,12 +102,16 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                            'prefix_reference': 'http://purl.obolibrary.org/obo/ENVO_'},
                   'ExO': {'prefix_prefix': 'ExO',
                           'prefix_reference': 'http://purl.obolibrary.org/obo/ExO_'},
+                  'FB': {'prefix_prefix': 'FB',
+                         'prefix_reference': 'http://identifiers.org/fb/'},
                   'FOODON': {'prefix_prefix': 'FOODON',
                              'prefix_reference': 'http://purl.obolibrary.org/obo/FOODON_'},
                   'GENO': {'prefix_prefix': 'GENO',
                            'prefix_reference': 'http://purl.obolibrary.org/obo/GENO_'},
                   'GO': {'prefix_prefix': 'GO',
                          'prefix_reference': 'http://purl.obolibrary.org/obo/GO_'},
+                  'HANCESTRO': {'prefix_prefix': 'HANCESTRO',
+                                'prefix_reference': 'http://purl.obolibrary.org/obo/HANCESTRO_'},
                   'HGNC': {'prefix_prefix': 'HGNC',
                            'prefix_reference': 'https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/'},
                   'HP': {'prefix_prefix': 'HP',
@@ -115,26 +122,44 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                             'prefix_reference': 'https://trialsearch.who.int/Trial2.aspx?TrialID='},
                   'LOINC': {'prefix_prefix': 'LOINC',
                             'prefix_reference': 'https://loinc.org/'},
+                  'MGI': {'prefix_prefix': 'MGI',
+                          'prefix_reference': 'http://identifiers.org/mgi/'},
                   'MONDO': {'prefix_prefix': 'MONDO',
                             'prefix_reference': 'http://purl.obolibrary.org/obo/MONDO_'},
+                  'MRO': {'prefix_prefix': 'MRO',
+                          'prefix_reference': 'http://purl.obolibrary.org/obo/MRO_'},
+                  'NCBIGene': {'prefix_prefix': 'NCBIGene',
+                               'prefix_reference': 'http://identifiers.org/ncbigene/'},
                   'NCBITaxon': {'prefix_prefix': 'NCBITaxon',
                                 'prefix_reference': 'http://purl.obolibrary.org/obo/NCBITaxon_'},
                   'NCIT': {'prefix_prefix': 'NCIT',
                            'prefix_reference': 'http://purl.obolibrary.org/obo/NCIT_'},
                   'OBI': {'prefix_prefix': 'OBI',
                           'prefix_reference': 'http://purl.obolibrary.org/obo/OBI_'},
+                  'OMIMPS': {'prefix_prefix': 'OMIMPS',
+                             'prefix_reference': 'https://omim.org/phenotypicSeries/PS'},
                   'OPL': {'prefix_prefix': 'OPL',
                           'prefix_reference': 'http://purl.obolibrary.org/obo/OPL_'},
                   'PATO': {'prefix_prefix': 'PATO',
                            'prefix_reference': 'http://purl.obolibrary.org/obo/PATO_'},
                   'PMID': {'prefix_prefix': 'PMID',
                            'prefix_reference': 'http://www.ncbi.nlm.nih.gov/pubmed/'},
+                  'RGD': {'prefix_prefix': 'RGD',
+                          'prefix_reference': 'http://identifiers.org/rgd/'},
+                  'SGD': {'prefix_prefix': 'SGD',
+                          'prefix_reference': 'http://identifiers.org/sgd/'},
                   'SO': {'prefix_prefix': 'SO',
                          'prefix_reference': 'http://purl.obolibrary.org/obo/SO_'},
                   'UBERON': {'prefix_prefix': 'UBERON',
                              'prefix_reference': 'http://purl.obolibrary.org/obo/UBERON_'},
+                  'WB': {'prefix_prefix': 'WB',
+                         'prefix_reference': 'http://identifiers.org/wb/'},
                   'XCO': {'prefix_prefix': 'XCO',
                           'prefix_reference': 'http://purl.obolibrary.org/obo/XCO_'},
+                  'Xenbase': {'prefix_prefix': 'Xenbase',
+                              'prefix_reference': 'http://identifiers.org/xenbase/'},
+                  'ZFIN': {'prefix_prefix': 'ZFIN',
+                           'prefix_reference': 'http://identifiers.org/zfin/'},
                   'arrayexpress': {'prefix_prefix': 'arrayexpress',
                                    'prefix_reference': 'https://www.ebi.ac.uk/biostudies/arrayexpress/studies/'},
                   'bigg': {'prefix_prefix': 'bigg',
@@ -169,6 +194,8 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                           'prefix_reference': 'https://data.humancellatlas.org/explore/projects/'},
                   'icd11f': {'prefix_prefix': 'icd11f',
                              'prefix_reference': 'http://purl.obolibrary.org/obo/icd11f_'},
+                  'immport': {'prefix_prefix': 'immport',
+                              'prefix_reference': 'https://www.immport.org/shared/study/'},
                   'linkml': {'prefix_prefix': 'linkml',
                              'prefix_reference': 'https://w3id.org/linkml/'},
                   'massive': {'prefix_prefix': 'massive',
@@ -541,7 +568,7 @@ class IUISCategoryEnum(str, Enum):
 
 class ChannelopathyOrganSystemEnum(str, Enum):
     """
-    Classification categories for channelopathies by affected organ system. Tag diseases like Long QT syndrome (cardiac), periodic paralysis (skeletal muscle), episodic ataxia (neurological), cystic fibrosis (epithelial).
+    Classification categories for channelopathies by affected organ system. Tag diseases like Long QT syndrome (cardiac), periodic paralysis (skeletal muscle), episodic ataxia (neurological), cystic fibrosis (epithelial), ORAI1 or STIM1 deficiency (immune). Disorders of ion pumps (e.g. ATP1A3, ATP1A2 Na+/K+-ATPase) are not channelopathies in this sense; the Channelopathies grouping requires an ion channel or ion channel regulator activity.
     """
     cardiac_channelopathy = "cardiac channelopathy"
     """
@@ -558,6 +585,10 @@ class ChannelopathyOrganSystemEnum(str, Enum):
     epithelial_channelopathy = "epithelial channelopathy"
     """
     Ion channel disorders affecting epithelial transport (cystic fibrosis)
+    """
+    immune_channelopathy = "immune channelopathy"
+    """
+    Ion channel disorders whose principal consequence is immune dysfunction, such as loss of store-operated calcium entry in lymphocytes (ORAI1 and STIM1 deficiency)
     """
 
 
@@ -656,6 +687,172 @@ class PhenotypeCategoryEnum(str, Enum):
     Neoplasm = "Neoplasm"
     """
     Benign or malignant neoplasms (tumors)
+    """
+
+
+class CoarsePhenotypeTermEnum(str, Enum):
+    """
+    The second tier of coarse phenotype terms: HPO terms below the 23 organ-system roots (PhenotypeCategoryEnum) that still name a body system, a whole organ, or a gross body region rather than a clinical finding. The guard treats this set and PhenotypeCategoryEnum's meanings as one list.
+
+THIS IS A HAND-CURATED LIST AND MUST NEVER BECOME A RULE. The tier is not uniform, and a depth, subsumption or naming-pattern rule over it would be wrong in both directions. HPO names 360 distinct "Abnormal*" terms used in this knowledge base, and the most-used ones are the ones a pattern would most confidently mis-flag.
+
+Inclusion rule: the term names (a) a body system, (b) a whole organ, or (c) a gross body region, and asserts nothing about what is wrong with it. The morphology/physiology split terms directly under such a root are included with it, since they divide the bucket without narrowing it.
+
+Deliberately EXCLUDED, with the reason, because each doubles as an established clinical finding at exactly that grain:
+
+- HP:0001627 Abnormal heart morphology (149 uses) carries "Congenital
+  heart defect" as an EXACT synonym and is the correct binding for a paper
+  that reports CHD without naming a lesion.
+
+- HP:0001999 Abnormal facial shape (177) is dysmorphic facies, a real
+  summary finding in dysmorphology.
+
+- HP:0012443 Abnormal brain morphology (26) and HP:0002500 Abnormal
+  cerebral white matter morphology (48) are what a radiologist reports off
+  an MRI.
+
+- HP:0012332 Abnormal autonomic nervous system physiology (30) is
+  dysautonomia.
+
+- HP:0000164 Abnormality of the dentition (36) is "dental anomalies", a
+  reported syndromic feature.
+
+
+Left out as genuinely undecided rather than judged: HP:0000504 Abnormality of vision, HP:0000925 Abnormality of the vertebral column, HP:0002926 Abnormality of thyroid physiology, HP:0002270 Abnormality of the autonomic nervous system. Each is arguably a bucket and arguably a finding; a wrong entry here costs a curator a false positive, so they wait for someone with an argument.
+
+Adding a value is a schema pull request with that argument attached. Each value's `description` must be the term's exact canonical HPO label, so `just validate-terms-schema` verifies the whole list against the ontology.
+    """
+    Kidney = "KIDNEY"
+    """
+    Abnormality of the kidney
+    """
+    Renal_morphology = "RENAL_MORPHOLOGY"
+    """
+    Abnormal renal morphology
+    """
+    Renal_physiology = "RENAL_PHYSIOLOGY"
+    """
+    Abnormal renal physiology
+    """
+    Urinary_system = "URINARY_SYSTEM"
+    """
+    Abnormality of the urinary system
+    """
+    Genital_system = "GENITAL_SYSTEM"
+    """
+    Abnormality of the genital system
+    """
+    Reproductive_system_physiology = "REPRODUCTIVE_SYSTEM_PHYSIOLOGY"
+    """
+    Abnormality of reproductive system physiology
+    """
+    Female_genitalia = "FEMALE_GENITALIA"
+    """
+    Abnormality of the female genitalia
+    """
+    Male_genitalia = "MALE_GENITALIA"
+    """
+    Abnormality of the male genitalia
+    """
+    Gastrointestinal_tract = "GASTROINTESTINAL_TRACT"
+    """
+    Abnormality of the gastrointestinal tract
+    """
+    Gastrointestinal_tract_morphology = "GASTROINTESTINAL_TRACT_MORPHOLOGY"
+    """
+    Abnormal gastrointestinal tract morphology
+    """
+    Liver = "LIVER"
+    """
+    Abnormality of the liver
+    """
+    Liver_physiology = "LIVER_PHYSIOLOGY"
+    """
+    Abnormal liver physiology
+    """
+    Pancreas = "PANCREAS"
+    """
+    Abnormality of the pancreas
+    """
+    Skeletal_system = "SKELETAL_SYSTEM"
+    """
+    Abnormality of the skeletal system
+    """
+    Skeletal_morphology = "SKELETAL_MORPHOLOGY"
+    """
+    Abnormal skeletal morphology
+    """
+    Musculoskeletal_physiology = "MUSCULOSKELETAL_PHYSIOLOGY"
+    """
+    Abnormal musculoskeletal physiology
+    """
+    Eye_morphology = "EYE_MORPHOLOGY"
+    """
+    Abnormal eye morphology
+    """
+    Eye_physiology = "EYE_PHYSIOLOGY"
+    """
+    Abnormal eye physiology
+    """
+    Nervous_system_morphology = "NERVOUS_SYSTEM_MORPHOLOGY"
+    """
+    Abnormal nervous system morphology
+    """
+    Nervous_system_physiology = "NERVOUS_SYSTEM_PHYSIOLOGY"
+    """
+    Abnormal nervous system physiology
+    """
+    Central_nervous_system_morphology = "CENTRAL_NERVOUS_SYSTEM_MORPHOLOGY"
+    """
+    Morphological central nervous system abnormality
+    """
+    Skin = "SKIN"
+    """
+    Abnormality of the skin
+    """
+    Skin_morphology = "SKIN_MORPHOLOGY"
+    """
+    Abnormal skin morphology
+    """
+    Ear_morphology = "EAR_MORPHOLOGY"
+    """
+    Abnormal ear morphology
+    """
+    Ear_physiology = "EAR_PHYSIOLOGY"
+    """
+    Abnormal ear physiology
+    """
+    Cardiovascular_system_morphology = "CARDIOVASCULAR_SYSTEM_MORPHOLOGY"
+    """
+    Abnormal cardiovascular system morphology
+    """
+    Respiratory_system_physiology = "RESPIRATORY_SYSTEM_PHYSIOLOGY"
+    """
+    Abnormal respiratory system physiology
+    """
+    Immune_system_physiology = "IMMUNE_SYSTEM_PHYSIOLOGY"
+    """
+    Abnormality of immune system physiology
+    """
+    Connective_tissue = "CONNECTIVE_TISSUE"
+    """
+    Abnormality of connective tissue
+    """
+    Face = "FACE"
+    """
+    Abnormality of the face
+    """
+    Upper_limb = "UPPER_LIMB"
+    """
+    Abnormality of the upper limb
+    """
+    Lower_limb = "LOWER_LIMB"
+    """
+    Abnormality of the lower limb
+    """
+    Hand = "HAND"
+    """
+    Abnormality of the hand
     """
 
 
@@ -1397,6 +1594,80 @@ class ISDSNosologyGroupEnum(str, Enum):
     other_sclerosing_bone_disorders = "other_sclerosing_bone_disorders"
     """
     DEPRECATED - Increased bone mass or density from mechanisms other than osteoclast failure — osteopoikilosis and melorheostosis (LEMD3, MAP2K1), osteopathia striata with cranial sclerosis (AMER1), sclerosteosis and van Buchem disease (SOST, LRP4), craniometaphyseal dysplasia (ANKH, GJA1) and craniodiaphyseal dysplasia (SOST), Camurati-Engelmann diaphyseal dysplasia (TGFB1), hyperostosis-hyperphosphatemia syndrome (GALNT3, FGF23, KL), high-bone-mass LRP5 phenotypes, juvenile Paget disease (TNFRSF11B), Pyle disease (SFRP4), Lenz-Majewski hyperostotic dysplasia (PTDSS1), oculodentoosseous dysplasia (GJA1), Ghosal hematodiaphyseal dysplasia, hypertrophic osteoarthropathy.
+    """
+
+
+class GeneTableNMDGroupEnum(str, Enum):
+    """
+    The 17 disease groups of the Gene Table of Neuromuscular Disorders, ordered by the table's own group number. Names are transcribed verbatim from the group navigation of the online table. These groups are not mutually exclusive.
+    """
+    Muscular_dystrophies = "muscular_dystrophies"
+    """
+    Group 1. Dystrophinopathies, the limb-girdle muscular dystrophies under the reformed 229th ENMC nomenclature (LGMD-D dominant, LGMD-R recessive), Emery-Dreifuss, facioscapulohumeral and oculopharyngeal muscular dystrophy.
+    """
+    Congenital_muscular_dystrophies = "congenital_muscular_dystrophies"
+    """
+    Group 2. Dystrophic muscle disease presenting at or near birth — dystroglycanopathies, collagen VI-related, LAMA2/merosin-deficient and SELENON-related congenital muscular dystrophy.
+    """
+    Congenital_myopathies = "congenital_myopathies"
+    """
+    Group 3. Non-dystrophic congenital muscle disease, conventionally grouped by predominant histopathology — nemaline/rod, core (central core and multiminicore), centronuclear/myotubular, and congenital fibre-type disproportion.
+    """
+    Distal_myopathies = "distal_myopathies"
+    """
+    Group 4. Myopathies with predominantly distal weakness at onset, organised by inheritance, age at onset and whether the anterior or posterior compartment is affected first.
+    """
+    Other_myopathies = "other_myopathies"
+    """
+    Group 5. Residual myopathy group for entities fitting none of groups 1-4, including the myofibrillar myopathies and hereditary myopathy with early respiratory failure.
+    """
+    Myotonic_syndromes = "myotonic_syndromes"
+    """
+    Group 6. Myotonic dystrophy type 1 (DMPK) and type 2 (CNBP). The non-dystrophic myotonias arising from CLCN1 and SCN4A are ion channel diseases and are listed in group 7 instead.
+    """
+    Ion_channel_muscle_diseases = "ion_channel_muscle_diseases"
+    """
+    Group 7. Skeletal muscle channelopathies — myotonia congenita (CLCN1), sodium-channel myotonia and paramyotonia congenita (SCN4A), hyperkalaemic and hypokalaemic periodic paralysis, Andersen-Tawil syndrome.
+    """
+    Malignant_hyperthermia = "malignant_hyperthermia"
+    """
+    Group 8. Pharmacogenetic susceptibility to volatile anaesthetics and succinylcholine, chiefly RYR1 and CACNA1S. A susceptibility trait rather than a myopathy, which is why it is separated from group 3 despite sharing genes with it.
+    """
+    Metabolic_myopathies = "metabolic_myopathies"
+    """
+    Group 9. Muscle disease from a block in energy metabolism — the muscle glycogenoses, fatty-acid oxidation defects, and related disorders of substrate handling.
+    """
+    Hereditary_cardiomyopathies = "hereditary_cardiomyopathies"
+    """
+    Group 10. Included because many genes are shared with skeletal muscle disease (LMNA, DES, FLNC, TTN, CRYAB, BAG3 each cause both).
+    """
+    Congenital_myasthenic_syndromes = "congenital_myasthenic_syndromes"
+    """
+    Group 11. Genetic defects of neuromuscular transmission, sub-classified by site of the lesion — presynaptic, synaptic basal lamina, postsynaptic, endplate development and maintenance, and glycosylation defects.
+    """
+    Spinal_muscular_atrophies_and_motoneuron_diseases = "spinal_muscular_atrophies_motoneuron_diseases"
+    """
+    Group 12. SMN1-related spinal muscular atrophy and its non-5q forms, familial amyotrophic lateral sclerosis genes, distal hereditary motor neuronopathies, and spinal and bulbar muscular atrophy.
+    """
+    Hereditary_ataxias = "hereditary_ataxias"
+    """
+    Group 13. Friedreich ataxia, the spinocerebellar ataxias, and ataxia with oculomotor apraxia. Present in a neuromuscular catalogue because of peripheral nerve involvement and shared genes.
+    """
+    Hereditary_motor_and_sensory_neuropathies = "hereditary_motor_and_sensory_neuropathies"
+    """
+    Group 14. The Charcot-Marie-Tooth spectrum, conventionally cut on median motor nerve conduction velocity into demyelinating, axonal and intermediate forms, plus the hereditary sensory and autonomic neuropathies.
+    """
+    Hereditary_paraplegias = "hereditary_paraplegias"
+    """
+    Group 15. The hereditary spastic paraplegias, pure and complicated forms. An upper-motor-neuron group, shares genes with group 12.
+    """
+    Mitochondrial_myopathies = "mitochondrial_myopathies"
+    """
+    Group 16. **nDNA-encoded only**, since the table excludes mitochondrial-genome defects by scope.
+    """
+    Other_neuromuscular_disorders = "other_neuromuscular_disorders"
+    """
+    Group 17. Residual group for monogenic neuromuscular entities the table places in none of groups 1-16. Not a home for acquired neuromuscular disease, which is outside the table's scope entirely.
     """
 
 
@@ -3101,6 +3372,230 @@ Wild is explicit that the domains overlap and that some exposures are hard to pl
     """
 
 
+class PathographNodeClassEnum(str, Enum):
+    """
+    Pathograph node classes, the range of Pathophysiology node_class. A value without is_a is a tier; every other value names the class it sits under.
+    """
+    GENOMIC_EFFECT = "GENOMIC_EFFECT"
+    """
+    the lesion at the level of DNA/chromatin
+    """
+    genome_instability = "GENOME_INSTABILITY"
+    """
+    an elevated RATE of new lesions rather than a lesion itself. From MeSH Genomic Instability (D042822).
+    """
+    pathogenic_sequence_variant = "PATHOGENIC_SEQUENCE_VARIANT"
+    """
+    the coding lesion itself, where the entry draws it as a node
+    """
+    dosage = "DOSAGE"
+    structural_variant = "STRUCTURAL_VARIANT"
+    cis_regulatory_variant = "CIS_REGULATORY_VARIANT"
+    """
+    a lesion in noncoding regulatory DNA: enhancer, promoter, or the 3D contacts between them. The gene is intact and the coding sequence is untouched; what changed is where and how much it is transcribed. Not `pathogenic sequence variant`, which reads as coding, and not `epigenetic`, which is a mark rather than a lesion.
+    """
+    epigenetic = "EPIGENETIC"
+    transcript_level = "TRANSCRIPT_LEVEL"
+    ENVIRONMENTAL_EFFECT = "ENVIRONMENTAL_EFFECT"
+    """
+    the insult from outside
+    """
+    infectious_agent = "INFECTIOUS_AGENT"
+    chemical_SOLIDUS_drug_SOLIDUS_toxin = "CHEMICAL_DRUG_TOXIN"
+    physical_exposure = "PHYSICAL_EXPOSURE"
+    hormonal_SOLIDUS_physiological_exposure = "HORMONAL_PHYSIOLOGICAL_EXPOSURE"
+    physiological_stressor = "PHYSIOLOGICAL_STRESSOR"
+    """
+    the intermittent trigger that unmasks a latent lesion
+    """
+    microbiome_state = "MICROBIOME_STATE"
+    """
+    the resident community as an exposure, not a single pathogen
+    """
+    MOLECULAR_ACTIVITY_EFFECT = "MOLECULAR_ACTIVITY_EFFECT"
+    """
+    what the gene product can no longer do; GO molecular_function territory. Not the allele (GENOMIC or `genetic:`), not the resulting pool (SUBSTANCE).
+    """
+    catalytic_activity = "CATALYTIC_ACTIVITY"
+    channel_conductance = "CHANNEL_CONDUCTANCE"
+    transport_activity = "TRANSPORT_ACTIVITY"
+    receptor_SOLIDUS_adaptor_activity = "RECEPTOR_ADAPTOR_ACTIVITY"
+    structural_protein_activity = "STRUCTURAL_PROTEIN_ACTIVITY"
+    """
+    a structural protein failing to assemble, not an enzyme failing to catalyse
+    """
+    MOLECULAR_SUBSTANCE_EFFECT = "MOLECULAR_SUBSTANCE_EFFECT"
+    """
+    which molecules are now present in the wrong amount or the wrong form; one causal step below activity.
+    """
+    metabolite_accumulation = "METABOLITE_ACCUMULATION"
+    metabolite_depletion = "METABOLITE_DEPLETION"
+    protein_misfolding_SOLIDUS_aggregation = "PROTEIN_MISFOLDING_AGGREGATION"
+    protein_abundance_loss = "PROTEIN_ABUNDANCE_LOSS"
+    """
+    the protein is not there, as distinct from being present but inactive (ACTIVITY) or present but misfolded
+    """
+    protein_abundance_excess = "PROTEIN_ABUNDANCE_EXCESS"
+    """
+    the protein is present above its normal level -- overexpression, escape from degradation, ectopic expression of a normally silent gene. The mirror of abundance loss; a gain-of-dosage claim at the protein level rather than the gene level, so distinct from GENOMIC/dosage
+    """
+    post_translational_modification_state = "POST_TRANSLATIONAL_MODIFICATION_STATE"
+    """
+    the molecule is present and correctly folded but chemically altered
+    """
+    PATHWAY_EFFECT = "PATHWAY_EFFECT"
+    """
+    signalling and flux through a pathway
+    """
+    signalling_reduced_SOLIDUS_failed = "SIGNALLING_REDUCED_FAILED"
+    signalling_increased = "SIGNALLING_INCREASED"
+    metabolic_flux_block = "METABOLIC_FLUX_BLOCK"
+    CELLULAR_EFFECT = "CELLULAR_EFFECT"
+    cell_death = "CELL_DEATH"
+    differentiation_SOLIDUS_identity = "DIFFERENTIATION_IDENTITY"
+    metaplasia = "METAPLASIA"
+    """
+    a differentiated tissue replaced by another differentiated type. From MeSH Metaplasia (D008679); conceptually sharp and distinct from a differentiation block.
+    """
+    haemolysis = "HAEMOLYSIS"
+    """
+    erythrocyte destruction as its own leaf; MeSH gives Hemolysis (D006461) top-level pathologic-process billing
+    """
+    proliferation_SOLIDUS_expansion = "PROLIFERATION_EXPANSION"
+    senescence = "SENESCENCE"
+    cell_activation = "CELL_ACTIVATION"
+    """
+    a cell type switching into an effector state
+    """
+    organelle_dysfunction = "ORGANELLE_DYSFUNCTION"
+    morphogenesis_migration_and_positioning = "MORPHOGENESIS_MIGRATION_AND_POSITIONING"
+    protein_trafficking_and_localization = "PROTEIN_TRAFFICKING_AND_LOCALIZATION"
+    """
+    the protein is made and folded but does not reach where it works. Distinct from ACTIVITY (it would work if it got there) and from SUBSTANCE (nothing is misfolded or depleted).
+    """
+    cellular_function_disturbance = "CELLULAR_FUNCTION_DISTURBANCE"
+    """
+    a single cell type's physiological output running wrongly -- excitability, repolarization, transmitter release, contractility, secretion, transduction -- with no structural lesion at the cell. The cell-level counterpart of TISSUE/functional disturbance (an organ working wrongly); split out of it after the sixth draw showed that leaf carrying two scales
+    """
+    TISSUE_SOLIDUS_ORGAN_EFFECT = "TISSUE_ORGAN_EFFECT"
+    inflammation = "INFLAMMATION"
+    fibrosis_SOLIDUS_remodelling = "FIBROSIS_REMODELLING"
+    pathological_structure_formed = "PATHOLOGICAL_STRUCTURE_FORMED"
+    degeneration_SOLIDUS_atrophy = "DEGENERATION_ATROPHY"
+    developmental_malformation = "DEVELOPMENTAL_MALFORMATION"
+    barrier_failure = "BARRIER_FAILURE"
+    injury = "INJURY"
+    """
+    generic tissue damage where the entry names no more specific process
+    """
+    circulatory_disturbance = "CIRCULATORY_DISTURBANCE"
+    """
+    haemorrhage, fluid shift and vessel/chamber dilatation. MPATH gives circulatory disorder TOP-LEVEL billing (MPATH:105).
+    """
+    mechanical_obstruction_and_stenosis = "MECHANICAL_OBSTRUCTION_AND_STENOSIS"
+    """
+    from SNOMED Mechanical abnormality (107658001).
+    """
+    abnormal_communication = "ABNORMAL_COMMUNICATION"
+    """
+    fistula, septal defect, shunt. From SNOMED Abnormal communication (783804002).
+    """
+    vascular_malformation = "VASCULAR_MALFORMATION"
+    """
+    from SNOMED Vascular malformation (783806000); mechanistically distinct from developmental malformation generally
+    """
+    material_deposition = "MATERIAL_DEPOSITION"
+    """
+    material laid down IN tissue, as opposed to a discrete structure being built. SNOMED makes Deposition (46595003) a top-level morphologic category.
+    """
+    ischemia_and_infarction = "ISCHEMIA_AND_INFARCTION"
+    """
+    perfusion failure and its tissue consequence
+    """
+    inflammatory_infiltration = "INFLAMMATORY_INFILTRATION"
+    """
+    cells or material entering tissue; distinct from the inflammatory response itself
+    """
+    functional_disturbance = "FUNCTIONAL_DISTURBANCE"
+    """
+    an organ working wrongly without a structural lesion: conduction, contractility, motility, secretion, absorption. Organ-level only -- a single cell type's output running wrongly is CELLULAR/cellular function disturbance, and a distributed circuit misbehaving as a circuit is neural circuit and network dysfunction
+    """
+    neoplastic_invasion_and_metastasis = "NEOPLASTIC_INVASION_AND_METASTASIS"
+    pathogen_spread_and_tissue_invasion = "PATHOGEN_SPREAD_AND_TISSUE_INVASION"
+    """
+    the host-side counterpart of the ENVIRONMENTAL agent node
+    """
+    immune_evasion_and_immunosuppressive_microenvironment = "IMMUNE_EVASION_AND_IMMUNOSUPPRESSIVE_MICROENVIRONMENT"
+    impaired_repair = "IMPAIRED_REPAIR"
+    neural_circuit_and_network_dysfunction = "NEURAL_CIRCUIT_AND_NETWORK_DYSFUNCTION"
+    """
+    a distributed multi-region circuit misbehaving as a circuit: hyperexcitability, hypersynchrony, dysconnectivity, oscillation. Distinct from functional disturbance, which is one organ working wrongly; here the lesion IS the network property, and no single region is at fault.
+    """
+    pathological_angiogenesis = "PATHOLOGICAL_ANGIOGENESIS"
+    """
+    the vessel-building program running where, when or as much as it should not, and occasionally failing where it should run. Not vascular malformation (that is congenital architecture), not fibrosis/remodelling (that is matrix), and not structure formed: the vessels themselves are ordinary, the program driving them is not.
+    """
+    compression_and_mass_effect = "COMPRESSION_AND_MASS_EFFECT"
+    """
+    one structure pressing on its neighbour. Not obstruction (no lumen is narrowed) and not invasion (nothing crosses a boundary); the damage is transmitted force, so the lesion and the injured tissue are different tissues.
+    """
+    SYSTEMIC_EFFECT = "SYSTEMIC_EFFECT"
+    metabolic_crisis = "METABOLIC_CRISIS"
+    organ_failure = "ORGAN_FAILURE"
+    endocrine_SOLIDUS_homeostatic_derangement = "ENDOCRINE_HOMEOSTATIC_DERANGEMENT"
+    systemic_inflammatory_state = "SYSTEMIC_INFLAMMATORY_STATE"
+    haematological_deficit = "HAEMATOLOGICAL_DEFICIT"
+    """
+    circulating cell-count failure. From SNOMED Abnormal cellular component of blood (89615005).
+    """
+    autoimmune_response = "AUTOIMMUNE_RESPONSE"
+    """
+    loss of self-tolerance and the autoreactive response itself. The tissue damage it causes still goes to TISSUE/inflammation or inflammatory infiltration; this leaf is the immune claim, not the lesion.
+    """
+    immune_deficiency = "IMMUNE_DEFICIENCY"
+    """
+    the defect in immune function itself, as opposed to the susceptibility it confers (DISPOSITION) or the infection that follows (ENVIRONMENTAL)
+    """
+    behavioural_and_cognitive_mechanism = "BEHAVIOURAL_AND_COGNITIVE_MECHANISM"
+    """
+    a psychological process doing mechanistic work. Small but unmistakable, and the psychiatric corpus has nowhere else to go: this is not tissue function, not a network lesion, and not an outcome.
+    """
+    nutritional_deficit = "NUTRITIONAL_DEFICIT"
+    """
+    whole-body undernutrition as a state, not renal salt or phosphate "wasting".
+    """
+    OUTCOME = "OUTCOME"
+    """
+    what happens to the patient
+    """
+    clinical_endpoint = "CLINICAL_ENDPOINT"
+    progression_and_transformation = "PROGRESSION_AND_TRANSFORMATION"
+    """
+    a transition to a DIFFERENT disease state. Not a cascade step: it asserts where the disease goes next, and is the shape that keeps OUTCOME from being nearly empty.
+    """
+    DISPOSITION = "DISPOSITION"
+    """
+    a standing susceptibility rather than an event. Not a cascade tier: a disposition can sit at any tier, and it is the one node kind that describes what COULD happen rather than what did.
+    """
+    genetic_predisposition = "GENETIC_PREDISPOSITION"
+    trigger_specific_susceptibility = "TRIGGER_SPECIFIC_SUSCEPTIBILITY"
+    """
+    latent until a named stimulus arrives; pairs with an ENVIRONMENTAL/physiological stressor node
+    """
+    tissue_vulnerability = "TISSUE_VULNERABILITY"
+    """
+    a tissue that will fail first, without yet having failed
+    """
+    outcome_risk = "OUTCOME_RISK"
+    """
+    a named adverse endpoint stated as a standing probability
+    """
+    penetrance_and_expressivity_modifier = "PENETRANCE_AND_EXPRESSIVITY_MODIFIER"
+    """
+    what decides whether a disposition is expressed at all, and how severely. Not the disposition and not the effect: a second locus, a background, or a residual activity level standing between them.
+    """
+
+
 class EvidenceItemSupportEnum(str, Enum):
     """
     Which way the cited evidence cuts relative to the claim. This is direction only. How *directly* the quote bears on the claim is a separate axis -- see DirectnessEnum and the `directness` slot -- and how strong the evidence is has no slot at all (see design decisions section 12).
@@ -3551,6 +4046,74 @@ class RegulatoryElementTypeEnum(str, Enum):
     """
 
 
+class GeneDiseaseValidityClassificationEnum(str, Enum):
+    """
+    How well established a gene-disease relationship is, as classified by an external curation body. The values are the GenCC harmonised gene-disease validity classifications; ClinGen, Gene2Phenotype, Orphanet and the PanelApp instances each map their own scale onto them. Used only inside a GeneDiseaseValidityAssertion, which must say who made the classification: dismech records these tiers, it does not assign them (#10179).
+    """
+    Definitive = "DEFINITIVE"
+    """
+    The role of the gene in the disease has been repeatedly demonstrated and has not been contradicted.
+    """
+    Strong = "STRONG"
+    """
+    The role of the gene in the disease has been independently demonstrated in at least two separate studies, with no convincing contradictory evidence.
+    """
+    Moderate = "MODERATE"
+    """
+    There is moderate evidence supporting a causal role, typically several probands with functional support but short of Strong.
+    """
+    Supportive = "SUPPORTIVE"
+    """
+    The submitter supports the relationship without grading it on a validity scale. Orphanet submits every gene-disease link at this tier.
+    """
+    Limited = "LIMITED"
+    """
+    There is limited evidence for a causal role, such as few probands or segregation without functional support.
+    """
+    Disputed_evidence = "DISPUTED"
+    """
+    Conflicting evidence disputes a role for the gene in the disease.
+    """
+    Refuted_evidence = "REFUTED"
+    """
+    Evidence refuting the role of the gene in the disease significantly outweighs any supporting evidence.
+    """
+    No_known_disease_relationship = "NO_KNOWN_DISEASE_RELATIONSHIP"
+    """
+    The submitter has evaluated the gene and found no evidence that it causes the disease.
+    """
+
+
+class GeneDiseaseValiditySourceEnum(str, Enum):
+    """
+    The curation body that assigned a gene-disease validity classification. Values are GenCC submitters; each carries a `gencc_submitter` annotation with its GenCC submitter CURIE, read from the GenCC submissions export. Only the submitters whose classifications dismech entries cite are enumerated; any other GenCC submitter is OTHER_GENCC_SUBMITTER with its name in `notes`.
+    """
+    ClinGen = "CLINGEN"
+    """
+    ClinGen Gene-Disease Validity, assigned by a Gene Curation Expert Panel under the ClinGen SOP. Cite the assertion as a `CGGV:` reference.
+    """
+    Gene2Phenotype = "G2P"
+    """
+    Gene2Phenotype (EMBL-EBI), which curates gene-disease pairs for specific clinical panels on its own confidence scale.
+    """
+    Orphanet = "ORPHANET"
+    """
+    Orphanet. Every Orphanet submission to GenCC is SUPPORTIVE, so the tier records that Orphanet lists the pair, not that it graded it.
+    """
+    Genomics_England_PanelApp = "GENOMICS_ENGLAND_PANELAPP"
+    """
+    Genomics England PanelApp, whose green/amber/red gene ratings on diagnostic panels are mapped onto the GenCC tiers.
+    """
+    PanelApp_Australia = "PANELAPP_AUSTRALIA"
+    """
+    PanelApp Australia (Australian Genomics), which rates genes on diagnostic panels on the same green/amber/red scale.
+    """
+    Other_GenCC_submitter = "OTHER_GENCC_SUBMITTER"
+    """
+    Any other GenCC submitter (for example a diagnostic laboratory). Name it in `notes`.
+    """
+
+
 class GeneDiseaseRelationshipEnum(str, Enum):
     """
     The qualitative relationship between a gene (or locus) and a disease. Use to constrain the free-text `association` slot to a controlled vocabulary aligned with ClinGen gene-disease validity concepts and common cancer/somatic driver classifications. The free-text `association` slot may still be used for narrative detail.
@@ -3589,7 +4152,11 @@ class GeneDiseaseRelationshipEnum(str, Enum):
     """
     Disputed = "DISPUTED"
     """
-    Reported gene-disease association whose validity is contested (corresponds to ClinGen "Disputed" or "Refuted").
+    A reported gene-disease relationship whose validity is contested: the evidence for and against it conflicts, or the original report has not been replicated, and the question is open (corresponds to ClinGen/GenCC "Disputed"). Use this, not a subtype row, for a locus whose claim to cause the disease is unsettled. When an external body has graded the pair, copy its tier into `gene_disease_validity` as well; `relationship_type` is the curator's reading, `gene_disease_validity` is the source's.
+    """
+    Refuted = "REFUTED"
+    """
+    A reported gene-disease relationship that the evidence now contradicts: the refuting evidence significantly outweighs the original report, so the gene is recorded to stop the claim being re-made, not because it contributes to the disease (corresponds to ClinGen/GenCC "Refuted"). Distinct from DISPUTED, where the question is still open. Requires `evidence` citing the refutation, not only the original claim.
     """
     Unknown = "UNKNOWN"
     """
@@ -3768,6 +4335,28 @@ class ModifierEnum(str, Enum):
     Loss_of_function = "LOSS_OF_FUNCTION"
     """
     Reduction or abolition of normal pathway, process, or molecular function regardless of underlying mechanism (epigenetic silencing, protein sequestration, competitive inhibition, etc.). For mutation-driven LOF, use GeneticContext.functional_impact_category: LOSS_OF_FUNCTION.
+    """
+
+
+class CoarseBindingBasisEnum(str, Enum):
+    """
+    Why a descriptor is deliberately bound to a coarse, organ-system-level ontology term rather than a specific finding. Required by `just check-coarse-phenotypes` on any phenotype bound to one of the top-level HPO organ-system terms (the PhenotypeCategoryEnum meanings, the direct children of HP:0000118), which name a facet bucket rather than a clinical finding. The point is NOT to reward narrow terms -- manufacturing a specificity the source does not support is a worse defect than a coarse binding. The point is that a coarse binding should say which of these situations it is in, so the unexplained one (the curator who stopped early) is distinguishable from the three legitimate ones.
+    """
+    Variable_spectrum = "VARIABLE_SPECTRUM"
+    """
+    Involvement of this system is real and recurrent, but its form varies between patients with no characteristic finding to bind -- pleiotropy and variable expressivity, where enumerating every case would be arbitrary. The node's content is the organ-system involvement itself, typically with an aggregate frequency the source measured at that level. Like SOURCE_UNSPECIFIED this is a bare declaration with no companion slot. If the specific findings ARE known and evidenced, they are ordinary `phenotypes` entries with their own terms and evidence -- curate them that way rather than listing them inside this binding.
+    """
+    Source_unspecified = "SOURCE_UNSPECIFIED"
+    """
+    The cited source characterizes the finding no further ("ocular involvement", "congenital heart defect" with no named lesion), so a narrower term would assert something the evidence does not. The evidence snippet is the proof, so this value needs no companion slot.
+    """
+    No_suitable_ontology_term = "NO_HPO_TERM"
+    """
+    The claim is more specific than any available ontology term, and the coarse parent is the best honest anchor. `preferred_term` carries the specificity the ontology lacks and must differ from the bound label; record any term request in `term_gap`.
+    """
+    Pathograph_hub = "PATHOGRAPH_HUB"
+    """
+    The node is a deliberately unqualified convergence point in the causal graph: a mechanism disrupts a system, and the system-level disruption is where several specific findings converge. It is defined by its INCOMING edges -- at least one causal edge in the same entry must target it. It takes no `frequency`, and the reason is narrower than "no clinical claim": a hub does assert that the system is involved, and carries evidence for that assertion like any other phenotype. What it cannot carry is a rate, because an unqualified system-level node names no finding whose occurrence could be counted -- the frequency belongs to each specific finding beside it. Do NOT connect it to the specific findings with `sequelae`, which is a causal edge: a coloboma is not caused by an eye abnormality, it is one. Those findings are ordinary `phenotypes` entries in their own right. Distinct from a pathophysiology node such as "disrupted eye development", which binds GO and asserts a process; a hub binds HP and asserts a system-level outcome. The two may sit in sequence.
     """
 
 
@@ -4078,9 +4667,30 @@ class TriggerTerm(str):
     pass
 
 
+class GeneOrProductTerm(str):
+    """
+    A gene or gene product in a model system or dataset, named in its own species. In priority order: HGNC for a human gene; the species' Alliance of Genome Resources member database where one exists (MGI mouse, RGD rat, ZFIN zebrafish, Xenbase Xenopus, FB Drosophila, WB C. elegans, SGD S. cerevisiae); otherwise NCBI Gene. No hierarchy constraint. The schema does not restrict the prefix: where each prefix may appear, and the priority, are enforced by scripts/check_gene_namespaces.py.
+    """
+    pass
+
+
 class GeneTerm(str):
     """
     A gene term from HGNC
+    """
+    pass
+
+
+class OMIMPSTerm(str):
+    """
+    An OMIM phenotypic series. Validates identifier existence and the canonical label through the OMIM OAK adapter, without a disease-hierarchy constraint. A series may describe a Mendelian disease family or susceptibility loci.
+    """
+    pass
+
+
+class LoincTerm(str):
+    """
+    A LOINC code for a clinical measurement, panel, or LOINC Part. No hierarchy constraint - validates that the code exists and that the label is LOINC's Long Common Name.
     """
     pass
 
@@ -4166,6 +4776,10 @@ class BiomarkerEndpointContextEnum(str, Enum):
     Candidate_surrogate = "CANDIDATE_SURROGATE"
     """
     Potential surrogate endpoint candidate requiring explicit outcome-link evidence
+    """
+    Regulatory_surrogate = "REGULATORY_SURROGATE"
+    """
+    Surrogate endpoint a regulator has accepted as the basis of a drug approval in a stated context of use. Requires regulatory_endpoint_refs naming the source rows; whether the endpoint is validated or only reasonably likely to predict clinical benefit is read from those rows, not restated here.
     """
 
 
@@ -4332,7 +4946,7 @@ class ImagingFindingTerm(str):
 
 class DiseaseTerm(str):
     """
-    A MONDO disease, inherited disease susceptibility, or related medical condition term used to anchor a curated disorder entry
+    A MONDO disease, inherited disease susceptibility, injury, or related medical condition term used to anchor a curated disorder entry
     """
     pass
 
@@ -4346,7 +4960,7 @@ class NCITDiseaseOrFindingTerm(str):
 
 class DiseaseOrSubtypeTerm(str):
     """
-    A MONDO disease term or NCIT cancer disease/subtype term used to ground a disease subtype or cancer facet value.
+    A MONDO disease or injury term, or NCIT cancer disease/subtype term, used to ground a disease subtype or cancer facet value.
     """
     pass
 
@@ -4361,6 +4975,20 @@ class ICD10CMTerm(str):
 class ICD11FTerm(str):
     """
     An ICD-11 Foundation diagnosis code
+    """
+    pass
+
+
+class AncestryTerm(str):
+    """
+    A human ancestry, ethnicity, geography-based or reference population term from HANCESTRO (Human Ancestry Ontology). Every population class in HANCESTRO sits below `ancestry category`, including the reference panels (1KGP, HGDP, SGDP) under `reference population`.
+    """
+    pass
+
+
+class MHCTerm(str):
+    """
+    An MHC restriction term from MRO (MHC Restriction Ontology, the IEDB native ontology for MHC/HLA restriction): an MHC presenting protein complex (e.g. `MRO:0001284` HLA-DRB1*03:01 protein complex, `MRO:0001620` HLA protein complex with DQ2 serotype), an MHC class I or class II chain allele, an MHC serotype (e.g. `MRO:0000283` HLA-DQ2 serotype, `MRO:0000217` HLA-B27 serotype), or an MHC haplotype.
     """
     pass
 
@@ -4448,6 +5076,14 @@ class OnsetEnum(str, Enum):
     PUERPERAL = "PUERPERAL"
     """
     Puerperal onset
+    """
+    PERIMENOPAUSAL = "PERIMENOPAUSAL"
+    """
+    Perimenopausal onset
+    """
+    POSTMENOPAUSAL = "POSTMENOPAUSAL"
+    """
+    Postmenopausal onset
     """
 
 
@@ -4582,6 +5218,66 @@ class ExperimentalModelTypeEnum(str, Enum):
     OTHER = "OTHER"
     """
     Other experimental model type not covered above
+    """
+
+
+class ExperimentDesignEnum(str, Enum):
+    """
+    Broad design family of an experiment, proposed or carried out. This is the coarse, always-fillable classification of *how* a question is addressed, and is deliberately small and closed so it can be populated on every experiment; finer detail belongs in `experiment_type`, which takes an ontology-backed Descriptor.
+    """
+    Perturbation_screen = "PERTURBATION_SCREEN"
+    """
+    A systematic screen applying a compound, genetic, or degrader library across one or more model systems with a common readout, typically triaged against a counter-screen.
+    """
+    Targeted_perturbation = "TARGETED_PERTURBATION"
+    """
+    A hypothesis-directed perturbation of one or a few named targets, including isogenic knock-in or knockout comparisons and rescue arms, rather than an unbiased library screen.
+    """
+    Human_observational_study = "HUMAN_OBSERVATIONAL"
+    """
+    A cohort, registry, case-control, or natural-history study in humans with no intervention assigned by the investigator.
+    """
+    Interventional_trial = "INTERVENTIONAL_TRIAL"
+    """
+    A trial assigning an intervention to human participants, randomized or otherwise.
+    """
+    Descriptive_profiling = "DESCRIPTIVE_PROFILING"
+    """
+    Measurement or mapping without a deliberate perturbation, such as single-cell atlasing, spatial profiling, or postmortem tissue characterization.
+    """
+    In_silico_study = "IN_SILICO"
+    """
+    A computational study whose primary object is a model or dataset rather than a bench or clinical measurement, including simulation, structural modeling, and machine-learning prediction.
+    """
+    Method_or_assay_development = "METHOD_DEVELOPMENT"
+    """
+    Work whose primary aim is to establish or validate an assay, model system, or measurement, rather than to test a disease-mechanism claim directly.
+    """
+    Mixed_design = "MIXED"
+    """
+    An experiment with arms spanning more than one design family, where no single value is the primary design. Prefer a specific value where one dominates.
+    """
+
+
+class ExperimentExecutabilityEnum(str, Enum):
+    """
+    How far an experiment has been specified, independent of whether anyone intends to run it. This records the honest state of a proposal rather than implying readiness: a `CONCEPTUAL` proposal may still be an excellent experiment, and most curated proposals are `CONCEPTUAL`.
+    """
+    Conceptual = "CONCEPTUAL"
+    """
+    A design sketch in prose. The result would be interpretable, but the experiment is not specified in enough detail to hand to anyone.
+    """
+    Specified = "SPECIFIED"
+    """
+    Model system, perturbation, readout, and comparator are named as structured objects, so a domain expert could write the protocol.
+    """
+    Parameterized = "PARAMETERIZED"
+    """
+    Bound to a named external protocol, with the scientific parameters supplied. Mechanical parameters still come from the protocol itself.
+    """
+    Executable = "EXECUTABLE"
+    """
+    The bound protocol is machine-runnable and its parameters are complete, so it could be submitted to an automation core or cloud lab subject to the usual review and biosafety gates.
     """
 
 
@@ -4873,6 +5569,10 @@ class ComputationalModelTypeEnum(str, Enum):
     """
     Computational docking or molecular dynamics simulation of drug candidates to protein targets, typically informed by PDB/AlphaFold structures
     """
+    BIOMECHANICAL = "BIOMECHANICAL"
+    """
+    Continuum-mechanics model of tissue deformation under mechanical load, typically a finite-element model of an organ or body region, used to predict where strain or strain rate exceeds an injury threshold (e.g. a finite-element head model of traumatic brain injury). Its outputs are mechanical quantities, so a link from such a model to a cellular or axonal node is normally a PROXY_QUANTITY divergence. See design decisions section 3f.
+    """
 
 
 class ThresholdDirectionEnum(str, Enum):
@@ -4965,27 +5665,57 @@ class TreatmentEffectEnum(str, Enum):
 
 class EnvironmentalEffectEnum(str, Enum):
     """
-    How an environmental factor or exposure acts on a pathophysiology mechanism node. The environmental analogue of TreatmentEffectEnum, used to keep causative, aggravating, and protective exposures visually and semantically distinct in the pathograph.
+    How an environmental factor or exposure acts on its subject. The environmental analogue of TreatmentEffectEnum, used to keep causative, aggravating, and protective exposures visually and semantically distinct in the pathograph.
     """
     Triggers = "TRIGGERS"
     """
-    The exposure initiates the mechanism, which would not otherwise occur in its absence (e.g., inorganic arsenic ingestion initiating systemic arsenic exposure; allergen contact initiating sensitization).
+    The exposure initiates the mechanism or disease, which would not otherwise occur in its absence (e.g., inorganic arsenic ingestion initiating systemic arsenic exposure; allergen contact initiating sensitization; gluten ingestion initiating coeliac enteropathy).
     """
     Exacerbates = "EXACERBATES"
     """
-    The exposure worsens or amplifies a mechanism that is already present or can arise independently (e.g., tobacco smoke amplifying airway inflammation).
+    The exposure worsens or amplifies a mechanism or disease that is already present or can arise independently (e.g., tobacco smoke amplifying airway inflammation).
     """
     Predisposes = "PREDISPOSES"
     """
-    The exposure increases susceptibility to the mechanism without being sufficient to produce it (e.g., a risk-factor exposure that requires additional genetic or environmental hits).
+    The exposure increases susceptibility to the mechanism or disease without being sufficient to produce it (e.g., a risk-factor exposure that requires additional genetic or environmental hits).
     """
     Protects_against = "PROTECTS_AGAINST"
     """
-    The exposure reduces the occurrence or severity of the mechanism (e.g., early-life microbial exposure and allergic sensitization).
+    The exposure reduces the occurrence or severity of the mechanism or disease (e.g., early-life microbial exposure and allergic sensitization).
     """
     Modulates = "MODULATES"
     """
-    The exposure alters the mechanism without a clear unidirectional effect, or the direction is context dependent.
+    The exposure alters the mechanism or disease without a clear unidirectional effect, or the direction is context dependent.
+    """
+
+
+class EnvironmentalCausalRoleEnum(str, Enum):
+    """
+    How strongly an environmental exposure determines the disease, as distinct from which way it acts. Pairs with Environmental.disease_effect, which carries the direction.
+    """
+    Necessary_cause = "NECESSARY"
+    """
+    The disease does not occur without this exposure, though the exposure alone is not sufficient (e.g., gluten in coeliac disease; grass pea overconsumption in neurolathyrism).
+    """
+    Sufficient_cause = "SUFFICIENT"
+    """
+    The exposure alone produces the disease in a susceptible host, without requiring a further hit (e.g., a high enough acute dose of a poison).
+    """
+    Component_cause = "COMPONENT_CAUSE"
+    """
+    The exposure is one required member of a set of causes that together produce the disease; neither necessary nor sufficient on its own.
+    """
+    Risk_factor = "RISK_FACTOR"
+    """
+    The exposure raises or lowers disease incidence in populations, with a causal reading supported but no claim about necessity or sufficiency (e.g., alcohol and breast carcinoma).
+    """
+    Modifier = "MODIFIER"
+    """
+    The exposure alters the course, severity, or expression of disease that is already established, rather than its occurrence.
+    """
+    Associated_only = "ASSOCIATED_ONLY"
+    """
+    A reported statistical association whose causal status is unsettled or unevidenced in the cited source. Use when the evidence measures co-occurrence or incidence and the entry makes no causal claim beyond it.
     """
 
 
@@ -5159,6 +5889,160 @@ class MedicalActionCategoryEnum(str, Enum):
     """
 
 
+class AncestryBasisEnum(str, Enum):
+    """
+    How the cited source defined the population a population-scoped variant effect was observed in. Recorded because the same group label can name a self-identified ethnicity, a genetically inferred ancestry cluster, or a place, and a HANCESTRO binding alone does not say which the source meant.
+    """
+    SELF_REPORTED = "SELF_REPORTED"
+    """
+    Participants' self-identified ethnicity, race, or ancestry, as collected by questionnaire or clinical record.
+    """
+    GENETICALLY_INFERRED = "GENETICALLY_INFERRED"
+    """
+    Ancestry assigned from the participants' genotype data, for example by principal components or clustering against a reference panel.
+    """
+    GEOGRAPHIC = "GEOGRAPHIC"
+    """
+    Defined by country, region, or recruitment site, with no statement about ethnicity or genetic ancestry (for example "patients seen at hospitals in Singapore").
+    """
+    NOT_STATED = "NOT_STATED"
+    """
+    The source names a population without saying how membership was determined.
+    """
+
+
+class PopulationEffectDifferenceEnum(str, Enum):
+    """
+    Which aspect of a variant's effect the source reports for the population, relative to the comparator population or to the variant's overall characterization.
+    """
+    CLASSIFICATION = "CLASSIFICATION"
+    """
+    The variant's pathogenicity classification or causal status differs in this population (for example disease-causing in one population, a common low-penetrance allele in another).
+    """
+    PENETRANCE = "PENETRANCE"
+    """
+    The proportion of carriers who develop the disease differs.
+    """
+    SEVERITY = "SEVERITY"
+    """
+    Disease severity, age at onset, or complication rate differs.
+    """
+    PHENOTYPE_SPECTRUM = "PHENOTYPE_SPECTRUM"
+    """
+    Which clinical features occur, or how often, differs (for example atypical or incomplete presentations).
+    """
+    ALLELE_FREQUENCY = "ALLELE_FREQUENCY"
+    """
+    The variant's frequency among patients or in the general population differs, as reported by the source.
+    """
+    NO_DIFFERENCE = "NO_DIFFERENCE"
+    """
+    The source compared the variant's effect across populations and reported no difference. A tested null is a finding; record it so a reader does not assume a population effect.
+    """
+
+
+class EffectModifierTypeEnum(str, Enum):
+    """
+    The characteristic of the treated population across which a treatment's effect is reported to differ. Used on TreatmentEffectModifier.effect_modifier_type.
+    """
+    AGE = "AGE"
+    """
+    Chronological age or age band.
+    """
+    SEX = "SEX"
+    """
+    Biological sex.
+    """
+    REPRODUCTIVE_STATUS = "REPRODUCTIVE_STATUS"
+    """
+    Menopausal, pubertal, pregnancy, or other reproductive-hormonal status, recorded separately from SEX because it varies within one sex.
+    """
+    BASELINE_SEVERITY = "BASELINE_SEVERITY"
+    """
+    Disease severity, functional status, or frailty at the start of treatment (for example a performance-battery score, disease stage, or frailty status).
+    """
+    GENOTYPE = "GENOTYPE"
+    """
+    A germline or somatic genotype, including a pharmacogenomic variant or a disease-gene subtype.
+    """
+    BIOMARKER = "BIOMARKER"
+    """
+    A non-genetic laboratory, imaging, or molecular marker measured at baseline.
+    """
+    COMORBIDITY = "COMORBIDITY"
+    """
+    A co-occurring disease or condition.
+    """
+    ANCESTRY = "ANCESTRY"
+    """
+    Genetic ancestry or population group.
+    """
+    CONCOMITANT_TREATMENT = "CONCOMITANT_TREATMENT"
+    """
+    A co-intervention received alongside the treatment (for example protein supplementation alongside exercise, or a second drug).
+    """
+    OTHER = "OTHER"
+    """
+    Any other characteristic; describe it in stratum and description.
+    """
+
+
+class EffectModificationDirectionEnum(str, Enum):
+    """
+    How the treatment's effect in the named stratum compares with its effect in the comparator stratum, for the named outcome.
+    """
+    LARGER_EFFECT = "LARGER_EFFECT"
+    """
+    The effect is larger in the stratum than in the comparator.
+    """
+    SMALLER_EFFECT = "SMALLER_EFFECT"
+    """
+    The effect is smaller but still present in the stratum.
+    """
+    NO_EFFECT = "NO_EFFECT"
+    """
+    No effect was detected in the stratum although one was detected in the comparator.
+    """
+    OPPOSITE_EFFECT = "OPPOSITE_EFFECT"
+    """
+    The effect runs in the opposite direction (harm, or reversal) in the stratum.
+    """
+    NO_DIFFERENCE = "NO_DIFFERENCE"
+    """
+    The effect was compared across strata and found not to differ. A tested null is a finding worth recording, because it stops a reader from assuming a subgroup difference.
+    """
+
+
+class EffectModificationAnalysisEnum(str, Enum):
+    """
+    How the subgroup difference was established. Ordered roughly from strongest to weakest: a subgroup effect claimed from a post hoc split or from comparing separate studies is a hypothesis, not a finding.
+    """
+    PRESPECIFIED_SUBGROUP = "PRESPECIFIED_SUBGROUP"
+    """
+    A subgroup analysis declared in the trial protocol or analysis plan before unblinding.
+    """
+    POST_HOC_SUBGROUP = "POST_HOC_SUBGROUP"
+    """
+    A subgroup analysis that was not prespecified.
+    """
+    META_ANALYSIS_SUBGROUP = "META_ANALYSIS_SUBGROUP"
+    """
+    Subgroup analysis or meta-regression across studies in a meta-analysis.
+    """
+    CROSS_STRATUM_COMPARISON = "CROSS_STRATUM_COMPARISON"
+    """
+    Strata that all received the treatment were compared with each other within one study, without a separate untreated control for each stratum (for example men versus women in a single-arm training study).
+    """
+    CROSS_STUDY_COMPARISON = "CROSS_STUDY_COMPARISON"
+    """
+    Inferred by comparing separate studies conducted in different populations; the weakest basis.
+    """
+    OTHER = "OTHER"
+    """
+    Any other basis; explain in description.
+    """
+
+
 class TherapeuticModalityEnum(str, Enum):
     """
     Broad therapeutic modality / platform of a treatment, independent of the specific agent or NCIT action term. Captures the "kind of thing" a treatment is (e.g., a small molecule vs. an antisense oligonucleotide vs. a gene therapy) so treatments are queryable by platform across diseases.
@@ -5301,13 +6185,13 @@ class OligonucleotideChemistryEnum(str, Enum):
     """
 
 
-class OligonucleotideConjugationEnum(str, Enum):
+class TargetingLigandEnum(str, Enum):
     """
-    Targeting ligand covalently attached to a therapeutic oligonucleotide to direct tissue uptake or improve pharmacokinetics. Distinct from delivery_platform, which records whether the oligonucleotide is carried by a conjugate at all as opposed to a nanoparticle, a viral vector, or nothing: an unconjugated oligonucleotide may still be formulated in a lipid nanoparticle (e.g., patisiran).
+    Targeting ligand attached to a therapeutic agent, or to the carrier particle that holds it, to direct tissue or cell uptake or to improve pharmacokinetics. Distinct from delivery_platform, which records what carries the agent at all as opposed to a nanoparticle, a viral vector, or nothing. The two axes are orthogonal in both directions: an unconjugated oligonucleotide may still be formulated in a lipid nanoparticle (e.g., patisiran), and a nanoparticle may itself carry a ligand on its surface (e.g., an antibody-coated mRNA lipid nanoparticle).
     """
     UNCONJUGATED = "UNCONJUGATED"
     """
-    No targeting conjugate (naked ASO)
+    No targeting ligand - a naked ASO, or a carrier particle with an unmodified surface
     """
     GalNAc_conjugated = "GALNAC"
     """
@@ -5323,17 +6207,21 @@ class OligonucleotideConjugationEnum(str, Enum):
     """
     ANTIBODY = "ANTIBODY"
     """
-    Antibody-oligonucleotide conjugate (AOC) for receptor-targeted delivery
+    Antibody or antibody fragment as the targeting ligand - an antibody-oligonucleotide conjugate (AOC), or an antibody coupled to the surface of a carrier particle for receptor-targeted delivery
+    """
+    Mannose_SOLIDUS_mannosylated = "MANNOSE"
+    """
+    Mannose or a mannosylated surface directing uptake via the macrophage mannose receptor (MRC1/CD206)
     """
     OTHER = "OTHER"
     """
-    Conjugate not covered by the above categories
+    Targeting ligand not covered by the above categories
     """
 
 
-class OligonucleotideDeliveryPlatformEnum(str, Enum):
+class DeliveryPlatformEnum(str, Enum):
     """
-    How a therapeutic oligonucleotide is carried to its target tissue. This is the delivery strategy, not the targeting ligand (see conjugation) and not the route of administration: it is what solves the stability, cellular-uptake, and endosomal-escape problem for a given drug. The distinction is clinically load-bearing - patisiran and vutrisiran silence the same transcript, but the lipid-nanoparticle formulation is dosed intravenously every three weeks with premedication, while the GalNAc conjugate is dosed subcutaneously every three months without it.
+    How a treatment's active agent is carried to its target tissue. This is the delivery strategy, not the targeting ligand (see targeting_ligand) and not the route of administration: it is what solves the stability, cellular-uptake, and endosomal-escape problem for a given drug. The distinction is clinically load-bearing - patisiran and vutrisiran silence the same transcript, but the lipid-nanoparticle formulation is dosed intravenously every three weeks with premedication, while the GalNAc conjugate is dosed subcutaneously every three months without it. The same axis separates two formulations of one small molecule: conventional and albumin-bound paclitaxel share an agent and differ in carrier.
     """
     Unformulated_SOLIDUS_free_uptake = "UNFORMULATED"
     """
@@ -5341,15 +6229,27 @@ class OligonucleotideDeliveryPlatformEnum(str, Enum):
     """
     Ligand_conjugate = "CONJUGATE"
     """
-    Covalently conjugated to a targeting ligand that drives receptor-mediated uptake; the specific ligand is recorded in conjugation (e.g., GalNAc for hepatocyte ASGR1 uptake)
+    Covalently conjugated to a targeting ligand that drives receptor-mediated uptake; the specific ligand is recorded in targeting_ligand (e.g., GalNAc for hepatocyte ASGR1 uptake)
     """
     Lipid_nanoparticle_LEFT_PARENTHESISLNPRIGHT_PARENTHESIS = "LIPID_NANOPARTICLE"
     """
-    Encapsulated in an ionizable-lipid nanoparticle that protects the payload and destabilizes the endosomal membrane on acidification (e.g., patisiran)
+    Encapsulated in an ionizable-lipid nanoparticle that protects the payload and destabilizes the endosomal membrane on acidification (e.g., patisiran, mRNA therapeutics). Distinct from LIPOSOME - the ionizable lipid is what releases a nucleic-acid payload from the endosome
+    """
+    Liposome = "LIPOSOME"
+    """
+    Encapsulated in a phospholipid bilayer vesicle, commonly PEGylated for circulation time, altering biodistribution and toxicity of an already cell-permeant agent rather than solving endosomal escape (e.g., liposomal doxorubicin, liposomal irinotecan, liposomal amphotericin B)
     """
     POLYMER_NANOPARTICLE = "POLYMER_NANOPARTICLE"
     """
     Encapsulated in a polymeric or dendrimer nanoparticle
+    """
+    Protein_nanoparticle_LEFT_PARENTHESISalbumin_boundRIGHT_PARENTHESIS = "PROTEIN_NANOPARTICLE"
+    """
+    Bound to or assembled with a carrier protein, usually albumin, to solubilize a hydrophobic agent without a synthetic surfactant (e.g., nab-paclitaxel, nab-sirolimus)
+    """
+    INORGANIC_NANOPARTICLE = "INORGANIC_NANOPARTICLE"
+    """
+    Carried on an inorganic core such as iron oxide, gold, or hafnium oxide
     """
     VIRAL_VECTOR = "VIRAL_VECTOR"
     """
@@ -5779,6 +6679,10 @@ class CriterionPredicateEnum(str, Enum):
     """
     Members involve a given biological process (biological_processes), optionally with a directional modifier.
     """
+    HAS_MOLECULAR_FUNCTION = "HAS_MOLECULAR_FUNCTION"
+    """
+    Members involve a given molecular function (molecular_functions), matched over the GO is_a/part_of closure of the criterion term against the GO terms curated in the member entry.
+    """
     HAS_CLASSIFICATION = "HAS_CLASSIFICATION"
     """
     Members carry a given nosology/classification assignment (classification).
@@ -5860,6 +6764,28 @@ class ModuleCollectionTypeEnum(str, Enum):
     Other = "OTHER"
     """
     A module-collection basis not covered by the other values.
+    """
+
+
+class ExecutionVenueEnum(str, Enum):
+    """
+    Broad kind of facility that would execute an ExecutableProtocol. Four coarse values rather than a vendor list: the classification is what a query needs (is this orderable by anyone, or does it need a local collaboration?), while the provider's identity is free text in `provider`, so a new laboratory is data and not a schema change.
+    """
+    Commercial_cloud_lab = "COMMERCIAL_CLOUD_LAB"
+    """
+    A commercial remote laboratory that accepts protocol orders from any paying customer and returns data, with no local presence or collaboration required. Ginkgo Cloud Lab, Emerald Cloud Lab and Strateos are of this kind.
+    """
+    Academic_automation_core = "ACADEMIC_AUTOMATION_CORE"
+    """
+    An institutional core facility or academic cloud lab running automated protocols as a service, typically requiring an institutional account, a collaboration, or a named investigator.
+    """
+    Local_laboratory = "LOCAL_LABORATORY"
+    """
+    A specific research laboratory that has the assay running and could execute it, reached through collaboration rather than by order.
+    """
+    Other = "OTHER"
+    """
+    A venue none of the above describes. Prefer adding a value to this enum over stretching an existing one.
     """
 
 
@@ -5972,6 +6898,59 @@ class Term(ConfiguredBaseModel):
          'domain_of': ['Term']} })
 
 
+class LoincCode(Term):
+    """
+    A Term whose id is a LOINC code, LOINC Part (LP...) or LOINC Group (LG...). Same {id, label} shape as Term; the pattern on id is what stops a CURIE from another vocabulary being accepted in a LOINC slot, which the LoincTerm binding alone cannot do, because the term validator resolves a CURIE through whatever adapter its own prefix names.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'id': {'name': 'id',
+                               'pattern': '^LOINC:(LP|LG)?[0-9]+-[0-9]$'}}})
+
+    id: str = Field(default=..., description="""Ontology term identifier (CURIE)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Term']} })
+    label: Optional[str] = Field(default=None, description="""Human-readable label for the ontology term""", json_schema_extra = { "linkml_meta": {'comments': ['This is automatically validated by the linkml-term-validator '
+                      'tool.'],
+         'domain_of': ['Term']} })
+
+    @field_validator('id')
+    def pattern_id(cls, v):
+        pattern=re.compile(r"^LOINC:(LP|LG)?[0-9]+-[0-9]$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid id format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid id format: {v}"
+            raise ValueError(err_msg)
+        return v
+
+
+class OMIMPSCode(Term):
+    """
+    An OMIM phenotypic-series identifier, distinct from an individual OMIM phenotype or gene record even when their six-digit numbers coincide.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'id': {'name': 'id', 'pattern': '^OMIMPS:[0-9]{6}$'}}})
+
+    id: str = Field(default=..., description="""Ontology term identifier (CURIE)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Term']} })
+    label: Optional[str] = Field(default=None, description="""Human-readable label for the ontology term""", json_schema_extra = { "linkml_meta": {'comments': ['This is automatically validated by the linkml-term-validator '
+                      'tool.'],
+         'domain_of': ['Term']} })
+
+    @field_validator('id')
+    def pattern_id(cls, v):
+        pattern=re.compile(r"^OMIMPS:[0-9]{6}$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid id format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid id format: {v}"
+            raise ValueError(err_msg)
+        return v
+
+
 class Descriptor(ConfiguredBaseModel):
     """
     Base class for structured descriptors that allow a preferred term, optional description, optional ontology term binding, and post-composition via modifier, located_in, laterality, spatial_extent, onset, temporality, clinical_course, and severity slots.
@@ -6001,6 +6980,7 @@ class Descriptor(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6014,6 +6994,7 @@ class Descriptor(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6028,12 +7009,15 @@ class Descriptor(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -6114,6 +7098,7 @@ class DietaryModification(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6127,6 +7112,7 @@ class DietaryModification(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6141,12 +7127,15 @@ class DietaryModification(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -6187,6 +7176,7 @@ class CellTypeDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6200,6 +7190,7 @@ class CellTypeDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6214,12 +7205,15 @@ class CellTypeDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -6286,6 +7280,7 @@ class BiologicalProcessDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6299,6 +7294,7 @@ class BiologicalProcessDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6313,12 +7309,15 @@ class BiologicalProcessDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -6385,6 +7384,7 @@ class MolecularFunctionDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6398,6 +7398,7 @@ class MolecularFunctionDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6412,12 +7413,15 @@ class MolecularFunctionDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -6484,6 +7488,7 @@ class AnatomicalEntityDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6497,6 +7502,7 @@ class AnatomicalEntityDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6511,12 +7517,15 @@ class AnatomicalEntityDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -6583,6 +7592,7 @@ class ChemicalEntityDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6596,6 +7606,7 @@ class ChemicalEntityDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6610,12 +7621,15 @@ class ChemicalEntityDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -6636,6 +7650,111 @@ class ChemicalEntityDescriptor(Descriptor):
     term: Optional[Term] = Field(default=None, description="""Optional CHEBI chemical entity term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
                        'range': 'ChemicalEntityTerm'}],
+         'domain_of': ['Descriptor',
+                       'TermMapping',
+                       'ConditionDescriptor',
+                       'GOEnrichmentTerm'],
+         'recommended': True} })
+    modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional, functional, or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal, gain of function, loss of function). See ModifierEnum for the boundary between the quantitative INCREASED/DECREASED values and the GAIN_OF_FUNCTION/LOSS_OF_FUNCTION values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding', 'DifferentiatingMechanism']} })
+    located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor',
+                       'PhenotypeContext',
+                       'ReferenceRangeBand',
+                       'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Prefer explicit slots like located_in and laterality instead '
+                       'of generic qualifiers',
+         'domain_of': ['Descriptor']} })
+
+
+class GeneOrProductDescriptor(Descriptor):
+    """
+    A descriptor for a gene or gene product in a model system or dataset, bindable to HGNC for a human gene, to the species' Alliance MOD (MGI, RGD, ZFIN, Xenbase, FB, WB, SGD) for a model-organism gene, or to NCBI Gene for a species with no MOD.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
+                                               'obligation_level': 'REQUIRED',
+                                               'range': 'GeneOrProductTerm'}],
+                                 'description': 'hgnc:, an Alliance MOD prefix (MGI:, '
+                                                'RGD:, ZFIN:, Xenbase:, FB:, WB:, '
+                                                'SGD:) or NCBIGene: term reference',
+                                 'name': 'term'}}})
+
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GenomicRegion',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': False} })
+    term: Optional[Term] = Field(default=None, description="""hgnc:, an Alliance MOD prefix (MGI:, RGD:, ZFIN:, Xenbase:, FB:, WB:, SGD:) or NCBIGene: term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
+                       'obligation_level': 'REQUIRED',
+                       'range': 'GeneOrProductTerm'}],
          'domain_of': ['Descriptor',
                        'TermMapping',
                        'ConditionDescriptor',
@@ -6682,6 +7801,7 @@ class GeneDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6695,6 +7815,7 @@ class GeneDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6709,12 +7830,15 @@ class GeneDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -6781,6 +7905,7 @@ class CellularComponentDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6794,6 +7919,7 @@ class CellularComponentDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6808,12 +7934,15 @@ class CellularComponentDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -6880,6 +8009,7 @@ class ProteinComplexDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -6893,6 +8023,7 @@ class ProteinComplexDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -6907,12 +8038,15 @@ class ProteinComplexDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -6992,6 +8126,7 @@ class AssayDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7005,6 +8140,7 @@ class AssayDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -7019,12 +8155,15 @@ class AssayDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -7090,6 +8229,7 @@ class TriggerDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7103,6 +8243,7 @@ class TriggerDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -7117,12 +8258,15 @@ class TriggerDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -7188,6 +8332,7 @@ class DiseaseDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7201,6 +8346,7 @@ class DiseaseDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -7215,12 +8361,15 @@ class DiseaseDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -7287,6 +8436,7 @@ class SubtypeDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7300,6 +8450,7 @@ class SubtypeDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -7314,12 +8465,15 @@ class SubtypeDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -7385,6 +8539,7 @@ class BiomarkerDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7398,6 +8553,7 @@ class BiomarkerDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -7412,12 +8568,15 @@ class BiomarkerDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -7438,6 +8597,111 @@ class BiomarkerDescriptor(Descriptor):
     term: Optional[Term] = Field(default=None, description="""NCIT biomarker term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
                        'range': 'BiomarkerTerm'}],
+         'domain_of': ['Descriptor',
+                       'TermMapping',
+                       'ConditionDescriptor',
+                       'GOEnrichmentTerm'],
+         'recommended': True} })
+    modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional, functional, or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal, gain of function, loss of function). See ModifierEnum for the boundary between the quantitative INCREASED/DECREASED values and the GAIN_OF_FUNCTION/LOSS_OF_FUNCTION values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding', 'DifferentiatingMechanism']} })
+    located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor',
+                       'PhenotypeContext',
+                       'ReferenceRangeBand',
+                       'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Prefer explicit slots like located_in and laterality instead '
+                       'of generic qualifiers',
+         'domain_of': ['Descriptor']} })
+
+
+class MeasurementDescriptor(Descriptor):
+    """
+    A descriptor for a clinical measurement, bindable to LOINC. Names the observable a test reads (an analyte in a specimen, a panel, an instrument's total score), as distinct from the analyte entity itself, which BiomarkerDescriptor binds to NCIT.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
+                                               'obligation_level': 'REQUIRED',
+                                               'range': 'LoincTerm'}],
+                                 'description': 'LOINC code for the measurement, '
+                                                'panel, or LOINC Part',
+                                 'name': 'term',
+                                 'range': 'LoincCode'}}})
+
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GenomicRegion',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': False} })
+    term: Optional[LoincCode] = Field(default=None, description="""LOINC code for the measurement, panel, or LOINC Part""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
+                       'obligation_level': 'REQUIRED',
+                       'range': 'LoincTerm'}],
          'domain_of': ['Descriptor',
                        'TermMapping',
                        'ConditionDescriptor',
@@ -7483,6 +8747,7 @@ class GeneProductDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7496,6 +8761,7 @@ class GeneProductDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -7510,12 +8776,15 @@ class GeneProductDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -7590,6 +8859,7 @@ class HistopathologyFindingDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7603,6 +8873,7 @@ class HistopathologyFindingDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -7617,12 +8888,15 @@ class HistopathologyFindingDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -7693,6 +8967,7 @@ class ImagingFindingDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7706,6 +8981,7 @@ class ImagingFindingDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -7720,12 +8996,15 @@ class ImagingFindingDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -7807,6 +9086,7 @@ class LifeCycleStageDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7820,6 +9100,7 @@ class LifeCycleStageDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -7834,12 +9115,15 @@ class LifeCycleStageDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -7887,13 +9171,17 @@ class PhenotypeDescriptor(Descriptor):
     """
     A descriptor for phenotypes, bindable to Human Phenotype Ontology (HP)
     """
-    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['A binding to a top-level HPO organ-system term must say why via '
+                      'coarse_binding_basis'],
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech',
          'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
                                                'obligation_level': 'REQUIRED',
                                                'range': 'PhenotypeTerm'}],
                                  'description': 'Optional HP phenotype term reference',
                                  'name': 'term'}}})
 
+    coarse_binding_basis: Optional[CoarseBindingBasisEnum] = Field(default=None, description="""Why this descriptor is deliberately bound to a coarse, organ-system-level term rather than a specific finding. Required on any phenotype bound to a top-level HPO organ-system term (see CoarseBindingBasisEnum and `just check-coarse-phenotypes`); permitted, and companion-checked, on any binding a curator judges coarse.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeDescriptor']} })
+    term_gap: Optional[str] = Field(default=None, description="""The ontology gap behind a NO_HPO_TERM binding -- ideally a term-request URL, otherwise a short note on what was searched and what is missing. Turns a permanent gap into a lead, in the same spirit as the \"searched, found nothing\" record an uncitable exposure carries.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeDescriptor']} })
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -7905,6 +9193,7 @@ class PhenotypeDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -7918,6 +9207,7 @@ class PhenotypeDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -7932,12 +9222,15 @@ class PhenotypeDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -8004,6 +9297,7 @@ class InheritanceDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8017,6 +9311,7 @@ class InheritanceDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8031,12 +9326,15 @@ class InheritanceDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -8147,6 +9445,7 @@ class TreatmentDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8160,6 +9459,7 @@ class TreatmentDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8174,12 +9474,15 @@ class TreatmentDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -8245,6 +9548,7 @@ class RegimenDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8258,6 +9562,7 @@ class RegimenDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8272,12 +9577,15 @@ class RegimenDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -8298,6 +9606,213 @@ class RegimenDescriptor(Descriptor):
     term: Optional[Term] = Field(default=None, description="""Optional NCIT regimen term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
                        'range': 'RegimenTerm'}],
+         'domain_of': ['Descriptor',
+                       'TermMapping',
+                       'ConditionDescriptor',
+                       'GOEnrichmentTerm'],
+         'recommended': True} })
+    modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional, functional, or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal, gain of function, loss of function). See ModifierEnum for the boundary between the quantitative INCREASED/DECREASED values and the GAIN_OF_FUNCTION/LOSS_OF_FUNCTION values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding', 'DifferentiatingMechanism']} })
+    located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor',
+                       'PhenotypeContext',
+                       'ReferenceRangeBand',
+                       'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Prefer explicit slots like located_in and laterality instead '
+                       'of generic qualifiers',
+         'domain_of': ['Descriptor']} })
+
+
+class AncestryDescriptor(Descriptor):
+    """
+    A descriptor for a human population or ancestry group, bindable to HANCESTRO. preferred_term keeps the source's own wording when it is more specific than, or different from, the best available HANCESTRO label.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
+                                               'obligation_level': 'REQUIRED',
+                                               'range': 'AncestryTerm'}],
+                                 'description': 'Optional HANCESTRO population or '
+                                                'ancestry term reference',
+                                 'name': 'term'}}})
+
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GenomicRegion',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': False} })
+    term: Optional[Term] = Field(default=None, description="""Optional HANCESTRO population or ancestry term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
+                       'obligation_level': 'REQUIRED',
+                       'range': 'AncestryTerm'}],
+         'domain_of': ['Descriptor',
+                       'TermMapping',
+                       'ConditionDescriptor',
+                       'GOEnrichmentTerm'],
+         'recommended': True} })
+    modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional, functional, or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal, gain of function, loss of function). See ModifierEnum for the boundary between the quantitative INCREASED/DECREASED values and the GAIN_OF_FUNCTION/LOSS_OF_FUNCTION values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding', 'DifferentiatingMechanism']} })
+    located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor',
+                       'PhenotypeContext',
+                       'ReferenceRangeBand',
+                       'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Prefer explicit slots like located_in and laterality instead '
+                       'of generic qualifiers',
+         'domain_of': ['Descriptor']} })
+
+
+class MHCDescriptor(Descriptor):
+    """
+    A descriptor for an MHC/HLA allele, serotype, haplotype, or presenting protein complex, bindable to MRO (MHC Restriction Ontology).
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
+                                               'obligation_level': 'REQUIRED',
+                                               'range': 'MHCTerm'}],
+                                 'description': 'Optional MRO term reference',
+                                 'name': 'term'}}})
+
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GenomicRegion',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': False} })
+    term: Optional[Term] = Field(default=None, description="""Optional MRO term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
+                       'obligation_level': 'REQUIRED',
+                       'range': 'MHCTerm'}],
          'domain_of': ['Descriptor',
                        'TermMapping',
                        'ConditionDescriptor',
@@ -8348,6 +9863,7 @@ class ExposureDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8361,6 +9877,7 @@ class ExposureDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8375,12 +9892,15 @@ class ExposureDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -8449,6 +9969,7 @@ class EnvironmentDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8462,6 +9983,7 @@ class EnvironmentDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8476,12 +9998,15 @@ class EnvironmentDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -8552,6 +10077,7 @@ class FoodDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8565,6 +10091,7 @@ class FoodDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8579,12 +10106,15 @@ class FoodDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -8650,6 +10180,7 @@ class OrganismDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8663,6 +10194,7 @@ class OrganismDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8677,12 +10209,15 @@ class OrganismDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -8734,7 +10269,7 @@ class HostDescriptor(OrganismDescriptor):
                       'or paratenic host'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
-    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone, many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061).""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
+    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries well over a hundred distinct values on pathophysiology nodes alone (`just node-role-audit` for the current census), many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061). On a pathophysiology node, a role saying what kind of thing the node is (`mechanism`, `driver`, `organ_dysfunction`) belongs in node_class instead, and a node's position in the cascade (`trigger`, `consequence`) can be read from its downstream edges.""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
                       'an initiating-sounding role does NOT identify the cell of '
                       'origin: that derivation reads `genetic_context.variant_origin: '
                       'SOMATIC` on the lesion node, or an `environmental_effect: '
@@ -8754,6 +10289,7 @@ class HostDescriptor(OrganismDescriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8767,6 +10303,7 @@ class HostDescriptor(OrganismDescriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8781,12 +10318,123 @@ class HostDescriptor(OrganismDescriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': False} })
+    term: Optional[Term] = Field(default=None, description="""NCBITaxon term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
+                       'obligation_level': 'REQUIRED',
+                       'range': 'OrganismTerm'}],
+         'domain_of': ['Descriptor',
+                       'TermMapping',
+                       'ConditionDescriptor',
+                       'GOEnrichmentTerm'],
+         'recommended': True} })
+    modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional, functional, or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal, gain of function, loss of function). See ModifierEnum for the boundary between the quantitative INCREASED/DECREASED values and the GAIN_OF_FUNCTION/LOSS_OF_FUNCTION values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding', 'DifferentiatingMechanism']} })
+    located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor',
+                       'PhenotypeContext',
+                       'ReferenceRangeBand',
+                       'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Prefer explicit slots like located_in and laterality instead '
+                       'of generic qualifiers',
+         'domain_of': ['Descriptor']} })
+
+
+class AgentSubtypeDescriptor(OrganismDescriptor):
+    """
+    A descriptor for a taxonomic stratum below a named infectious agent - subspecies, serovar, serotype, or biotype - bindable to NCBITaxon.
+    Distinct from SubtypeDescriptor, which grounds a *disease* subtype to MONDO or NCIT. An agent stratum is an organism, not a disease, so it binds through OrganismTerm and inherits that binding from OrganismDescriptor unchanged.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['Bind only at a rank NCBITaxon genuinely carries. Where the only '
+                      'candidate node is the parent species, omit the term rather than '
+                      'binding it - an agent stratum bound to its own parent asserts '
+                      'nothing and reads as grounded.',
+                      'Pathotypes (ETEC, MRSA, toxigenic C. difficile) are defined by '
+                      'virulence gene content rather than phylogeny and have no '
+                      'NCBITaxon node. They are carried structurally, by naming the '
+                      'defining determinant in the subtype description, and must not '
+                      'be bound here.'],
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GenomicRegion',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -8849,6 +10497,7 @@ class SampleTypeDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8862,6 +10511,7 @@ class SampleTypeDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -8876,12 +10526,15 @@ class SampleTypeDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -8935,6 +10588,7 @@ class GenomicRegion(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8943,6 +10597,7 @@ class GenomicRegion(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -8981,6 +10636,7 @@ class GenomicRegion(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -8994,6 +10650,7 @@ class GenomicRegion(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -9008,6 +10665,7 @@ class GenomicRegion(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
                        'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
@@ -9015,6 +10673,7 @@ class GenomicRegion(ConfiguredBaseModel):
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -9060,6 +10719,7 @@ class GeneticContext(ConfiguredBaseModel):
 
     gene: Optional[GeneDescriptor] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'ExperimentalPerturbation',
+                       'GeneClassification',
                        'Pathophysiology',
                        'Variant',
                        'LogicalCriterion',
@@ -9067,8 +10727,10 @@ class GeneticContext(ConfiguredBaseModel):
          'examples': [{'value': '{preferred_term: MEFV}'}]} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
+                       'GeneClassificationCollection',
                        'Pathophysiology',
                        'AnimalModel'],
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
@@ -9093,6 +10755,7 @@ class GeneticContext(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9106,6 +10769,7 @@ class GeneticContext(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -9120,12 +10784,15 @@ class GeneticContext(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -9151,6 +10818,7 @@ class GeneticContext(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9158,10 +10826,13 @@ class GeneticContext(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -9178,8 +10849,11 @@ class GeneticContext(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -9220,6 +10894,7 @@ class OnsetDescriptor(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9227,10 +10902,13 @@ class OnsetDescriptor(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -9247,8 +10925,11 @@ class OnsetDescriptor(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -9309,6 +10990,7 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9316,10 +10998,13 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -9336,8 +11021,11 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -9364,6 +11052,7 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -9381,6 +11070,7 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -9396,11 +11086,14 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -9431,6 +11124,7 @@ class PhenotypeContext(ConfiguredBaseModel):
                        'ReferenceRange',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'VariantPopulationEffect',
                        'AssociationSignal'],
          'examples': [{'value': 'Global'}]} })
     age_range: Optional[str] = Field(default=None, description="""Age range or stratification, if applicable""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
@@ -9440,6 +11134,7 @@ class PhenotypeContext(ConfiguredBaseModel):
          'examples': [{'value': 'Childhood-Adolescence'}]} })
     subtype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Prevalence',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'Phenotype',
                        'Biochemical',
@@ -9466,7 +11161,16 @@ class Dataset(ConfiguredBaseModel):
                                                        'standardization of the title '
                                                        'slot.',
                                         'name': 'description',
-                                        'recommended': True}}})
+                                        'recommended': True},
+                        'genes': {'description': 'Genes perturbed or profiled in the '
+                                                 "dataset, named in the dataset's "
+                                                 'organism: hgnc: for a human gene, '
+                                                 "the species' Alliance MOD identifier "
+                                                 '(MGI: for a mouse knockout) where '
+                                                 'one exists, otherwise NCBIGene:.',
+                                  'inlined_as_list': True,
+                                  'name': 'genes',
+                                  'range': 'GeneOrProductDescriptor'}}})
 
     accession: str = Field(default=..., description="""Dataset accession identifier as a CURIE (e.g., geo:GSE67472)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset'], 'implements': ['linkml:authoritative_reference']} })
     title: Optional[str] = Field(default=None, description="""Title of the publication""", json_schema_extra = { "linkml_meta": {'comments': ['The `linkml:title` annotation is INERT for '
@@ -9499,6 +11203,7 @@ class Dataset(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9512,6 +11217,7 @@ class Dataset(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -9526,12 +11232,15 @@ class Dataset(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -9555,10 +11264,12 @@ class Dataset(ConfiguredBaseModel):
     sample_count: Optional[int] = Field(default=None, description="""Total number of samples in the dataset""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
     conditions: Optional[list[str]] = Field(default=None, description="""Experimental conditions or disease states represented""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset', 'ExperimentalModel']} })
     exposures: Optional[list[ExposureDescriptor]] = Field(default=None, description="""Environmental exposures studied in the dataset""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
-    genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+    genes: Optional[list[GeneOrProductDescriptor]] = Field(default=None, description="""Genes perturbed or profiled in the dataset, named in the dataset's organism: hgnc: for a human gene, the species' Alliance MOD identifier (MGI: for a mouse knockout) where one exists, otherwise NCBIGene:.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
+                       'GeneClassificationCollection',
                        'Pathophysiology',
                        'AnimalModel'],
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
@@ -9579,6 +11290,7 @@ class Dataset(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -9596,6 +11308,7 @@ class Dataset(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -9611,11 +11324,14 @@ class Dataset(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -9642,6 +11358,7 @@ class Dataset(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9649,10 +11366,13 @@ class Dataset(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -9669,8 +11389,11 @@ class Dataset(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -9706,7 +11429,21 @@ class ExperimentalModel(ConfiguredBaseModel):
                       'and `description` or `notes` for disease-specific nuance',
                       'Use `cell_source` to record whether the system is '
                       'patient-derived, iPSC-derived, primary, immortalized, or mixed'],
-         'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'genes': {'description': 'Genes or gene products perturbed, '
+                                                 'expressed, or carried as a variant '
+                                                 'in this system, named in the '
+                                                 'organism the cells came from: hgnc: '
+                                                 "for a human gene, the species' "
+                                                 'Alliance MOD identifier where one '
+                                                 "exists (a mouse cell line's knockout "
+                                                 'is MGI:, not its human ortholog), '
+                                                 'otherwise NCBIGene:. Orthology to '
+                                                 'the human disease gene goes in '
+                                                 'description or notes.',
+                                  'inlined_as_list': True,
+                                  'name': 'genes',
+                                  'range': 'GeneOrProductDescriptor'}}})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'domain_of': ['GenomicRegion',
                        'ExperimentalModel',
@@ -9714,6 +11451,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9722,6 +11460,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -9760,6 +11499,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9773,6 +11513,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -9787,12 +11528,15 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -9816,6 +11560,15 @@ class ExperimentalModel(ConfiguredBaseModel):
     cell_types: Optional[list[CellTypeDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel', 'Pathophysiology', 'Biochemical'],
          'examples': [{'value': '[{preferred_term: Macrophage}, {preferred_term: T '
                                 'Cell}]'}]} })
+    genes: Optional[list[GeneOrProductDescriptor]] = Field(default=None, description="""Genes or gene products perturbed, expressed, or carried as a variant in this system, named in the organism the cells came from: hgnc: for a human gene, the species' Alliance MOD identifier where one exists (a mouse cell line's knockout is MGI:, not its human ortholog), otherwise NCBIGene:. Orthology to the human disease gene goes in description or notes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ExperimentalPerturbation',
+                       'Subtype',
+                       'GeneClassificationCollection',
+                       'Pathophysiology',
+                       'AnimalModel'],
+         'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
     conditions: Optional[list[str]] = Field(default=None, description="""Experimental conditions or disease states represented""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset', 'ExperimentalModel']} })
     cell_source: Optional[str] = Field(default=None, description="""Source of cells used in the experimental model""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel']} })
     culture_system: Optional[str] = Field(default=None, description="""Culture format or device context used by the experimental model""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel']} })
@@ -9844,6 +11597,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -9861,6 +11615,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -9876,11 +11631,14 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -9907,6 +11665,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -9914,10 +11673,13 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -9934,8 +11696,11 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -9967,7 +11732,21 @@ class Experiment(ConfiguredBaseModel):
                       'Use `model_systems` for NAMO-aligned models, `perturbations` '
                       'for pathograph/gene/chemical/exposure manipulations, and '
                       '`readouts` for ontology-backed outcome or mechanism '
-                      'measurements.'],
+                      'measurements.',
+                      'Model systems are split three ways, mirroring the disease-level '
+                      '`experimental_models` / `animal_models` / '
+                      '`computational_models` sections and reusing the same classes: '
+                      '`model_systems` takes non-animal ExperimentalModel entries, '
+                      '`animal_models` whole-organism AnimalModel entries, and '
+                      '`computational_models` in-silico ComputationalModel entries. '
+                      'Before this split, an animal or in-silico proposal could only '
+                      'reach the pathograph through `experimental_model_type: OTHER`, '
+                      "which ExperimentalModel's own comment forbids.",
+                      '`experiment_design` is the coarse, always-fillable design '
+                      'family and `executability` records how far the proposal has '
+                      'been specified. Both are optional so that existing prose-level '
+                      'proposals validate unchanged, but a new experiment should carry '
+                      'at least `experiment_design`.'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech',
          'slot_usage': {'assays': {'description': 'Ontology-backed assays used by the '
                                                   'experiment; prefer OBI terms when '
@@ -10007,6 +11786,7 @@ class Experiment(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10015,6 +11795,7 @@ class Experiment(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10053,6 +11834,7 @@ class Experiment(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10066,6 +11848,7 @@ class Experiment(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10080,12 +11863,15 @@ class Experiment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -10102,14 +11888,18 @@ class Experiment(ConfiguredBaseModel):
                        'DifferentiatingMechanism',
                        'ModuleCollection',
                        'ModuleCollectionMember']} })
+    experiment_design: Optional[ExperimentDesignEnum] = Field(default=None, description="""Broad design family of the experiment. Small, closed, and intended to be fillable on every experiment, in contrast to `experiment_type`, which takes an ontology-backed Descriptor for finer detail.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment']} })
     experiment_type: Optional[Descriptor] = Field(default=None, description="""Ontology-backed descriptor for the overall experiment or study design. Prefer OBI terms when available; assay-level details should go in the `assays` slot.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment']} })
-    model_systems: Optional[list[ExperimentalModel]] = Field(default=None, description="""Experimental model systems used or proposed for an experiment, using the ExperimentalModel pattern and optional NAMO alignment.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'ExperimentalControl']} })
+    executability: Optional[ExperimentExecutabilityEnum] = Field(default=None, description="""How far this experiment has been specified, from a prose sketch through to a machine-runnable protocol. Records the state of the proposal; it is not a quality or priority judgement.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment']} })
+    model_systems: Optional[list[ExperimentalModel]] = Field(default=None, description="""Non-animal experimental model systems used or proposed for an experiment, using the ExperimentalModel pattern and optional NAMO alignment. A whole-organism animal model belongs in the sibling `animal_models` slot and an in-silico model in `computational_models`; do not route either here via `experimental_model_type: OTHER`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'ExperimentalControl']} })
+    animal_models: Optional[list[AnimalModel]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'Disease']} })
+    computational_models: Optional[list[ComputationalModel]] = Field(default=None, description="""Computational models (metabolic, mechanistic, ML, digital twins) for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'Disease']} })
     perturbations: Optional[list[ExperimentalPerturbation]] = Field(default=None, description="""Interventions or manipulations applied in the experiment. These may target disease pathograph nodes, genes, chemical entities, treatments, exposures, triggers, or biological processes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'ExperimentalControl', 'ComputationalModel']} })
     assays: Optional[list[AssayDescriptor]] = Field(default=None, description="""Ontology-backed assays used by the experiment; prefer OBI terms when available.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment',
                        'ExperimentalReadout',
                        'Pathophysiology',
                        'Biochemical'],
-         'examples': [{'value': '[{preferred_term: Elevated Blood Glucose}]'}]} })
+         'examples': [{'value': '[{preferred_term: patch-clamp electrophysiology}]'}]} })
     readouts: Optional[list[ExperimentalReadout]] = Field(default=None, description="""Measurements or outcomes interpreted against disease pathograph nodes, phenotypes, biomarkers, or biological processes.""", json_schema_extra = { "linkml_meta": {'comments': ['Target names should match pathophysiology or phenotype entry '
                       'names in the same disease file',
                       'Readout links are observational/associative, not causal '
@@ -10126,6 +11916,7 @@ class Experiment(ConfiguredBaseModel):
 Distinct from `would_support`, which takes entity references. A curator writing \"Increased progenitor apoptosis in patient organoids would establish that the mouse mechanism operates in human cells\" is stating an outcome and belongs here; one writing `pathophysiology#Motor Neuron Degeneration` is naming a node and belongs in `would_support`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment']} })
     refuting_outcome: Optional[list[str]] = Field(default=None, description="""Prose statement of an experimental result that would weaken or refute the attached claim. The refuting arm of `decision_criterion`; the counterpart of `supporting_outcome`, and distinct from `would_refute` in the same way.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment']} })
     protocol_reference: Optional[str] = Field(default=None, description="""Optional protocol, methods paper, or registry reference for the experimental workflow. May be a PMID, DOI, protocols.io DOI, URL, or other stable identifier.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment']} })
+    executable_protocols: Optional[list[ExecutableProtocol]] = Field(default=None, description="""Concrete, orderable protocols that would execute some or all of this experiment, each naming a provider and that provider's own catalogue identifier. Distinct from `protocol_reference`, which cites a *methods paper* describing how a technique works: an ExecutableProtocol is a service that can be ordered. Recording one does not propose, authorise, or commit to running it.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment']} })
     datasets: Optional[list[Dataset]] = Field(default=None, description="""Publicly available datasets relevant to disease research""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'Disease'], 'recommended': True} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, description="""Literature, protocol papers, or dataset evidence supporting the feasibility, precedent, or design rationale for this experiment.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
@@ -10134,6 +11925,7 @@ Distinct from `would_support`, which takes entity references. A curator writing 
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -10151,6 +11943,7 @@ Distinct from `would_support`, which takes entity references. A curator writing 
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -10166,11 +11959,14 @@ Distinct from `would_support`, which takes entity references. A curator writing 
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -10197,6 +11993,7 @@ Distinct from `would_support`, which takes entity references. A curator writing 
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10204,10 +12001,13 @@ Distinct from `would_support`, which takes entity references. A curator writing 
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -10224,8 +12024,11 @@ Distinct from `would_support`, which takes entity references. A curator writing 
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -10266,6 +12069,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10274,6 +12078,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10312,6 +12117,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10325,6 +12131,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10339,12 +12146,15 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -10371,6 +12181,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'PhenotypeReadout']} })
     gene: Optional[GeneDescriptor] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'ExperimentalPerturbation',
+                       'GeneClassification',
                        'Pathophysiology',
                        'Variant',
                        'LogicalCriterion',
@@ -10378,8 +12189,10 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
          'examples': [{'value': '{preferred_term: MEFV}'}]} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
+                       'GeneClassificationCollection',
                        'Pathophysiology',
                        'AnimalModel'],
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
@@ -10404,6 +12217,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -10421,6 +12235,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -10436,11 +12251,14 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -10467,6 +12285,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10474,10 +12293,13 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -10494,8 +12316,11 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -10565,6 +12390,7 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10573,6 +12399,7 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10611,6 +12438,7 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10624,6 +12452,7 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10638,12 +12467,15 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -10684,11 +12516,11 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'LogicalCriterion',
                        'DifferentiatingMechanism'],
          'examples': [{'value': '[{preferred_term: TNF-alpha Production}]'}]} })
-    assays: Optional[list[AssayDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment',
+    assays: Optional[list[AssayDescriptor]] = Field(default=None, description="""Assays used to measure or observe the thing this slot sits on: the technique, such as an imaging modality, a sequencing method, an electrophysiological recording or a laboratory test. An assay is how something is measured, never the result. A finding such as an elevated analyte belongs in biochemical (with readouts linking it to a pathophysiology node) or in phenotypes, not here. Bind OBI terms where one fits.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment',
                        'ExperimentalReadout',
                        'Pathophysiology',
                        'Biochemical'],
-         'examples': [{'value': '[{preferred_term: Elevated Blood Glucose}]'}]} })
+         'examples': [{'value': '[{preferred_term: patch-clamp electrophysiology}]'}]} })
     direction: Optional[Union[BiomarkerReadoutDirectionEnum, ModelReadoutDirectionEnum]] = Field(default=None, description="""Direction of the measured or expected effect. Accepts ModelReadoutDirectionEnum (INCREASED, DECREASED, UNCHANGED, RESTORED, ABOLISHED, ALTERED) for an experimental measurement relative to its comparator, and BiomarkerReadoutDirectionEnum for a readout expressed as the direction of association with an endpoint. Prefer the model enum for a measurement made in a model system.""", json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'ModelReadoutDirectionEnum'},
                     {'range': 'BiomarkerReadoutDirectionEnum'}],
          'domain_of': ['ExperimentalReadout', 'BiomarkerReadout', 'PhenotypeReadout']} })
@@ -10703,6 +12535,7 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -10720,6 +12553,7 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -10735,11 +12569,14 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -10766,6 +12603,7 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10773,10 +12611,13 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -10793,8 +12634,11 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -10831,6 +12675,7 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10839,6 +12684,7 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -10877,6 +12723,7 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -10890,6 +12737,7 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -10904,12 +12752,15 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -10926,7 +12777,7 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'DifferentiatingMechanism',
                        'ModuleCollection',
                        'ModuleCollectionMember']} })
-    model_systems: Optional[list[ExperimentalModel]] = Field(default=None, description="""Experimental model systems used or proposed for an experiment, using the ExperimentalModel pattern and optional NAMO alignment.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'ExperimentalControl']} })
+    model_systems: Optional[list[ExperimentalModel]] = Field(default=None, description="""Non-animal experimental model systems used or proposed for an experiment, using the ExperimentalModel pattern and optional NAMO alignment. A whole-organism animal model belongs in the sibling `animal_models` slot and an in-silico model in `computational_models`; do not route either here via `experimental_model_type: OTHER`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'ExperimentalControl']} })
     perturbations: Optional[list[ExperimentalPerturbation]] = Field(default=None, description="""Gene knockouts, reaction deletions, or parameter changes modeling the disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'ExperimentalControl', 'ComputationalModel']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
@@ -10935,6 +12786,7 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -10952,6 +12804,7 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -10967,11 +12820,14 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -10998,6 +12854,7 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -11005,10 +12862,13 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -11025,8 +12885,322 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+
+
+class ExecutableProtocol(ConfiguredBaseModel):
+    """
+    A concrete, orderable protocol at a named provider that would execute some or all of a proposed experiment, together with what it needs as input and which pathograph nodes it would return a measurement on.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['Reached from `Experiment.executable_protocols`. A proposed '
+                      'experiment in a `KNOWLEDGE_GAP` discussion states what *should* '
+                      'be measured; this records that a service exists which would '
+                      'measure it, so the feasibility of a gap is readable from the '
+                      'entry rather than re-researched each time somebody asks what it '
+                      'would take to close it.',
+                      'Recording a protocol is a feasibility note, not a plan. It does '
+                      'not propose, authorise, fund, or commit to running anything, '
+                      'and it is not evidence about the disease: nothing here asserts '
+                      'a result.',
+                      '`provider` plus `protocol_id` is the identity of the service '
+                      'and `venue_type` is the durable classification. Deliberately '
+                      'records no price, turnaround, or throughput: those are '
+                      'commercial terms that go out of date without any signal that '
+                      "they have, and reproducing a vendor's price list is not this "
+                      "knowledge base's job. Cost and scheduling are settled with the "
+                      'provider at the point of ordering.'],
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'description': {'description': 'What this protocol would '
+                                                       'contribute to the experiment, '
+                                                       'and why it is the right one — '
+                                                       "the curator's reasoning, not "
+                                                       "the provider's marketing copy.",
+                                        'name': 'description'},
+                        'evidence': {'description': 'Literature or provider '
+                                                    'documentation supporting the '
+                                                    "protocol's suitability or its "
+                                                    'precedent for this measurement. '
+                                                    'Not a place for results: this '
+                                                    'object describes a protocol that '
+                                                    'has not been run.',
+                                     'name': 'evidence',
+                                     'recommended': False},
+                        'name': {'description': "The protocol's name as the provider "
+                                                'publishes it, copied exactly. A '
+                                                'summary of what it would be used for '
+                                                'belongs in `description`.',
+                                 'name': 'name',
+                                 'required': True},
+                        'provider': {'name': 'provider', 'required': True},
+                        'retrieved_date': {'description': "Date the provider's "
+                                                          'catalogue was read for the '
+                                                          'identifier recorded here. '
+                                                          'Record it alongside '
+                                                          '`protocol_id` or '
+                                                          '`protocol_url`, because a '
+                                                          "provider's catalogue "
+                                                          'changes without notice and '
+                                                          'without a version, so an '
+                                                          'identifier with no '
+                                                          'retrieval date cannot be '
+                                                          'aged: a reader has no way '
+                                                          'to tell a current handle '
+                                                          'from one that was renamed '
+                                                          'two years ago.',
+                                           'name': 'retrieved_date'}}})
+
+    name: str = Field(default=..., description="""The protocol's name as the provider publishes it, copied exactly. A summary of what it would be used for belongs in `description`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GenomicRegion',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'SeverityTier',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'ReferenceRangeBand',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ComorbidityAssociation',
+                       'Grouping',
+                       'ModuleCollection'],
+         'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    description: Optional[str] = Field(default=None, description="""What this protocol would contribute to the experiment, and why it is the right one — the curator's reasoning, not the provider's marketing copy.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GenomicRegion',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
+    provider: str = Field(default=..., description="""The organisation that would execute the protocol, named as that organisation names itself (for example `Ginkgo Cloud Lab`, `Emerald Cloud Lab`, `UNC Lineberger High-Throughput Screening Facility`). Deliberately free text rather than an enum: the set of providers is open and changes without warning, so an enum would need a schema PR per new laboratory. The durable classification is `venue_type`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExecutableProtocol']} })
+    venue_type: Optional[ExecutionVenueEnum] = Field(default=None, description="""Broad kind of facility that would execute the protocol.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExecutableProtocol']} })
+    protocol_id: Optional[str] = Field(default=None, description="""The provider's own stable identifier for the protocol — a catalogue handle, service code, or SKU — copied exactly as the provider publishes it, never composed or tidied. This is what an order would name, so a reworded value is not an identifier.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExecutableProtocol']} })
+    protocol_url: Optional[str] = Field(default=None, description="""The provider's own page for this protocol.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExecutableProtocol']} })
+    measures: Optional[list[str]] = Field(default=None, description="""Entity references for the pathograph nodes, phenotypes, or other modeled objects this protocol would return a measurement on. Uses the same hash-anchor grammar as `attaches_to`, and every value must use it. This records *what the protocol can observe*, which is a weaker claim than `would_support` / `would_refute`: a protocol can measure a node without any one result adjudicating the hypothesis attached to it.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExecutableProtocol']} })
+    inputs_required: Optional[str] = Field(default=None, description="""What the requester must supply for the protocol to run — DNA sequences as a CSV, a purified antigen, a cell line, a compound plate. Records the input that is the requester's problem rather than the provider's, since that is usually what decides whether a proposal is actually reachable.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExecutableProtocol']} })
+    retrieved_date: Optional[date] = Field(default=None, description="""Date the provider's catalogue was read for the identifier recorded here. Record it alongside `protocol_id` or `protocol_url`, because a provider's catalogue changes without notice and without a version, so an identifier with no retrieval date cannot be aged: a reader has no way to tell a current handle from one that was renamed two years ago.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExecutableProtocol',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection']} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=None, description="""Literature or provider documentation supporting the protocol's suitability or its precedent for this measurement. Not a place for results: this object describes a protocol that has not been run.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'ExternalAssertion',
+                       'Finding',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'ModelingConsideration',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'AlgorithmValidationStatus',
+                       'CriteriaSet',
+                       'AssociationSignal',
+                       'AssociationStatistics',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': False} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'Transmission',
+                       'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -11105,6 +13279,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -11113,6 +13288,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -11151,6 +13327,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -11164,6 +13341,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -11178,12 +13356,15 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -11217,6 +13398,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -11234,6 +13416,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -11249,11 +13432,14 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -11289,6 +13475,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -11296,10 +13483,13 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -11316,8 +13506,11 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -11340,6 +13533,7 @@ class ClinicalTrial(ConfiguredBaseModel):
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
                        'ProgressionInfo',
+                       'Pathophysiology',
                        'Phenotype',
                        'Genetic',
                        'Environmental',
@@ -11369,6 +13563,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -11377,6 +13572,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -11415,6 +13611,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -11428,6 +13625,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -11442,12 +13640,15 @@ class ComputationalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -11497,6 +13698,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -11514,6 +13716,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -11529,11 +13732,14 @@ class ComputationalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -11560,6 +13766,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -11567,10 +13774,13 @@ class ComputationalModel(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -11587,8 +13797,11 @@ class ComputationalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -11630,6 +13843,7 @@ class ModelVariable(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -11638,6 +13852,7 @@ class ModelVariable(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -11678,6 +13893,7 @@ class ModelVariable(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -11691,6 +13907,7 @@ class ModelVariable(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -11705,12 +13922,15 @@ class ModelVariable(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -11742,6 +13962,7 @@ class ModelVariable(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -11749,10 +13970,13 @@ class ModelVariable(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -11769,8 +13993,11 @@ class ModelVariable(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -11813,6 +14040,7 @@ class SeverityTier(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -11821,6 +14049,7 @@ class SeverityTier(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -11884,6 +14113,7 @@ class ModelVariableDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -11897,6 +14127,7 @@ class ModelVariableDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -11911,12 +14142,15 @@ class ModelVariableDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -11992,6 +14226,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -12000,6 +14235,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -12038,6 +14274,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -12051,6 +14288,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -12065,12 +14303,15 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -12096,6 +14337,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -12113,6 +14355,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -12128,11 +14371,14 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -12159,6 +14405,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -12166,10 +14413,13 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -12186,8 +14436,11 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -12219,6 +14472,7 @@ class Subtype(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -12227,6 +14481,7 @@ class Subtype(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -12268,6 +14523,7 @@ class Subtype(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -12281,6 +14537,7 @@ class Subtype(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -12295,12 +14552,15 @@ class Subtype(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -12324,6 +14584,7 @@ class Subtype(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -12341,6 +14602,7 @@ class Subtype(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -12356,11 +14618,14 @@ class Subtype(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -12381,6 +14646,7 @@ class Subtype(ConfiguredBaseModel):
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
                        'ProgressionInfo',
+                       'Pathophysiology',
                        'Phenotype',
                        'Genetic',
                        'Environmental',
@@ -12393,11 +14659,246 @@ class Subtype(ConfiguredBaseModel):
     locations: Optional[list[AnatomicalEntityDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Pathophysiology']} })
     geography: Optional[list[GeographyTerm]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype'], 'examples': [{'value': "['Philippines']"}]} })
     classification: Optional[str] = Field(default=None, description="""Classification scheme this subtype belongs to (e.g., 'complementation_group', 'pathway_tier', 'histological', 'molecular', 'clinical_phenotype').""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'LogicalCriterion']} })
+    curated_in: Optional[str] = Field(default=None, description="""File stem of the `kb/disorders/` entry in which this subtype is curated in full (`Rocky_Mountain_Spotted_Fever`), when the stratum has been promoted to its own Disease entry -- the *pointer* subtype of design decisions §3a (L4) and §3e (rung 4). The parent keeps the row so the stratum stays discoverable and other sections can still scope to it, but the mechanism, phenotype and treatment content lives in the named entry, and a consumer counting diseases should not count the pointer. The value is the same identifier a cross-file entity reference uses and must resolve to an existing file; `just check-granularity` reports a dangling pointer and, where both are bound, a `subtype_term` that disagrees with the target's `disease_term`. Omit on a subtype curated here.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype']} })
     children: Optional[list[str]] = Field(default=None, description="""Names of other subtypes in this list that are members/children of this grouping subtype. Used to express cross-scheme relationships (e.g., a pathway_tier subtype grouping complementation_group subtypes).""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype']} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
+                       'GeneClassificationCollection',
+                       'Pathophysiology',
+                       'AnimalModel'],
+         'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
+    subtype_frequency: Optional[Union[FrequencyEnum, str]] = Field(default=None, description="""Frequency of this subtype among all cases of the parent disease (e.g., '60-70%', '~15%'). Distinct from phenotype frequency.""", json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'FrequencyEnum'}, {'range': 'FrequencyQuantity'}],
+         'domain_of': ['Subtype']} })
+    inheritance: Optional[list[Inheritance]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Genetic', 'Disease'],
+         'examples': [{'value': 'Autosomal Dominant'}]} })
+
+
+class AgentSubtype(Subtype):
+    """
+    A taxonomic stratum below a named infectious agent: a subspecies, serovar, serotype, or biotype of the organism named by the parent InfectiousAgent.
+    Identical to Subtype except that subtype_term binds NCBITaxon rather than MONDO/NCIT, because the thing being grounded is an organism rather than a disease. Splitting it out is what lets an agent stratum be grounded at all: the disease-level binding is rooted at MONDO:0000001 and NCIT:C2991, so a serovar or biotype nested under an agent was previously forced to remain name-only free text.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['This class carries the organism axis only. A stratum that needs '
+                      'to be referenced by a phenotype, treatment, prevalence or '
+                      'progression record must instead be a disease-level has_subtypes '
+                      'entry, because the subtype foreign key resolves against the '
+                      'disease-level list alone.',
+                      'inheritance and genes are inherited from Subtype and describe '
+                      'human genetics. They do not apply to an agent stratum; leave '
+                      'them unset.'],
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'subtype_term': {'description': 'The NCBITaxon term grounding '
+                                                        'this agent stratum. Omit it '
+                                                        'rather than binding the '
+                                                        'parent species when NCBITaxon '
+                                                        'carries no node at this rank.',
+                                         'name': 'subtype_term',
+                                         'range': 'AgentSubtypeDescriptor'}}})
+
+    name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'domain_of': ['GenomicRegion',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'SeverityTier',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'ReferenceRangeBand',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ComorbidityAssociation',
+                       'Grouping',
+                       'ModuleCollection'],
+         'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    display_name: Optional[str] = Field(default=None, description="""Human-readable display name for a subtype, used when the name (which serves as the FK target) is too terse for comfortable display. Optional; when absent, renderers should fall back to name.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Grouping', 'GroupingMember', 'ModuleCollection']} })
+    subtype_term: Optional[AgentSubtypeDescriptor] = Field(default=None, description="""The NCBITaxon term grounding this agent stratum. Omit it rather than binding the parent species when NCBITaxon carries no node at this rank.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype']} })
+    mappings: Optional[DiseaseMappings] = Field(default=None, description="""External identifier mappings for this disease or subtype (SSSOM-inspired)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Disease', 'Grouping']} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GenomicRegion',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'ExternalAssertion',
+                       'Finding',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'ModelingConsideration',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'AlgorithmValidationStatus',
+                       'CriteriaSet',
+                       'AssociationSignal',
+                       'AssociationStatistics',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': True} })
+    review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
+                       'Subtype',
+                       'ProgressionInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'Treatment'],
+         'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
+    locations: Optional[list[AnatomicalEntityDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Pathophysiology']} })
+    geography: Optional[list[GeographyTerm]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype'], 'examples': [{'value': "['Philippines']"}]} })
+    classification: Optional[str] = Field(default=None, description="""Classification scheme this subtype belongs to (e.g., 'complementation_group', 'pathway_tier', 'histological', 'molecular', 'clinical_phenotype').""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'LogicalCriterion']} })
+    curated_in: Optional[str] = Field(default=None, description="""File stem of the `kb/disorders/` entry in which this subtype is curated in full (`Rocky_Mountain_Spotted_Fever`), when the stratum has been promoted to its own Disease entry -- the *pointer* subtype of design decisions §3a (L4) and §3e (rung 4). The parent keeps the row so the stratum stays discoverable and other sections can still scope to it, but the mechanism, phenotype and treatment content lives in the named entry, and a consumer counting diseases should not count the pointer. The value is the same identifier a cross-file entity reference uses and must resolve to an existing file; `just check-granularity` reports a dangling pointer and, where both are bound, a `subtype_term` that disagrees with the target's `disease_term`. Omit on a subtype curated here.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype']} })
+    children: Optional[list[str]] = Field(default=None, description="""Names of other subtypes in this list that are members/children of this grouping subtype. Used to express cross-scheme relationships (e.g., a pathway_tier subtype grouping complementation_group subtypes).""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype']} })
+    genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ExperimentalPerturbation',
+                       'Subtype',
+                       'GeneClassificationCollection',
                        'Pathophysiology',
                        'AnimalModel'],
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
@@ -12515,6 +15016,7 @@ class CausalEdge(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -12528,6 +15030,7 @@ class CausalEdge(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -12542,12 +15045,15 @@ class CausalEdge(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -12571,6 +15077,7 @@ class CausalEdge(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -12588,6 +15095,7 @@ class CausalEdge(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -12603,11 +15111,14 @@ class CausalEdge(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -12672,6 +15183,7 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -12685,6 +15197,7 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -12699,12 +15212,15 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -12728,6 +15244,7 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -12745,6 +15262,7 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -12760,11 +15278,14 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -12839,6 +15360,7 @@ class EnvironmentalMechanismTarget(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -12852,6 +15374,7 @@ class EnvironmentalMechanismTarget(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -12866,12 +15389,15 @@ class EnvironmentalMechanismTarget(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -12895,6 +15421,7 @@ class EnvironmentalMechanismTarget(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -12912,6 +15439,7 @@ class EnvironmentalMechanismTarget(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -12927,11 +15455,14 @@ class EnvironmentalMechanismTarget(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -13002,6 +15533,7 @@ class ModelDivergence(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -13015,6 +15547,7 @@ class ModelDivergence(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -13029,12 +15562,15 @@ class ModelDivergence(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -13059,6 +15595,7 @@ class ModelDivergence(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -13076,6 +15613,7 @@ class ModelDivergence(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -13091,11 +15629,14 @@ class ModelDivergence(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -13213,6 +15754,7 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -13226,6 +15768,7 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -13240,12 +15783,15 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -13301,6 +15847,7 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -13318,6 +15865,7 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -13333,11 +15881,14 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -13368,9 +15919,14 @@ class BiomarkerReadout(ConfiguredBaseModel):
                                       'name': 'direction'},
                         'endpoint_context': {'description': 'Diagnostic, prognostic, '
                                                             'monitoring, '
-                                                            'pharmacodynamic, or '
-                                                            'candidate-surrogate use '
-                                                            'context.',
+                                                            'pharmacodynamic, '
+                                                            'candidate-surrogate, or '
+                                                            'regulatory-surrogate use '
+                                                            'context. Use '
+                                                            'REGULATORY_SURROGATE '
+                                                            'exactly when '
+                                                            'regulatory_endpoint_refs '
+                                                            'is populated.',
                                              'name': 'endpoint_context'},
                         'evidence': {'description': 'Evidence supporting this '
                                                     'biomarker-to-pathograph-node '
@@ -13422,7 +15978,7 @@ class BiomarkerReadout(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout']} })
     direction: Optional[BiomarkerReadoutDirectionEnum] = Field(default=None, description="""Direction of association between biomarker level/presence and the linked event or endpoint.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalReadout', 'BiomarkerReadout', 'PhenotypeReadout']} })
-    endpoint_context: Optional[BiomarkerEndpointContextEnum] = Field(default=None, description="""Diagnostic, prognostic, monitoring, pharmacodynamic, or candidate-surrogate use context.""", json_schema_extra = { "linkml_meta": {'domain_of': ['BiomarkerReadout', 'PhenotypeReadout']} })
+    endpoint_context: Optional[BiomarkerEndpointContextEnum] = Field(default=None, description="""Diagnostic, prognostic, monitoring, pharmacodynamic, candidate-surrogate, or regulatory-surrogate use context. Use REGULATORY_SURROGATE exactly when regulatory_endpoint_refs is populated.""", json_schema_extra = { "linkml_meta": {'domain_of': ['BiomarkerReadout', 'PhenotypeReadout']} })
     regulatory_endpoint_refs: Optional[list[str]] = Field(default=None, description="""Source-table regulatory endpoint row IDs linked to this readout. Keep regulatory details in the source table; use this field only as a local bridge from disease biology to regulatory context.""", json_schema_extra = { "linkml_meta": {'domain_of': ['BiomarkerReadout']} })
     interpretation: Optional[str] = Field(default=None, description="""Human-readable interpretation of the link for display and curation review.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalReadout',
                        'BiomarkerReadout',
@@ -13438,6 +15994,7 @@ class BiomarkerReadout(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -13451,6 +16008,7 @@ class BiomarkerReadout(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -13465,12 +16023,15 @@ class BiomarkerReadout(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -13494,6 +16055,7 @@ class BiomarkerReadout(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -13511,6 +16073,7 @@ class BiomarkerReadout(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -13526,11 +16089,14 @@ class BiomarkerReadout(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -13623,6 +16189,7 @@ class PhenotypeReadout(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -13636,6 +16203,7 @@ class PhenotypeReadout(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -13650,12 +16218,15 @@ class PhenotypeReadout(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -13679,6 +16250,7 @@ class PhenotypeReadout(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -13696,6 +16268,7 @@ class PhenotypeReadout(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -13711,11 +16284,14 @@ class PhenotypeReadout(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -13805,6 +16381,7 @@ class ReferenceRangeBand(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -13813,6 +16390,7 @@ class ReferenceRangeBand(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -13947,7 +16525,17 @@ class ReferenceRange(ConfiguredBaseModel):
                                                        'are abnormal).',
                                         'name': 'upper_bound'}}})
 
-    loinc_term: Optional[Term] = Field(default=None, description="""LOINC code for the measured analyte (e.g., LOINC:2823-3 for serum potassium, LOINC:2777-1 for serum phosphate). Required for machine-queryable reference interval lookups.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ReferenceRange'], 'recommended': True} })
+    loinc_term: Optional[LoincCode] = Field(default=None, description="""LOINC code for the measured analyte (e.g., LOINC:2823-3 for serum potassium, LOINC:2777-1 for serum phosphate). Required for machine-queryable reference interval lookups.""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
+                       'obligation_level': 'REQUIRED',
+                       'range': 'LoincTerm'}],
+         'comments': ['On a ReferenceRange this names the measurement the interval and '
+                      'its bands apply to. On a Biochemical it names the measurement '
+                      'that quantifies the marker, so a biomarker can carry a code '
+                      'without an interval being invented for it.',
+                      "The label is LOINC's Long Common Name, as served by the Monarch "
+                      'KG.'],
+         'domain_of': ['ReferenceRange', 'Biochemical'],
+         'recommended': True} })
     lower_bound: Optional[float] = Field(default=None, description="""Lower bound of the reference interval (inclusive). Omit when there is no clinically meaningful lower limit (e.g., analytes where only elevation is abnormal).""", json_schema_extra = { "linkml_meta": {'domain_of': ['ReferenceRangeBand', 'ReferenceRange']} })
     upper_bound: Optional[float] = Field(default=None, description="""Upper bound of the reference interval (inclusive). Omit when there is no clinically meaningful upper limit (e.g., analytes where only low values are abnormal).""", json_schema_extra = { "linkml_meta": {'domain_of': ['ReferenceRangeBand', 'ReferenceRange']} })
     unit: Optional[str] = Field(default=None, description="""UCUM unit string for the measured quantity (e.g., \"mmol/L\", \"g/dL\", \"mIU/L\"). Should match the unit used for lower_bound and upper_bound.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ModelVariable',
@@ -13960,6 +16548,7 @@ class ReferenceRange(ConfiguredBaseModel):
                        'ReferenceRange',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'VariantPopulationEffect',
                        'AssociationSignal'],
          'examples': [{'value': 'Global'}]} })
     interpretation_bands: Optional[list[ReferenceRangeBand]] = Field(default=None, description="""Ordered graded interpretation bands for this analyte (normal / mild / moderate / severe / critical). Use when a result is classified into categories beyond the single normal interval; order from lowest to highest value.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ReferenceRange']} })
@@ -13970,6 +16559,7 @@ class ReferenceRange(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -13987,6 +16577,7 @@ class ReferenceRange(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -14002,11 +16593,14 @@ class ReferenceRange(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -14033,6 +16627,7 @@ class ReferenceRange(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -14040,10 +16635,13 @@ class ReferenceRange(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -14060,8 +16658,11 @@ class ReferenceRange(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -14157,11 +16758,18 @@ class SurrogateEndpoint(ConfiguredBaseModel):
     mapped_diseases: Optional[list[str]] = Field(default=None, description="""Names of dismech disease entries mapped or candidate-mapped to this FDA row""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint']} })
     mapped_disease_files: Optional[list[str]] = Field(default=None, description="""Relative paths of dismech disease YAML files mapped or candidate-mapped to this FDA row""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint']} })
     mapping_notes: Optional[str] = Field(default=None, description="""Notes on code-to-concept mapping decisions for this signal""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'AssociationSignal']} })
-    source_url: Optional[str] = Field(default=None, description="""URL of the source page for a curated assertion or source collection""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_url: Optional[str] = Field(default=None, description="""URL of the source page for a curated assertion or source collection""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection']} })
     source_workbook_url: Optional[str] = Field(default=None, description="""URL of the source workbook or downloadable data file""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
     source_workbook_sha256: Optional[str] = Field(default=None, description="""SHA-256 checksum of the downloaded source workbook used for import""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
-    source_content_current_as_of: Optional[date] = Field(default=None, description="""Date shown by the source as the content-current-as-of date""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
-    retrieved_date: Optional[date] = Field(default=None, description="""Date on which the source was retrieved for curation""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_content_current_as_of: Optional[date] = Field(default=None, description="""Date shown by the source as the content-current-as-of date""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection']} })
+    retrieved_date: Optional[date] = Field(default=None, description="""Date on which the source was retrieved for curation""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExecutableProtocol',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -14169,6 +16777,7 @@ class SurrogateEndpoint(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -14186,6 +16795,7 @@ class SurrogateEndpoint(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -14201,11 +16811,14 @@ class SurrogateEndpoint(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -14232,6 +16845,7 @@ class SurrogateEndpoint(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -14239,10 +16853,13 @@ class SurrogateEndpoint(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -14259,8 +16876,11 @@ class SurrogateEndpoint(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -14297,6 +16917,7 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -14305,6 +16926,7 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -14343,6 +16965,7 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -14356,6 +16979,7 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -14370,12 +16994,15 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -14392,13 +17019,23 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'DifferentiatingMechanism',
                        'ModuleCollection',
                        'ModuleCollectionMember']} })
-    source_url: Optional[str] = Field(default=None, description="""URL of the source page for a curated assertion or source collection""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_url: Optional[str] = Field(default=None, description="""URL of the source page for a curated assertion or source collection""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection']} })
     source_workbook_url: Optional[str] = Field(default=None, description="""URL of the source workbook or downloadable data file""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
     source_workbook_sha256: Optional[str] = Field(default=None, description="""SHA-256 checksum of the downloaded source workbook used for import""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
-    source_content_current_as_of: Optional[date] = Field(default=None, description="""Date shown by the source as the content-current-as-of date""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
-    retrieved_date: Optional[date] = Field(default=None, description="""Date on which the source was retrieved for curation""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_content_current_as_of: Optional[date] = Field(default=None, description="""Date shown by the source as the content-current-as-of date""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection']} })
+    retrieved_date: Optional[date] = Field(default=None, description="""Date on which the source was retrieved for curation""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExecutableProtocol',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection']} })
     surrogate_endpoints: list[SurrogateEndpoint] = Field(default=..., description="""Curated surrogate endpoint assertions""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection', 'Disease']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'Disease',
+                       'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
                        'PhenotypeContext',
@@ -14408,6 +17045,7 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -14415,10 +17053,13 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -14435,8 +17076,11 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -14458,6 +17102,297 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                                 'bacteria can be spread to others.'}]} })
 
 
+class GeneClassification(ConfiguredBaseModel):
+    """
+    One gene's membership in a gene-classification system, as asserted by that system's source. A row in a `GeneClassificationCollection`.
+    `values` is multivalued because gene classifications are genuinely set-valued: a gene appears in as many groups as it has clinically distinct disease associations. Its range is left open here because each collection draws from its own enum (`GeneTableNMDGroupEnum` for the neuromuscular gene table, and others as further sources are added); the per-collection test asserts membership of the right enum.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'gene': {'name': 'gene', 'required': True}}})
+
+    gene: GeneDescriptor = Field(default=..., json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'ExperimentalPerturbation',
+                       'GeneClassification',
+                       'Pathophysiology',
+                       'Variant',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism'],
+         'examples': [{'value': '{preferred_term: MEFV}'}]} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'Transmission',
+                       'Diagnosis',
+                       'VariantPopulationEffect',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+    values: list[str] = Field(default=..., description="""Classification values this gene carries in the collection's system, drawn from the enum named by the collection's `classification_system`. Transcribed from the source, never inferred.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneClassification']} })
+    source_label: Optional[str] = Field(default=None, description="""The gene symbol as written by the source, recorded when it differs from the HGNC-approved symbol in `gene` (for example when the source still uses a previous symbol). Lets a reader confirm the mapping.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneClassification']} })
+
+
+class GeneClassificationCollection(ConfiguredBaseModel):
+    """
+    A source-level transcription of one gene-classification system: which genes the source lists, and which of its categories each gene falls in.
+    This is a lookup table, deliberately not a `Disease`-like entity. It carries no pathophysiology, no per-row evidence, and no disease links; provenance is recorded once at the file level. It is a transcription of a source, not an inference engine — include only genes the source itself lists, and do not derive memberships.
+    Distinct from `gene_sets`, which reference flat, typically experimentally-derived gene sets (signatures, perturbation results) used as enrichment inputs. A gene classification is instead a curated, authoritative assertion about which genes cause disease in a domain, and usually carries its own category structure.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'name': {'name': 'name', 'required': True}}})
+
+    name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'domain_of': ['GenomicRegion',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'SeverityTier',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'ReferenceRangeBand',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ComorbidityAssociation',
+                       'Grouping',
+                       'ModuleCollection'],
+         'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GenomicRegion',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
+    source_url: Optional[str] = Field(default=None, description="""URL of the source page for a curated assertion or source collection""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection']} })
+    source_content_current_as_of: Optional[date] = Field(default=None, description="""Date shown by the source as the content-current-as-of date""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection']} })
+    retrieved_date: Optional[date] = Field(default=None, description="""Date on which the source was retrieved for curation""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExecutableProtocol',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'Disease',
+                       'TermMapping']} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'Transmission',
+                       'Diagnosis',
+                       'VariantPopulationEffect',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+    classification_system: str = Field(default=..., description="""Identifier for the classification system this collection transcribes, naming the enum its `values` are drawn from (e.g. GENE_TABLE_NMD -> GeneTableNMDGroupEnum).""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneClassificationCollection']} })
+    source_version: Optional[str] = Field(default=None, description="""The source's own version string for this snapshot, where it publishes one (e.g. \"GT_NMD 2026\").""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneClassificationCollection']} })
+    genes: list[GeneClassification] = Field(default=..., description="""One row per gene listed by the source.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ExperimentalPerturbation',
+                       'Subtype',
+                       'GeneClassificationCollection',
+                       'Pathophysiology',
+                       'AnimalModel']} })
+
+
 class ProteinStructure(ConfiguredBaseModel):
     """
     A 3D protein structure from PDB or AlphaFold relevant to understanding a treatment's mechanism of action. Enables embedded 3D visualization of drug-target interactions via Mol* viewer.
@@ -14475,6 +17410,7 @@ class ProteinStructure(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -14488,6 +17424,7 @@ class ProteinStructure(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -14502,12 +17439,15 @@ class ProteinStructure(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -14601,6 +17541,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -14609,6 +17550,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -14639,7 +17581,7 @@ class ExternalAssertion(ConfiguredBaseModel):
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     source: str = Field(default=..., description="""Source dataset or provenance label""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExternalAssertion', 'AssociationSignal']} })
     assertion_type: Optional[str] = Field(default=None, description="""Type/category of the external assertion or registry record""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExternalAssertion']} })
-    external_id: str = Field(default=..., description="""Identifier used by the external resource (e.g., CCID:009009, CA2573049045)""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExternalAssertion']} })
+    external_id: str = Field(default=..., description="""Identifier used by the external resource (e.g., CCID:009009, CA2573049045)""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExternalAssertion', 'GeneDiseaseValidityAssertion']} })
     url: Optional[str] = Field(default=None, description="""URL for the external assertion or registry record""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExternalAssertion', 'TrackedIssue']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -14651,6 +17593,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -14664,6 +17607,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -14678,12 +17622,15 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -14707,6 +17654,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -14724,6 +17672,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -14739,11 +17688,14 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -14770,6 +17722,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -14777,10 +17730,13 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -14797,8 +17753,11 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -14866,6 +17825,7 @@ class TrackedIssue(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -14873,10 +17833,13 @@ class TrackedIssue(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -14893,8 +17856,11 @@ class TrackedIssue(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -14931,6 +17897,7 @@ class Finding(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -14948,6 +17915,7 @@ class Finding(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -14963,11 +17931,14 @@ class Finding(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -14992,6 +17963,7 @@ class Prevalence(ConfiguredBaseModel):
 
     subtype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Prevalence',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'Phenotype',
                        'Biochemical',
@@ -15003,6 +17975,7 @@ class Prevalence(ConfiguredBaseModel):
                        'ReferenceRange',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'VariantPopulationEffect',
                        'AssociationSignal'],
          'examples': [{'value': 'Global'}]} })
     measure_type: Optional[PrevalenceMeasureEnum] = Field(default=None, description="""Which epidemiological measure this Prevalence record reports (point prevalence, birth prevalence, annual incidence, literature case-count, etc.). Makes explicit a dimension that was previously leaking into population/notes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Prevalence'], 'examples': [{'value': 'POINT_PREVALENCE'}]} })
@@ -15031,6 +18004,7 @@ Optional elsewhere: a record that omits it falls back to the denominator implied
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -15048,6 +18022,7 @@ Optional elsewhere: a record that omits it falls back to the denominator implied
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -15063,11 +18038,14 @@ Optional elsewhere: a record that omits it falls back to the denominator implied
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -15094,6 +18072,7 @@ Optional elsewhere: a record that omits it falls back to the denominator implied
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -15101,10 +18080,13 @@ Optional elsewhere: a record that omits it falls back to the denominator implied
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -15121,8 +18103,11 @@ Optional elsewhere: a record that omits it falls back to the denominator implied
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -15154,12 +18139,14 @@ class GeneCaseFraction(ConfiguredBaseModel):
                        'ReferenceRange',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'VariantPopulationEffect',
                        'AssociationSignal'],
          'examples': [{'value': 'Global'}]} })
     case_fraction_percent: Optional[float] = Field(default=None, description="""Point estimate of the percentage of cases attributable to this gene in the stated cohort (0-100). The structured, queryable counterpart of the free-text genetic `frequency` band. Use case_fraction_low/high for ranges.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneCaseFraction'], 'examples': [{'value': '24.6'}]} })
     case_fraction_low: Optional[float] = Field(default=None, description="""Lower bound of the case fraction (percent) when the source gives a range.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneCaseFraction'], 'examples': [{'value': '27.0'}]} })
     case_fraction_high: Optional[float] = Field(default=None, description="""Upper bound of the case fraction (percent) when the source gives a range.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneCaseFraction'], 'examples': [{'value': '32.8'}]} })
-    cohort_size: Optional[int] = Field(default=None, description="""Number of probands/cases in the cohort the case fraction was computed in, when reported. Helps weight competing per-gene estimates.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneCaseFraction'], 'examples': [{'value': '61'}]} })
+    cohort_size: Optional[int] = Field(default=None, description="""Number of probands/cases in the cohort the case fraction was computed in, when reported. Helps weight competing per-gene estimates.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneCaseFraction', 'VariantPopulationEffect'],
+         'examples': [{'value': '61'}]} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -15167,6 +18154,7 @@ class GeneCaseFraction(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -15184,6 +18172,7 @@ class GeneCaseFraction(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -15199,11 +18188,14 @@ class GeneCaseFraction(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -15230,6 +18222,7 @@ class GeneCaseFraction(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -15237,10 +18230,13 @@ class GeneCaseFraction(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -15257,8 +18253,183 @@ class GeneCaseFraction(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+
+
+class GeneDiseaseValidityAssertion(ConfiguredBaseModel):
+    """
+    One external classification of how well established a gene-disease relationship is: the tier, who assigned it, and the assertion's identifier. Attribution is required because a tier is only meaningful under the framework that produced it; dismech records such tiers and does not assign them (#10179). `just check-gene-validity` compares a ClinGen assertion against its cached `CGGV:` record.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'classified_by': {'name': 'classified_by', 'required': True},
+                        'external_id': {'description': "The source's identifier for "
+                                                       'this assertion. For ClinGen, '
+                                                       'the `CGGV:assertion_...` '
+                                                       'CURIE, which is also what the '
+                                                       'evidence item cites; `just '
+                                                       'check-gene-validity` reads the '
+                                                       'cached record and fails if its '
+                                                       'classification differs.',
+                                        'name': 'external_id',
+                                        'recommended': True},
+                        'subtype': {'description': 'The has_subtypes[].name this '
+                                                   'classification applies to, when '
+                                                   "the entry's subtypes are "
+                                                   'classified separately (ATP7A: '
+                                                   'Menkes disease and X-linked distal '
+                                                   'SMA).',
+                                    'name': 'subtype'},
+                        'validity_classification': {'name': 'validity_classification',
+                                                    'required': True}}})
+
+    validity_classification: GeneDiseaseValidityClassificationEnum = Field(default=..., description="""The tier assigned, copied from the source named in `classified_by`.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneDiseaseValidityAssertion']} })
+    classified_by: GeneDiseaseValiditySourceEnum = Field(default=..., description="""The external curation body that assigned the classification. Required, so a tier is never recorded without saying whose it is.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneDiseaseValidityAssertion']} })
+    external_id: Optional[str] = Field(default=None, description="""The source's identifier for this assertion. For ClinGen, the `CGGV:assertion_...` CURIE, which is also what the evidence item cites; `just check-gene-validity` reads the cached record and fails if its classification differs.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExternalAssertion', 'GeneDiseaseValidityAssertion'],
+         'recommended': True} })
+    subtype: Optional[str] = Field(default=None, description="""The has_subtypes[].name this classification applies to, when the entry's subtypes are classified separately (ATP7A: Menkes disease and X-linked distal SMA).""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
+                       'Prevalence',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic'],
+         'examples': [{'value': 'Eyelid Myoclonia with Absences'}]} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'ExternalAssertion',
+                       'Finding',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'ModelingConsideration',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'AlgorithmValidationStatus',
+                       'CriteriaSet',
+                       'AssociationSignal',
+                       'AssociationStatistics',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': True} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'Transmission',
+                       'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -15287,6 +18458,7 @@ class ProgressionInfo(ConfiguredBaseModel):
          'examples': [{'value': 'Active TB'}]} })
     subtype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Prevalence',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'Phenotype',
                        'Biochemical',
@@ -15306,6 +18478,7 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -15323,6 +18496,7 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -15338,11 +18512,14 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -15364,6 +18541,7 @@ class ProgressionInfo(ConfiguredBaseModel):
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
                        'ProgressionInfo',
+                       'Pathophysiology',
                        'Phenotype',
                        'Genetic',
                        'Environmental',
@@ -15383,6 +18561,7 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -15390,10 +18569,13 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -15410,8 +18592,11 @@ class ProgressionInfo(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -15469,6 +18654,7 @@ class ClinicalBurden(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -15486,6 +18672,7 @@ class ClinicalBurden(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -15501,11 +18688,14 @@ class ClinicalBurden(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -15532,6 +18722,7 @@ class ClinicalBurden(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -15539,10 +18730,13 @@ class ClinicalBurden(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -15559,8 +18753,11 @@ class ClinicalBurden(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -15591,6 +18788,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -15599,6 +18797,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -15637,6 +18836,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -15650,6 +18850,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -15664,12 +18865,15 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -15698,6 +18902,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -15705,10 +18910,13 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -15725,8 +18933,11 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -15762,6 +18973,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -15779,6 +18991,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -15794,11 +19007,14 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -15846,6 +19062,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -15854,6 +19071,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -15892,6 +19110,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -15905,6 +19124,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -15919,12 +19139,15 @@ class Pathophysiology(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -15951,6 +19174,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -15968,6 +19192,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -15983,11 +19208,14 @@ class Pathophysiology(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -16011,7 +19239,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'LogicalCriterion',
                        'DifferentiatingMechanism'],
          'examples': [{'value': '[{preferred_term: TNF-alpha Production}]'}]} })
-    molecular_functions: Optional[list[MolecularFunctionDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology'],
+    molecular_functions: Optional[list[MolecularFunctionDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'LogicalCriterion'],
          'examples': [{'value': '[{preferred_term: Kinase Activity}]'}]} })
     locations: Optional[list[AnatomicalEntityDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Pathophysiology']} })
     examples: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
@@ -16020,7 +19248,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'Stage',
                        'Treatment'],
          'examples': [{'value': "['Kaposi Sarcoma']"}]} })
-    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone, many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061).""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
+    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries well over a hundred distinct values on pathophysiology nodes alone (`just node-role-audit` for the current census), many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061). On a pathophysiology node, a role saying what kind of thing the node is (`mechanism`, `driver`, `organ_dysfunction`) belongs in node_class instead, and a node's position in the cascade (`trigger`, `consequence`) can be read from its downstream edges.""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
                       'an initiating-sounding role does NOT identify the cell of '
                       'origin: that derivation reads `genetic_context.variant_origin: '
                       'SOMATIC` on the lesion node, or an `environmental_effect: '
@@ -16029,7 +19257,9 @@ class Pathophysiology(ConfiguredBaseModel):
                       'docs/cancer-cell-of-origin.md and `just check-cancer-origin`.'],
          'domain_of': ['HostDescriptor', 'Pathophysiology', 'Stage', 'Treatment'],
          'examples': [{'value': 'Primary'}]} })
-    conforms_to: Optional[str] = Field(default=None, description="""Reference to a mechanism module that this pathophysiology node is an organ-specific instance of. Value is a path relative to kb/modules/ (e.g., \"fibrotic_response\") plus an optional node name after a hash (e.g., \"fibrotic_response#Mesenchymal Cell Activation\"). Used for cross-disorder consistency checking: if a node declares conformance, it should include the expected cell types, biological processes, and causal edges defined in the referenced module node.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology']} })
+    conforms_to: Optional[str] = Field(default=None, description="""Reference to a mechanism module that this pathophysiology node is an organ-specific instance of. Value is a path relative to kb/modules/ (e.g., \"fibrotic_response\") plus an optional node name after a hash (e.g., \"fibrotic_response#Mesenchymal Cell Activation\"). Used for cross-disorder consistency checking: if a node declares conformance, it should include the expected cell types, biological processes, and causal edges defined in the referenced module node.
+A node may conform to more than one module node when it is a genuine instance of each (a germline first-hit node that is also loss of an mTORC1 brake conforms to both the two-hit and the mTORC1 module). Write a single reference as a plain string and several as a list of strings; both spellings are valid, so the scalar form never needs migrating. Code reads the value through `dismech.conformance.iter_conforms_to`, which normalises either spelling to a list (dismech#13923).""", json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'string'}, {'multivalued': True, 'range': 'string'}],
+         'domain_of': ['Pathophysiology']} })
     synonyms: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
                        'Biochemical',
                        'Environmental',
@@ -16043,6 +19273,7 @@ class Pathophysiology(ConfiguredBaseModel):
          'todos': ['unify consequences and consequence']} })
     gene: Optional[GeneDescriptor] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'ExperimentalPerturbation',
+                       'GeneClassification',
                        'Pathophysiology',
                        'Variant',
                        'LogicalCriterion',
@@ -16056,8 +19287,10 @@ class Pathophysiology(ConfiguredBaseModel):
                                 '[canonical_model]}]'}]} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
+                       'GeneClassificationCollection',
                        'Pathophysiology',
                        'AnimalModel'],
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
@@ -16077,11 +19310,11 @@ class Pathophysiology(ConfiguredBaseModel):
                                 'NCIT:C16325, label: BCR/ABL1 Fusion Protein}}]'}]} })
     triggers: Optional[list[TriggerDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation', 'Pathophysiology'],
          'examples': [{'value': '[{preferred_term: Viral Infections}]'}]} })
-    assays: Optional[list[AssayDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment',
+    assays: Optional[list[AssayDescriptor]] = Field(default=None, description="""Assays used to measure or observe the thing this slot sits on: the technique, such as an imaging modality, a sequencing method, an electrophysiological recording or a laboratory test. An assay is how something is measured, never the result. A finding such as an elevated analyte belongs in biochemical (with readouts linking it to a pathophysiology node) or in phenotypes, not here. Bind OBI terms where one fits.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment',
                        'ExperimentalReadout',
                        'Pathophysiology',
                        'Biochemical'],
-         'examples': [{'value': '[{preferred_term: Elevated Blood Glucose}]'}]} })
+         'examples': [{'value': '[{preferred_term: patch-clamp electrophysiology}]'}]} })
     mechanisms: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology'],
          'examples': [{'value': "['Thrombocytopenia', 'Platelet Dysfunction', "
                                 "'Disseminated Intravascular Coagulation (DIC)']"}]} })
@@ -16094,6 +19327,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -16101,10 +19335,13 @@ class Pathophysiology(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -16121,8 +19358,11 @@ class Pathophysiology(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -16142,6 +19382,19 @@ class Pathophysiology(ConfiguredBaseModel):
                        'ModuleCollectionMember'],
          'examples': [{'value': 'Contagious stage where symptoms appear and the '
                                 'bacteria can be spread to others.'}]} })
+    review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
+                       'Subtype',
+                       'ProgressionInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'Treatment'],
+         'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
     frequency: Optional[Union[FrequencyEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'FrequencyEnum'}, {'range': 'FrequencyQuantity'}],
          'domain_of': ['PhenotypeContext',
                        'Pathophysiology',
@@ -16163,6 +19416,17 @@ class Pathophysiology(ConfiguredBaseModel):
     mechanism_confidence: Optional[MechanismConfidenceEnum] = Field(default=None, description="""Level of confidence in this pathophysiology mechanism. If not specified, the mechanism is assumed to be established.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology']} })
     biological_scale: Optional[BiologicalScaleEnum] = Field(default=None, description="""Biological scale of the substrate this pathophysiology node primarily describes — molecular, cellular, tissue/organ, or organism. Optional tag; each value covers both ongoing processes and persistent states at that scale. See BiologicalScaleEnum for scope of each value and projects/PATHOPHYSIOLOGY_SCALE_FEASIBILITY.md for the design rationale.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology'],
          'examples': [{'value': 'MOLECULAR'}, {'value': 'TISSUE'}]} })
+    node_class: Optional[PathographNodeClassEnum] = Field(default=None, description="""The kind of causal claim this pathophysiology node makes: a genomic lesion, an exposure, a broken molecular activity, a molecule in the wrong amount or form, a pathway running wrongly, a cellular, tissue/organ or systemic effect, an outcome, or a standing disposition. Optional. Values come from the pathograph node-class tree (kb/node_classes/pathograph_node_classes.txt), whose glosses and worked examples are the guide to assigning one. Assign the most specific class that fits the node's own claim; a tier is acceptable when no leaf fits. Leave the slot absent when no class fits. Single-valued: a node that needs two classes is making two claims and should be split instead. Distinct from biological_scale, the scale of the node's substrate; `just node-class-scan --format scale` reports nodes whose class tier and scale disagree.""", json_schema_extra = { "linkml_meta": {'comments': ["Classify the node's claim, not what its gene normally does. A "
+                      'lesion node is often bound to the wild-type molecular function '
+                      'of the affected gene (Germline PTEN Loss of Function carries '
+                      'the PTEN phosphatase activity); its class follows what the node '
+                      'asserts, the allele (a GENOMIC class such as '
+                      'PATHOGENIC_SEQUENCE_VARIANT) or the lost activity (a MOLECULAR '
+                      'ACTIVITY class), not the term. `just node-class-scan` suggests '
+                      "a class from a node's ontology terms; it is a hint, and it is "
+                      'least reliable in exactly this case.'],
+         'domain_of': ['Pathophysiology'],
+         'examples': [{'value': 'CELL_DEATH'}, {'value': 'METABOLITE_ACCUMULATION'}]} })
     regulatory_category: Optional[RegulatoryVariantCategoryEnum] = Field(default=None, description="""Controlled classification of the expression-effect claim represented by this node. Interpret together with mechanism_confidence: a HYPOTHETICAL node classifies a proposed effect, not an observed one. For regulatory SVs, annotate the target gene here rather than on the physical initiating lesion when its sequence is intact.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'Variant', 'FunctionalEffect']} })
 
 
@@ -16177,6 +19441,7 @@ class Phenotype(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -16185,6 +19450,7 @@ class Phenotype(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -16238,6 +19504,7 @@ class Phenotype(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -16251,6 +19518,7 @@ class Phenotype(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -16265,12 +19533,15 @@ class Phenotype(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -16298,6 +19569,7 @@ class Phenotype(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -16315,6 +19587,7 @@ class Phenotype(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -16330,11 +19603,14 @@ class Phenotype(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -16364,6 +19640,7 @@ class Phenotype(ConfiguredBaseModel):
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
                        'ProgressionInfo',
+                       'Pathophysiology',
                        'Phenotype',
                        'Genetic',
                        'Environmental',
@@ -16388,6 +19665,7 @@ class Phenotype(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -16395,10 +19673,13 @@ class Phenotype(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -16415,8 +19696,11 @@ class Phenotype(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -16438,6 +19722,7 @@ class Phenotype(ConfiguredBaseModel):
                                 'bacteria can be spread to others.'}]} })
     subtype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Prevalence',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'Phenotype',
                        'Biochemical',
@@ -16472,6 +19757,7 @@ class Biochemical(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -16480,6 +19766,7 @@ class Biochemical(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -16512,6 +19799,16 @@ class Biochemical(ConfiguredBaseModel):
                       'products)',
                       'NCIT:C16342 (Biomarker) is the root class for validation'],
          'domain_of': ['ExperimentalReadout', 'Biochemical']} })
+    loinc_term: Optional[LoincCode] = Field(default=None, description="""LOINC code for a measured analyte or clinical observation (e.g., LOINC:2823-3 for serum potassium). Binds to the LOINC namespace.""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
+                       'obligation_level': 'REQUIRED',
+                       'range': 'LoincTerm'}],
+         'comments': ['On a ReferenceRange this names the measurement the interval and '
+                      'its bands apply to. On a Biochemical it names the measurement '
+                      'that quantifies the marker, so a biomarker can carry a code '
+                      'without an interval being invented for it.',
+                      "The label is LOINC's Long Common Name, as served by the Monarch "
+                      'KG.'],
+         'domain_of': ['ReferenceRange', 'Biochemical']} })
     presence: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical', 'Genetic', 'Environmental', 'Diagnosis'],
          'examples': [{'value': 'Positive'}]} })
     readouts: Optional[list[BiomarkerReadout]] = Field(default=None, description="""Links this biomarker to disease pathograph nodes that it measures, reflects, predicts, or pharmacodynamically reports on. The target should be a named pathograph node, typically a pathophysiology mechanism.""", json_schema_extra = { "linkml_meta": {'comments': ['Target names should match pathophysiology or phenotype entry '
@@ -16522,7 +19819,7 @@ class Biochemical(ConfiguredBaseModel):
                       "biomarker-to-mechanism mapping is distinct from the biomarker's "
                       'own evidence'],
          'domain_of': ['Experiment', 'ModelMechanismLink', 'Biochemical']} })
-    reference_ranges: Optional[list[ReferenceRange]] = Field(default=None, description="""Clinical laboratory reference intervals for this biomarker, keyed by LOINC code with population qualifier and UCUM units.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical']} })
+    reference_ranges: Optional[list[ReferenceRange]] = Field(default=None, description="""Clinical laboratory reference intervals for this biomarker, keyed by LOINC code with population qualifier and UCUM units.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical', 'Diagnosis']} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Dataset',
                        'ExperimentalModel',
@@ -16530,6 +19827,7 @@ class Biochemical(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -16547,6 +19845,7 @@ class Biochemical(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -16562,11 +19861,14 @@ class Biochemical(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -16603,6 +19905,7 @@ class Biochemical(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -16610,10 +19913,13 @@ class Biochemical(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -16630,8 +19936,11 @@ class Biochemical(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -16662,6 +19971,7 @@ class Biochemical(ConfiguredBaseModel):
          'examples': [{'value': 'Pregnancy'}]} })
     subtype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Prevalence',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'Phenotype',
                        'Biochemical',
@@ -16675,11 +19985,11 @@ class Biochemical(ConfiguredBaseModel):
     cell_types: Optional[list[CellTypeDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel', 'Pathophysiology', 'Biochemical'],
          'examples': [{'value': '[{preferred_term: Macrophage}, {preferred_term: T '
                                 'Cell}]'}]} })
-    assays: Optional[list[AssayDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment',
+    assays: Optional[list[AssayDescriptor]] = Field(default=None, description="""Assays used to measure or observe the thing this slot sits on: the technique, such as an imaging modality, a sequencing method, an electrophysiological recording or a laboratory test. An assay is how something is measured, never the result. A finding such as an elevated analyte belongs in biochemical (with readouts linking it to a pathophysiology node) or in phenotypes, not here. Bind OBI terms where one fits.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment',
                        'ExperimentalReadout',
                        'Pathophysiology',
                        'Biochemical'],
-         'examples': [{'value': '[{preferred_term: Elevated Blood Glucose}]'}]} })
+         'examples': [{'value': '[{preferred_term: patch-clamp electrophysiology}]'}]} })
     mappings_list: Optional[list[ModelVariableDescriptor]] = Field(default=None, description="""Ontology term mappings for a model variable (LOINC, CHEBI, HP, etc.)""", json_schema_extra = { "linkml_meta": {'domain_of': ['ModelVariable', 'Biochemical']} })
     synonyms: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
                        'Biochemical',
@@ -16728,6 +20038,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -16736,6 +20047,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -16783,6 +20095,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -16796,6 +20109,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -16810,12 +20124,15 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -16849,6 +20166,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -16866,6 +20184,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -16881,11 +20200,14 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -16912,6 +20234,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -16919,10 +20242,13 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -16939,8 +20265,11 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -16971,6 +20300,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
          'examples': [{'value': 'Pregnancy'}]} })
     subtype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Prevalence',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'Phenotype',
                        'Biochemical',
@@ -17028,6 +20358,7 @@ class ImagingFinding(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -17036,6 +20367,7 @@ class ImagingFinding(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -17079,6 +20411,7 @@ class ImagingFinding(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -17092,6 +20425,7 @@ class ImagingFinding(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -17106,12 +20440,15 @@ class ImagingFinding(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -17159,6 +20496,7 @@ class ImagingFinding(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -17176,6 +20514,7 @@ class ImagingFinding(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -17191,11 +20530,14 @@ class ImagingFinding(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -17222,6 +20564,7 @@ class ImagingFinding(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -17229,10 +20572,13 @@ class ImagingFinding(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -17249,8 +20595,11 @@ class ImagingFinding(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -17281,6 +20630,7 @@ class ImagingFinding(ConfiguredBaseModel):
          'examples': [{'value': 'Pregnancy'}]} })
     subtype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Prevalence',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'Phenotype',
                        'Biochemical',
@@ -17299,6 +20649,7 @@ class Genetic(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -17307,6 +20658,7 @@ class Genetic(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -17336,6 +20688,7 @@ class Genetic(ConfiguredBaseModel):
                        'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     gene_term: Optional[GeneDescriptor] = Field(default=None, description="""The HGNC term for this gene""", json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic']} })
+    mhc_term: Optional[MHCDescriptor] = Field(default=None, description="""Optional MRO (MHC Restriction Ontology) term for an HLA/MHC allele, serotype, haplotype, or presenting protein complex. On a Genetic entry, complements `gene_term` (which binds the locus in HGNC, e.g. HLA-DQA1 or HLA-B) with the allele, serotype, haplotype, or heterodimer specificity (e.g. `MRO:0000283` HLA-DQ2 serotype, `MRO:0001284` HLA-DRB1*03:01 protein complex). On a TreatmentEffectModifier with `effect_modifier_type: GENOTYPE`, grounds an HLA-restricted vaccine or immunotherapy responder/non-responder stratum.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic', 'TreatmentEffectModifier']} })
     affected_regions: Optional[list[GenomicRegion]] = Field(default=None, description="""Named genomic regions affected by the physical alteration, including regulatory elements or chromosome intervals. Each item describes the named feature, which need not span the entire variant. Record only source-supported locations; disease-level regions need not have exact patient-specific breakpoints. Evidence belongs on the enclosing record. Location landmarks do not assert regulatory targeting or causal gene involvement. Existing free-text descriptions remain valid.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext', 'Genetic', 'Variant']} })
     presence: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical', 'Genetic', 'Environmental', 'Diagnosis'],
          'examples': [{'value': 'Positive'}]} })
@@ -17346,6 +20699,7 @@ class Genetic(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -17363,6 +20717,7 @@ class Genetic(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -17378,11 +20733,14 @@ class Genetic(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -17406,6 +20764,7 @@ class Genetic(ConfiguredBaseModel):
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
                        'ProgressionInfo',
+                       'Pathophysiology',
                        'Phenotype',
                        'Genetic',
                        'Environmental',
@@ -17417,6 +20776,7 @@ class Genetic(ConfiguredBaseModel):
          'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
     subtype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Prevalence',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'Phenotype',
                        'Biochemical',
@@ -17434,6 +20794,7 @@ class Genetic(ConfiguredBaseModel):
                        'Genetic'],
          'examples': [{'value': 'Occasional'}]} })
     case_fractions: Optional[list[GeneCaseFraction]] = Field(default=None, description="""Per-cohort estimates of the fraction of cases of a genetically heterogeneous disease attributable to this gene (the genetic-spectrum analog of population Prevalence records). Multivalued because the share varies by cohort/ancestry.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic']} })
+    gene_disease_validity: Optional[list[GeneDiseaseValidityAssertion]] = Field(default=None, description="""Gene-disease validity classifications made by external curation bodies for this gene and this entry's disease. Each records the tier, who assigned it, and the identifier of the assertion. Multivalued because one gene-disease pair can carry several: ClinGen classifies each mode of inheritance separately, an entry's subtypes can be separate ClinGen diseases, and GenCC submitters do not always agree. Leave absent when no external body has classified the pair; that is not the same as NO_KNOWN_DISEASE_RELATIONSHIP.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic']} })
     inheritance: Optional[list[Inheritance]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Genetic', 'Disease'],
          'examples': [{'value': 'Autosomal Dominant'}]} })
     variants: Optional[list[Variant]] = Field(default=None, json_schema_extra = { "linkml_meta": {'comments': ['can currently be used at gene or disease level, TODO - decide '
@@ -17450,6 +20811,7 @@ class Genetic(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -17457,10 +20819,13 @@ class Genetic(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -17477,8 +20842,11 @@ class Genetic(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -17510,7 +20878,31 @@ class Environmental(ConfiguredBaseModel):
     """
     An environmental factor, exposure, or context relevant to disease
     """
-    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['Carries claims at two independent scopes. disease_effect + '
+                      'causal_role state how the exposure acts on the disease; '
+                      'influences_mechanisms states how it acts on named mechanism '
+                      'nodes. Either may be present without the other.'],
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'effect': {'deprecated': 'Prefer disease_effect and '
+                                                 'causal_role. Retained for the 285 '
+                                                 'entries that already populate it, '
+                                                 '~64 of which carry enum-shaped '
+                                                 'values (HARMFUL, TRIGGERS, '
+                                                 'RISK_FACTOR, CAUSATIVE, EXACERBATES) '
+                                                 'written into a string slot because '
+                                                 'no controlled vocabulary existed at '
+                                                 'this scope. Deprecated on '
+                                                 'Environmental only: '
+                                                 'ExperimentalPerturbation and '
+                                                 'Transmission share the effect slot '
+                                                 'and have no structured replacement. '
+                                                 'See issue #11112.',
+                                   'description': 'Free-text summary of what the '
+                                                  'exposure does. Superseded by the '
+                                                  'structured pair disease_effect '
+                                                  '(direction) and causal_role '
+                                                  '(strength).',
+                                   'name': 'effect'}}})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'domain_of': ['GenomicRegion',
                        'ExperimentalModel',
@@ -17518,6 +20910,7 @@ class Environmental(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -17526,6 +20919,7 @@ class Environmental(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -17563,6 +20957,7 @@ class Environmental(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -17580,6 +20975,7 @@ class Environmental(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -17595,11 +20991,14 @@ class Environmental(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -17626,6 +21025,7 @@ class Environmental(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -17633,10 +21033,13 @@ class Environmental(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -17653,8 +21056,11 @@ class Environmental(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -17684,6 +21090,7 @@ class Environmental(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -17697,6 +21104,7 @@ class Environmental(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -17711,12 +21119,15 @@ class Environmental(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -17740,8 +21151,30 @@ class Environmental(ConfiguredBaseModel):
                        'Disease',
                        'Variant'],
          'examples': [{'value': "['CYFRA 21-1']"}]} })
-    effect: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation', 'Environmental', 'Transmission'],
+    effect: Optional[str] = Field(default=None, description="""Free-text summary of what the exposure does. Superseded by the structured pair disease_effect (direction) and causal_role (strength).""", json_schema_extra = { "linkml_meta": {'deprecated': 'Prefer disease_effect and causal_role. Retained for the 285 '
+                       'entries that already populate it, ~64 of which carry '
+                       'enum-shaped values (HARMFUL, TRIGGERS, RISK_FACTOR, CAUSATIVE, '
+                       'EXACERBATES) written into a string slot because no controlled '
+                       'vocabulary existed at this scope. Deprecated on Environmental '
+                       'only: ExperimentalPerturbation and Transmission share the '
+                       'effect slot and have no structured replacement. See issue '
+                       '#11112.',
+         'domain_of': ['ExperimentalPerturbation', 'Environmental', 'Transmission'],
          'examples': [{'value': 'Potential trigger for flare-ups'}]} })
+    disease_effect: Optional[EnvironmentalEffectEnum] = Field(default=None, description="""How this exposure acts on the disease as a whole, as opposed to on any one mechanism node.""", json_schema_extra = { "linkml_meta": {'comments': ['Independent of influences_mechanisms. An exposure may carry a '
+                      'disease_effect with no mechanism links at all -- that is the '
+                      'normal shape when the evidence is a population risk estimate '
+                      'that never names a node.',
+                      'Where both are present they are separate assertions and need '
+                      'not agree; see the EnvironmentalEffectEnum comments.',
+                      "Supported by the entry's own evidence block, which already "
+                      'holds the disease-level claim in curated entries.'],
+         'domain_of': ['Environmental']} })
+    causal_role: Optional[EnvironmentalCausalRoleEnum] = Field(default=None, description="""How strongly this exposure determines the disease. The strength axis paired with disease_effect, which carries the direction.""", json_schema_extra = { "linkml_meta": {'comments': ['Answers "is this an environmental determinant" separately from '
+                      '"which way does it act". An exposure can be PREDISPOSES + '
+                      'RISK_FACTOR (alcohol and breast carcinoma) or TRIGGERS + '
+                      'NECESSARY (gluten and coeliac disease).'],
+         'domain_of': ['Environmental']} })
     examples: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology',
                        'Genetic',
                        'Environmental',
@@ -17751,6 +21184,7 @@ class Environmental(ConfiguredBaseModel):
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
                        'ProgressionInfo',
+                       'Pathophysiology',
                        'Phenotype',
                        'Genetic',
                        'Environmental',
@@ -17797,6 +21231,7 @@ class Disease(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -17805,6 +21240,7 @@ class Disease(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -17852,6 +21288,7 @@ class Disease(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -17865,6 +21302,7 @@ class Disease(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -17879,12 +21317,15 @@ class Disease(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -17955,18 +21396,21 @@ class Disease(ConfiguredBaseModel):
          'examples': [{'value': "['CYFRA 21-1']"}]} })
     inheritance: Optional[list[Inheritance]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Genetic', 'Disease'],
          'examples': [{'value': 'Autosomal Dominant'}]} })
-    animal_models: Optional[list[AnimalModel]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
+    animal_models: Optional[list[AnimalModel]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'Disease']} })
     experimental_models: Optional[list[ExperimentalModel]] = Field(default=None, description="""Disease-relevant organoids, cell lines, chip systems, cocultures, and related experimental models curated as mechanism or translational resources.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease'], 'recommended': False} })
     datasets: Optional[list[Dataset]] = Field(default=None, description="""Publicly available datasets relevant to disease research""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'Disease'], 'recommended': True} })
     clinical_trials: Optional[list[ClinicalTrial]] = Field(default=None, description="""Clinical trials relevant to disease treatment and research""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease'], 'recommended': False} })
     surrogate_endpoints: Optional[list[SurrogateEndpoint]] = Field(default=None, description="""Curated surrogate endpoint assertions""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection', 'Disease']} })
-    computational_models: Optional[list[ComputationalModel]] = Field(default=None, description="""Computational models (metabolic, mechanistic, ML, digital twins) for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
+    computational_models: Optional[list[ComputationalModel]] = Field(default=None, description="""Computational models (metabolic, mechanistic, ML, digital twins) for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Experiment', 'Disease']} })
     classifications: Optional[DiseaseClassifications] = Field(default=None, description="""Classification assignments for this disease from various nosologies""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     definitions: Optional[list[Definition]] = Field(default=None, description="""Definitions or diagnostic criteria for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     gene_sets: Optional[list[GeneSetAssociation]] = Field(default=None, description="""Curated links from this disease to external gene sets, each referenced by its structured-source id (MYGENESET:<id>, resolving to references_cache/MYGENESET_<id>.md). Membership and the curated GO interpretation live upstream / in the cache file; this slot records only the precise disease<->set link and its semantics, and is the anchor for BP alignment (`just genesets-align`).""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease']} })
     mappings: Optional[DiseaseMappings] = Field(default=None, description="""External identifier mappings for this disease or subtype (SSSOM-inspired)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype', 'Disease', 'Grouping']} })
     external_assertions: Optional[list[ExternalAssertion]] = Field(default=None, description="""External curated assertions or registry records relevant to this entity""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'Variant']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'Disease',
+                       'TermMapping']} })
     discussions: Optional[list[Discussion]] = Field(default=None, description="""Open or recently-resolved discussion items attached to this entry. Each Discussion is a thread-like object with a `prompt`, a `kind` (OPEN_QUESTION, KNOWLEDGE_GAP, CONTROVERSY, etc.), a `status`, optional `attaches_to` pointers to specific nodes/gaps, an optional `proposed_experiments` block, and an `evidence` block reusing the standard EvidenceItem shape for citing primary literature, community commentary (e.g., Alzforum), and forum/issue threads.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'Grouping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
@@ -17977,6 +21421,7 @@ class Disease(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -17984,10 +21429,13 @@ class Disease(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -18004,8 +21452,11 @@ class Disease(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -18028,6 +21479,7 @@ class Disease(ConfiguredBaseModel):
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
                        'ProgressionInfo',
+                       'Pathophysiology',
                        'Phenotype',
                        'Genetic',
                        'Environmental',
@@ -18075,6 +21527,7 @@ class Stage(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -18083,6 +21536,7 @@ class Stage(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -18121,6 +21575,7 @@ class Stage(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -18134,6 +21589,7 @@ class Stage(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -18148,12 +21604,15 @@ class Stage(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -18177,6 +21636,7 @@ class Stage(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -18194,6 +21654,7 @@ class Stage(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -18209,11 +21670,14 @@ class Stage(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -18240,6 +21704,7 @@ class Stage(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -18247,10 +21712,13 @@ class Stage(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -18267,8 +21735,11 @@ class Stage(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -18300,6 +21771,7 @@ class Stage(ConfiguredBaseModel):
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
                        'ProgressionInfo',
+                       'Pathophysiology',
                        'Phenotype',
                        'Genetic',
                        'Environmental',
@@ -18309,7 +21781,7 @@ class Stage(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'Treatment'],
          'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
-    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone, many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061).""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
+    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries well over a hundred distinct values on pathophysiology nodes alone (`just node-role-audit` for the current census), many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061). On a pathophysiology node, a role saying what kind of thing the node is (`mechanism`, `driver`, `organ_dysfunction`) belongs in node_class instead, and a node's position in the cascade (`trigger`, `consequence`) can be read from its downstream edges.""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
                       'an initiating-sounding role does NOT identify the cell of '
                       'origin: that derivation reads `genetic_context.variant_origin: '
                       'SOMATIC` on the lesion node, or an `environmental_effect: '
@@ -18341,6 +21813,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -18354,6 +21827,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -18368,12 +21842,15 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -18403,6 +21880,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -18420,6 +21898,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -18435,11 +21914,14 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -18466,6 +21948,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -18473,10 +21956,13 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -18493,8 +21979,11 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -18526,6 +22015,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
                        'ProgressionInfo',
+                       'Pathophysiology',
                        'Phenotype',
                        'Genetic',
                        'Environmental',
@@ -18546,6 +22036,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -18554,6 +22045,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -18593,6 +22085,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -18606,6 +22099,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -18620,12 +22114,15 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -18649,6 +22146,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -18666,6 +22164,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -18681,11 +22180,14 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -18712,6 +22214,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -18719,10 +22222,13 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -18739,8 +22245,11 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -18772,6 +22281,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
                        'ProgressionInfo',
+                       'Pathophysiology',
                        'Phenotype',
                        'Genetic',
                        'Environmental',
@@ -18801,7 +22311,21 @@ class AnimalModel(ConfiguredBaseModel):
                       'MODEL_ORGANISM` and should not be the sole support for a human '
                       'phenotype.'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech',
-         'slot_usage': {'modeled_mechanisms': {'description': 'Pathophysiology '
+         'slot_usage': {'genes': {'description': 'Genes or gene products perturbed, '
+                                                 'expressed, or carried as a variant '
+                                                 "in the model, named in the model's "
+                                                 'own species: the Alliance MOD '
+                                                 'identifier for a model organism (a '
+                                                 'mouse knockout of Coch is '
+                                                 'MGI:1278313, not hgnc:2180), '
+                                                 'NCBIGene: for a species with no MOD, '
+                                                 'hgnc: for a human transgene. '
+                                                 'Orthology to the human disease gene '
+                                                 'goes in description or notes.',
+                                  'inlined_as_list': True,
+                                  'name': 'genes',
+                                  'range': 'GeneOrProductDescriptor'},
+                        'modeled_mechanisms': {'description': 'Pathophysiology '
                                                               'mechanism nodes this '
                                                               'animal model '
                                                               'recapitulates, '
@@ -18819,10 +22343,12 @@ class AnimalModel(ConfiguredBaseModel):
     species: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['AnimalModel'], 'examples': [{'value': 'Human'}]} })
     genotype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['AnimalModel'], 'examples': [{'value': 'HLA-DQ2'}]} })
     background: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['AnimalModel']} })
-    genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+    genes: Optional[list[GeneOrProductDescriptor]] = Field(default=None, description="""Genes or gene products perturbed, expressed, or carried as a variant in the model, named in the model's own species: the Alliance MOD identifier for a model organism (a mouse knockout of Coch is MGI:1278313, not hgnc:2180), NCBIGene: for a species with no MOD, hgnc: for a human transgene. Orthology to the human disease gene goes in description or notes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
+                       'GeneClassificationCollection',
                        'Pathophysiology',
                        'AnimalModel'],
          'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
@@ -18839,6 +22365,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -18852,6 +22379,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -18866,12 +22394,15 @@ class AnimalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -18912,6 +22443,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -18929,6 +22461,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -18944,11 +22477,14 @@ class AnimalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -18975,6 +22511,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -18982,10 +22519,13 @@ class AnimalModel(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -19002,8 +22542,11 @@ class AnimalModel(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -19029,6 +22572,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -19037,6 +22581,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -19076,6 +22621,7 @@ class Treatment(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -19084,6 +22630,7 @@ class Treatment(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -19122,6 +22669,7 @@ class Treatment(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -19135,6 +22683,7 @@ class Treatment(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -19149,12 +22698,15 @@ class Treatment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -19175,6 +22727,7 @@ class Treatment(ConfiguredBaseModel):
     treatment_term: Optional[TreatmentDescriptor] = Field(default=None, description="""The NCIT term for this treatment/medical action""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalPerturbation', 'Treatment']} })
     regimen_term: Optional[RegimenDescriptor] = Field(default=None, description="""The NCIT term for this treatment regimen""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     therapeutic_modality: Optional[TherapeuticModalityEnum] = Field(default=None, description="""Broad therapeutic platform/modality of a treatment (e.g., small molecule, monoclonal antibody, antisense oligonucleotide, gene therapy). Complements treatment_term (the NCIT action) and therapeutic_agent (the specific drug) by classifying the kind of therapeutic, enabling cross-disease queries by platform. Prefer this enum-backed slot over the free-text role slot for modality.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
+    delivery_system: Optional[DeliverySystem] = Field(default=None, description="""Structured detail of how this treatment's active agent reaches its target: the formulation platform, any targeting ligand on the carrier, the receptor that ligand binds, and the cell type the carrier is aimed at. Populate for any modality whose carrier is part of the therapeutic identity - an mRNA lipid nanoparticle, an albumin-bound or liposomal small molecule, an AAV vector - not only for oligonucleotides. Supersedes the delivery_platform and conjugation slots nested in oligonucleotide_details, which remain valid for entries authored before this slot existed.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     oligonucleotide_details: Optional[OligonucleotideDetail] = Field(default=None, description="""Structured detail specific to nucleic-acid treatments that act by base-pairing with a target RNA. Populate when therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE or SIRNA.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     aso_details: Optional[OligonucleotideDetail] = Field(default=None, description="""Deprecated alias of oligonucleotide_details, retained so entries authored before the slot was generalized continue to validate.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Renamed to oligonucleotide_details, which covers siRNA as well '
                        'as antisense oligonucleotides. Existing entries carrying '
@@ -19183,6 +22736,7 @@ class Treatment(ConfiguredBaseModel):
          'domain_of': ['Treatment']} })
     dosing_interval: Optional[str] = Field(default=None, description="""Human-readable maintenance dosing interval as stated by the label or trial (e.g., \"once every 3 weeks\", \"twice yearly\"). Record loading or induction doses in the treatment description rather than here.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     dosing_interval_days: Optional[float] = Field(default=None, description="""The maintenance dosing interval normalized to days, so treatments are comparable across entries (3 weeks = 21; monthly = 30; quarterly = 90; twice yearly = 182.5). Populate alongside dosing_interval, which keeps the source phrasing.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
+    effect_modifiers: Optional[list[TreatmentEffectModifier]] = Field(default=None, description="""Reported differences in a treatment's effect across patient subgroups (age, sex, baseline severity, genotype, ...). One entry per stratum, outcome and source: the same stratum can show a larger effect on one outcome and none on another. Absent means no subgroup difference has been curated, not that none exists.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Treatment']} })
     target_phenotypes: Optional[list[PhenotypeDescriptor]] = Field(default=None, description="""Phenotypes that this treatment or trial addresses or targets""", json_schema_extra = { "linkml_meta": {'comments': ["Should reference phenotype names defined in the same disease's "
                       'phenotypes list',
                       'Enables linking treatments/trials to the '
@@ -19211,6 +22765,7 @@ class Treatment(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -19228,6 +22783,7 @@ class Treatment(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -19243,11 +22799,14 @@ class Treatment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -19274,6 +22833,7 @@ class Treatment(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -19281,10 +22841,13 @@ class Treatment(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -19301,8 +22864,11 @@ class Treatment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -19334,6 +22900,7 @@ class Treatment(ConfiguredBaseModel):
     review_notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'Subtype',
                        'ProgressionInfo',
+                       'Pathophysiology',
                        'Phenotype',
                        'Genetic',
                        'Environmental',
@@ -19343,7 +22910,7 @@ class Treatment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'Treatment'],
          'examples': [{'value': 'Added an additional clinically relevant subtype.'}]} })
-    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries ~90 distinct values on pathophysiology nodes alone, many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061).""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
+    role: Optional[str] = Field(default=None, description="""Free-text role of this item within its section (e.g. a pathophysiology node's place in the cascade, or a host's role in a parasite life cycle). Deliberately unconstrained: the KB carries well over a hundred distinct values on pathophysiology nodes alone (`just node-role-audit` for the current census), many of them descriptive rather than categorical, so narrowing this to an enum would retire legitimate content and invalidate in-flight curation (cf. the retired-enum-value hazard, dismech#10061). On a pathophysiology node, a role saying what kind of thing the node is (`mechanism`, `driver`, `organ_dysfunction`) belongs in node_class instead, and a node's position in the cascade (`trigger`, `consequence`) can be read from its downstream edges.""", json_schema_extra = { "linkml_meta": {'comments': ['`role` is never read as a claim. For neoplasms in particular, '
                       'an initiating-sounding role does NOT identify the cell of '
                       'origin: that derivation reads `genetic_context.variant_origin: '
                       'SOMATIC` on the lesion node, or an `environmental_effect: '
@@ -19364,6 +22931,7 @@ class Treatment(ConfiguredBaseModel):
 class OligonucleotideDetail(ConfiguredBaseModel):
     """
     Structured attributes of a treatment that acts by base-pairing with a target RNA: its molecular mechanism, RNA target, splice exon (for splice-switching antisense oligonucleotides), backbone chemistry, targeting conjugate, and delivery platform. Attach via the oligonucleotide_details slot on a Treatment whose therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE or SIRNA. Single-stranded ASOs and double-stranded siRNAs share this class deliberately - they differ in effector (RNase H1 versus Argonaute-2) but are the same programmable platform, described by the same target, chemistry, and delivery attributes.
+    The carrier attributes here (delivery_platform, targeting_ligand, and the deprecated conjugation) predate the Treatment-level delivery_system block and are retained so entries authored before it continue to validate. New treatments record the carrier in delivery_system; this class keeps the mechanism, RNA target, exon, and backbone chemistry, which are genuinely specific to base-pairing therapeutics. just check-delivery-system reports entries still using the nested slots and gates on a value recorded in both places.
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'aliases': ['AntisenseOligonucleotideDetail'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
@@ -19373,16 +22941,460 @@ class OligonucleotideDetail(ConfiguredBaseModel):
     target_transcript: Optional[str] = Field(default=None, description="""The specific transcript, pre-mRNA element, or sequence motif targeted by a therapeutic oligonucleotide (e.g., a RefSeq/Ensembl transcript ID, \"SMN2 ISS-N1\", or \"APOB mRNA\").""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
     target_exon: Optional[str] = Field(default=None, description="""The exon (or exons) modulated by a splice-switching antisense oligonucleotide, expressed in human-readable form (e.g., \"exon 51\", \"exon 7\"). Not applicable to siRNA, which acts on mature mRNA rather than on splicing.""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
     oligonucleotide_chemistry: Optional[OligonucleotideChemistryEnum] = Field(default=None, description="""Backbone / sugar chemistry of a therapeutic oligonucleotide""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
-    conjugation: Optional[OligonucleotideConjugationEnum] = Field(default=None, description="""Targeting ligand covalently attached to a therapeutic oligonucleotide""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
-    delivery_platform: Optional[OligonucleotideDeliveryPlatformEnum] = Field(default=None, description="""How the oligonucleotide is carried to its target tissue - unformulated, ligand conjugate, lipid nanoparticle, viral vector. Orthogonal to conjugation: an unconjugated oligonucleotide may still be delivered in a nanoparticle.""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail']} })
+    targeting_ligand: Optional[TargetingLigandEnum] = Field(default=None, description="""Targeting ligand attached to the active agent, or to the carrier particle holding it, to direct uptake by a particular tissue or cell type. Orthogonal to delivery_platform: an unconjugated agent may still travel in a nanoparticle, and a nanoparticle may carry a ligand on its surface.""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail', 'DeliverySystem']} })
+    conjugation: Optional[TargetingLigandEnum] = Field(default=None, description="""Deprecated alias of targeting_ligand, retained so entries authored before the slot was generalized continue to validate.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Renamed to targeting_ligand, which describes a ligand coupled '
+                       'to a carrier particle as well as one conjugated directly to an '
+                       'oligonucleotide. Existing entries carrying conjugation remain '
+                       'valid; do not populate it on new treatments.',
+         'domain_of': ['OligonucleotideDetail']} })
+    delivery_platform: Optional[DeliveryPlatformEnum] = Field(default=None, description="""How the active agent is carried to its target tissue - unformulated, ligand conjugate, lipid nanoparticle, liposome, albumin-bound particle, viral vector. Orthogonal to targeting_ligand: an unconjugated agent may still be delivered in a nanoparticle. Prefer the Treatment-level delivery_system block, which carries this slot alongside the targeting detail; the copy nested in oligonucleotide_details predates it and stays valid.""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail', 'DeliverySystem']} })
     aso_mechanism: Optional[OligonucleotideMechanismEnum] = Field(default=None, description="""Deprecated alias of oligonucleotide_mechanism.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Renamed to oligonucleotide_mechanism.',
          'domain_of': ['OligonucleotideDetail']} })
     aso_chemistry: Optional[OligonucleotideChemistryEnum] = Field(default=None, description="""Deprecated alias of oligonucleotide_chemistry.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Renamed to oligonucleotide_chemistry.',
          'domain_of': ['OligonucleotideDetail']} })
 
 
-class InfectiousAgent(ConfiguredBaseModel):
+class TreatmentEffectModifier(ConfiguredBaseModel):
+    """
+    A reported difference in a treatment's effect between patient subgroups: the stratum, what it is compared with, the outcome, the direction of the difference, and how the difference was established. Records heterogeneity of treatment effect so it is queryable (\"which treatments work less well in women?\") rather than buried in a treatment description.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['Effect modification is not a mechanism. Where a mechanism for '
+                      'the difference is known, record that as a pathophysiology node '
+                      'and name it in description.',
+                      'A difference resting on POST_HOC_SUBGROUP, '
+                      'CROSS_STRATUM_COMPARISON or CROSS_STUDY_COMPARISON without an '
+                      'interaction test is a hypothesis; say so in description rather '
+                      'than inflating effect_in_stratum.'],
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'effect_in_stratum': {'name': 'effect_in_stratum',
+                                              'required': True},
+                        'effect_modifier_type': {'name': 'effect_modifier_type',
+                                                 'required': True},
+                        'evidence': {'name': 'evidence', 'recommended': True},
+                        'modified_outcome': {'name': 'modified_outcome',
+                                             'required': True},
+                        'stratum': {'name': 'stratum', 'required': True}}})
+
+    effect_modifier_type: EffectModifierTypeEnum = Field(default=..., description="""The kind of patient characteristic that defines the stratum.""", json_schema_extra = { "linkml_meta": {'domain_of': ['TreatmentEffectModifier']} })
+    stratum: str = Field(default=..., description="""The subgroup the reported effect applies to, in the source's own terms (for example \"women\", \"age 75 years or younger\", \"SPPB 8-9\").""", json_schema_extra = { "linkml_meta": {'domain_of': ['TreatmentEffectModifier']} })
+    mhc_term: Optional[MHCDescriptor] = Field(default=None, description="""Optional MRO (MHC Restriction Ontology) term for an HLA/MHC allele, serotype, haplotype, or presenting protein complex. On a Genetic entry, complements `gene_term` (which binds the locus in HGNC, e.g. HLA-DQA1 or HLA-B) with the allele, serotype, haplotype, or heterodimer specificity (e.g. `MRO:0000283` HLA-DQ2 serotype, `MRO:0001284` HLA-DRB1*03:01 protein complex). On a TreatmentEffectModifier with `effect_modifier_type: GENOTYPE`, grounds an HLA-restricted vaccine or immunotherapy responder/non-responder stratum.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Genetic', 'TreatmentEffectModifier']} })
+    comparator_stratum: Optional[str] = Field(default=None, description="""The subgroup the stratum is compared with (for example \"men\"). Omit only when the comparison is to the whole trial population.""", json_schema_extra = { "linkml_meta": {'domain_of': ['TreatmentEffectModifier', 'VariantPopulationEffect']} })
+    modified_outcome: str = Field(default=..., description="""The outcome on which the effect differs (for example \"handgrip strength\", \"mobility disability\"). Free text; a subgroup difference is outcome-specific.""", json_schema_extra = { "linkml_meta": {'domain_of': ['TreatmentEffectModifier']} })
+    effect_in_stratum: EffectModificationDirectionEnum = Field(default=..., description="""How the effect in the stratum compares with the comparator, for the named outcome.""", json_schema_extra = { "linkml_meta": {'domain_of': ['TreatmentEffectModifier']} })
+    modification_analysis: Optional[EffectModificationAnalysisEnum] = Field(default=None, description="""How the subgroup difference was established.""", json_schema_extra = { "linkml_meta": {'domain_of': ['TreatmentEffectModifier']} })
+    interaction_tested: Optional[bool] = Field(default=None, description="""True when the source reports a formal treatment-by-subgroup interaction test (whatever its result); false when the difference rests only on separate within-stratum results. Omit when the source does not say.""", json_schema_extra = { "linkml_meta": {'domain_of': ['TreatmentEffectModifier']} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GenomicRegion',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'ExternalAssertion',
+                       'Finding',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'ModelingConsideration',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'AlgorithmValidationStatus',
+                       'CriteriaSet',
+                       'AssociationSignal',
+                       'AssociationStatistics',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': True} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'Transmission',
+                       'Diagnosis',
+                       'VariantPopulationEffect',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+
+
+class DeliverySystem(ConfiguredBaseModel):
+    """
+    How a treatment's active agent is carried to its target - the formulation platform, any targeting ligand on the carrier, the receptor that ligand binds, and the cell type the carrier is aimed at. Attach via the delivery_system slot on a Treatment of any modality: the carrier is a property of the formulation, not of the payload chemistry, so an mRNA lipid nanoparticle, an albumin-bound small molecule, a liposomal cytotoxic, and a GalNAc-conjugated siRNA are all described here by the same four attributes.
+    Two facts that used to be inexpressible are the reason this class exists. A carrier could only be recorded inside oligonucleotide_details, so no non-oligonucleotide formulation had a home for it - nab-sirolimus and liposomal irinotecan were curated with the carrier visible only in free-text prose. And there was nowhere to say what a targeted particle is aimed at, which is the whole claim of a receptor-targeted nanomedicine: an anti-TREM2-coated mRNA lipid nanoparticle is aimed at tumor-associated macrophages, and that is a citable, falsifiable statement about the delivery system rather than about the drug.
+    The targeting slots are optional and an untargeted carrier is a normal record: a PEGylated liposome relies on passive accumulation and has no ligand, no receptor, and no target cell type. Leave them absent rather than asserting a target the formulation does not have.
+    """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+
+    delivery_platform: Optional[DeliveryPlatformEnum] = Field(default=None, description="""How the active agent is carried to its target tissue - unformulated, ligand conjugate, lipid nanoparticle, liposome, albumin-bound particle, viral vector. Orthogonal to targeting_ligand: an unconjugated agent may still be delivered in a nanoparticle. Prefer the Treatment-level delivery_system block, which carries this slot alongside the targeting detail; the copy nested in oligonucleotide_details predates it and stays valid.""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail', 'DeliverySystem']} })
+    targeting_ligand: Optional[TargetingLigandEnum] = Field(default=None, description="""Targeting ligand attached to the active agent, or to the carrier particle holding it, to direct uptake by a particular tissue or cell type. Orthogonal to delivery_platform: an unconjugated agent may still travel in a nanoparticle, and a nanoparticle may carry a ligand on its surface.""", json_schema_extra = { "linkml_meta": {'domain_of': ['OligonucleotideDetail', 'DeliverySystem']} })
+    targeting_receptor: Optional[GeneDescriptor] = Field(default=None, description="""The cell-surface receptor or antigen that the targeting ligand binds, bindable to HGNC (e.g., ASGR1 for a GalNAc conjugate, TREM2 for an anti-TREM2-coated nanoparticle). Record the receptor here and the ligand's chemical class in targeting_ligand - they are different facts, and a receptor may be reachable by more than one ligand.""", json_schema_extra = { "linkml_meta": {'domain_of': ['DeliverySystem']} })
+    target_cell_types: Optional[list[CellTypeDescriptor]] = Field(default=None, description="""The cell type(s) a targeted delivery system is aimed at, bindable to CL. This is the carrier's intended destination, which is not always the cell the disease mechanism runs in: a macrophage-targeted particle may be aimed at reprogramming the macrophage rather than at the tumor cell beside it.""", json_schema_extra = { "linkml_meta": {'domain_of': ['DeliverySystem']} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GenomicRegion',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'ExternalAssertion',
+                       'Finding',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'ModelingConsideration',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'AlgorithmValidationStatus',
+                       'CriteriaSet',
+                       'AssociationSignal',
+                       'AssociationStatistics',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': True} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'Transmission',
+                       'Diagnosis',
+                       'VariantPopulationEffect',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+
+
+class InfectiousAgent(ConfiguredBaseModel):
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'has_subtypes': {'description': 'Taxonomic strata below this '
+                                                        'agent - subspecies, serovar, '
+                                                        'serotype, or biotype - each '
+                                                        'groundable in NCBITaxon.',
+                                         'name': 'has_subtypes',
+                                         'range': 'AgentSubtype'}}})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'domain_of': ['GenomicRegion',
                        'ExperimentalModel',
@@ -19390,6 +23402,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -19398,6 +23411,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -19435,6 +23449,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -19452,6 +23467,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -19467,11 +23483,14 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -19499,6 +23518,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -19512,6 +23532,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -19526,12 +23547,15 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -19548,7 +23572,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'DifferentiatingMechanism',
                        'ModuleCollection',
                        'ModuleCollectionMember']} })
-    has_subtypes: Optional[list[Subtype]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'InfectiousAgent']} })
+    has_subtypes: Optional[list[AgentSubtype]] = Field(default=None, description="""Taxonomic strata below this agent - subspecies, serovar, serotype, or biotype - each groundable in NCBITaxon.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'InfectiousAgent']} })
 
 
 class Transmission(ConfiguredBaseModel):
@@ -19560,6 +23584,7 @@ class Transmission(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -19568,6 +23593,7 @@ class Transmission(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -19606,6 +23632,7 @@ class Transmission(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -19619,6 +23646,7 @@ class Transmission(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -19633,12 +23661,15 @@ class Transmission(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -19662,6 +23693,7 @@ class Transmission(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -19679,6 +23711,7 @@ class Transmission(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -19694,11 +23727,14 @@ class Transmission(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -19725,6 +23761,7 @@ class Transmission(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -19732,10 +23769,13 @@ class Transmission(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -19752,8 +23792,11 @@ class Transmission(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -19786,6 +23829,7 @@ class Assay(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -19794,6 +23838,7 @@ class Assay(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -19832,6 +23877,7 @@ class Assay(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -19845,6 +23891,7 @@ class Assay(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -19859,12 +23906,15 @@ class Assay(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -19884,7 +23934,32 @@ class Assay(ConfiguredBaseModel):
 
 
 class Diagnosis(ConfiguredBaseModel):
-    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'markers': {'description': 'Free-text list of the analytes a '
+                                                   'test reads. Superseded by '
+                                                   'measurements, which binds each one '
+                                                   'to LOINC; keep existing values, '
+                                                   'and put new tests in measurements.',
+                                    'name': 'markers'},
+                        'reference_ranges': {'description': 'Decision thresholds this '
+                                                            'disease owns for a '
+                                                            'measurement named in '
+                                                            'measurements: a '
+                                                            'diagnostic cut-off, a '
+                                                            'staging or severity '
+                                                            'grading (MoCA below 26, '
+                                                            'PHQ-9 5/10/15/20, GOLD '
+                                                            'FEV1 bands). Each range '
+                                                            'names its measurement '
+                                                            'through loinc_term and '
+                                                            'carries the cut-offs as '
+                                                            'interpretation_bands. '
+                                                            'This is not the place for '
+                                                            'a population reference '
+                                                            'interval, which is true '
+                                                            'of everyone and belongs '
+                                                            'to no disease.',
+                                             'name': 'reference_ranges'}}})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'domain_of': ['GenomicRegion',
                        'ExperimentalModel',
@@ -19892,6 +23967,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -19900,6 +23976,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -19933,6 +24010,22 @@ class Diagnosis(ConfiguredBaseModel):
                       'Use qualifiers with UBERON terms to specify anatomical location '
                       '(e.g., right heart catheterization)'],
          'domain_of': ['Diagnosis']} })
+    measurements: Optional[list[MeasurementDescriptor]] = Field(default=None, description="""The measurements a diagnostic test consists of, each bound to LOINC. The diagnosis_term says what kind of procedure the test is (an NCIT clinical intervention: enzyme assay, molecular genetic testing); measurements say which observables it reads: hexosaminidase A activity in leukocytes, a CFTR sequencing panel, the PHQ-9 total score. The same action/thing split as treatment_term and therapeutic_agent.""", json_schema_extra = { "linkml_meta": {'comments': ['One entry per distinct measurement. A two-analyte test is two '
+                      'entries.',
+                      'Bind the LOINC Part or the panel / total-score code for the '
+                      "measurement's identity, not a method- or specimen-specific "
+                      'code; LOINC has dozens of codes for one assay, and binding '
+                      'method codes here puts the same test on different codes in '
+                      'different entries. Method codes belong in a definitions[] '
+                      'phenotype algorithm.',
+                      "preferred_term is the curator's name for the measurement in "
+                      'this disease ("sweat chloride"); term.label is the Long Common '
+                      'Name.',
+                      'Decision thresholds the disease owns (a diagnostic cut-off, a '
+                      'severity grading) go in the sibling reference_ranges, keyed on '
+                      'the same LOINC code via loinc_term.'],
+         'domain_of': ['Diagnosis']} })
+    reference_ranges: Optional[list[ReferenceRange]] = Field(default=None, description="""Decision thresholds this disease owns for a measurement named in measurements: a diagnostic cut-off, a staging or severity grading (MoCA below 26, PHQ-9 5/10/15/20, GOLD FEV1 bands). Each range names its measurement through loinc_term and carries the cut-offs as interpretation_bands. This is not the place for a population reference interval, which is true of everyone and belongs to no disease.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical', 'Diagnosis']} })
     presence: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Biochemical', 'Genetic', 'Environmental', 'Diagnosis'],
          'examples': [{'value': 'Positive'}]} })
     evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
@@ -19942,6 +24035,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -19959,6 +24053,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -19974,11 +24069,14 @@ class Diagnosis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -20005,6 +24103,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -20012,10 +24111,13 @@ class Diagnosis(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -20032,8 +24134,11 @@ class Diagnosis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -20055,7 +24160,7 @@ class Diagnosis(ConfiguredBaseModel):
                                 'bacteria can be spread to others.'}]} })
     results: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Diagnosis'],
          'examples': [{'value': 'Identifies MEFV mutations'}]} })
-    markers: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Diagnosis'], 'examples': [{'value': 'CRP, ESR, SAA'}]} })
+    markers: Optional[str] = Field(default=None, description="""Free-text list of the analytes a test reads. Superseded by measurements, which binds each one to LOINC; keep existing values, and put new tests in measurements.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Diagnosis'], 'examples': [{'value': 'CRP, ESR, SAA'}]} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
                        'GenomicRegion',
@@ -20066,6 +24171,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -20079,6 +24185,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -20093,12 +24200,15 @@ class Diagnosis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -20126,6 +24236,7 @@ class Inheritance(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -20134,6 +24245,7 @@ class Inheritance(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -20163,8 +24275,8 @@ class Inheritance(ConfiguredBaseModel):
                        'ModuleCollection'],
          'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
     inheritance_term: Optional[InheritanceDescriptor] = Field(default=None, description="""The HPO mode of inheritance term for this inheritance pattern""", json_schema_extra = { "linkml_meta": {'domain_of': ['Inheritance', 'LogicalCriterion']} })
-    penetrance: Optional[PenetranceEnum] = Field(default=None, description="""Penetrance classification for this inheritance pattern""", json_schema_extra = { "linkml_meta": {'domain_of': ['Inheritance']} })
-    penetrance_percentage: Optional[str] = Field(default=None, description="""Estimated penetrance percentage or range (e.g., 80-90)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Inheritance']} })
+    penetrance: Optional[PenetranceEnum] = Field(default=None, description="""Penetrance classification for this inheritance pattern""", json_schema_extra = { "linkml_meta": {'domain_of': ['Inheritance', 'VariantPopulationEffect']} })
+    penetrance_percentage: Optional[str] = Field(default=None, description="""Estimated penetrance percentage or range (e.g., 80-90)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Inheritance', 'VariantPopulationEffect']} })
     expressivity: Optional[ExpressivityEnum] = Field(default=None, description="""Expressivity classification for this inheritance pattern""", json_schema_extra = { "linkml_meta": {'domain_of': ['Inheritance']} })
     de_novo_rate: Optional[str] = Field(default=None, description="""Estimated percentage of de novo cases (e.g., 80)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Inheritance']} })
     parent_of_origin_effect: Optional[str] = Field(default=None, description="""Parent-of-origin effect or bias (e.g., paternal age effect)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Inheritance']} })
@@ -20175,6 +24287,7 @@ class Inheritance(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -20192,6 +24305,7 @@ class Inheritance(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -20207,11 +24321,14 @@ class Inheritance(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -20239,6 +24356,7 @@ class Inheritance(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -20252,6 +24370,7 @@ class Inheritance(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -20266,12 +24385,15 @@ class Inheritance(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -20302,6 +24424,7 @@ class Variant(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -20310,6 +24433,7 @@ class Variant(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -20348,6 +24472,7 @@ class Variant(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -20361,6 +24486,7 @@ class Variant(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -20375,12 +24501,15 @@ class Variant(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -20399,6 +24528,7 @@ class Variant(ConfiguredBaseModel):
                        'ModuleCollectionMember']} })
     gene: Optional[GeneDescriptor] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'ExperimentalPerturbation',
+                       'GeneClassification',
                        'Pathophysiology',
                        'Variant',
                        'LogicalCriterion',
@@ -20412,6 +24542,7 @@ class Variant(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -20429,6 +24560,7 @@ class Variant(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -20444,11 +24576,14 @@ class Variant(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -20476,12 +24611,273 @@ class Variant(ConfiguredBaseModel):
     identifiers: Optional[list[str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Variant']} })
     external_assertions: Optional[list[ExternalAssertion]] = Field(default=None, description="""External curated assertions or registry records relevant to this entity""", json_schema_extra = { "linkml_meta": {'domain_of': ['Disease', 'Variant']} })
     sequence_length: Optional[int] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Variant']} })
-    clinical_significance: Optional[ClinicalSignificanceEnum] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Variant']} })
+    clinical_significance: Optional[ClinicalSignificanceEnum] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Variant', 'VariantPopulationEffect']} })
     type: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Variant', 'FunctionalEffect']} })
     variant_type: Optional[VariantTypeEnum] = Field(default=None, description="""Optional controlled physical variant class. Complements the legacy free-text type without requiring it or replacing its narrative detail. Does not imply a coding or regulatory functional effect.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext', 'Variant']} })
     genomic_contexts: Optional[list[GenomicContextEnum]] = Field(default=None, description="""Sequence features overlapped by the variant. Multiple values are allowed because an SV may span several features, or transcripts may differ. Specify relevant genes, transcripts, and overlap details in description; an intronic host gene need not be the regulatory target. Omit when unknown.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext', 'Variant']} })
     affected_regions: Optional[list[GenomicRegion]] = Field(default=None, description="""Named genomic regions affected by the physical alteration, including regulatory elements or chromosome intervals. Each item describes the named feature, which need not span the entire variant. Record only source-supported locations; disease-level regions need not have exact patient-specific breakpoints. Evidence belongs on the enclosing record. Location landmarks do not assert regulatory targeting or causal gene involvement. Existing free-text descriptions remain valid.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext', 'Genetic', 'Variant']} })
     regulatory_category: Optional[RegulatoryVariantCategoryEnum] = Field(default=None, description="""Functional classification of a variant's impact on gene expression, using the LOE/mLOE/GOE framework (Cheng et al. 2024, PMID:38436667) or traditional coding categories (LOF/GOF/DN).""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'Variant', 'FunctionalEffect']} })
+    population_effects: Optional[list[VariantPopulationEffect]] = Field(default=None, description="""Population-scoped findings about this variant: how its classification, penetrance, severity, phenotype spectrum, or frequency differs in a named population. One record per population and source. Use when a variant's effect is reported to depend on the population it is observed in, rather than collapsing it into the single population-blind clinical_significance.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Variant']} })
+
+
+class VariantPopulationEffect(ConfiguredBaseModel):
+    """
+    A finding that a variant's effect differs, or was tested and found not to differ, in a named human population: its classification, penetrance, severity, phenotype spectrum, or frequency there. The population is recorded in the source's own words (population) and optionally bound to HANCESTRO (ancestry_terms), with ancestry_basis saying whether the source defined the group by self-report, genetic inference, or geography.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'comments': ['Record only what the source states. Do not set '
+                      'clinical_significance or effect_differences from your own '
+                      'comparison of two allele frequencies or two cohorts; a '
+                      'population difference must be reported by the source.',
+                      'clinical_significance here is the classification the source '
+                      'gives for this population. It does not replace the '
+                      'variant-level clinical_significance, which remains the overall '
+                      'call.',
+                      'A difference in response to treatment by ancestry belongs on '
+                      "the treatment's effect_modifiers (effect_modifier_type "
+                      'ANCESTRY), not here.'],
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'cohort_size': {'description': 'Number of patients or carriers '
+                                                       'the population-specific '
+                                                       'finding was computed from, '
+                                                       'when reported.',
+                                        'name': 'cohort_size'},
+                        'comparator_stratum': {'description': 'The population the '
+                                                              'effect is compared '
+                                                              "with, in the source's "
+                                                              'own words (for example '
+                                                              '"Eastern Mediterranean '
+                                                              'populations"). Omit '
+                                                              'when the source reports '
+                                                              'the population alone.',
+                                               'name': 'comparator_stratum'},
+                        'effect_differences': {'name': 'effect_differences',
+                                               'recommended': True},
+                        'evidence': {'name': 'evidence', 'recommended': True},
+                        'penetrance': {'description': 'Penetrance classification for '
+                                                      'this variant in this '
+                                                      'population.',
+                                       'name': 'penetrance'},
+                        'population': {'description': "The population in the source's "
+                                                      'own words (for example '
+                                                      '"Japanese FMF patients", '
+                                                      '"Singaporean Chinese"). Kept '
+                                                      'even when ancestry_terms is '
+                                                      'bound, because it is the record '
+                                                      'of what the study said.',
+                                       'name': 'population',
+                                       'required': True}}})
+
+    population: str = Field(default=..., description="""The population in the source's own words (for example \"Japanese FMF patients\", \"Singaporean Chinese\"). Kept even when ancestry_terms is bound, because it is the record of what the study said.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
+                       'ReferenceRange',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'VariantPopulationEffect',
+                       'AssociationSignal'],
+         'examples': [{'value': 'Global'}]} })
+    ancestry_terms: Optional[list[AncestryDescriptor]] = Field(default=None, description="""HANCESTRO terms for the population, when the source supports a binding. Optional and multivalued: an admixed or multi-site cohort may take more than one. Bind what the source reports, at the level it reports it; do not bind a reference-panel term (1KGP, HGDP, SGDP) unless the data came from that panel.""", json_schema_extra = { "linkml_meta": {'domain_of': ['VariantPopulationEffect']} })
+    ancestry_basis: Optional[AncestryBasisEnum] = Field(default=None, description="""How the source defined membership of the population.""", json_schema_extra = { "linkml_meta": {'domain_of': ['VariantPopulationEffect']} })
+    comparator_stratum: Optional[str] = Field(default=None, description="""The population the effect is compared with, in the source's own words (for example \"Eastern Mediterranean populations\"). Omit when the source reports the population alone.""", json_schema_extra = { "linkml_meta": {'domain_of': ['TreatmentEffectModifier', 'VariantPopulationEffect']} })
+    effect_differences: Optional[list[PopulationEffectDifferenceEnum]] = Field(default=None, description="""Which aspects of the variant's effect the source reports as differing in this population. NO_DIFFERENCE records a tested null.""", json_schema_extra = { "linkml_meta": {'domain_of': ['VariantPopulationEffect'], 'recommended': True} })
+    clinical_significance: Optional[ClinicalSignificanceEnum] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Variant', 'VariantPopulationEffect']} })
+    penetrance: Optional[PenetranceEnum] = Field(default=None, description="""Penetrance classification for this variant in this population.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Inheritance', 'VariantPopulationEffect']} })
+    penetrance_percentage: Optional[str] = Field(default=None, description="""Estimated penetrance percentage or range (e.g., 80-90)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Inheritance', 'VariantPopulationEffect']} })
+    allele_frequency: Optional[float] = Field(default=None, description="""Allele frequency of the variant in the population, as a proportion between 0 and 1, copied from the source. Say in notes whether it was measured in patients, carriers, or the general population.""", ge=0, le=1, json_schema_extra = { "linkml_meta": {'domain_of': ['VariantPopulationEffect']} })
+    cohort_size: Optional[int] = Field(default=None, description="""Number of patients or carriers the population-specific finding was computed from, when reported.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneCaseFraction', 'VariantPopulationEffect'],
+         'examples': [{'value': '61'}]} })
+    description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GenomicRegion',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember']} })
+    evidence: Optional[list[EvidenceItem]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'ExternalAssertion',
+                       'Finding',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'ModelingConsideration',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'AlgorithmValidationStatus',
+                       'CriteriaSet',
+                       'AssociationSignal',
+                       'AssociationStatistics',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': True} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'Transmission',
+                       'Diagnosis',
+                       'VariantPopulationEffect',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
 
 
 class FunctionalEffect(ConfiguredBaseModel):
@@ -20501,6 +24897,7 @@ class FunctionalEffect(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -20514,6 +24911,7 @@ class FunctionalEffect(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -20528,12 +24926,15 @@ class FunctionalEffect(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -20551,7 +24952,7 @@ class FunctionalEffect(ConfiguredBaseModel):
                        'ModuleCollection',
                        'ModuleCollectionMember']} })
     type: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Variant', 'FunctionalEffect']} })
-    regulatory_category: Optional[RegulatoryVariantCategoryEnum] = Field(default=None, description="""Functional classification of a variant's impact on gene expression, using the LOE/mLOE/GOE framework (Cheng et al. 2024, PMID:38436667) or traditional coding categories (LOF/GOF/DN).""", json_schema_extra = { "linkml_meta": {'domain_of': ['Variant', 'FunctionalEffect']} })
+    regulatory_category: Optional[RegulatoryVariantCategoryEnum] = Field(default=None, description="""Functional classification of a variant's impact on gene expression, using the LOE/mLOE/GOE framework (Cheng et al. 2024, PMID:38436667) or traditional coding categories (LOF/GOF/DN).""", json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'Variant', 'FunctionalEffect']} })
     regulatory_element_type: Optional[RegulatoryElementTypeEnum] = Field(default=None, description="""Type of gene regulatory element affected by a variant (e.g., promoter, enhancer, silencer, insulator, TAD boundary).""", json_schema_extra = { "linkml_meta": {'domain_of': ['GenomicRegion', 'FunctionalEffect']} })
     affected_cell_types: Optional[list[CellTypeDescriptor]] = Field(default=None, description="""Cell types in which gene expression is specifically gained or lost. Particularly relevant for mLOE variants (modular loss in specific cell types) and GOE variants (ectopic gain in new cell types).""", json_schema_extra = { "linkml_meta": {'domain_of': ['FunctionalEffect']} })
     affected_developmental_stage: Optional[str] = Field(default=None, description="""Developmental stage or temporal window in which expression is modularly lost or ectopically gained. Relevant for variants with temporal modularity (e.g., Hemophilia B Leyden).""", json_schema_extra = { "linkml_meta": {'domain_of': ['FunctionalEffect']} })
@@ -20567,6 +24968,7 @@ class Mechanism(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -20575,6 +24977,7 @@ class Mechanism(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -20613,6 +25016,7 @@ class Mechanism(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -20626,6 +25030,7 @@ class Mechanism(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -20640,12 +25045,15 @@ class Mechanism(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -20673,6 +25081,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -20681,6 +25090,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -20719,6 +25129,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -20732,6 +25143,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -20746,12 +25158,15 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -20775,6 +25190,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -20792,6 +25208,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -20807,11 +25224,14 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -20844,6 +25264,7 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -20861,6 +25282,7 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -20876,11 +25298,14 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -20907,6 +25332,7 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -20914,10 +25340,13 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -20934,8 +25363,11 @@ class ClassificationAssignment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -20991,6 +25423,7 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -21008,6 +25441,7 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -21023,11 +25457,14 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -21054,6 +25491,7 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -21061,10 +25499,13 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -21081,8 +25522,11 @@ class ICDOMorphologyAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -21138,6 +25582,7 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -21155,6 +25600,7 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -21170,11 +25616,14 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -21201,6 +25650,7 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -21208,10 +25658,13 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -21228,8 +25681,11 @@ class HarrisonsChapterAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -21285,6 +25741,7 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -21302,6 +25759,7 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -21317,11 +25775,14 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -21348,6 +25809,7 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -21355,10 +25817,13 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -21375,8 +25840,11 @@ class LysosomalStorageAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -21432,6 +25900,7 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -21449,6 +25918,7 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -21464,11 +25934,14 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -21495,6 +25968,7 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -21502,10 +25976,13 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -21522,8 +25999,11 @@ class MechanisticNosologyAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -21579,6 +26059,7 @@ class IUISAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -21596,6 +26077,7 @@ class IUISAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -21611,11 +26093,14 @@ class IUISAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -21642,6 +26127,7 @@ class IUISAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -21649,10 +26135,13 @@ class IUISAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -21669,8 +26158,11 @@ class IUISAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -21726,6 +26218,7 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -21743,6 +26236,7 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -21758,11 +26252,14 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -21789,6 +26286,7 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -21796,10 +26294,13 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -21816,8 +26317,11 @@ class ChannelopathyAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -21873,6 +26377,7 @@ class ICIMDAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -21890,6 +26395,7 @@ class ICIMDAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -21905,11 +26411,14 @@ class ICIMDAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -21936,6 +26445,7 @@ class ICIMDAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -21943,10 +26453,13 @@ class ICIMDAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -21963,8 +26476,11 @@ class ICIMDAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -22020,6 +26536,7 @@ class ISDSNosologyAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -22037,6 +26554,7 @@ class ISDSNosologyAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -22052,11 +26570,14 @@ class ISDSNosologyAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -22083,6 +26604,7 @@ class ISDSNosologyAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -22090,10 +26612,13 @@ class ISDSNosologyAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -22110,8 +26635,11 @@ class ISDSNosologyAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -22167,6 +26695,7 @@ class NIHResearchPriorityAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -22184,6 +26713,7 @@ class NIHResearchPriorityAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -22199,11 +26729,14 @@ class NIHResearchPriorityAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -22230,6 +26763,7 @@ class NIHResearchPriorityAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -22237,10 +26771,13 @@ class NIHResearchPriorityAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -22257,8 +26794,11 @@ class NIHResearchPriorityAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -22314,6 +26854,7 @@ class ILOCausativeAgentAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -22331,6 +26872,7 @@ class ILOCausativeAgentAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -22346,11 +26888,14 @@ class ILOCausativeAgentAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -22377,6 +26922,7 @@ class ILOCausativeAgentAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -22384,10 +26930,13 @@ class ILOCausativeAgentAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -22404,8 +26953,11 @@ class ILOCausativeAgentAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -22461,6 +27013,7 @@ class ILODiseaseCategoryAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -22478,6 +27031,7 @@ class ILODiseaseCategoryAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -22493,11 +27047,14 @@ class ILODiseaseCategoryAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -22524,6 +27081,7 @@ class ILODiseaseCategoryAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -22531,10 +27089,13 @@ class ILODiseaseCategoryAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -22551,8 +27112,11 @@ class ILODiseaseCategoryAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -22608,6 +27172,7 @@ class EUOccupationalScheduleAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -22625,6 +27190,7 @@ class EUOccupationalScheduleAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -22640,11 +27206,14 @@ class EUOccupationalScheduleAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -22671,6 +27240,7 @@ class EUOccupationalScheduleAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -22678,10 +27248,13 @@ class EUOccupationalScheduleAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -22698,8 +27271,11 @@ class EUOccupationalScheduleAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -22755,6 +27331,7 @@ class HazardAgentTypeAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -22772,6 +27349,7 @@ class HazardAgentTypeAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -22787,11 +27365,14 @@ class HazardAgentTypeAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -22818,6 +27399,7 @@ class HazardAgentTypeAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -22825,10 +27407,13 @@ class HazardAgentTypeAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -22845,8 +27430,11 @@ class HazardAgentTypeAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -22902,6 +27490,7 @@ class ExposureRouteAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -22919,6 +27508,7 @@ class ExposureRouteAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -22934,11 +27524,14 @@ class ExposureRouteAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -22965,6 +27558,7 @@ class ExposureRouteAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -22972,10 +27566,13 @@ class ExposureRouteAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -22992,8 +27589,11 @@ class ExposureRouteAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -23049,6 +27649,7 @@ class ExposureDurationAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -23066,6 +27667,7 @@ class ExposureDurationAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -23081,11 +27683,14 @@ class ExposureDurationAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -23112,6 +27717,7 @@ class ExposureDurationAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -23119,10 +27725,13 @@ class ExposureDurationAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -23139,8 +27748,11 @@ class ExposureDurationAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -23196,6 +27808,7 @@ class IARCCarcinogenGroupAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -23213,6 +27826,7 @@ class IARCCarcinogenGroupAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -23228,11 +27842,14 @@ class IARCCarcinogenGroupAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -23259,6 +27876,7 @@ class IARCCarcinogenGroupAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -23266,10 +27884,13 @@ class IARCCarcinogenGroupAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -23286,8 +27907,11 @@ class IARCCarcinogenGroupAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -23343,6 +27967,7 @@ class GHSHealthHazardClassAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -23360,6 +27985,7 @@ class GHSHealthHazardClassAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -23375,11 +28001,14 @@ class GHSHealthHazardClassAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -23406,6 +28035,7 @@ class GHSHealthHazardClassAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -23413,10 +28043,13 @@ class GHSHealthHazardClassAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -23433,8 +28066,11 @@ class GHSHealthHazardClassAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -23490,6 +28126,7 @@ class ExposomeDomainAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -23507,6 +28144,7 @@ class ExposomeDomainAssignment(ClassificationAssignment):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -23522,11 +28160,14 @@ class ExposomeDomainAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -23553,6 +28194,7 @@ class ExposomeDomainAssignment(ClassificationAssignment):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -23560,10 +28202,13 @@ class ExposomeDomainAssignment(ClassificationAssignment):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -23580,8 +28225,11 @@ class ExposomeDomainAssignment(ClassificationAssignment):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -23670,6 +28318,7 @@ class Definition(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -23678,6 +28327,7 @@ class Definition(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -23719,6 +28369,7 @@ class Definition(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -23732,6 +28383,7 @@ class Definition(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -23746,12 +28398,15 @@ class Definition(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -23780,6 +28435,7 @@ class Definition(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -23797,6 +28453,7 @@ class Definition(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -23812,11 +28469,14 @@ class Definition(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -23843,6 +28503,7 @@ class Definition(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -23850,10 +28511,13 @@ class Definition(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -23870,8 +28534,11 @@ class Definition(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -23922,6 +28589,7 @@ class AlgorithmValidationStatus(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -23939,6 +28607,7 @@ class AlgorithmValidationStatus(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -23954,11 +28623,14 @@ class AlgorithmValidationStatus(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -23991,6 +28663,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -23999,6 +28672,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -24037,6 +28711,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -24050,6 +28725,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -24064,12 +28740,15 @@ class CriteriaSet(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -24101,6 +28780,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -24118,6 +28798,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -24133,11 +28814,14 @@ class CriteriaSet(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -24164,6 +28848,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -24171,10 +28856,13 @@ class CriteriaSet(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -24191,8 +28879,11 @@ class CriteriaSet(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -24231,6 +28922,7 @@ class CriteriaItem(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -24244,6 +28936,7 @@ class CriteriaItem(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -24258,12 +28951,15 @@ class CriteriaItem(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -24322,7 +29018,10 @@ class TermMapping(ConfiguredBaseModel):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'Disease',
+                       'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
                        'PhenotypeContext',
@@ -24332,6 +29031,7 @@ class TermMapping(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -24339,10 +29039,13 @@ class TermMapping(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -24359,8 +29062,11 @@ class TermMapping(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -24404,7 +29110,10 @@ class ICD10CMMapping(TermMapping):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'Disease',
+                       'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
                        'PhenotypeContext',
@@ -24414,6 +29123,7 @@ class ICD10CMMapping(TermMapping):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -24421,10 +29131,13 @@ class ICD10CMMapping(TermMapping):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -24441,8 +29154,11 @@ class ICD10CMMapping(TermMapping):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -24486,7 +29202,10 @@ class ICD11FMapping(TermMapping):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'Disease',
+                       'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
                        'PhenotypeContext',
@@ -24496,6 +29215,7 @@ class ICD11FMapping(TermMapping):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -24503,10 +29223,13 @@ class ICD11FMapping(TermMapping):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -24523,8 +29246,11 @@ class ICD11FMapping(TermMapping):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -24568,7 +29294,10 @@ class MondoMapping(TermMapping):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'Disease',
+                       'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
                        'PhenotypeContext',
@@ -24578,6 +29307,7 @@ class MondoMapping(TermMapping):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -24585,10 +29315,13 @@ class MondoMapping(TermMapping):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -24605,8 +29338,11 @@ class MondoMapping(TermMapping):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -24650,7 +29386,10 @@ class NCITMapping(TermMapping):
     mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
     mapping_justification: Optional[str] = Field(default=None, description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
     consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'Disease',
+                       'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
                        'PhenotypeContext',
@@ -24660,6 +29399,7 @@ class NCITMapping(TermMapping):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -24667,10 +29407,13 @@ class NCITMapping(TermMapping):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -24687,8 +29430,106 @@ class NCITMapping(TermMapping):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+
+
+class OMIMPSMapping(TermMapping):
+    """
+    Mapping to an OMIM phenotypic series, not an individual OMIM record
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'mapping_justification': {'name': 'mapping_justification',
+                                                  'required': True},
+                        'term': {'bindings': [{'binds_value_of': 'id',
+                                               'obligation_level': 'REQUIRED',
+                                               'range': 'OMIMPSTerm'}],
+                                 'name': 'term',
+                                 'range': 'OMIMPSCode'}}})
+
+    term: OMIMPSCode = Field(default=..., description="""Optional structured ontology term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
+                       'obligation_level': 'REQUIRED',
+                       'range': 'OMIMPSTerm'}],
+         'domain_of': ['Descriptor',
+                       'TermMapping',
+                       'ConditionDescriptor',
+                       'GOEnrichmentTerm'],
+         'recommended': True} })
+    mapping_predicate: str = Field(default=..., description="""Relationship between this disease and the mapped term (e.g., skos:exactMatch)""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
+    mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
+    mapping_justification: str = Field(default=..., description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
+    consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'Disease',
+                       'TermMapping']} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'Transmission',
+                       'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -24735,6 +29576,7 @@ class MappingConsistency(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -24742,10 +29584,13 @@ class MappingConsistency(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -24762,8 +29607,11 @@ class MappingConsistency(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -24794,6 +29642,7 @@ class DiseaseMappings(ConfiguredBaseModel):
     icd10cm_mappings: Optional[list[ICD10CMMapping]] = Field(default=None, description="""ICD-10-CM code mappings for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DiseaseMappings']} })
     icd11f_mappings: Optional[list[ICD11FMapping]] = Field(default=None, description="""ICD-11 Foundation code mappings for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DiseaseMappings']} })
     mondo_mappings: Optional[list[MondoMapping]] = Field(default=None, description="""MONDO disease ontology mappings for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DiseaseMappings']} })
+    omimps_mappings: Optional[list[OMIMPSMapping]] = Field(default=None, description="""Mappings to OMIM phenotypic series, with an explicit scope relationship. Use exactMatch only for the same disease or disease-family concept; use relatedMatch when a series of susceptibility loci concerns this disease but is not a union of its disease subtypes. A mapping does not assert complete member coverage or Mendelian inheritance.""", json_schema_extra = { "linkml_meta": {'domain_of': ['DiseaseMappings']} })
     ncit_mappings: Optional[list[NCITMapping]] = Field(default=None, description="""NCIT disease, subtype, or disease/finding mappings""", json_schema_extra = { "linkml_meta": {'domain_of': ['DiseaseMappings']} })
 
 
@@ -24825,6 +29674,7 @@ class ConditionDescriptor(Descriptor):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -24838,6 +29688,7 @@ class ConditionDescriptor(Descriptor):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -24852,12 +29703,15 @@ class ConditionDescriptor(Descriptor):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -24926,6 +29780,7 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -24934,6 +29789,7 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -24988,6 +29844,7 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -24995,10 +29852,13 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -25015,8 +29875,11 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -25083,6 +29946,7 @@ class AssociationSignal(ConfiguredBaseModel):
                        'ReferenceRange',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'VariantPopulationEffect',
                        'AssociationSignal'],
          'examples': [{'value': 'Global'}]} })
     demographics: Optional[Demographics] = Field(default=None, description="""Demographic stratification for an association signal""", json_schema_extra = { "linkml_meta": {'domain_of': ['AssociationSignal']} })
@@ -25107,6 +29971,7 @@ class AssociationSignal(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -25124,6 +29989,7 @@ class AssociationSignal(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -25139,11 +30005,14 @@ class AssociationSignal(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -25170,6 +30039,7 @@ class AssociationSignal(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -25177,10 +30047,13 @@ class AssociationSignal(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -25197,8 +30070,11 @@ class AssociationSignal(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -25256,6 +30132,7 @@ class AssociationMetric(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -25263,10 +30140,13 @@ class AssociationMetric(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -25283,8 +30163,11 @@ class AssociationMetric(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -25320,6 +30203,7 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -25337,6 +30221,7 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -25352,11 +30237,14 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -25383,6 +30271,7 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -25390,10 +30279,13 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -25410,8 +30302,11 @@ class AssociationStatistics(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -25450,6 +30345,7 @@ class GOEnrichment(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -25463,6 +30359,7 @@ class GOEnrichment(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -25477,12 +30374,15 @@ class GOEnrichment(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -25535,6 +30435,7 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -25548,6 +30449,7 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -25562,12 +30464,15 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -25591,6 +30496,7 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -25608,6 +30514,7 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -25623,11 +30530,14 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -25665,6 +30575,7 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -25678,6 +30589,7 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -25692,12 +30604,15 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -25721,6 +30636,7 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -25738,6 +30654,7 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -25753,11 +30670,14 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -25806,6 +30726,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -25819,6 +30740,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -25833,12 +30755,15 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -25863,6 +30788,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -25880,6 +30806,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -25895,11 +30822,14 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -25926,6 +30856,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -25933,10 +30864,13 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -25953,8 +30887,11 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -26007,6 +30944,7 @@ class Discussion(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -26024,6 +30962,7 @@ class Discussion(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -26039,11 +30978,14 @@ class Discussion(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -26074,6 +31016,7 @@ class Discussion(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -26081,10 +31024,13 @@ class Discussion(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -26101,8 +31047,11 @@ class Discussion(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -26143,6 +31092,7 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -26151,6 +31101,7 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -26189,6 +31140,7 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -26202,6 +31154,7 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -26216,12 +31169,15 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -26238,13 +31194,23 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'DifferentiatingMechanism',
                        'ModuleCollection',
                        'ModuleCollectionMember']} })
-    source_url: Optional[str] = Field(default=None, description="""URL of the source page for a curated assertion or source collection""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_url: Optional[str] = Field(default=None, description="""URL of the source page for a curated assertion or source collection""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection']} })
     source_workbook_url: Optional[str] = Field(default=None, description="""URL of the source workbook or downloadable data file""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
     source_workbook_sha256: Optional[str] = Field(default=None, description="""SHA-256 checksum of the downloaded source workbook used for import""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
-    source_content_current_as_of: Optional[date] = Field(default=None, description="""Date shown by the source as the content-current-as-of date""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
-    retrieved_date: Optional[date] = Field(default=None, description="""Date on which the source was retrieved for curation""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint', 'SurrogateEndpointCollection']} })
+    source_content_current_as_of: Optional[date] = Field(default=None, description="""Date shown by the source as the content-current-as-of date""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection']} })
+    retrieved_date: Optional[date] = Field(default=None, description="""Date on which the source was retrieved for curation""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExecutableProtocol',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection']} })
     surrogate_endpoints: list[SurrogateEndpoint] = Field(default=..., description="""Curated surrogate endpoint assertions""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection', 'Disease']} })
-    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection', 'Disease', 'TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'Disease',
+                       'TermMapping']} })
     notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'OnsetDescriptor',
                        'PhenotypeContext',
@@ -26254,6 +31220,7 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -26261,10 +31228,13 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -26281,8 +31251,11 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -26327,6 +31300,7 @@ class Grouping(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -26335,6 +31309,7 @@ class Grouping(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -26379,6 +31354,7 @@ class Grouping(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -26392,6 +31368,7 @@ class Grouping(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -26406,12 +31383,15 @@ class Grouping(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -26445,6 +31425,7 @@ class Grouping(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -26452,10 +31433,13 @@ class Grouping(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -26472,8 +31456,11 @@ class Grouping(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -26528,6 +31515,7 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -26541,6 +31529,7 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -26555,12 +31544,15 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -26586,6 +31578,7 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -26603,6 +31596,7 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -26618,11 +31612,14 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -26649,6 +31646,7 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -26656,10 +31654,13 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -26676,8 +31677,11 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -26718,6 +31722,7 @@ class LogicalCriterion(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -26731,6 +31736,7 @@ class LogicalCriterion(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -26745,12 +31751,15 @@ class LogicalCriterion(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -26778,6 +31787,7 @@ class LogicalCriterion(ConfiguredBaseModel):
     inheritance_term: Optional[InheritanceDescriptor] = Field(default=None, description="""The HPO mode of inheritance term for this inheritance pattern""", json_schema_extra = { "linkml_meta": {'domain_of': ['Inheritance', 'LogicalCriterion']} })
     gene: Optional[GeneDescriptor] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'ExperimentalPerturbation',
+                       'GeneClassification',
                        'Pathophysiology',
                        'Variant',
                        'LogicalCriterion',
@@ -26789,6 +31799,8 @@ class LogicalCriterion(ConfiguredBaseModel):
                        'LogicalCriterion',
                        'DifferentiatingMechanism'],
          'examples': [{'value': '[{preferred_term: TNF-alpha Production}]'}]} })
+    molecular_functions: Optional[list[MolecularFunctionDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Pathophysiology', 'LogicalCriterion'],
+         'examples': [{'value': '[{preferred_term: Kinase Activity}]'}]} })
     module: Optional[str] = Field(default=None, description="""Reference to a mechanism module in kb/modules/ (filename stem, without .yaml, optionally with a \"#Node Name\" anchor). Used by CONFORMS_TO_MODULE criteria and by differentiating mechanisms.""", json_schema_extra = { "linkml_meta": {'domain_of': ['LogicalCriterion',
                        'DifferentiatingMechanism',
                        'ModuleCollectionMember']} })
@@ -26818,6 +31830,7 @@ class GroupingMember(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -26835,6 +31848,7 @@ class GroupingMember(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -26850,11 +31864,14 @@ class GroupingMember(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -26881,6 +31898,7 @@ class GroupingMember(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -26888,10 +31906,13 @@ class GroupingMember(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -26908,8 +31929,11 @@ class GroupingMember(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -26951,6 +31975,7 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -26964,6 +31989,7 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -26978,12 +32004,15 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -27002,6 +32031,7 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'ModuleCollectionMember']} })
     gene: Optional[GeneDescriptor] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'ExperimentalPerturbation',
+                       'GeneClassification',
                        'Pathophysiology',
                        'Variant',
                        'LogicalCriterion',
@@ -27030,6 +32060,7 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -27047,6 +32078,7 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -27062,11 +32094,14 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -27093,6 +32128,7 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -27100,10 +32136,13 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -27120,8 +32159,11 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -27168,6 +32210,7 @@ class ModuleCollection(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -27176,6 +32219,7 @@ class ModuleCollection(ConfiguredBaseModel):
                        'Subtype',
                        'ReferenceRangeBand',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
                        'Pathophysiology',
@@ -27220,6 +32264,7 @@ class ModuleCollection(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -27233,6 +32278,7 @@ class ModuleCollection(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -27247,12 +32293,15 @@ class ModuleCollection(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -27279,6 +32328,7 @@ class ModuleCollection(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -27296,6 +32346,7 @@ class ModuleCollection(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -27311,11 +32362,14 @@ class ModuleCollection(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -27342,6 +32396,7 @@ class ModuleCollection(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -27349,10 +32404,13 @@ class ModuleCollection(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -27369,8 +32427,11 @@ class ModuleCollection(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -27431,6 +32492,7 @@ class ModuleCollectionMember(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -27444,6 +32506,7 @@ class ModuleCollectionMember(ConfiguredBaseModel):
                        'BiomarkerReadout',
                        'PhenotypeReadout',
                        'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
                        'EpidemiologyInfo',
@@ -27458,12 +32521,15 @@ class ModuleCollectionMember(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Assay',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'FunctionalEffect',
                        'Mechanism',
                        'ModelingConsideration',
@@ -27487,6 +32553,7 @@ class ModuleCollectionMember(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'DifferentialDiagnosis',
@@ -27504,6 +32571,7 @@ class ModuleCollectionMember(ConfiguredBaseModel):
                        'Finding',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -27519,11 +32587,14 @@ class ModuleCollectionMember(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'InfectiousAgent',
                        'Transmission',
                        'Diagnosis',
                        'Inheritance',
                        'Variant',
+                       'VariantPopulationEffect',
                        'ModelingConsideration',
                        'ClassificationAssignment',
                        'Definition',
@@ -27550,6 +32621,7 @@ class ModuleCollectionMember(ConfiguredBaseModel):
                        'ExperimentalPerturbation',
                        'ExperimentalReadout',
                        'ExperimentalControl',
+                       'ExecutableProtocol',
                        'ClinicalTrial',
                        'ComputationalModel',
                        'ModelVariable',
@@ -27557,10 +32629,13 @@ class ModuleCollectionMember(ConfiguredBaseModel):
                        'ReferenceRange',
                        'SurrogateEndpoint',
                        'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
                        'ExternalAssertion',
                        'TrackedIssue',
                        'Prevalence',
                        'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
                        'ProgressionInfo',
                        'ClinicalBurden',
                        'EpidemiologyInfo',
@@ -27577,8 +32652,11 @@ class ModuleCollectionMember(ConfiguredBaseModel):
                        'AgentLifeCycleStage',
                        'AnimalModel',
                        'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
                        'Transmission',
                        'Diagnosis',
+                       'VariantPopulationEffect',
                        'ClassificationAssignment',
                        'Definition',
                        'CriteriaSet',
@@ -27604,6 +32682,8 @@ class ModuleCollectionMember(ConfiguredBaseModel):
 # see https://pydantic-docs.helpmanual.io/usage/models/#rebuilding-a-model
 CurationEvent.model_rebuild()
 Term.model_rebuild()
+LoincCode.model_rebuild()
+OMIMPSCode.model_rebuild()
 Descriptor.model_rebuild()
 Qualifier.model_rebuild()
 DietaryModification.model_rebuild()
@@ -27612,6 +32692,7 @@ BiologicalProcessDescriptor.model_rebuild()
 MolecularFunctionDescriptor.model_rebuild()
 AnatomicalEntityDescriptor.model_rebuild()
 ChemicalEntityDescriptor.model_rebuild()
+GeneOrProductDescriptor.model_rebuild()
 GeneDescriptor.model_rebuild()
 CellularComponentDescriptor.model_rebuild()
 ProteinComplexDescriptor.model_rebuild()
@@ -27621,6 +32702,7 @@ TriggerDescriptor.model_rebuild()
 DiseaseDescriptor.model_rebuild()
 SubtypeDescriptor.model_rebuild()
 BiomarkerDescriptor.model_rebuild()
+MeasurementDescriptor.model_rebuild()
 GeneProductDescriptor.model_rebuild()
 HistopathologyFindingDescriptor.model_rebuild()
 ImagingFindingDescriptor.model_rebuild()
@@ -27630,11 +32712,14 @@ PhenotypeDescriptor.model_rebuild()
 InheritanceDescriptor.model_rebuild()
 TreatmentDescriptor.model_rebuild()
 RegimenDescriptor.model_rebuild()
+AncestryDescriptor.model_rebuild()
+MHCDescriptor.model_rebuild()
 ExposureDescriptor.model_rebuild()
 EnvironmentDescriptor.model_rebuild()
 FoodDescriptor.model_rebuild()
 OrganismDescriptor.model_rebuild()
 HostDescriptor.model_rebuild()
+AgentSubtypeDescriptor.model_rebuild()
 SampleTypeDescriptor.model_rebuild()
 GenomicRegion.model_rebuild()
 GeneticContext.model_rebuild()
@@ -27646,6 +32731,7 @@ Experiment.model_rebuild()
 ExperimentalPerturbation.model_rebuild()
 ExperimentalReadout.model_rebuild()
 ExperimentalControl.model_rebuild()
+ExecutableProtocol.model_rebuild()
 ClinicalTrial.model_rebuild()
 ComputationalModel.model_rebuild()
 ModelVariable.model_rebuild()
@@ -27653,6 +32739,7 @@ SeverityTier.model_rebuild()
 ModelVariableDescriptor.model_rebuild()
 DifferentialDiagnosis.model_rebuild()
 Subtype.model_rebuild()
+AgentSubtype.model_rebuild()
 EvidenceItem.model_rebuild()
 CausalEdge.model_rebuild()
 TreatmentMechanismTarget.model_rebuild()
@@ -27665,6 +32752,8 @@ ReferenceRangeBand.model_rebuild()
 ReferenceRange.model_rebuild()
 SurrogateEndpoint.model_rebuild()
 SurrogateEndpointCollection.model_rebuild()
+GeneClassification.model_rebuild()
+GeneClassificationCollection.model_rebuild()
 ProteinStructure.model_rebuild()
 PublicationReference.model_rebuild()
 ExternalAssertion.model_rebuild()
@@ -27672,6 +32761,7 @@ TrackedIssue.model_rebuild()
 Finding.model_rebuild()
 Prevalence.model_rebuild()
 GeneCaseFraction.model_rebuild()
+GeneDiseaseValidityAssertion.model_rebuild()
 ProgressionInfo.model_rebuild()
 ClinicalBurden.model_rebuild()
 EpidemiologyInfo.model_rebuild()
@@ -27689,12 +32779,15 @@ AgentLifeCycleStage.model_rebuild()
 AnimalModel.model_rebuild()
 Treatment.model_rebuild()
 OligonucleotideDetail.model_rebuild()
+TreatmentEffectModifier.model_rebuild()
+DeliverySystem.model_rebuild()
 InfectiousAgent.model_rebuild()
 Transmission.model_rebuild()
 Assay.model_rebuild()
 Diagnosis.model_rebuild()
 Inheritance.model_rebuild()
 Variant.model_rebuild()
+VariantPopulationEffect.model_rebuild()
 FunctionalEffect.model_rebuild()
 Mechanism.model_rebuild()
 ModelingConsideration.model_rebuild()
@@ -27728,6 +32821,7 @@ ICD10CMMapping.model_rebuild()
 ICD11FMapping.model_rebuild()
 MondoMapping.model_rebuild()
 NCITMapping.model_rebuild()
+OMIMPSMapping.model_rebuild()
 MappingConsistency.model_rebuild()
 DiseaseMappings.model_rebuild()
 ConditionDescriptor.model_rebuild()

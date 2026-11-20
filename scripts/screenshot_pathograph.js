@@ -20,7 +20,7 @@ const PAGES = [
 
 const OUTPUT_DIR = path.join(__dirname, '..', 'docs', 'images');
 const PAGES_DIR = path.join(__dirname, '..', 'pages', 'disorders');
-const D3_PATH = '/tmp/d3.v7.min.js';
+const D3_PATH = '/tmp/d3.min.js';
 const DAGRE_PATH = '/tmp/dagre.min.js';
 
 async function main() {
@@ -33,7 +33,7 @@ async function main() {
     });
 
     // Block CDN requests and serve local copies instead
-    await context.route('**/d3.v7.min.js', async (route) => {
+    await context.route('**/d3@7.9.0/dist/d3.min.js', async (route) => {
         const body = fss.readFileSync(D3_PATH);
         await route.fulfill({ contentType: 'application/javascript', body });
     });

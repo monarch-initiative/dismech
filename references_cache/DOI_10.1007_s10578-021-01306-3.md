@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s10578-021-01306-3
+extractor_version: 1
 title: "Parent Management Training Combined with Group-CBT Compared to Parent Management Training Only for Oppositional Defiant Disorder Symptoms: 2-Year Follow-Up of a Randomized Controlled Trial"
 authors:
 - Maria Helander
@@ -10,12 +11,14 @@ journal: "Child Psychiatry &amp; Human Development"
 year: '2023'
 doi: 10.1007/s10578-021-01306-3
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s10578-021-01306-3.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s10578-021-01306-3.pdf
+full_text_access_type: open
 ---
 
 # Parent Management Training Combined with Group-CBT Compared to Parent Management Training Only for Oppositional Defiant Disorder Symptoms: 2-Year Follow-Up of a Randomized Controlled Trial
@@ -25,7 +28,11 @@ local_pdf_path: files/DOI_10.1007_s10578-021-01306-3.pdf
 
 ## Content
 
-AbstractParent management training (PMT) is recommended treatment for children with oppositional defiant disorder (ODD) and child-directed cognitive behavior therapy (CBT) is also recommended for school-aged children. The current study examined 2-year follow-up effects of parent management training (PMT) combined with the CBT based group intervention Coping Power Program (CPP) compared to PMT only. Results showed long-term effectiveness of both PMT and PMT combined with CPP in reduced disruptive behavior problems and harsh parenting strategies, and increased emotion regulation- and social communication skills. The earlier reported increase in emotion regulation- and social communication skills in the PMT with CPP condition during treatment remained stable while the PMT condition showed continued improvement during the follow-up period. To conclude, PMT with CPP did generally not provide significant benefits at the 2-year follow-up compared to PMT, apart from an improvement earlier in time regarding emotion regulation- and social communication skills.Trial registration number ISRCTN10834473, date of registration: 23/12/2015.
+Abstract
+
+Parent management training (PMT) is recommended treatment for children with oppositional defiant disorder (ODD) and child-directed cognitive behavior therapy (CBT) is also recommended for school-aged children. The current study examined 2-year follow-up effects of parent management training (PMT) combined with the CBT based group intervention Coping Power Program (CPP) compared to PMT only. Results showed long-term effectiveness of both PMT and PMT combined with CPP in reduced disruptive behavior problems and harsh parenting strategies, and increased emotion regulation- and social communication skills. The earlier reported increase in emotion regulation- and social communication skills in the PMT with CPP condition during treatment remained stable while the PMT condition showed continued improvement during the follow-up period. To conclude, PMT with CPP did generally not provide significant benefits at the 2-year follow-up compared to PMT, apart from an improvement earlier in time regarding emotion regulation- and social communication skills.
+
+Trial registration number ISRCTN10834473, date of registration: 23/12/2015.
 
 Vol:.(1234567890)
 Child Psychiatry & Human Development (2023) 54:1112–1126

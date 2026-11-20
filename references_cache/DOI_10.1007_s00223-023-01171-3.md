@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00223-023-01171-3
+extractor_version: 1
 title: "Is Osteogenesis Imperfecta Associated with Cardiovascular Abnormalities? A Systematic Review of the Literature"
 authors:
 - Sara J. E. Verdonk
@@ -17,12 +18,14 @@ journal: Calcified Tissue International
 year: '2024'
 doi: 10.1007/s00223-023-01171-3
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00223-023-01171-3.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s00223-023-01171-3.pdf
+full_text_access_type: open
 ---
 
 # Is Osteogenesis Imperfecta Associated with Cardiovascular Abnormalities? A Systematic Review of the Literature
@@ -32,7 +35,9 @@ local_pdf_path: files/DOI_10.1007_s00223-023-01171-3.pdf
 
 ## Content
 
-AbstractOsteogenesis imperfecta (OI) is a rare genetic disorder caused by abnormal collagen type I production. While OI is primarily characterized by bone fragility and deformities, patients also have extraskeletal manifestations, including an increased risk of cardiovascular disease. This review provides a comprehensive overview of the literature on cardiovascular diseases in OI patients in order to raise awareness of this understudied clinical aspect of OI and support clinical guidelines. In accordance with the PRISMA guidelines, a systematic literature search in PubMed, Embase, Web of Science and Scopus was conducted that included articles from the inception of these databases to April 2023. Valvular disease, heart failure, atrial fibrillation, and hypertension appear to be more prevalent in OI than in control individuals. Moreover, a larger aortic root was observed in OI compared to controls. Various cardiovascular diseases appear to be more prevalent in OI than in controls. These cardiovascular abnormalities are observed in all types of OI and at all ages, including young children. As there are insufficient longitudinal studies, it is unknown whether these abnormalities are progressive in nature in OI patients. Based on these findings, we would recommend referring individuals with OI to a cardiologist with a low-threshold.
+Abstract
+
+Osteogenesis imperfecta (OI) is a rare genetic disorder caused by abnormal collagen type I production. While OI is primarily characterized by bone fragility and deformities, patients also have extraskeletal manifestations, including an increased risk of cardiovascular disease. This review provides a comprehensive overview of the literature on cardiovascular diseases in OI patients in order to raise awareness of this understudied clinical aspect of OI and support clinical guidelines. In accordance with the PRISMA guidelines, a systematic literature search in PubMed, Embase, Web of Science and Scopus was conducted that included articles from the inception of these databases to April 2023. Valvular disease, heart failure, atrial fibrillation, and hypertension appear to be more prevalent in OI than in control individuals. Moreover, a larger aortic root was observed in OI compared to controls. Various cardiovascular diseases appear to be more prevalent in OI than in controls. These cardiovascular abnormalities are observed in all types of OI and at all ages, including young children. As there are insufficient longitudinal studies, it is unknown whether these abnormalities are progressive in nature in OI patients. Based on these findings, we would recommend referring individuals with OI to a cardiologist with a low-threshold.
 
 Vol:.(1234567890)
 Calcified Tissue International (2024) 114:210–221

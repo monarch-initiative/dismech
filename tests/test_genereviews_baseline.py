@@ -362,6 +362,85 @@ def test_tagged_retired_prints_its_hint_and_passes_strict(tmp_path, index, capsy
     assert "TAGGED_RETIRED: the only GeneReviews chapters tagged are retired" in out
 
 
+def _purpose_only_cache(cache_dir: Path, pmid: str) -> None:
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    (cache_dir / f"PMID_{pmid}.md").write_text(
+        f"---\nreference_id: PMID:{pmid}\ncontent_type: abstract_only\n---\n\n"
+        "## Content\n\nThe purpose of this overview is to: 1.. Describe the clinical\n"
+        "characteristics of Alzheimer disease; 2.. Review the genetic causes.\n",
+        encoding="utf-8",
+    )
+
+
+def test_only_overview_chapters_tagged_is_reported_apart(tmp_path, index):
+    """A current chapter whose abstract is only a purpose statement is no baseline (#11848)."""
+    _purpose_only_cache(tmp_path / "cache", "20301340")
+    doc = _entry(
+        "Early-Onset Familial Alzheimer Disease",
+        references=[{"reference": "PMID:20301340", "tags": ["GeneReviews"]}],
+    )
+    report = _assess(tmp_path, index, doc)
+    gr = report.sources["genereviews"]
+    assert gr.verdict == "TAGGED_OVERVIEW"
+    (row,) = [r for r in gr.chapters if r.tagged]
+    assert row.purpose_only and not row.retired
+    assert not report.gating
+    assert report.noteworthy
+
+
+def test_uncached_overview_stays_tagged(tmp_path, index):
+    """Nothing read, nothing claimed: the verdict needs the cache file."""
+    doc = _entry(
+        "Early-Onset Familial Alzheimer Disease",
+        references=[{"reference": "PMID:20301340", "tags": ["GeneReviews"]}],
+    )
+    assert _assess(tmp_path, index, doc).sources["genereviews"].verdict == "TAGGED"
+
+
+def test_a_usable_chapter_beside_an_overview_is_plain_tagged(tmp_path, index):
+    _purpose_only_cache(tmp_path / "cache", "20301340")
+    doc = _entry(
+        "Early-Onset Familial Alzheimer Disease",
+        references=[
+            {"reference": "PMID:20301340", "tags": ["GeneReviews"]},
+            {"reference": "PMID:27308687", "tags": ["GeneReviews"]},
+        ],
+    )
+    assert _assess(tmp_path, index, doc).sources["genereviews"].verdict == "TAGGED"
+
+
+def test_overview_beside_a_retired_chapter_is_tagged_overview(tmp_path, index):
+    """A current chapter exists, so the question is its content, not retirement."""
+    _purpose_only_cache(tmp_path / "cache", "20301340")
+    doc = _entry(
+        "Early-Onset Familial Alzheimer Disease",
+        references=[
+            {"reference": "PMID:20301340", "tags": ["GeneReviews"]},
+            {"reference": "PMID:20301370", "tags": ["GeneReviews"]},
+        ],
+    )
+    gr = _assess(tmp_path, index, doc).sources["genereviews"]
+    assert gr.verdict == "TAGGED_OVERVIEW"
+
+
+def test_tagged_overview_prints_its_hint_and_passes_strict(tmp_path, index, capsys):
+    index_dir = _write_index(tmp_path, index)
+    cache = tmp_path / "c"
+    _purpose_only_cache(cache, "20301340")
+    entry = tmp_path / "Alzheimer_Disease.yaml"
+    entry.write_text(
+        "name: Alzheimer Disease\n"
+        "synonyms:\n- AD\n"
+        "references:\n- reference: PMID:20301340\n  tags:\n  - GeneReviews\n"
+    )
+    args = [str(entry), "--index-dir", str(index_dir), "--cache-dir", str(cache)]
+    assert cgb.main(args + ["--strict"]) == 0
+    out = capsys.readouterr().out
+    assert "GeneReviews  TAGGED_OVERVIEW" in out
+    assert "[purpose statement only]" in out
+    assert "TAGGED_OVERVIEW: every current GeneReviews chapter tagged" in out
+
+
 def test_mistagged_journal_article_is_reported(tmp_path, index):
     cache = tmp_path / "cache"
     cache.mkdir()
@@ -549,14 +628,23 @@ def test_online_hit_missing_from_index_returns_a_verdict(
 
 
 class _RecordingNcbiClient:
-    """Records each esearch ``term`` and answers with a canned ``esearchresult``."""
+    """Records each esearch ``term`` and answers with a canned ``esearchresult``.
 
-    def __init__(self, esearch: dict):
+    ``esummary`` is answered only when a canned record set is supplied; without
+    one, being asked for a summary means the search was not discarded when the
+    test expected it to be.
+    """
+
+    def __init__(self, esearch: dict, esummary: dict | None = None):
         self.esearch = esearch
+        self.esummary = esummary
         self.terms: list[str] = []
 
     def call(self, endpoint: str, **params: str) -> dict:
-        assert endpoint == "esearch.fcgi", "no hit, so esummary is never called"
+        if endpoint == "esummary.fcgi":
+            assert self.esummary is not None, "no hit, so esummary is never called"
+            return self.esummary
+        assert endpoint == "esearch.fcgi"
         self.terms.append(params["term"])
         return {"esearchresult": self.esearch}
 
@@ -587,6 +675,77 @@ def test_online_search_skips_a_rewritten_query(index, capsys):
     )
     assert _online(index, client).search(["mesiodens-cataract syndrome"]) == []
     assert "PubMed rewrote" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("phrase", "translation"),
+    [
+        # The case from #17228: PubMed drops the comma inside the quotes.
+        (
+            "platyspondylic skeletal dysplasia, Torrance type",
+            (
+                '"platyspondylic skeletal dysplasia torrance type"[Title] '
+                'AND "genereviews"[Book]'
+            ),
+        ),
+        # The other shapes a MONDO label takes.
+        (
+            "spastic paraplegia 4, autosomal dominant",
+            '"spastic paraplegia 4 autosomal dominant"[Title]',
+        ),
+        # A hyphen folds to a space on both sides, as it does in the index.
+        ("Alpha-Thalassemia", '"alpha thalassemia"[Title]'),
+        # No punctuation at all: unchanged behaviour.
+        ("Usher Syndrome", '"usher syndrome"[Title] AND "genereviews"[Book]'),
+    ],
+)
+def test_phrase_searched_verbatim_accepts_pubmeds_punctuation_folding(
+    phrase, translation
+):
+    """PubMed ignores punctuation inside a quoted phrase; that is not a rewrite."""
+    assert cgb.phrase_searched_verbatim(phrase, translation)
+
+
+@pytest.mark.parametrize(
+    ("phrase", "translation"),
+    [
+        # The #14213 rewrite the guard exists for: quotes gone, phrase split.
+        (
+            "mesiodens-cataract syndrome",
+            '"syndrome"[Title] AND "genereviews"[Book]',
+        ),
+        ("mesiodens-cataract syndrome", "mesiodens[All Fields] AND cataract[All Fields]"),
+        # A longer quoted phrase is not the phrase that was asked for.
+        ("Usher Syndrome", '"usher syndrome type 2"[Title]'),
+        # Nor is a shorter one.
+        ("Usher Syndrome Type 2", '"usher syndrome"[Title]'),
+    ],
+)
+def test_phrase_searched_verbatim_still_rejects_a_real_rewrite(phrase, translation):
+    assert not cgb.phrase_searched_verbatim(phrase, translation)
+
+
+def test_online_search_keeps_a_comma_bearing_name(index):
+    """A comma alone must not discard the search (#17228)."""
+    client = _RecordingNcbiClient(
+        {
+            "idlist": ["99999997"],
+            "querytranslation": '"mesiodens cataract syndrome type 2"[Title] '
+            'AND "genereviews"[Book]',
+        },
+        esummary={
+            "result": {
+                "99999997": {
+                    "title": "Mesiodens-Cataract Syndrome, Type 2.",
+                    "articleids": [
+                        {"idtype": "bookaccession", "value": "NBK999997"}
+                    ],
+                }
+            }
+        },
+    )
+    found = _online(index, client).search(["mesiodens-cataract syndrome, type 2"])
+    assert [(m.chapter.pmid, m.kind) for m in found] == [("99999997", "ONLINE")]
 
 
 def test_online_hit_ranks_after_index_title_matches(tmp_path, index):

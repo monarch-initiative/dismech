@@ -277,6 +277,7 @@ informational; see below):
 |---|---|
 | `TAGGED` | proceed to Step 2 |
 | `TAGGED_RETIRED` | the only tagged chapter is a retired one (`[retired chapter]`), withdrawn by GeneReviews and kept for historical reference. Not blocking, and the tag itself is correct. If a current chapter covers the disease (a `GENE_SCOPED` row, an *Overview*), ask for it to be cited and mined; if none does, the retired chapter may stay as the baseline. Then proceed to Step 2 |
+| `TAGGED_OVERVIEW` | every current tagged chapter is in the Overview format (`[purpose statement only]`): its cached PubMed abstract is a statement of purpose with no clinical characteristics, so there is no phenotype baseline in it to cross-check (#11848). Not blocking, and the tag is correct. Ask for a disease- or gene-specific chapter if one covers the disease (a `GENE_SCOPED` row); otherwise check that `notes:` says the Overview is not a usable baseline and where the phenotypes came from instead. Do not ask for the Overview to be "mined" — there is nothing in it. Then proceed to Step 2 |
 | `UNTAGGED_CHAPTER` | a chapter whose title equals one of the entry's names exists and is not tagged: **blocking omission** for a new Mendelian entry → `REQUEST_CHANGES` |
 | `CITED_UNTAGGED` | the chapter is cited in the file but not tagged in `references:` — same, and `just tag-references FILE` fixes a PMID citation |
 | `MISTAGGED` | a reference tagged `GeneReviews` is not a GeneReviews chapter: **blocking** — say which |
@@ -432,6 +433,17 @@ Record the outcome in the review body — e.g. "12 new evidence items, all title
 
 After completing the review, you MUST submit a formal GitHub review (not just a comment).
 Use `gh pr review` with one of the three events below.
+
+**Every review run ends in a submitted review, including a re-review.** Never
+decline because the PR "was already reviewed". In particular, do not read a
+review's `commit_id` as the commit it reviewed: GitHub reports it as the PR's
+*current* head, so after a rebase every earlier review appears to be a review
+of the new head (dismech#18298). To tell whether an earlier review covers the
+head, compare that review's `submitted_at` with the head commit's committer
+date — a review submitted before the commit existed cannot be a review of it —
+and read `gh pr diff` rather than commit ids. If nothing material changed,
+submit the same verdict again (re-approve, or re-request the outstanding
+changes); a run with no verdict leaves a red check that nothing can clear.
 
 ### APPROVE
 Submit `--approve` when **all** of the following hold:

@@ -13,6 +13,7 @@ year: '1983'
 doi: 10.1002/ajmg.1320160212
 content_type: abstract_only
 is_preprint: false
+full_text_attempted: true
 ---
 
 # Tricho‐dento‐osseous syndrome: Heterogeneity or clinical variability
@@ -22,4 +23,6 @@ is_preprint: false
 
 ## Content
 
-AbstractTricho‐dento‐osseous (TDO) syndrome is an autosomal dominant disorder characterized by abnormalities of hair, teeth, and bone. We report on a family that seems to illustrate further clinical heterogeneity in the TDO syndrome. Although variable expression of a single TDO gene cannot be ruled out, the manifestations observed in this and other reported families appear to fall into distinct subtypes. This suggests the possibility that the clinical subtypes represent distinct genetic entities.
+Abstract
+
+Tricho‐dento‐osseous (TDO) syndrome is an autosomal dominant disorder characterized by abnormalities of hair, teeth, and bone. We report on a family that seems to illustrate further clinical heterogeneity in the TDO syndrome. Although variable expression of a single TDO gene cannot be ruled out, the manifestations observed in this and other reported families appear to fall into distinct subtypes. This suggests the possibility that the clinical subtypes represent distinct genetic entities.

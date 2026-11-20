@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3389/fped.2022.837462
+extractor_version: 1
 title: "Pediatric Intestinal Pseudo-Obstruction: Progress and Challenges"
 authors:
 - Marie-Catherine Turcotte
@@ -8,12 +9,14 @@ journal: Frontiers in Pediatrics
 year: '2022'
 doi: 10.3389/fped.2022.837462
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.frontiersin.org/articles/10.3389/fped.2022.837462/pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.3389_fped.2022.837462.pdf
+full_text_access_type: open
 ---
 
 # Pediatric Intestinal Pseudo-Obstruction: Progress and Challenges
@@ -23,7 +26,13 @@ local_pdf_path: files/DOI_10.3389_fped.2022.837462.pdf
 
 ## Content
 
-BackgroundChronic intestinal pseudo-obstruction is a rare disorder and represents the most severe form of gastrointestinal dysmotility with significant morbidity and mortality. Emerging research shows considerable differences between the adult and pediatric population with intestinal pseudo-obstruction and the term Pediatric Intestinal Pseudo-Obstruction (PIPO) was recently proposed.PurposeThe aim of this article is to provide pediatric gastroenterologists and pediatricians with an up to date review of the etiology and underlining pathophysiology, clinical features, diagnostic and management approaches currently available for PIPO and to discuss future perspectives for the diagnosis and management of this rare disease.
+Background
+
+Chronic intestinal pseudo-obstruction is a rare disorder and represents the most severe form of gastrointestinal dysmotility with significant morbidity and mortality. Emerging research shows considerable differences between the adult and pediatric population with intestinal pseudo-obstruction and the term Pediatric Intestinal Pseudo-Obstruction (PIPO) was recently proposed.
+
+Purpose
+
+The aim of this article is to provide pediatric gastroenterologists and pediatricians with an up to date review of the etiology and underlining pathophysiology, clinical features, diagnostic and management approaches currently available for PIPO and to discuss future perspectives for the diagnosis and management of this rare disease.
 
 fped-10-837462 April 7, 2022 Time: 14:5 # 1
 SYSTEMATIC REVIEW

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41388-023-02889-y
+extractor_version: 1
 title: Dual targeting of MAPK and PI3K pathways unlocks redifferentiation of Braf-mutated thyroid cancer organoids
 authors:
 - Hélène Lasolle
@@ -24,12 +25,14 @@ journal: Oncogene
 year: '2024'
 doi: 10.1038/s41388-023-02889-y
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41388-023-02889-y.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41388-023-02889-y.pdf
+full_text_access_type: open
 ---
 
 # Dual targeting of MAPK and PI3K pathways unlocks redifferentiation of Braf-mutated thyroid cancer organoids
@@ -39,7 +42,9 @@ local_pdf_path: files/DOI_10.1038_s41388-023-02889-y.pdf
 
 ## Content
 
-AbstractThyroid cancer is the most common endocrine malignancy and several genetic events have been described to promote the development of thyroid carcinogenesis. Besides the effects of specific mutations on thyroid cancer development, the molecular mechanisms controlling tumorigenesis, tumor behavior, and drug resistance are still largely unknown. Cancer organoids have been proposed as a powerful tool to study aspects related to tumor development and progression and appear promising to test individual responses to therapies. Here, using mESC-derived thyroid organoids, we developed a BrafV637E-inducible model able to recapitulate the features of papillary thyroid cancer in vitro. Overexpression of the murine BrafV637E mutation, equivalent to BrafV600E in humans, rapidly triggers to MAPK activation, cell dedifferentiation, and disruption of follicular organization. BrafV637E-expressing organoids show a transcriptomic signature for p53, focal adhesion, ECM-receptor interactions, EMT, and inflammatory signaling pathways. Finally, PTC-like thyroid organoids were used for drug screening assays. The combination of MAPK and PI3K inhibitors reversed BrafV637E oncogene-promoted cell dedifferentiation while restoring thyroid follicle organization and function in vitro. Our results demonstrate that pluripotent stem cells-derived thyroid cancer organoids can mimic tumor development and features while providing an efficient tool for testing novel targeted therapies.
+Abstract
+
+Thyroid cancer is the most common endocrine malignancy and several genetic events have been described to promote the development of thyroid carcinogenesis. Besides the effects of specific mutations on thyroid cancer development, the molecular mechanisms controlling tumorigenesis, tumor behavior, and drug resistance are still largely unknown. Cancer organoids have been proposed as a powerful tool to study aspects related to tumor development and progression and appear promising to test individual responses to therapies. Here, using mESC-derived thyroid organoids, we developed a Braf V637E -inducible model able to recapitulate the features of papillary thyroid cancer in vitro. Overexpression of the murine Braf V637E mutation, equivalent to Braf V600E in humans, rapidly triggers to MAPK activation, cell dedifferentiation, and disruption of follicular organization. Braf V637E -expressing organoids show a transcriptomic signature for p53, focal adhesion, ECM-receptor interactions, EMT, and inflammatory signaling pathways. Finally, PTC-like thyroid organoids were used for drug screening assays. The combination of MAPK and PI3K inhibitors reversed Braf V637E oncogene-promoted cell dedifferentiation while restoring thyroid follicle organization and function in vitro. Our results demonstrate that pluripotent stem cells-derived thyroid cancer organoids can mimic tumor development and features while providing an efficient tool for testing novel targeted therapies.
 
 ARTICLE OPEN
 Dual targeting of MAPK and PI3K pathways unlocks

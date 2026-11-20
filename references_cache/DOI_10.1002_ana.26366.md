@@ -38,6 +38,7 @@ year: '2022'
 doi: 10.1002/ana.26366
 content_type: abstract_only
 is_preprint: false
+full_text_declined: landing_page_only
 ---
 
 # Heterozygous <scp><i>PNPT1</i></scp> Variants Cause Spinocerebellar Ataxia Type 25
@@ -47,4 +48,18 @@ is_preprint: false
 
 ## Content
 
-ObjectiveDominant spinocerebellar ataxias (SCA) are characterized by genetic heterogeneity. Some mapped and named loci remain without a causal gene identified. Here we applied next generation sequencing (NGS) to uncover the genetic etiology of the SCA25 locus.MethodsWhole‐exome and whole‐genome sequencing were performed in families linked to SCA25, including the French family in which the SCA25 locus was originally mapped. Whole exome sequence data were interrogated in a cohort of 796 ataxia patients of unknown etiology.ResultsThe SCA25 phenotype spans a slowly evolving sensory and cerebellar ataxia, in most cases attributed to ganglionopathy. A pathogenic variant causing exon skipping was identified in the gene encoding Polyribonucleotide Nucleotidyltransferase PNPase 1 (PNPT1) located in the SCA25 linkage interval. A second splice variant in PNPT1 was detected in a large Australian family with a dominant ataxia also mapping to SCA25. An additional nonsense variant was detected in an unrelated individual with ataxia. Both nonsense and splice heterozygous variants result in premature stop codons, all located in the S1‐domain of PNPase. In addition, an elevated type I interferon response was observed in blood from all affected heterozygous carriers tested. PNPase notably prevents the abnormal accumulation of double‐stranded mtRNAs in the mitochondria and leakage into the cytoplasm, associated with triggering a type I interferon response.InterpretationThis study identifies PNPT1 as a new SCA gene, responsible for SCA25, and highlights biological links between alterations of mtRNA trafficking, interferonopathies and ataxia. ANN NEUROL 2022;92:122–137
+Objective
+
+Dominant spinocerebellar ataxias (SCA) are characterized by genetic heterogeneity. Some mapped and named loci remain without a causal gene identified. Here we applied next generation sequencing (NGS) to uncover the genetic etiology of the SCA25 locus.
+
+Methods
+
+Whole‐exome and whole‐genome sequencing were performed in families linked to SCA25, including the French family in which the SCA25 locus was originally mapped. Whole exome sequence data were interrogated in a cohort of 796 ataxia patients of unknown etiology.
+
+Results
+
+The SCA25 phenotype spans a slowly evolving sensory and cerebellar ataxia, in most cases attributed to ganglionopathy. A pathogenic variant causing exon skipping was identified in the gene encoding Polyribonucleotide Nucleotidyltransferase PNPase 1 (PNPT1) located in the SCA25 linkage interval. A second splice variant in PNPT1 was detected in a large Australian family with a dominant ataxia also mapping to SCA25. An additional nonsense variant was detected in an unrelated individual with ataxia. Both nonsense and splice heterozygous variants result in premature stop codons, all located in the S1‐domain of PNPase. In addition, an elevated type I interferon response was observed in blood from all affected heterozygous carriers tested. PNPase notably prevents the abnormal accumulation of double‐stranded mtRNAs in the mitochondria and leakage into the cytoplasm, associated with triggering a type I interferon response.
+
+Interpretation
+
+This study identifies PNPT1 as a new SCA gene, responsible for SCA25, and highlights biological links between alterations of mtRNA trafficking, interferonopathies and ataxia. ANN NEUROL 2022;92:122–137

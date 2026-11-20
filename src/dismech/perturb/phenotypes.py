@@ -56,17 +56,16 @@ def evaluate_phenotypes(
                     )
                 )
 
-        elif pt.direction == "above":
-            if val > pt.threshold:
-                severity = _determine_severity(val, pt.severity_scale, reverse=False)
-                activated.append(
-                    ActivatedPhenotype(
-                        hp_id=pt.hp_id,
-                        hp_label=pt.hp_label,
-                        severity=severity,
-                        value_description=f"{val:.1f}",
-                    )
+        elif pt.direction == "above" and val > pt.threshold:
+            severity = _determine_severity(val, pt.severity_scale, reverse=False)
+            activated.append(
+                ActivatedPhenotype(
+                    hp_id=pt.hp_id,
+                    hp_label=pt.hp_label,
+                    severity=severity,
+                    value_description=f"{val:.1f}",
                 )
+            )
 
     return activated
 

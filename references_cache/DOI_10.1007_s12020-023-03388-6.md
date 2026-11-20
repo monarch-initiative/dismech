@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s12020-023-03388-6
+extractor_version: 1
 title: "Add-on radioiodine during long-term BRAF/MEK inhibition in patients with RAI-refractory thyroid cancers: a reasonable option?"
 authors:
 - Filipe Miguel Montes de Jesus
@@ -10,12 +11,14 @@ journal: Endocrine
 year: '2023'
 doi: 10.1007/s12020-023-03388-6
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s12020-023-03388-6.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s12020-023-03388-6.pdf
+full_text_access_type: open
 ---
 
 # Add-on radioiodine during long-term BRAF/MEK inhibition in patients with RAI-refractory thyroid cancers: a reasonable option?
@@ -25,7 +28,9 @@ local_pdf_path: files/DOI_10.1007_s12020-023-03388-6.pdf
 
 ## Content
 
-AbstractDual modulation of the MAPK pathway with BRAF (e.g., dabrafenib) and MEK (e.g., trametinib) inhibitors has the potential to re-establish radioiodine (RAI) sensitivity in BRAF-mutated RAI-refractory (RAI-R)-differentiated thyroid carcinoma (DTC) cells. Here we showed that (1) double BRAF/MEK inhibition may still reach a significant redifferentiation in patients with a long-history RAI-R DTC and multiple previous treatments; (2) the addition of high RAI activities may obtain a significant structural response in such patients; and (3) a divergence between increasing thyroglobulin and structural response may be a reliable biomarker or redifferentiation. Accordingly, the add-on prescription of high activities of 131I should be considered in RAI-R patients under multikinase inhibitors with stable or responding structural disease and divergent increase of Tg levels.
+Abstract
+
+Dual modulation of the MAPK pathway with BRAF (e.g., dabrafenib) and MEK (e.g., trametinib) inhibitors has the potential to re-establish radioiodine (RAI) sensitivity in BRAF-mutated RAI-refractory (RAI-R)-differentiated thyroid carcinoma (DTC) cells. Here we showed that (1) double BRAF/MEK inhibition may still reach a significant redifferentiation in patients with a long-history RAI-R DTC and multiple previous treatments; (2) the addition of high RAI activities may obtain a significant structural response in such patients; and (3) a divergence between increasing thyroglobulin and structural response may be a reliable biomarker or redifferentiation. Accordingly, the add-on prescription of high activities of 131I should be considered in RAI-R patients under multikinase inhibitors with stable or responding structural disease and divergent increase of Tg levels.
 
 Endocrine (2023) 81:450 –454
 https://doi.org/10.1007/s12020-023-03388-6

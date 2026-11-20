@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3389/fmed.2023.1207891
+extractor_version: 1
 title: Prenatal phenotypes and pregnancy outcomes of fetuses with recurrent 1q21.1 microdeletions and microduplications
 authors:
 - Fagui Yue
@@ -12,12 +13,14 @@ journal: Frontiers in Medicine
 year: '2023'
 doi: 10.3389/fmed.2023.1207891
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.frontiersin.org/articles/10.3389/fmed.2023.1207891/pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.3389_fmed.2023.1207891.pdf
+full_text_access_type: open
 ---
 
 # Prenatal phenotypes and pregnancy outcomes of fetuses with recurrent 1q21.1 microdeletions and microduplications
@@ -27,7 +30,21 @@ local_pdf_path: files/DOI_10.3389_fmed.2023.1207891.pdf
 
 ## Content
 
-ObjectiveChromosomal 1q21.1 deletions and duplications are genomic disorders that are usually diagnosed postnatally. However, the genotype–phenotype correlations of 1q21.1 copy number variants (CNVs) during the prenatal period are still not clear. This study aimed to provide a systematic summary of prenatal phenotypes for such genomic disorders.MethodsIn total, 26 prenatal amniotic fluid samples diagnosed with 1q21.1 microdeletions/microduplications were obtained from pregnant women who opted for invasive prenatal testing. Karyotypic analysis and chromosomal microarray analysis (CMA) were performed for all cases simultaneously. The pregnancy outcomes and health conditions after birth in all cases were followed up. Meanwhile, prenatal cases with 1q21.1 microdeletions or microduplications in the literature were retrospectively collected.ResultsIn total, 11 pregnancies (11/8,252, 0.13%) with 1q21.1 microdeletions and 15 (15/8,252, 0.18%) with 1q21.1 microduplications were identified. Among these 1q21.1 CNVs, 4 cases covered the thrombocytopenia-absent radius (TAR) region, 16 cases covered the 1q21.1 recurrent microdeletion/microduplication region, and 6 cases covered all regions mentioned above. The prenatal abnormal ultrasound findings were recorded in four participants with 1q21.1 deletions and seven participants with 1q21.1 duplications. Finally, three cases with 1q21.1 deletions and five with 1q21.1 duplications terminated their pregnancies.ConclusionIn the prenatal setting, 1q21.1 microdeletions were associated with increased nuchal translucency (NT), anomalies of the urinary system, and cardiovascular abnormalities, while 1q21.1 microduplications were correlated with cardiovascular malformations, nasal bone dysplasia, and increased NT. In addition, cerebral ventriculomegaly might be correlated with 1q21.1 microduplications. Considering the variable expressivity and incomplete penetrance of 1q21.1 CNVs, long-term follow-up after birth should be carried out in these cases.
+Objective
+
+Chromosomal 1q21.1 deletions and duplications are genomic disorders that are usually diagnosed postnatally. However, the genotype–phenotype correlations of 1q21.1 copy number variants (CNVs) during the prenatal period are still not clear. This study aimed to provide a systematic summary of prenatal phenotypes for such genomic disorders.
+
+Methods
+
+In total, 26 prenatal amniotic fluid samples diagnosed with 1q21.1 microdeletions/microduplications were obtained from pregnant women who opted for invasive prenatal testing. Karyotypic analysis and chromosomal microarray analysis (CMA) were performed for all cases simultaneously. The pregnancy outcomes and health conditions after birth in all cases were followed up. Meanwhile, prenatal cases with 1q21.1 microdeletions or microduplications in the literature were retrospectively collected.
+
+Results
+
+In total, 11 pregnancies (11/8,252, 0.13%) with 1q21.1 microdeletions and 15 (15/8,252, 0.18%) with 1q21.1 microduplications were identified. Among these 1q21.1 CNVs, 4 cases covered the thrombocytopenia-absent radius (TAR) region, 16 cases covered the 1q21.1 recurrent microdeletion/microduplication region, and 6 cases covered all regions mentioned above. The prenatal abnormal ultrasound findings were recorded in four participants with 1q21.1 deletions and seven participants with 1q21.1 duplications. Finally, three cases with 1q21.1 deletions and five with 1q21.1 duplications terminated their pregnancies.
+
+Conclusion
+
+In the prenatal setting, 1q21.1 microdeletions were associated with increased nuchal translucency (NT), anomalies of the urinary system, and cardiovascular abnormalities, while 1q21.1 microduplications were correlated with cardiovascular malformations, nasal bone dysplasia, and increased NT. In addition, cerebral ventriculomegaly might be correlated with 1q21.1 microduplications. Considering the variable expressivity and incomplete penetrance of 1q21.1 CNVs, long-term follow-up after birth should be carried out in these cases.
 
 TYPE Original Research
 PUBLISHED /two.tnum/four.tnum August /two.tnum/zero.tnum/two.tnum/three.tnum
