@@ -102,6 +102,8 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                            'prefix_reference': 'http://purl.obolibrary.org/obo/ENVO_'},
                   'ExO': {'prefix_prefix': 'ExO',
                           'prefix_reference': 'http://purl.obolibrary.org/obo/ExO_'},
+                  'FB': {'prefix_prefix': 'FB',
+                         'prefix_reference': 'http://identifiers.org/fb/'},
                   'FOODON': {'prefix_prefix': 'FOODON',
                              'prefix_reference': 'http://purl.obolibrary.org/obo/FOODON_'},
                   'GENO': {'prefix_prefix': 'GENO',
@@ -120,28 +122,44 @@ linkml_meta = LinkMLMeta({'default_prefix': 'dismech',
                             'prefix_reference': 'https://trialsearch.who.int/Trial2.aspx?TrialID='},
                   'LOINC': {'prefix_prefix': 'LOINC',
                             'prefix_reference': 'https://loinc.org/'},
+                  'MGI': {'prefix_prefix': 'MGI',
+                          'prefix_reference': 'http://identifiers.org/mgi/'},
                   'MONDO': {'prefix_prefix': 'MONDO',
                             'prefix_reference': 'http://purl.obolibrary.org/obo/MONDO_'},
                   'MRO': {'prefix_prefix': 'MRO',
                           'prefix_reference': 'http://purl.obolibrary.org/obo/MRO_'},
+                  'NCBIGene': {'prefix_prefix': 'NCBIGene',
+                               'prefix_reference': 'http://identifiers.org/ncbigene/'},
                   'NCBITaxon': {'prefix_prefix': 'NCBITaxon',
                                 'prefix_reference': 'http://purl.obolibrary.org/obo/NCBITaxon_'},
                   'NCIT': {'prefix_prefix': 'NCIT',
                            'prefix_reference': 'http://purl.obolibrary.org/obo/NCIT_'},
                   'OBI': {'prefix_prefix': 'OBI',
                           'prefix_reference': 'http://purl.obolibrary.org/obo/OBI_'},
+                  'OMIMPS': {'prefix_prefix': 'OMIMPS',
+                             'prefix_reference': 'https://omim.org/phenotypicSeries/PS'},
                   'OPL': {'prefix_prefix': 'OPL',
                           'prefix_reference': 'http://purl.obolibrary.org/obo/OPL_'},
                   'PATO': {'prefix_prefix': 'PATO',
                            'prefix_reference': 'http://purl.obolibrary.org/obo/PATO_'},
                   'PMID': {'prefix_prefix': 'PMID',
                            'prefix_reference': 'http://www.ncbi.nlm.nih.gov/pubmed/'},
+                  'RGD': {'prefix_prefix': 'RGD',
+                          'prefix_reference': 'http://identifiers.org/rgd/'},
+                  'SGD': {'prefix_prefix': 'SGD',
+                          'prefix_reference': 'http://identifiers.org/sgd/'},
                   'SO': {'prefix_prefix': 'SO',
                          'prefix_reference': 'http://purl.obolibrary.org/obo/SO_'},
                   'UBERON': {'prefix_prefix': 'UBERON',
                              'prefix_reference': 'http://purl.obolibrary.org/obo/UBERON_'},
+                  'WB': {'prefix_prefix': 'WB',
+                         'prefix_reference': 'http://identifiers.org/wb/'},
                   'XCO': {'prefix_prefix': 'XCO',
                           'prefix_reference': 'http://purl.obolibrary.org/obo/XCO_'},
+                  'Xenbase': {'prefix_prefix': 'Xenbase',
+                              'prefix_reference': 'http://identifiers.org/xenbase/'},
+                  'ZFIN': {'prefix_prefix': 'ZFIN',
+                           'prefix_reference': 'http://identifiers.org/zfin/'},
                   'arrayexpress': {'prefix_prefix': 'arrayexpress',
                                    'prefix_reference': 'https://www.ebi.ac.uk/biostudies/arrayexpress/studies/'},
                   'bigg': {'prefix_prefix': 'bigg',
@@ -4134,7 +4152,11 @@ class GeneDiseaseRelationshipEnum(str, Enum):
     """
     Disputed = "DISPUTED"
     """
-    Reported gene-disease association whose validity is contested (corresponds to ClinGen "Disputed" or "Refuted").
+    A reported gene-disease relationship whose validity is contested: the evidence for and against it conflicts, or the original report has not been replicated, and the question is open (corresponds to ClinGen/GenCC "Disputed"). Use this, not a subtype row, for a locus whose claim to cause the disease is unsettled. When an external body has graded the pair, copy its tier into `gene_disease_validity` as well; `relationship_type` is the curator's reading, `gene_disease_validity` is the source's.
+    """
+    Refuted = "REFUTED"
+    """
+    A reported gene-disease relationship that the evidence now contradicts: the refuting evidence significantly outweighs the original report, so the gene is recorded to stop the claim being re-made, not because it contributes to the disease (corresponds to ClinGen/GenCC "Refuted"). Distinct from DISPUTED, where the question is still open. Requires `evidence` citing the refutation, not only the original claim.
     """
     Unknown = "UNKNOWN"
     """
@@ -4645,9 +4667,23 @@ class TriggerTerm(str):
     pass
 
 
+class GeneOrProductTerm(str):
+    """
+    A gene or gene product in a model system or dataset, named in its own species. In priority order: HGNC for a human gene; the species' Alliance of Genome Resources member database where one exists (MGI mouse, RGD rat, ZFIN zebrafish, Xenbase Xenopus, FB Drosophila, WB C. elegans, SGD S. cerevisiae); otherwise NCBI Gene. No hierarchy constraint. The schema does not restrict the prefix: where each prefix may appear, and the priority, are enforced by scripts/check_gene_namespaces.py.
+    """
+    pass
+
+
 class GeneTerm(str):
     """
     A gene term from HGNC
+    """
+    pass
+
+
+class OMIMPSTerm(str):
+    """
+    An OMIM phenotypic series. Validates identifier existence and the canonical label through the OMIM OAK adapter, without a disease-hierarchy constraint. A series may describe a Mendelian disease family or susceptibility loci.
     """
     pass
 
@@ -5040,6 +5076,14 @@ class OnsetEnum(str, Enum):
     PUERPERAL = "PUERPERAL"
     """
     Puerperal onset
+    """
+    PERIMENOPAUSAL = "PERIMENOPAUSAL"
+    """
+    Perimenopausal onset
+    """
+    POSTMENOPAUSAL = "POSTMENOPAUSAL"
+    """
+    Postmenopausal onset
     """
 
 
@@ -6881,6 +6925,32 @@ class LoincCode(Term):
         return v
 
 
+class OMIMPSCode(Term):
+    """
+    An OMIM phenotypic-series identifier, distinct from an individual OMIM phenotype or gene record even when their six-digit numbers coincide.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'id': {'name': 'id', 'pattern': '^OMIMPS:[0-9]{6}$'}}})
+
+    id: str = Field(default=..., description="""Ontology term identifier (CURIE)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Term']} })
+    label: Optional[str] = Field(default=None, description="""Human-readable label for the ontology term""", json_schema_extra = { "linkml_meta": {'comments': ['This is automatically validated by the linkml-term-validator '
+                      'tool.'],
+         'domain_of': ['Term']} })
+
+    @field_validator('id')
+    def pattern_id(cls, v):
+        pattern=re.compile(r"^OMIMPS:[0-9]{6}$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid id format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid id format: {v}"
+            raise ValueError(err_msg)
+        return v
+
+
 class Descriptor(ConfiguredBaseModel):
     """
     Base class for structured descriptors that allow a preferred term, optional description, optional ontology term binding, and post-composition via modifier, located_in, laterality, spatial_extent, onset, temporality, clinical_course, and severity slots.
@@ -7580,6 +7650,111 @@ class ChemicalEntityDescriptor(Descriptor):
     term: Optional[Term] = Field(default=None, description="""Optional CHEBI chemical entity term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
                        'obligation_level': 'REQUIRED',
                        'range': 'ChemicalEntityTerm'}],
+         'domain_of': ['Descriptor',
+                       'TermMapping',
+                       'ConditionDescriptor',
+                       'GOEnrichmentTerm'],
+         'recommended': True} })
+    modifier: Optional[ModifierEnum] = Field(default=None, description="""Directional, functional, or qualitative modifier for a descriptor (e.g., increased, decreased, abnormal, gain of function, loss of function). See ModifierEnum for the boundary between the quantitative INCREASED/DECREASED values and the GAIN_OF_FUNCTION/LOSS_OF_FUNCTION values.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding', 'DifferentiatingMechanism']} })
+    located_in: Optional[AnatomicalEntityDescriptor] = Field(default=None, description="""Anatomical location where this entity/process occurs or procedure is performed""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    laterality: Optional[LateralityEnum] = Field(default=None, description="""Laterality qualifier (left, right, or bilateral)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    spatial_extent: Optional[SpatialExtentEnum] = Field(default=None, description="""The spatial extent or distribution pattern applicable to this descriptor (e.g., focal, diffuse, extensive)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ImagingFinding']} })
+    onset: Optional[OnsetDescriptor] = Field(default=None, description="""Structured age of onset descriptor. Combines an HPO onset category with optional quantitative age data (mean, min, max in years) and free-text notes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'PhenotypeContext']} })
+    temporality: Optional[TemporalityEnum] = Field(default=None, description="""Temporal qualifier for this descriptor (e.g., acute, chronic, recurrent)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    clinical_course: Optional[ClinicalCourseEnum] = Field(default=None, description="""Clinical course qualifier for this descriptor (e.g., progressive, stable)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor']} })
+    severity: Optional[Union[SeverityQualifierEnum, str]] = Field(default=None, json_schema_extra = { "linkml_meta": {'any_of': [{'range': 'SeverityQualifierEnum'}, {'range': 'string'}],
+         'domain_of': ['Descriptor',
+                       'PhenotypeContext',
+                       'ReferenceRangeBand',
+                       'Phenotype'],
+         'examples': [{'value': 'Severe'}]} })
+    qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Prefer explicit slots like located_in and laterality instead '
+                       'of generic qualifiers',
+         'domain_of': ['Descriptor']} })
+
+
+class GeneOrProductDescriptor(Descriptor):
+    """
+    A descriptor for a gene or gene product in a model system or dataset, bindable to HGNC for a human gene, to the species' Alliance MOD (MGI, RGD, ZFIN, Xenbase, FB, WB, SGD) for a model-organism gene, or to NCBI Gene for a species with no MOD.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'term': {'bindings': [{'binds_value_of': 'id',
+                                               'obligation_level': 'REQUIRED',
+                                               'range': 'GeneOrProductTerm'}],
+                                 'description': 'hgnc:, an Alliance MOD prefix (MGI:, '
+                                                'RGD:, ZFIN:, Xenbase:, FB:, WB:, '
+                                                'SGD:) or NCBIGene: term reference',
+                                 'name': 'term'}}})
+
+    preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ConditionDescriptor']} })
+    description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GenomicRegion',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'recommended': False} })
+    term: Optional[Term] = Field(default=None, description="""hgnc:, an Alliance MOD prefix (MGI:, RGD:, ZFIN:, Xenbase:, FB:, WB:, SGD:) or NCBIGene: term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
+                       'obligation_level': 'REQUIRED',
+                       'range': 'GeneOrProductTerm'}],
          'domain_of': ['Descriptor',
                        'TermMapping',
                        'ConditionDescriptor',
@@ -10552,6 +10727,7 @@ class GeneticContext(ConfiguredBaseModel):
          'examples': [{'value': '{preferred_term: MEFV}'}]} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
                        'GeneClassificationCollection',
@@ -10985,7 +11161,16 @@ class Dataset(ConfiguredBaseModel):
                                                        'standardization of the title '
                                                        'slot.',
                                         'name': 'description',
-                                        'recommended': True}}})
+                                        'recommended': True},
+                        'genes': {'description': 'Genes perturbed or profiled in the '
+                                                 "dataset, named in the dataset's "
+                                                 'organism: hgnc: for a human gene, '
+                                                 "the species' Alliance MOD identifier "
+                                                 '(MGI: for a mouse knockout) where '
+                                                 'one exists, otherwise NCBIGene:.',
+                                  'inlined_as_list': True,
+                                  'name': 'genes',
+                                  'range': 'GeneOrProductDescriptor'}}})
 
     accession: str = Field(default=..., description="""Dataset accession identifier as a CURIE (e.g., geo:GSE67472)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset'], 'implements': ['linkml:authoritative_reference']} })
     title: Optional[str] = Field(default=None, description="""Title of the publication""", json_schema_extra = { "linkml_meta": {'comments': ['The `linkml:title` annotation is INERT for '
@@ -11079,8 +11264,9 @@ class Dataset(ConfiguredBaseModel):
     sample_count: Optional[int] = Field(default=None, description="""Total number of samples in the dataset""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
     conditions: Optional[list[str]] = Field(default=None, description="""Experimental conditions or disease states represented""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset', 'ExperimentalModel']} })
     exposures: Optional[list[ExposureDescriptor]] = Field(default=None, description="""Environmental exposures studied in the dataset""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset']} })
-    genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+    genes: Optional[list[GeneOrProductDescriptor]] = Field(default=None, description="""Genes perturbed or profiled in the dataset, named in the dataset's organism: hgnc: for a human gene, the species' Alliance MOD identifier (MGI: for a mouse knockout) where one exists, otherwise NCBIGene:.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
                        'GeneClassificationCollection',
@@ -11243,7 +11429,21 @@ class ExperimentalModel(ConfiguredBaseModel):
                       'and `description` or `notes` for disease-specific nuance',
                       'Use `cell_source` to record whether the system is '
                       'patient-derived, iPSC-derived, primary, immortalized, or mixed'],
-         'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+         'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'genes': {'description': 'Genes or gene products perturbed, '
+                                                 'expressed, or carried as a variant '
+                                                 'in this system, named in the '
+                                                 'organism the cells came from: hgnc: '
+                                                 "for a human gene, the species' "
+                                                 'Alliance MOD identifier where one '
+                                                 "exists (a mouse cell line's knockout "
+                                                 'is MGI:, not its human ortholog), '
+                                                 'otherwise NCBIGene:. Orthology to '
+                                                 'the human disease gene goes in '
+                                                 'description or notes.',
+                                  'inlined_as_list': True,
+                                  'name': 'genes',
+                                  'range': 'GeneOrProductDescriptor'}}})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'domain_of': ['GenomicRegion',
                        'ExperimentalModel',
@@ -11360,6 +11560,15 @@ class ExperimentalModel(ConfiguredBaseModel):
     cell_types: Optional[list[CellTypeDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel', 'Pathophysiology', 'Biochemical'],
          'examples': [{'value': '[{preferred_term: Macrophage}, {preferred_term: T '
                                 'Cell}]'}]} })
+    genes: Optional[list[GeneOrProductDescriptor]] = Field(default=None, description="""Genes or gene products perturbed, expressed, or carried as a variant in this system, named in the organism the cells came from: hgnc: for a human gene, the species' Alliance MOD identifier where one exists (a mouse cell line's knockout is MGI:, not its human ortholog), otherwise NCBIGene:. Orthology to the human disease gene goes in description or notes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'ExperimentalPerturbation',
+                       'Subtype',
+                       'GeneClassificationCollection',
+                       'Pathophysiology',
+                       'AnimalModel'],
+         'examples': [{'value': '[{preferred_term: HLA-DQ2}, {preferred_term: INS}]'}]} })
     conditions: Optional[list[str]] = Field(default=None, description="""Experimental conditions or disease states represented""", json_schema_extra = { "linkml_meta": {'domain_of': ['Dataset', 'ExperimentalModel']} })
     cell_source: Optional[str] = Field(default=None, description="""Source of cells used in the experimental model""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel']} })
     culture_system: Optional[str] = Field(default=None, description="""Culture format or device context used by the experimental model""", json_schema_extra = { "linkml_meta": {'domain_of': ['ExperimentalModel']} })
@@ -11980,6 +12189,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
          'examples': [{'value': '{preferred_term: MEFV}'}]} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
                        'GeneClassificationCollection',
@@ -14453,6 +14663,7 @@ class Subtype(ConfiguredBaseModel):
     children: Optional[list[str]] = Field(default=None, description="""Names of other subtypes in this list that are members/children of this grouping subtype. Used to express cross-scheme relationships (e.g., a pathway_tier subtype grouping complementation_group subtypes).""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype']} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
                        'GeneClassificationCollection',
@@ -14684,6 +14895,7 @@ class AgentSubtype(Subtype):
     children: Optional[list[str]] = Field(default=None, description="""Names of other subtypes in this list that are members/children of this grouping subtype. Used to express cross-scheme relationships (e.g., a pathway_tier subtype grouping complementation_group subtypes).""", json_schema_extra = { "linkml_meta": {'domain_of': ['Subtype']} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
                        'GeneClassificationCollection',
@@ -17173,6 +17385,7 @@ class GeneClassificationCollection(ConfiguredBaseModel):
     source_version: Optional[str] = Field(default=None, description="""The source's own version string for this snapshot, where it publishes one (e.g. \"GT_NMD 2026\").""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneClassificationCollection']} })
     genes: list[GeneClassification] = Field(default=..., description="""One row per gene listed by the source.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
                        'GeneClassificationCollection',
@@ -19074,6 +19287,7 @@ A node may conform to more than one module node when it is a genuine instance of
                                 '[canonical_model]}]'}]} })
     genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
                        'GeneClassificationCollection',
@@ -22097,7 +22311,21 @@ class AnimalModel(ConfiguredBaseModel):
                       'MODEL_ORGANISM` and should not be the sole support for a human '
                       'phenotype.'],
          'from_schema': 'https://w3id.org/monarch-initiative/dismech',
-         'slot_usage': {'modeled_mechanisms': {'description': 'Pathophysiology '
+         'slot_usage': {'genes': {'description': 'Genes or gene products perturbed, '
+                                                 'expressed, or carried as a variant '
+                                                 "in the model, named in the model's "
+                                                 'own species: the Alliance MOD '
+                                                 'identifier for a model organism (a '
+                                                 'mouse knockout of Coch is '
+                                                 'MGI:1278313, not hgnc:2180), '
+                                                 'NCBIGene: for a species with no MOD, '
+                                                 'hgnc: for a human transgene. '
+                                                 'Orthology to the human disease gene '
+                                                 'goes in description or notes.',
+                                  'inlined_as_list': True,
+                                  'name': 'genes',
+                                  'range': 'GeneOrProductDescriptor'},
+                        'modeled_mechanisms': {'description': 'Pathophysiology '
                                                               'mechanism nodes this '
                                                               'animal model '
                                                               'recapitulates, '
@@ -22115,8 +22343,9 @@ class AnimalModel(ConfiguredBaseModel):
     species: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['AnimalModel'], 'examples': [{'value': 'Human'}]} })
     genotype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['AnimalModel'], 'examples': [{'value': 'HLA-DQ2'}]} })
     background: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['AnimalModel']} })
-    genes: Optional[list[GeneDescriptor]] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+    genes: Optional[list[GeneOrProductDescriptor]] = Field(default=None, description="""Genes or gene products perturbed, expressed, or carried as a variant in the model, named in the model's own species: the Alliance MOD identifier for a model organism (a mouse knockout of Coch is MGI:1278313, not hgnc:2180), NCBIGene: for a species with no MOD, hgnc: for a human transgene. Orthology to the human disease gene goes in description or notes.""", json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
                        'Dataset',
+                       'ExperimentalModel',
                        'ExperimentalPerturbation',
                        'Subtype',
                        'GeneClassificationCollection',
@@ -29227,6 +29456,101 @@ class NCITMapping(TermMapping):
                                 'bacteria can be spread to others.'}]} })
 
 
+class OMIMPSMapping(TermMapping):
+    """
+    Mapping to an OMIM phenotypic series, not an individual OMIM record
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'mapping_justification': {'name': 'mapping_justification',
+                                                  'required': True},
+                        'term': {'bindings': [{'binds_value_of': 'id',
+                                               'obligation_level': 'REQUIRED',
+                                               'range': 'OMIMPSTerm'}],
+                                 'name': 'term',
+                                 'range': 'OMIMPSCode'}}})
+
+    term: OMIMPSCode = Field(default=..., description="""Optional structured ontology term reference""", json_schema_extra = { "linkml_meta": {'bindings': [{'binds_value_of': 'id',
+                       'obligation_level': 'REQUIRED',
+                       'range': 'OMIMPSTerm'}],
+         'domain_of': ['Descriptor',
+                       'TermMapping',
+                       'ConditionDescriptor',
+                       'GOEnrichmentTerm'],
+         'recommended': True} })
+    mapping_predicate: str = Field(default=..., description="""Relationship between this disease and the mapped term (e.g., skos:exactMatch)""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
+    mapping_source: Optional[str] = Field(default=None, description="""Source of the mapping (e.g., MONDO, ICD-10-CM, manual curation)""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
+    mapping_justification: str = Field(default=..., description="""Brief rationale or justification for the mapping""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
+    consistency: Optional[list[MappingConsistency]] = Field(default=None, description="""Consistency assertions for this mapping against other sources""", json_schema_extra = { "linkml_meta": {'domain_of': ['TermMapping']} })
+    tracked_issues: Optional[list[TrackedIssue]] = Field(default=None, description="""Structured pointers to external tracker issues (e.g., GitHub ontology term requests, schema follow-ups) that provide curation provenance for this entry or nested object. Use this in preference to stashing issue URLs inside free-text `notes` fields so they can be validated, rendered, and queried consistently.""", json_schema_extra = { "linkml_meta": {'domain_of': ['SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'Disease',
+                       'TermMapping']} })
+    notes: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['GeneticContext',
+                       'OnsetDescriptor',
+                       'PhenotypeContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'ReferenceRange',
+                       'SurrogateEndpoint',
+                       'SurrogateEndpointCollection',
+                       'GeneClassification',
+                       'GeneClassificationCollection',
+                       'ExternalAssertion',
+                       'TrackedIssue',
+                       'Prevalence',
+                       'GeneCaseFraction',
+                       'GeneDiseaseValidityAssertion',
+                       'ProgressionInfo',
+                       'ClinicalBurden',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'Transmission',
+                       'Diagnosis',
+                       'VariantPopulationEffect',
+                       'ClassificationAssignment',
+                       'Definition',
+                       'CriteriaSet',
+                       'TermMapping',
+                       'MappingConsistency',
+                       'ComorbidityAssociation',
+                       'AssociationSignal',
+                       'AssociationMetric',
+                       'AssociationStatistics',
+                       'MechanisticHypothesis',
+                       'Discussion',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'GroupingMember',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'examples': [{'value': 'Contagious stage where symptoms appear and the '
+                                'bacteria can be spread to others.'}]} })
+
+
 class MappingConsistency(ConfiguredBaseModel):
     """
     Consistency assertion for a mapping relative to another source
@@ -29318,6 +29642,7 @@ class DiseaseMappings(ConfiguredBaseModel):
     icd10cm_mappings: Optional[list[ICD10CMMapping]] = Field(default=None, description="""ICD-10-CM code mappings for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DiseaseMappings']} })
     icd11f_mappings: Optional[list[ICD11FMapping]] = Field(default=None, description="""ICD-11 Foundation code mappings for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DiseaseMappings']} })
     mondo_mappings: Optional[list[MondoMapping]] = Field(default=None, description="""MONDO disease ontology mappings for this disease""", json_schema_extra = { "linkml_meta": {'domain_of': ['DiseaseMappings']} })
+    omimps_mappings: Optional[list[OMIMPSMapping]] = Field(default=None, description="""Mappings to OMIM phenotypic series, with an explicit scope relationship. Use exactMatch only for the same disease or disease-family concept; use relatedMatch when a series of susceptibility loci concerns this disease but is not a union of its disease subtypes. A mapping does not assert complete member coverage or Mendelian inheritance.""", json_schema_extra = { "linkml_meta": {'domain_of': ['DiseaseMappings']} })
     ncit_mappings: Optional[list[NCITMapping]] = Field(default=None, description="""NCIT disease, subtype, or disease/finding mappings""", json_schema_extra = { "linkml_meta": {'domain_of': ['DiseaseMappings']} })
 
 
@@ -32358,6 +32683,7 @@ class ModuleCollectionMember(ConfiguredBaseModel):
 CurationEvent.model_rebuild()
 Term.model_rebuild()
 LoincCode.model_rebuild()
+OMIMPSCode.model_rebuild()
 Descriptor.model_rebuild()
 Qualifier.model_rebuild()
 DietaryModification.model_rebuild()
@@ -32366,6 +32692,7 @@ BiologicalProcessDescriptor.model_rebuild()
 MolecularFunctionDescriptor.model_rebuild()
 AnatomicalEntityDescriptor.model_rebuild()
 ChemicalEntityDescriptor.model_rebuild()
+GeneOrProductDescriptor.model_rebuild()
 GeneDescriptor.model_rebuild()
 CellularComponentDescriptor.model_rebuild()
 ProteinComplexDescriptor.model_rebuild()
@@ -32494,6 +32821,7 @@ ICD10CMMapping.model_rebuild()
 ICD11FMapping.model_rebuild()
 MondoMapping.model_rebuild()
 NCITMapping.model_rebuild()
+OMIMPSMapping.model_rebuild()
 MappingConsistency.model_rebuild()
 DiseaseMappings.model_rebuild()
 ConditionDescriptor.model_rebuild()
