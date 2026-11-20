@@ -1,0 +1,2267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ectomesenchymoma · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Ectomesenchymoma</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Ectomesenchymoma</h1>
+                
+                <p class="report-subtitle">Ectomesenchymoma (MONDO:0002855) — Comprehensive Disease Research Report</p>
+                
+                
+                <div class="report-date">2026-11-11</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0002855" target="_blank" rel="noopener noreferrer">MONDO:0002855</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-opus-5[1m]</span>
+                    
+                    
+                    <span class="meta-chip">18 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Ectomesenchymoma (<a href="http://purl.obolibrary.org/obo/MONDO_0002855" target="_blank" rel="noopener noreferrer">MONDO:0002855</a>) — Comprehensive Disease Research Report</h1>
+<p><strong>Prepared:</strong> 11 November 2026 · <strong>Target entry:</strong> <code>kb/disorders/Ectomesenchymoma.yaml</code></p>
+<blockquote>
+<p><strong>Causal gene (first-paragraph requirement).</strong> Ectomesenchymoma has <strong>no germline causal gene</strong>; the MONDO record carries no <code>RO:0004003</code> gene, and the template's "causal gene(s): not recorded" is correct in the Mendelian sense. The disease is defined instead by a <strong>recurrent somatic driver: <code>HRAS</code> (<a href="https://bioregistry.io/HGNC:5173" target="_blank" rel="noopener noreferrer">HGNC:5173</a>)</strong>, mutated at codons 13 and 61 in the large majority of cases, with <code>NRAS</code> (<a href="https://bioregistry.io/HGNC:7989" target="_blank" rel="noopener noreferrer">HGNC:7989</a>) as the main alternative. In a minority of patients the <em>HRAS</em> variant is <strong>postzygotic/mosaic</strong>, present in clinically normal tissue, making those cases tumours arising on a <strong>mosaic RASopathy</strong> background. This is the gene to anchor the entry on.</p>
+<p><strong>⚠️ Snippet-verification caveat for the curator.</strong> Only two references were read from the committed cache (<code>PMID:26872011</code>, full text; <code>PMID:42851199</code>, abstract) — quotes from those are byte-reliable. Every other quotation below was retrieved through Europe PMC / publisher web pages via a summarising fetch layer and <strong>must be re-fetched with <code>just fetch-reference &lt;ID&gt;</code> and re-checked with <code>just count-verified-snippets</code> before being used as an evidence <code>snippet:</code>.</strong> Treat them as leads, not as verified quotes.</p>
+</blockquote>
+<hr />
+<h2>1. Disease Information</h2>
+<h3>1.1 Overview</h3>
+<p>Ectomesenchymoma (EMS), more often written <strong>malignant ectomesenchymoma (MEM)</strong>, is an exceedingly rare <strong>biphasic (biphenotypic) malignant soft-tissue tumour</strong> in which a <strong>mesenchymal component — almost always rhabdomyosarcoma, usually embryonal (ERMS)</strong> — is intimately admixed with a <strong>neuroectodermal component drawn from the neuroblastic/neural-crest spectrum</strong>: scattered ganglion cells, mature ganglioneuroma, ganglioneuroblastoma, or primitive neuroblastoma, and in a minority Schwannian differentiation.</p>
+<p>From the committed full text of Huang et al. 2016 (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>), exact:</p>
+<blockquote>
+<p>"Malignant ectomesenchymoma (MEM) is an exceedingly rare pediatric sarcoma with a predilection for infants and young children and is composed of dual malignant mesenchymal and neuroectodermal components. Microscopically, MEM displays areas of rhabdomyosarcoma (RMS) with intermixed neuronal/neuroblastic foci."</p>
+<p>"The MEM nomenclature derives from its possible tumorigenesis from the pluripotential neural crest remnants, the so-called ectomesenchyme."</p>
+</blockquote>
+<p>The central biological conclusion of the modern literature — and the one that should frame the whole dismech entry — is that <strong>EMS is genetically, transcriptomically and epigenetically a form of embryonal rhabdomyosarcoma with divergent neuroectodermal differentiation, not a nerve-sheath tumour</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42504917/" target="_blank" rel="noopener noreferrer">PMID:42504917</a>).</p>
+<h3>1.2 Key identifiers (all verified by lookup, not from memory)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+<th>Label</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MONDO</strong></td>
+<td><code>MONDO:0002855</code></td>
+<td>ectomesenchymoma</td>
+</tr>
+<tr>
+<td>MONDO parents</td>
+<td><code>MONDO:0005089</code> (sarcoma); <code>MONDO:0005872</code> (nervous system cancer)</td>
+<td><em>verified via OLS <code>/parents</code></em></td>
+</tr>
+<tr>
+<td><strong>NCIT</strong></td>
+<td><code>NCIT:C4716</code></td>
+<td>Ectomesenchymoma</td>
+</tr>
+<tr>
+<td>NCIT (paediatric)</td>
+<td><code>NCIT:C188984</code></td>
+<td>Childhood Ectomesenchymoma</td>
+</tr>
+<tr>
+<td>NCIT (recurrent)</td>
+<td><code>NCIT:C173815</code></td>
+<td>Recurrent Ectomesenchymoma</td>
+</tr>
+<tr>
+<td><strong>ICD-O-3</strong></td>
+<td><strong>8921/3</strong></td>
+<td>(morphology code, from MONDO xref <code>ICDO:8921/3</code>)</td>
+</tr>
+<tr>
+<td>DOID</td>
+<td><code>DOID:4055</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>UMLS</td>
+<td><code>C0431111</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>MedGen</td>
+<td><code>98123</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>GARD</td>
+<td><code>0012279</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td><strong>not established</strong> — no dedicated code; coded as soft-tissue sarcoma by site (e.g. C49.*)</td>
+<td>⚠️ <em>verify before binding</em></td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td><strong>not established</strong> for this entity</td>
+<td>⚠️</td>
+</tr>
+<tr>
+<td><strong>Orphanet</strong></td>
+<td><strong>No dedicated ORPHA code found.</strong> Searches returned only the generic <code>ORPHA:71209</code> <em>rare soft tissue tumor</em> branch.</td>
+<td>⚠️ Record as absent</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td><strong>No dedicated descriptor.</strong> PubMed indexes these papers under <strong>Mesenchymoma</strong> (and, for the newer series, <em>Rhabdomyosarcoma, Embryonal</em>) — see the MeSH keyword block of <code>PMID:26872011</code> in the cache: <code>"Mesenchymoma/genetics, pathology"</code></td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>NCIT definition (verbatim from OLS, <code>NCIT:C4716</code>):</p>
+<blockquote>
+<p>"An exceedingly rare, aggressive malignant mesenchymal neoplasm characterized by the presence of a sarcomatous component and a ganglionic or a neuroectodermal component."</p>
+</blockquote>
+<p>MONDO definition (verbatim from OLS, <code>MONDO:0002855</code>):</p>
+<blockquote>
+<p>"An aggressive malignant mesenchymal neoplasm of the nervous system or soft tissues. It is characterized by the presence of a sarcomatous component (most often rhabdomyosarcoma) and a ganglionic or a neuroectodermal component."</p>
+</blockquote>
+<h3>1.3 Synonyms and alternative names</h3>
+<ul>
+<li><strong>malignant ectomesenchymoma (MEM)</strong> — the dominant usage in the clinical literature</li>
+<li><strong>gangliorhabdomyosarcoma</strong> — the original 1971 designation</li>
+<li><strong>sarcoma with ganglionic or neuroectodermal differentiation</strong> (MONDO/NCIT synonym)</li>
+<li><strong>rhabdomyosarcoma with ganglionic differentiation</strong> (morphologic abnormality) (MONDO synonym)</li>
+<li><strong>embryonal rhabdomyosarcoma with heterologous neuroectodermal differentiation (ERMS-HND)</strong> — the designation used by the largest published series (17 cases, <a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>, 2026). This is a <em>naming shift that reflects the reclassification</em> and the curator should record it as a synonym.</li>
+<li>"malignant ectodermal mesenchymoma" — a variant rendering used in the 2025 adult review (<a href="https://pubmed.ncbi.nlm.nih.gov/41465905/" target="_blank" rel="noopener noreferrer">PMID:41465905</a>); likely a translation artefact rather than a distinct concept.</li>
+</ul>
+<h3>1.4 Nomenclature history</h3>
+<ul>
+<li><strong>1971</strong> — Holimon &amp; Rosenblum described a tumour of the cerebellopontine angle in a 15-month-old boy with combined rhabdomyosarcoma and ganglioneuroma, calling it <strong>"gangliorhabdomyosarcoma"</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/5313338/" target="_blank" rel="noopener noreferrer">PMID:5313338</a>). Quoted in <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>: <em>"The first description of a tumor with dual RMS and ganglioneuroma components was in the cerebellopontine angle of a 15 month-old boy under the designation of 'gangliorhabdomyosarcoma'."</em></li>
+<li><strong>1975</strong> — Naka et al. proposed the term <strong>malignant ectomesenchymoma</strong> for a retroperitoneal tumour in a 2-year-old girl showing ganglioneuroblastoma plus RMS, liposarcoma and chondroid tissue (cited as ref 1 of <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>).</li>
+<li><strong>1977</strong> — Karcioglu et al. used "ectomesenchymoma" for a facial tumour in a 6-month-old (<a href="https://pubmed.ncbi.nlm.nih.gov/872048/" target="_blank" rel="noopener noreferrer">PMID:872048</a>).</li>
+<li><strong>2013 (WHO 4th ed.)</strong> — classified under <strong>peripheral nerve sheath tumours</strong>. From <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>: <em>"the latest edition of World Health Organization classification of soft tissue and bone tumors categorized MEM under nerve sheath tumors."</em></li>
+<li><strong>2020 (WHO 5th ed.)</strong> — <strong>reclassified into the skeletal muscle tumour chapter.</strong> Milano et al. 2023 state EMS is <em>"currently included in the category of skeletal muscle malignancies"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36440693/" target="_blank" rel="noopener noreferrer">PMID:36440693</a>); the 2024 review concurs that WHO 2020 categorised MEM under "Skeletal Muscle Tumor" rather than nerve sheath tumours (<a href="https://pubmed.ncbi.nlm.nih.gov/38496756/" target="_blank" rel="noopener noreferrer">PMID:38496756</a>).</li>
+<li><strong>2026 (WHO 6th ed., STB6)</strong> — published (<a href="https://pubmed.ncbi.nlm.nih.gov/42839882/" target="_blank" rel="noopener noreferrer">PMID:42839882</a>, Hornick et al., <em>Am J Surg Pathol</em>). ⚠️ <strong>The placement of ectomesenchymoma in STB6 could not be confirmed from the overview paper's abstract.</strong> The curator should check the printed volume before asserting the current chapter.</li>
+</ul>
+<h3>1.5 Data provenance</h3>
+<p><strong>Aggregated, disease-level, literature-derived only.</strong> There is <strong>no EHR, registry-incidence or claims-based dataset</strong> for this entity. The evidence base is:
+- ~100–150 published cases, overwhelmingly single case reports;
+- four cooperative-group / institutional series: IRS-III/IV (15 cases, 2000), CWS (6 cases, <a href="https://pubmed.ncbi.nlm.nih.gov/22535600/" target="_blank" rel="noopener noreferrer">PMID:22535600</a>), EpSSG (10 cases, <a href="https://pubmed.ncbi.nlm.nih.gov/36440693/" target="_blank" rel="noopener noreferrer">PMID:36440693</a>), Beijing Children's Hospital (11 cases, <a href="https://pubmed.ncbi.nlm.nih.gov/40221922/" target="_blank" rel="noopener noreferrer">PMID:40221922</a>);
+- three pathology/molecular series: MSKCC+Padova (7 cases, <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>), Northwestern (6 cases, <a href="https://pubmed.ncbi.nlm.nih.gov/28994342/" target="_blank" rel="noopener noreferrer">PMID:28994342</a>), Foshan (17 cases, <a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>);
+- one methylation study (2 cases, <a href="https://pubmed.ncbi.nlm.nih.gov/42504917/" target="_blank" rel="noopener noreferrer">PMID:42504917</a>) and one mosaicism study (5 cases, <a href="https://pubmed.ncbi.nlm.nih.gov/40629179/" target="_blank" rel="noopener noreferrer">PMID:40629179</a>).</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>2.1 Primary causal factor — somatic RAS-pathway activation</h3>
+<p><strong>EMS is a sporadic somatic neoplasm.</strong> The dominant and recurrent driver is an activating point mutation in <strong><code>HRAS</code></strong>.</p>
+<p><strong>Huang et al. 2016 (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>)</strong> — the landmark study, full text in cache. Exact quotes:</p>
+<blockquote>
+<p>"By Sanger sequencing, 6 of 7 (86%) MEMs had HRAS mutations, with no additional case harboring PTPRD or FBXW7 mutations."</p>
+<p>"In total, 6 of 7 (86%) MEMs harbored HRAS mutations, 4 with p.G13R mutation and 2 with p.Q61L. Three of the p.G13R mutations demonstrated nearly homozygous pattern; but no normal DNA was available to confirm their germline genotype."</p>
+<p>"The only case lacking HRAS mutation showed neuroblastic micronodules without ganglion cells."</p>
+<p>"In addition, HRAS mutations were detected in both naive and treated MEMs, suggesting an intrinsic event rather than a chemotherapy-induced process."</p>
+</blockquote>
+<p><strong>Subsequent confirmation and extension of the RAS spectrum:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Study</th>
+<th>n</th>
+<th>RAS findings</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Huang 2016, <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a></td>
+<td>7</td>
+<td>HRAS 6/7 (86%): p.G13R ×4, p.Q61L ×2</td>
+</tr>
+<tr>
+<td>Salomatina 2025, <a href="https://pubmed.ncbi.nlm.nih.gov/40629179/" target="_blank" rel="noopener noreferrer">PMID:40629179</a></td>
+<td>5</td>
+<td><em>"In 4 out of 5 cases, mutations in HRAS typical for ME were detected."</em></td>
+</tr>
+<tr>
+<td>Pellegrino 2024, <a href="https://pubmed.ncbi.nlm.nih.gov/38496756/" target="_blank" rel="noopener noreferrer">PMID:38496756</a></td>
+<td>1</td>
+<td><code>HRAS NM_176795:exon2:c.G37C:p.G13R</code>, VAF 72%</td>
+</tr>
+<tr>
+<td>Caporalini 2026, <a href="https://pubmed.ncbi.nlm.nih.gov/42504917/" target="_blank" rel="noopener noreferrer">PMID:42504917</a></td>
+<td>2</td>
+<td><em>"Both tumors harbored RAS-pathway mutations (HRAS p.Gly13Arg; NRAS p.Gln61His)."</em></td>
+</tr>
+<tr>
+<td>Zeng 2026, <a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a> (cached, exact)</td>
+<td>17</td>
+<td><em>"RAS mutations were detected in 3 cases (HRAS mutation in 1 case and NRAS mutations in 2 cases)."</em></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>⚠️ <strong>Note the discrepancy to record honestly in the entry:</strong> the 17-case Chinese series found RAS mutations in only <strong>3/17 (18%)</strong>, far below the 86% of the MSKCC series. Possible explanations — different case definition (ERMS-HND is a broader net), platform sensitivity, or genuine population/biological heterogeneity. Do <strong>not</strong> write "HRAS mutations occur in ~86% of ectomesenchymoma" as an unqualified disease-level claim; state the per-series figures.</p>
+<p><strong>How the mutation acts (mechanistic quote, <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>, exact):</strong></p>
+<blockquote>
+<p>"The Ras family, including HRAS, KRAS and NRAS, belongs to the small G protein superfamily and involves the Ras/MAPK (mitogen-activated protein kinase) pathway, which transduces the extracellular input to the intracellular compartment through the GDP/GTP-regulated switches. The cancer-related somatic mutations in Ras members often occur at amino acids 12, 13, or 61, which are the conserved sites for modulating GDP/GTP binding and hydrolysis."</p>
+</blockquote>
+<h3>2.2 Postzygotic mosaicism — a genuine predisposition mechanism</h3>
+<p>The single most important recent etiological finding. <strong>Salomatina et al. 2025 (<a href="https://pubmed.ncbi.nlm.nih.gov/40629179/" target="_blank" rel="noopener noreferrer">PMID:40629179</a>, <em>J Hum Genet</em> 70(10):497–501, <a href="https://doi.org/10.1038/s10038-025-01363-9" target="_blank" rel="noopener noreferrer">doi:10.1038/s10038-025-01363-9</a>)</strong> reported EMS arising in two children with <strong>mosaic RASopathy</strong> phenotypes:</p>
+<blockquote>
+<p>"Two patients with HRAS mutation and phenotypic features of neurocutaneous epidermal nevus syndrome and nevus sebaceous syndrome had the pathogenic HRAS variant in a spectrum of biological materials including healthy tissues with different varying allele frequency (VAF). The molecular genetic findings indicate a post-zygotic origin of the pathogenic mutation in HRAS, associated with the mosaic phenotype, in both cases."</p>
+<p>"...that exposed the driver event as postzygotic, occurring not later than the stage of migrating ectomesenchyme originating from the neural crest. These are the first descriptions of ME against a somatic mosaicism background."</p>
+</blockquote>
+<p><strong>Strong corroborating parallel:</strong> Zuntini et al. 2023 (<a href="https://pubmed.ncbi.nlm.nih.gov/37636262/" target="_blank" rel="noopener noreferrer">PMID:37636262</a>, <em>Front Genet</em>) reported a 7-year-old boy with Blaschko-linear epidermal nevi who developed paratesticular ERMS at 18 months carrying the <strong>same <code>HRAS</code> c.37G&gt;C p.Gly13Arg</strong> variant in nevus and tumour but not in blood or buccal cells — <em>"indicating its postzygotic origin"</em> — with VAF 33% in nevus and 92% in tumour, plus gain of the paternal chromosome 11 carrying the mutant allele.</p>
+<p><strong>Curation implication:</strong> this supports encoding a mosaic arm via <code>HP:0001442</code> (Typified by somatic mosaicism) per the repo's <code>somatic-mosaicism</code> skill, and recording the epidermal nevus / nevus sebaceous (Schimmelpenning) association as a <strong>mosaic RASopathy predisposition</strong> rather than a classical germline cancer-predisposition syndrome.</p>
+<h3>2.3 Genetic risk factors</h3>
+<ul>
+<li><strong>Germline:</strong> none established. No familial clustering, no reported germline <em>HRAS</em> (Costello syndrome) case. Huang et al. explicitly note the mutational spectrum differs from Costello syndrome (exact, <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>): <em>"Interestingly, the HRAS mutations seen in MEM are different than the ones described in Costello syndrome, a rare multisystem disorder caused by heterozygous germline HRAS mutation..."</em> — while also noting Costello syndrome does confer predisposition to <em>"RMS, neuroblastoma, and urothelial cell carcinoma of urinary bladder."</em> So Costello syndrome is a plausible but <strong>unreported</strong> predisposition; record as a knowledge gap, not a fact.</li>
+<li><strong>Mosaic RASopathy:</strong> established (§2.2).</li>
+<li><strong>NF1 / neurofibromatosis type 1:</strong> <strong>no documented association with EMS was found.</strong> <code>NF1</code> is, however, the second most frequent genetic event in ERMS generally (<a href="https://pubmed.ncbi.nlm.nih.gov/38603649/" target="_blank" rel="noopener noreferrer">PMID:38603649</a>), and <em>NF1</em>-associated malignant triton tumour is the key differential. Do not assert an NF1–EMS link.</li>
+<li><strong>DICER1:</strong> one adult uterine case carried <code>TP53</code>, <code>PTEN</code> and <code>DICER1</code> mutations (<a href="https://pubmed.ncbi.nlm.nih.gov/33595736/" target="_blank" rel="noopener noreferrer">PMID:33595736</a>). A single case; do not generalise.</li>
+</ul>
+<h3>2.4 Demographic risk factors</h3>
+<ul>
+<li><strong>Male sex</strong> — the strongest and most consistent non-molecular risk factor. All 7 MSKCC patients male (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>); 15/17 male (<a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>); 9/11 male (<a href="https://pubmed.ncbi.nlm.nih.gov/40221922/" target="_blank" rel="noopener noreferrer">PMID:40221922</a>); 8:3 male in adults (<a href="https://pubmed.ncbi.nlm.nih.gov/41465905/" target="_blank" rel="noopener noreferrer">PMID:41465905</a>); literature-wide M:F ≈ 1.38–1.4.</li>
+<li><strong>Infancy / very young age</strong> — see §8 and §9.</li>
+</ul>
+<h3>2.5 Environmental risk factors, protective factors, gene–environment interaction</h3>
+<p><strong>None established.</strong> No toxicant, radiation, infectious, dietary or lifestyle association has been reported for EMS. No protective genetic or environmental factor is known. No gene–environment interaction has been studied. Huang et al.'s observation that <em>HRAS</em> mutations were present in chemotherapy-naive tumours argues against a therapy-induced origin for the driver.</p>
+<blockquote>
+<p><strong>Curation note:</strong> this is a legitimate <code>environmental:</code> absence. If an <code>environmental[]</code> entry is added at all, it will need the <code>Left deliberately uncited.</code> + ≥20 words <code>review_notes</code> waiver described in CLAUDE.md, recording which searches were run.</p>
+</blockquote>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>EMS has <strong>no constitutional phenotype</strong>. Its clinical manifestations are entirely the <strong>mass effect and local invasion of a soft-tissue sarcoma at its primary site</strong>, plus metastasis. Phenotype therefore stratifies by site, which is the right way to curate it.</p>
+<h3>3.1 Site-driven presenting features</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Site (frequency)</th>
+<th>Presenting phenotype</th>
+<th>Suggested HP term</th>
+<th>Verification</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pelvis / perineum / genitourinary (most common)</td>
+<td>Abdominal or pelvic mass</td>
+<td><code>HP:0031500</code> <strong>Abdominal mass</strong></td>
+<td>✅ verified via OLS</td>
+</tr>
+<tr>
+<td>Paratesticular / spermatic cord</td>
+<td>Painless scrotal or inguinal swelling; <strong>masqueraded as inguinal hernia in two infants</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33648897/" target="_blank" rel="noopener noreferrer">PMID:33648897</a>)</td>
+<td>no exact HP term confirmed</td>
+<td>⚠️ look up</td>
+</tr>
+<tr>
+<td>Bladder / prostate</td>
+<td>Urinary obstruction, retention, haematuria</td>
+<td>⚠️ look up</td>
+<td></td>
+</tr>
+<tr>
+<td>Pelvic mass → ureteric compression</td>
+<td>Hydronephrosis (bilateral grade IV reported, <a href="https://pubmed.ncbi.nlm.nih.gov/38496756/" target="_blank" rel="noopener noreferrer">PMID:38496756</a>)</td>
+<td>⚠️ look up <code>Hydronephrosis</code></td>
+<td></td>
+</tr>
+<tr>
+<td>Orbit</td>
+<td>Proptosis</td>
+<td><code>HP:0000520</code> <strong>Proptosis</strong></td>
+<td>✅ verified via OLS</td>
+</tr>
+<tr>
+<td>Head &amp; neck / submandibular</td>
+<td>Neck mass with airway compression and <strong>respiratory distress at birth</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40310147/" target="_blank" rel="noopener noreferrer">PMID:40310147</a>)</td>
+<td>⚠️ look up</td>
+<td></td>
+</tr>
+<tr>
+<td>Parapharyngeal</td>
+<td>Mass with intracranial extension (<a href="https://pubmed.ncbi.nlm.nih.gov/36913073/" target="_blank" rel="noopener noreferrer">PMID:36913073</a>)</td>
+<td>—</td>
+<td></td>
+</tr>
+<tr>
+<td>Extremity</td>
+<td>Painful swelling (<a href="https://pubmed.ncbi.nlm.nih.gov/25405050/" target="_blank" rel="noopener noreferrer">PMID:25405050</a>: <em>"Left leg swelling and pain for one month"</em>)</td>
+<td>—</td>
+<td></td>
+</tr>
+<tr>
+<td>Tongue</td>
+<td>Recurrent lingual lesion (<a href="https://pubmed.ncbi.nlm.nih.gov/24650353/" target="_blank" rel="noopener noreferrer">PMID:24650353</a>)</td>
+<td>—</td>
+<td></td>
+</tr>
+<tr>
+<td>Intracranial</td>
+<td>Raised intracranial pressure, posterior-fossa signs</td>
+<td>—</td>
+<td></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Generic phenotype anchors worth considering for the pathograph:</strong>
+- <code>HP:0002859</code> <strong>Rhabdomyosarcoma</strong> ✅ verified
+- <code>HP:0006743</code> <strong>Embryonal rhabdomyosarcoma</strong> ✅ verified
+- <code>HP:0006779</code> <strong>Alveolar rhabdomyosarcoma</strong> ✅ verified (only for the disputed FOXO1-positive cases)
+- <code>HP:0500092</code> <strong>Orbital rhabdomyosarcoma</strong> ✅ verified
+- <code>HP:0004376</code> <strong>Neuroblastic tumor</strong> ✅ verified — <em>"A family of tumors arising in the embryonal remnants of the sympathetic nervous system, which includes neuroblastoma, ganglioneuroblastoma, and ganglioneuroma."</em> This is the <strong>best single HP anchor for the neuroectodermal component</strong>, because it covers the whole observed spectrum in one term rather than forcing a choice between neuroblastoma and ganglioneuroma.</p>
+<blockquote>
+<p><strong>Coarse-binding warning.</strong> <code>HP:0004376</code> is a family-level term. If used, check <code>just check-coarse-phenotypes</code>; the honest <code>coarse_binding_basis</code> here is <strong><code>VARIABLE_SPECTRUM</code></strong> — the neuroectodermal component genuinely ranges from scattered ganglion cells to primitive neuroblastoma <em>within the same entity and sometimes the same tumour</em>, which is exactly what that value is for.</p>
+</blockquote>
+<h3>3.2 Phenotype characteristics</h3>
+<ul>
+<li><strong>Onset:</strong> congenital to adult; modal onset <strong>infancy</strong> (see §8).</li>
+<li><strong>Severity:</strong> uniformly <strong>severe</strong> — a malignant sarcoma requiring multimodal therapy.</li>
+<li><strong>Progression:</strong> <strong>rapidly progressive</strong> if untreated. Wikipedia/NCI-derived descriptions characterise it as "fast-growing". The 2025 adult index case grew to 30 × 19 cm over 13 months (<a href="https://pubmed.ncbi.nlm.nih.gov/41465905/" target="_blank" rel="noopener noreferrer">PMID:41465905</a>).</li>
+<li><strong>Frequency among affected individuals:</strong> the biphasic histology is 100% by definition (<em>"All cases exhibited biphasic differentiation"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>, exact). Mesenchymal component is ERMS in 16/17 (<a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>, exact) and in all 7 MSKCC cases.</li>
+<li><strong>Quality-of-life impact:</strong> no EQ-5D, SF-36, PROMIS or disease-specific QoL instrument has been applied to EMS. ⚠️ <strong>Not available — record as a gap.</strong> Inferred QoL burden derives from RMS survivorship generally (growth impairment, endocrine late effects, second malignancy after radiotherapy).</li>
+</ul>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<h3>4.1 Driver genes (HGNC IDs verified via the HGNC REST API)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>HGNC</th>
+<th>Role in EMS</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>HRAS</strong></td>
+<td><code>hgnc:5173</code></td>
+<td><strong>Principal somatic driver.</strong> p.G13R (c.37G&gt;C) and p.Q61L hotspots</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>; 40629179; 38496756; 42504917</td>
+</tr>
+<tr>
+<td><strong>NRAS</strong></td>
+<td><code>hgnc:7989</code></td>
+<td>Alternative RAS driver; p.Q61H</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42504917/" target="_blank" rel="noopener noreferrer">PMID:42504917</a>; 42851199</td>
+</tr>
+<tr>
+<td><strong>KRAS</strong></td>
+<td><code>hgnc:6407</code></td>
+<td>Seen in control ERMS, <strong>not</strong> reported as an EMS driver</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a></td>
+</tr>
+<tr>
+<td><strong>PTPRD</strong></td>
+<td><code>hgnc:9668</code></td>
+<td>Co-occurring; p.V892A, p.V847L (fibronectin type III domain), index cases only</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a></td>
+</tr>
+<tr>
+<td><strong>FBXW7</strong></td>
+<td><code>hgnc:16712</code></td>
+<td>Co-occurring; p.R505H, one case</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a></td>
+</tr>
+<tr>
+<td><strong>MYOD1</strong></td>
+<td><code>hgnc:7611</code></td>
+<td>p.Leu122Arg in one aggressive adolescent case</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36913073/" target="_blank" rel="noopener noreferrer">PMID:36913073</a></td>
+</tr>
+<tr>
+<td><strong>CDKN2A</strong></td>
+<td><code>hgnc:1787</code></td>
+<td>p.Ala34Gly, same case</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36913073/" target="_blank" rel="noopener noreferrer">PMID:36913073</a></td>
+</tr>
+<tr>
+<td><strong>CDK4</strong></td>
+<td><code>hgnc:1773</code></td>
+<td>Amplification, same case</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36913073/" target="_blank" rel="noopener noreferrer">PMID:36913073</a></td>
+</tr>
+<tr>
+<td><strong>TP53</strong></td>
+<td><code>hgnc:11998</code></td>
+<td>Adult uterine case</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33595736/" target="_blank" rel="noopener noreferrer">PMID:33595736</a></td>
+</tr>
+<tr>
+<td><strong>PTEN</strong></td>
+<td><code>hgnc:9588</code></td>
+<td>Adult uterine case</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33595736/" target="_blank" rel="noopener noreferrer">PMID:33595736</a></td>
+</tr>
+<tr>
+<td><strong>DICER1</strong></td>
+<td><code>hgnc:17098</code></td>
+<td>Adult uterine case</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33595736/" target="_blank" rel="noopener noreferrer">PMID:33595736</a></td>
+</tr>
+<tr>
+<td><strong>FOXO1</strong></td>
+<td><code>hgnc:3819</code></td>
+<td><strong>Disputed</strong> — see §4.4</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28994342/" target="_blank" rel="noopener noreferrer">PMID:28994342</a> vs <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>/42851199</td>
+</tr>
+<tr>
+<td><strong>NF1</strong></td>
+<td><code>hgnc:7765</code></td>
+<td>Not implicated in EMS; relevant only to the MTT differential</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38603649/" target="_blank" rel="noopener noreferrer">PMID:38603649</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a></td>
+</tr>
+<tr>
+<td><strong>PHOX2B</strong></td>
+<td><code>hgnc:9143</code></td>
+<td><strong>Characteristically low/absent</strong> — a differential-diagnostic marker</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a></td>
+</tr>
+<tr>
+<td><strong>MYCN</strong></td>
+<td><code>hgnc:7559</code></td>
+<td><strong>Not amplified</strong> — tested and negative</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a></td>
+</tr>
+<tr>
+<td><strong>ALK</strong></td>
+<td><code>hgnc:427</code></td>
+<td><strong>Not mutated</strong> (exons 23/25) — tested and negative</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a></td>
+</tr>
+<tr>
+<td><strong>SOX10</strong></td>
+<td><code>hgnc:11190</code></td>
+<td>Marks Schwannian differentiation when present</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>4.2 Variant characterisation</h3>
+<ul>
+<li><strong>Variant type:</strong> missense point mutations at canonical RAS hotspots. <code>HRAS</code> <strong>c.37G&gt;C p.(Gly13Arg)</strong> is the single most frequent (4/7 in <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>; the Pellegrino case; one Caporalini case; the Zuntini mosaic ERMS case).</li>
+<li><strong>Functional consequence:</strong> <strong>gain of function</strong> — impaired intrinsic and GAP-stimulated GTP hydrolysis, locking RAS in the GTP-bound active state. For dismech: <code>functional_impact_category: GAIN_OF_FUNCTION</code> on the <code>genetic_context</code>, and <code>modifier: GAIN_OF_FUNCTION</code> on the RAS-signalling node (the <em>Gain/Loss of Function: which slot?</em> rule in CLAUDE.md — both may co-occur here because the activity state <em>is</em> mutation-driven).</li>
+<li><strong>Origin:</strong> <strong>somatic</strong> in the majority; <strong>postzygotic/mosaic</strong> in a documented minority (<a href="https://pubmed.ncbi.nlm.nih.gov/40629179/" target="_blank" rel="noopener noreferrer">PMID:40629179</a>). No germline case reported. <code>variant_origin: SOMATIC</code>.</li>
+<li><strong>Zygosity / allelic state:</strong> three of four p.G13R cases showed a <em>"nearly homozygous pattern"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>, exact) — consistent with loss of the wild-type allele or copy gain of the mutant. The Zuntini case demonstrated the mechanism directly: gain of the paternal chromosome 11 carrying the mutant <em>HRAS</em> allele, i.e. <strong>mutant-allele dosage increase as a second hit</strong>.</li>
+<li><strong>Population allele frequency:</strong> not applicable — somatic hotspot mutations; gnomAD frequency is irrelevant and should not be recorded.</li>
+<li><strong>ACMG/AMP classification:</strong> <code>HRAS</code> p.G13R and p.Q61L are oncogenic/pathogenic somatic variants; Salomatina et al. interpreted their variants <em>"in accordance with the AMP/ASCO/CAP Guideline recommendations"</em> — the correct framework for somatic variants (not ACMG/AMP germline).</li>
+</ul>
+<h3>4.3 Epigenetics — the most important 2026 finding</h3>
+<p><strong>Caporalini et al. 2026 (<a href="https://pubmed.ncbi.nlm.nih.gov/42504917/" target="_blank" rel="noopener noreferrer">PMID:42504917</a>, <em>Pediatr Blood Cancer</em>, <a href="https://doi.org/10.1002/1545-5017.70592" target="_blank" rel="noopener noreferrer">doi:10.1002/1545-5017.70592</a>)</strong> — first genome-wide DNA methylation profiling of EMS:</p>
+<blockquote>
+<p>"Methylation analysis, including microdissected components, consistently aligned ectomesenchymoma with the embryonal rhabdomyosarcoma superfamily, revealing a shared myogenic epigenetic program despite neural differentiation. Shared copy-number profiles across distinct histological regions supported a monoclonal origin."</p>
+</blockquote>
+<p>Two load-bearing conclusions:
+1. <strong>Monoclonality</strong> — the rhabdomyoblastic and neuroectodermal components share copy-number profile, so they are <strong>one clone differentiating two ways</strong>, not a collision tumour.
+2. <strong>ERMS epigenetic identity persists despite neural differentiation</strong> — the neural phenotype is layered on a myogenic epigenome.</p>
+<p><strong>H3K27me3 is retained</strong> in both components in every case tested — the discriminator from MPNST/malignant triton tumour (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>, exact: <em>"All cases retained H3K27me3 expression in both RMS and neuroectodermal regions."</em>; corroborated <a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>: <em>"retained H3K27me3 expression in Schwann cell areas, in contrast to the loss of H3K27me3 observed in malignant triton tumor."</em>). No PRC2 (<code>EED</code>, <code>SUZ12</code>) alterations were found.</p>
+<h3>4.4 The FOXO1 controversy — flag this explicitly in the entry</h3>
+<p>Two incompatible positions in the literature:</p>
+<ul>
+<li><strong>Griffin et al. 2018 (<a href="https://pubmed.ncbi.nlm.nih.gov/28994342/" target="_blank" rel="noopener noreferrer">PMID:28994342</a>)</strong> reported <em>"the first demonstration of FOXO1 gene rearrangements in malignant ectomesenchymoma with alveolar rhabdomyosarcoma subtype"</em>, in a 6-case series where <em>"Embryonal and alveolar morphologies showed equal distribution, with all alveolar cases harboring characteristic translocations."</em> The Beijing series likewise reported FOXO1 fusion-positive in 2/11, with worse survival (<a href="https://pubmed.ncbi.nlm.nih.gov/40221922/" target="_blank" rel="noopener noreferrer">PMID:40221922</a>).</li>
+<li><strong>Huang et al. 2016 (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>)</strong> argue the alveolar-looking areas are <strong>"dense pattern" ERMS</strong>, FOXO1-negative, and a recognised ARMS mimic (exact): <em>"Our current results strongly suggest that the ARMS-like pattern described in MEM represents the dense ERMS."</em> The 17-case 2026 series supports this (exact, <a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>): <em>"The tumor cells were all negative for FOXO1, PAX3 and PAX7."</em></li>
+</ul>
+<p><strong>Recommended curation:</strong> model this as a <code>mechanistic_hypotheses</code> / <code>discussions</code> <code>KNOWLEDGE_GAP</code> rather than asserting either. The practical question — whether a FOXO1-rearranged biphasic tumour is "EMS" at all or is fusion-positive ARMS with neural differentiation — is unresolved and has treatment consequences (FOXO1 status is the dominant RMS risk-stratifier per NCI PDQ).</p>
+<h3>4.5 Expression profiling</h3>
+<p>From <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a> (exact):</p>
+<blockquote>
+<p>"The unsupervised hierarchical clustering using the RNAseq dataset of a large panel of &gt;100 different soft tissue tumors showed MEM and RMS tightly grouped together, separate from all other tumor types."</p>
+<p>"Among the top upregulated genes in both MEM and RMS, there were many involved in skeletal muscle-function, such as MYOG (Myogenin), CHRND (Cholinergic Receptor, Nicotinic, Delta), MRLN (Myoregulin), and MEGF10 (Multiple EGF-Like-Domains 10). When comparing MEM to RMS, there were several neuronal developmental genes among the top-ranked gene list, such as EPHA3 (EPH Receptor A3), ADM (Adrenomedullin), NEFM (Neurofilament, Medium Polypeptide), SPOCK2..."</p>
+</blockquote>
+<p>Critically — and this is a strong argument that the neural component is <strong>not</strong> neuroblastoma:</p>
+<blockquote>
+<p>"However, the main neuronal developmental genes described as up-regulated in neuroblastomas, such as MEIS1, PHOX2B, CHGA, and NTRK1, were not overexpressed in MEM."</p>
+</blockquote>
+<p>This dovetails with the 2026 immunohistochemical finding (exact, <a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>): <em>"Only 2 cases showed focal PHOX2B positivity... Low PHOX2B expression in the neuroblastoma component may serve as an important marker for the differential diagnosis."</em></p>
+<p><strong>An earlier contradicted claim:</strong> a single "intracranial MEM" expression study clustered with MPNST. Huang et al. tested and refuted it (exact): <em>"Nearly all of the reported top overexpressed genes in the intracranial MEM were not detected as upregulated in our MEM and RMS group."</em></p>
+<h3>4.6 Chromosomal abnormalities</h3>
+<ul>
+<li>No recurrent translocation. Exact (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>): <em>"No candidate fusion genes were detected by FusionSeq analysis."</em></li>
+<li><strong>No <code>MYCN</code> amplification</strong>, no <code>ALK</code> exon 23/25 mutation (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>).</li>
+<li><strong>Chromosome 11 gain carrying the mutant <em>HRAS</em> allele</strong> demonstrated as a second hit in the mosaic-ERMS parallel case (<a href="https://pubmed.ncbi.nlm.nih.gov/37636262/" target="_blank" rel="noopener noreferrer">PMID:37636262</a>).</li>
+<li>Shared copy-number profiles across histological regions (<a href="https://pubmed.ncbi.nlm.nih.gov/42504917/" target="_blank" rel="noopener noreferrer">PMID:42504917</a>).</li>
+<li>No chromosomal microarray signature is diagnostic.</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Not applicable / none established.</strong></p>
+<ul>
+<li><strong>Environmental factors:</strong> no toxicant, radiation or pollution exposure has been linked to EMS. CTD/TOXNET searches return nothing specific.</li>
+<li><strong>Lifestyle factors:</strong> not applicable — the disease presents in infants, often congenitally.</li>
+<li><strong>Infectious agents:</strong> none. No viral association reported.</li>
+<li>One study of maternal prenatal alcohol/tobacco/illicit drug use and childhood cancer subtypes (<a href="https://pubmed.ncbi.nlm.nih.gov/38112788/" target="_blank" rel="noopener noreferrer">PMID:38112788</a>) appears in the ectomesenchymoma citation neighbourhood but does <strong>not</strong> report an EMS-specific association; do not cite it as one.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>6.1 Ordered causal chain</h3>
+<blockquote>
+<p>Steps marked <strong>[D]</strong> are demonstrated in EMS tissue; <strong>[I]</strong> are inferred from RAS biology or from ERMS; <strong>[H]</strong> are hypothesis.</p>
+</blockquote>
+<ol>
+<li><strong>A gain-of-function point mutation arises in <code>HRAS</code> (codon 13 or 61) — or less often <code>NRAS</code> codon 61 — in a progenitor cell during embryonic development.</strong> <strong>[D]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>; 42504917). In a subset the mutation is <strong>postzygotic and mosaic</strong>, arising <em>"not later than the stage of migrating ectomesenchyme originating from the neural crest"</em> <strong>[D]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40629179/" target="_blank" rel="noopener noreferrer">PMID:40629179</a>).</li>
+<li><em>Branch A (mosaic):</em> the same variant populates skin and other tissues → <strong>epidermal nevus / nevus sebaceous (Schimmelpenning) phenotype</strong>, with the tumour emerging from one clone within that field. <strong>[D]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40629179/" target="_blank" rel="noopener noreferrer">PMID:40629179</a>)</li>
+<li>
+<p><em>Branch B (sporadic):</em> the mutation is confined to the tumour clone. <strong>[D]</strong></p>
+</li>
+<li>
+<p><strong>The mutant HRAS protein cannot efficiently hydrolyse GTP</strong>, because codons 12/13/61 are <em>"the conserved sites for modulating GDP/GTP binding and hydrolysis"</em> <strong>[D/I]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>) → <strong>leads to</strong> constitutive accumulation of RAS-GTP.</p>
+</li>
+<li>
+<p>GO: <code>GO:0007265</code> <strong>Ras protein signal transduction</strong> ✅ verified; <code>GO:0046579</code> positive regulation of Ras protein signal transduction ✅ verified; <code>GO:0007264</code> small GTPase-mediated signal transduction ✅ verified.</p>
+</li>
+<li>
+<p><strong>Constitutive RAS-GTP drives unregulated RAS/MAPK (ERK) signalling</strong> → <strong>results in</strong> ligand-independent proliferative signalling in the progenitor. <strong>[I]</strong> — this step is standard RAS biology, not measured in EMS tissue; grade any evidence item <code>directness: INDIRECT</code>.</p>
+</li>
+<li>
+<p><strong>Mutant-allele dosage is increased by a second genomic event</strong> (loss of wild type / chromosome gain), amplifying the signal. <strong>[D in the mosaic-ERMS parallel, <a href="https://pubmed.ncbi.nlm.nih.gov/37636262/" target="_blank" rel="noopener noreferrer">PMID:37636262</a>; D-adjacent in EMS via the "nearly homozygous" p.G13R pattern, <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>]</strong> → <strong>leads to</strong> full transformation.</p>
+</li>
+<li>
+<p><strong>The transformed clone adopts and retains an embryonal-rhabdomyosarcoma epigenetic program</strong> — <em>"a shared myogenic epigenetic program despite neural differentiation"</em> <strong>[D]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42504917/" target="_blank" rel="noopener noreferrer">PMID:42504917</a>) → <strong>results in</strong> rhabdomyoblastic differentiation (desmin⁺, MyoD1⁺, myogenin⁺) and a skeletal-muscle gene signature (<code>MYOG</code>, <code>CHRND</code>, <code>MRLN</code>, <code>MEGF10</code>) <strong>[D]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>).</p>
+</li>
+<li>GO: <code>GO:0035914</code> <strong>skeletal muscle cell differentiation</strong> ✅ verified.</li>
+<li>
+<p>CL: <code>CL:0000056</code> <strong>myoblast</strong> ✅ verified.</p>
+</li>
+<li>
+<p><strong>In parallel, within the same clone, a subpopulation executes neuroectodermal differentiation</strong> — <em>"Shared copy-number profiles across distinct histological regions supported a monoclonal origin"</em> <strong>[D]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42504917/" target="_blank" rel="noopener noreferrer">PMID:42504917</a>) → <strong>produces</strong> the ganglionic/neuroblastic component, with upregulation of neuronal developmental genes (<code>EPHA3</code>, <code>NEFM</code>, <code>SPOCK2</code>) <strong>[D]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>).</p>
+</li>
+<li><strong>Branch:</strong> the degree of neural maturation varies — scattered ganglion cells → ganglioneuroma → ganglioneuroblastoma → neuroblastoma → Schwannian (S100⁺/SOX10⁺) <strong>[D]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>; 26872011). <strong>Critically, this neural program is <em>not</em> the sympathoadrenal neuroblastoma program</strong>: <code>MEIS1</code>, <code>PHOX2B</code>, <code>CHGA</code>, <code>NTRK1</code> are not upregulated <strong>[D]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>) and PHOX2B is at most focally expressed <strong>[D]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>).</li>
+<li>GO: <code>GO:0001755</code> <strong>neural crest cell migration</strong> ✅ verified (for the histogenetic hypothesis).</li>
+<li>
+<p>CL: <code>CL:0000333</code> <strong>migratory neural crest cell</strong> ✅ verified; <code>CL:0011012</code> neural crest cell ✅; <code>CL:0002573</code> <strong>Schwann cell</strong> ✅; <code>CL:0011103</code> <strong>sympathetic neuron</strong> ✅ (for the ganglionic element).</p>
+</li>
+<li>
+<p><strong>The two differentiation programs remain intimately intermixed</strong> — <em>"the RMS and neuroectodermal components were intimately intermixed in all cases. Even when sharp demarcation of the two elements was discerned at low power, the high magnification disclosed both scattered ganglion cells in RMS areas, as well as rhabdomyoblasts within the ganglioneuroma area"</em> <strong>[D, exact, <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>]</strong>.</p>
+</li>
+<li>
+<p><strong>The RMS component supplies the malignant drive</strong> — brisk mitotic activity (&gt;10/10 HPF) and necrosis <strong>[D]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>) → <strong>leads to</strong> local invasion, regional lymph-node and haematogenous spread (lung, bone; one documented cerebellar metastasis, <a href="https://pubmed.ncbi.nlm.nih.gov/25405050/" target="_blank" rel="noopener noreferrer">PMID:25405050</a>).</p>
+</li>
+<li>
+<p><strong>Mass effect and invasion at the primary site produce the clinical phenotype</strong> (§3.1). <strong>[D]</strong></p>
+</li>
+</ol>
+<p><strong>Secondary / modifying branch — treatment-induced maturation.</strong> Ganglioneuromatous differentiation can appear or increase <em>after</em> chemotherapy: Sebire et al. 2003 described <em>"Extensive Posttreatment Ganglioneuromatous Differentiation of Rhabdomyosarcoma: Malignant Ectomesenchymoma in an Infant."</em> Huang et al. observed post-chemotherapy specimens showing <em>"decreased cellularity, more prominent rhabdomyoblastic maturation, and stromal hyalinization"</em> <strong>[D, exact]</strong>. This is a genuine alternative explanation for a neural component found only in a resection specimen, and should be recorded as a competing hypothesis.</p>
+<h3>6.2 Checklist coverage</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> RAS/MAPK (KEGG hsa04010; Reactome "Signaling by RAS mutants"). PI3K/AKT implicated only in the MYOD1-mutant case, where the authors <em>"recommend combining PI3K/AKT pathway inhibitors"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36913073/" target="_blank" rel="noopener noreferrer">PMID:36913073</a>).</li>
+<li><strong>Cellular processes:</strong> dysregulated proliferation; <strong>divergent/aberrant differentiation of a single clone</strong> — the defining cellular abnormality; apoptosis evasion (inferred).</li>
+<li><strong>Protein dysfunction:</strong> gain of function by impaired GTP hydrolysis (HRAS, UniProt P01112). <code>PTPRD</code> (a candidate tumour-suppressor phosphatase) and <code>FBXW7</code> (SCF ubiquitin-ligase substrate recognition) mutations are each single-case, affecting the fibronectin type III domain and the R505 substrate-binding arginine respectively (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>).</li>
+<li><strong>Metabolic changes:</strong> <strong>not studied.</strong> No metabolomics in EMS.</li>
+<li><strong>Immune involvement:</strong> <strong>not studied.</strong> B7-H3 is noted as a target across extracranial paediatric solid tumours (<a href="https://pubmed.ncbi.nlm.nih.gov/37110590/" target="_blank" rel="noopener noreferrer">PMID:37110590</a>) but not EMS-specifically.</li>
+<li><strong>Tissue damage:</strong> by tumour invasion and compression, not by a distinct injury mechanism.</li>
+<li><strong>Biochemical abnormalities:</strong> none diagnostic; no enzyme deficiency, receptor or channel defect.</li>
+<li><strong>Epigenetic changes:</strong> ERMS-like methylation class, H3K27me3 retained (§4.3).</li>
+<li><strong>Transcriptomics:</strong> §4.5. <strong>Proteomics / metabolomics / lipidomics / single-cell / spatial transcriptomics: all absent for EMS — record as knowledge gaps.</strong> No EMS entry exists in DepMap, and no EMS cell line is catalogued in Cellosaurus to my knowledge (⚠️ verify).</li>
+<li><strong>Functional genomics screens:</strong> none in EMS. Adjacent: rigosertib induces mitotic arrest and apoptosis in <strong>RAS-mutated rhabdomyosarcoma and neuroblastoma</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33158997/" target="_blank" rel="noopener noreferrer">PMID:33158997</a>) — a directly relevant preclinical lead; and direct KRAS(G12C) inhibitors were assessed in preclinical paediatric cancer models (<a href="https://pubmed.ncbi.nlm.nih.gov/41340466/" target="_blank" rel="noopener noreferrer">PMID:41340466</a>), though G12C is not an EMS hotspot.</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>7.1 Primary site distribution</h3>
+<p><strong>Literature-wide (from the review inside <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>, exact):</strong></p>
+<blockquote>
+<p>"The majority (82%) of cases occurred in the first decade of life, with a slight male preponderance (M:F ratio of 1.38). The most common anatomic site is pelvic/perineal or intra-abdominal/retroperitoneal region (50%), followed by intra-cranial site (17%), head and neck (17%), extremities (14%), and mediastinum (2%)."</p>
+</blockquote>
+<p><strong>Per-series, showing real heterogeneity the entry should not flatten:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Series</th>
+<th>Dominant site</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MSKCC/Padova, n=7 (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>)</td>
+<td><em>"All except 1 occurred in the pelvic/urogenital region"</em> — 2 paratesticular, 1 bladder, 1 prostate, 2 pelvic soft tissue, 1 hand</td>
+</tr>
+<tr>
+<td>Foshan, n=17 (<a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>, exact)</td>
+<td><em>"The pelvic/genitourinary region was the most frequently involved site (8/17)"</em></td>
+</tr>
+<tr>
+<td>Pellegrino review, n=34 new cases (<a href="https://pubmed.ncbi.nlm.nih.gov/38496756/" target="_blank" rel="noopener noreferrer">PMID:38496756</a>)</td>
+<td>Genitourinary/pelvic 23/34 (67%)</td>
+</tr>
+<tr>
+<td>Beijing, n=11 (<a href="https://pubmed.ncbi.nlm.nih.gov/40221922/" target="_blank" rel="noopener noreferrer">PMID:40221922</a>)</td>
+<td><strong>Head and neck 45.6%</strong>, limbs 27.2%, pelvis/abdomen 27.2%</td>
+</tr>
+<tr>
+<td>CWS, n=6 (<a href="https://pubmed.ncbi.nlm.nih.gov/22535600/" target="_blank" rel="noopener noreferrer">PMID:22535600</a>)</td>
+<td>3 limbs, 2 trunk, 1 orbit</td>
+</tr>
+<tr>
+<td>Adults, n=11 (<a href="https://pubmed.ncbi.nlm.nih.gov/41465905/" target="_blank" rel="noopener noreferrer">PMID:41465905</a>)</td>
+<td><strong>Head and neck 8/11</strong> (nasal cavity/paranasal sinuses in 5); urogenital 3</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Pattern worth stating explicitly:</strong> paediatric EMS is predominantly pelvic/genitourinary; <strong>adult EMS is predominantly head and neck</strong>. The anatomical distribution is conventionally explained by neural-crest migration routes (<a href="https://pubmed.ncbi.nlm.nih.gov/28994342/" target="_blank" rel="noopener noreferrer">PMID:28994342</a>: <em>"These tumors manifest at various sites due to neural crest cell migration patterns"</em>).</p>
+<h3>7.2 UBERON terms (verified via OLS)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Site</th>
+<th>UBERON</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pelvic region of trunk</td>
+<td><code>UBERON:0002355</code></td>
+<td>✅ verified</td>
+</tr>
+<tr>
+<td>perineum</td>
+<td><code>UBERON:0002356</code></td>
+<td>✅ verified</td>
+</tr>
+<tr>
+<td>urinary bladder</td>
+<td><code>UBERON:0001255</code></td>
+<td>✅ verified</td>
+</tr>
+<tr>
+<td>prostate gland</td>
+<td><code>UBERON:0002367</code></td>
+<td>✅ verified</td>
+</tr>
+<tr>
+<td>spermatic cord</td>
+<td><code>UBERON:0005352</code></td>
+<td>✅ verified</td>
+</tr>
+<tr>
+<td>inguinal canal</td>
+<td><code>UBERON:0003702</code></td>
+<td>✅ verified</td>
+</tr>
+<tr>
+<td>orbit, head/neck, retroperitoneal space, mediastinum, tongue, cerebrum, cerebellum</td>
+<td>—</td>
+<td>⚠️ look up before binding</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>7.3 Tissue, cell and subcellular level</h3>
+<ul>
+<li><strong>Tissues:</strong> skeletal muscle / soft tissue (mesenchymal component); peripheral autonomic nervous tissue (neuroectodermal component).</li>
+<li><strong>Cell populations (CL, verified):</strong> <code>CL:0000056</code> myoblast; <code>CL:0011103</code> sympathetic neuron (ganglion cells); <code>CL:0002573</code> Schwann cell (Schwannian areas, S100⁺/SOX10⁺); <code>CL:0000333</code> migratory neural crest cell / <code>CL:0011012</code> neural crest cell (the histogenetic hypothesis).</li>
+<li><strong>Subcellular:</strong> HRAS function requires plasma-membrane localisation (GO cellular component "plasma membrane"); no other compartment is specifically implicated. ⚠️ look up the exact GO CC CURIE before binding.</li>
+<li><strong>Lateralisation:</strong> unilateral, as expected for a solitary soft-tissue mass. No bilateral or symmetric pattern reported.</li>
+</ul>
+<blockquote>
+<p><strong>Cancer cell-of-origin curation note.</strong> Per CLAUDE.md, the cell of origin is <strong>derived</strong> from the pathograph node carrying <code>genetic_context.variant_origin: SOMATIC</code>. For EMS that node is the HRAS-activation node. <strong>Which <code>cell_types</code> to bind there is genuinely unresolved</strong> — the historical "ectomesenchyme"/neural-crest hypothesis (<code>CL:0000333</code>) versus the myogenic-progenitor reading implied by the methylation and expression data. Do <strong>not</strong> force a single binding; either leave <code>cell_types</code> absent on that node with a <code>notes:</code> recording the dispute, or bind the neural crest cell and state in <code>notes</code> that the expression/methylation evidence argues for a myogenic progenitor. A second derived origin would be reported by <code>just check-cancer-origin</code> as a lump/split signal, which here would be a false alarm — the ambiguity is epistemic, not two diseases.</p>
+</blockquote>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>8.1 Onset</h3>
+<ul>
+<li><strong>Age:</strong> congenital through adulthood, but strongly skewed to infancy.</li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a> (abstract, exact): <em>"All 7 MEM patients were male, with a mean age of 7.5 months (range, 0.6 to 17 mo)."</em> (Note: the body text of the same paper says "median age of 7.5 months" — an internal inconsistency; prefer the abstract's "mean" if quoting.)</li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/22535600/" target="_blank" rel="noopener noreferrer">PMID:22535600</a> (exact): <em>"The median age of three females and three males was 0.6 years (range, 0.2-13.5)."</em></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a> (cached, exact): <em>"Their age was 24.0 (12.0, 46.5) months, ranging from 0.5 months to 22 years. Fourteen patients were children aged ≤5 years."</em></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40221922/" target="_blank" rel="noopener noreferrer">PMID:40221922</a>: median 3 years (range 1.5–11).</li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38496756/" target="_blank" rel="noopener noreferrer">PMID:38496756</a> review: <em>"Median age: 12 months; 18 patients (53%) developed tumors in first year of life"</em>; overall range 0.6 months to 72 years.</li>
+<li>Adults (<a href="https://pubmed.ncbi.nlm.nih.gov/41465905/" target="_blank" rel="noopener noreferrer">PMID:41465905</a>): median age of onset 46 years — a distinct, much rarer population.</li>
+<li><strong>Congenital presentation is documented</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40310147/" target="_blank" rel="noopener noreferrer">PMID:40310147</a>: resection on day six of life).</li>
+<li><strong>Onset pattern:</strong> <strong>subacute to rapid</strong> — a growing mass over weeks to a few months.</li>
+</ul>
+<h3>8.2 Progression and staging</h3>
+<ul>
+<li><strong>Staging system:</strong> EMS is staged and grouped <strong>as rhabdomyosarcoma</strong> — TNM stage plus IRS Clinical Group. Worked examples: <code>T2bN0M0</code>, <code>T1aN0M0</code>, <code>T2bN1M0</code> in <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a> Table 1; <em>"classified as Stage I, Clinical Group II"</em> in <a href="https://pubmed.ncbi.nlm.nih.gov/40310147/" target="_blank" rel="noopener noreferrer">PMID:40310147</a>. <strong>Do not invent an EMS-specific staging system.</strong></li>
+<li><strong>Disease course:</strong> aggressive and <strong>relapse-prone</strong>. The Beijing series is the starkest datapoint: <strong>5-year OS 79% but 5-year EFS only 14%</strong>, with relapse in 6/11 at a median of 2 years (<a href="https://pubmed.ncbi.nlm.nih.gov/40221922/" target="_blank" rel="noopener noreferrer">PMID:40221922</a>). CWS: all 6 achieved first complete remission but <em>"three recurrences occurred"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/22535600/" target="_blank" rel="noopener noreferrer">PMID:22535600</a>, exact). EpSSG: <em>"six patients were alive in first remission, two in second remission and one after second tumor"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36440693/" target="_blank" rel="noopener noreferrer">PMID:36440693</a>).</li>
+<li><strong>Progression rate:</strong> rapid locally; metastasis to lung, bone, and regional (retroperitoneal, inguinal) lymph nodes.</li>
+<li><strong>Duration:</strong> not chronic — either cured by multimodal therapy or fatal. No self-limited course.</li>
+</ul>
+<h3>8.3 Patterns</h3>
+<ul>
+<li><strong>Remission:</strong> treatment-induced only; <strong>no spontaneous regression reported</strong> (contrast with infantile neuroblastoma, where it is well described — a useful differential point).</li>
+<li><strong>Critical periods:</strong> the only window of therapeutic opportunity is early, complete local control. Resectability is repeatedly identified as the dominant modifiable prognostic variable (<a href="https://pubmed.ncbi.nlm.nih.gov/25405050/" target="_blank" rel="noopener noreferrer">PMID:25405050</a>: resectability is the <em>"most important independent prognostic factor"</em>; <a href="https://pubmed.ncbi.nlm.nih.gov/41465905/" target="_blank" rel="noopener noreferrer">PMID:41465905</a>: <em>"Treatment approaches and prognosis are correlated with the completeness of tumor resection and the differentiation degree of both components."</em>).</li>
+<li><strong>A diagnostic timing pattern specific to EMS:</strong> the diagnosis is frequently made only on the resection specimen, because a small biopsy samples only the RMS areas. <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a> (exact): <em>"Two cases were diagnosed as RMS on the biopsy, and subsequently recognized as MEM on the resection specimen."</em> EpSSG: <em>"seven had an initial local diagnosis of rhabdomyosarcoma"</em> (7/10). This has real clinical consequences — see <a href="https://pubmed.ncbi.nlm.nih.gov/32769567/" target="_blank" rel="noopener noreferrer">PMID:32769567</a>, <em>"More Than Meets the Eye? A Cautionary Tale of Malignant Ectomesenchymoma Treated as Low-risk Orbital Rhabdomyosarcoma."</em></li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>9.1 Epidemiology</h3>
+<ul>
+<li><strong>Incidence / prevalence:</strong> <strong>no population-based incidence or prevalence figure exists.</strong> EMS is not separately coded in SEER or any national cancer registry. The only denominator-anchored figure located is from EpSSG — reportedly 10 of 1321 (0.8%) patients enrolled in the EpSSG NRSTS 2005 study (⚠️ <strong>this denominator came from a web search summary, not from the abstract; verify against the full text of <a href="https://pubmed.ncbi.nlm.nih.gov/36440693/" target="_blank" rel="noopener noreferrer">PMID:36440693</a> before recording it</strong>).</li>
+<li><strong>Cumulative case count</strong> — the honest way to express rarity, and it has moved over time:</li>
+<li>~50 cases (2013, <a href="https://pubmed.ncbi.nlm.nih.gov/22535600/" target="_blank" rel="noopener noreferrer">PMID:22535600</a>, exact: <em>"To date merely 50 cases have been published"</em>)</li>
+<li>~64 cases (2016, <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>, exact: <em>"Approximately 64 cases of MEM have been so far documented in the literature, mostly as single case reports."</em>)</li>
+<li><strong>98 cases</strong> (2024, <a href="https://pubmed.ncbi.nlm.nih.gov/38496756/" target="_blank" rel="noopener noreferrer">PMID:38496756</a> — 40 pre-1998, 24 in 1998–2014, 33 new since 2014)</li>
+<li>"&lt;150 cases" (2025, <a href="https://pubmed.ncbi.nlm.nih.gov/41465905/" target="_blank" rel="noopener noreferrer">PMID:41465905</a>)</li>
+<li><strong>Prevalence class for dismech:</strong> <code>BELOW_1_IN_1000000</code> with <code>measure_type: CASES_IN_LITERATURE</code> is the defensible encoding. Do <strong>not</strong> fabricate a <code>rate_per_100000</code>.</li>
+</ul>
+<h3>9.2 Inheritance</h3>
+<ul>
+<li><strong>Inheritance pattern:</strong> <strong>none — sporadic somatic neoplasm.</strong> The only heritable-adjacent mechanism is <strong>postzygotic mosaicism</strong>, which is not transmitted.</li>
+<li>For the mosaic arm, the appropriate HPO mode-of-inheritance binding is <strong><code>HP:0001442</code> Typified by somatic mosaicism</strong> (per the repo's <code>somatic-mosaicism</code> skill), supported by <a href="https://pubmed.ncbi.nlm.nih.gov/40629179/" target="_blank" rel="noopener noreferrer">PMID:40629179</a>.</li>
+<li><strong>Penetrance, expressivity, anticipation, germline mosaicism, founder effects, consanguinity, carrier frequency:</strong> <strong>all not applicable.</strong> No germline allele exists to characterise.</li>
+</ul>
+<h3>9.3 Population demographics</h3>
+<ul>
+<li><strong>Sex ratio:</strong> consistently <strong>male-predominant</strong>. Literature-wide M:F 1.38 (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>, exact); 7/7 male in MSKCC; 15/17 male (88%) in Foshan; 9/11 male (82%) in Beijing; 8:3 in adults; but <strong>3M:3F in the CWS series</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/22535600/" target="_blank" rel="noopener noreferrer">PMID:22535600</a>) — so the male excess is real but not absolute, and small-series variance is large.</li>
+<li><strong>Age distribution:</strong> 82% in the first decade (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>); 53% in the first year of life (<a href="https://pubmed.ncbi.nlm.nih.gov/38496756/" target="_blank" rel="noopener noreferrer">PMID:38496756</a>); a separate, much smaller adult peak at median 46 years (<a href="https://pubmed.ncbi.nlm.nih.gov/41465905/" target="_blank" rel="noopener noreferrer">PMID:41465905</a>).</li>
+<li><strong>Ethnic / geographic distribution:</strong> <strong>no population-specific predilection reported.</strong> Cases come from Europe, North America, China, Russia, Japan and the Middle East. No founder effect, no variant geography. The Beijing (<a href="https://pubmed.ncbi.nlm.nih.gov/40221922/" target="_blank" rel="noopener noreferrer">PMID:40221922</a>), Foshan (<a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>) and Moscow (<a href="https://pubmed.ncbi.nlm.nih.gov/40629179/" target="_blank" rel="noopener noreferrer">PMID:40629179</a>) series simply reflect where large paediatric centres publish.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>10.1 Diagnostic criterion — the entity is defined histologically</h3>
+<p>The operative criterion, from <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a> (exact):</p>
+<blockquote>
+<p>"The diagnosis of MEM was confirmed by the presence of a biphasic tumor, with histologic evidence of RMS and neuroectodermal elements. The latter component included variable ganglion cells, ganglioneuroma, ganglioneuroblastoma, or neuroblastoma foci, following the criteria of the International Neuroblastoma Pathology Classification."</p>
+</blockquote>
+<p>And a crucial negative criterion (exact):</p>
+<blockquote>
+<p>"Immunohistochemical staining for neural markers alone without morphologic evidence of neural / neuronal differentiation was considered insufficient for diagnosis."</p>
+</blockquote>
+<p>The 2026 series adds a counterbalancing refinement (<a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>, cached, exact):</p>
+<blockquote>
+<p>"S-100 and SOX10 are key and reliable markers for confirming the neuroectodermal component, while negativity of neuroendocrine markers such as SYN does not exclude this differentiation."</p>
+</blockquote>
+<p>The authors also describe <strong>two previously unrecognised architectural patterns</strong>: <em>"In addition to the classic configuration, two distinctive architectural patterns, namely micronest and inverted, were identified."</em></p>
+<h3>10.2 Histopathology</h3>
+<ul>
+<li><strong>Mesenchymal component:</strong> ERMS in essentially all cases, with classic alternating myxoid–cellular, spindle-cell, or <strong>"dense"</strong> patterns (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>). Brisk mitoses &gt;10/10 HPF, necrosis.</li>
+<li><strong>Neuroectodermal component (frequencies, <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>):</strong> ganglioneuroma 4/7 (most prevalent), scattered ganglion cells 1, ganglioneuroblastoma 1, neuroblastoma 1. <strong>Foshan series differs materially (<a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>, exact):</strong> <em>"neuroblastoma in 12 cases, ganglioneuroma/ganglion cells in 2 cases, composite ganglioneuroblastoma in 1 case, and Schwann cell differentiation in 2 cases."</em> Record both distributions; do not average them.</li>
+<li><strong>Post-chemotherapy changes:</strong> decreased cellularity, rhabdomyoblastic maturation, stromal hyalinisation (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>).</li>
+</ul>
+<h3>10.3 Immunohistochemistry</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Positive</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rhabdomyosarcomatous</td>
+<td><strong>desmin, MyoD1, myogenin</strong> — <em>"The mesenchymal component uniformly expressed desmin, MyoD1, and Myogenin"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>, cached, exact)</td>
+<td></td>
+</tr>
+<tr>
+<td>Neuroblastic</td>
+<td>synaptophysin, NSE, chromogranin A, CD56; also PGP9.5, tyrosine hydroxylase (<a href="https://pubmed.ncbi.nlm.nih.gov/25405050/" target="_blank" rel="noopener noreferrer">PMID:25405050</a>)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a></td>
+</tr>
+<tr>
+<td>Schwannian</td>
+<td><strong>S-100 and/or SOX10 only</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>, exact)</td>
+<td></td>
+</tr>
+<tr>
+<td>Neuropil</td>
+<td>GFAP (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>)</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>H3K27me3</strong></td>
+<td><strong>RETAINED</strong> in both components (vs lost in MPNST/MTT)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>; 42851199</td>
+</tr>
+<tr>
+<td><strong>PHOX2B</strong></td>
+<td><strong>negative or only focal</strong> — only 2/17 focally positive</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a></td>
+</tr>
+<tr>
+<td><strong>FOXO1 / PAX3 / PAX7</strong></td>
+<td>negative (disputed — §4.4)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>10.4 Molecular diagnostics</h3>
+<p><strong>Recommended approach, as stated by the field:</strong>
+- <strong>RAS-pathway hotspot testing</strong> (<code>HRAS</code> exons 2–3, <code>NRAS</code> exons 2–3, <code>KRAS</code> exon 2) — <a href="https://pubmed.ncbi.nlm.nih.gov/42504917/" target="_blank" rel="noopener noreferrer">PMID:42504917</a>: <em>"RAS-pathway testing and methylation profiling can significantly refine diagnostic precision."</em>
+- <strong>FOXO1 FISH</strong> to exclude fusion-positive ARMS.
+- <strong>H3K27me3 IHC</strong> to exclude MPNST / malignant triton tumour.
+- <strong>DNA methylation profiling</strong> — now shown to classify EMS within the ERMS superfamily (<a href="https://pubmed.ncbi.nlm.nih.gov/42504917/" target="_blank" rel="noopener noreferrer">PMID:42504917</a>). This is the most discriminating ancillary test described to date.
+- <strong>Germline/normal-tissue testing in the presence of a cutaneous nevus phenotype</strong>, to detect mosaic <em>HRAS</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40629179/" target="_blank" rel="noopener noreferrer">PMID:40629179</a>).
+- <a href="https://pubmed.ncbi.nlm.nih.gov/38496756/" target="_blank" rel="noopener noreferrer">PMID:38496756</a> explicitly recommends that <em>"The future diagnostic approach should routinely include molecular analysis and the use of bioinformatic mutation detection tools."</em></p>
+<p><strong>Not useful / negative:</strong> <code>MYCN</code> amplification, <code>ALK</code> mutation (both tested and absent — <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>); no diagnostic karyotype, CMA signature, mtDNA or repeat-expansion test applies.</p>
+<p><strong>Omics diagnostics:</strong> RNA-seq is useful (expression clustering with RMS; RNA-seq-based classifiers such as CanID, <a href="https://pubmed.ncbi.nlm.nih.gov/41317384/" target="_blank" rel="noopener noreferrer">PMID:41317384</a>, include EMS in their neighbourhood). Proteomics, metabolomics and liquid biopsy are <strong>not established</strong> for EMS — though patient-specific ctDNA panels have been shown to work in rhabdomyosarcoma independent of genetic profile (<a href="https://pubmed.ncbi.nlm.nih.gov/41120703/" target="_blank" rel="noopener noreferrer">PMID:41120703</a>), an approach directly transferable to EMS.</p>
+<h3>10.5 Imaging</h3>
+<p>No EMS-specific imaging signature exists. Reported features (⚠️ all from case reports; verify each quote):
+- <strong>MRI:</strong> isointense to hypointense on T1, heterogeneous on T2, patchy contrast enhancement; MR angiography may show prominent feeding arteries.
+- <strong>CT/US:</strong> solid, heterogeneous mass, often with cystic and necrotic components and heterogeneous enhancement; enlarged regional nodes with similar appearance, suggesting metastasis (<a href="https://pubmed.ncbi.nlm.nih.gov/25405050/" target="_blank" rel="noopener noreferrer">PMID:25405050</a>: <em>"heterogeneous partially cystic enhancing bilobed mass at the left side of the pelvis, measuring 5.7 × 4.3 × 4.0 cm"</em>).
+- Site-specific consequences: bilateral grade IV hydronephrosis from an abdomino-pelvic mass (<a href="https://pubmed.ncbi.nlm.nih.gov/38496756/" target="_blank" rel="noopener noreferrer">PMID:38496756</a>); airway compression from a submandibular mass (<a href="https://pubmed.ncbi.nlm.nih.gov/40310147/" target="_blank" rel="noopener noreferrer">PMID:40310147</a>).
+- FAPI PET in soft-tissue sarcoma is under systematic review (<a href="https://pubmed.ncbi.nlm.nih.gov/40979140/" target="_blank" rel="noopener noreferrer">PMID:40979140</a>) but has no EMS-specific data.</p>
+<h3>10.6 Differential diagnosis</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Entity</th>
+<th>Discriminator</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Embryonal rhabdomyosarcoma</strong> (pure)</td>
+<td>Absence of a morphologically demonstrable neuroectodermal component. <em>This is the hardest and most consequential distinction</em> — and the two are now understood to be biologically continuous.</td>
+</tr>
+<tr>
+<td><strong>Alveolar RMS</strong></td>
+<td>FOXO1 rearrangement; the "dense pattern" ERMS of EMS is FOXO1-negative (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>)</td>
+</tr>
+<tr>
+<td><strong>Malignant triton tumour / MPNST with rhabdomyoblastic differentiation</strong></td>
+<td><strong>Loss of H3K27me3</strong>, PRC2 (EED/SUZ12) alterations, <code>NF1</code> alterations, CDKN2A/B loss — all <em>absent</em> in EMS (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>; 42851199; 38603649). Prognosis differs sharply: 5-year survival 70% for NF1-mutant RMS vs 33% for MTT (<a href="https://pubmed.ncbi.nlm.nih.gov/38603649/" target="_blank" rel="noopener noreferrer">PMID:38603649</a>).</td>
+</tr>
+<tr>
+<td><strong>Neuroblastoma / ganglioneuroblastoma</strong></td>
+<td>EMS lacks MYCN amplification and the sympathoadrenal transcriptional program; <strong>PHOX2B is negative or only focal</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a>; 26872011)</td>
+</tr>
+<tr>
+<td><strong>Teratoma</strong></td>
+<td>Absence of a third germ layer; EMS is monoclonal and biphenotypic, not tri-germinal. (Note one reported collision: teratoma with malignant ectomesenchymoma in the pineal region, <a href="https://pubmed.ncbi.nlm.nih.gov/36081970/" target="_blank" rel="noopener noreferrer">PMID:36081970</a>.)</td>
+</tr>
+<tr>
+<td><strong>Benign triton tumour / neuromuscular choristoma</strong></td>
+<td>Benign, mature; but one reported case blurs the line (<a href="https://pubmed.ncbi.nlm.nih.gov/24650353/" target="_blank" rel="noopener noreferrer">PMID:24650353</a>)</td>
+</tr>
+<tr>
+<td><strong>Other small round blue cell tumours</strong> (Ewing, DSRCT, Wilms)</td>
+<td>Marker panels; see <a href="https://pubmed.ncbi.nlm.nih.gov/28968263/" target="_blank" rel="noopener noreferrer">PMID:28968263</a>, <em>"Malignant Ectomesenchymoma: A Potential Pitfall of Diagnosis in the Spectrum of Pediatric Small Blue Round Cell Tumors."</em></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>10.7 Screening</h3>
+<p><strong>No screening programme exists or is warranted</strong> — the disease is far too rare for population screening, there is no newborn-screening analyte, and no carrier state exists. The one defensible surveillance context is a child with a <strong>mosaic RASopathy phenotype (epidermal nevus, nevus sebaceous/Schimmelpenning)</strong>, where soft-tissue tumour risk is now documented (<a href="https://pubmed.ncbi.nlm.nih.gov/40629179/" target="_blank" rel="noopener noreferrer">PMID:40629179</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37636262/" target="_blank" rel="noopener noreferrer">PMID:37636262</a>). ⚠️ No published surveillance protocol for that indication was located.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<h3>11.1 Survival</h3>
+<p><strong>The headline finding of the modern literature: outcomes are far better than the historical "uniformly poor prognosis" framing, when patients are treated on rhabdomyosarcoma protocols.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Series</th>
+<th>n</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MSKCC/Padova (<a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a>, exact)</td>
+<td>7</td>
+<td><em>"No recurrence or metastasis occurred in 6 cases with available follow-up data during a median period of 5.4 years (range, 0.9–16.7)."</em> 1 died of other causes.</td>
+</tr>
+<tr>
+<td>CWS (<a href="https://pubmed.ncbi.nlm.nih.gov/22535600/" target="_blank" rel="noopener noreferrer">PMID:22535600</a>, exact)</td>
+<td>6</td>
+<td><em>"All patients achieved first complete remission, but three recurrences occurred. The individual with metastatic MEM did not survive, but all five patients with localized MEM are currently alive in CR with a median follow-up of 5 years (range: 2.1-13.7)."</em></td>
+</tr>
+<tr>
+<td>EpSSG (<a href="https://pubmed.ncbi.nlm.nih.gov/36440693/" target="_blank" rel="noopener noreferrer">PMID:36440693</a>)</td>
+<td>10</td>
+<td><em>"Overall, six patients were alive in first remission, two in second remission and one after second tumor. Only the patient with initially metastatic tumor died of disease."</em></td>
+</tr>
+<tr>
+<td>Beijing (<a href="https://pubmed.ncbi.nlm.nih.gov/40221922/" target="_blank" rel="noopener noreferrer">PMID:40221922</a>)</td>
+<td>11</td>
+<td><strong>5-year OS 79%; 5-year EFS 14%</strong>; relapse 6/11 at median 2 years</td>
+</tr>
+<tr>
+<td>Pellegrino review (<a href="https://pubmed.ncbi.nlm.nih.gov/38496756/" target="_blank" rel="noopener noreferrer">PMID:38496756</a>)</td>
+<td>28 with follow-up</td>
+<td>23 NED, 4 died of disease, 1 alive with metastatic disease; mean follow-up 38.5 months</td>
+</tr>
+<tr>
+<td>Literature reviews (<a href="https://pubmed.ncbi.nlm.nih.gov/25405050/" target="_blank" rel="noopener noreferrer">PMID:25405050</a>)</td>
+<td>—</td>
+<td>survival <em>"71%"</em> to <em>"83%"</em> with multimodality treatment</td>
+</tr>
+<tr>
+<td>Adults (<a href="https://pubmed.ncbi.nlm.nih.gov/41465905/" target="_blank" rel="noopener noreferrer">PMID:41465905</a>)</td>
+<td>11</td>
+<td>Resectable + well-differentiated → no recurrence/death over 7 months–6 years; poorly differentiated → fatal</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>The crucial nuance to carry into the entry:</strong> the Beijing series' <strong>OS 79% / EFS 14%</strong> split means most patients relapse but many are salvaged. Do not report OS alone.</p>
+<h3>11.2 Mortality and complications</h3>
+<ul>
+<li><strong>Disease-specific mortality</strong> concentrates in: metastatic disease at presentation (fatal in both the CWS and EpSSG metastatic cases), unresectable disease, and poorly differentiated neuroblastic components in adults.</li>
+<li><strong>Metastatic pattern:</strong> haematogenous to <strong>lung and bone</strong>; lymphatic to <strong>retroperitoneal and inguinal nodes</strong>; one reported <strong>cerebellar metastasis</strong> at 21 months (<a href="https://pubmed.ncbi.nlm.nih.gov/25405050/" target="_blank" rel="noopener noreferrer">PMID:25405050</a>); one adult paratesticular case with post-operative lung-metastasis flare (<a href="https://pubmed.ncbi.nlm.nih.gov/26793539/" target="_blank" rel="noopener noreferrer">PMID:26793539</a>). <a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a> documented locoregional nodal metastasis in which <em>"the lymph node mets revealed both RMS and neuroblastoma areas"</em> — i.e. <strong>both components metastasise</strong>.</li>
+<li><strong>Second tumours:</strong> one EpSSG patient was alive <em>"after second tumor"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/36440693/" target="_blank" rel="noopener noreferrer">PMID:36440693</a>). Radiotherapy-associated late malignancy risk applies as for RMS.</li>
+<li><strong>Morbidity / disability:</strong> driven by site and local therapy — orbital exenteration, cystectomy/prostatectomy sequelae, limb function, airway management in congenital neck disease. <strong>No ICF-coded or disability-registry data exists for EMS.</strong></li>
+<li><strong>Quality of life:</strong> ⚠️ <strong>no EMS-specific QoL data.</strong> Record as a gap.</li>
+</ul>
+<h3>11.3 Prognostic factors</h3>
+<p>Ranked by the strength of evidence actually available:</p>
+<ol>
+<li><strong>Metastatic disease at diagnosis</strong> — the clearest adverse factor; fatal in both series' metastatic cases.</li>
+<li><strong>Complete resection</strong> — <em>"the most important independent prognostic factor"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/25405050/" target="_blank" rel="noopener noreferrer">PMID:25405050</a>); <em>"prognosis are correlated with the completeness of tumor resection"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41465905/" target="_blank" rel="noopener noreferrer">PMID:41465905</a>).</li>
+<li><strong>Receipt of local radiotherapy</strong> — Beijing series: relapse 2/6 with RT+chemo vs 5/5 with chemo alone, <strong>P = 0.046</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40221922/" target="_blank" rel="noopener noreferrer">PMID:40221922</a>). Note: small n, retrospective, unadjusted.</li>
+<li><strong>Differentiation grade of the neuroectodermal component</strong> — poorly differentiated/undifferentiated neuroblastoma associated with worse outcome in adults (<a href="https://pubmed.ncbi.nlm.nih.gov/41465905/" target="_blank" rel="noopener noreferrer">PMID:41465905</a>).</li>
+<li><strong>FOXO1 fusion status</strong> — associated with worse survival in the Beijing series (<a href="https://pubmed.ncbi.nlm.nih.gov/40221922/" target="_blank" rel="noopener noreferrer">PMID:40221922</a>); consistent with RMS risk stratification generally, but entangled in the §4.4 dispute about whether such cases are EMS at all.</li>
+<li><strong>Prognostic biomarkers:</strong> none validated. No FDA-recognised biomarker for EMS.</li>
+</ol>
+<hr />
+<h2>12. Treatment</h2>
+<h3>12.1 Overall strategy</h3>
+<p><strong>Treat as rhabdomyosarcoma.</strong> This is the single clearest therapeutic statement the literature supports, and it is stated by every cooperative group.</p>
+<p><a href="https://pubmed.ncbi.nlm.nih.gov/22535600/" target="_blank" rel="noopener noreferrer">PMID:22535600</a> (exact): <em>"Risk-factors and outcome of MEM appear comparable with other highly malignant pediatric soft tissue sarcoma when multimodal treatment strategy including chemotherapy and adequate local treatment is pursued."</em></p>
+<p><a href="https://pubmed.ncbi.nlm.nih.gov/36440693/" target="_blank" rel="noopener noreferrer">PMID:36440693</a>: <em>"All patients received chemotherapy according to rhabdomyosarcoma strategy, four had radiotherapy."</em></p>
+<p><a href="https://pubmed.ncbi.nlm.nih.gov/38496756/" target="_blank" rel="noopener noreferrer">PMID:38496756</a>: <em>"General consensus for the management and therapeutic regimen for MEM seems to be a multimodal treatment strategy, including a combination of surgery and chemotherapy."</em></p>
+<p>NCI PDQ (Childhood Soft Tissue Sarcoma Treatment, health-professional version, last updated 04/21/2025) lists ectomesenchymoma under <strong>skeletal muscle tumours</strong> and states that treatment <em>"may include surgery, chemotherapy, and radiation therapy."</em></p>
+<h3>12.2 Chemotherapy regimens actually used</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Regimen / protocol</th>
+<th>Drugs</th>
+<th>Reported in</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>VAC</strong></td>
+<td>vincristine, dactinomycin (actinomycin D), cyclophosphamide</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40310147/" target="_blank" rel="noopener noreferrer">PMID:40310147</a>; COG standard</td>
+</tr>
+<tr>
+<td><strong>VIT / VI</strong></td>
+<td>vincristine, irinotecan (± temozolomide)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40310147/" target="_blank" rel="noopener noreferrer">PMID:40310147</a> (after VAC failure); COG intermediate-risk</td>
+</tr>
+<tr>
+<td><strong>IVA / IVADo</strong></td>
+<td>ifosfamide, vincristine, dactinomycin (± doxorubicin)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38496756/" target="_blank" rel="noopener noreferrer">PMID:38496756</a>; EpSSG RMS2005</td>
+</tr>
+<tr>
+<td><strong>VDC/IE</strong></td>
+<td>vincristine, doxorubicin, cyclophosphamide / ifosfamide, etoposide</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41465905/" target="_blank" rel="noopener noreferrer">PMID:41465905</a></td>
+</tr>
+<tr>
+<td><strong>COG ARST0531</strong></td>
+<td>—</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a> Table 1 (2 patients)</td>
+</tr>
+<tr>
+<td><strong>EpSSG 2005</strong>, <strong>RMS96</strong>, <strong>MSKCC P6</strong></td>
+<td>—</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a> Table 1</td>
+</tr>
+<tr>
+<td>Maintenance</td>
+<td>cyclophosphamide + vinorelbine</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38496756/" target="_blank" rel="noopener noreferrer">PMID:38496756</a></td>
+</tr>
+<tr>
+<td>Neuroblastoma-directed</td>
+<td>COG-ANBL0532, after RMS-directed COG-ARST08P1</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25405050/" target="_blank" rel="noopener noreferrer">PMID:25405050</a> — a <strong>rare</strong> strategy of treating both components</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>CWS description (<a href="https://pubmed.ncbi.nlm.nih.gov/36440693/" target="_blank" rel="noopener noreferrer">PMID:36440693</a> context): <em>"systemic therapy typically consisted of regimens with dactinomycin, ifosfamide or cyclophosphamide, and vincristine, with or without doxorubicin."</em></p>
+<p><strong>Verified CHEBI identifiers for <code>therapeutic_agent</code>:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Drug</th>
+<th>CHEBI</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>vincristine</td>
+<td><code>CHEBI:28445</code></td>
+<td>✅ verified via OLS</td>
+</tr>
+<tr>
+<td>dactinomycin / actinomycin D</td>
+<td><code>CHEBI:27666</code> (<strong>label is "actinomycin D"</strong>)</td>
+<td>✅ verified — note the label is <em>not</em> "dactinomycin"; <code>preferred_term</code> should carry the clinical name</td>
+</tr>
+<tr>
+<td>cyclophosphamide</td>
+<td><code>CHEBI:4027</code></td>
+<td>✅ verified</td>
+</tr>
+<tr>
+<td>ifosfamide</td>
+<td><code>CHEBI:5864</code></td>
+<td>✅ verified</td>
+</tr>
+<tr>
+<td>doxorubicin</td>
+<td><code>CHEBI:28748</code></td>
+<td>from the repo's own CLAUDE.md worked example</td>
+</tr>
+<tr>
+<td>irinotecan</td>
+<td><code>CHEBI:80630</code></td>
+<td>from the repo's own CLAUDE.md worked example</td>
+</tr>
+<tr>
+<td>vinorelbine, etoposide, temozolomide</td>
+<td>—</td>
+<td>⚠️ look up</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>NCIT treatment-action terms</strong> (taken from the documented list in this repository's CLAUDE.md, still to be confirmed with <code>just validate-terms</code>):
+- <code>NCIT:C15986</code> Pharmacotherapy — with <code>therapeutic_agent</code> for each drug
+- <code>NCIT:C15632</code> Chemotherapy — for the combination regimens
+- <code>NCIT:C15329</code> Surgical Procedure — resection
+- <code>NCIT:C15313</code> Radiation Therapy
+- <code>NCIT:C15747</code> Supportive Care
+- ⚠️ No named-regimen NCIT <code>regimen_term</code> was verified for VAC/IVA/VIT. <strong>Do not invent one</strong> — the CLAUDE.md rule is explicit that <code>regimen_term</code> requires an NCIT identity reachable from <code>NCIT:C15697</code>. Look up "VAC Regimen" before using it; otherwise leave <code>regimen_term</code> absent and list the agents.</p>
+<h3>12.3 Surgery and radiotherapy</h3>
+<ul>
+<li><strong>Surgery is the primary local modality</strong>; complete resection is the dominant modifiable prognostic variable (§11.3). Reported procedures include radical orchiectomy (paratesticular), wide local excision with parotidectomy and neck dissection (<a href="https://pubmed.ncbi.nlm.nih.gov/41465905/" target="_blank" rel="noopener noreferrer">PMID:41465905</a>), and neonatal neck-mass resection on day 6 of life (<a href="https://pubmed.ncbi.nlm.nih.gov/40310147/" target="_blank" rel="noopener noreferrer">PMID:40310147</a>). Robotic-assisted approaches have been described in paediatric surgical oncology generally (<a href="https://pubmed.ncbi.nlm.nih.gov/38197107/" target="_blank" rel="noopener noreferrer">PMID:38197107</a>).</li>
+<li><strong>Radiotherapy</strong> is used for residual/unresectable disease and is associated with significantly lower relapse in the one series that tested it (<a href="https://pubmed.ncbi.nlm.nih.gov/40221922/" target="_blank" rel="noopener noreferrer">PMID:40221922</a>). <code>therapeutic_modality: RADIOTHERAPY</code>.</li>
+</ul>
+<h3>12.4 Targeted, immuno- and advanced therapies</h3>
+<p><strong>None approved or established for EMS.</strong> Rational leads, all preclinical or extrapolated:</p>
+<ul>
+<li><strong>RAS-pathway inhibition.</strong> Rigosertib induces mitotic arrest and apoptosis in <strong>RAS-mutated rhabdomyosarcoma and neuroblastoma</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33158997/" target="_blank" rel="noopener noreferrer">PMID:33158997</a>) — the most directly relevant preclinical result. Broader context: <em>"Targeting RAS in pediatric cancer: is it becoming a reality?"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31815779/" target="_blank" rel="noopener noreferrer">PMID:31815779</a>) and the NCI-sponsored RAS/RASopathy therapy collaboration (<a href="https://pubmed.ncbi.nlm.nih.gov/31913576/" target="_blank" rel="noopener noreferrer">PMID:31913576</a>). Direct KRAS(G12C) inhibitors have been assessed in paediatric preclinical models (<a href="https://pubmed.ncbi.nlm.nih.gov/41340466/" target="_blank" rel="noopener noreferrer">PMID:41340466</a>) — <strong>not applicable to EMS hotspots</strong> (G13R/Q61L are not G12C).</li>
+<li><strong>MEK inhibition</strong> is the obvious mechanistic candidate for an HRAS-driven tumour but ⚠️ <strong>no EMS case treated with a MEK inhibitor was found.</strong> State this as a gap, not a recommendation.</li>
+<li><strong>PI3K/AKT inhibition</strong> was recommended by the authors of the MYOD1-mutant case (<a href="https://pubmed.ncbi.nlm.nih.gov/36913073/" target="_blank" rel="noopener noreferrer">PMID:36913073</a>), on the basis of that genotype rather than EMS generally.</li>
+<li><strong>B7-H3</strong> is proposed as a target across extracranial paediatric solid tumours (<a href="https://pubmed.ncbi.nlm.nih.gov/37110590/" target="_blank" rel="noopener noreferrer">PMID:37110590</a>).</li>
+<li><strong>Gene therapy, cell therapy (CAR-T), RNA-based therapy, checkpoint inhibition:</strong> <strong>no EMS data.</strong></li>
+</ul>
+<h3>12.5 Pharmacogenomics, adverse events, treatment algorithms</h3>
+<ul>
+<li><strong>Pharmacogenomics:</strong> no EMS-specific PGx. General RMS-protocol PGx applies (e.g. cyclophosphamide/ifosfamide metabolism, anthracycline cardiotoxicity risk alleles) — not EMS-specific, do not curate as such.</li>
+<li><strong>Adverse events:</strong> those of the RMS backbone — myelosuppression, ifosfamide nephro/neurotoxicity, anthracycline cardiomyopathy, cyclophosphamide gonadal toxicity and haemorrhagic cystitis, radiotherapy growth/endocrine late effects and second malignancy. See <a href="https://pubmed.ncbi.nlm.nih.gov/28333415/" target="_blank" rel="noopener noreferrer">PMID:28333415</a> (chemotherapy-induced toxicities in metastatic RMS) and <a href="https://pubmed.ncbi.nlm.nih.gov/33815276/" target="_blank" rel="noopener noreferrer">PMID:33815276</a> (endocrine complications in children with non-CNS solid tumours) for the relevant literature, bearing in mind neither is EMS-specific.</li>
+<li><strong>Clinical trials:</strong> ⚠️ <strong>No EMS-specific trial (NCT) was identified.</strong> Patients are enrolled on RMS trials. If a <code>clinical_trials:</code> block is added, it should cite RMS protocols the published EMS patients were actually treated on (COG ARST0531, EpSSG RMS2005) rather than a trial that enrolled EMS as such — and each NCT must be fetched with <code>just fetch-reference</code>.</li>
+<li><strong>Personalised medicine:</strong> the actionable step today is <strong>molecular profiling at diagnosis</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/38496756/" target="_blank" rel="noopener noreferrer">PMID:38496756</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42504917/" target="_blank" rel="noopener noreferrer">PMID:42504917</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41373618/" target="_blank" rel="noopener noreferrer">PMID:41373618</a> on targeted DNA sequencing for tailored therapies in children with extracranial solid tumours).</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>No prevention is possible or applicable</strong>, and the entry should say so plainly rather than leave the section empty.</p>
+<ul>
+<li><strong>Primary prevention:</strong> none. The driver is a sporadic (often prezygotically-undetectable, postzygotic) somatic mutation with no known environmental contributor. No vaccine, no modifiable risk factor.</li>
+<li><strong>Secondary prevention / early detection:</strong> no screening programme (§10.7). The one actionable early-detection context is <strong>a child with a mosaic RASopathy cutaneous phenotype</strong> — clinical vigilance for soft-tissue masses is reasonable but no protocol is published (<a href="https://pubmed.ncbi.nlm.nih.gov/40629179/" target="_blank" rel="noopener noreferrer">PMID:40629179</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37636262/" target="_blank" rel="noopener noreferrer">PMID:37636262</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42959308/" target="_blank" rel="noopener noreferrer">PMID:42959308</a> on mosaic RASopathy management).</li>
+<li><strong>Tertiary prevention:</strong> complete resection plus protocol-directed chemotherapy ± radiotherapy to prevent relapse (§12), and standard RMS survivorship surveillance for late effects.</li>
+<li><strong>Genetic counselling:</strong> <strong>recurrence risk is not increased for siblings or offspring</strong> in sporadic cases. In a mosaic <em>HRAS</em> case, counselling should address the <strong>postzygotic</strong> nature of the variant — it is not inherited, and gonadal involvement would need separate assessment before any statement about offspring risk. Prenatal testing and PGD are not applicable.</li>
+<li><strong>Immunisation, public-health and environmental interventions:</strong> not applicable.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Species affected:</strong> <strong>Homo sapiens (<code>NCBITaxon:9606</code>) only.</strong> ⚠️ No naturally occurring ectomesenchymoma has been reported in any other species in the literature searched. No OMIA entry was located.</li>
+<li><strong>Breed (VBO):</strong> not applicable.</li>
+<li><strong>Orthologous genes:</strong> <em>HRAS</em> has orthologues across vertebrates (mouse <em>Hras</em>, rat <em>Hras</em>, zebrafish <em>hrasa/hrasb</em>) — ⚠️ <strong>look up the MGI/RGD/ZFIN identifiers before binding; CLAUDE.md requires MOD identifiers for non-human genes, and the term validator does not check them.</strong></li>
+<li><strong>Comparative pathology:</strong> nothing published for this entity. Broadly comparable "mixed" sarcomas with divergent differentiation occur in veterinary oncology, but no equivalence has been established.</li>
+<li><strong>Evolutionary conservation of mechanism:</strong> the RAS/MAPK pathway and neural-crest developmental program are deeply conserved, which is the basis for the model-organism approaches below — but this is general biology, not an EMS-specific comparative finding.</li>
+<li><strong>Zoonotic potential / cross-species transmission:</strong> not applicable (non-infectious neoplasm).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>15.1 The honest headline</h3>
+<p><strong>There is no published animal or cell-line model of ectomesenchymoma.</strong> Searches for EMS-specific mouse, zebrafish, organoid, iPSC or cell-line models returned nothing. This is the single largest experimental gap for this entity and should be recorded as a <code>KNOWLEDGE_GAP</code> discussion, not glossed over.</p>
+<h3>15.2 Adjacent models that cover parts of the biology</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Covers</th>
+<th>Does not cover</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Nf1/Ink4a-Arf loss GEMM of ERMS</strong> — described as <em>"the first animal model of NF1-mutated RMS"</em></td>
+<td>Myogenic sarcomagenesis under RAS-pathway activation</td>
+<td>Wrong gene (NF1 not HRAS); <strong>no neuroectodermal component reported</strong></td>
+<td>PMC9955904 (⚠️ get PMID)</td>
+</tr>
+<tr>
+<td><strong>MyoD-Cre; Kras^G12D; p53 GEMM of RMS</strong></td>
+<td>Myogenic-lineage-restricted RAS-driven RMS</td>
+<td>Lineage is restricted to MyoD⁺ cells by design, so it <strong>cannot</strong> produce the biphasic phenotype; wrong RAS isoform</td>
+<td>PMC8844455 (⚠️ get PMID)</td>
+</tr>
+<tr>
+<td><strong>kRAS-induced zebrafish ERMS</strong> — <em>"zebrafish rhabdomyosarcoma is highly similar to human embryonal rhabdomyosarcoma"</em></td>
+<td>ERMS histogenesis, live imaging of tumour-propagating cells</td>
+<td>Wrong RAS isoform; no neural component</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21951539/" target="_blank" rel="noopener noreferrer">PMID:21951539</a></td>
+</tr>
+<tr>
+<td><strong>Tg(HRAS^G12V) zebrafish (Costello syndrome model)</strong></td>
+<td>Germline-equivalent HRAS activation; tumour-prone (lymphoma, melanoma, sarcoma)</td>
+<td>Wrong codon (G12V vs G13R/Q61L); not lineage-targeted; no EMS phenotype reported</td>
+<td>(see zebrafish cancer model reviews)</td>
+</tr>
+<tr>
+<td><strong>PAX3-FOXO1 transgenic zebrafish</strong></td>
+<td>Fusion-positive ARMS</td>
+<td>Irrelevant to fusion-negative EMS</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29618609/" target="_blank" rel="noopener noreferrer">PMID:29618609</a> ⚠️ verify</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>15.3 What a real EMS model would need — and why none exists</h3>
+<p>The defining feature of EMS is <strong>one clone executing two differentiation programs</strong>. Every existing model activates RAS in a <em>lineage-committed</em> compartment (MyoD⁺ myoblasts, satellite cells), which structurally precludes the neuroectodermal arm. The mosaicism data (<a href="https://pubmed.ncbi.nlm.nih.gov/40629179/" target="_blank" rel="noopener noreferrer">PMID:40629179</a>) point directly at the experiment that has not been done: <strong>conditional activation of <code>Hras</code> p.G13R in migratory neural crest or in a bipotent ectomesenchymal progenitor</strong> (e.g. a Wnt1-Cre or Sox10-CreER driver), which would test whether the biphasic phenotype is a property of the cell of origin rather than of the mutation.</p>
+<p><strong>For dismech <code>ModelMechanismLink</code> curation:</strong> every model above would need <code>relationship: PARTIALLY_RECAPITULATES</code> at best, <code>fidelity: LOW</code>, and a <code>divergences</code> entry — most naturally <code>BOUNDARY_OMISSION</code> with <code>materiality: QUALIFYING</code> (the neuroectodermal compartment is simply not in the model) plus <code>SPECIES_MISMATCH</code>. None should be linked with <code>RECAPITULATES</code>.</p>
+<h3>15.4 Resources</h3>
+<p>MGI, RGD, ZFIN, IMPC, IMSR, Cellosaurus, DepMap — <strong>none holds an ectomesenchymoma-designated model or line.</strong> ⚠️ Verify Cellosaurus and DepMap directly before asserting absence in the entry.</p>
+<hr />
+<h2>Appendix A — Reference list with PMIDs</h2>
+<p><strong>Read from the committed cache (quotes are exact):</strong>
+- <strong><a href="https://pubmed.ncbi.nlm.nih.gov/26872011/" target="_blank" rel="noopener noreferrer">PMID:26872011</a></strong> — Huang SC, Alaggio R, Sung YS, Chen CL, Zhang L, Kao YC, Agaram NP, Wexler LH, Antonescu CR. <em>Frequent HRAS Mutations in Malignant Ectomesenchymoma: Overlapping Genetic Abnormalities With Embryonal Rhabdomyosarcoma.</em> Am J Surg Pathol 2016;40(7):876–85. <a href="https://doi.org/10.1097/PAS.0000000000000612" target="_blank" rel="noopener noreferrer">doi:10.1097/PAS.0000000000000612</a> — <strong>full text in cache</strong>
+- <strong><a href="https://pubmed.ncbi.nlm.nih.gov/42851199/" target="_blank" rel="noopener noreferrer">PMID:42851199</a></strong> — Zeng M, Li HL, Xu YY, Xie L, Mao RJ. <em>[Clinicopathological and molecular genetic characteristics of embryonal rhabdomyosarcoma with divergent neuroectodermal differentiation: an analysis of 17 cases].</em> Zhonghua Bing Li Xue Za Zhi 2026. <a href="https://doi.org/10.3760/cma.j.cn112151-20260315-00174" target="_blank" rel="noopener noreferrer">doi:10.3760/cma.j.cn112151-20260315-00174</a> — <strong>abstract in cache</strong></p>
+<p><strong>Retrieved via Europe PMC / publisher — ⚠️ re-fetch before quoting:</strong>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/42504917/" target="_blank" rel="noopener noreferrer">PMID:42504917</a> — Caporalini C, et al. <em>DNA Methylation Profiling of Pediatric Ectomesenchymoma Supports Embryonal Rhabdomyosarcoma-Like Epigenetic Identity.</em> Pediatr Blood Cancer 2026. <a href="https://doi.org/10.1002/1545-5017.70592" target="_blank" rel="noopener noreferrer">doi:10.1002/1545-5017.70592</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/40629179/" target="_blank" rel="noopener noreferrer">PMID:40629179</a> — Salomatina AS, et al. <em>Somatic and mosaic HRAS mutations in pediatric malignant ectomesenchymoma.</em> J Hum Genet 2025;70(10):497–501. <a href="https://doi.org/10.1038/s10038-025-01363-9" target="_blank" rel="noopener noreferrer">doi:10.1038/s10038-025-01363-9</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/36440693/" target="_blank" rel="noopener noreferrer">PMID:36440693</a> — Milano GM, Orbach D, Casanova M, et al. <em>Malignant ectomesenchymoma in children: The European pediatric Soft tissue sarcoma Study Group experience.</em> Pediatr Blood Cancer 2023;70(2):e30116. <a href="https://doi.org/10.1002/pbc.30116" target="_blank" rel="noopener noreferrer">doi:10.1002/pbc.30116</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/22535600/" target="_blank" rel="noopener noreferrer">PMID:22535600</a> — Dantonello TM, Leuschner I, Vokuhl C, et al. <em>Malignant ectomesenchymoma in children and adolescents: report from the Cooperative Weichteilsarkom Studiengruppe (CWS).</em> Pediatr Blood Cancer 2013;60(2):224–9. <a href="https://doi.org/10.1002/pbc.24174" target="_blank" rel="noopener noreferrer">doi:10.1002/pbc.24174</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/40221922/" target="_blank" rel="noopener noreferrer">PMID:40221922</a> — Meng Y, Su Y, Zhang G, et al. <em>A single-center retrospective study of malignant ectomesenchymoma in children.</em> Jpn J Clin Oncol 2025;55(6):621–5. <a href="https://doi.org/10.1093/jjco/hyaf040" target="_blank" rel="noopener noreferrer">doi:10.1093/jjco/hyaf040</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/38496756/" target="_blank" rel="noopener noreferrer">PMID:38496756</a> — Pellegrino F, Tirtei E, et al. <em>An integrative morpho-molecular approach in malignant ectomesenchymoma diagnosis: report of a new paediatric case and a review of the literature.</em> Front Oncol 2024. <a href="https://doi.org/10.3389/fonc.2024.1320541" target="_blank" rel="noopener noreferrer">doi:10.3389/fonc.2024.1320541</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/28994342/" target="_blank" rel="noopener noreferrer">PMID:28994342</a> — Griffin BB, Chou PM, George D, Jennings LJ, Arva NC. <em>Malignant Ectomesenchymoma: Series Analysis of a Histologically and Genetically Heterogeneous Tumor.</em> Int J Surg Pathol 2018. <a href="https://doi.org/10.1177/1066896917734915" target="_blank" rel="noopener noreferrer">doi:10.1177/1066896917734915</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/36913073/" target="_blank" rel="noopener noreferrer">PMID:36913073</a> — Pena-Burgos EM, et al. <em>First Reported Case of Malignant Ectomesenchymoma with p.Leu122Arg Mutation in MYOD1 Gene.</em> Head Neck Pathol 2023. <a href="https://doi.org/10.1007/s12105-023-01542-0" target="_blank" rel="noopener noreferrer">doi:10.1007/s12105-023-01542-0</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/33595736/" target="_blank" rel="noopener noreferrer">PMID:33595736</a> — Davidson B, et al. <em>Primary uterine ectomesenchymoma harboring a DICER1 mutation.</em> Virchows Arch 2021. <a href="https://doi.org/10.1007/s00428-021-03057-x" target="_blank" rel="noopener noreferrer">doi:10.1007/s00428-021-03057-x</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/40310147/" target="_blank" rel="noopener noreferrer">PMID:40310147</a> — Blanchard ISC, et al. <em>Congenital Malignant Ectomesenchymoma Presenting as a Neck Mass in a Newborn.</em> Children (Basel) 2025;12(4):480. <a href="https://doi.org/10.3390/children12040480" target="_blank" rel="noopener noreferrer">doi:10.3390/children12040480</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/37636262/" target="_blank" rel="noopener noreferrer">PMID:37636262</a> — Zuntini R, et al. <em>Case Report: Sequential postzygotic HRAS mutation and gains of the paternal chromosome 11...</em> Front Genet 2023. <a href="https://doi.org/10.3389/fgene.2023.1231434" target="_blank" rel="noopener noreferrer">doi:10.3389/fgene.2023.1231434</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/38603649/" target="_blank" rel="noopener noreferrer">PMID:38603649</a> — de Traux de Wardin H, et al. <em>NF1-Driven Rhabdomyosarcoma Phenotypes.</em> JCO Precis Oncol 2024. <a href="https://doi.org/10.1200/PO.23.00597" target="_blank" rel="noopener noreferrer">doi:10.1200/PO.23.00597</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/24650353/" target="_blank" rel="noopener noreferrer">PMID:24650353</a> — VandenHeuvel KA, et al. <em>Ectomesenchymoma with embryonal rhabdomyosarcoma and ganglioneuroma, arising in association with benign triton tumor of the tongue.</em> Pediatr Dev Pathol 2014.
+- <a href="https://pubmed.ncbi.nlm.nih.gov/25405050/" target="_blank" rel="noopener noreferrer">PMID:25405050</a> — Nael A, et al. <em>Metastatic malignant ectomesenchymoma initially presenting as a pelvic mass.</em> Case Rep Pediatr 2014.
+- <a href="https://pubmed.ncbi.nlm.nih.gov/41465905/" target="_blank" rel="noopener noreferrer">PMID:41465905</a> — <em>Clinicopathological observation of adult malignant ectodermal mesenchymoma: case report and literature review.</em> Medicine (Baltimore) 2025.
+- <a href="https://pubmed.ncbi.nlm.nih.gov/28968263/" target="_blank" rel="noopener noreferrer">PMID:28968263</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/32769567/" target="_blank" rel="noopener noreferrer">PMID:32769567</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/33648897/" target="_blank" rel="noopener noreferrer">PMID:33648897</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/30907031/" target="_blank" rel="noopener noreferrer">PMID:30907031</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/26793539/" target="_blank" rel="noopener noreferrer">PMID:26793539</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/36097907/" target="_blank" rel="noopener noreferrer">PMID:36097907</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/36081970/" target="_blank" rel="noopener noreferrer">PMID:36081970</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/42839882/" target="_blank" rel="noopener noreferrer">PMID:42839882</a> (WHO STB6) · <a href="https://pubmed.ncbi.nlm.nih.gov/33158997/" target="_blank" rel="noopener noreferrer">PMID:33158997</a> (rigosertib) · <a href="https://pubmed.ncbi.nlm.nih.gov/34755412/" target="_blank" rel="noopener noreferrer">PMID:34755412</a> (RAS/RAF-driven ERMS) · <a href="https://pubmed.ncbi.nlm.nih.gov/21951539/" target="_blank" rel="noopener noreferrer">PMID:21951539</a> (zebrafish RMS)
+- Historical: <a href="https://pubmed.ncbi.nlm.nih.gov/5313338/" target="_blank" rel="noopener noreferrer">PMID:5313338</a> (Holimon &amp; Rosenblum 1971) · <a href="https://pubmed.ncbi.nlm.nih.gov/872048/" target="_blank" rel="noopener noreferrer">PMID:872048</a> (Karcioglu 1977) · <a href="https://pubmed.ncbi.nlm.nih.gov/4947980/" target="_blank" rel="noopener noreferrer">PMID:4947980</a> (Shuangshoti &amp; Netsky 1971) · Boué DR et al. <em>Clinicopathologic Study of Ectomesenchymomas from IRS Groups III and IV.</em> Pediatr Dev Pathol 2000;3:290–300 (⚠️ PMID not confirmed)</p>
+<hr />
+<h2>Appendix B — Ontology suggestions, with verification status</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Slot</th>
+<th>CURIE</th>
+<th>Label</th>
+<th>Verified?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>disease_term</code></td>
+<td><code>MONDO:0002855</code></td>
+<td>ectomesenchymoma</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>cross-ref</td>
+<td><code>NCIT:C4716</code></td>
+<td>Ectomesenchymoma</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>phenotype</td>
+<td><code>HP:0002859</code></td>
+<td>Rhabdomyosarcoma</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>phenotype</td>
+<td><code>HP:0006743</code></td>
+<td>Embryonal rhabdomyosarcoma</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>phenotype</td>
+<td><code>HP:0006779</code></td>
+<td>Alveolar rhabdomyosarcoma</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>phenotype</td>
+<td><code>HP:0500092</code></td>
+<td>Orbital rhabdomyosarcoma</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>phenotype</td>
+<td><code>HP:0004376</code></td>
+<td>Neuroblastic tumor</td>
+<td>✅ OLS — coarse, needs <code>VARIABLE_SPECTRUM</code> basis</td>
+</tr>
+<tr>
+<td>phenotype</td>
+<td><code>HP:0031500</code></td>
+<td>Abdominal mass</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>phenotype</td>
+<td><code>HP:0000520</code></td>
+<td>Proptosis</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>inheritance (mosaic arm)</td>
+<td><code>HP:0001442</code></td>
+<td>Typified by somatic mosaicism</td>
+<td>from repo CLAUDE.md — ⚠️ confirm label</td>
+</tr>
+<tr>
+<td>gene</td>
+<td><code>hgnc:5173</code></td>
+<td>HRAS</td>
+<td>✅ HGNC REST</td>
+</tr>
+<tr>
+<td>gene</td>
+<td><code>hgnc:7989</code> / <code>hgnc:6407</code> / <code>hgnc:9668</code> / <code>hgnc:16712</code> / <code>hgnc:7611</code> / <code>hgnc:3819</code> / <code>hgnc:17098</code> / <code>hgnc:11998</code> / <code>hgnc:9588</code> / <code>hgnc:1787</code> / <code>hgnc:1773</code> / <code>hgnc:7765</code> / <code>hgnc:9143</code> / <code>hgnc:7559</code> / <code>hgnc:427</code> / <code>hgnc:11190</code></td>
+<td>NRAS / KRAS / PTPRD / FBXW7 / MYOD1 / FOXO1 / DICER1 / TP53 / PTEN / CDKN2A / CDK4 / NF1 / PHOX2B / MYCN / ALK / SOX10</td>
+<td>✅ HGNC REST</td>
+</tr>
+<tr>
+<td>biological process</td>
+<td><code>GO:0007265</code></td>
+<td>Ras protein signal transduction</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>biological process</td>
+<td><code>GO:0046579</code></td>
+<td>positive regulation of Ras protein signal transduction</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>biological process</td>
+<td><code>GO:0035914</code></td>
+<td>skeletal muscle cell differentiation</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>biological process</td>
+<td><code>GO:0001755</code></td>
+<td>neural crest cell migration</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>cell type</td>
+<td><code>CL:0000056</code></td>
+<td>myoblast</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>cell type</td>
+<td><code>CL:0000333</code></td>
+<td>migratory neural crest cell</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>cell type</td>
+<td><code>CL:0002573</code></td>
+<td>Schwann cell</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>cell type</td>
+<td><code>CL:0011103</code></td>
+<td>sympathetic neuron</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>anatomy</td>
+<td><code>UBERON:0002355</code> / <code>UBERON:0002356</code> / <code>UBERON:0001255</code> / <code>UBERON:0002367</code> / <code>UBERON:0005352</code> / <code>UBERON:0003702</code></td>
+<td>pelvic region of trunk / perineum / urinary bladder / prostate gland / spermatic cord / inguinal canal</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>chemical</td>
+<td><code>CHEBI:28445</code> / <code>CHEBI:27666</code> / <code>CHEBI:4027</code> / <code>CHEBI:5864</code></td>
+<td>vincristine / actinomycin D / cyclophosphamide / ifosfamide</td>
+<td>✅ OLS</td>
+</tr>
+<tr>
+<td>treatment</td>
+<td><code>NCIT:C15986</code>, <code>C15632</code>, <code>C15329</code>, <code>C15313</code>, <code>C15747</code></td>
+<td>Pharmacotherapy, Chemotherapy, Surgical Procedure, Radiation Therapy, Supportive Care</td>
+<td>from repo CLAUDE.md — run <code>just validate-terms</code></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Every CURIE above marked ✅ was read from a live OLS or HGNC lookup performed while writing this report; none was written from memory. The ⚠️ rows were not resolved and must be looked up before binding.</strong></p>
+<hr />
+<h2>Appendix C — Recorded knowledge gaps</h2>
+<ol>
+<li><strong>Cell of origin is unresolved</strong> — migratory neural crest ("ectomesenchyme") vs a myogenic progenitor with latent neural competence. The methylation and expression data favour the latter; the mosaicism timing data favour the former. No experiment discriminates them.</li>
+<li><strong>No animal model, no cell line, no organoid.</strong> The key untried experiment is lineage-restricted <em>Hras</em> p.G13R activation in neural crest.</li>
+<li><strong>Is FOXO1-rearranged "ectomesenchymoma" the same disease?</strong> (§4.4) — this has treatment consequences and is actively disputed.</li>
+<li><strong>Why does RAS-mutation frequency differ so much between series</strong> (86% vs 18%)? Case definition, assay sensitivity, or real biology?</li>
+<li><strong>No MEK or other RAS-pathway inhibitor has been reported in an EMS patient</strong>, despite a near-universal RAS driver.</li>
+<li><strong>No quality-of-life, disability, or survivorship data</strong> specific to EMS.</li>
+<li><strong>No population-based incidence figure</strong>; the EpSSG 0.8% denominator needs verification from the full text.</li>
+<li><strong>Placement of ectomesenchymoma in WHO STB6 (2026) is unconfirmed</strong> — check the printed volume.</li>
+<li><strong>No proteomic, metabolomic, single-cell or spatial data</strong> exists for this tumour.</li>
+</ol>
+<hr />
+<p><strong>Sources:</strong>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4905780/">Frequent HRAS Mutations in Malignant Ectomesenchymoma (PMC4905780)</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/40629179/">Somatic and mosaic HRAS mutations in pediatric malignant ectomesenchymoma</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/36440693">Malignant ectomesenchymoma in children: EpSSG experience</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/22535600/">Malignant ectomesenchymoma in children and adolescents: CWS report</a>
+- <a href="https://academic.oup.com/jjco/article/55/6/621/8113027">A single-center retrospective study of malignant ectomesenchymoma in children (JJCO)</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10940369/">An integrative morpho-molecular approach in malignant ectomesenchymoma diagnosis (PMC10940369)</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12746915/">Clinicopathological observation of adult malignant ectodermal mesenchymoma (PMC12746915)</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4227373/">Metastatic Malignant Ectomesenchymoma Initially Presenting as a Pelvic Mass (PMC4227373)</a>
+- <a href="https://doi.org/10.3390/children12040480">Congenital Malignant Ectomesenchymoma Presenting as a Neck Mass in a Newborn</a>
+- <a href="https://doi.org/10.1200/po.23.00597">NF1-Driven Rhabdomyosarcoma Phenotypes (JCO Precision Oncology)</a>
+- <a href="https://doi.org/10.3389/fgene.2023.1231434">Case Report: Sequential postzygotic HRAS mutation and gains of the paternal chromosome 11</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9955904/">Loss of Nf1 and Ink4a/Arf in a Mouse Model of Embryonal Rhabdomyosarcoma (PMC9955904)</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8844455/">MyoD-Cre K-Ras/p53 mouse model of rhabdomyosarcoma (PMC8844455)</a>
+- <a href="https://www.cancer.gov/types/soft-tissue-sarcoma/hp/child-soft-tissue-treatment-pdq">Childhood Soft Tissue Sarcoma Treatment (PDQ®) — NCI</a>
+- <a href="https://www.sciencedirect.com/science/article/pii/S0720048X21004186">WHO classification of soft tissue tumours 2020: an update for radiologists</a>
+- <a href="https://www.pathologyoutlines.com/topic/softtissueectomes.html">Pathology Outlines — Ectomesenchymoma</a>
+- <a href="https://link.springer.com/article/10.1007/s100249910039">Clinicopathologic Study of Ectomesenchymomas from IRS Groups III and IV</a>
+- <a href="https://en.wikipedia.org/wiki/Malignant_ectomesenchymoma">Malignant ectomesenchymoma — Wikipedia</a></p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>67</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>66</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>66</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Unresolved references</h3>
+<p>These identifiers did not resolve to a record and may be fabricated. A lookup that failed for transport reasons is indistinguishable from one that failed because the record does not exist, so spot-check before acting on them:</p>
+<ul>
+<li><code>DOI:10.3760/cma.j.cn112151-20260315-00174</code> (1 mention) - Identifier did not resolve to a record</li>
+</ul>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:41317384</code> (1 mention) - CanID: A Robust and Accurate RNA-seq Expression-based Diagnostic Classification Scheme for Pediatric Malignancies.</li>
+<li>shared terms: tumor</li>
+<li><code>PMID:40979140</code> (1 mention) - Exploring the Diagnostic and Theranostic Role of FAPI PET in Soft Tissue Sarcoma: A Systematic Review.</li>
+<li>shared terms: tumor</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>ems</code>, <code>exact</code>, <code>rhabdomyosarcoma</code>, <code>cell</code>, <code>component</code>, <code>ectomesenchymoma</code>, <code>tumour</code>, <code>hras</code>, <code>rms</code>, <code>tumor</code>, <code>differentiation</code>, <code>malignant</code>, <code>serie</code>, <code>mutation</code>, <code>phenotype</code>, <code>neuroectodermal</code>, <code>neural</code>, <code>erms</code>, <code>adult</code>, <code>neuroblastoma</code>.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>49</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>44</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0002855</code> (4 mentions) - the report calls it "MONDO", "disease_term"; MONDO calls it <strong>ectomesenchymoma</strong></li>
+<li><code>NCIT:C4716</code> (3 mentions) - the report calls it "NCIT", "cross-ref"; NCIT calls it <strong>Ectomesenchymoma</strong></li>
+<li><code>NCIT:C188984</code> (1 mention) - the report calls it "NCIT (paediatric)"; NCIT calls it <strong>Childhood Ectomesenchymoma</strong></li>
+<li><code>NCIT:C173815</code> (1 mention) - the report calls it "NCIT (recurrent)"; NCIT calls it <strong>Recurrent Ectomesenchymoma</strong></li>
+<li><code>DOID:4055</code> (1 mention) - the report calls it "DOID"; DOID calls it <strong>ectomesenchymoma</strong></li>
+<li><code>HP:0031500</code> (2 mentions) - the report calls it "phenotype"; HP calls it <strong>Abdominal mass</strong></li>
+<li><code>HP:0002859</code> (2 mentions) - the report calls it "phenotype"; HP calls it <strong>Rhabdomyosarcoma</strong></li>
+<li><code>HP:0006743</code> (2 mentions) - the report calls it "phenotype"; HP calls it <strong>Embryonal rhabdomyosarcoma</strong></li>
+<li><code>HP:0006779</code> (2 mentions) - the report calls it "phenotype"; HP calls it <strong>Alveolar rhabdomyosarcoma</strong></li>
+<li><code>HP:0500092</code> (2 mentions) - the report calls it "phenotype"; HP calls it <strong>Orbital rhabdomyosarcoma</strong></li>
+<li><code>HP:0004376</code> (3 mentions) - the report calls it "phenotype"; HP calls it <strong>Neuroblastic tumor</strong></li>
+<li><code>GO:0007265</code> (2 mentions) - the report calls it "biological process"; GO calls it <strong>Ras protein signal transduction</strong></li>
+<li><code>GO:0046579</code> (2 mentions) - the report calls it "biological process"; GO calls it <strong>positive regulation of Ras protein signal transduction</strong></li>
+<li><code>GO:0035914</code> (2 mentions) - the report calls it "biological process"; GO calls it <strong>skeletal muscle cell differentiation</strong></li>
+<li><code>CL:0000056</code> (3 mentions) - the report calls it "cell type"; CL calls it <strong>myoblast</strong></li>
+<li><code>GO:0001755</code> (2 mentions) - the report calls it "biological process"; GO calls it <strong>neural crest cell migration</strong></li>
+<li><code>CL:0000333</code> (4 mentions) - the report calls it "cell type"; CL calls it <strong>migratory neural crest cell</strong></li>
+<li><code>CL:0002573</code> (3 mentions) - the report calls it "cell type"; CL calls it <strong>Schwann cell</strong></li>
+<li><code>CL:0011103</code> (3 mentions) - the report calls it "cell type"; CL calls it <strong>sympathetic neuron</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>RO:0004003</code> (1 mention) - RO does not contain this term</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0001442</code> (3 mentions) - the report calls it "inheritance (mosaic arm)"; HP calls it <strong>Typified by somatic mosaicism</strong>, and lists "Somatic mosaicism" among its other names</li>
+<li><code>HP:0000520</code> (2 mentions) - the report calls it "phenotype"; HP calls it <strong>Proptosis</strong>, and lists "Prominent eyes" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>MONDO:0002855</code> - called "MONDO", "disease_term"</li>
+<li><code>NCIT:C4716</code> - called "NCIT", "cross-ref"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ICDO</code>, <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Ectodermal_Dysplasia_and_Immunodeficiency_2-falcon.html">← Ectodermal Dysplasia and Immunodeficiency 2 (Falcon)</a>
+                
+                
+                <a href="Ectopia_Lentis_1_Isolated_Autosomal_Dominant-claude_code.html">Ectopia Lentis 1, Isolated, Autosomal Dominant (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Ectomesenchymoma.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Ectomesenchymoma-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
