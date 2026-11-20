@@ -40,7 +40,9 @@ full_text_access_type: open
 
 ## Content
 
-AbstractPathogenic variants in the OPN1LW/OPN1MW gene cluster are causal for a range of mild to severe visual impairments with color deficiencies. The widely utilized short-read next-generation sequencing (NGS) is inappropriate for the analysis of the OPN1LW/OPN1MW gene cluster and many patients with pathogenic variants stay underdiagnosed. A diagnostic genetic assay was developed for the OPN1LW/OPN1MW gene cluster, consisting of copy number analysis via multiplex ligation-dependent probe amplification and sequence analysis via long-read circular consensus sequencing. Performance was determined on 50 clinical samples referred for genetic confirmation of the clinical diagnosis (n = 43) or carrier status analysis (n = 7). A broad range of pathogenic haplotypes were detected, including deletions, hybrid genes, single variants and combinations of variants. The developed genetic assay for the OPN1LW/OPN1MW gene cluster is a diagnostic test that can detect both structural and nucleotide variants with a straightforward analysis, improving diagnostic care of patients with visual impairment.
+Abstract
+
+Pathogenic variants in the OPN1LW/OPN1MW gene cluster are causal for a range of mild to severe visual impairments with color deficiencies. The widely utilized short-read next-generation sequencing (NGS) is inappropriate for the analysis of the OPN1LW/OPN1MW gene cluster and many patients with pathogenic variants stay underdiagnosed. A diagnostic genetic assay was developed for the OPN1LW/OPN1MW gene cluster, consisting of copy number analysis via multiplex ligation-dependent probe amplification and sequence analysis via long-read circular consensus sequencing. Performance was determined on 50 clinical samples referred for genetic confirmation of the clinical diagnosis (n = 43) or carrier status analysis (n = 7). A broad range of pathogenic haplotypes were detected, including deletions, hybrid genes, single variants and combinations of variants. The developed genetic assay for the OPN1LW/OPN1MW gene cluster is a diagnostic test that can detect both structural and nucleotide variants with a straightforward analysis, improving diagnostic care of patients with visual impairment.
 
 ARTICLE OPEN
 Diagnostic analysis of the highly complex OPN1LW/
@@ -184,7 +186,7 @@ Primers
 LCR OPN1LW OPN1MW
 ()
 1-5
-1                   2         3      4     5        6   1                   2         3      4     5        6   1    2              3               4        5
+1                   2         3      4     5        6   1                   2         3      4     5        6   1    2              3               4        5  
 TEX28TEX28
 1
 LCR LCR
@@ -193,22 +195,22 @@ LCR LCR
 Last Last
 Gene
 b
-Amplicon 2nd (and
+Amplicon 2nd (and 
 cons.) gene(s)
 c
 d
 Amplicon 1st gene
-Amplicon 2nd (and
+Amplicon 2nd (and 
 cons.) gene(s)
-Amplicon 1st gene Amplicon 2nd (and
-cons.) gene(s)
-Amplicon last gene
-Amplicon 2nd (and
-cons.) gene(s)
-Amplicon 1st gene Amplicon 2nd (and
+Amplicon 1st gene Amplicon 2nd (and 
 cons.) gene(s)
 Amplicon last gene
-Amplicon 2nd (and
+Amplicon 2nd (and 
+cons.) gene(s)
+Amplicon 1st gene Amplicon 2nd (and 
+cons.) gene(s)
+Amplicon last gene
+Amplicon 2nd (and 
 cons.) gene(s)
 a
 Fig. 1 Schematic overview of the OPN1LW/OPN1MW gene cluster and the position of the MLPA probes and sequencing primers. a The
@@ -360,7 +362,7 @@ number analysis and the long-read sequencing approach makes it
 possible to determine the genetic composition of the entire
 L. Haer-Wigman et al.
 3
-Published in partnership with CEGMR, King Abdulaziz University npj Genomic Medicine (2022)    65
+Published in partnership with CEGMR, King Abdulaziz University npj Genomic Medicine (2022)    65 
 
 LCROPN1LWOPN1MW
 Gene
@@ -506,18 +508,18 @@ OPN1LW/OPN1MW gene cluster.
 Genetic analysis
 OPN1LW/OPN1MW
 gene cluster
-Genetically confirm
+Genetically confirm 
 diagnosis
-Carrier status
+Carrier status 
 analysis
 Opsin MLPA
 Sequence 1st geneSequence 1st gene Sequence 1st gene
-Sequence 2nd and
+Sequence 2nd and 
 consecutive genes
-Sequence 2nd and
+Sequence 2nd and 
 consecutive genes
-2nd
-and 3rd gene
+2nd 
+and 3rd gene 
 identical?
 Sequence last
 opsin gene
@@ -526,22 +528,22 @@ variants
 detected?
 Sequence LCR
 Write report
-Single
+Single 
 opsin gene in
 affected family
 member?
-Opsin MLPA and
-sequence 1st and 2nd
+Opsin MLPA and 
+sequence 1st and 2nd 
 and consecutive genes
-Opsin MLPA and sequence
-amplicons needed for
-detection of causal variants
+Opsin MLPA and sequence 
+amplicons needed for 
+detection of causal variants 
 in affected relative
 Sequence LCR
-Nr. of
-opsin gene
+Nr. of 
+opsin gene 
 copies??
-Deletion
+Deletion 
 LCR?
 No
 Yes
@@ -565,7 +567,7 @@ single (hybrid) genes frequently occur de novo. In the other cases the same ampl
 causal variants in the affected family member.
 L. Haer-Wigman et al.
 5
-Published in partnership with CEGMR, King Abdulaziz University npj Genomic Medicine (2022)    65
+Published in partnership with CEGMR, King Abdulaziz University npj Genomic Medicine (2022)    65 
 
 a
 Protonopia: 07403
@@ -717,15 +719,15 @@ c.-33_-13delinsATCAC
 c.-33_-13delinsATCAC
 (                   )
 (                   )
-c.607T>C
+c.607T>C 
 p.(Cys203Arg)
 USN11169
 USN06413
-c.607T>C
+c.607T>C 
 p.(Cys203Arg)
-c.607T>C
+c.607T>C 
 p.(Cys203Arg)
-c.607T>C
+c.607T>C 
 p.(Cys203Arg)
 Fig. 5 Schematic overview of the pedigree and detected alleles in four clinical samples and relatives in whom carrier status analysis of
 the OPN1LW/OPN1MW gene cluster was performed. The individuals in whom carrier status analyses was requested are depicted with the
@@ -738,7 +740,7 @@ analysis of their parents (grandparents of the affected boys) was needed, to de 
 were tested it was determined that USN18152 was a carrier and USN11849 not.
 L. Haer-Wigman et al.
 7
-Published in partnership with CEGMR, King Abdulaziz University npj Genomic Medicine (2022)    65
+Published in partnership with CEGMR, King Abdulaziz University npj Genomic Medicine (2022)    65 
 
 medically relevant for various disease phenotypes have such NGS
 dead zones in their coding regions 26. Clinicians should be aware
@@ -1009,7 +1011,7 @@ persons with color vision de ﬁciencies. We would like to thank Ronald van Beek
 Eveline Kamping for performing the OGM.
 L. Haer-Wigman et al.
 9
-Published in partnership with CEGMR, King Abdulaziz University npj Genomic Medicine (2022)    65
+Published in partnership with CEGMR, King Abdulaziz University npj Genomic Medicine (2022)    65 
 
 AUTHOR CONTRIBUTIONS
 Conceptualization: L.H.-W.; Investigation: A.O., M.T.-P.-F.; Methodology: A.O., A.S.H.,

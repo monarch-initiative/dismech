@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41467-023-37860-8
+extractor_version: 1
 title: Structural basis for botulinum neurotoxin E recognition of synaptic vesicle protein 2
 authors:
 - Zheng Liu
@@ -21,12 +22,14 @@ journal: Nature Communications
 year: '2023'
 doi: 10.1038/s41467-023-37860-8
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41467-023-37860-8.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41467-023-37860-8.pdf
+full_text_access_type: open
 ---
 
 # Structural basis for botulinum neurotoxin E recognition of synaptic vesicle protein 2
@@ -36,7 +39,9 @@ local_pdf_path: files/DOI_10.1038_s41467-023-37860-8.pdf
 
 ## Content
 
-AbstractBotulinum neurotoxin E (BoNT/E) is one of the major causes of human botulism and paradoxically also a promising therapeutic agent. Here we determined the co-crystal structures of the receptor-binding domain of BoNT/E (HCE) in complex with its neuronal receptor synaptic vesicle glycoprotein 2A (SV2A) and a nanobody that serves as a ganglioside surrogate. These structures reveal that the protein-protein interactions between HCE and SV2 provide the crucial location and specificity information for HCE to recognize SV2A and SV2B, but not the closely related SV2C. At the same time, HCE exploits a separated sialic acid-binding pocket to mediate recognition of an N-glycan of SV2. Structure-based mutagenesis and functional studies demonstrate that both the protein-protein and protein-glycan associations are essential for SV2A-mediated cell entry of BoNT/E and for its potent neurotoxicity. Our studies establish the structural basis to understand the receptor-specificity of BoNT/E and to engineer BoNT/E variants for new clinical applications.
+Abstract
+
+Botulinum neurotoxin E (BoNT/E) is one of the major causes of human botulism and paradoxically also a promising therapeutic agent. Here we determined the co-crystal structures of the receptor-binding domain of BoNT/E (H C E) in complex with its neuronal receptor synaptic vesicle glycoprotein 2A (SV2A) and a nanobody that serves as a ganglioside surrogate. These structures reveal that the protein-protein interactions between H C E and SV2 provide the crucial location and specificity information for H C E to recognize SV2A and SV2B, but not the closely related SV2C. At the same time, H C E exploits a separated sialic acid-binding pocket to mediate recognition of an N-glycan of SV2. Structure-based mutagenesis and functional studies demonstrate that both the protein-protein and protein-glycan associations are essential for SV2A-mediated cell entry of BoNT/E and for its potent neurotoxicity. Our studies establish the structural basis to understand the receptor-specificity of BoNT/E and to engineer BoNT/E variants for new clinical applications.
 
 Article https://doi.org/10.1038/s41467-023-37860-8
 Structural basis for botulinum neurotoxin

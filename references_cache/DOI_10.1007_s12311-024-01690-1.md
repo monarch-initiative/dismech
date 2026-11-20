@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s12311-024-01690-1
+extractor_version: 1
 title: "Evaluation of the Patients with the Diagnosis of Pontocerebellar Hypoplasia: A Multicenter National Study"
 authors:
 - Dilek Cavusoglu
@@ -39,12 +40,14 @@ journal: The Cerebellum
 year: '2024'
 doi: 10.1007/s12311-024-01690-1
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s12311-024-01690-1.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s12311-024-01690-1.pdf
+full_text_access_type: open
 ---
 
 # Evaluation of the Patients with the Diagnosis of Pontocerebellar Hypoplasia: A Multicenter National Study
@@ -54,7 +57,9 @@ local_pdf_path: files/DOI_10.1007_s12311-024-01690-1.pdf
 
 ## Content
 
-AbstractPontocerebellar hypoplasia (PCH) is a heterogeneous group of neurodegenerative disorders characterized by hypoplasia and degeneration of the cerebellum and pons. We aimed to identify the clinical, laboratory, and imaging findings of the patients with diagnosed PCH with confirmed genetic analysis. We collected available clinical data, laboratory, and imaging findings in our retrospective multicenter national study of 64 patients with PCH in Turkey. The genetic analysis included the whole-exome sequencing (WES), targeted next-generation sequencing (NGS), or single gene analysis. Sixty-four patients with PCH were 28 female (43.8%) and 36 (56.3%) male. The patients revealed homozygous mutation in 89.1%, consanguinity in 79.7%, pregnancy at term in 85.2%, microcephaly in 91.3%, psychomotor retardation in 98.4%, abnormal neurological findings in 100%, seizure in 63.8%, normal biochemistry and metabolic investigations in 92.2%, and dysmorphic findings in 51.2%. The missense mutation was found to be the most common variant type in all patients with PCH. It was detected as CLP1 (n = 17) was the most common PCH related gene. The homozygous missense variant c.419G > A (p.Arg140His) was identified in all patients with CLP1. Moreover, all patients showed the same homozygous missense variant c.919G > T (p.A307S) in TSEN54 group (n = 6). In Turkey, CLP1 was identified as the most common causative gene with the identical variant c.419G > A; p.Arg140His. The current study supports that genotype data on PCH leads to phenotypic variability over a wide phenotypic spectrum.
+Abstract
+
+Pontocerebellar hypoplasia (PCH) is a heterogeneous group of neurodegenerative disorders characterized by hypoplasia and degeneration of the cerebellum and pons. We aimed to identify the clinical, laboratory, and imaging findings of the patients with diagnosed PCH with confirmed genetic analysis. We collected available clinical data, laboratory, and imaging findings in our retrospective multicenter national study of 64 patients with PCH in Turkey. The genetic analysis included the whole-exome sequencing (WES), targeted next-generation sequencing (NGS), or single gene analysis. Sixty-four patients with PCH were 28 female (43.8%) and 36 (56.3%) male. The patients revealed homozygous mutation in 89.1%, consanguinity in 79.7%, pregnancy at term in 85.2%, microcephaly in 91.3%, psychomotor retardation in 98.4%, abnormal neurological findings in 100%, seizure in 63.8%, normal biochemistry and metabolic investigations in 92.2%, and dysmorphic findings in 51.2%. The missense mutation was found to be the most common variant type in all patients with PCH. It was detected as CLP1 (n = 17) was the most common PCH related gene. The homozygous missense variant c.419G > A (p.Arg140His) was identified in all patients with CLP1. Moreover, all patients showed the same homozygous missense variant c.919G > T (p.A307S) in TSEN54 group (n = 6). In Turkey, CLP1 was identified as the most common causative gene with the identical variant c.419G > A; p.Arg140His. The current study supports that genotype data on PCH leads to phenotypic variability over a wide phenotypic spectrum.
 
 Vol:.(1234567890)
 The Cerebellum (2024) 23:1950–1965

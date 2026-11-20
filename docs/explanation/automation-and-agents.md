@@ -160,6 +160,8 @@ publisher PDFs.
 
 **Scheduled housekeeping** — `weekly-compliance` opens a periodic
 compliance-fix PR, which enters the ordinary review and PR-shepherd closing path;
+`weekly-report` posts a weekly activity summary issue that replaces the previous
+week's and may file up to three `weekly-report-lead` issues;
 `sync-epic-checkboxes` reconciles a tracking issue against the KB.
 
 **Releases** — `kgx-release`, `mondo-emc-release`, `pypi-publish`, triggered by
@@ -236,6 +238,31 @@ because CI validation must be deterministic, but written *only* by their
 generating tool.
 
 ---
+
+## Requesting a review with `/review`
+
+An `OWNER`, `MEMBER` or `COLLABORATOR` can comment exactly `/review` on a PR to
+run `claude-code-review.yml` on demand. Since #18311 the request gets a status
+comment, edited in place as the run moves on:
+
+| Status | Meaning |
+|---|---|
+| 🕐 Review queued | The request was accepted; the run is waiting for a runner |
+| ⏳ Review running | The review job has started |
+| ✅ / ❌ / ⚪ / ⚠️ | Verdict published / no verdict / cancelled or superseded / diff too large |
+| 🚫 Review not started | The commenter is not allowed to request a review |
+
+The status comment is posted by a small `acknowledge` job, so it still waits for
+a free runner. When CI is busy it appears sooner than the review starts, but not
+instantly. The review job can occasionally reach a runner first, in which case
+the comment opens at "running".
+
+Two limits are worth knowing. A newer `/review` on the same PR cancels the older
+one, and the older status comment is marked superseded. Other comments do not
+cancel a review: they run in a concurrency group of their own. And a `/review`
+run executes `main`'s copy of the workflow and records its check on `main`'s
+commit, so it cannot turn a failing `claude-review` check on the PR's own commit
+green. Re-run the failed job from the PR's Checks tab for that.
 
 ## Recovering failed review Actions
 

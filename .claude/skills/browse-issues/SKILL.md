@@ -229,7 +229,8 @@ to the issue. The launcher:
    short first prompt: the issue, read it and its comments, the lane's
    one-line hint, open one PR with `Closes #<N>`, ask before guessing. The new
    session inherits CLAUDE.md and every project skill, so the prompt does not
-   restate SOPs.
+   restate SOPs. The window opens **detached**, so a launch leaves an
+   attached terminal on whatever window it was already watching.
 
 Location and names are configurable, by flag or environment variable:
 `--worktree-root` / `DISMECH_WORKTREE_ROOT` (default `~/worktrees`),

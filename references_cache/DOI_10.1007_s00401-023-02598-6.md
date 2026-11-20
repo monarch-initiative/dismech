@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00401-023-02598-6
+extractor_version: 1
 title: Mutation ∆K281 in MAPT causes Pick’s disease
 authors:
 - Manuel Schweighauser
@@ -18,12 +19,14 @@ journal: Acta Neuropathologica
 year: '2023'
 doi: 10.1007/s00401-023-02598-6
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00401-023-02598-6.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s00401-023-02598-6.pdf
+full_text_access_type: open
 ---
 
 # Mutation ∆K281 in MAPT causes Pick’s disease
@@ -33,7 +36,9 @@ local_pdf_path: files/DOI_10.1007_s00401-023-02598-6.pdf
 
 ## Content
 
-AbstractTwo siblings with deletion mutation ∆K281 in MAPT developed frontotemporal dementia. At autopsy, numerous inclusions of hyperphosphorylated 3R Tau were present in neurons and glial cells of neocortex and some subcortical regions, including hippocampus, caudate/putamen and globus pallidus. The inclusions were argyrophilic with Bodian silver, but not with Gallyas–Braak silver. They were not labelled by an antibody specific for tau phosphorylated at S262 and/or S356. The inclusions were stained by luminescent conjugated oligothiophene HS-84, but not by bTVBT4. Electron cryo-microscopy revealed that the core of tau filaments was made of residues K254-F378 of 3R Tau and was indistinguishable from that of Pick’s disease. We conclude that MAPT mutation ∆K281 causes Pick’s disease.
+Abstract
+
+Two siblings with deletion mutation ∆K281 in MAPT developed frontotemporal dementia. At autopsy, numerous inclusions of hyperphosphorylated 3R Tau were present in neurons and glial cells of neocortex and some subcortical regions, including hippocampus, caudate/putamen and globus pallidus. The inclusions were argyrophilic with Bodian silver, but not with Gallyas–Braak silver. They were not labelled by an antibody specific for tau phosphorylated at S262 and/or S356. The inclusions were stained by luminescent conjugated oligothiophene HS-84, but not by bTVBT4. Electron cryo-microscopy revealed that the core of tau filaments was made of residues K254-F378 of 3R Tau and was indistinguishable from that of Pick’s disease. We conclude that MAPT mutation ∆K281 causes Pick’s disease.
 
 Vol.:(0123456789)1 3
 Acta Neuropathologica (2023) 146:211–226 

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41467-024-46159-1
+extractor_version: 1
 title: Deregulated protein homeostasis constrains fetal hematopoietic stem cell pool expansion in Fanconi anemia
 authors:
 - Narasaiah Kovuru
@@ -14,12 +15,14 @@ journal: Nature Communications
 year: '2024'
 doi: 10.1038/s41467-024-46159-1
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41467-024-46159-1.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41467-024-46159-1.pdf
+full_text_access_type: open
 ---
 
 # Deregulated protein homeostasis constrains fetal hematopoietic stem cell pool expansion in Fanconi anemia
@@ -29,7 +32,9 @@ local_pdf_path: files/DOI_10.1038_s41467-024-46159-1.pdf
 
 ## Content
 
-AbstractDemand-adjusted and cell type specific rates of protein synthesis represent an important safeguard for fate and function of long-term hematopoietic stem cells. Here, we identify increased protein synthesis rates in the fetal hematopoietic stem cell pool at the onset of hematopoietic failure in Fanconi Anemia, a prototypical DNA repair disorder that manifests with bone marrow failure. Mechanistically, the accumulation of misfolded proteins in Fancd2−/− fetal liver hematopoietic stem cells converges on endoplasmic reticulum stress, which in turn constrains midgestational expansion. Restoration of protein folding by the chemical chaperone tauroursodeoxycholic acid, a hydrophilic bile salt, prevents accumulation of unfolded proteins and rescues Fancd2−/− fetal liver long-term hematopoietic stem cell numbers. We find that proteostasis deregulation itself is driven by excess sterile inflammatory activity in hematopoietic and stromal cells within the fetal liver, and dampened Type I interferon signaling similarly restores fetal Fancd2−/− long-term hematopoietic stem cells to wild type-equivalent numbers. Our study reveals the origin and pathophysiological trigger that gives rise to Fanconi anemia hematopoietic stem cell pool deficits. More broadly, we show that fetal protein homeostasis serves as a physiological rheostat for hematopoietic stem cell fate and function.
+Abstract
+
+Demand-adjusted and cell type specific rates of protein synthesis represent an important safeguard for fate and function of long-term hematopoietic stem cells. Here, we identify increased protein synthesis rates in the fetal hematopoietic stem cell pool at the onset of hematopoietic failure in Fanconi Anemia, a prototypical DNA repair disorder that manifests with bone marrow failure. Mechanistically, the accumulation of misfolded proteins in Fancd2−/− fetal liver hematopoietic stem cells converges on endoplasmic reticulum stress, which in turn constrains midgestational expansion. Restoration of protein folding by the chemical chaperone tauroursodeoxycholic acid, a hydrophilic bile salt, prevents accumulation of unfolded proteins and rescues Fancd2−/− fetal liver long-term hematopoietic stem cell numbers. We find that proteostasis deregulation itself is driven by excess sterile inflammatory activity in hematopoietic and stromal cells within the fetal liver, and dampened Type I interferon signaling similarly restores fetal Fancd2−/− long-term hematopoietic stem cells to wild type-equivalent numbers. Our study reveals the origin and pathophysiological trigger that gives rise to Fanconi anemia hematopoietic stem cell pool deficits. More broadly, we show that fetal protein homeostasis serves as a physiological rheostat for hematopoietic stem cell fate and function.
 
 Article https://doi.org/10.1038/s41467-024-46159-1
 Deregulated protein homeostasis constrains

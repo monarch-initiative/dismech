@@ -222,3 +222,75 @@ def test_sweep_is_a_noop_on_the_committed_cache():
         f"normalization churn this guard exists to prevent -- revert it. "
         f"First few: {offenders[:10]}"
     )
+
+
+def _git(cwd, *args):
+    import subprocess
+
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@example.org", *args],
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+    )
+
+
+def test_scoped_normalization_leaves_committed_whitespace_alone(tmp_path):
+    """Issue #9963: validating must not rewrite a committed cache record.
+
+    Committed PubMed records carry PubMed's own trailing spaces. Only a record git
+    does not track yet (a fresh fetch) has its line-end whitespace trimmed.
+    """
+    body = (
+        "---\nreference_id: PMID:{n}\ntitle: A paper\n---\n\nLine one. \nLine two.\t\n"
+    )
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    committed = cache_dir / "PMID_1.md"
+    committed.write_text(body.format(n=1), encoding="utf-8")
+    _git(tmp_path, "init", "-q")
+    _git(tmp_path, "add", "cache/PMID_1.md")
+    _git(tmp_path, "commit", "-q", "-m", "seed")
+    fresh = cache_dir / "PMID_2.md"
+    fresh.write_text(body.format(n=2), encoding="utf-8")
+    data_file = tmp_path / "Disease.yaml"
+    data_file.write_text(
+        "evidence:\n- reference: PMID:1\n- reference: PMID:2\n", encoding="utf-8"
+    )
+
+    assert files_needing_requote(cache_dir, [data_file]) == [fresh.name]
+    assert normalize_reference_cache(cache_dir, [data_file]) == [fresh.name]
+    assert committed.read_text(encoding="utf-8") == body.format(n=1)
+    assert fresh.read_text(encoding="utf-8").endswith("Line one.\nLine two.\n")
+
+
+# Entries whose cited caches include committed PubMed records with trailing
+# spaces -- the shape that turned every validation run into cache churn (#9963).
+_ENTRIES_CITING_WHITESPACE_CACHES = [
+    "kb/disorders/Adult_Onset_Foveomacular_Vitelliform_Dystrophy.yaml",
+    "kb/disorders/IMPG1-related_Dominant_Retinopathy.yaml",
+    "kb/disorders/Asthma.yaml",
+]
+
+
+@pytest.mark.skipif(
+    not (ROOT_DIR / ".git").exists() or not REFERENCES_CACHE_DIR.exists(),
+    reason="needs a git checkout with references_cache/",
+)
+def test_scoped_sweep_is_a_noop_on_committed_caches_cited_by_kb_entries():
+    """The validation prelude must leave every tracked references_cache/ file as is."""
+    entries = [ROOT_DIR / p for p in _ENTRIES_CITING_WHITESPACE_CACHES]
+    entries = [p for p in entries if p.exists()]
+    assert entries, "fixture entries are gone; pick others citing PubMed caches"
+    cited = reference_cache_quote.resolve_cache_paths(REFERENCES_CACHE_DIR, entries)
+    assert any(
+        reference_cache_quote._strip_line_end_whitespace(p.read_text(encoding="utf-8"))[
+            1
+        ]
+        for p in cited
+    ), "no cited cache carries trailing whitespace; the test no longer probes #9963"
+    offenders = files_needing_requote(REFERENCES_CACHE_DIR, entries)
+    assert offenders == [], (
+        "fix-references-cache would rewrite committed cache files during "
+        f"validation (issue #9963): {offenders[:10]}"
+    )

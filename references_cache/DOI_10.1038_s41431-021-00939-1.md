@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41431-021-00939-1
+extractor_version: 1
 title: "IMPDH2: a new gene associated with dominant juvenile-onset dystonia-tremor disorder"
 authors:
 - Anna Kuukasjärvi
@@ -14,12 +15,14 @@ journal: European Journal of Human Genetics
 year: '2021'
 doi: 10.1038/s41431-021-00939-1
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41431-021-00939-1.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41431-021-00939-1.pdf
+full_text_access_type: open
 ---
 
 # IMPDH2: a new gene associated with dominant juvenile-onset dystonia-tremor disorder
@@ -29,7 +32,9 @@ local_pdf_path: files/DOI_10.1038_s41431-021-00939-1.pdf
 
 ## Content
 
-AbstractThe aetiology of dystonia disorders is complex, and next-generation sequencing has become a useful tool in elucidating the variable genetic background of these diseases. Here we report a deleterious heterozygous truncating variant in the inosine monophosphate dehydrogenase gene (IMPDH2) by whole-exome sequencing, co-segregating with a dominantly inherited dystonia-tremor disease in a large Finnish family. We show that the defect results in degradation of the gene product, causing IMPDH2 deficiency in patient cells. IMPDH2 is the first and rate-limiting enzyme in the de novo biosynthesis of guanine nucleotides, a dopamine synthetic pathway previously linked to childhood or adolescence-onset dystonia disorders. We report IMPDH2 as a new gene to the dystonia disease entity. The evidence underlines the important link between guanine metabolism, dopamine biosynthesis and dystonia.
+Abstract
+
+The aetiology of dystonia disorders is complex, and next-generation sequencing has become a useful tool in elucidating the variable genetic background of these diseases. Here we report a deleterious heterozygous truncating variant in the inosine monophosphate dehydrogenase gene (IMPDH2) by whole-exome sequencing, co-segregating with a dominantly inherited dystonia-tremor disease in a large Finnish family. We show that the defect results in degradation of the gene product, causing IMPDH2 deficiency in patient cells. IMPDH2 is the first and rate-limiting enzyme in the de novo biosynthesis of guanine nucleotides, a dopamine synthetic pathway previously linked to childhood or adolescence-onset dystonia disorders. We report IMPDH2 as a new gene to the dystonia disease entity. The evidence underlines the important link between guanine metabolism, dopamine biosynthesis and dystonia.
 
 BRIEF COMMUNICATION OPEN
 IMPDH2: a new gene associated with dominant juvenile-onset

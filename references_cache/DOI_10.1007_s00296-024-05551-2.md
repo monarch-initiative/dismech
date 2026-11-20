@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00296-024-05551-2
+extractor_version: 1
 title: "Baricitinib for anti-melanoma differentiation-associated protein 5 antibody-positive dermatomyositis-associated interstitial lung disease: a case series and literature review on Janus kinase inhibitors for the disease"
 authors:
 - Hiroaki Harada
@@ -12,12 +13,14 @@ journal: Rheumatology International
 year: '2024'
 doi: 10.1007/s00296-024-05551-2
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00296-024-05551-2.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s00296-024-05551-2.pdf
+full_text_access_type: open
 ---
 
 # Baricitinib for anti-melanoma differentiation-associated protein 5 antibody-positive dermatomyositis-associated interstitial lung disease: a case series and literature review on Janus kinase inhibitors for the disease
@@ -27,7 +30,9 @@ local_pdf_path: files/DOI_10.1007_s00296-024-05551-2.pdf
 
 ## Content
 
-AbstractAnti-melanoma differentiation-associated protein 5 antibody-positive dermatomyositis (anti-MDA5-DM) is frequently complicated by progressive interstitial lung disease (ILD), the prognosis of which is poor, and management is a major challenge. We treated three patients with anti-MDA5-DM-associated ILD (anti-MDA5-DM-ILD) using the Janus kinase (JAK) inhibitor, baricitinib, which improved lung opacities and saved two patients. We reviewed 6 patients with anti-MDA5-DM-ILD who had been treated with tofacitinib at our institution. Five of the patients survived, although discontinuation of tofacitinib due to complications was frequently observed. In addition, a literature search of patients with anti-MDA5-DM-ILD who were treated with JAK inhibitors yielded 21 articles involving 79 cases. All patients except one were treated with tofacitinib, and the survival rate was 75.9%. Although not statistically confirmed, the deceased patients tended to be older and had higher ferritin levels. A total of 92 complications were observed, 11 of which resulted in JAK inhibitor discontinuation. Cytomegalovirus reactivation comprised a substantial percentage of all complications and of those patients who required JAK inhibitor discontinuation. Five cases with fatal infective complications were also observed. While tofacitinib has been proposed to be a therapeutic option for anti-MDA5-DM-ILD, other JAK inhibitors, including baricitinib, are a treatment option. Further investigation is warranted to optimize treatment of anti-MDA5-DM-ILD.
+Abstract
+
+Anti-melanoma differentiation-associated protein 5 antibody-positive dermatomyositis (anti-MDA5-DM) is frequently complicated by progressive interstitial lung disease (ILD), the prognosis of which is poor, and management is a major challenge. We treated three patients with anti-MDA5-DM-associated ILD (anti-MDA5-DM-ILD) using the Janus kinase (JAK) inhibitor, baricitinib, which improved lung opacities and saved two patients. We reviewed 6 patients with anti-MDA5-DM-ILD who had been treated with tofacitinib at our institution. Five of the patients survived, although discontinuation of tofacitinib due to complications was frequently observed. In addition, a literature search of patients with anti-MDA5-DM-ILD who were treated with JAK inhibitors yielded 21 articles involving 79 cases. All patients except one were treated with tofacitinib, and the survival rate was 75.9%. Although not statistically confirmed, the deceased patients tended to be older and had higher ferritin levels. A total of 92 complications were observed, 11 of which resulted in JAK inhibitor discontinuation. Cytomegalovirus reactivation comprised a substantial percentage of all complications and of those patients who required JAK inhibitor discontinuation. Five cases with fatal infective complications were also observed. While tofacitinib has been proposed to be a therapeutic option for anti-MDA5-DM-ILD, other JAK inhibitors, including baricitinib, are a treatment option. Further investigation is warranted to optimize treatment of anti-MDA5-DM-ILD.
 
 Vol.:(0123456789)
 Rheumatology International (2024) 44:961–971 

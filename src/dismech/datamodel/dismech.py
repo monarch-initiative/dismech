@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-11-06T07:22:52
+# Generation date: 2026-11-18T08:49:52
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -70,6 +70,7 @@ CL = CurieNamespace('CL', 'http://purl.obolibrary.org/obo/CL_')
 ECTO = CurieNamespace('ECTO', 'http://purl.obolibrary.org/obo/ECTO_')
 ENVO = CurieNamespace('ENVO', 'http://purl.obolibrary.org/obo/ENVO_')
 EXO = CurieNamespace('ExO', 'http://purl.obolibrary.org/obo/ExO_')
+FB = CurieNamespace('FB', 'http://identifiers.org/fb/')
 FOODON = CurieNamespace('FOODON', 'http://purl.obolibrary.org/obo/FOODON_')
 GENO = CurieNamespace('GENO', 'http://purl.obolibrary.org/obo/GENO_')
 GO = CurieNamespace('GO', 'http://purl.obolibrary.org/obo/GO_')
@@ -79,17 +80,25 @@ HP = CurieNamespace('HP', 'http://purl.obolibrary.org/obo/HP_')
 ICD10CM = CurieNamespace('ICD10CM', 'http://purl.obolibrary.org/obo/ICD10CM_')
 ICTRP = CurieNamespace('ICTRP', 'https://trialsearch.who.int/Trial2.aspx?TrialID=')
 LOINC = CurieNamespace('LOINC', 'https://loinc.org/')
+MGI = CurieNamespace('MGI', 'http://identifiers.org/mgi/')
 MONDO = CurieNamespace('MONDO', 'http://purl.obolibrary.org/obo/MONDO_')
 MRO = CurieNamespace('MRO', 'http://purl.obolibrary.org/obo/MRO_')
+NCBIGENE = CurieNamespace('NCBIGene', 'http://identifiers.org/ncbigene/')
 NCBITAXON = CurieNamespace('NCBITaxon', 'http://purl.obolibrary.org/obo/NCBITaxon_')
 NCIT = CurieNamespace('NCIT', 'http://purl.obolibrary.org/obo/NCIT_')
 OBI = CurieNamespace('OBI', 'http://purl.obolibrary.org/obo/OBI_')
+OMIMPS = CurieNamespace('OMIMPS', 'https://omim.org/phenotypicSeries/PS')
 OPL = CurieNamespace('OPL', 'http://purl.obolibrary.org/obo/OPL_')
 PATO = CurieNamespace('PATO', 'http://purl.obolibrary.org/obo/PATO_')
 PMID = CurieNamespace('PMID', 'http://www.ncbi.nlm.nih.gov/pubmed/')
+RGD = CurieNamespace('RGD', 'http://identifiers.org/rgd/')
+SGD = CurieNamespace('SGD', 'http://identifiers.org/sgd/')
 SO = CurieNamespace('SO', 'http://purl.obolibrary.org/obo/SO_')
 UBERON = CurieNamespace('UBERON', 'http://purl.obolibrary.org/obo/UBERON_')
+WB = CurieNamespace('WB', 'http://identifiers.org/wb/')
 XCO = CurieNamespace('XCO', 'http://purl.obolibrary.org/obo/XCO_')
+XENBASE = CurieNamespace('Xenbase', 'http://identifiers.org/xenbase/')
+ZFIN = CurieNamespace('ZFIN', 'http://identifiers.org/zfin/')
 ARRAYEXPRESS = CurieNamespace('arrayexpress', 'https://www.ebi.ac.uk/biostudies/arrayexpress/studies/')
 BIGG = CurieNamespace('bigg', 'https://bigg.ucsd.edu/models/')
 BIOMODELS = CurieNamespace('biomodels', 'https://www.ebi.ac.uk/biomodels/')
@@ -150,6 +159,10 @@ class TermId(URIorCURIE):
 
 
 class LoincCodeId(TermId):
+    pass
+
+
+class OMIMPSCodeId(TermId):
     pass
 
 
@@ -432,6 +445,30 @@ class LoincCode(Term):
 
 
 @dataclass(repr=False)
+class OMIMPSCode(Term):
+    """
+    An OMIM phenotypic-series identifier, distinct from an individual OMIM phenotype or gene record even when their
+    six-digit numbers coincide.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["OMIMPSCode"]
+    class_class_curie: ClassVar[str] = "dismech:OMIMPSCode"
+    class_name: ClassVar[str] = "OMIMPSCode"
+    class_model_uri: ClassVar[URIRef] = DISMECH.OMIMPSCode
+
+    id: Union[str, OMIMPSCodeId] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.id):
+            self.MissingRequiredField("id")
+        if not isinstance(self.id, OMIMPSCodeId):
+            self.id = OMIMPSCodeId(self.id)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class Descriptor(YAMLRoot):
     """
     Base class for structured descriptors that allow a preferred term, optional description, optional ontology term
@@ -653,6 +690,30 @@ class ChemicalEntityDescriptor(Descriptor):
     class_class_curie: ClassVar[str] = "dismech:ChemicalEntityDescriptor"
     class_name: ClassVar[str] = "ChemicalEntityDescriptor"
     class_model_uri: ClassVar[URIRef] = DISMECH.ChemicalEntityDescriptor
+
+    preferred_term: str = None
+    term: Optional[Union[dict, Term]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.term is not None and not isinstance(self.term, Term):
+            self.term = Term(**as_dict(self.term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class GeneOrProductDescriptor(Descriptor):
+    """
+    A descriptor for a gene or gene product in a model system or dataset, bindable to HGNC for a human gene, to the
+    species' Alliance MOD (MGI, RGD, ZFIN, Xenbase, FB, WB, SGD) for a model-organism gene, or to NCBI Gene for a
+    species with no MOD.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["GeneOrProductDescriptor"]
+    class_class_curie: ClassVar[str] = "dismech:GeneOrProductDescriptor"
+    class_name: ClassVar[str] = "GeneOrProductDescriptor"
+    class_model_uri: ClassVar[URIRef] = DISMECH.GeneOrProductDescriptor
 
     preferred_term: str = None
     term: Optional[Union[dict, Term]] = None
@@ -1580,7 +1641,7 @@ class Dataset(YAMLRoot):
     sample_count: Optional[int] = None
     conditions: Optional[Union[str, list[str]]] = empty_list()
     exposures: Optional[Union[Union[dict, ExposureDescriptor], list[Union[dict, ExposureDescriptor]]]] = empty_list()
-    genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
+    genes: Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]] = empty_list()
     platform: Optional[str] = None
     publication: Optional[str] = None
     findings: Optional[Union[Union[dict, "Finding"], list[Union[dict, "Finding"]]]] = empty_list()
@@ -1616,7 +1677,7 @@ class Dataset(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="exposures", slot_type=ExposureDescriptor, key_name="preferred_term", keyed=False)
 
-        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneDescriptor, key_name="preferred_term", keyed=False)
+        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneOrProductDescriptor, key_name="preferred_term", keyed=False)
 
         if self.platform is not None and not isinstance(self.platform, str):
             self.platform = str(self.platform)
@@ -1658,6 +1719,7 @@ class ExperimentalModel(YAMLRoot):
     organism: Optional[Union[dict, OrganismDescriptor]] = None
     tissue_term: Optional[Union[dict, AnatomicalEntityDescriptor]] = None
     cell_types: Optional[Union[Union[dict, CellTypeDescriptor], list[Union[dict, CellTypeDescriptor]]]] = empty_list()
+    genes: Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]] = empty_list()
     conditions: Optional[Union[str, list[str]]] = empty_list()
     cell_source: Optional[str] = None
     culture_system: Optional[str] = None
@@ -1689,6 +1751,8 @@ class ExperimentalModel(YAMLRoot):
             self.tissue_term = AnatomicalEntityDescriptor(**as_dict(self.tissue_term))
 
         self._normalize_inlined_as_list(slot_name="cell_types", slot_type=CellTypeDescriptor, key_name="preferred_term", keyed=False)
+
+        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneOrProductDescriptor, key_name="preferred_term", keyed=False)
 
         if not isinstance(self.conditions, list):
             self.conditions = [self.conditions] if self.conditions is not None else []
@@ -3829,6 +3893,7 @@ class Pathophysiology(YAMLRoot):
     pdb_structures: Optional[Union[Union[dict, ProteinStructure], list[Union[dict, ProteinStructure]]]] = empty_list()
     mechanism_confidence: Optional[Union[str, "MechanismConfidenceEnum"]] = None
     biological_scale: Optional[Union[str, "BiologicalScaleEnum"]] = None
+    node_class: Optional[Union[str, "PathographNodeClassEnum"]] = None
     regulatory_category: Optional[Union[str, "RegulatoryVariantCategoryEnum"]] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -3915,6 +3980,9 @@ class Pathophysiology(YAMLRoot):
 
         if self.biological_scale is not None and not isinstance(self.biological_scale, BiologicalScaleEnum):
             self.biological_scale = BiologicalScaleEnum(self.biological_scale)
+
+        if self.node_class is not None and not isinstance(self.node_class, PathographNodeClassEnum):
+            self.node_class = PathographNodeClassEnum(self.node_class)
 
         if self.regulatory_category is not None and not isinstance(self.regulatory_category, RegulatoryVariantCategoryEnum):
             self.regulatory_category = RegulatoryVariantCategoryEnum(self.regulatory_category)
@@ -4749,7 +4817,7 @@ class AnimalModel(YAMLRoot):
     species: Optional[str] = None
     genotype: Optional[str] = None
     background: Optional[str] = None
-    genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
+    genes: Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]] = empty_list()
     category: Optional[str] = None
     alleles: Optional[Union[str, list[str]]] = empty_list()
     description: Optional[str] = None
@@ -4770,7 +4838,7 @@ class AnimalModel(YAMLRoot):
         if self.background is not None and not isinstance(self.background, str):
             self.background = str(self.background)
 
-        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneDescriptor, key_name="preferred_term", keyed=False)
+        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneOrProductDescriptor, key_name="preferred_term", keyed=False)
 
         if self.category is not None and not isinstance(self.category, str):
             self.category = str(self.category)
@@ -6461,6 +6529,36 @@ class NCITMapping(TermMapping):
 
 
 @dataclass(repr=False)
+class OMIMPSMapping(TermMapping):
+    """
+    Mapping to an OMIM phenotypic series, not an individual OMIM record
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["OMIMPSMapping"]
+    class_class_curie: ClassVar[str] = "dismech:OMIMPSMapping"
+    class_name: ClassVar[str] = "OMIMPSMapping"
+    class_model_uri: ClassVar[URIRef] = DISMECH.OMIMPSMapping
+
+    mapping_predicate: Union[str, URIorCURIE] = None
+    term: Union[dict, OMIMPSCode] = None
+    mapping_justification: str = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.term):
+            self.MissingRequiredField("term")
+        if not isinstance(self.term, OMIMPSCode):
+            self.term = OMIMPSCode(**as_dict(self.term))
+
+        if self._is_empty(self.mapping_justification):
+            self.MissingRequiredField("mapping_justification")
+        if not isinstance(self.mapping_justification, str):
+            self.mapping_justification = str(self.mapping_justification)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class MappingConsistency(YAMLRoot):
     """
     Consistency assertion for a mapping relative to another source
@@ -6508,6 +6606,7 @@ class DiseaseMappings(YAMLRoot):
     icd10cm_mappings: Optional[Union[Union[dict, ICD10CMMapping], list[Union[dict, ICD10CMMapping]]]] = empty_list()
     icd11f_mappings: Optional[Union[Union[dict, ICD11FMapping], list[Union[dict, ICD11FMapping]]]] = empty_list()
     mondo_mappings: Optional[Union[Union[dict, MondoMapping], list[Union[dict, MondoMapping]]]] = empty_list()
+    omimps_mappings: Optional[Union[Union[dict, OMIMPSMapping], list[Union[dict, OMIMPSMapping]]]] = empty_list()
     ncit_mappings: Optional[Union[Union[dict, NCITMapping], list[Union[dict, NCITMapping]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -6516,6 +6615,8 @@ class DiseaseMappings(YAMLRoot):
         self._normalize_inlined_as_list(slot_name="icd11f_mappings", slot_type=ICD11FMapping, key_name="mapping_predicate", keyed=False)
 
         self._normalize_inlined_as_list(slot_name="mondo_mappings", slot_type=MondoMapping, key_name="mapping_predicate", keyed=False)
+
+        self._normalize_inlined_as_list(slot_name="omimps_mappings", slot_type=OMIMPSMapping, key_name="mapping_predicate", keyed=False)
 
         self._normalize_inlined_as_list(slot_name="ncit_mappings", slot_type=NCITMapping, key_name="mapping_predicate", keyed=False)
 
@@ -8233,7 +8334,11 @@ class GeneDiseaseRelationshipEnum(EnumDefinitionImpl):
     DISPUTED = PermissibleValue(
         text="DISPUTED",
         title="Disputed",
-        description="""Reported gene-disease association whose validity is contested (corresponds to ClinGen \"Disputed\" or \"Refuted\").""")
+        description="""A reported gene-disease relationship whose validity is contested: the evidence for and against it conflicts, or the original report has not been replicated, and the question is open (corresponds to ClinGen/GenCC \"Disputed\"). Use this, not a subtype row, for a locus whose claim to cause the disease is unsettled. When an external body has graded the pair, copy its tier into `gene_disease_validity` as well; `relationship_type` is the curator's reading, `gene_disease_validity` is the source's.""")
+    REFUTED = PermissibleValue(
+        text="REFUTED",
+        title="Refuted",
+        description="""A reported gene-disease relationship that the evidence now contradicts: the refuting evidence significantly outweighs the original report, so the gene is recorded to stop the claim being re-made, not because it contributes to the disease (corresponds to ClinGen/GenCC \"Refuted\"). Distinct from DISPUTED, where the question is still open. Requires `evidence` citing the refutation, not only the original claim.""")
     UNKNOWN = PermissibleValue(
         text="UNKNOWN",
         title="Unknown",
@@ -8877,6 +8982,19 @@ class TriggerTerm(EnumDefinitionImpl):
         description="A trigger",
     )
 
+class GeneOrProductTerm(EnumDefinitionImpl):
+    """
+    A gene or gene product in a model system or dataset, named in its own species. In priority order: HGNC for a human
+    gene; the species' Alliance of Genome Resources member database where one exists (MGI mouse, RGD rat, ZFIN
+    zebrafish, Xenbase Xenopus, FB Drosophila, WB C. elegans, SGD S. cerevisiae); otherwise NCBI Gene. No hierarchy
+    constraint. The schema does not restrict the prefix: where each prefix may appear, and the priority, are enforced
+    by scripts/check_gene_namespaces.py.
+    """
+    _defn = EnumDefinition(
+        name="GeneOrProductTerm",
+        description="""A gene or gene product in a model system or dataset, named in its own species. In priority order: HGNC for a human gene; the species' Alliance of Genome Resources member database where one exists (MGI mouse, RGD rat, ZFIN zebrafish, Xenbase Xenopus, FB Drosophila, WB C. elegans, SGD S. cerevisiae); otherwise NCBI Gene. No hierarchy constraint. The schema does not restrict the prefix: where each prefix may appear, and the priority, are enforced by scripts/check_gene_namespaces.py.""",
+    )
+
 class GeneTerm(EnumDefinitionImpl):
     """
     A gene term from HGNC
@@ -8884,6 +9002,16 @@ class GeneTerm(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="GeneTerm",
         description="A gene term from HGNC",
+    )
+
+class OMIMPSTerm(EnumDefinitionImpl):
+    """
+    An OMIM phenotypic series. Validates identifier existence and the canonical label through the OMIM OAK adapter,
+    without a disease-hierarchy constraint. A series may describe a Mendelian disease family or susceptibility loci.
+    """
+    _defn = EnumDefinition(
+        name="OMIMPSTerm",
+        description="""An OMIM phenotypic series. Validates identifier existence and the canonical label through the OMIM OAK adapter, without a disease-hierarchy constraint. A series may describe a Mendelian disease family or susceptibility loci.""",
     )
 
 class LoincTerm(EnumDefinitionImpl):
@@ -9362,6 +9490,14 @@ class OnsetEnum(EnumDefinitionImpl):
         text="PUERPERAL",
         description="Puerperal onset",
         meaning=HP["4000040"])
+    PERIMENOPAUSAL = PermissibleValue(
+        text="PERIMENOPAUSAL",
+        description="Perimenopausal onset",
+        meaning=HP["6000314"])
+    POSTMENOPAUSAL = PermissibleValue(
+        text="POSTMENOPAUSAL",
+        description="Postmenopausal onset",
+        meaning=HP["6000315"])
 
     _defn = EnumDefinition(
         name="OnsetEnum",
@@ -14152,6 +14288,319 @@ class ExposomeDomainEnum(EnumDefinitionImpl):
 Wild is explicit that the domains overlap and that some exposures are hard to place — the internal domain is partly a *response* to the external. Use the value that names where the exposure is measured or acts, and do not treat a placement as a sharp claim. This axis is included because it is the standard vocabulary of exposome-scale epidemiology, which is increasingly the source of the environmental associations dismech curates; it is a framing device, not a regulatory instrument like the other enums here.""",
     )
 
+class PathographNodeClassEnum(EnumDefinitionImpl):
+    """
+    Pathograph node classes, the range of Pathophysiology node_class. A value without is_a is a tier; every other
+    value names the class it sits under.
+    """
+    GENOMIC_EFFECT = PermissibleValue(
+        text="GENOMIC_EFFECT",
+        title="GENOMIC EFFECT",
+        description="the lesion at the level of DNA/chromatin")
+    GENOME_INSTABILITY = PermissibleValue(
+        text="GENOME_INSTABILITY",
+        title="genome instability",
+        description="""an elevated RATE of new lesions rather than a lesion itself. From MeSH Genomic Instability (D042822).""")
+    PATHOGENIC_SEQUENCE_VARIANT = PermissibleValue(
+        text="PATHOGENIC_SEQUENCE_VARIANT",
+        title="pathogenic sequence variant",
+        description="the coding lesion itself, where the entry draws it as a node")
+    DOSAGE = PermissibleValue(
+        text="DOSAGE",
+        title="dosage")
+    STRUCTURAL_VARIANT = PermissibleValue(
+        text="STRUCTURAL_VARIANT",
+        title="structural variant")
+    CIS_REGULATORY_VARIANT = PermissibleValue(
+        text="CIS_REGULATORY_VARIANT",
+        title="cis-regulatory variant",
+        description="""a lesion in noncoding regulatory DNA: enhancer, promoter, or the 3D contacts between them. The gene is intact and the coding sequence is untouched; what changed is where and how much it is transcribed. Not `pathogenic sequence variant`, which reads as coding, and not `epigenetic`, which is a mark rather than a lesion.""")
+    EPIGENETIC = PermissibleValue(
+        text="EPIGENETIC",
+        title="epigenetic")
+    TRANSCRIPT_LEVEL = PermissibleValue(
+        text="TRANSCRIPT_LEVEL",
+        title="transcript-level")
+    ENVIRONMENTAL_EFFECT = PermissibleValue(
+        text="ENVIRONMENTAL_EFFECT",
+        title="ENVIRONMENTAL EFFECT",
+        description="the insult from outside")
+    INFECTIOUS_AGENT = PermissibleValue(
+        text="INFECTIOUS_AGENT",
+        title="infectious agent")
+    CHEMICAL_DRUG_TOXIN = PermissibleValue(
+        text="CHEMICAL_DRUG_TOXIN",
+        title="chemical / drug / toxin")
+    PHYSICAL_EXPOSURE = PermissibleValue(
+        text="PHYSICAL_EXPOSURE",
+        title="physical exposure")
+    HORMONAL_PHYSIOLOGICAL_EXPOSURE = PermissibleValue(
+        text="HORMONAL_PHYSIOLOGICAL_EXPOSURE",
+        title="hormonal / physiological exposure")
+    PHYSIOLOGICAL_STRESSOR = PermissibleValue(
+        text="PHYSIOLOGICAL_STRESSOR",
+        title="physiological stressor",
+        description="the intermittent trigger that unmasks a latent lesion")
+    MICROBIOME_STATE = PermissibleValue(
+        text="MICROBIOME_STATE",
+        title="microbiome state",
+        description="the resident community as an exposure, not a single pathogen")
+    MOLECULAR_ACTIVITY_EFFECT = PermissibleValue(
+        text="MOLECULAR_ACTIVITY_EFFECT",
+        title="MOLECULAR ACTIVITY EFFECT",
+        description="""what the gene product can no longer do; GO molecular_function territory. Not the allele (GENOMIC or `genetic:`), not the resulting pool (SUBSTANCE).""")
+    CATALYTIC_ACTIVITY = PermissibleValue(
+        text="CATALYTIC_ACTIVITY",
+        title="catalytic activity")
+    CHANNEL_CONDUCTANCE = PermissibleValue(
+        text="CHANNEL_CONDUCTANCE",
+        title="channel conductance")
+    TRANSPORT_ACTIVITY = PermissibleValue(
+        text="TRANSPORT_ACTIVITY",
+        title="transport activity")
+    RECEPTOR_ADAPTOR_ACTIVITY = PermissibleValue(
+        text="RECEPTOR_ADAPTOR_ACTIVITY",
+        title="receptor / adaptor activity")
+    STRUCTURAL_PROTEIN_ACTIVITY = PermissibleValue(
+        text="STRUCTURAL_PROTEIN_ACTIVITY",
+        title="structural-protein activity",
+        description="a structural protein failing to assemble, not an enzyme failing to catalyse")
+    MOLECULAR_SUBSTANCE_EFFECT = PermissibleValue(
+        text="MOLECULAR_SUBSTANCE_EFFECT",
+        title="MOLECULAR SUBSTANCE EFFECT",
+        description="""which molecules are now present in the wrong amount or the wrong form; one causal step below activity.""")
+    METABOLITE_ACCUMULATION = PermissibleValue(
+        text="METABOLITE_ACCUMULATION",
+        title="metabolite accumulation")
+    METABOLITE_DEPLETION = PermissibleValue(
+        text="METABOLITE_DEPLETION",
+        title="metabolite depletion")
+    PROTEIN_MISFOLDING_AGGREGATION = PermissibleValue(
+        text="PROTEIN_MISFOLDING_AGGREGATION",
+        title="protein misfolding / aggregation")
+    PROTEIN_ABUNDANCE_LOSS = PermissibleValue(
+        text="PROTEIN_ABUNDANCE_LOSS",
+        title="protein abundance loss",
+        description="""the protein is not there, as distinct from being present but inactive (ACTIVITY) or present but misfolded""")
+    PROTEIN_ABUNDANCE_EXCESS = PermissibleValue(
+        text="PROTEIN_ABUNDANCE_EXCESS",
+        title="protein abundance excess",
+        description="""the protein is present above its normal level -- overexpression, escape from degradation, ectopic expression of a normally silent gene. The mirror of abundance loss; a gain-of-dosage claim at the protein level rather than the gene level, so distinct from GENOMIC/dosage""")
+    POST_TRANSLATIONAL_MODIFICATION_STATE = PermissibleValue(
+        text="POST_TRANSLATIONAL_MODIFICATION_STATE",
+        title="post-translational modification state",
+        description="the molecule is present and correctly folded but chemically altered")
+    PATHWAY_EFFECT = PermissibleValue(
+        text="PATHWAY_EFFECT",
+        title="PATHWAY EFFECT",
+        description="signalling and flux through a pathway")
+    SIGNALLING_REDUCED_FAILED = PermissibleValue(
+        text="SIGNALLING_REDUCED_FAILED",
+        title="signalling reduced / failed")
+    SIGNALLING_INCREASED = PermissibleValue(
+        text="SIGNALLING_INCREASED",
+        title="signalling increased")
+    METABOLIC_FLUX_BLOCK = PermissibleValue(
+        text="METABOLIC_FLUX_BLOCK",
+        title="metabolic flux block")
+    CELLULAR_EFFECT = PermissibleValue(
+        text="CELLULAR_EFFECT",
+        title="CELLULAR EFFECT")
+    CELL_DEATH = PermissibleValue(
+        text="CELL_DEATH",
+        title="cell death")
+    DIFFERENTIATION_IDENTITY = PermissibleValue(
+        text="DIFFERENTIATION_IDENTITY",
+        title="differentiation / identity")
+    METAPLASIA = PermissibleValue(
+        text="METAPLASIA",
+        title="metaplasia",
+        description="""a differentiated tissue replaced by another differentiated type. From MeSH Metaplasia (D008679); conceptually sharp and distinct from a differentiation block.""")
+    HAEMOLYSIS = PermissibleValue(
+        text="HAEMOLYSIS",
+        title="haemolysis",
+        description="""erythrocyte destruction as its own leaf; MeSH gives Hemolysis (D006461) top-level pathologic-process billing""")
+    PROLIFERATION_EXPANSION = PermissibleValue(
+        text="PROLIFERATION_EXPANSION",
+        title="proliferation / expansion")
+    SENESCENCE = PermissibleValue(
+        text="SENESCENCE",
+        title="senescence")
+    CELL_ACTIVATION = PermissibleValue(
+        text="CELL_ACTIVATION",
+        title="cell activation",
+        description="a cell type switching into an effector state")
+    ORGANELLE_DYSFUNCTION = PermissibleValue(
+        text="ORGANELLE_DYSFUNCTION",
+        title="organelle dysfunction")
+    MORPHOGENESIS_MIGRATION_AND_POSITIONING = PermissibleValue(
+        text="MORPHOGENESIS_MIGRATION_AND_POSITIONING",
+        title="morphogenesis, migration and positioning")
+    PROTEIN_TRAFFICKING_AND_LOCALIZATION = PermissibleValue(
+        text="PROTEIN_TRAFFICKING_AND_LOCALIZATION",
+        title="protein trafficking and localization",
+        description="""the protein is made and folded but does not reach where it works. Distinct from ACTIVITY (it would work if it got there) and from SUBSTANCE (nothing is misfolded or depleted).""")
+    CELLULAR_FUNCTION_DISTURBANCE = PermissibleValue(
+        text="CELLULAR_FUNCTION_DISTURBANCE",
+        title="cellular function disturbance",
+        description="""a single cell type's physiological output running wrongly -- excitability, repolarization, transmitter release, contractility, secretion, transduction -- with no structural lesion at the cell. The cell-level counterpart of TISSUE/functional disturbance (an organ working wrongly); split out of it after the sixth draw showed that leaf carrying two scales""")
+    TISSUE_ORGAN_EFFECT = PermissibleValue(
+        text="TISSUE_ORGAN_EFFECT",
+        title="TISSUE / ORGAN EFFECT")
+    INFLAMMATION = PermissibleValue(
+        text="INFLAMMATION",
+        title="inflammation")
+    FIBROSIS_REMODELLING = PermissibleValue(
+        text="FIBROSIS_REMODELLING",
+        title="fibrosis / remodelling")
+    PATHOLOGICAL_STRUCTURE_FORMED = PermissibleValue(
+        text="PATHOLOGICAL_STRUCTURE_FORMED",
+        title="pathological structure formed")
+    DEGENERATION_ATROPHY = PermissibleValue(
+        text="DEGENERATION_ATROPHY",
+        title="degeneration / atrophy")
+    DEVELOPMENTAL_MALFORMATION = PermissibleValue(
+        text="DEVELOPMENTAL_MALFORMATION",
+        title="developmental malformation")
+    BARRIER_FAILURE = PermissibleValue(
+        text="BARRIER_FAILURE",
+        title="barrier failure")
+    INJURY = PermissibleValue(
+        text="INJURY",
+        title="injury",
+        description="generic tissue damage where the entry names no more specific process")
+    CIRCULATORY_DISTURBANCE = PermissibleValue(
+        text="CIRCULATORY_DISTURBANCE",
+        title="circulatory disturbance",
+        description="""haemorrhage, fluid shift and vessel/chamber dilatation. MPATH gives circulatory disorder TOP-LEVEL billing (MPATH:105).""")
+    MECHANICAL_OBSTRUCTION_AND_STENOSIS = PermissibleValue(
+        text="MECHANICAL_OBSTRUCTION_AND_STENOSIS",
+        title="mechanical obstruction and stenosis",
+        description="from SNOMED Mechanical abnormality (107658001).")
+    ABNORMAL_COMMUNICATION = PermissibleValue(
+        text="ABNORMAL_COMMUNICATION",
+        title="abnormal communication",
+        description="fistula, septal defect, shunt. From SNOMED Abnormal communication (783804002).")
+    VASCULAR_MALFORMATION = PermissibleValue(
+        text="VASCULAR_MALFORMATION",
+        title="vascular malformation",
+        description="""from SNOMED Vascular malformation (783806000); mechanistically distinct from developmental malformation generally""")
+    MATERIAL_DEPOSITION = PermissibleValue(
+        text="MATERIAL_DEPOSITION",
+        title="material deposition",
+        description="""material laid down IN tissue, as opposed to a discrete structure being built. SNOMED makes Deposition (46595003) a top-level morphologic category.""")
+    ISCHEMIA_AND_INFARCTION = PermissibleValue(
+        text="ISCHEMIA_AND_INFARCTION",
+        title="ischemia and infarction",
+        description="perfusion failure and its tissue consequence")
+    INFLAMMATORY_INFILTRATION = PermissibleValue(
+        text="INFLAMMATORY_INFILTRATION",
+        title="inflammatory infiltration",
+        description="cells or material entering tissue; distinct from the inflammatory response itself")
+    FUNCTIONAL_DISTURBANCE = PermissibleValue(
+        text="FUNCTIONAL_DISTURBANCE",
+        title="functional disturbance",
+        description="""an organ working wrongly without a structural lesion: conduction, contractility, motility, secretion, absorption. Organ-level only -- a single cell type's output running wrongly is CELLULAR/cellular function disturbance, and a distributed circuit misbehaving as a circuit is neural circuit and network dysfunction""")
+    NEOPLASTIC_INVASION_AND_METASTASIS = PermissibleValue(
+        text="NEOPLASTIC_INVASION_AND_METASTASIS",
+        title="neoplastic invasion and metastasis")
+    PATHOGEN_SPREAD_AND_TISSUE_INVASION = PermissibleValue(
+        text="PATHOGEN_SPREAD_AND_TISSUE_INVASION",
+        title="pathogen spread and tissue invasion",
+        description="the host-side counterpart of the ENVIRONMENTAL agent node")
+    IMMUNE_EVASION_AND_IMMUNOSUPPRESSIVE_MICROENVIRONMENT = PermissibleValue(
+        text="IMMUNE_EVASION_AND_IMMUNOSUPPRESSIVE_MICROENVIRONMENT",
+        title="immune evasion and immunosuppressive microenvironment")
+    IMPAIRED_REPAIR = PermissibleValue(
+        text="IMPAIRED_REPAIR",
+        title="impaired repair")
+    NEURAL_CIRCUIT_AND_NETWORK_DYSFUNCTION = PermissibleValue(
+        text="NEURAL_CIRCUIT_AND_NETWORK_DYSFUNCTION",
+        title="neural circuit and network dysfunction",
+        description="""a distributed multi-region circuit misbehaving as a circuit: hyperexcitability, hypersynchrony, dysconnectivity, oscillation. Distinct from functional disturbance, which is one organ working wrongly; here the lesion IS the network property, and no single region is at fault.""")
+    PATHOLOGICAL_ANGIOGENESIS = PermissibleValue(
+        text="PATHOLOGICAL_ANGIOGENESIS",
+        title="pathological angiogenesis",
+        description="""the vessel-building program running where, when or as much as it should not, and occasionally failing where it should run. Not vascular malformation (that is congenital architecture), not fibrosis/remodelling (that is matrix), and not structure formed: the vessels themselves are ordinary, the program driving them is not.""")
+    COMPRESSION_AND_MASS_EFFECT = PermissibleValue(
+        text="COMPRESSION_AND_MASS_EFFECT",
+        title="compression and mass effect",
+        description="""one structure pressing on its neighbour. Not obstruction (no lumen is narrowed) and not invasion (nothing crosses a boundary); the damage is transmitted force, so the lesion and the injured tissue are different tissues.""")
+    SYSTEMIC_EFFECT = PermissibleValue(
+        text="SYSTEMIC_EFFECT",
+        title="SYSTEMIC EFFECT")
+    METABOLIC_CRISIS = PermissibleValue(
+        text="METABOLIC_CRISIS",
+        title="metabolic crisis")
+    ORGAN_FAILURE = PermissibleValue(
+        text="ORGAN_FAILURE",
+        title="organ failure")
+    ENDOCRINE_HOMEOSTATIC_DERANGEMENT = PermissibleValue(
+        text="ENDOCRINE_HOMEOSTATIC_DERANGEMENT",
+        title="endocrine / homeostatic derangement")
+    SYSTEMIC_INFLAMMATORY_STATE = PermissibleValue(
+        text="SYSTEMIC_INFLAMMATORY_STATE",
+        title="systemic inflammatory state")
+    HAEMATOLOGICAL_DEFICIT = PermissibleValue(
+        text="HAEMATOLOGICAL_DEFICIT",
+        title="haematological deficit",
+        description="circulating cell-count failure. From SNOMED Abnormal cellular component of blood (89615005).")
+    AUTOIMMUNE_RESPONSE = PermissibleValue(
+        text="AUTOIMMUNE_RESPONSE",
+        title="autoimmune response",
+        description="""loss of self-tolerance and the autoreactive response itself. The tissue damage it causes still goes to TISSUE/inflammation or inflammatory infiltration; this leaf is the immune claim, not the lesion.""")
+    IMMUNE_DEFICIENCY = PermissibleValue(
+        text="IMMUNE_DEFICIENCY",
+        title="immune deficiency",
+        description="""the defect in immune function itself, as opposed to the susceptibility it confers (DISPOSITION) or the infection that follows (ENVIRONMENTAL)""")
+    BEHAVIOURAL_AND_COGNITIVE_MECHANISM = PermissibleValue(
+        text="BEHAVIOURAL_AND_COGNITIVE_MECHANISM",
+        title="behavioural and cognitive mechanism",
+        description="""a psychological process doing mechanistic work. Small but unmistakable, and the psychiatric corpus has nowhere else to go: this is not tissue function, not a network lesion, and not an outcome.""")
+    NUTRITIONAL_DEFICIT = PermissibleValue(
+        text="NUTRITIONAL_DEFICIT",
+        title="nutritional deficit",
+        description="whole-body undernutrition as a state, not renal salt or phosphate \"wasting\".")
+    OUTCOME = PermissibleValue(
+        text="OUTCOME",
+        title="OUTCOME",
+        description="what happens to the patient")
+    CLINICAL_ENDPOINT = PermissibleValue(
+        text="CLINICAL_ENDPOINT",
+        title="clinical endpoint")
+    PROGRESSION_AND_TRANSFORMATION = PermissibleValue(
+        text="PROGRESSION_AND_TRANSFORMATION",
+        title="progression and transformation",
+        description="""a transition to a DIFFERENT disease state. Not a cascade step: it asserts where the disease goes next, and is the shape that keeps OUTCOME from being nearly empty.""")
+    DISPOSITION = PermissibleValue(
+        text="DISPOSITION",
+        title="DISPOSITION",
+        description="""a standing susceptibility rather than an event. Not a cascade tier: a disposition can sit at any tier, and it is the one node kind that describes what COULD happen rather than what did.""")
+    GENETIC_PREDISPOSITION = PermissibleValue(
+        text="GENETIC_PREDISPOSITION",
+        title="genetic predisposition")
+    TRIGGER_SPECIFIC_SUSCEPTIBILITY = PermissibleValue(
+        text="TRIGGER_SPECIFIC_SUSCEPTIBILITY",
+        title="trigger-specific susceptibility",
+        description="latent until a named stimulus arrives; pairs with an ENVIRONMENTAL/physiological stressor node")
+    TISSUE_VULNERABILITY = PermissibleValue(
+        text="TISSUE_VULNERABILITY",
+        title="tissue vulnerability",
+        description="a tissue that will fail first, without yet having failed")
+    OUTCOME_RISK = PermissibleValue(
+        text="OUTCOME_RISK",
+        title="outcome risk",
+        description="a named adverse endpoint stated as a standing probability")
+    PENETRANCE_AND_EXPRESSIVITY_MODIFIER = PermissibleValue(
+        text="PENETRANCE_AND_EXPRESSIVITY_MODIFIER",
+        title="penetrance and expressivity modifier",
+        description="""what decides whether a disposition is expressed at all, and how severely. Not the disposition and not the effect: a second locus, a background, or a residual activity level standing between them.""")
+
+    _defn = EnumDefinition(
+        name="PathographNodeClassEnum",
+        description="""Pathograph node classes, the range of Pathophysiology node_class. A value without is_a is a tier; every other value names the class it sits under.""",
+    )
+
 # Slots
 class slots:
     pass
@@ -15153,6 +15602,9 @@ slots.mechanism_confidence = Slot(uri=DISMECH.mechanism_confidence, name="mechan
 slots.biological_scale = Slot(uri=DISMECH.biological_scale, name="biological_scale", curie=DISMECH.curie('biological_scale'),
                    model_uri=DISMECH.biological_scale, domain=None, range=Optional[Union[str, "BiologicalScaleEnum"]])
 
+slots.node_class = Slot(uri=DISMECH.node_class, name="node_class", curie=DISMECH.curie('node_class'),
+                   model_uri=DISMECH.node_class, domain=None, range=Optional[Union[str, "PathographNodeClassEnum"]])
+
 slots.accession = Slot(uri=DISMECH.accession, name="accession", curie=DISMECH.curie('accession'),
                    model_uri=DISMECH.accession, domain=None, range=URIRef)
 
@@ -15340,6 +15792,9 @@ slots.icd11f_mappings = Slot(uri=DISMECH.icd11f_mappings, name="icd11f_mappings"
 
 slots.mondo_mappings = Slot(uri=DISMECH.mondo_mappings, name="mondo_mappings", curie=DISMECH.curie('mondo_mappings'),
                    model_uri=DISMECH.mondo_mappings, domain=None, range=Optional[Union[Union[dict, MondoMapping], list[Union[dict, MondoMapping]]]])
+
+slots.omimps_mappings = Slot(uri=DISMECH.omimps_mappings, name="omimps_mappings", curie=DISMECH.curie('omimps_mappings'),
+                   model_uri=DISMECH.omimps_mappings, domain=None, range=Optional[Union[Union[dict, OMIMPSMapping], list[Union[dict, OMIMPSMapping]]]])
 
 slots.ncit_mappings = Slot(uri=DISMECH.ncit_mappings, name="ncit_mappings", curie=DISMECH.curie('ncit_mappings'),
                    model_uri=DISMECH.ncit_mappings, domain=None, range=Optional[Union[Union[dict, NCITMapping], list[Union[dict, NCITMapping]]]])
@@ -15687,6 +16142,10 @@ slots.LoincCode_id = Slot(uri=DISMECH.id, name="LoincCode_id", curie=DISMECH.cur
                    model_uri=DISMECH.LoincCode_id, domain=LoincCode, range=Union[str, LoincCodeId],
                    pattern=re.compile(r'^LOINC:(LP|LG)?[0-9]+-[0-9]$'))
 
+slots.OMIMPSCode_id = Slot(uri=DISMECH.id, name="OMIMPSCode_id", curie=DISMECH.curie('id'),
+                   model_uri=DISMECH.OMIMPSCode_id, domain=OMIMPSCode, range=Union[str, OMIMPSCodeId],
+                   pattern=re.compile(r'^OMIMPS:[0-9]{6}$'))
+
 slots.Descriptor_description = Slot(uri=DISMECH.description, name="Descriptor_description", curie=DISMECH.curie('description'),
                    model_uri=DISMECH.Descriptor_description, domain=Descriptor, range=Optional[str])
 
@@ -15704,6 +16163,9 @@ slots.AnatomicalEntityDescriptor_term = Slot(uri=DISMECH.term, name="AnatomicalE
 
 slots.ChemicalEntityDescriptor_term = Slot(uri=DISMECH.term, name="ChemicalEntityDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.ChemicalEntityDescriptor_term, domain=ChemicalEntityDescriptor, range=Optional[Union[dict, Term]])
+
+slots.GeneOrProductDescriptor_term = Slot(uri=DISMECH.term, name="GeneOrProductDescriptor_term", curie=DISMECH.curie('term'),
+                   model_uri=DISMECH.GeneOrProductDescriptor_term, domain=GeneOrProductDescriptor, range=Optional[Union[dict, Term]])
 
 slots.GeneDescriptor_term = Slot(uri=DISMECH.term, name="GeneDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.GeneDescriptor_term, domain=GeneDescriptor, range=Optional[Union[dict, Term]])
@@ -15791,6 +16253,12 @@ slots.PhenotypeContext_evidence = Slot(uri=DISMECH.evidence, name="PhenotypeCont
 
 slots.Dataset_description = Slot(uri=DISMECH.description, name="Dataset_description", curie=DISMECH.curie('description'),
                    model_uri=DISMECH.Dataset_description, domain=Dataset, range=Optional[str])
+
+slots.Dataset_genes = Slot(uri=DISMECH.genes, name="Dataset_genes", curie=DISMECH.curie('genes'),
+                   model_uri=DISMECH.Dataset_genes, domain=Dataset, range=Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]])
+
+slots.ExperimentalModel_genes = Slot(uri=DISMECH.genes, name="ExperimentalModel_genes", curie=DISMECH.curie('genes'),
+                   model_uri=DISMECH.ExperimentalModel_genes, domain=ExperimentalModel, range=Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]])
 
 slots.Experiment_experiment_id = Slot(uri=DISMECH.experiment_id, name="Experiment_experiment_id", curie=DISMECH.curie('experiment_id'),
                    model_uri=DISMECH.Experiment_experiment_id, domain=Experiment, range=str)
@@ -16169,6 +16637,9 @@ slots.AnimalModel_publication = Slot(uri=DISMECH.publication, name="AnimalModel_
 slots.AnimalModel_modeled_mechanisms = Slot(uri=DISMECH.modeled_mechanisms, name="AnimalModel_modeled_mechanisms", curie=DISMECH.curie('modeled_mechanisms'),
                    model_uri=DISMECH.AnimalModel_modeled_mechanisms, domain=AnimalModel, range=Optional[Union[Union[dict, ModelMechanismLink], list[Union[dict, ModelMechanismLink]]]])
 
+slots.AnimalModel_genes = Slot(uri=DISMECH.genes, name="AnimalModel_genes", curie=DISMECH.curie('genes'),
+                   model_uri=DISMECH.AnimalModel_genes, domain=AnimalModel, range=Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]])
+
 slots.TreatmentEffectModifier_effect_modifier_type = Slot(uri=DISMECH.effect_modifier_type, name="TreatmentEffectModifier_effect_modifier_type", curie=DISMECH.curie('effect_modifier_type'),
                    model_uri=DISMECH.TreatmentEffectModifier_effect_modifier_type, domain=TreatmentEffectModifier, range=Union[str, "EffectModifierTypeEnum"])
 
@@ -16300,6 +16771,12 @@ slots.MondoMapping_term = Slot(uri=DISMECH.term, name="MondoMapping_term", curie
 
 slots.NCITMapping_term = Slot(uri=DISMECH.term, name="NCITMapping_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.NCITMapping_term, domain=NCITMapping, range=Union[dict, Term])
+
+slots.OMIMPSMapping_term = Slot(uri=DISMECH.term, name="OMIMPSMapping_term", curie=DISMECH.curie('term'),
+                   model_uri=DISMECH.OMIMPSMapping_term, domain=OMIMPSMapping, range=Union[dict, OMIMPSCode])
+
+slots.OMIMPSMapping_mapping_justification = Slot(uri=DISMECH.mapping_justification, name="OMIMPSMapping_mapping_justification", curie=DISMECH.curie('mapping_justification'),
+                   model_uri=DISMECH.OMIMPSMapping_mapping_justification, domain=OMIMPSMapping, range=str)
 
 slots.MappingConsistency_reference = Slot(uri=DISMECH.reference, name="MappingConsistency_reference", curie=DISMECH.curie('reference'),
                    model_uri=DISMECH.MappingConsistency_reference, domain=MappingConsistency, range=str)

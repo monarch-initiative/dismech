@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3389/fneur.2024.1465747
+extractor_version: 1
 title: "Assessing the effectiveness and safety of Patisiran and Vutrisiran in ATTRv amyloidosis with polyneuropathy: a systematic review"
 authors:
 - Mohammad Amin Karimi
@@ -12,12 +13,14 @@ journal: Frontiers in Neurology
 year: '2024'
 doi: 10.3389/fneur.2024.1465747
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.frontiersin.org/journals/neurology/articles/10.3389/fneur.2024.1465747/pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.3389_fneur.2024.1465747.pdf
+full_text_access_type: open
 ---
 
 # Assessing the effectiveness and safety of Patisiran and Vutrisiran in ATTRv amyloidosis with polyneuropathy: a systematic review
@@ -27,7 +30,21 @@ local_pdf_path: files/DOI_10.3389_fneur.2024.1465747.pdf
 
 ## Content
 
-BackgroundHereditary transthyretin (ATTRv) amyloidosis, a multifaceted disorder affecting multiple systems, substantially diminishes patients’ physical capabilities and overall quality of life. Patisiran and Vutrisiran, two Ribonucleic acid (RNA) interference therapies, target reducing both pathogenic and wild-type transthyretin (TTR) protein levels. This systematic review assesses the effectiveness and safety of these treatments in managing ATTRv.MethodsA comprehensive, thorough literature search across databases including Embase, PubMed, Web of Science, Cochrane Central, and Google Scholar yielded 858 studies. Following removing duplicate and irrelevant articles, 676 distinct studies underwent review. These studies, conducted on a global scale, encompassed a range of methodologies, including clinical trials and indirect treatment comparisons.ResultsTen studies, spanning a total population of 756 patients, were selected for in-depth analysis. Patisiran and Vutrisiran consistently demonstrated significant improvements in primary and secondary endpoints related to neuropathy, quality of life, and cardiac function. Both medications were well-tolerated, with primarily mild to moderate adverse events. Indirect treatment comparison studies indicated Vutrisiran’s superiority over Tafamidis in treating ATTRv amyloidosis.ConclusionThis systematic review recommends using Patisiran and Vutrisiran to treat ATTRv amyloidosis. The findings suggest that these RNA interference therapies improve neuropathy, quality of life, and cardiac symptoms. The results indicate sustained benefits over prolonged treatment, with satisfactory safety profiles. However, potential biases, conflicts of interest in the studies, and limited follow-up periods in some trials necessitate cautious interpretation. Future research should address these limitations and provide more robust evidence for the long-term efficacy and safety of Patisiran and Vutrisiran in ATTRv treatment.
+Background
+
+Hereditary transthyretin (ATTRv) amyloidosis, a multifaceted disorder affecting multiple systems, substantially diminishes patients’ physical capabilities and overall quality of life. Patisiran and Vutrisiran, two Ribonucleic acid (RNA) interference therapies, target reducing both pathogenic and wild-type transthyretin (TTR) protein levels. This systematic review assesses the effectiveness and safety of these treatments in managing ATTRv.
+
+Methods
+
+A comprehensive, thorough literature search across databases including Embase, PubMed, Web of Science, Cochrane Central, and Google Scholar yielded 858 studies. Following removing duplicate and irrelevant articles, 676 distinct studies underwent review. These studies, conducted on a global scale, encompassed a range of methodologies, including clinical trials and indirect treatment comparisons.
+
+Results
+
+Ten studies, spanning a total population of 756 patients, were selected for in-depth analysis. Patisiran and Vutrisiran consistently demonstrated significant improvements in primary and secondary endpoints related to neuropathy, quality of life, and cardiac function. Both medications were well-tolerated, with primarily mild to moderate adverse events. Indirect treatment comparison studies indicated Vutrisiran’s superiority over Tafamidis in treating ATTRv amyloidosis.
+
+Conclusion
+
+This systematic review recommends using Patisiran and Vutrisiran to treat ATTRv amyloidosis. The findings suggest that these RNA interference therapies improve neuropathy, quality of life, and cardiac symptoms. The results indicate sustained benefits over prolonged treatment, with satisfactory safety profiles. However, potential biases, conflicts of interest in the studies, and limited follow-up periods in some trials necessitate cautious interpretation. Future research should address these limitations and provide more robust evidence for the long-term efficacy and safety of Patisiran and Vutrisiran in ATTRv treatment.
 
 Frontiers in Neurology 01 frontiersin.org
 Assessing the effectiveness and 

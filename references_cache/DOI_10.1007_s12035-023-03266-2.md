@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s12035-023-03266-2
+extractor_version: 1
 title: HPRT1 Deficiency Induces Alteration of Mitochondrial Energy Metabolism in the Brain
 authors:
 - Andrey Y. Vinokurov
@@ -15,12 +16,14 @@ journal: Molecular Neurobiology
 year: '2023'
 doi: 10.1007/s12035-023-03266-2
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s12035-023-03266-2.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s12035-023-03266-2.pdf
+full_text_access_type: open
 ---
 
 # HPRT1 Deficiency Induces Alteration of Mitochondrial Energy Metabolism in the Brain
@@ -30,7 +33,9 @@ local_pdf_path: files/DOI_10.1007_s12035-023-03266-2.pdf
 
 ## Content
 
-AbstractAlterations in function of hypoxanthine guanine phosphoribosyl transferase (HPRT), one of the major enzymes involved in purine nucleotide exchange, lead to overproduction of uric acid and produce various symptoms of Lesch-Nyhan syndrome (LNS). One of the hallmarks of LNS is maximal expression of HPRT in the central nervous system with the highest activity of this enzyme in the midbrain and basal ganglia. However, the nature of neurological symptoms has yet to be clarified in details. Here, we studied whether HPRT1 deficiency changes mitochondrial energy metabolism and redox balance in murine neurons from the cortex and midbrain. We found that HPRT1 deficiency inhibits complex I-dependent mitochondrial respiration resulting in increased levels of mitochondrial NADH, reduction of the mitochondrial membrane potential, and increased rate of reactive oxygen species (ROS) production in mitochondria and cytosol. However, increased ROS production did not induce oxidative stress and did not decrease the level of endogenous antioxidant glutathione (GSH). Thus, disruption of mitochondrial energy metabolism but not oxidative stress could play a role of potential trigger of brain pathology in LNS.
+Abstract
+
+Alterations in function of hypoxanthine guanine phosphoribosyl transferase (HPRT), one of the major enzymes involved in purine nucleotide exchange, lead to overproduction of uric acid and produce various symptoms of Lesch-Nyhan syndrome (LNS). One of the hallmarks of LNS is maximal expression of HPRT in the central nervous system with the highest activity of this enzyme in the midbrain and basal ganglia. However, the nature of neurological symptoms has yet to be clarified in details. Here, we studied whether HPRT1 deficiency changes mitochondrial energy metabolism and redox balance in murine neurons from the cortex and midbrain. We found that HPRT1 deficiency inhibits complex I-dependent mitochondrial respiration resulting in increased levels of mitochondrial NADH, reduction of the mitochondrial membrane potential, and increased rate of reactive oxygen species (ROS) production in mitochondria and cytosol. However, increased ROS production did not induce oxidative stress and did not decrease the level of endogenous antioxidant glutathione (GSH). Thus, disruption of mitochondrial energy metabolism but not oxidative stress could play a role of potential trigger of brain pathology in LNS.
 
 Vol.:(0123456789)1 3
 https://doi.or

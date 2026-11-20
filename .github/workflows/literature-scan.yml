@@ -218,17 +218,21 @@ jobs:
         run: uv sync
 
       # Every scanner issue, open or closed. Closed counts as decided, so a
-      # paper a curator already looked at is not proposed again.
+      # paper a curator already looked at is not proposed again. This pages
+      # the REST API rather than using `gh issue list`, which returned only 58
+      # of ~440 scanner issues on the first run, consistent with it stopping at
+      # the 1,000 most recent curation issues out of several thousand.
       - name: Fetch scanner issue ledger
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p output/citation_scan
-          gh issue list --repo "${{ github.repository }}" --label curation \
-            --state all --limit 10000 \
-            --json number,title,state,stateReason,body \
-            --jq '[.[] | select(.title | test("^\\[(lit-scan|preprint|citation-scan)"))]' \
-            > output/citation_scan/ledger.json
+          gh api --paginate \
+            "repos/${{ github.repository }}/issues?labels=curation&state=all&per_page=100" \
+            --jq '.[] | select(.pull_request | not)
+                  | select(.title | test("^\\[(lit-scan|preprint|citation-scan)"))
+                  | {number, title, state, state_reason, body}' \
+            | jq -s . > output/citation_scan/ledger.json
           echo "Ledger issues: $(jq length output/citation_scan/ledger.json)"
 
       - name: Generate deterministic citation packet

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41467-023-43842-7
+extractor_version: 1
 title: Early mucosal events promote distinct mucosal and systemic antibody responses to live attenuated influenza vaccine
 authors:
 - Ryan S. Thwaites
@@ -22,12 +23,14 @@ journal: Nature Communications
 year: '2023'
 doi: 10.1038/s41467-023-43842-7
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41467-023-43842-7.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41467-023-43842-7.pdf
+full_text_access_type: open
 ---
 
 # Early mucosal events promote distinct mucosal and systemic antibody responses to live attenuated influenza vaccine
@@ -37,7 +40,9 @@ local_pdf_path: files/DOI_10.1038_s41467-023-43842-7.pdf
 
 ## Content
 
-AbstractCompared to intramuscular vaccines, nasally administered vaccines have the advantage of inducing local mucosal immune responses that may block infection and interrupt transmission of respiratory pathogens. Live attenuated influenza vaccine (LAIV) is effective in preventing influenza in children, but a correlate of protection for LAIV remains unclear. Studying young adult volunteers, we observe that LAIV induces distinct, compartmentalized, antibody responses in the mucosa and blood. Seeking immunologic correlates of these distinct antibody responses we find associations with mucosal IL-33 release in the first 8 hours post-inoculation and divergent CD8+ and circulating T follicular helper (cTfh) T cell responses 7 days post-inoculation. Mucosal antibodies are induced separately from blood antibodies, are associated with distinct immune responses early post-inoculation, and may provide a correlate of protection for mucosal vaccination. This study was registered as NCT04110366 and reports primary (mucosal antibody) and secondary (blood antibody, and nasal viral load and cytokine) endpoint data.
+Abstract
+
+Compared to intramuscular vaccines, nasally administered vaccines have the advantage of inducing local mucosal immune responses that may block infection and interrupt transmission of respiratory pathogens. Live attenuated influenza vaccine (LAIV) is effective in preventing influenza in children, but a correlate of protection for LAIV remains unclear. Studying young adult volunteers, we observe that LAIV induces distinct, compartmentalized, antibody responses in the mucosa and blood. Seeking immunologic correlates of these distinct antibody responses we find associations with mucosal IL-33 release in the first 8 hours post-inoculation and divergent CD8+ and circulating T follicular helper (cTfh) T cell responses 7 days post-inoculation. Mucosal antibodies are induced separately from blood antibodies, are associated with distinct immune responses early post-inoculation, and may provide a correlate of protection for mucosal vaccination. This study was registered as NCT04110366 and reports primary (mucosal antibody) and secondary (blood antibody, and nasal viral load and cytokine) endpoint data.
 
 Article https://doi.org/10.1038/s41467-023-43842-7
 Early mucosal events promote distinct

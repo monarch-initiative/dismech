@@ -109,6 +109,10 @@ just pytest-all
 # Run a single test
 uv run pytest tests/test_data.py -k "test_name" -v
 
+# Lint Python with the pinned ruff, exactly as CI does (version pinned in
+# pyproject.toml; bump it there, in uv.lock and in .pre-commit-config.yaml together)
+just lint-python
+
 # Generate HTML pages for all disorders
 uv run python -m dismech.render --all
 
@@ -159,6 +163,12 @@ Maps ontology prefixes to OAK adapters for term validation:
   also records the precondition for migrating a further prefix)
 - HGNC (and lowercase `hgnc`), GENO, ECTO (and `ExO`, which is bundled with
   ECTO), XCO, OPL, ICD10CM, icd11f → `sqlite:obo:<name>`
+- **NCBIGene and the Alliance MOD prefixes (MGI, RGD, ZFIN, Xenbase, FB, WB,
+  SGD), admitted only on a model's or dataset's `genes`, are not routed**: no
+  OAK adapter serves them reliably, so `just check-gene-namespaces` checks them
+  against `cache/<prefix>/terms.csv` instead (see *Naming Genes in a Model's
+  Own Species* below). A gene-product (`UniProtKB:`) accession is not an
+  accepted namespace for now; a follow-up issue tracks adding it
 
 Note this governs **automated term validation** only. Several modules build an
 adapter directly and ignore this file — notably
@@ -229,7 +239,7 @@ the parity test fails until they agree. See `models/README.md`.
 ### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
 The cron cadence of the scheduled "agent" workflows (curation-scanner,
 pr-shepherd, discussion-scanner, literature-scan, knowledge-gap-scan,
-preprint-scan, weekly-compliance, post-review-agent) is centralized in
+preprint-scan, weekly-compliance, weekly-report, post-review-agent) is centralized in
 `.github/cron-profiles.yaml` as named profiles (`slow`/`medium`/`fast`/`fast-weekend`).
 Switch with `just cron-profile <name>` (preview with `just cron-profile-preview <name>`,
 list with `just cron-profiles`), which rewrites the `on.schedule` cron lines in
@@ -240,7 +250,7 @@ config instead. Page/build crons are intentionally unmanaged. See
 ### Agent Model Config (`.github/agent-config.yaml`)
 The Claude **model** backing each agentic workflow (curation-scanner,
 discussion-scanner, claude-dedupe-issues, knowledge-gap-scan, literature-scan, preprint-scan,
-post-review-agent, pr-shepherd, weekly-compliance, claude-code-review, claude)
+post-review-agent, pr-shepherd, weekly-compliance, weekly-report, claude-code-review, claude)
 is centralized in `.github/agent-config.yaml` — one source of truth instead of a
 `--model` hardcoded per workflow. For single-model workflows, the `Resolve agent
 config` step (the `.github/actions/resolve-agent-config` composite action) reads
@@ -1251,18 +1261,58 @@ sufficient condition over the node's ontology-bound slots
 `src/dismech/node_class_definitions.py`); judgement classes (DISPOSITION,
 OUTCOME, STILL UNPLACED …) deliberately carry none. A companion
 `pathograph_node_class_go_seed.tsv` maps GO biological-process terms to
-classes. There is **no schema slot yet**: no disorder entry names a class, and
-the scanner applies the vocabulary read-only. Edit the tree by PR like any
-other `kb/` content.
+classes. Edit the tree by PR like any other `kb/` content.
+
+**The tree is versioned, and its classes are the values of a slot.** Since
+tree v1.0 (2026-11-04) the classes under the nine cascade tiers and DISPOSITION
+are the permissible values of an optional `Pathophysiology.node_class`
+(`PathographNodeClassEnum`, generated into
+`src/dismech/schema/pathograph_node_class.yaml`). ALSO CLASSES, DEBUNDLE
+TARGETS and STILL UNPLACED are not values. A change to a class or a gloss is
+therefore a schema change: run `just gen-node-class-enum` and bump the tree's
+`# VERSION` line by the rules in its header, in the same PR
+(`just node-classes --check-enum`, an ungated CI step, compares the tree with
+the enum). No entry was backfilled; nothing has to carry the slot.
+
+Assigning `node_class`:
+
+- **The most specific class whose gloss fits the node's own claim**, judged
+  against the worked examples under it. A tier is fine when no leaf fits;
+  leave the slot absent when nothing does.
+- **One value.** A node that needs two classes is making two claims; split it.
+- **Classify the claim, not the gene.** A lesion node is often bound to the
+  wild-type molecular function of its gene; whether it is a GENOMIC class (the
+  allele) or a MOLECULAR ACTIVITY one (the lost activity) depends on what the
+  node asserts, not on that term.
+- **The scanner's class is a hint.** It reads a curated `node_class` first; its
+  term-based suggestions are tier-level only. Its GO molecular-function rule is
+  MEDIUM confidence because on `conforms_to` pairs it disagrees with the module
+  side more often than not, for the reason above.
+- **It is not `biological_scale`.** Set both where both apply;
+  `--format scale` lists nodes whose class tier and scale disagree
+  (report-only), which usually means one of the two is wrong or the node is
+  bundling two claims.
+
+When a curation PR renames a node the tree cites, `--verify-kb` fails (an
+ungated CI step) and the example needs re-pointing. When it **splits** one,
+file each half under its own class with `:split_from <old node name>` instead
+of deleting the example; `--verify-kb` checks the old node is really gone.
 
 ```bash
 just node-classes --verify-kb              # grammar + every cited leaf resolves in kb/
+just node-classes --format summary         # version, counts, recorded splits
 just node-classes --check-definitions      # definition labels vs the term caches (--online: OLS)
-just node-classes --evaluate               # each definition vs its examples and the KB (needs GO sqlite)
+just node-classes --evaluate --go-obo go-basic.obo   # each definition vs its examples and the KB
+just gen-node-class-enum                   # regenerate the node_class enum from the tree
 just node-class-scan                       # apply the seed table across kb/: coverage
 just node-class-scan --format debundle     # nodes whose own GO terms span two classes
+just node-class-scan --format conformance-gates  # conforms_to agreement at each confidence level
+just node-class-scan --format scale        # node_class tier vs biological_scale (report-only)
 just node-role-audit                       # the free-text `role` slot against the edges
 ```
+
+`--evaluate` without `--go-obo` uses the local `sqlite:obo:go` build and exits
+with a message, rather than downloading it, when the build is absent.
 
 Design record: `docs/superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md`.
 
@@ -1532,6 +1582,29 @@ stays a manual audit.
 
 ### Disease Groupings
 
+**OMIM phenotypic series:** use `mappings.omimps_mappings` on a Disease,
+Subtype, or Grouping, with `OMIMPS:<six digits>` and the canonical series label
+from `sqlite:obo:omim`. `OMIMPS:209900` is a series; `OMIM:209900` is an
+individual member record and is not interchangeable. Normal term validation
+checks series labels and existence; schema validation rejects individual OMIM
+identifiers in this field. Each mapping requires a `mapping_justification`.
+Validation is cache-first. An uncached series can trigger a download of the
+whole OMIM build from `https://semanticsql.berkeleybop.io/omim.db.gz`;
+availability was verified on 2026-11-18 (about 44 MB compressed and 244 MB
+for the inspected local database). The committed `cache/omimps/terms.csv`
+rows support offline validation of the pilot; adding a new series requires
+online validation once to populate its cache row.
+Choose the predicate after reviewing the series scope and members, rather than
+copying MONDO's predicate automatically. Use `skos:exactMatch` for the same
+disease-family concept (Bardet-Biedl Syndrome) or explicit union (Tyrosinemias).
+For susceptibility-locus series linked to a complex Disease, use
+`skos:relatedMatch` when equating the clinical disease with the locus collection
+would overstate the alignment (Celiac Disease). State that scope distinction
+and any disagreement with MONDO. A mapping does not assert complete member
+curation or Mendelian inheritance. Use a Grouping only for independently
+curated diseases, explain why they belong together and remain separate, and
+audit any post-hoc logical criterion before claiming sufficiency.
+
 Groupings under `kb/groupings/` are explicit curated unions of existing diseases,
 named disease subtypes, or nested disease groupings. They validate against
 `Grouping`, not `Disease`, and list members explicitly rather than recreating an
@@ -1747,14 +1820,35 @@ Rules for using it:
   existing links' caveats. A typed divergence now satisfies the caveat requirement on a
   `FAILS_TO_RECAPITULATE` or upward-extrapolating link wherever `limitations` did.
 
-Populated on computational models, plus one non-computational system: the cell-free
-expression panel in `Prolidase_Deficiency`, which carries two `BOUNDARY_OMISSION`
-divergences on a model system declared inside a *proposed* experiment. The taxonomy was
+**Most divergences are now on animal models, not computational ones.** The taxonomy was
+derived from the 50 computational-model `limitations` strings, and the corpus has since
+moved: a count over `kb/` through `dismech.model_links.iter_model_links` gives 603
+divergence entries on `animal_models`, 243 on `experimental_models`, 82 on
+`computational_models` and 12 inside proposed experiments, across 275 files. Those
+figures move with every curation PR, so run the walk rather than trusting them. The
+first non-computational case was the cell-free expression panel in
+`Prolidase_Deficiency`, which carries two `BOUNDARY_OMISSION` divergences on a model
+system declared inside a *proposed* experiment. The taxonomy was
 chosen to extend to NAM and animal models unchanged — `BOUNDARY_OMISSION`,
 `PROXY_QUANTITY`, `CALIBRATION_PROVENANCE`, `POPULATION_MISMATCH` and `SPECIES_MISMATCH`
 all apply — and that first case needed no new value, which is some evidence the choice
-was right. Extending it further would likely add `SUPRAPHYSIOLOGICAL_EXPRESSION` and
-`INCOMPLETE_PHENOTYPE`, both already evidenced in the animal set.
+was right. `INCOMPLETE_PHENOTYPE` was the first of the two predicted additions to be
+made (#11743), once the animal set it was predicted from had become the dominant
+population. `SUPRAPHYSIOLOGICAL_EXPRESSION` is still predicted and has not been added.
+
+- **`SPECIES_MISMATCH` vs `INCOMPLETE_PHENOTYPE`** is the distinction to get right on an
+  animal model, and it is the one `SPECIES_MISMATCH` was being stretched to cover.
+  `SPECIES_MISMATCH` asserts that the organism structurally cannot express the node (no
+  IgG4 subclass, no thalamus, growth plates that never close). `INCOMPLETE_PHENOTYPE`
+  says the organism could and the model does not: a mouse can have seizures, so a model
+  that lacks them is incomplete rather than species-mismatched. Reaching for
+  `SPECIES_MISMATCH` there puts a cause in a typed field that is not in evidence, and
+  hides the difference that matters to a reader, since a species-structural gap never
+  closes in that organism while an incomplete phenotype may be strain, age at assay, or
+  penetrance. One model often needs both, against different features;
+  `GALNT2-Congenital_Disorder_of_Glycosylation` is the worked example, where the absent
+  murine counterpart for language is a species mismatch and the unreported epilepsy and
+  insomnia are an incomplete phenotype.
 
 **A model system inside a `proposed_experiments` entry takes the same link object**, so
 a proposal can state its own translational limits before anybody runs it. Such a link
@@ -1860,6 +1954,92 @@ model, which is `PARTIALLY_RECAPITULATES` against `Motor Neuron Degeneration`
 (lower motor neurons only, so it misses the defining combined UMN/LMN degeneration)
 while `RECAPITULATES` `Oxidative Stress`, with a `RESTORED` readout for the
 vitamin-E rescue arm.
+
+### Naming Genes in a Model's Own Species (MOD first, then `NCBIGene:`)
+
+HGNC names human genes only. That is right for `genetic:` and for
+pathophysiology nodes, and wrong for a model system: a Coch knock-in mouse
+carries mouse *Coch*, not `hgnc:2180`, and a zebrafish morphant knocks down
+`tmem165`, which HGNC has no record of. So the `genes` of `animal_models[]`,
+`experimental_models[]` and `datasets[]` take a `GeneOrProductDescriptor`, which
+admits a gene in its own species:
+
+```yaml
+animal_models:
+- name: Coch G88E knock-in mouse
+  species: Mouse
+  genes:
+  - preferred_term: Coch
+    term:
+      id: MGI:1278313
+      label: Coch
+```
+
+**Pick the namespace in this order:**
+
+| Species | Prefix | Label |
+|---|---|---|
+| human (including a human transgene, a human cell line) | `hgnc:` | HGNC symbol |
+| mouse / rat / zebrafish / *Xenopus* / *Drosophila* / *C. elegans* / *S. cerevisiae* | `MGI:` / `RGD:` / `ZFIN:ZDB-GENE-…` / `Xenbase:XB-GENE-…` / `FB:FBgn…` / `WB:WBGene…` / `SGD:S…` | the MOD's official symbol |
+| anything else (pig, dog, macaque) | `NCBIGene:` | NCBI official symbol |
+
+A gene-product (`UniProtKB:`) accession is **not** an accepted namespace for
+now — a non-MOD species' gene, whether the model acts on the gene or its
+product, takes its `NCBIGene:` identifier, with the protein name in
+`preferred_term`. A follow-up issue tracks adding `UniProtKB:` support.
+
+- **A model organism always takes its MOD**, whether the model acts on the gene
+  (knockout, knockdown, a carried variant) or on its product (an injected
+  protein): injected mouse cochlin is `MGI:1278313`, not a UniProtKB accession.
+  This is the Monarch KG's convention — the MOD ID is the gene node there, and
+  NCBI Gene is ingested only for species without one. It is deliberately **not**
+  Biolink's `id_prefixes` order or Translator node normalization, which lead
+  with NCBIGene; do not "fix" a MOD binding to match them.
+- **Spell prefixes as Biolink does** (also the Monarch KG's and GO's forms):
+  `FB:` not `FlyBase:`, `WB:` not `WormBase:`, `Xenbase:` not `XENBASE:`, and
+  `MGI:1278313`, never GO's `MGI:MGI:1278313`.
+- **MGI's official symbol can differ from the name the paper uses.** Bbs8 is
+  `MGI:1923510` *Ttc8*: put the paper's name in `preferred_term` and MGI's
+  symbol in `label`.
+- **Orthology goes in `description` or `notes`** for now. Rebinding a mouse
+  gene off `hgnc:` takes the model off the human gene's page in the gene index,
+  which keys on HGNC; a structured orthology link is the planned follow-up.
+- **Nowhere else.** Every other gene slot stays HGNC-only, and the gate below
+  enforces that; the schema itself does not restrict prefixes.
+
+Look identifiers up at the source (the Alliance gene page or API, NCBI Gene,
+UniProt), never from memory. **The term validator does not check MOD or
+`NCBIGene:` labels**: none of those prefixes is routed in
+`conf/oak_config.yaml`, and a prefix with no adapter passes `just
+validate-terms` with any label at all. That gap is not theoretical: three
+`MGI:` bindings reached `main` carrying the right symbol on another gene's ID
+(`MGI:107573` labelled *Blm* is *Ott*).
+
+```bash
+just check-gene-namespaces                      # gate (offline, in `just qc`, ungated in CI)
+just check-gene-namespaces-online               # resolve new MOD/NCBIGene IDs into the caches, then gate
+just check-gene-namespaces --format list        # also the advisory worklist
+```
+
+The gate fails on a non-human binding outside a model's or dataset's `genes`; a
+misspelled or malformed MOD ID; a MOD or `NCBIGene:` ID that is uncached or
+whose label is not the official symbol; and an `NCBIGene:` binding
+on a record whose `organism` has a MOD. The online mode resolves MOD IDs through
+the Alliance API and NCBIGene through E-utilities, and also rejects retired
+records, human genes, and fallback-prefix records whose own taxon has a MOD —
+which is what covers animal models, whose `species` is free text. Run it after
+adding a binding and commit the `cache/<prefix>/terms.csv` rows with it.
+`--format list` also reports `hgnc:` genes on a record whose `organism` has a
+MOD (`HGNC_IN_MOD_ORGANISM`): usually the human ortholog standing in for the
+model's own gene, sometimes a genuine human transgene, so it is a worklist and
+never gates.
+
+Worked examples: `TMEM165-Congenital_Disorder_of_Glycosylation` (mouse
+knockouts on `MGI:`, a zebrafish morphant on `ZFIN:`, a human HEK293 knockout on
+`hgnc:`), `Autosomal_Dominant_Nonsyndromic_Hearing_Loss_9` (Coch knock-in and
+injected mouse cochlin both on `MGI:1278313`, human minigene cells on `hgnc:`),
+`Severe_Combined_Immunodeficiency_Due_To_CORO1A_Deficiency`,
+`BBSome-Related_Retinitis_Pigmentosa` (a mouse dataset's gene on `MGI:`).
 
 ### Linking Environmental Factors into the Pathograph
 
@@ -2137,6 +2317,27 @@ evidence:
     explanation: "Why this evidence supports/refutes the claim"
 ```
 
+#### A regulatory test guideline is a lead, never an evidence reference
+
+An OECD Test Guideline, and any comparable regulatory consensus document, must
+not appear in an evidence `reference:`. `OECDTG:` is deliberately absent from
+`ALLOWED_REFERENCE_PREFIXES` in `tests/test_data.py`, as `AOP:` always has been,
+and `check_evidence_items_have_references` fails on it.
+
+A guideline describes an assay in the **key-event** terms of an Adverse Outcome
+Pathway — TG 442D is titled for the AOP key event on keratinocyte activation. A
+key event is not a pathograph node, and nothing here records the correspondence
+between any particular pair. So a guideline citation on a `modeled_mechanisms`
+link asserts that step silently, under a citation that does not make it.
+
+Cache it, read it, and source the claim from the primary literature its reference
+list names — which is often better evidence rather than a weaker substitute. A
+fact with no primary source (a method's Validated Reference Method standing, the
+guideline's own judgement about a result) goes in `notes:`, attributed to the
+guideline and marked as a lead. `Contact_Dermatitis` is the worked example; see
+design decisions §6e, which records what was removed from it and what each
+removal was re-sourced to, and the `extract-tg-method` skill.
+
 #### `supports` is direction; `directness` is a separate axis
 
 `supports` records **which way** the cited evidence cuts, and nothing else:
@@ -2234,6 +2435,18 @@ item lands on `OTHER`, now distinguished as `BACKGROUND` and
 A quoted **aim** statement ("the aim of the present study was to…") has no value
 in this enum; it is neither the paper's finding nor somebody else's fact. Leave
 `quote_role` off; `just list-background-citations` reports those separately.
+
+**Keep study limitations visible without turning them into direction labels.**
+A small sample or a call for future work can coexist with `SUPPORT` for a finding
+accurately scoped to the study. Include the authors' caveat in the exact `snippet`
+when it is part of the same passage, and record our interpretation in `explanation`.
+Do not splice disconnected quotations. A caveat from another section can be quoted
+with attribution in `explanation`, but that prose is not automatically quote-validated
+or passed to the evaluator. Narrow an overstated assertion itself; its explanation
+cannot repair it. See [Recording caveats](docs/explanation/evidence-model.md#recording-caveats-with-the-existing-fields)
+for an example and the distinction between evidence direction, claim coverage and
+study strength. Jev’s `MATCH` / `PARTIAL` / `MISMATCH` are classifier outputs;
+they are separate from the retired `supports: PARTIAL` value discussed below.
 
 **`PARTIAL` and `WRONG_STATEMENT` were removed** (issue #7439). If you are
 tempted to reach for the old `PARTIAL`, one of these is what you mean:
@@ -2730,6 +2943,21 @@ Rules for filling it:
   only when its MONDO term is the entry's `disease_term`, a `has_subtypes`
   term, or an `exactMatch` MONDO mapping. A broader ClinGen lumping (generic
   hypertrophic cardiomyopathy cited from an ALPK3 entry) is a different pair.
+- **The hearing-loss panel is the exception to that.** The ClinGen Hearing
+  Loss expert panel files most genes under a generic term (`MONDO:0019497`
+  nonsyndromic genetic hearing loss, `MONDO:0019587`, `MONDO:0019588`) and
+  tells loci apart by gene and mode of inheritance, where dismech has one
+  entry per locus. Its KCNQ4 / autosomal dominant record is DFNA2A's
+  classification under a different filing convention. Record it on the locus
+  entry when the entry (a) maps the generic term in `mappings.mondo_mappings`
+  with `skos:broadMatch` and (b) binds the same mode of inheritance in its own
+  `inheritance` block. `just list-gene-validity` applies both conditions, so a
+  recessive record is not offered to a dominant locus of the same gene (TECTA,
+  COL11A2). A gene with two loci of one inheritance mode, or a record under a
+  wider class such as `MONDO:0005365` hearing loss disorder, is still a
+  curator's call. The terms are listed in `PANEL_LUMPED_DISEASES` in
+  `scripts/check_gene_validity.py`; extending that list to another panel is a
+  policy change, not a per-entry fix.
 - **Orphanet submits everything to GenCC as `SUPPORTIVE`.** That is its whole
   scale, not a weak rating.
 - **Record it on the claim ClinGen classified.** An entry can carry a
@@ -2737,6 +2965,30 @@ Rules for filling it:
   Definitive AR tier belongs on the causative one only. The audit attributes
   an assertion to the record whose own evidence cites it.
 - **Quote the source row as evidence**, as with any structured-source citation.
+
+**A locus that should not be a subtype is a `genetic:` row, graded `DISPUTED`
+or `REFUTED`.** `relationship_type` is the curator's own reading of the
+gene-disease claim, and it is where a contested or retracted locus is recorded
+so the concept is not re-nominated. The two values are different claims, and
+they mirror the ClinGen/GenCC split that `gene_disease_validity` already
+carries:
+
+| The literature says | `relationship_type` |
+|---|---|
+| The claim is open: conflicting evidence, or a single report nobody has replicated or contradicted | `DISPUTED` |
+| The claim is closed against: the refuting evidence significantly outweighs the original report | `REFUTED` |
+
+A `REFUTED` row must cite the refutation in its `evidence`, not only the paper
+that made the claim. Where ClinGen or a GenCC submitter has graded the pair,
+copy that tier into `gene_disease_validity` as well; the two slots then say the
+same thing from two sources, and `just check-gene-validity` can see the second.
+Never write a `has_subtypes` row for such a locus: a subtype row asserts the
+subtype exists, and a `REFUTE` evidence item hanging off it does not undo
+that. Neither grade reaches the knowledge graph: the KGX exporter emits no
+gene-to-disease edge for a `DISPUTED` or `REFUTED` row, since a
+`contributes_to` edge citing the refutation would assert the opposite of
+what the row says. `Hereditary_Spastic_Paraplegia` (ZFYVE27, `DISPUTED`, with the
+ClinGen Disputed record quoted) is the worked example for the open case.
 
 ```bash
 just check-gene-validity                              # gate: recorded ClinGen tier vs its CGGV: record
@@ -4039,9 +4291,18 @@ cited paper. Worked examples: `Progressive_Supranuclear_Palsy` (ChiCTR),
 
 **Key fields:**
 - `name`: NCT identifier (e.g., NCT05813288)
-- `phase` (`ClinicalTrialPhaseEnum`): `PHASE_I`, `PHASE_II`, `PHASE_III`, `PHASE_IV`, or
-  `NOT_APPLICABLE` (observational or device studies that do not follow the standard FDA
-  phase classification)
+- `phase` (`ClinicalTrialPhaseEnum`): `EARLY_PHASE_I`, `PHASE_I`, `PHASE_I_II`,
+  `PHASE_II`, `PHASE_II_III`, `PHASE_III`, `PHASE_IV`, or `NOT_APPLICABLE`
+  (observational or device studies that do not follow the standard FDA phase
+  classification). **A combined-phase trial takes the combined value, not either
+  component.** ClinicalTrials.gov registers these designs as `PHASE1|PHASE2` and
+  `PHASE2|PHASE3`, and they are common in rare-disease gene therapy and early
+  oncology work; rounding one to a single phase makes a query for "phase III
+  trials in X" include some phase 2/3 trials and silently exclude others
+  (#15385). Entries curated before these values existed still carry a rounded
+  value and a `notes:` sentence explaining it, and `just
+  clinicaltrials-status-audit` deliberately does not report those as drift,
+  because migrating one means re-reading its registry phase
 - `status` (`ClinicalTrialStatusEnum`): `RECRUITING`, `NOT_RECRUITING`,
   `ACTIVE_NOT_RECRUITING`, `COMPLETED`, `ENROLLING_BY_INVITATION`, `SUSPENDED`,
   `TERMINATED`, `WITHDRAWN`, or `UNKNOWN`
@@ -4144,6 +4405,21 @@ Non-negotiable rules:
   on an HGNC identifier written beside the wrong gene (#9845).
 - Never create or hand-edit `references_cache/*.md`; generate or regenerate an
   entry with `just fetch-reference <ID>`.
+- Never create or hand-edit `signed_excerpts/*.yaml`; those bundles are verified
+  against full-text PDFs in the private `monarch-initiative/claimstore`
+  repository and synced from there with `just sync-signed-excerpts`, which needs
+  claimstore read access (design decisions §6d).
+- A `file:` reference (a committed supplement, cited by a repo-relative path
+  such as `file:data/literature_supplements/<name>.md`) is read from disk on
+  every run and, since linkml-reference-validator 0.8.0, never cached. Do not
+  commit a `references_cache/file_*.md` entry for one.
+- Validation is read-only for committed caches. `just validate`,
+  `validate-kb-references` and `validate-disorders` may *create* a cache file
+  for a newly cited reference (commit it), but they never rewrite a tracked one:
+  the validator serves committed entries as-is (`trust_cached_entries`), and
+  `fix-references-cache` trims whitespace only on untracked files. A tracked
+  `references_cache/` file modified after a validation run is a bug to report
+  (#9963), not a change to commit.
 - A reference first cached as an abstract stays `abstract_only` on later plain
   fetches. To upgrade it, `just fetch-reference <ID> --force` (any `-`-prefixed
   argument is passed to the validator rather than read as an ID, #13185). Use it
@@ -4271,7 +4547,17 @@ in the merge queue. A curation PR touches none of those paths, so
 a re-graded quote passes every check on the PR and is first caught when the
 merge queue runs the full suite and ejects it. This is the hazard described
 under *Why the entity-ref check is a CI step and not just a test* below. Run
-`just check-snippet-grading` yourself before pushing a curation PR.
+it yourself before pushing a curation PR, naming the files you touched:
+
+```bash
+just check-snippet-grading kb/disorders/MyDisease.yaml
+```
+
+The whole corpus is still indexed, because the cross-file half compares one
+sentence against every other entry and the file that is wrong may be one this
+change never opened. Only findings touching the named paths are reported and
+gated, so the output is the worklist for this PR rather than the KB-wide
+backlog. With no paths it scans everything, as CI does.
 
 They catch folded-scalar word corruption, evidence items swallowed into a
 block scalar, non-propositional short snippets,
@@ -4799,6 +5085,15 @@ as evidence `snippet:` values.
 | `ICEES:` | ICEES Knowledge Graph (KGX, RENCI/UNC) | One record per disease/phenotype comorbidity pair (MONDO/HP both sides), with per-cohort chi-square rows | ICEES terms |
 | `NCIT:` | NCI Thesaurus selected predicate edges (via OAK `sqlite:obo:ncit`) | One record per subject carrying a selected predicate; currently `NCIT:P302` (Accepted_Therapeutic_Use_For), 796 drug→indication assertions | NCIT terms |
 | `ICTRP:` | WHO International Clinical Trials Registry Platform search portal | One record per trial, fetched per identifier on demand (no bulk file) | WHO ICTRP terms |
+| `OECDTG:` | OECD Test Guideline PDFs, pinned by sha256 in `data/oecd_tg/MANIFEST.yaml` | One record per guideline; currently TG 442D, 51 paragraphs — the General Introduction plus each appendix's `Initial Considerations` and `Principle of the Test` | CC BY 4.0 |
+
+**`OECDTG:` is the one prefix in this table that is cache-only.** Unlike every
+other row, it may *not* appear in an evidence `reference:` — it is absent from
+`ALLOWED_REFERENCE_PREFIXES` and `check_evidence_items_have_references` rejects
+it. A Test Guideline describes an assay in the key-event terms of an Adverse
+Outcome Pathway, and a key event is not a pathograph node, so citing one asserts
+a correspondence nothing here records. The cache is for reading the guideline
+and for auditing the method extraction against it. See design decisions §6e.
 
 **Citing an NCIT P302 (Accepted_Therapeutic_Use_For) treatment indication:**
 

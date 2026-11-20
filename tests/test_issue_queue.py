@@ -9,10 +9,16 @@ them touches GitHub.
 from __future__ import annotations
 
 import random
+from pathlib import Path
 
 import pytest
 
-from dismech.issue_queue.launch import LANE_HINT, branch_name, build_prompt
+from dismech.issue_queue.launch import (
+    LANE_HINT,
+    branch_name,
+    build_prompt,
+    tmux_command,
+)
 from dismech.issue_queue.rules import (
     DISPATCHABLE,
     LANE_ARG,
@@ -270,6 +276,16 @@ def test_launch_prompt_and_branch():
     assert "Closes #104" in prompt
     assert prompt.endswith("where they conflict: check the schema")
     assert "precedence" not in build_prompt(104, "t", "GENERAL", "b")
+
+
+def test_launch_never_steals_focus_from_an_attached_client():
+    new_window = tmux_command(True, "dismech-issues", "issue-104", Path("/w/104"))
+    new_session = tmux_command(False, "dismech-issues", "issue-104", Path("/w/104"))
+    assert new_window[:3] == ["tmux", "new-window", "-d"]
+    assert new_session[:3] == ["tmux", "new-session", "-d"]
+    for argv in (new_window, new_session):
+        assert argv[-2:] == ["-c", "/w/104"]
+        assert "issue-104" in argv
 
 
 def test_mine_keeps_only_issues_assigned_solely_to_the_current_user():

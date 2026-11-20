@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41416-024-02655-1
+extractor_version: 1
 title: "Navigating therapeutic strategies: HPV classification in head and neck cancer"
 authors:
 - Hossein Tabatabaeian
@@ -11,12 +12,14 @@ journal: British Journal of Cancer
 year: '2024'
 doi: 10.1038/s41416-024-02655-1
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41416-024-02655-1.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41416-024-02655-1.pdf
+full_text_access_type: open
 ---
 
 # Navigating therapeutic strategies: HPV classification in head and neck cancer
@@ -26,7 +29,9 @@ local_pdf_path: files/DOI_10.1038_s41416-024-02655-1.pdf
 
 ## Content
 
-AbstractThe World Health Organisation recognised human papillomavirus (HPV) as the cause of multiple cancers, including head and neck cancers. HPV is a double-stranded DNA virus, and its viral gene expression can be controlled after infection by cellular and viral promoters. In cancer cells, the HPV genome is detected as either integrated into the host genome, episomal (extrachromosomal), or a mixture of integrated and episomal. Viral integration requires the breakage of both viral and host DNA, and the integration rate correlates with the level of DNA damage. Interestingly, patients with HPV-positive head and neck cancers generally have a good prognosis except for a group of patients with fully integrated HPV who show worst clinical outcomes. Those patients present with lowered expression of viral genes and limited infiltration of cytotoxic T cells. An impediment to effective therapy applications in the clinic is the sole testing for HPV positivity without considering the HPV integration status. This review will discuss HPV integration as a potential determinant of response to therapies in head and neck cancers and highlight to the field a novel therapeutic avenue that would reduce the cancer burden and improve patient survival.
+Abstract
+
+The World Health Organisation recognised human papillomavirus (HPV) as the cause of multiple cancers, including head and neck cancers. HPV is a double-stranded DNA virus, and its viral gene expression can be controlled after infection by cellular and viral promoters. In cancer cells, the HPV genome is detected as either integrated into the host genome, episomal (extrachromosomal), or a mixture of integrated and episomal. Viral integration requires the breakage of both viral and host DNA, and the integration rate correlates with the level of DNA damage. Interestingly, patients with HPV-positive head and neck cancers generally have a good prognosis except for a group of patients with fully integrated HPV who show worst clinical outcomes. Those patients present with lowered expression of viral genes and limited infiltration of cytotoxic T cells. An impediment to effective therapy applications in the clinic is the sole testing for HPV positivity without considering the HPV integration status. This review will discuss HPV integration as a potential determinant of response to therapies in head and neck cancers and highlight to the field a novel therapeutic avenue that would reduce the cancer burden and improve patient survival.
 
 REVIEW ARTICLE OPEN
 Translational Therapeutics
