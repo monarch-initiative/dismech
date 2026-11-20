@@ -15,6 +15,7 @@ from biolink_model.datamodel.pydanticmodel_v2 import (
     CellularComponent,
     ChemicalEntity,
     ChemicalOrDrugOrTreatmentToDiseaseOrPhenotypicFeatureAssociation,
+    CorrelatedGeneToDiseaseAssociation,
     Disease,
     DiseaseOrPhenotypicFeatureToGeneticInheritanceAssociation,
     DiseaseOrPhenotypicFeatureToLocationAssociation,
@@ -47,11 +48,13 @@ from dismech.export.kgx_export import (
     histopathology_to_edge,
     infectious_agent_to_edge,
     inheritance_to_edge,
+    iter_edges_with_evidence,
     location_to_edge,
     molecular_function_to_edge,
     pathway_to_edge,
     phenotype_to_edge,
     protein_complex_to_edge,
+    subtype_disease_ids,
     therapeutic_agent_to_edge,
     transform,
     treatment_target_phenotype_to_edge,
@@ -352,16 +355,57 @@ class TestGeneToEdge:
             }
             assert gene_to_edge("MONDO:0005180", gene) is None, relationship
 
-    def test_other_relationship_types_still_emit_an_edge(self):
-        """The skip is only for the two unasserted grades."""
-        for relationship in ("CAUSATIVE", "RISK_FACTOR", "SUSCEPTIBILITY", "MODIFIER"):
-            gene = {
-                "name": "LRRK2",
-                "gene_term": {"term": {"id": "hgnc:18618", "label": "LRRK2"}},
-                "relationship_type": relationship,
-            }
-            edge = gene_to_edge("MONDO:0005180", gene)
-            assert edge is not None and edge.predicate == "biolink:contributes_to", relationship
+    @pytest.mark.parametrize(
+        ("relationship", "predicate", "association_class"),
+        [
+            (None, "biolink:contributes_to", GeneToDiseaseAssociation),
+            ("CAUSATIVE", "biolink:contributes_to", GeneToDiseaseAssociation),
+            ("SOMATIC_DRIVER", "biolink:contributes_to", GeneToDiseaseAssociation),
+            ("COOPERATING", "biolink:contributes_to", GeneToDiseaseAssociation),
+            ("PROTECTIVE", "biolink:associated_with_decreased_likelihood_of", Association),
+            ("RISK_FACTOR", "biolink:associated_with_increased_likelihood_of", Association),
+            ("SUSCEPTIBILITY", "biolink:associated_with_increased_likelihood_of", Association),
+            ("MODIFIER", "biolink:affects", GeneToDiseaseAssociation),
+            ("BIOMARKER", "biolink:biomarker_for", CorrelatedGeneToDiseaseAssociation),
+            ("UNKNOWN", "biolink:associated_with", GeneToDiseaseAssociation),
+        ],
+    )
+    def test_relationship_type_sets_the_predicate(self, relationship, predicate, association_class):
+        """Each asserted grade exports with its own predicate, so a protective
+        or susceptibility gene is not read as a contribution claim (#12320)."""
+        gene = {
+            "name": "LRRK2",
+            "gene_term": {"term": {"id": "hgnc:18618", "label": "LRRK2"}},
+        }
+        if relationship:
+            gene["relationship_type"] = relationship
+        edge = gene_to_edge("MONDO:0005180", gene)
+        assert type(edge) is association_class
+        assert edge.predicate == predicate
+        assert edge.subject == "hgnc:18618"
+        assert edge.object == "MONDO:0005180"
+        assert edge.subject_category == "biolink:Gene"
+        assert edge.object_category == "biolink:Disease"
+
+    def test_every_relationship_type_in_the_schema_is_handled(self):
+        """A value added to the enum must be placed deliberately: either
+        unasserted, mapped, or knowingly left on the contributes_to default."""
+        import yaml
+
+        from dismech.export.kgx_export import (
+            _RELATIONSHIP_TYPE_EDGES,
+            _UNASSERTED_RELATIONSHIP_TYPES,
+        )
+
+        schema = Path(__file__).parent.parent / "src" / "dismech" / "schema" / "dismech.yaml"
+        values = set(
+            yaml.safe_load(schema.read_text())["enums"]["GeneDiseaseRelationshipEnum"][
+                "permissible_values"
+            ]
+        )
+        default = {"CAUSATIVE", "SOMATIC_DRIVER", "COOPERATING"}
+        handled = set(_RELATIONSHIP_TYPE_EDGES) | _UNASSERTED_RELATIONSHIP_TYPES | default
+        assert values == handled
 
 
 class TestModifierCurieMap:
@@ -1819,3 +1863,162 @@ def test_semicircular_canal_dehiscence_reproductions():
     assert (node("Developmental_Otic_Capsule_Bone_Deficiency"), "biolink:causes", node("Bony_Dehiscence_of_Semicircular_Canal")) in edges
     assert (node("Bony_Dehiscence_of_Semicircular_Canal"), "biolink:causes", node("Third_Window_Effect")) in edges
     assert ("HP:0002321", "biolink:causes", "HP:0002141") in edges  # Vertigo -> Chronic Disequilibrium
+
+
+class TestSubtypeRouting:
+    """Subtype-scoped items export against the subtype's term (#12316)."""
+
+    PARENT = "MONDO:0000001"
+    SUB_A = "MONDO:0000002"
+    RECORD: ClassVar[dict[str, Any]] = {
+        "name": "Example Disease",
+        "disease_term": {"term": {"id": PARENT, "label": "example disease"}},
+        "has_subtypes": [
+            {
+                "name": "Type A",
+                "subtype_term": {"term": {"id": SUB_A, "label": "example disease type A"}},
+            },
+            {"name": "Type B"},  # no term: items pointing here stay on the parent
+        ],
+        "genetic": [
+            {
+                "name": "GENEA",
+                "subtype": "Type A",
+                "gene_term": {"term": {"id": "hgnc:1", "label": "GENEA"}},
+            },
+            {
+                "name": "GENEB",
+                "subtype": "Type B",
+                "gene_term": {"term": {"id": "hgnc:2", "label": "GENEB"}},
+            },
+            {"name": "GENEC", "gene_term": {"term": {"id": "hgnc:3", "label": "GENEC"}}},
+            {
+                "name": "GENED",
+                "subtype": "No Such Subtype",
+                "gene_term": {"term": {"id": "hgnc:4", "label": "GENED"}},
+            },
+        ],
+        "phenotypes": [
+            {
+                "name": "Seizure",
+                "subtype": "Type A",
+                "phenotype_term": {"term": {"id": "HP:0001250", "label": "Seizure"}},
+            },
+        ],
+        "biochemical": [
+            {
+                "name": "Marker",
+                "subtype": "Type A",
+                "biomarker_term": {"term": {"id": "CHEBI:1", "label": "marker"}},
+            },
+        ],
+    }
+
+    def _edges(self):
+        return [e.association for e in iter_edges_with_evidence(self.RECORD)]
+
+    def test_lookup_only_holds_bound_subtypes(self):
+        assert subtype_disease_ids(self.RECORD) == {
+            "Type A": (self.SUB_A, "example disease type A")
+        }
+
+    def test_subtype_is_emitted_as_a_disease_node(self):
+        nodes = {n.id: n for n in extract_nodes(self.RECORD)}
+        assert isinstance(nodes[self.SUB_A], Disease)
+        assert nodes[self.SUB_A].name == "example disease type A"
+
+    def test_subtype_is_linked_to_its_parent(self):
+        links = [e for e in self._edges() if e.predicate == "biolink:subclass_of"]
+        assert [(e.subject, e.object) for e in links] == [(self.SUB_A, self.PARENT)]
+
+    def test_gene_routes_to_subtype_and_falls_back_to_parent(self):
+        objects = {
+            e.subject: e.object for e in self._edges() if e.subject.startswith("hgnc:")
+        }
+        assert objects == {
+            "hgnc:1": self.SUB_A,  # bound subtype
+            "hgnc:2": self.PARENT,  # subtype has no term
+            "hgnc:3": self.PARENT,  # no subtype key
+            "hgnc:4": self.PARENT,  # key names no subtype
+        }
+
+    def test_phenotype_and_biomarker_route_to_subtype(self):
+        by_object = {e.object: e.subject for e in self._edges()}
+        assert by_object["HP:0001250"] == self.SUB_A
+        assert by_object["CHEBI:1"] == self.SUB_A
+
+    def test_subtype_bound_to_parent_term_emits_no_self_loop(self):
+        record = {
+            "disease_term": {"term": {"id": self.PARENT, "label": "x"}},
+            "has_subtypes": [
+                {"name": "Same", "subtype_term": {"term": {"id": self.PARENT, "label": "x"}}}
+            ],
+        }
+        edges = [e.association for e in iter_edges_with_evidence(record)]
+        assert not [e for e in edges if e.predicate == "biolink:subclass_of"]
+
+    def test_subtypes_sharing_a_term_link_to_the_parent_once(self):
+        record = {
+            "disease_term": {"term": {"id": self.PARENT, "label": "x"}},
+            "has_subtypes": [
+                {"name": n, "subtype_term": {"term": {"id": self.SUB_A, "label": "a"}}}
+                for n in ("One", "Two")
+            ],
+        }
+        edges = [e.association for e in iter_edges_with_evidence(record)]
+        assert len([e for e in edges if e.predicate == "biolink:subclass_of"]) == 1
+
+    def test_subclass_edge_carries_the_subtypes_evidence(self):
+        def ev(pmid):
+            return {"reference": pmid, "supports": "SUPPORT", "snippet": f"quote {pmid}"}
+
+        record = {
+            "disease_term": {"term": {"id": self.PARENT, "label": "x"}},
+            "has_subtypes": [
+                {
+                    "name": "One",
+                    "subtype_term": {"term": {"id": self.SUB_A, "label": "a"}},
+                    "evidence": [ev("PMID:1")],
+                },
+                {
+                    "name": "Two",
+                    "subtype_term": {"term": {"id": self.SUB_A, "label": "a"}},
+                    "evidence": [ev("PMID:2")],
+                },
+            ],
+        }
+        (link,) = [
+            e for e in iter_edges_with_evidence(record)
+            if e.association.predicate == "biolink:subclass_of"
+        ]
+        assert link.association.publications == ["PMID:1", "PMID:2"]
+        assert [e["reference"] for e in link.evidence] == ["PMID:1", "PMID:2"]
+
+    def test_subclass_edge_without_evidence_has_no_publications(self):
+        (link,) = [
+            e for e in iter_edges_with_evidence(self.RECORD)
+            if e.association.predicate == "biolink:subclass_of"
+        ]
+        assert link.association.publications is None
+        assert link.evidence is None
+
+    def test_infectious_agent_subtypes_are_not_diseases(self):
+        record = {
+            "disease_term": {"term": {"id": self.PARENT, "label": "x"}},
+            "infectious_agents": [
+                {
+                    "name": "Agent",
+                    "has_subtypes": [
+                        {
+                            "name": "Strain",
+                            "subtype_term": {
+                                "term": {"id": "NCBITaxon:1", "label": "root"}
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+        assert subtype_disease_ids(record) == {}
+        edges = [e.association for e in iter_edges_with_evidence(record)]
+        assert not [e for e in edges if e.predicate == "biolink:subclass_of"]
