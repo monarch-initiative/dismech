@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00223-024-01202-7
+extractor_version: 1
 title: Medical Management for Fracture Prevention in Children with Osteogenesis Imperfecta
 authors:
 - Paul Arundel
@@ -8,12 +9,14 @@ journal: Calcified Tissue International
 year: '2024'
 doi: 10.1007/s00223-024-01202-7
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00223-024-01202-7.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s00223-024-01202-7.pdf
+full_text_access_type: open
 ---
 
 # Medical Management for Fracture Prevention in Children with Osteogenesis Imperfecta
@@ -23,7 +26,9 @@ local_pdf_path: files/DOI_10.1007_s00223-024-01202-7.pdf
 
 ## Content
 
-AbstractThere are no licensed treatments for children with osteogenesis imperfecta. Children currently receive off-label treatment with bisphosphonates, without any consistent approach to dose, drug or route of administration. Meta-analyses suggest that anti-fracture efficacy of such interventions is equivocal. New therapies are undergoing clinical trials, and it is likely that one or more will receive marketing authorisation within the next three to five years. The long-term outcome from such interventions will need to be studied carefully well beyond the period over which the clinical trials are conducted, and a consistent approach to the collection of data in this regard will be needed as a major collaborative effort.
+Abstract
+
+There are no licensed treatments for children with osteogenesis imperfecta. Children currently receive off-label treatment with bisphosphonates, without any consistent approach to dose, drug or route of administration. Meta-analyses suggest that anti-fracture efficacy of such interventions is equivocal. New therapies are undergoing clinical trials, and it is likely that one or more will receive marketing authorisation within the next three to five years. The long-term outcome from such interventions will need to be studied carefully well beyond the period over which the clinical trials are conducted, and a consistent approach to the collection of data in this regard will be needed as a major collaborative effort.
 
 Vol:.(1234567890)
 Calcified Tissue International (2024) 115:812–827

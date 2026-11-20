@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1186/s13023-023-02666-w
+extractor_version: 1
 title: Chenodeoxycholic acid rescues axonal degeneration in induced pluripotent stem cell-derived neurons from spastic paraplegia type 5 and cerebrotendinous xanthomatosis patients
 authors:
 - Yongchao Mou
@@ -17,12 +18,14 @@ journal: Orphanet Journal of Rare Diseases
 year: '2023'
 doi: 10.1186/s13023-023-02666-w
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://ojrd.biomedcentral.com/counter/pdf/10.1186/s13023-023-02666-w"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1186_s13023-023-02666-w.pdf
+full_text_access_type: open
 ---
 
 # Chenodeoxycholic acid rescues axonal degeneration in induced pluripotent stem cell-derived neurons from spastic paraplegia type 5 and cerebrotendinous xanthomatosis patients
@@ -32,7 +35,23 @@ local_pdf_path: files/DOI_10.1186_s13023-023-02666-w.pdf
 
 ## Content
 
-AbstractBackgroundBiallelic mutations inCYP27A1andCYP7B1, two critical genes regulating cholesterol and bile acid metabolism, cause cerebrotendinous xanthomatosis (CTX) and hereditary spastic paraplegia type 5 (SPG5), respectively. These rare diseases are characterized by progressive degeneration of corticospinal motor neuron axons, yet the underlying pathogenic mechanisms and strategies to mitigate axonal degeneration remain elusive.MethodsTo generate induced pluripotent stem cell (iPSC)-based models for CTX and SPG5, we reprogrammed patient skin fibroblasts into iPSCs by transducing fibroblast cells with episomal vectors containing pluripotency factors. These patient-specific iPSCs, as well as control iPSCs, were differentiated into cortical projection neurons (PNs) and examined for biochemical alterations and disease-related phenotypes.ResultsCTX and SPG5 patient iPSC-derived cortical PNs recapitulated several disease-specific biochemical changes and axonal defects of both diseases. Notably, the bile acid chenodeoxycholic acid (CDCA) effectively mitigated the biochemical alterations and rescued axonal degeneration in patient iPSC-derived neurons. To further examine underlying disease mechanisms, we developed CYP7B1 knockout human embryonic stem cell (hESC) lines using CRISPR-cas9-mediated gene editing and, following differentiation, examined hESC-derived cortical PNs. Knockout of CYP7B1 resulted in similar axonal vesiculation and degeneration in human cortical PN axons, confirming a cause-effect relationship between gene deficiency and axonal degeneration. Interestingly, CYP7B1 deficiency led to impaired neurofilament expression and organization as well as axonal degeneration, which could be rescued with CDCA, establishing a new disease mechanism and therapeutic target to mitigate axonal degeneration.ConclusionsOur data demonstrate disease-specific lipid disturbances and axonopathy mechanisms in human pluripotent stem cell-based neuronal models of CTX and SPG5 and identify CDCA, an established treatment of CTX, as a potential pharmacotherapy for SPG5. We propose this novel treatment strategy to rescue axonal degeneration in SPG5, a currently incurable condition.
+Abstract
+
+Background
+
+Biallelic mutations inCYP27A1andCYP7B1, two critical genes regulating cholesterol and bile acid metabolism, cause cerebrotendinous xanthomatosis (CTX) and hereditary spastic paraplegia type 5 (SPG5), respectively. These rare diseases are characterized by progressive degeneration of corticospinal motor neuron axons, yet the underlying pathogenic mechanisms and strategies to mitigate axonal degeneration remain elusive.
+
+Methods
+
+To generate induced pluripotent stem cell (iPSC)-based models for CTX and SPG5, we reprogrammed patient skin fibroblasts into iPSCs by transducing fibroblast cells with episomal vectors containing pluripotency factors. These patient-specific iPSCs, as well as control iPSCs, were differentiated into cortical projection neurons (PNs) and examined for biochemical alterations and disease-related phenotypes.
+
+Results
+
+CTX and SPG5 patient iPSC-derived cortical PNs recapitulated several disease-specific biochemical changes and axonal defects of both diseases. Notably, the bile acid chenodeoxycholic acid (CDCA) effectively mitigated the biochemical alterations and rescued axonal degeneration in patient iPSC-derived neurons. To further examine underlying disease mechanisms, we developed CYP7B1 knockout human embryonic stem cell (hESC) lines using CRISPR-cas9-mediated gene editing and, following differentiation, examined hESC-derived cortical PNs. Knockout of CYP7B1 resulted in similar axonal vesiculation and degeneration in human cortical PN axons, confirming a cause-effect relationship between gene deficiency and axonal degeneration. Interestingly, CYP7B1 deficiency led to impaired neurofilament expression and organization as well as axonal degeneration, which could be rescued with CDCA, establishing a new disease mechanism and therapeutic target to mitigate axonal degeneration.
+
+Conclusions
+
+Our data demonstrate disease-specific lipid disturbances and axonopathy mechanisms in human pluripotent stem cell-based neuronal models of CTX and SPG5 and identify CDCA, an established treatment of CTX, as a potential pharmacotherapy for SPG5. We propose this novel treatment strategy to rescue axonal degeneration in SPG5, a currently incurable condition.
 
 Mou et al. Orphanet Journal of Rare Diseases           (2023) 18:72  
 https://doi.org/10.1186/s13023-023-02666-w

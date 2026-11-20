@@ -19,6 +19,7 @@ year: '2024'
 doi: 10.1111/tmi.14033
 content_type: abstract_only
 is_preprint: false
+full_text_declined: "access_type:publisher_free"
 ---
 
 # Cutaneous infection due to <i>Mycobacterium marinum</i>: A series of four cases from Kerala, India
@@ -28,4 +29,6 @@ is_preprint: false
 
 ## Content
 
-AbstractMycobacterium marinum is a non‐tuberculous mycobacterium which can be found in naturally occurring, non‐chlorinated water sources and is a known pathogen that affects fish. In humans, M. marinum typically results in cutaneous lesions, it can occasionally lead to more invasive disorders. We discuss four cases of M. marinum‐related cutaneous infections examined in a tertiary care facility. We want to draw attention to the challenges of accurately diagnosing this infection, stress the significance of having a high level of clinical suspicion in order to identify it, and discuss the available treatment choices.
+Abstract
+
+Mycobacterium marinum is a non‐tuberculous mycobacterium which can be found in naturally occurring, non‐chlorinated water sources and is a known pathogen that affects fish. In humans, M. marinum typically results in cutaneous lesions, it can occasionally lead to more invasive disorders. We discuss four cases of M. marinum‐related cutaneous infections examined in a tertiary care facility. We want to draw attention to the challenges of accurately diagnosing this infection, stress the significance of having a high level of clinical suspicion in order to identify it, and discuss the available treatment choices.

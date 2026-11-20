@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1186/s13023-020-01508-3
+extractor_version: 1
 title: "Variant c.2158-2A&gt;G in MANBA is an important and frequent cause of hereditary hearing loss and beta-mannosidosis among the Czech and Slovak Roma population- evidence for a new ethnic-specific variant"
 authors:
 - Dana Safka Brozkova
@@ -17,12 +18,14 @@ journal: Orphanet Journal of Rare Diseases
 year: '2020'
 doi: 10.1186/s13023-020-01508-3
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://ojrd.biomedcentral.com/track/pdf/10.1186/s13023-020-01508-3"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1186_s13023-020-01508-3.pdf
+full_text_access_type: open
 ---
 
 # Variant c.2158-2A&gt;G in MANBA is an important and frequent cause of hereditary hearing loss and beta-mannosidosis among the Czech and Slovak Roma population- evidence for a new ethnic-specific variant
@@ -32,7 +35,23 @@ local_pdf_path: files/DOI_10.1186_s13023-020-01508-3.pdf
 
 ## Content
 
-AbstractBackgroundThe Roma are a European ethnic minority threatened by several recessive diseases.Variants inMANBAcause a rare lysosomal storage disorder named beta-mannosidosis whose clinical manifestation includes deafness and mental retardation. Since 1986, only 23 patients with beta-mannosidosis and biallelicMANBAvariants have been described worldwide.ResultsWe now report on further 10 beta-mannosidosis patients of Roma origin from eight families in the Czech and Slovak Republics with hearing loss, mental retardation and homozygous pathogenic variants inMANBA.MANBAvariant c.2158-2A>G screening among 345 anonymized normal hearing controls from Roma populations revealed a carrier/heterozygote frequency of 3.77%. This is about 925 times higher than the frequency of this variant in the gnomAD public database and classifies the c.2158-2A>G variant as a prevalent, ethnic-specific variant causing hearing loss and mental retardation in a homozygous state. The frequency of heterozygotes/carriers is similar to another pathogenic variant c.71G>A (p.W24*) inGJB2, regarded as the most frequent variant causing deafness in Roma populations.ConlcusionBeta-mannosidosis, due to a homozygous c.2158-2A>GMANBAvariant, is an important and previously unknown cause of hearing loss and mental retardation among Central European Roma.
+Abstract
+
+Background
+
+The Roma are a European ethnic minority threatened by several recessive diseases.
+
+Variants in MANBA cause a rare lysosomal storage disorder named beta-mannosidosis whose clinical manifestation includes deafness and mental retardation. Since 1986, only 23 patients with beta-mannosidosis and biallelic MANBA variants have been described worldwide.
+
+Results
+
+We now report on further 10 beta-mannosidosis patients of Roma origin from eight families in the Czech and Slovak Republics with hearing loss, mental retardation and homozygous pathogenic variants in MANBA .
+
+MANBA variant c.2158-2A>G screening among 345 anonymized normal hearing controls from Roma populations revealed a carrier/heterozygote frequency of 3.77%. This is about 925 times higher than the frequency of this variant in the gnomAD public database and classifies the c.2158-2A>G variant as a prevalent, ethnic-specific variant causing hearing loss and mental retardation in a homozygous state. The frequency of heterozygotes/carriers is similar to another pathogenic variant c.71G>A (p.W24*) in GJB2 , regarded as the most frequent variant causing deafness in Roma populations.
+
+Conlcusion
+
+Beta-mannosidosis, due to a homozygous c.2158-2A>G MANBA variant, is an important and previously unknown cause of hearing loss and mental retardation among Central European Roma.
 
 R E S E A R C H Open Access
 Variant c.2158-2A>G in MANBA is an

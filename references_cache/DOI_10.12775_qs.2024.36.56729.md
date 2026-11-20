@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.12775/qs.2024.36.56729
+extractor_version: 1
 title: "Small Intestinal Bacterial Overgrowth Syndrome: New Clinical Insights for Multimorbid and High-Risk Patients"
 authors:
 - Krzysztof Nowakowski
@@ -11,12 +12,14 @@ journal: Quality in Sport
 year: '2024'
 doi: 10.12775/qs.2024.36.56729
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://apcz.umk.pl/QS/article/download/56729/40835"
 oa_status: diamond
 license: cc-by-nc-sa
 local_pdf_path: files/DOI_10.12775_qs.2024.36.56729.pdf
+full_text_access_type: open
 ---
 
 # Small Intestinal Bacterial Overgrowth Syndrome: New Clinical Insights for Multimorbid and High-Risk Patients
@@ -26,13 +29,7 @@ local_pdf_path: files/DOI_10.12775_qs.2024.36.56729.pdf
 
 ## Content
 
-IntroductionSmall Intestinal Bacterial Overgrowth (SIBO) syndrome has emerged as a significant clinical issue associated with various gastrointestinal and systemic conditions. The syndrome is characterized by an excessive proliferation of bacteria in the small intestine, leading to symptoms such as bloating, diarrhoea, constipation, abdominal pain, and malabsorption. These symptoms contribute to a decline in patients' quality of life, malnutrition, and nutritional deficiencies. Despite its clinical relevance, SIBO remains underdiagnosed in routine practice.
-Purpose of ResearchThis study aims to review the current understanding of the pathophysiology, clinical presentation, diagnostic approaches, and treatment options for SIBO, with a focus on improving clinical recognition and management.
-Materials and Methods
-A comprehensive literature review was conducted, analyzing 31 articles sourced from PubMed, Scopus, Web of Science, and ScienceDirect. The search was based on the keywords: SIBO, small intestinal bacterial overgrowth syndrome, dysbiosis, diagnosis of SIBO, and treatments of SIBO. Articles published between 2011 and 2024 were included, with at least 80% of the sources published after 2015 to ensure up-to-date information.
-Basic Results
-SIBO is associated with diverse etiological factors, including gastrointestinal motility disorders, anatomical abnormalities, and immune deficiencies. Diagnosis primarily relies on clinical history and breath tests, though these have limitations in accuracy. Antimicrobial therapy, alongside management of nutritional deficiencies and the underlying condition, are the cornerstone of treatment.
-ConclusionsSIBO presents with nonspecific symptoms commonly seen in clinical practice, especially in elderly and high-risk patients. Early diagnosis and appropriate treatment can significantly improve patients' quality of life.
+IntroductionSmall Intestinal Bacterial Overgrowth (SIBO) syndrome has emerged as a significant clinical issue associated with various gastrointestinal and systemic conditions. The syndrome is characterized by an excessive proliferation of bacteria in the small intestine, leading to symptoms such as bloating, diarrhoea, constipation, abdominal pain, and malabsorption. These symptoms contribute to a decline in patients' quality of life, malnutrition, and nutritional deficiencies. Despite its clinical relevance, SIBO remains underdiagnosed in routine practice. Purpose of ResearchThis study aims to review the current understanding of the pathophysiology, clinical presentation, diagnostic approaches, and treatment options for SIBO, with a focus on improving clinical recognition and management. Materials and Methods A comprehensive literature review was conducted, analyzing 31 articles sourced from PubMed, Scopus, Web of Science, and ScienceDirect. The search was based on the keywords: SIBO, small intestinal bacterial overgrowth syndrome, dysbiosis, diagnosis of SIBO, and treatments of SIBO. Articles published between 2011 and 2024 were included, with at least 80% of the sources published after 2015 to ensure up-to-date information. Basic Results SIBO is associated with diverse etiological factors, including gastrointestinal motility disorders, anatomical abnormalities, and immune deficiencies. Diagnosis primarily relies on clinical history and breath tests, though these have limitations in accuracy. Antimicrobial therapy, alongside management of nutritional deficiencies and the underlying condition, are the cornerstone of treatment. ConclusionsSIBO presents with nonspecific symptoms commonly seen in clinical practice, especially in elderly and high-risk patients. Early diagnosis and appropriate treatment can significantly improve patients' quality of life.
 
 NOWAKOWSKI, Krzysztof, MULARCZYK, Zuzanna, RECLIK, Magdalena, OLEKSY, Piotr and TENDERENDA, Maciej. Small 
 Intestinal Bacterial Overgrowth Syndrome: New Clinical Insights for Multimorbid and High -Risk Patients . Quality in Sport. 

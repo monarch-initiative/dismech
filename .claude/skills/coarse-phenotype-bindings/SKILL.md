@@ -114,8 +114,10 @@ So before declaring a hub, ask three things the guard does not:
 3. **Is there anything for it to be a hub of?**
 
 **Worked example: `Noonan_Syndrome` *Tumor Predisposition* (`HP:0002664`).**
-`RASopathy Neoplastic Predisposition` — a mechanism node — targets it and
-nothing else, so the mechanism converges there rather than fanning out. And the
+`RASopathy Neoplastic Predisposition` — a mechanism node — is the only node
+that targets it, and its one other edge reaches *Neuroblastoma*, a specific
+tumour curated as its own phenotype, so the mechanism converges there rather
+than fanning out. And the
 coarseness is intrinsic: germline RAS/MAPK hyperactivation raises risk across
 haematopoietic and solid lineages instead of producing one characteristic
 tumour, and the reported tumours differ by genotype, so no narrower HP term is

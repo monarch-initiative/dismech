@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41591-023-02465-7
+extractor_version: 1
 title: "Zolbetuximab plus CAPOX in CLDN18.2-positive gastric or gastroesophageal junction adenocarcinoma: the randomized, phase 3 GLOW trial"
 authors:
 - Manish A. Shah
@@ -27,12 +28,14 @@ journal: Nature Medicine
 year: '2023'
 doi: 10.1038/s41591-023-02465-7
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41591-023-02465-7.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41591-023-02465-7.pdf
+full_text_access_type: open
 ---
 
 # Zolbetuximab plus CAPOX in CLDN18.2-positive gastric or gastroesophageal junction adenocarcinoma: the randomized, phase 3 GLOW trial
@@ -42,7 +45,9 @@ local_pdf_path: files/DOI_10.1038_s41591-023-02465-7.pdf
 
 ## Content
 
-AbstractThere is an urgent need for first-line treatment options for patients with human epidermal growth factor receptor 2 (HER2)-negative, locally advanced unresectable or metastatic gastric or gastroesophageal junction (mG/GEJ) adenocarcinoma. Claudin-18 isoform 2 (CLDN18.2) is expressed in normal gastric cells and maintained in malignant G/GEJ adenocarcinoma cells. GLOW (closed enrollment), a global, double-blind, phase 3 study, examined zolbetuximab, a monoclonal antibody that targets CLDN18.2, plus capecitabine and oxaliplatin (CAPOX) as first-line treatment for CLDN18.2-positive, HER2-negative, locally advanced unresectable or mG/GEJ adenocarcinoma. Patients (n = 507) were randomized 1:1 (block sizes of two) to zolbetuximab plus CAPOX or placebo plus CAPOX. GLOW met the primary endpoint of progression-free survival (median, 8.21 months versus 6.80 months with zolbetuximab versus placebo; hazard ratio (HR) = 0.687; 95% confidence interval (CI), 0.544–0.866; P = 0.0007) and key secondary endpoint of overall survival (median, 14.39 months versus 12.16 months; HR = 0.771; 95% CI, 0.615–0.965; P = 0.0118). Grade ≥3 treatment-emergent adverse events were similar with zolbetuximab (72.8%) and placebo (69.9%). Zolbetuximab plus CAPOX represents a potential new first-line therapy for patients with CLDN18.2-positive, HER2-negative, locally advanced unresectable or mG/GEJ adenocarcinoma. ClinicalTrials.gov identifier: NCT03653507.
+Abstract
+
+There is an urgent need for first-line treatment options for patients with human epidermal growth factor receptor 2 (HER2)-negative, locally advanced unresectable or metastatic gastric or gastroesophageal junction (mG/GEJ) adenocarcinoma. Claudin-18 isoform 2 (CLDN18.2) is expressed in normal gastric cells and maintained in malignant G/GEJ adenocarcinoma cells. GLOW (closed enrollment), a global, double-blind, phase 3 study, examined zolbetuximab, a monoclonal antibody that targets CLDN18.2, plus capecitabine and oxaliplatin (CAPOX) as first-line treatment for CLDN18.2-positive, HER2-negative, locally advanced unresectable or mG/GEJ adenocarcinoma. Patients ( n = 507) were randomized 1:1 (block sizes of two) to zolbetuximab plus CAPOX or placebo plus CAPOX. GLOW met the primary endpoint of progression-free survival (median, 8.21 months versus 6.80 months with zolbetuximab versus placebo; hazard ratio (HR) = 0.687; 95% confidence interval (CI), 0.544–0.866; P = 0.0007) and key secondary endpoint of overall survival (median, 14.39 months versus 12.16 months; HR = 0.771; 95% CI, 0.615–0.965; P = 0.0118). Grade ≥3 treatment-emergent adverse events were similar with zolbetuximab (72.8%) and placebo (69.9%). Zolbetuximab plus CAPOX represents a potential new first-line therapy for patients with CLDN18.2-positive, HER2-negative, locally advanced unresectable or mG/GEJ adenocarcinoma. ClinicalTrials.gov identifier: NCT03653507 .
 
 Nature Medicine | Volume 29 | August 2023 | 2133–2141
  2133

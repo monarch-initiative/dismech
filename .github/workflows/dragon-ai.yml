@@ -22,6 +22,18 @@ on:
 
 jobs:
   check-mention:
+    # Pre-filter evaluated before GitHub assigns a runner (#17150): an event whose
+    # text names no agent handle can never qualify, so it never queues for one.
+    # This is a superset test only -- contains() is case-insensitive and ignores
+    # code spans, `please` and the allowlist -- so the script below still makes
+    # every real decision, including the "named but did not parse" warning.
+    # The handles here must match allHandles() in .github/scripts/agent-mention.js;
+    # tests/test_comment_workflow_checkouts.py fails if the two lists drift apart.
+    # On a comment event the payload also carries the parent issue/PR, so the
+    # comment body is tried first.
+    if: >-
+      contains(github.event.comment.body || github.event.issue.body || github.event.pull_request.body, '@ai4c-agent') ||
+      contains(github.event.comment.body || github.event.issue.body || github.event.pull_request.body, '@dragon-ai-agent')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -38,6 +50,11 @@ jobs:
           # event payload (below), not from checked-out files, so main is sufficient.
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
+          # This job reads only .github/ (the allowlist and agent-mention.js), and
+          # it runs on every issue, PR and comment event. Before this checkout was
+          # made sparse, a full checkout took ~3.7 min per run against <1 s of
+          # work, tying up org-wide runner slots (#17150).
+          sparse-checkout: .github
 
       - name: Check for qualifying mention
         id: check

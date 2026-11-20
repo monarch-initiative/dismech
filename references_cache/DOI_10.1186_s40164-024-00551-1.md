@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1186/s40164-024-00551-1
+extractor_version: 1
 title: Current and future therapies for follicular lymphoma
 authors:
 - Pier Luigi Zinzani
@@ -9,12 +10,14 @@ journal: "Experimental Hematology &amp; Oncology"
 year: '2024'
 doi: 10.1186/s40164-024-00551-1
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://ehoonline.biomedcentral.com/counter/pdf/10.1186/s40164-024-00551-1"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1186_s40164-024-00551-1.pdf
+full_text_access_type: open
 ---
 
 # Current and future therapies for follicular lymphoma
@@ -24,7 +27,9 @@ local_pdf_path: files/DOI_10.1186_s40164-024-00551-1.pdf
 
 ## Content
 
-AbstractFollicular lymphoma (FL) is an indolent, germinal center B cell–derived lymphoid neoplasm, for which recent advances in treatment have substantially improved patient survival. However, FL remains an incurable and heterogeneous disease, with groups of patients experiencing early disease progression, histologic transformation, or a high risk of treatment-related toxicity. Additionally, FL is a continually relapsing disease, and response rates and disease-control intervals decrease with each subsequent line of therapy. In this review, we explore the current treatment landscape for relapsed or refractory FL and promising therapies in development, highlighting the efficacy and potential risks of each treatment. We provide a real-world perspective on the unmet needs of patients with FL. Novel therapeutic approaches in development offer a wide array of options for clinicians when treating relapsed or refractory FL. A nuanced approach is required to address the needs of individual patients, taking into consideration both the risks and benefits of each treatment option, as well as patient preferences.
+Abstract
+
+Follicular lymphoma (FL) is an indolent, germinal center B cell–derived lymphoid neoplasm, for which recent advances in treatment have substantially improved patient survival. However, FL remains an incurable and heterogeneous disease, with groups of patients experiencing early disease progression, histologic transformation, or a high risk of treatment-related toxicity. Additionally, FL is a continually relapsing disease, and response rates and disease-control intervals decrease with each subsequent line of therapy. In this review, we explore the current treatment landscape for relapsed or refractory FL and promising therapies in development, highlighting the efficacy and potential risks of each treatment. We provide a real-world perspective on the unmet needs of patients with FL. Novel therapeutic approaches in development offer a wide array of options for clinicians when treating relapsed or refractory FL. A nuanced approach is required to address the needs of individual patients, taking into consideration both the risks and benefits of each treatment option, as well as patient preferences.
 
 REVIEW Open Access
 © The Author(s) 2024. Open Access  This article is licensed under a Creative Commons Attribution 4.0 International License, which permits use, 

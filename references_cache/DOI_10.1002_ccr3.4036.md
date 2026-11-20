@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1002/ccr3.4036
+extractor_version: 1
 title: "Familiar del3p syndrome: The uncertainty of the prognosis. A case report"
 authors:
 - Márcia Martins
@@ -13,6 +14,7 @@ year: '2021'
 doi: 10.1002/ccr3.4036
 content_type: abstract_only
 is_preprint: false
+full_text_declined: landing_page_only
 ---
 
 # Familiar del3p syndrome: The uncertainty of the prognosis. A case report
@@ -22,4 +24,6 @@ is_preprint: false
 
 ## Content
 
-AbstractThe 3p deletion syndrome is an unusual condition. The few cases described are mainly de novo. We described a familial case detected in a prenatal diagnosis. Three members of the family had the 3p26.3‐p26.1 deletion; however, only the son presented clinical features.
+Abstract
+
+The 3p deletion syndrome is an unusual condition. The few cases described are mainly de novo. We described a familial case detected in a prenatal diagnosis. Three members of the family had the 3p26.3‐p26.1 deletion; however, only the son presented clinical features.

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1186/s10194-024-01741-2
+extractor_version: 1
 title: The glymphatic system in migraine and other headaches
 authors:
 - Maria Grazia Vittorini
@@ -16,12 +17,14 @@ journal: The Journal of Headache and Pain
 year: '2024'
 doi: 10.1186/s10194-024-01741-2
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://thejournalofheadacheandpain.biomedcentral.com/counter/pdf/10.1186/s10194-024-01741-2"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1186_s10194-024-01741-2.pdf
+full_text_access_type: open
 ---
 
 # The glymphatic system in migraine and other headaches
@@ -31,7 +34,9 @@ local_pdf_path: files/DOI_10.1186_s10194-024-01741-2.pdf
 
 ## Content
 
-AbstractGlymphatic system is an emerging pathway of removing metabolic waste products and toxic solutes from the brain tissue. It is made of a network of perivascular spaces, filled in cerebrospinal and interstitial fluid, encompassing penetrating and pial vessels and communicating with the subarachnoid space. It is separated from vessels by the blood brain barrier and from brain tissue by the endfeet of the astrocytes rich in aquaporin 4, a membrane protein which controls the water flow along the perivascular space. Animal models and magnetic resonance (MR) studies allowed to characterize the glymphatic system function and determine how its impairment could lead to numerous neurological disorders (e.g. Alzheimer’s disease, stroke, sleep disturbances, migraine, idiopathic normal pressure hydrocephalus). This review aims to summarize the role of the glymphatic system in the pathophysiology of migraine in order to provide new ways of approaching to this disease and to its therapy.
+Abstract
+
+Glymphatic system is an emerging pathway of removing metabolic waste products and toxic solutes from the brain tissue. It is made of a network of perivascular spaces, filled in cerebrospinal and interstitial fluid, encompassing penetrating and pial vessels and communicating with the subarachnoid space. It is separated from vessels by the blood brain barrier and from brain tissue by the endfeet of the astrocytes rich in aquaporin 4, a membrane protein which controls the water flow along the perivascular space. Animal models and magnetic resonance (MR) studies allowed to characterize the glymphatic system function and determine how its impairment could lead to numerous neurological disorders (e.g. Alzheimer’s disease, stroke, sleep disturbances, migraine, idiopathic normal pressure hydrocephalus). This review aims to summarize the role of the glymphatic system in the pathophysiology of migraine in order to provide new ways of approaching to this disease and to its therapy.
 
 Vittorini et al. 
 The Journal of Headache and Pain           (2024) 25:34  

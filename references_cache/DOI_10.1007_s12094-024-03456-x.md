@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s12094-024-03456-x
+extractor_version: 1
 title: SEOM-GEINO clinical guidelines for grade 2 gliomas (2023)
 authors:
 - María Ángeles Vaz-Salgado
@@ -16,12 +17,14 @@ journal: Clinical and Translational Oncology
 year: '2024'
 doi: 10.1007/s12094-024-03456-x
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s12094-024-03456-x.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s12094-024-03456-x.pdf
+full_text_access_type: open
 ---
 
 # SEOM-GEINO clinical guidelines for grade 2 gliomas (2023)
@@ -31,7 +34,9 @@ local_pdf_path: files/DOI_10.1007_s12094-024-03456-x.pdf
 
 ## Content
 
-AbstractThe 2021 World Health Organization (WHO) classification has updated the definition of grade 2 gliomas and the presence of isocitrate dehydrogenase (IDH) mutation has been deemed the cornerstone of diagnosis. Though slow-growing and having a low proliferative index, grade 2 gliomas are incurable by surgery and complementary treatments are vital to improving prognosis. This guideline provides recommendations on the multidisciplinary treatment of grade 2 astrocytomas and oligodendrogliomas based on the best evidence available.
+Abstract
+
+The 2021 World Health Organization (WHO) classification has updated the definition of grade 2 gliomas and the presence of isocitrate dehydrogenase (IDH) mutation has been deemed the cornerstone of diagnosis. Though slow-growing and having a low proliferative index, grade 2 gliomas are incurable by surgery and complementary treatments are vital to improving prognosis. This guideline provides recommendations on the multidisciplinary treatment of grade 2 astrocytomas and oligodendrogliomas based on the best evidence available.
 
 Vol:.(1234567890)
 Clinical and Translational Oncology (2024) 26:2856–2865

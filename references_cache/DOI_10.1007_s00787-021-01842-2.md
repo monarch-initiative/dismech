@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00787-021-01842-2
+extractor_version: 1
 title: "European clinical guidelines for Tourette syndrome and other tic disorders—version 2.0. Part I: assessment"
 authors:
 - Natalia Szejko
@@ -24,12 +25,14 @@ journal: "European Child &amp; Adolescent Psychiatry"
 year: '2022'
 doi: 10.1007/s00787-021-01842-2
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00787-021-01842-2.pdf"
 oa_status: hybrid
-license: other-oa
+license: cc-by
 local_pdf_path: files/DOI_10.1007_s00787-021-01842-2.pdf
+full_text_access_type: open
 ---
 
 # European clinical guidelines for Tourette syndrome and other tic disorders—version 2.0. Part I: assessment
@@ -39,7 +42,9 @@ local_pdf_path: files/DOI_10.1007_s00787-021-01842-2.pdf
 
 ## Content
 
-AbstractIn 2011 a working group of the European Society for the Study of Tourette Syndrome (ESSTS) has developed the first European assessment guidelines for Tourette syndrome (TS). Now, we present an updated version 2.0 of these European clinical guidelines for Tourette syndrome and other tic disorders, part I: assessment. Therefore, the available literature has been thoroughly screened, supplemented with national guidelines across countries and discussions among ESSTS experts. Diagnostic changes between DSM-IV and DSM-5 classifications were taken into account and new information has been added regarding differential diagnoses, with an emphasis on functional movement disorders in both children and adults. Further, recommendations regarding rating scales to evaluate tics, comorbidities, and neuropsychological status are provided. Finally, results from a recently performed survey among ESSTS members on assessment in TS are described. We acknowledge that the Yale Global Tic Severity Scale (YGTSS) is still the gold standard for assessing tics. Recommendations are provided for scales for the assessment of tics and psychiatric comorbidities in patients with TS not only in routine clinical practice, but also in the context of clinical research. Furthermore, assessments supporting the differential diagnosis process are given as well as tests to analyse cognitive abilities, emotional functions and motor skills.
+Abstract
+
+In 2011 a working group of the European Society for the Study of Tourette Syndrome (ESSTS) has developed the first European assessment guidelines for Tourette syndrome (TS). Now, we present an updated version 2.0 of these European clinical guidelines for Tourette syndrome and other tic disorders, part I: assessment. Therefore, the available literature has been thoroughly screened, supplemented with national guidelines across countries and discussions among ESSTS experts. Diagnostic changes between DSM-IV and DSM-5 classifications were taken into account and new information has been added regarding differential diagnoses, with an emphasis on functional movement disorders in both children and adults. Further, recommendations regarding rating scales to evaluate tics, comorbidities, and neuropsychological status are provided. Finally, results from a recently performed survey among ESSTS members on assessment in TS are described. We acknowledge that the Yale Global Tic Severity Scale (YGTSS) is still the gold standard for assessing tics. Recommendations are provided for scales for the assessment of tics and psychiatric comorbidities in patients with TS not only in routine clinical practice, but also in the context of clinical research. Furthermore, assessments supporting the differential diagnosis process are given as well as tests to analyse cognitive abilities, emotional functions and motor skills.
 
 Vol.:(0123456789)1 3
 European Child & Adolescent Psychiatry (2022) 31:383–402 

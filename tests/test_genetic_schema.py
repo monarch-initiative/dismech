@@ -46,6 +46,7 @@ def test_gene_disease_relationship_enum_defined(schema_view):
         "COOPERATING",
         "BIOMARKER",
         "DISPUTED",
+        "REFUTED",
         "UNKNOWN",
     }
     actual = set(enum.permissible_values.keys())

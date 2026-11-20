@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s11033-022-08149-8
+extractor_version: 1
 title: Genetic advances in Meniere Disease
 authors:
 - Qingqing Dai
@@ -12,12 +13,14 @@ journal: Molecular Biology Reports
 year: '2023'
 doi: 10.1007/s11033-022-08149-8
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s11033-022-08149-8.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s11033-022-08149-8.pdf
+full_text_access_type: open
 ---
 
 # Genetic advances in Meniere Disease
@@ -27,7 +30,9 @@ local_pdf_path: files/DOI_10.1007_s11033-022-08149-8.pdf
 
 ## Content
 
-AbstractMeniere Disease (MD) is an idiopathic inner ear disease with complex etiology and pathogenesis, which is still unclear. With the development in gene analysis technology, the genetic research of MD has attracted extensive attention, resulting in a large number of studies on the research of the relationship between human genes and MD. This paper aims to review the studies on this topic in recent years. The studies mainly focused on the genetics of familial MD and the correlation between MD and potentially related functional genes. The results of these studies have demonstrated the complexity and diversity of the pathogenesis of MD with both genetic and epigenetic alterations, suggesting that MD might be related to inflammation, immunity, aqua and ion balance in the lymphatic fluid, virus infection, metabolism, and abnormal function of nerve conduction. The finding of rare mutations in TECTA, MYO7A and OTOG genes and other genes such as CDH23, PCDH15 and ADGRV1 in the same families suggest that the integrity of the stereocilia and their interaction with the tectorial and otolithic membranes could be involved in the pathophysiology of familial MD.
+Abstract
+
+Meniere Disease (MD) is an idiopathic inner ear disease with complex etiology and pathogenesis, which is still unclear. With the development in gene analysis technology, the genetic research of MD has attracted extensive attention, resulting in a large number of studies on the research of the relationship between human genes and MD. This paper aims to review the studies on this topic in recent years. The studies mainly focused on the genetics of familial MD and the correlation between MD and potentially related functional genes. The results of these studies have demonstrated the complexity and diversity of the pathogenesis of MD with both genetic and epigenetic alterations, suggesting that MD might be related to inflammation, immunity, aqua and ion balance in the lymphatic fluid, virus infection, metabolism, and abnormal function of nerve conduction. The finding of rare mutations in TECTA , MYO7A and OTOG genes and other genes such as CDH23 , PCDH15 and ADGRV1 in the same families suggest that the integrity of the stereocilia and their interaction with the tectorial and otolithic membranes could be involved in the pathophysiology of familial MD.
 
 Vol.:(0123456789)1 3
 Molecular Biology Reports (2023) 50:2901–2908 
