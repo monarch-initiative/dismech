@@ -367,15 +367,15 @@ def test_viral_oncoprotein_entries_derive_through_the_exposure_rule():
 def test_a_hedged_preferred_term_is_reported_over_the_ontology_label():
     """The census must not state a stronger claim than the entry does.
 
-    Epithelioid sarcoma binds `CL:0000134` under `preferred_term: mesenchymal
-    cell of uncertain differentiation`. Reporting the ontology label instead
-    made the derivation say "mesenchymal stem cell", which the entry
-    deliberately avoids saying.
+    Epithelioid sarcoma binds `CL:0008019` (mesenchymal cell) under
+    `preferred_term: mesenchymal cell of uncertain differentiation`. Reporting
+    the ontology label instead would drop the hedge the entry deliberately
+    makes about the tumour's unsettled histogenesis.
     """
     report = assess(ROOT / "kb" / "disorders" / "Epithelioid_Sarcoma.yaml")
     assert report is not None
     assert report.origin_cells == [
-        ("CL:0000134", "mesenchymal cell of uncertain differentiation")
+        ("CL:0008019", "mesenchymal cell of uncertain differentiation")
     ]
 
 
