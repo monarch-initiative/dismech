@@ -1,0 +1,1386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clonal Hematopoiesis · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Clonal Hematopoiesis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Clonal Hematopoiesis</h1>
+                
+                <p class="report-subtitle">Clonal Hematopoiesis (MONDO:0100542): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-11-14</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0100542" target="_blank" rel="noopener noreferrer">MONDO:0100542</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">36 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Clonal Hematopoiesis (<a href="http://purl.obolibrary.org/obo/MONDO_0100542" target="_blank" rel="noopener noreferrer">MONDO:0100542</a>): A Comprehensive Disease Characteristics Report</h1>
+<h2>Summary</h2>
+<p><strong>Clonal Hematopoiesis (CH)</strong> is an acquired, age-related condition in which a single hematopoietic stem cell (HSC) that has acquired one or more somatic mutations expands to produce a measurable fraction of the circulating blood cells, in the absence of overt hematologic malignancy. Critically, <strong>CH has no germline causal gene</strong>. It is defined by <strong>somatic</strong> driver mutations that are most frequently found in the epigenetic regulators <strong>DNMT3A</strong> (most common; <a href="https://bioregistry.io/HGNC:2978" target="_blank" rel="noopener noreferrer">HGNC:2978</a>), <strong>TET2</strong> (<a href="https://bioregistry.io/HGNC:25941" target="_blank" rel="noopener noreferrer">HGNC:25941</a>), and <strong>ASXL1</strong> (<a href="https://bioregistry.io/HGNC:18318" target="_blank" rel="noopener noreferrer">HGNC:18318</a>), and the cytokine-signaling gene <strong>JAK2</strong> (<a href="https://bioregistry.io/HGNC:6192" target="_blank" rel="noopener noreferrer">HGNC:6192</a>) (<a href="https://pubmed.ncbi.nlm.nih.gov/41899316/">PMID: 41899316</a>). Its most clinically characterized subset, <strong>Clonal Hematopoiesis of Indeterminate Potential (CHIP)</strong>, is operationally defined as the presence of a leukemia-associated driver mutation at a <strong>variant allele fraction (VAF) ≥ 2%</strong> in peripheral blood of an individual without a hematologic malignancy or unexplained cytopenia. Related entities on the same spectrum include <strong>Age-Related Clonal Hematopoiesis (ARCH)</strong> (VAF as low as 0.5–2%), <strong>Clonal Cytopenia of Undetermined Significance (CCUS)</strong> (CH plus an otherwise unexplained cytopenia), and <strong>mosaic loss of Y chromosome (LOY)</strong> in men.</p>
+<p>Although usually asymptomatic, CH is enormously common — affecting <strong>&gt;10% of people older than 70</strong> and <strong>&gt;20% of people older than 80</strong> — and is not biologically inert. It causally promotes disease primarily through <strong>pro-inflammatory mutant myeloid cells</strong>: loss-of-function mutations in epigenetic regulators (especially TET2) drive <strong>NLRP3 inflammasome activation and IL-1β/IL-6 signaling</strong>, accelerating atherosclerosis, heart failure, and other inflammatory pathologies. CH confers a roughly <strong>1.9-fold increased risk of coronary heart disease</strong>, a 1.2-fold increased risk of incident stroke, an increased risk of heart failure, a <strong>10–30% ten-year risk of progression to myelodysplastic syndromes (MDS)/acute myeloid leukemia (AML)</strong> in higher-risk forms, and a <strong>~1.5–2-fold increase in all-cause mortality</strong> that scales with clone size.</p>
+<p>Outcomes, mechanisms, and management of CH are strongly <strong>gene- and clone-size-specific</strong>. TET2-mutant CH confers the highest cardiovascular/inflammatory risk and is the most responsive to anti-inflammatory therapy, whereas DNMT3A operates through more modest and partly distinct pathways; "high-risk" genes (spliceosome genes SF3B1/SRSF2/ZRSR2, TP53, RUNX1, JAK2, IDH1/2, FLT3) drive malignant progression. Risk is stratified with the <strong>Clonal Hematopoiesis Risk Score (CHRS)</strong>. There is as yet <strong>no approved CH-specific therapy</strong>; management is individualized and centers on surveillance, cardiovascular risk-factor control, and emerging genotype-guided anti-inflammatory strategies (IL-1β blockade, colchicine). Intriguingly, the disease spectrum also contains a <strong>protective branch</strong>: TET2-mutant CH is associated with a 47% reduced risk of late-onset Alzheimer's disease.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — CH is a somatic, age-related premalignant clonal expansion driven by epigenetic-regulator and signaling mutations</h3>
+<p>CH/CHIP is an age-related premalignant clonal expansion of hematopoietic stem cells driven by <strong>somatic</strong> (not germline) mutations. CHIP is formally defined as the presence of a leukemia-associated driver mutation at <strong>VAF ≥ 2%</strong> in peripheral blood of an individual without hematologic malignancy or cytopenia (<a href="https://pubmed.ncbi.nlm.nih.gov/41899316/">PMID: 41899316</a>: <em>"Clonal hematopoiesis of indeterminate potential (CHIP) refers to CH defined by the presence of pre-leukemic driver mutations in at least 2% of alleles in sequenced peripheral blood."</em>). The dominant driver genes are the <strong>epigenetic regulators DNMT3A (most common), TET2, and ASXL1</strong>, plus the cytokine-signaling gene <strong>JAK2</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41899316/">PMID: 41899316</a>: <em>"Key subtypes of CHIP include mutations in genes encoding epigenetic regulators DNMT3A ..., TET2 ..., and ASXL1 ..., as well as mutations in the gene encoding hematopoietic cytokine signaling: JAK2."</em>). The broader CH spectrum includes ARCH (VAF 0.5–2%) and mosaic loss of Y chromosome (LOY) in men.</p>
+<ul>
+<li><strong>HGNC/gene annotations:</strong> DNMT3A (<a href="https://bioregistry.io/HGNC:2978" target="_blank" rel="noopener noreferrer">HGNC:2978</a>), TET2 (<a href="https://bioregistry.io/HGNC:25941" target="_blank" rel="noopener noreferrer">HGNC:25941</a>), ASXL1 (<a href="https://bioregistry.io/HGNC:18318" target="_blank" rel="noopener noreferrer">HGNC:18318</a>), JAK2 (<a href="https://bioregistry.io/HGNC:6192" target="_blank" rel="noopener noreferrer">HGNC:6192</a>).</li>
+<li><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0100542" target="_blank" rel="noopener noreferrer">MONDO:0100542</a> (clonal hematopoiesis).</li>
+</ul>
+<h3>Finding 2 — CHIP confers a 1.9–4.0-fold increased risk of coronary heart disease, with causal mouse evidence</h3>
+<p>In the landmark nested case-control analysis of two prospective cohorts, Jaiswal et al. (<em>NEJM</em> 2017) found that CHIP carriers had a coronary heart disease risk <strong>1.9× that of noncarriers (95% CI 1.4–2.7)</strong> and an early-onset myocardial infarction risk <strong>4.0× that of noncarriers (95% CI 2.4–6.7)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/28636844/">PMID: 28636844</a>: <em>"carriers of CHIP had a risk of coronary heart disease that was 1.9 times as great as in noncarriers"</em>; <em>"participants with CHIP had a risk of myocardial infarction that was 4.0 times as great as in noncarriers"</em>). Mutations in DNMT3A, TET2, ASXL1, and JAK2 were each individually associated with CHD. Crucially, the study established <strong>causality</strong> by perturbing <em>Tet2</em> in hematopoietic cells of atherosclerosis-prone mice (<a href="https://pubmed.ncbi.nlm.nih.gov/28636844/">PMID: 28636844</a>: <em>"we perturbed the function of Tet2, the second most commonly mutated gene linked to clonal hematopoiesis, in the hematopoietic cells of atherosclerosis-prone mice"</em>), moving CH from a biomarker association toward a bona fide causal cardiovascular risk factor.</p>
+<h3>Finding 3 — CH drives disease through pro-inflammatory myeloid cells via NLRP3 inflammasome and IL-1β/IL-6</h3>
+<p>CH pathophysiology is dominated by inflammation. Loss-of-function mutations in epigenetic regulators (especially TET2) promote a <strong>pro-inflammatory macrophage phenotype</strong> through <strong>NLRP3 inflammasome activation and IL-1β/IL-6 signaling</strong>, accelerating atherogenesis, plaque instability, and myocardial fibrosis (<a href="https://pubmed.ncbi.nlm.nih.gov/42039360/">PMID: 42039360</a>: <em>"loss-of-function mutations in epigenetic regulators promote a pro-inflammatory macrophage phenotype through NLRP3 inflammasome activation and IL-1β/IL-6 signaling, thereby accelerating atherogenesis, plaque instability, and myocardial fibrosis"</em>). The molecular pathway in TET2-deficient macrophages was defined mechanistically: <em>"Hypercholesterolemia and TET2 deficiency converge on a common pathway of NLRP3 inflammasome activation mediated by JNK1 activation and BRCC3-mediated NLRP3 deubiquitylation"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37781816/">PMID: 37781816</a>). Importantly, the effect is <strong>gene-specific</strong>: <em>"TET2 mutations confer the highest risk and demonstrate the greatest responsiveness to anti-inflammatory therapies, whereas DNMT3A mutations show more modest associations and may operate through distinct pathways"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42039360/">PMID: 42039360</a>).</p>
+<h3>Finding 4 — CH is strongly age-associated and carries malignant and non-malignant risks; management is risk-stratified</h3>
+<p>CHIP affects <strong>&gt;10% of individuals older than 70 and &gt;20% of those over 80</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42039360/">PMID: 42039360</a>: <em>"CHIP affects over 10% of individuals older than 70 years and confers a 1.5- to 2-fold increased risk of coronary heart disease and all-cause mortality, independent of traditional cardiovascular risk factors"</em>; <a href="https://pubmed.ncbi.nlm.nih.gov/41516113/">PMID: 41516113</a>). Malignant progression risk for CHIP/CCUS reaches <strong>up to 10–30% over ten years</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42881104/">PMID: 42881104</a>: <em>"which carry a risk of progression to MDS of up to 10-30% over ten years"</em>). Therapeutic evidence is gene-dependent: in CANTOS, <em>"Patients with TET2 mutations treated with canakinumab had the lowest incidence of non-hematological malignancy across cancer types"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38701435/">PMID: 38701435</a>); colchicine attenuated TET2-CH clonal expansion in the LoDoCo2 substudy (<a href="https://pubmed.ncbi.nlm.nih.gov/40892620/">PMID: 40892620</a>); and oral vitamin C (a TET cofactor) in CCUS showed longer exploratory overall survival (HR 0.35) though its primary clonal-growth endpoint was negative (<a href="https://pubmed.ncbi.nlm.nih.gov/42764731/">PMID: 42764731</a>).</p>
+<h3>Finding 5 — Risk factors are dominated by aging, with smoking, prior cancer, cytotoxic therapy, and germline predisposition; gene–environment interactions amplify outcomes</h3>
+<p>A UK Biobank analysis (~460,000 participants) identified that <em>"advanced age, smoking, history of several diseases (including breast cancer and leiomyoma of uterus), as well as several serum biomarkers (monocyte count, proteins LY75, SIGLEC6, SIRPB1 and CYB5R2) were associated with CHIP"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42570703/">PMID: 42570703</a>). <strong>Cytotoxic therapy</strong> selects for DNA-damage-response CH clones (TP53, PPM1D, CHEK2), which expand under chemotherapy bottlenecks and predict therapy-related myeloid neoplasms (<a href="https://pubmed.ncbi.nlm.nih.gov/41508691/">PMID: 41508691</a>: <em>"The clinical implications of CH are most relevant in therapy-related myeloid neoplasms (t-MN), with antecedent CH clones in genes such as TP53, PPM1D, and/or CHEK2 having a clear selection advantage"</em>; <a href="https://pubmed.ncbi.nlm.nih.gov/40162927/">PMID: 40162927</a>). <strong>Gene–environment interactions</strong> are demonstrable: CHIP synergizes with PM2.5 air pollution to raise non-small-cell lung cancer risk in never-smokers (<em>"CHIP was associated with a greater risk of NSCLC in never-smoking participants (HR=1.76[1.07-2.89]). This risk is exacerbated in the setting of above-median PM2.5 levels (HR = 2.51[1.55 to 4.05]; p-interaction = 0.02)"</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/42202166/">PMID: 42202166</a>), and TP53-CHIP interacts with smoking (respiratory mortality) and alcohol/ALDH2-acetaldehyde (myeloid neoplasm mortality) (<a href="https://pubmed.ncbi.nlm.nih.gov/40525786/">PMID: 40525786</a>).</p>
+<h3>Finding 6 — Tet2-mediated CH causally accelerates heart failure via IL-1β/NLRP3; CH broadly raises mortality in a clone-size-dependent manner</h3>
+<p>Sano et al. (<em>JACC</em> 2018) provided causal mouse evidence that in transverse aortic constriction and LAD-ligation heart-failure models, <em>"hematopoietic or myeloid Tet2 deficiency worsened cardiac remodeling and function, in parallel with increased interleukin-1beta (IL-1β) expression. Treatment with a selective NLRP3 inflammasome inhibitor protected against the development of heart failure"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29471939/">PMID: 29471939</a>). Hematopoietic KDM6A loss similarly impairs cardiac recovery after MI and is rescued by IL-1β blockade (<a href="https://pubmed.ncbi.nlm.nih.gov/42977812/">PMID: 42977812</a>). Epidemiologically, among 53,149 UK Biobank arrhythmia patients, adjusted HRs for all-cause mortality were <strong>1.26 (1.19–1.34) for any CHIP and 1.44 (1.33–1.55) for large CHIP (VAF ≥ 10%)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42983463/">PMID: 42983463</a>: <em>"adjusted hazard ratios (HRs) for all-cause mortality were 1.26 (1.19-1.34) and 1.44 (1.33-1.55), respectively"</em>), with cardiovascular mortality HRs 1.14/1.31 and cancer mortality HRs 1.36/1.65; TET2, TP53, and spliceosome genes were strongest for all-cause mortality.</p>
+<h3>Finding 7 — Risk stratification uses the CHRS; TET2-mutant CH is paradoxically protective against Alzheimer's disease</h3>
+<p>Progression risk is stratified by the <strong>Clonal Hematopoiesis Risk Score (CHRS)</strong>, which integrates clone size (VAF), number of mutations, and the presence of high-risk mutations (<a href="https://pubmed.ncbi.nlm.nih.gov/42728663/">PMID: 42728663</a>: <em>"the presence of ≥ 1 high-risk mutation, which was defined in prior studies as SF3B1, SRSF2, ZRSR2, JAK2, TP53, RUNX1, FLT3, IDH1, and IDH2"</em>); serial VAF kinetics add prognostic value. The CH spectrum also includes a <strong>protective branch</strong>: <em>"TET2-mutant CH is associated with a 47% reduced risk of late-onset AD (LOAD) in the UK Biobank, whereas other drivers of CH do not confer protection"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40609533/">PMID: 40609533</a>). In an AD mouse model, Tet2-mutant (but not Dnmt3a-mutant) bone marrow reduced cognitive decline and β-amyloid plaque via bone-marrow-derived microglia-like cells with enhanced phagocytosis.</p>
+<h3>Finding 8 — CHIP is an independent determinant of incident stroke; IL-1-mediated inflammation is a targetable pathway</h3>
+<p>A meta-analysis of <strong>800,160 participants</strong> across BioVU, All of Us, and UK Biobank found that <em>"CHIP was associated with increased risk of incident stroke in the meta-analysis (hazard ratio [HR], 1.20 [95% CI, 1.14-1.27])"</em> and concluded that <em>"our large-scale, multicohort study establishes CHIP as a determinant of incident stroke risk and IL (interleukin)-1-mediated inflammation as a targetable pathway to reduce this risk"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41948817/">PMID: 41948817</a>). Complementary real-world data in PCI patients (n=3640, 21.95% CHIP carriers) showed CHIP independently raised 5-year all-cause (HR 1.76) and cardiac (HR 2.19) mortality, modified by systemic inflammatory burden (<a href="https://pubmed.ncbi.nlm.nih.gov/41742215/">PMID: 41742215</a>); in MPN cohorts, TET2 independently raised atrial fibrillation risk (HR ~3.1), partially mediated by IL-1β (<a href="https://pubmed.ncbi.nlm.nih.gov/41077132/">PMID: 41077132</a>).</p>
+<hr />
+<h2>Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> Clonal hematopoiesis is the acquired expansion of a mutant HSC clone detectable in peripheral blood in the absence of overt hematologic malignancy. It is an <strong>aggregated, disease-level/biomarker concept</strong> derived largely from sequencing of population cohorts (UK Biobank, TOPMed, BioVU, All of Us) rather than from a classical single-gene Mendelian disorder. Its clinical subset CHIP requires a canonical driver mutation at <strong>VAF ≥ 2%</strong>; CCUS adds an unexplained cytopenia; ARCH extends down to VAF ~0.5%.</p>
+<p><strong>Key identifiers.</strong>
+- <strong>Mondo:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0100542" target="_blank" rel="noopener noreferrer">MONDO:0100542</a> (clonal hematopoiesis)
+- <strong>MeSH:</strong> Clonal Hematopoiesis (D000081042, introduced 2019)
+- <strong>OMIM:</strong> Not applicable (no germline Mendelian entry; CH is somatic)
+- <strong>Orphanet / ICD-10 / ICD-11:</strong> No dedicated classical rare-disease code; CHIP/CCUS are described in hematology guidelines rather than a single ICD code (not definitively recorded for this somatic entity).</p>
+<p><strong>Synonyms.</strong> Clonal haematopoiesis; CH; age-related clonal hematopoiesis (ARCH); clonal hematopoiesis of indeterminate potential (CHIP); clonal cytopenia of undetermined significance (CCUS, a related entity).</p>
+<h3>2. Etiology</h3>
+<p><strong>Primary cause.</strong> CH is caused by <strong>somatic mutations</strong> acquired in HSCs over a lifetime, combined with <strong>clonal selection</strong> that gives the mutant clone a fitness advantage in the aging/inflamed marrow. There is <strong>no germline causal gene</strong>; the driver mutations are somatic and myeloid-malignancy–associated (DNMT3A, TET2, ASXL1, JAK2, and others).</p>
+<p><strong>Genetic risk factors.</strong> The strongest determinant is <strong>chronological age</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42570703/">PMID: 42570703</a>). Inherited germline predisposition loci (e.g., at <em>TERT</em>, <em>TET2</em>, <em>CHEK2</em>) modulate CH acquisition; germline predisposition syndromes such as RUNX1-FPD-MM foster an inflammatory marrow that promotes clonal hematopoiesis (<a href="https://pubmed.ncbi.nlm.nih.gov/42543658/">PMID: 42543658</a>).</p>
+<p><strong>Environmental risk factors.</strong> Smoking, prior cancer (breast cancer, uterine leiomyoma), and especially <strong>cytotoxic chemotherapy and radiation</strong>, which select for DNA-damage-response clones (TP53, PPM1D, CHEK2) (<a href="https://pubmed.ncbi.nlm.nih.gov/42570703/">PMID: 42570703</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41508691/">PMID: 41508691</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40162927/">PMID: 40162927</a>). End-stage kidney disease/hemodialysis is associated with a distinct mutational spectrum (BCORL1-dominant) (<a href="https://pubmed.ncbi.nlm.nih.gov/41787467/">PMID: 41787467</a>).</p>
+<p><strong>Protective factors.</strong> Anti-inflammatory exposure may limit clone expansion (colchicine attenuated TET2-CH growth, <a href="https://pubmed.ncbi.nlm.nih.gov/40892620/">PMID: 40892620</a>); vitamin C (TET cofactor) is biologically active in CCUS (<a href="https://pubmed.ncbi.nlm.nih.gov/42764731/">PMID: 42764731</a>). No robust protective germline allele is established.</p>
+<p><strong>Gene–environment interactions.</strong> CHIP × PM2.5 air pollution (NSCLC in never-smokers, p-interaction 0.02, <a href="https://pubmed.ncbi.nlm.nih.gov/42202166/">PMID: 42202166</a>); TP53-CHIP × smoking (respiratory mortality) and × alcohol/ALDH2 acetaldehyde (myeloid neoplasm mortality) (<a href="https://pubmed.ncbi.nlm.nih.gov/40525786/">PMID: 40525786</a>).</p>
+<h3>3. Phenotypes</h3>
+<p>CH is usually <strong>asymptomatic</strong>; its "phenotypes" are predominantly <strong>laboratory abnormalities and downstream disease associations</strong> rather than classical symptoms.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Frequency / Effect</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Somatic clonal expansion (VAF ≥2%)</td>
+<td>Lab abnormality</td>
+<td>Adult/late-onset</td>
+<td>&gt;10% age &gt;70; &gt;20% age &gt;80</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001909" target="_blank" rel="noopener noreferrer">HP:0001909</a> (leukemia-related, proxy)</td>
+</tr>
+<tr>
+<td>Cytopenia (in CCUS)</td>
+<td>Lab abnormality</td>
+<td>Adult</td>
+<td>Subset of CH</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" rel="noopener noreferrer">HP:0001903</a> (anemia), <a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a> (thrombocytopenia), <a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" rel="noopener noreferrer">HP:0001875</a> (neutropenia)</td>
+</tr>
+<tr>
+<td>Coronary heart disease</td>
+<td>Clinical sign</td>
+<td>Adult/geriatric</td>
+<td>HR ~1.9</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001677" target="_blank" rel="noopener noreferrer">HP:0001677</a></td>
+</tr>
+<tr>
+<td>Myocardial infarction (early-onset)</td>
+<td>Clinical event</td>
+<td>Adult</td>
+<td>HR ~4.0</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001658" target="_blank" rel="noopener noreferrer">HP:0001658</a></td>
+</tr>
+<tr>
+<td>Heart failure</td>
+<td>Clinical sign</td>
+<td>Geriatric</td>
+<td>Elevated</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" rel="noopener noreferrer">HP:0001635</a></td>
+</tr>
+<tr>
+<td>Ischemic stroke</td>
+<td>Clinical event</td>
+<td>Geriatric</td>
+<td>HR 1.20</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002140" target="_blank" rel="noopener noreferrer">HP:0002140</a></td>
+</tr>
+<tr>
+<td>Atrial fibrillation</td>
+<td>Clinical sign</td>
+<td>Geriatric</td>
+<td>TET2 HR ~3.1 (MPN)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005110" target="_blank" rel="noopener noreferrer">HP:0005110</a></td>
+</tr>
+<tr>
+<td>Myocarditis/pericarditis</td>
+<td>Clinical sign</td>
+<td>Adult</td>
+<td>HR 1.75–2.07</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012819" target="_blank" rel="noopener noreferrer">HP:0012819</a> / <a href="http://purl.obolibrary.org/obo/HP_0001701" target="_blank" rel="noopener noreferrer">HP:0001701</a></td>
+</tr>
+<tr>
+<td>Progression to MDS/AML</td>
+<td>Lab/clinical</td>
+<td>Late</td>
+<td>10–30% / 10 yr (high-risk)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002863" target="_blank" rel="noopener noreferrer">HP:0002863</a> / <a href="http://purl.obolibrary.org/obo/HP_0004808" target="_blank" rel="noopener noreferrer">HP:0004808</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Quality of life.</strong> CH per se is subclinical; QoL impact accrues through cardiovascular events, cytopenias (fatigue, bleeding, infection in CCUS), and malignant progression. Disease-specific QoL instruments for CH itself are not established.</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Causal (driver) genes.</strong> DNMT3A (most common), TET2, ASXL1, JAK2; additional recurrent drivers include spliceosome genes (SF3B1, SRSF2, U2AF1, ZRSR2), TP53, PPM1D, CHEK2, RUNX1, IDH1/IDH2, FLT3, GNB1, CBL, and BCORL1/BCOR (<a href="https://pubmed.ncbi.nlm.nih.gov/41899316/">PMID: 41899316</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41787467/">PMID: 41787467</a>).</p>
+<p><strong>Variant characteristics.</strong>
+- <strong>Origin:</strong> Somatic (not germline). Defined by <strong>VAF ≥ 2%</strong> for CHIP; VAF ≥ 10% = "large" clone.
+- <strong>Variant types:</strong> DNMT3A — missense (hotspot R882), frameshift, nonsense (loss of function); TET2 — frameshift/nonsense (LOF); ASXL1 — frameshift/nonsense (notably c.1934dupG); JAK2 — V617F gain-of-function missense; TP53/PPM1D — DNA-damage-response alterations.
+- <strong>Functional consequence:</strong> Predominantly <strong>loss of function</strong> for epigenetic regulators (DNMT3A, TET2, ASXL1); <strong>gain of function</strong> for JAK2 V617F; PPM1D truncating mutations are activating/stabilizing.</p>
+<p><strong>Modifier genes.</strong> Clone fitness and outcome are modified by co-occurring mutations and germline background; LOY interacts with DNMT3A/TET2 to worsen heart-failure prognosis (<a href="https://pubmed.ncbi.nlm.nih.gov/40702883/">PMID: 40702883</a>).</p>
+<p><strong>Epigenetic information.</strong> DNMT3A (DNA methyltransferase) and TET2 (5-methylcytosine dioxygenase) directly alter the <strong>DNA methylation landscape</strong>; their loss reprograms myeloid cells toward inflammation. KDM6A (histone H3K27 demethylase) loss epigenetically reprograms myeloid cells (<a href="https://pubmed.ncbi.nlm.nih.gov/42977812/">PMID: 42977812</a>).</p>
+<p><strong>Chromosomal abnormalities.</strong> Mosaic <strong>loss of Y chromosome (LOY)</strong> is the most frequent somatic chromosomal change in aging male blood and is associated with cardiac fibrosis and worse heart-failure prognosis (<a href="https://pubmed.ncbi.nlm.nih.gov/40702883/">PMID: 40702883</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42297532/">PMID: 42297532</a>). del(20q) is linked to platelet-predominant MDS phenotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/42847161/">PMID: 42847161</a>).</p>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Toxins/radiation:</strong> Cytotoxic chemotherapy, ionizing radiation (select DNA-damage-response clones); <strong>PM2.5 air pollution</strong> (modifies NSCLC risk).</li>
+<li><strong>Lifestyle:</strong> Smoking (promotes CH and interacts with TP53-CHIP); alcohol (ALDH2-acetaldehyde interaction with TP53-CHIP).</li>
+<li><strong>Infectious agents:</strong> None established as causal. Chronic inflammatory states and the aging inflammatory microenvironment ("inflammaging") act as selective pressures.</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li><strong>Aging (± cytotoxic/environmental exposure) leads to</strong> acquisition of a somatic driver mutation (e.g., DNMT3A, TET2, ASXL1, JAK2, TP53) in a single long-lived HSC. <em>(demonstrated)</em></li>
+<li>The mutation <strong>confers a clonal fitness advantage</strong>, which <strong>leads to</strong> selective expansion of the mutant HSC and its myeloid progeny (clonal hematopoiesis; selection amplified by inflammaging). <em>(demonstrated)</em></li>
+<li>In the epigenetic-regulator branch, <strong>loss of TET2/DNMT3A function results in</strong> epigenetic reprogramming of mutant monocytes/macrophages toward a <strong>pro-inflammatory state</strong>. <em>(demonstrated)</em></li>
+<li>This <strong>leads to NLRP3 inflammasome activation</strong> (in TET2-deficient cells, via JNK1 activation and BRCC3-mediated NLRP3 deubiquitylation; converging with hypercholesterolemia), <strong>resulting in</strong> increased <strong>IL-1β and IL-6</strong> secretion. <em>(demonstrated, mouse + in vitro)</em></li>
+<li>IL-1β/IL-6 signaling <strong>results in</strong> accelerated <strong>atherogenesis, plaque instability, endothelial activation, cardiac fibrosis, and adverse remodeling</strong>. <em>(demonstrated, mouse)</em></li>
+<li><strong>Branch A (cardiovascular):</strong> → coronary heart disease, myocardial infarction, heart failure, atrial fibrillation, stroke, myocarditis/pericarditis. <em>(human epidemiology + causal mouse models)</em></li>
+<li><strong>Branch B (hematologic):</strong> acquisition of additional/high-risk mutations (spliceosome, TP53, RUNX1, FLT3, IDH1/2) → CCUS → <strong>MDS/AML</strong>. <em>(human, longitudinal)</em></li>
+<li><strong>Branch C (protective, CNS):</strong> TET2-mutant myeloid cells infiltrate the CNS as microglia-like cells with <strong>enhanced phagocytosis</strong>, <strong>reducing β-amyloid plaque and cognitive decline</strong> → lower Alzheimer's risk. <em>(mouse + human association)</em></li>
+</ol>
+<p><strong>Molecular pathways (suggested GO/KEGG/Reactome):</strong> NLRP3 inflammasome assembly (<a href="http://purl.obolibrary.org/obo/GO_0044546" target="_blank" rel="noopener noreferrer">GO:0044546</a>/<a href="http://purl.obolibrary.org/obo/GO_0072559" target="_blank" rel="noopener noreferrer">GO:0072559</a>), IL-1β production (<a href="http://purl.obolibrary.org/obo/GO_0032611" target="_blank" rel="noopener noreferrer">GO:0032611</a>) and signaling (<a href="http://purl.obolibrary.org/obo/GO_0070498" target="_blank" rel="noopener noreferrer">GO:0070498</a>), IL-6 signaling (<a href="http://purl.obolibrary.org/obo/GO_0070102" target="_blank" rel="noopener noreferrer">GO:0070102</a>), DNA methylation (<a href="http://purl.obolibrary.org/obo/GO_0006306" target="_blank" rel="noopener noreferrer">GO:0006306</a>), histone demethylation (<a href="http://purl.obolibrary.org/obo/GO_0070076" target="_blank" rel="noopener noreferrer">GO:0070076</a>), myeloid cell differentiation (<a href="http://purl.obolibrary.org/obo/GO_0030099" target="_blank" rel="noopener noreferrer">GO:0030099</a>), inflammatory response (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>), JNK cascade (<a href="http://purl.obolibrary.org/obo/GO_0007254" target="_blank" rel="noopener noreferrer">GO:0007254</a>).</p>
+<p><strong>Cell types (suggested CL):</strong> hematopoietic stem cell (<a href="http://purl.obolibrary.org/obo/CL_0000037" target="_blank" rel="noopener noreferrer">CL:0000037</a>), common myeloid progenitor (<a href="http://purl.obolibrary.org/obo/CL_0000049" target="_blank" rel="noopener noreferrer">CL:0000049</a>), monocyte (<a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a>), macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), foam cell, neutrophil (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>), microglial cell (<a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" rel="noopener noreferrer">CL:0000129</a>).</p>
+<p><strong>Chemical entities (suggested CHEBI):</strong> cholesterol (<a href="http://purl.obolibrary.org/obo/CHEBI_16113" target="_blank" rel="noopener noreferrer">CHEBI:16113</a>), 5-methylcytosine (<a href="http://purl.obolibrary.org/obo/CHEBI_27551" target="_blank" rel="noopener noreferrer">CHEBI:27551</a>), ascorbic acid/vitamin C (<a href="http://purl.obolibrary.org/obo/CHEBI_29073" target="_blank" rel="noopener noreferrer">CHEBI:29073</a>), colchicine (<a href="http://purl.obolibrary.org/obo/CHEBI_23359" target="_blank" rel="noopener noreferrer">CHEBI:23359</a>).</p>
+<p><strong>Molecular profiling.</strong> Single-cell RNA-seq of LOY monocytes shows elevated pro-fibrotic/inflammatory signaling (S100A8, TLR2, CLEC4D up; SMAD7, TGIF2 down) (<a href="https://pubmed.ncbi.nlm.nih.gov/40702883/">PMID: 40702883</a>). TP53-mutant CHIP defines a distinct pro-inflammatory proteomic signature (<a href="https://pubmed.ncbi.nlm.nih.gov/42637877/">PMID: 42637877</a>). Functional genomics: Tet2/KDM6A perturbation in mouse hematopoietic cells demonstrates causal inflammatory reprogramming (<a href="https://pubmed.ncbi.nlm.nih.gov/28636844/">PMID: 28636844</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29471939/">PMID: 29471939</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42977812/">PMID: 42977812</a>).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Primary organ:</strong> Bone marrow (<a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a>) and the hematopoietic/blood system (<a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a>, blood; <a href="http://purl.obolibrary.org/obo/UBERON_0002390" target="_blank" rel="noopener noreferrer">UBERON:0002390</a>, hematopoietic system).</li>
+<li><strong>Secondary organ involvement:</strong> Cardiovascular system — artery (<a href="http://purl.obolibrary.org/obo/UBERON_0001637" target="_blank" rel="noopener noreferrer">UBERON:0001637</a>), heart (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>), myocardium (<a href="http://purl.obolibrary.org/obo/UBERON_0002349" target="_blank" rel="noopener noreferrer">UBERON:0002349</a>), pericardium (<a href="http://purl.obolibrary.org/obo/UBERON_0002407" target="_blank" rel="noopener noreferrer">UBERON:0002407</a>); brain vasculature (stroke); kidney (CKD association); eye/retina (AMD association, <a href="https://pubmed.ncbi.nlm.nih.gov/42419444/">PMID: 42419444</a>); lung (NSCLC).</li>
+<li><strong>Body systems:</strong> Hematologic, cardiovascular, nervous (cerebrovascular + protective CNS branch), immune.</li>
+<li><strong>Tissue/cell level:</strong> Myeloid lineage — monocytes, macrophages, neutrophils; osteoclast-lineage effects on bone (<a href="https://pubmed.ncbi.nlm.nih.gov/42949023/">PMID: 42949023</a>); microglia-like cells in CNS.</li>
+<li><strong>Subcellular (GO Cellular Component):</strong> NLRP3 inflammasome complex (<a href="http://purl.obolibrary.org/obo/GO_0072559" target="_blank" rel="noopener noreferrer">GO:0072559</a>), nucleus (DNA methylation/chromatin, <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>), cytosol.</li>
+<li><strong>Lateralization:</strong> Not applicable (systemic blood-borne disorder).</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> Adult/late-onset and <strong>insidious</strong>; prevalence rises steeply with age (&gt;10% at &gt;70, &gt;20% at &gt;80). Rare before middle age except after cytotoxic therapy.</li>
+<li><strong>Progression:</strong> Clones expand slowly (e.g., placebo arm showed ~14.9% annual increase in CH clone size in one substudy, <a href="https://pubmed.ncbi.nlm.nih.gov/40892620/">PMID: 40892620</a>). Course is generally <strong>chronic and progressive but indolent</strong>; a minority of high-risk clones progress to CCUS → MDS/AML (10–30%/10 yr). Serial VAF kinetics predict progression (<a href="https://pubmed.ncbi.nlm.nih.gov/42728663/">PMID: 42728663</a>).</li>
+<li><strong>Patterns:</strong> Clones can be stable, expand, or occasionally regress (e.g., PPM1D clones after chemotherapy cessation, <a href="https://pubmed.ncbi.nlm.nih.gov/40162927/">PMID: 40162927</a>). Cytotoxic therapy creates bottlenecks that select specific clones (<a href="https://pubmed.ncbi.nlm.nih.gov/40950448/">PMID: 40950448</a>).</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Inheritance:</strong> <strong>Not heritable in the Mendelian sense — CH is somatic/acquired.</strong> Risk is multifactorial/polygenic with modest germline contributions.</li>
+<li><strong>Epidemiology:</strong> Highly prevalent; <strong>&gt;10% over age 70, &gt;20% over age 80</strong>; lower-VAF ARCH is even more common. Exact incidence per 100,000 is not meaningfully defined for an age-continuous somatic trait.</li>
+<li><strong>Penetrance/expressivity:</strong> Variable; most carriers remain asymptomatic lifelong. Clinical expression depends on clone size, driver gene, and comorbid exposures.</li>
+<li><strong>Sex ratio:</strong> LOY is male-specific; CHIP overall is common in both sexes; some analyses note higher somatic mutation burden in males.</li>
+<li><strong>Population demographics:</strong> Detected across ancestries; mutational spectrum can be ancestry/disease-context specific (e.g., BCORL1-dominant in Asian hemodialysis patients, <a href="https://pubmed.ncbi.nlm.nih.gov/41787467/">PMID: 41787467</a>). Age is the dominant demographic determinant.</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Primary test:</strong> <strong>Targeted next-generation sequencing</strong> (deep/ultra-deep, e.g., ~985–16,000× coverage) of peripheral blood for a panel of myeloid driver genes, reporting VAF. CHIP = canonical driver at VAF ≥ 2%.</li>
+<li><strong>WGS/WES:</strong> Used in research/biobank settings; standard pipelines must account for somatic contamination (<a href="https://pubmed.ncbi.nlm.nih.gov/42510750/">PMID: 42510750</a>).</li>
+<li><strong>Complementary tests:</strong> CBC with differential (to define CCUS vs CHIP via cytopenia), bone marrow biopsy/cytogenetics when cytopenia or progression is suspected; karyotyping/FISH (e.g., del(20q)); LOY detection by sequencing/array.</li>
+<li><strong>Biomarkers:</strong> Driver-mutation VAF; monocyte count; inflammatory indices (hs-CRP, IL-6, IL-1β; SII, SIRI, MLR, AISI) that modify prognosis (<a href="https://pubmed.ncbi.nlm.nih.gov/41742215/">PMID: 41742215</a>); serum proteins LY75, SIGLEC6, SIRPB1, CYB5R2 (<a href="https://pubmed.ncbi.nlm.nih.gov/42570703/">PMID: 42570703</a>).</li>
+<li><strong>Risk stratification tool:</strong> <strong>Clonal Hematopoiesis Risk Score (CHRS)</strong> — clone size (VAF), number of mutations, presence of high-risk genes (SF3B1, SRSF2, ZRSR2, JAK2, TP53, RUNX1, FLT3, IDH1, IDH2) (<a href="https://pubmed.ncbi.nlm.nih.gov/42728663/">PMID: 42728663</a>).</li>
+<li><strong>Differential diagnosis:</strong> CCUS vs idiopathic cytopenia, MDS, MPN, immune thrombocytopenia; reversible drug-induced myelodysplasia (e.g., valproate, <a href="https://pubmed.ncbi.nlm.nih.gov/42602188/">PMID: 42602188</a>).</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Mortality:</strong> All-cause mortality HR ~1.26 (any CHIP) to 1.44 (large CHIP); cardiovascular mortality HR 1.14–1.31; cancer mortality HR 1.36–1.65 (<a href="https://pubmed.ncbi.nlm.nih.gov/42983463/">PMID: 42983463</a>). In CABG/PCI cohorts, CHIP independently raised all-cause and cardiovascular death (<a href="https://pubmed.ncbi.nlm.nih.gov/40442635/">PMID: 40442635</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41742215/">PMID: 41742215</a>).</li>
+<li><strong>Morbidity:</strong> Excess coronary heart disease, MI, heart failure, stroke, atrial fibrillation, myocarditis/pericarditis; progression to MDS/AML; associations with CKD, AMD, bone density changes.</li>
+<li><strong>Prognostic factors:</strong> <strong>Clone size (VAF)</strong> and <strong>driver gene</strong> are dominant — high-risk genes (TP53, spliceosome, RUNX1, etc.) and large clones portend worse outcomes; systemic inflammatory burden modifies cardiovascular risk.</li>
+<li><strong>Protective exception:</strong> TET2-mutant CH → 47% lower late-onset Alzheimer's risk (<a href="https://pubmed.ncbi.nlm.nih.gov/40609533/">PMID: 40609533</a>).</li>
+</ul>
+<h3>12. Treatment</h3>
+<p>There is <strong>no approved CH-specific therapy</strong>; management is individualized (<a href="https://pubmed.ncbi.nlm.nih.gov/42735000/">PMID: 42735000</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention</th>
+<th>Rationale / Evidence</th>
+<th>Suggested NCIT</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Cardiovascular risk-factor control</strong> (statins, BP, glucose)</td>
+<td>CH acts independently of but additively with traditional risk factors</td>
+<td>NCIT:C1947 (statin)</td>
+</tr>
+<tr>
+<td><strong>IL-1β blockade (canakinumab)</strong></td>
+<td>CANTOS: TET2-mutant carriers had lowest non-hematologic malignancy incidence (<a href="https://pubmed.ncbi.nlm.nih.gov/38701435/">PMID: 38701435</a>); IL-1-mediated inflammation is a targetable pathway (<a href="https://pubmed.ncbi.nlm.nih.gov/41948817/">PMID: 41948817</a>)</td>
+<td>NCIT:C82426 (canakinumab)</td>
+</tr>
+<tr>
+<td><strong>Colchicine</strong></td>
+<td>Attenuated TET2-CH clonal expansion (LoDoCo2 substudy, <a href="https://pubmed.ncbi.nlm.nih.gov/40892620/">PMID: 40892620</a>); NLRP3 inhibitor</td>
+<td>NCIT:C375 (colchicine)</td>
+</tr>
+<tr>
+<td><strong>Oral vitamin C</strong></td>
+<td>TET cofactor; longer exploratory OS (HR 0.35) in CCUS, primary clonal endpoint negative (<a href="https://pubmed.ncbi.nlm.nih.gov/42764731/">PMID: 42764731</a>)</td>
+<td>NCIT:C1697 (ascorbic acid)</td>
+</tr>
+<tr>
+<td><strong>NLRP3 inflammasome inhibitors</strong></td>
+<td>Reversed heart failure in Tet2-deficient mice (<a href="https://pubmed.ncbi.nlm.nih.gov/29471939/">PMID: 29471939</a>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Hypomethylating agents / allogeneic HSCT</strong></td>
+<td>Reserved for progression to MDS/AML</td>
+<td>NCIT:C15431 (HSCT)</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Pharmacogenomics / personalized medicine:</strong> Genotype-guided — TET2 carriers derive greatest benefit from IL-1β blockade and colchicine; TP53/high-risk clones warrant closer surveillance for myeloid neoplasia.</li>
+<li><strong>Experimental:</strong> Anti-inflammatory and clone-directed trials ongoing (colchicine in CH, IL-1/IL-6 axis agents).</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> Smoking cessation, reduced air-pollution exposure, judicious use of genotoxic chemotherapy; cardiovascular risk-factor modification.</li>
+<li><strong>Secondary prevention:</strong> Detection via incidental sequencing, CHRS-based risk stratification, surveillance CBC and serial VAF monitoring for high-risk clones; cardiology referral/monitoring after CH detection (<a href="https://pubmed.ncbi.nlm.nih.gov/42887463/">PMID: 42887463</a>).</li>
+<li><strong>Tertiary prevention:</strong> Anti-inflammatory therapy to mitigate cardiovascular complications; hematologic surveillance for MDS/AML; antiplatelet/anticoagulation strategies (e.g., TET2-AF–directed) (<a href="https://pubmed.ncbi.nlm.nih.gov/41077132/">PMID: 41077132</a>).</li>
+<li><strong>Counseling:</strong> CH is somatic, not transmitted to offspring — reassurance is appropriate (exception: germline predisposition syndromes like RUNX1-FPD-MM, where related-donor screening matters, <a href="https://pubmed.ncbi.nlm.nih.gov/42543658/">PMID: 42543658</a>).</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy:</strong> Mechanistic causality established in <strong>Mus musculus</strong> (NCBI:txid10090) atherosclerosis- and heart-failure-prone models.</li>
+<li><strong>Orthologous genes:</strong> mouse <em>Dnmt3a</em>, <em>Tet2</em>, <em>Asxl1</em>, <em>Jak2</em>, <em>Kdm6a</em>.</li>
+<li><strong>Natural disease:</strong> CH-like age-related somatic clonal expansion is plausible in other long-lived mammals but not systematically catalogued (no definitive OMIA entry recorded); not a classical veterinary disease.</li>
+<li><strong>Comparative biology:</strong> Mouse Tet2/KDM6A loss recapitulates human inflammatory cardiovascular phenotypes, supporting evolutionary conservation of the IL-1β/NLRP3 mechanism.</li>
+<li><strong>Transmission:</strong> Not applicable (non-communicable, somatic).</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Primary model:</strong> <strong>Mouse</strong> — hematopoietic/myeloid-specific <em>Tet2</em> knockout in atherosclerosis-prone (Ldlr⁻/⁻, ApoE⁻/⁻) and heart-failure (TAC, LAD-ligation) backgrounds; bone marrow transplantation of mutant cells (<a href="https://pubmed.ncbi.nlm.nih.gov/28636844/">PMID: 28636844</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29471939/">PMID: 29471939</a>).</li>
+<li><strong>Genetic model types:</strong> Conditional/competitive knockout and bone-marrow chimera models of <em>Tet2</em>, <em>Dnmt3a</em>, <em>Kdm6a</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42977812/">PMID: 42977812</a>); AD mouse models receiving Tet2-mutant marrow (<a href="https://pubmed.ncbi.nlm.nih.gov/40609533/">PMID: 40609533</a>).</li>
+<li><strong>Phenotype recapitulation:</strong> Strong for the inflammatory cardiovascular axis — mutant models reproduce accelerated atherosclerosis, worsened cardiac remodeling, elevated IL-1β, and rescue by NLRP3/IL-1β inhibition; they also reproduce the protective Alzheimer's phenotype for Tet2.</li>
+<li><strong>Limitations:</strong> Mouse models typically engineer full gene knockout rather than the mosaic, low-VAF, multi-hit human condition; they do not fully capture the decades-long human selection dynamics or heterogeneity across driver genes.</li>
+<li><strong>In vitro/cellular:</strong> TET2-deficient macrophages, iPSC-derived myeloid cells, and patient-derived single-cell analyses complement in vivo work.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>    AGING  ± cytotoxic therapy / smoking / pollution
+               │
+               ▼
+     Somatic driver mutation in a single HSC (DNMT3A, TET2, ASXL1, JAK2, TP53…)
+               │  clonal fitness advantage + inflammaging selection
+               ▼
+      CLONAL EXPANSION of mutant HSC → mutant myeloid cells
+               │
+  ┌────────────────────┼───────────────────────────────┐
+  ▼                    ▼                                ▼
+  Epigenetic LOF         High-risk / additional          TET2-mutant
+  (TET2, DNMT3A)         mutations (SF3B1, TP53,          myeloid → CNS
+  │               RUNX1, IDH1/2, FLT3)            microglia-like
+  ▼                    │                                │
+  Pro-inflammatory             ▼                                ▼
+  macrophages →          CCUS → MDS/AML              ↑ phagocytosis of Aβ
+  NLRP3 inflammasome     (10–30% / 10 yr)            → ↓ Alzheimer's risk
+  (JNK1, BRCC3) →                                      (PROTECTIVE branch)
+  ↑ IL-1β / IL-6
+  │
+  ▼
+  Atherosclerosis, plaque instability, cardiac fibrosis, endothelial activation
+  │
+  ▼
+  CHD (HR~1.9) · MI (HR~4.0) · HF · stroke (HR 1.20) · AF · myo/pericarditis
+  │
+  ▼
+  ↑ all-cause mortality (HR 1.26 any CHIP; 1.44 large CHIP)  ← scales with clone size
+</code></pre>
+<p>The unifying interpretation is that CH is <strong>"inflammaging made genetic and clonal."</strong> A somatic mutation gives a stem cell a competitive edge; its mutant myeloid descendants are epigenetically rewired toward an <strong>NLRP3/IL-1β-driven pro-inflammatory program</strong> that, over years, injures the cardiovascular system and promotes malignant evolution. The two therapeutic levers that fall directly out of this model — <strong>IL-1β/NLRP3 blockade</strong> and <strong>slowing clonal expansion</strong> — are precisely the interventions showing the earliest human signals (canakinumab, colchicine). The gene-specificity (TET2 &gt; DNMT3A for inflammation; TP53/spliceosome for malignancy; TET2 protective in brain) means CH is best understood not as one disease but as a <strong>family of clone-defined conditions sharing a somatic-mosaic, inflammation-centered pathophysiology.</strong></p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28636844/">28636844</a></td>
+<td>CH and risk of atherosclerotic CVD (Jaiswal, NEJM)</td>
+<td>Landmark: CHD HR 1.9, MI HR 4.0; causal Tet2 mouse model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29471939/">29471939</a></td>
+<td>Tet2 CH accelerates heart failure via IL-1β/NLRP3</td>
+<td>Causal HF mechanism; NLRP3 inhibitor rescue</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37781816/">37781816</a></td>
+<td>BRCC3-mediated NLRP3 deubiquitylation</td>
+<td>Molecular pathway of NLRP3 activation in TET2-deficient macrophages</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42039360/">42039360</a></td>
+<td>CHIP &amp; CVD: precision cardio-hematology</td>
+<td>Core inflammatory mechanism + gene-specificity + prevalence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41899316/">41899316</a></td>
+<td>CH in CV risk: inflammatory mechanisms</td>
+<td>CHIP definition (VAF ≥2%) and four principal drivers</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41948817/">41948817</a></td>
+<td>CH &amp; stroke, &gt;800,000 individuals</td>
+<td>Stroke HR 1.20; IL-1 as targetable pathway</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42983463/">42983463</a></td>
+<td>CHIP &amp; long-term survival in arrhythmia</td>
+<td>Clone-size-dependent mortality HRs</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42570703/">42570703</a></td>
+<td>Risk factors of CHIP</td>
+<td>Age, smoking, prior disease, biomarkers</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42202166/">42202166</a></td>
+<td>Air pollution modifies CH-NSCLC risk</td>
+<td>Somatic gene × environment interaction</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40525786/">40525786</a></td>
+<td>TP53-mutant CH across diseases</td>
+<td>Cross-disease significance; lifestyle interactions</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41508691/">41508691</a></td>
+<td>CHIP/CCUS 2026 update</td>
+<td>DNA-damage-response clones; t-MN; management</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38701435/">38701435</a></td>
+<td>CH mutations &amp; canakinumab in CANTOS</td>
+<td>TET2 carriers: lowest non-heme malignancy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40892620/">40892620</a></td>
+<td>Colchicine &amp; CH dynamics (LoDoCo2)</td>
+<td>Colchicine attenuates TET2-CH expansion</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42764731/">42764731</a></td>
+<td>Oral vitamin C in CCUS (EVITA)</td>
+<td>Exploratory OS benefit; negative primary endpoint</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42728663/">42728663</a></td>
+<td>Serial VAF kinetics / CHRS</td>
+<td>High-risk gene list; progression risk stratification</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40609533/">40609533</a></td>
+<td>TET2-mutant myeloid cells &amp; Alzheimer's</td>
+<td>Protective branch: 47% lower LOAD risk</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42977812/">42977812</a></td>
+<td>Hematopoietic KDM6A loss &amp; cardiac recovery</td>
+<td>Additional driver; IL-1β blockade rescue</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42881104/">42881104</a></td>
+<td>GFM MDS/CMML/VEXAS recommendations</td>
+<td>10–30%/10yr MDS progression figure</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40702883/">40702883</a></td>
+<td>LOY &amp; CHIP in heart failure</td>
+<td>LOY prognosis; scRNA-seq monocyte signatures</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41742215/">41742215</a></td>
+<td>CH &amp; inflammatory indices in PCI</td>
+<td>Inflammation modifies CHIP prognosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41077132/">41077132</a></td>
+<td>TET2 in MPN: AF via IL-1β</td>
+<td>IL-1β-mediated AF; stroke intermediary</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40442635/">40442635</a></td>
+<td>CH &amp; outcomes after CABG</td>
+<td>CHIP → higher mortality post-CABG</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Observational vs causal.</strong> Most human data are associational cohort studies; causality is firmly established only in mouse models for the TET2/IL-1β axis. Mendelian-randomization-grade human causal evidence is still accruing.</li>
+<li><strong>Somatic contamination artifact.</strong> VAF-based filtering in biobanks is imperfect; somatic mutations can masquerade as germline variants and confound genetic associations (<a href="https://pubmed.ncbi.nlm.nih.gov/42510750/">PMID: 42510750</a>).</li>
+<li><strong>Gene-specific heterogeneity under-resolved.</strong> Most mechanistic depth is for TET2 (and partly DNMT3A); ASXL1, spliceosome, PPM1D, BCORL1, and LOY mechanisms are less complete.</li>
+<li><strong>No validated CH-specific therapy or RCT with hard CH endpoints.</strong> Canakinumab, colchicine, and vitamin C signals derive from substudies/exploratory analyses, not prospective CH-primary trials.</li>
+<li><strong>Model-organism gap.</strong> Knockout mice do not replicate the mosaic, low-VAF, multi-step human condition or its decades-long dynamics.</li>
+<li><strong>Classification/identifier gaps.</strong> CH lacks dedicated OMIM/Orphanet/ICD entries, complicating standardized coding and registry epidemiology.</li>
+<li><strong>QoL and natural-history data</strong> specific to asymptomatic CH are sparse.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Genotype-stratified anti-inflammatory RCTs</strong> with CH-primary endpoints (e.g., colchicine or IL-1β blockade in TET2-CHIP, measuring clone size change and cardiovascular events).</li>
+<li><strong>Prospective CHRS validation and refinement</strong>, incorporating serial VAF kinetics and inflammatory biomarkers (IL-6, hs-CRP, monocyte count) for dynamic risk prediction.</li>
+<li><strong>Mechanistic dissection of non-TET2 drivers</strong> (ASXL1, spliceosome, PPM1D, KDM6A, LOY) using conditional and humanized mouse/iPSC models with single-cell multi-omics.</li>
+<li><strong>Trials of NLRP3 inflammasome inhibitors</strong> in CH-associated heart failure, building on mouse rescue data.</li>
+<li><strong>Integrate CH status into cardiology and oncology pathways</strong> — reflex sequencing in high-risk patients, post-detection cardiovascular surveillance clinics, and pre-chemotherapy CH screening to anticipate therapy-related myeloid neoplasms.</li>
+<li><strong>Investigate the TET2–Alzheimer's protective axis</strong> therapeutically (microglial phagocytic enhancement) while weighing its cardiovascular trade-offs.</li>
+<li><strong>Standardize CH ontology/identifiers</strong> (Mondo/HPO/ICD alignment) and establish longitudinal CH registries for robust incidence/prevalence and natural-history data.</li>
+</ol>
+<hr />
+<p><em>Evidence source types represented: human clinical/epidemiologic cohorts (UK Biobank, TOPMed, BioVU, All of Us, CANTOS, LoDoCo2, EVITA), causal model-organism studies (mouse), in vitro/cellular mechanistic work, and computational/biobank analyses. All mechanistic and clinical claims are cited to primary literature by PMID above.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Clonal_Hematopoiesis-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Clonal_Hematopoiesis-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.5.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>36</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>51</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>45</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0001677</code> (1 mention) - the report calls it "HR ~1.9"; HP calls it <strong>Coronary artery atherosclerosis</strong></li>
+<li><code>HP:0001658</code> (1 mention) - the report calls it "HR ~4.0"; HP calls it <strong>Myocardial infarction</strong></li>
+<li><code>HP:0001635</code> (1 mention) - the report calls it "Elevated"; HP calls it <strong>Congestive heart failure</strong></li>
+<li><code>HP:0002140</code> (1 mention) - the report calls it "HR 1.20"; HP calls it <strong>Ischemic stroke</strong></li>
+<li><code>HP:0005110</code> (1 mention) - the report calls it "TET2 HR ~3.1 (MPN)"; HP calls it <strong>Atrial fibrillation</strong></li>
+<li><code>UBERON:0001637</code> (1 mention) - the report calls it "Secondary organ involvement:<strong> Cardiovascular system — artery"; UBERON calls it </strong>artery**</li>
+<li><code>NCIT:C1947</code> (1 mention) - the report calls it "statin"; NCIT calls it <strong>Organic Oxoacids</strong></li>
+<li><code>NCIT:C82426</code> (1 mention) - the report calls it "canakinumab"; NCIT calls it <strong>Acute Myeloid Leukemia with inv(3)(q21.3;q26.2) or t(3;3)(q21.3;q26.2); GATA2, MECOM</strong></li>
+<li><code>NCIT:C1697</code> (1 mention) - the report calls it "ascorbic acid"; NCIT calls it <strong>Fungicide</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0006306</code> (obsolete DNA methylation) (1 mention)</li>
+<li><code>GO:0070076</code> (obsolete histone lysine demethylation) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0001909</code> (1 mention) - the report calls it "leukemia-related, proxy"; HP calls it <strong>Leukemia</strong></li>
+<li><code>UBERON:0002371</code> (1 mention) - the report calls it "Primary organ:<strong> Bone marrow"; UBERON calls it </strong>bone marrow**</li>
+<li><code>NCIT:C375</code> (1 mention) - the report calls it "colchicine"; NCIT calls it <strong>Ciprofloxacin</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Cleidocranial_Dysplasia-openai.html">← Cleidocranial Dysplasia (OpenAI)</a>
+                
+                
+                <a href="Clostridioides_difficile_Infection-cyberian-codex.html">Clostridioides difficile Infection (Cyberian Codex) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Clonal_Hematopoiesis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Clonal_Hematopoiesis-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
