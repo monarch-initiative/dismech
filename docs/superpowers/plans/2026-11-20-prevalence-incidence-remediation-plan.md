@@ -77,10 +77,10 @@ figures that matter, with the rule behind each:
 | Qualitative tier on `ANNUAL_INCIDENCE` / `CARRIER_FREQUENCY` | 8 | all `ANNUAL_INCIDENCE`; the same 8 named in #8431 on 2026-09-03 |
 | Qualitative tier beside a numeric rate | 22 records, 21 files | counting `rate_low`/`rate_high` |
 | `rate_per_100000: 0.0` | 6 | 5 `CASES_IN_LITERATURE` placeholders; `Smallpox` is a real zero |
-| Numeric band disagrees with the rate | 66 | `_band_from_rate()` boundaries |
-| of which rate sits exactly on a boundary | 33 | 20 at 0.1, 10 at 100.0, 2 at 1.0, 1 at 10.0 |
-| of which within 10% of a boundary | 3 | |
-| of which a clean one-decade error | 30 | |
+| Numeric band disagrees with the rate | 66 | one of the five numeric bands beside a `rate_per_100000` above zero, where the band is not `_band_from_rate(rate)` (56), **or** the rate is exactly 100.0 under `ABOVE_1_IN_1000` (10): the code puts 100 in that band, its description ("more than 100") does not |
+| of which rate sits exactly on a boundary | 33 | rate is 0.1, 1.0, 10.0 or 100.0: 20 at 0.1 under `BELOW_1_IN_1000000`, 2 at 1.0 under `BAND_1_9_PER_1000000`, 1 at 10.0 under `BAND_1_9_PER_100000`, and the 10 at 100.0 |
+| of which within 10% of a boundary | 3 | `abs(rate - boundary) / rate < 0.10` (10.4, 0.93 and 1.1) |
+| of which a clean one-decade error | 30 | the rest |
 
 The band-versus-rate class is the one that is growing. #7005 found 3 genuine
 errors on 2026-07-25, #10193 found 21 on 2026-08-30, and there are 30 today.
@@ -213,18 +213,21 @@ The recommendation is the planner's lean, not a ruling.
 
 **D1. Band semantics.** Keep the §8 magnitude reading. It matches Orphanet,
 it required no rewrite, and reopening it would reopen the 289 banded incidence
-and carrier records (203 and 86 today) that were underspecified rather than
-wrong.
+and carrier records (203 `ANNUAL_INCIDENCE` and 86 `CARRIER_FREQUENCY` records
+today whose `prevalence_class` is one of the five numeric bands, not a
+qualitative tier) that were underspecified rather than wrong.
 *Recommend: closed; do not reopen.*
 
 **D2. Where `CARRIER_FREQUENCY` lives.** Options: (a) stay on `Prevalence`;
 (b) move to `Genetic` beside `case_fractions`; (c) stay, but no band. The fact
 the earlier discussion missed: a carrier frequency is a property of the
 disease's whole allele pool, and 18 of the 106 carrier records sit in entries
-with more than one causal gene, where (b) has no single gene to attach to.
-Bands on carrier records also discriminate nothing (78 of the 86 banded ones
-are `ABOVE_1_IN_1000`, because carrier frequency is roughly the square root of
-disease frequency).
+with more than one causal gene (two or more `genetic[]` rows whose
+`relationship_type` is `CAUSATIVE` or absent), where (b) has no single gene to
+attach to. Bands on carrier records also discriminate nothing: of the 86
+`CARRIER_FREQUENCY` records whose `prevalence_class` is a numeric band, 78 are
+`ABOVE_1_IN_1000`, because carrier frequency is roughly the square root of
+disease frequency.
 *Recommend: (c) as an advisory, not a gate: keep the measure on `Prevalence`,
 report a numeric band on a carrier record as a lead, and do not migrate the
 86. Revisit (b) only if a per-gene carrier slot is wanted for its own sake.*
@@ -235,7 +238,9 @@ report a numeric band on a carrier record as a lead, and do not migrate the
 disease" (#7003's second shape, #11726, #11268). Add `ASCERTAINED_COHORT` to
 `RateDenominatorEnum`, required whenever `measure_type` is
 `PROPORTION_OF_CASES`, with the cohort named in `population` and its size, when
-reported, in a new optional `denominator_size` slot. A numeric band is invalid
+reported, in the existing optional `cohort_size` slot, which `GeneCaseFraction`
+and `VariantPopulationEffect` already use for the same idea; adding it to
+`Prevalence` is a slot reuse, not a new slot. A numeric band is invalid
 with an `ASCERTAINED_COHORT` denominator, because the bands are read as
 population rarity. The alternative, a separate `CohortProportion` class, is
 more principled and is the pattern `GeneCaseFraction` set; it costs a new
@@ -306,11 +311,13 @@ this repository today, many of them touching `kb/disorders/`.
   `check-duplicate-keys` is, because a `kb/`-only PR skips the Python lane.
   The message for a band finding quotes the band's numeric range, not its key.
 - [ ] **The CLAUDE.md example-slot guard** (lesson 7), as a test.
-- [ ] **One tracker issue** absorbing #7005, #10193 (already labelled
-  duplicate), #8431, #9723, #7003 and #11726, with #11268 linked as adjacent.
-  Its body is the decision list in §3 with each item marked decided or open,
-  and a row per phase naming the deliverable and its owner. Close the absorbed
-  issues with a pointer once the tracker exists.
+- [ ] **One tracker issue**, opened and owned by the maintainer, absorbing
+  #7005, #10193 (already labelled duplicate), #8431, #9723, #7003 and #11726,
+  with #11268 linked as adjacent. Its body is the decision list in §3 with each
+  item marked decided or open, and a row per phase naming the deliverable and
+  its owner. The owner is a person: lesson 1 is that an agent addressed by a
+  comment is not one, and the issues this repository opens are mostly
+  agent-run. Close the absorbed issues with a pointer once the tracker exists.
 - [ ] Fix the two enum descriptions (D8) in the same schema-only PR as the
   script, since they change no value.
 
@@ -320,8 +327,9 @@ tracker's named owner.
 ### Phase 1: decide (one design-decisions amendment, one schema PR, no KB edits)
 
 - [ ] Record D1-D8 as a second §8 amendment, with whatever the review changed.
-- [ ] Schema PR: the new enum values and `denominator_size` (D3), the
-  corrected descriptions, and the CLAUDE.md prose for D7 and the new values.
+- [ ] Schema PR: the new enum values and `cohort_size` on `Prevalence` (D3),
+  the corrected descriptions, and the CLAUDE.md prose for D7 and the new
+  values.
   Additive only; no existing record becomes invalid. Regenerate the datamodels.
 - [ ] Extend the Phase 0 script with the rules the new values imply
   (`PROPORTION_WITHOUT_COHORT_DENOMINATOR`, `BAND_ON_COHORT_DENOMINATOR`).
@@ -411,3 +419,7 @@ Until the Phase 0 script exists, the table in §1b is reproduced by walking
 `kb/disorders/*.yaml` with `dismech.yaml_io.safe_load_path`, taking each
 `prevalence[]` item, and applying the rule in the table's third column, with
 `_band_from_rate()` from `scripts/migrate_prevalence.py` as the band oracle.
+The one place the table reads two oracles is the band-versus-rate row: a rate
+of exactly 100.0 under `ABOVE_1_IN_1000` agrees with the code and disagrees
+with the enum description, and the table counts it, because D8 closes that gap
+by correcting the description rather than the code.
