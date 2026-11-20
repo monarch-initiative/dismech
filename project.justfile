@@ -2302,9 +2302,11 @@ update-retired-support-prose-baseline:
 # self-contradicting (#8184). Also compares the same sentence across files and
 # fails on HUMAN_CLINICAL against IN_VITRO/MODEL_ORGANISM/COMPUTATIONAL (#11221).
 # Grandfathered against origin/main like the length and title checks.
+# Pass kb/ paths to report only on the files you touched; the whole corpus is
+# still indexed, because a cross-file pair's other side can be any entry.
 [group('QC')]
-check-snippet-grading:
-    uv run python scripts/check_snippet_grading.py --against-ref origin/main
+check-snippet-grading *args="":
+    uv run python scripts/check_snippet_grading.py --against-ref origin/main {{ args }}
 
 # List every snippet-grading divergence, baselined or not (triage view).
 # `--fields all` adds the `supports` divergences, which are NOT gated -- see the
@@ -2313,7 +2315,7 @@ check-snippet-grading:
 # including the report-only pairs involving OTHER (pending #10273).
 [group('QC')]
 list-snippet-grading *args="":
-    uv run python scripts/check_snippet_grading.py --all {{args}}
+    uv run python scripts/check_snippet_grading.py --all {{ args }}
 
 # Regenerate both snippet-grading baselines (per-file and cross-file) after
 # intentionally changing the set (e.g. reconciling backlog divergences). Review
@@ -2989,7 +2991,10 @@ templates_dir := "templates"
 #   just validate-research-reference <the report that was written>
 #
 # To skip it (quick iteration, or no network):
-#   just dr_validation='' research-disorder falcon Marfan_Syndrome
+#   just dr_validation='--no-validate-references' research-disorder falcon Marfan_Syndrome
+# Not `dr_validation=''`: since deep-research-client 0.2.15 references are
+# validated by default, so an empty variable only drops our cache directory and
+# the run validates into ~/.deep_research_cache/references instead.
 dr_validation := "--validate-references --validation-cache-dir references_cache"
 
 # Ontology term validation applied to a deep-research report as it is generated
@@ -3239,6 +3244,77 @@ claim-confirmation provider slug *args="":
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
     {{dr_client}} research \
         --template {{templates_dir}}/claim_confirmation_research.md \
+        "${var_args[@]}" \
+        $provider_arg \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
+        {{dr_validation}} \
+        {{dr_term_validation}} \
+        {{dr_fallback}} \
+        {{args}} || dr_status=$?
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
+    fi
+    rmdir "$staging_dir" 2>/dev/null || true
+    exit ${dr_status:-0}
+
+# Print the prompt `just nam-mining` would send for one use case in
+# templates/nam_mining/, and stop. Rendered through the client's own template
+# processor, so the preview cannot drift from what a run sends.
+# Print it first: the systems list and the candidate nodes are the whole
+# experiment, and a run costs real time and credit.
+# Example: just nam-mining-prompt zheng_2023_hmo_graft
+[group('Research')]
+nam-mining-prompt slug:
+    uv run python scripts/nam_mining_vars.py {{slug}} --format prompt
+
+# Deep research dissecting one paper into its biological systems, then deciding
+# for each system which mechanism nodes it bears on, with a relationship verb,
+# a fidelity tier, the scale it actually observes, and what it does not model.
+# Written for NAM screening, where one paper routinely holds several separable
+# systems and a registry record is wanted for each whether or not it anchors to
+# a node.
+#
+# Like claim-confirmation, the per-paper variables are hand-written in
+# templates/nam_mining/<slug>.yaml, because nothing here can derive them: which
+# systems a paper contains and which nodes are worth testing are the screener's
+# judgement. Committing the spec is what makes a run reproducible rather than
+# hand-assembled and lost. The `nam-mining` skill is the procedure for writing
+# one, including the triage that decides whether a paper earns a run at all.
+#
+# The ninth variable is generated from the schema, so the prompt carries the link
+# object's own slot definitions rather than a paraphrase free to drift from them.
+#
+# This answers "what does each system in this paper model, and how faithfully",
+# not "is this model valid" -- the second is research-model-validity, which
+# takes one named model and searches the whole literature on it.
+# Examples:
+#   just nam-mining-prompt zheng_2023_hmo_graft
+#   just nam-mining openscientist zheng_2023_hmo_graft
+[group('Research')]
+nam-mining provider slug *args="":
+    #!/usr/bin/env bash
+    set -e
+    entry=$(uv run python scripts/nam_mining_vars.py {{slug}} --format entry)
+    out_dir="{{research_dir}}/nam_mining"
+    mkdir -p "$out_dir"
+    output_file="$out_dir/$entry-nam-mining-{{slug}}-deep-research-{{provider}}.md"
+    requested_provider="{{provider}}"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
+    # The variable values are multi-line, so they go through a NUL-separated
+    # file: command substitution would drop the separators.
+    uv run python scripts/nam_mining_vars.py {{slug}} --format null > "$staging_dir/vars"
+    var_args=()
+    while IFS= read -r -d '' record; do
+        var_args+=(--var "$record")
+    done < "$staging_dir/vars"
+    rm -f "$staging_dir/vars"
+    echo "NAM mining: $entry [{{slug}}] ({{provider}}) -> $output_file"
+    provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+    {{dr_client}} research \
+        --template {{templates_dir}}/nam_mining_research.md \
         "${var_args[@]}" \
         $provider_arg \
         --output "$staged_file" \

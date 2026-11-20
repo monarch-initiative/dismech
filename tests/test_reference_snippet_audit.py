@@ -842,3 +842,60 @@ def test_signed_excerpts_rejects_mismatched_reference_id_and_supports_alt_keys(
     assert not index.matches_signed_excerpt("PMID:111", "Wrong reference id in bundle.")
     assert index.matches_signed_excerpt("PMID:333", "Quote under snippet key.")
     assert index.matches_signed_excerpt("PMID:333", "Quote under supporting_text key.")
+
+
+def test_file_reference_is_read_from_disk_without_a_cache_entry(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A ``file:`` reference verifies from the file itself and writes no cache.
+
+    linkml-reference-validator 0.8.0 stopped caching ``file:`` references
+    (linkml/linkml-reference-validator#173) and reads them from disk on every
+    run, resolving a relative path against ``reference_base_dir``. The audit
+    must do the same, or a committed supplement cited by a new entry would read
+    as "not cached locally" here while the validator verifies it.
+    """
+    cache_dir = tmp_path / "references_cache"
+    cache_dir.mkdir()
+    supplement = tmp_path / "data" / "supplement.md"
+    supplement.parent.mkdir()
+    supplement.write_text(
+        "# Supplement\n\nTable S1 lists the frontotemporal pachygyria cases.\n",
+        encoding="utf-8",
+    )
+    # Run from elsewhere: the path must resolve against the checkout holding
+    # the cache, not the working directory.
+    monkeypatch.chdir(tmp_path.parent)
+    index = CachedReferenceIndex(cache_dir)
+    pair = SnippetPair(
+        path=tmp_path / "kb" / "Entry.yaml",
+        location="phenotypes[0].evidence[0]",
+        reference_id="file:data/supplement.md",
+        snippet="Table S1 lists the frontotemporal pachygyria cases.",
+    )
+
+    assert check_pair(index, pair) is PairOutcome.VERIFIED
+    assert list(cache_dir.iterdir()) == []
+
+
+def test_unreadable_file_reference_says_why_at_debug_level(
+    tmp_path: Path, caplog
+) -> None:
+    """A ``file:`` source that cannot be read degrades, and logs the reason."""
+    import logging
+
+    cache_dir = tmp_path / "references_cache"
+    cache_dir.mkdir()
+    index = CachedReferenceIndex(cache_dir)
+    pair = SnippetPair(
+        path=tmp_path / "kb" / "Entry.yaml",
+        location="phenotypes[0].evidence[0]",
+        reference_id="file:data/missing.md",
+        snippet="A quote from a supplement that is not on disk.",
+    )
+
+    with caplog.at_level(logging.DEBUG, logger="dismech.reference_snippet_audit"):
+        outcome = check_pair(index, pair)
+
+    assert outcome is PairOutcome.NOT_CACHED
+    assert any("file:data/missing.md" in record.getMessage() for record in caplog.records)
