@@ -347806,7 +347806,8 @@ window.searchData = [
       "TNF-alpha Release",
       "Purkinje Cell Intrinsic Hyperexcitability",
       "Cerebellar Dysfunction",
-      "Cerebellar Swelling and Mass Effect"
+      "Cerebellar Swelling and Mass Effect",
+      "Brainstem Compression and Tonsillar Herniation"
     ],
     "cell_types": [
       "microglial cell",
@@ -347832,13 +347833,17 @@ window.searchData = [
       "Encephalopathy",
       "Obstructive hydrocephalus",
       "Cognitive and behavioural sequelae",
-      "Cerebellar atrophy"
+      "Cerebellar atrophy",
+      "Increased intracranial pressure",
+      "Papilledema",
+      "Sudden death"
     ],
     "phenotype_categories": [
       "Neurological",
       "Clinical"
     ],
     "phenotype_hpo_categories": [
+      "Constitutional",
       "Digestive",
       "Eye",
       "Nervous System"
@@ -347854,7 +347859,10 @@ window.searchData = [
       "HP:0001298",
       "HP:0000238",
       "HP:0100543",
-      "HP:0001272"
+      "HP:0001272",
+      "HP:0002516",
+      "HP:0001085",
+      "HP:0001699"
     ],
     "frequencies": [
       "OCCASIONAL"
@@ -347882,11 +347890,11 @@ window.searchData = [
     ],
     "source_file": "Postinfectious_Cerebellitis.yaml",
     "page_url": "../pages/disorders/Postinfectious_Cerebellitis.html",
-    "num_phenotypes": 11,
-    "num_pathophysiology": 8,
+    "num_phenotypes": 14,
+    "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "31",
+    "causal_graph_edges": "34",
     "causal_graph_longest_path": "7"
   },
   {
@@ -449026,12 +449034,12 @@ window.searchMetrics = {
   "total_disorder_pages": 4134,
   "total_subtypes": 5105,
   "total_disorders_and_subtypes": 9239,
-  "total_unique_evidence_sources": 61695,
-  "total_unique_publications": 57637,
+  "total_unique_evidence_sources": 61704,
+  "total_unique_publications": 57646,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4132,
-  "total_unique_pathological_events": 27308,
+  "total_unique_pathological_events": 27309,
   "total_modules": 237,
   "total_research_reports": 4234,
   "total_classifications": 21,
