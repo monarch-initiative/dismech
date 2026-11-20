@@ -243039,7 +243039,8 @@ window.searchData = [
       "Secondary glaucoma",
       "Red eye",
       "Heterochromia iridis",
-      "Central nervous system symptoms"
+      "Central nervous system symptoms",
+      "Central diabetes insipidus"
     ],
     "phenotype_categories": [
       "Dermatologic",
@@ -243048,12 +243049,14 @@ window.searchData = [
       "Metabolic",
       "Hepatic",
       "Ophthalmologic",
-      "Neurologic"
+      "Neurologic",
+      "Endocrine"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
       "Digestive",
+      "Endocrine",
       "Eye",
       "Immune",
       "Integument",
@@ -243070,7 +243073,8 @@ window.searchData = [
       "HP:0000501",
       "HP:0025337",
       "HP:0001100",
-      "HP:0000707"
+      "HP:0000707",
+      "HP:0000863"
     ],
     "frequencies": [],
     "genes": [
@@ -243094,7 +243098,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Juvenile_Xanthogranuloma.yaml",
     "page_url": "../pages/disorders/Juvenile_Xanthogranuloma.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 11,
     "num_pathophysiology": 6,
     "num_genes": 7,
     "num_treatments": 6,
@@ -307821,6 +307825,137 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "18",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Neurodevelopmental Disorder With Spasticity, Seizures, And Brain Abnormalities",
+    "disease_id": "MONDO:0859275",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental disorder",
+      "Developmental and epileptic encephalopathy"
+    ],
+    "creation_date": "2026-11-20T15:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive neurodevelopmental disorder caused by biallelic loss-of-function variants in NSRP1, the gene for Nuclear Speckle Splicing Regulatory Protein 1, a nuclear-speckle splicing factor that binds the serine/arginine-rich splicing factors SRSF1 and SRSF2 and opposes their alternative splice-site selection. Seven molecularly confirmed individuals from four unrelated families have been published, six of them in the 2021 report that established the gene-disease relationship and one in a 2024 case report that extended the spectrum to a milder end. The severe presentation comprises global developmental delay, infantile-onset and often drug-resistant epilepsy, hypotonia with appendicular spasticity amounting to a spastic cerebral palsy, variable microcephaly, dysphagia and dysmorphic facies, with brain imaging showing a simplified gyral pattern, under-opercularization and cerebellar vermian hypoplasia. Four of the five reported alleles converge on a single molecular consequence: loss or substitution of the C-terminal nuclear localization signal, which strands NSRP1 in the cytosol and so removes it from the compartment where it acts. The course is static rather than degenerative, which is why the authors raise NSRP1 as a candidate cerebral palsy gene. What no study has yet shown is which NSRP1-dependent splicing targets produce the brain phenotype; the chain from splicing failure to malformed cortex is recorded here as unestablished rather than as mechanism.",
+    "pathophysiology": [
+      "Biallelic NSRP1 Loss-of-Function Variants",
+      "Loss of the C-Terminal Nuclear Localization Signal",
+      "Transcript Depletion by Nonsense-Mediated Decay and Splice-Donor Disruption",
+      "Cytoplasmic Mislocalization of NSRP1 and Depletion from Nuclear Speckles",
+      "Loss of NSRP1-Dependent Alternative Splice Site Selection",
+      "Unopposed SRSF1 and SRSF2 Splicing Activity",
+      "Mis-splicing of Splicing-Factor and Cell-Cycle Transcripts",
+      "Disrupted Brain Development",
+      "Static Spastic Motor Impairment",
+      "Infantile-Onset Epilepsy"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "nonsense-mediated decay of the exon 2 premature-termination transcript",
+      "nuclear import of NSRP1",
+      "NSRP1-dependent alternative splice site selection",
+      "SRSF1- and SRSF2-driven alternative splice site selection",
+      "alternative processing of RNA splicing factor transcripts",
+      "brain development",
+      "cerebral cortex development"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Absent speech",
+      "Delayed speech and language development",
+      "Motor delay",
+      "Seizure",
+      "EEG abnormality",
+      "Hypotonia",
+      "Spasticity",
+      "Spastic tetraparesis",
+      "Cerebral palsy",
+      "Inability to walk",
+      "Gait ataxia",
+      "Dysphagia",
+      "Microcephaly",
+      "Abnormal facial shape",
+      "Simplified gyral pattern",
+      "Under-opercularization",
+      "Cerebellar vermis hypoplasia",
+      "Abnormal corpus callosum morphology",
+      "Hypoplasia of the brainstem",
+      "Early death"
+    ],
+    "phenotype_categories": [
+      "Neurodevelopmental",
+      "Neurological",
+      "Gastrointestinal",
+      "Craniofacial",
+      "Neuroimaging",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001344",
+      "HP:0000750",
+      "HP:0001270",
+      "HP:0001250",
+      "HP:0002353",
+      "HP:0001252",
+      "HP:0001257",
+      "HP:0001285",
+      "HP:0100021",
+      "HP:0002540",
+      "HP:0002066",
+      "HP:0002015",
+      "HP:0000252",
+      "HP:0001999",
+      "HP:0009879",
+      "HP:0002538",
+      "HP:0001320",
+      "HP:0001273",
+      "HP:0002365"
+    ],
+    "frequencies": [
+      "6/6 in the founding cohort; also present in the 2024 case",
+      "Reported in the 2024 case; the founding cohort is described as non-verbal rather than formally assessed",
+      "5/6 non-verbal in the founding cohort",
+      "Reported in the 2024 case",
+      "6/6 in the founding cohort, infantile onset, drug-resistant in 3/6",
+      "Abnormal in all patients; epileptiform discharges in 5/6",
+      "6/6 in the founding cohort",
+      "6/6 in the founding cohort, appendicular",
+      "Named by the authors for the founding cohort",
+      "The founding cohort's motor phenotype is described as spastic cerebral palsy",
+      "3/6 non-ambulatory in the founding cohort",
+      "4/6 in the founding cohort",
+      "5/6 in the founding cohort, Z-scores -0.95 to -5.60",
+      "3/4 of imaged patients",
+      "1/4 of imaged patients",
+      "2/6 in the founding cohort, plus one ungenotyped sibling"
+    ],
+    "genes": [
+      "NSRP1"
+    ],
+    "treatments": [
+      "Antiseizure medication"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Spasticity_Seizures_And_Brain_Abnormalities.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Spasticity,_Seizures,_And_Brain_Abnormalities.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Neurodevelopmental Disorder with Thin Corpus Callosum, Hypotonia, and Absent Language",
@@ -448888,17 +449023,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4133,
+  "total_disorder_pages": 4134,
   "total_subtypes": 5105,
-  "total_disorders_and_subtypes": 9238,
-  "total_unique_evidence_sources": 61675,
-  "total_unique_publications": 57621,
+  "total_disorders_and_subtypes": 9239,
+  "total_unique_evidence_sources": 61695,
+  "total_unique_publications": 57637,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4131,
-  "total_unique_pathological_events": 27300,
+  "total_pathographs": 4132,
+  "total_unique_pathological_events": 27308,
   "total_modules": 237,
-  "total_research_reports": 4233,
+  "total_research_reports": 4234,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 140
