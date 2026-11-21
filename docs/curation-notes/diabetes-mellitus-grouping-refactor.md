@@ -1,14 +1,12 @@
 # Diabetes mellitus: grouping refactor + pathophysiology migration map
 
-**Status:** A2 done through step 4. Grouping landed; shared cascade is the
-`diabetic_vascular_complications` module; T1D/T2D/T5 conform to it; **the
-umbrella's blended mechanism graph has been retired** (3367→2024 lines) and
-replaced with a single node conforming to `#Chronic Hyperglycemia`. The
-umbrella's type-specific phenotypes, genetics, treatments, trials, datasets,
-models, exposures and progression stages have been moved to or deduplicated
-against the per-type entries (step 4, below), and its type rows are now
-`curated_in` pointers. Remaining: step 5, a home for the monogenic catalogue so
-the umbrella Disease can be retired and the Grouping can hold `MONDO:0005015`.
+**Status:** Done. The umbrella Disease entry `kb/disorders/Diabetes_Mellitus.yaml`
+has been retired. Diabetes mellitus is now the `Diabetes_Mellitus` grouping
+(holding `MONDO:0005015` as an exactMatch), the `diabetic_vascular_complications`
+module, and the member entries: type 1, type 2, type 5 and gestational diabetes,
+plus a nested `Monogenic_Diabetes` grouping over maturity-onset diabetes of the
+young, permanent and transient neonatal diabetes, and the syndromic monogenic
+forms. The sections below record how it got there.
 
 ## Problem
 
@@ -172,6 +170,24 @@ replaced with the single conforming node); **steps 4–5 DEFERRED**:
    differential diagnoses, case definitions, drug- and checkpoint-inhibitor
    exposures, and the share-of-diabetes prevalence rows, plus the monogenic
    catalogue.
-5. ⬜ Longer term, consider promoting the high-value subtypes (esp. MODY genes,
-   neonatal diabetes) to standalone entries + Grouping members, at which point the
-   umbrella Disease could be fully retired.
+5. ✅ **Retire the umbrella.** The monogenic catalogue became three entries,
+   each one genetically heterogeneous disease with a subtype per gene, the
+   pattern used for other locus-heterogeneous Mendelian diseases and the way
+   MONDO and GeneReviews divide them: `Maturity-Onset_Diabetes_of_the_Young`
+   (MODY 1-4, 6, 8, 10, 12, 13 and renal cysts and diabetes), with KLF11, PAX4,
+   BLK and APPL1 as DISPUTED genetic rows rather than subtypes;
+   `Permanent_Neonatal_Diabetes_Mellitus` (PNDM1-4, PTF1A, EIF2B1, and a pointer
+   to NDM-CH); and `Transient_Neonatal_Diabetes_Mellitus` (6q24 TNDM1, TNDM2,
+   TNDM3). The single monogenic beta-cell node was split into mechanism nodes
+   that state each gene's lost molecular function. Syndromic genes already
+   curated in their own entries (WFS1, CISD2, EIF2AK3, SLC19A2, GLIS3) were
+   not duplicated; heterozygous RFX6 stays a MODY gene, while biallelic RFX6 is
+   Mitchell-Riley syndrome. The remaining cross-cutting rows moved to the per-type
+   entries, except the disease-level case definition and a generic
+   environmental-determinants row, which only framed "diabetes in general" and
+   are carried by the grouping's description. Maternally-inherited diabetes and
+   deafness and lipoatrophic diabetes, which had no curated content, are in the
+   stub queue. Diabetic ketoacidosis, which MONDO places under diabetes
+   mellitus, is curated as a phenotype of the type entries. The two comorbidity
+   entries that anchored on the umbrella keep `MONDO:0005015` as their claim,
+   because their sources do not stratify by type, and no longer carry a slug.
