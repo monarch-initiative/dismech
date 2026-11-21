@@ -1,0 +1,358 @@
+---
+reference_id: "OECDTG:442D"
+title: "Test No. 442D: In Vitro Skin Sensitisation: Assays addressing the Adverse Outcome Pathway Key Event on Keratinocyte activation"
+database: "OECD Guidelines for the Testing of Chemicals"
+source_snapshot: "2026-07-02"
+source_sha256: "7c8cf491665a06dfd7371bd093e14509a98e1b7268db46652768f99479cc2bd1"
+doi: "10.1787/9789264229822-en"
+content_type: "structured_record"
+---
+
+# OECDTG:442D  Test No. 442D: In Vitro Skin Sensitisation: Assays addressing the Adverse Outcome Pathway Key Event on Keratinocyte activation
+
+OECD Test Guideline 442D, adopted 2026-07-02. The paragraphs below are reproduced from the guideline.
+
+**Scope of this record.** Only the General Introduction and each appendix's Initial Considerations and Principle of the Test are included. The PROCEDURE and DATA AND REPORTING sections and the annexes are not, so a method's procedural detail, its cell-line or tissue supplier, and its licence terms cannot be quoted from here.
+
+## Test methods
+
+| Appendix | Test method |
+| --- | --- |
+| IA | KeratinoSens™ |
+| IB | LuSens |
+| IC | EpiSensA |
+| IC | Epi2SensA |
+| ID | α-Sens® |
+
+## Divisions
+
+The guideline restarts paragraph numbering in every appendix, so a paragraph is keyed by division as well as by number.
+
+| Key | Division | Paragraphs |
+| --- | --- | --- |
+| 442D/GI | General Introduction | 10 |
+| 442D/IA | Appendix IA | 11 |
+| 442D/IB | Appendix IB | 10 |
+| 442D/IC | Appendix IC | 10 |
+| 442D/ID | Appendix ID | 10 |
+
+## Paragraphs
+
+### 442D/GI/1
+
+*General Introduction · Keratinocyte activation Key Event based Test Guideline · PDF p. 6*
+
+A skin sensitiser refers to a substance that will lead to an allergic response following repeated skin contact as defined by the United Nations Globally Harmonized System of Classification and Labelling of Chemicals (UN GHS) (1). The current knowledge of the chemical and biological mechanisms associated with skin sensitisation initiated by covalent binding to proteins has been summarised as an Adverse Outcome Pathway (AOP) (2), starting with the molecular initiating event through intermediate events to the adverse effect, namely allergic contact dermatitis. This AOP focuses on chemicals that react with thiol (i.e. cysteine) and primary amines (i.e. lysine) such as organic chemicals. In this instance, the molecular initiating event (i.e. the first key event) is the covalent binding of electrophilic substances to nucleophilic centres in skin proteins. The second key event in this AOP takes place in the keratinocytes and includes inflammatory responses as well as changes in gene expression associated with specific cell signalling pathways such as the antioxidant/electrophile response element (ARE)-dependent pathways. The third key event is the activation of dendritic cells, typically assessed by expression of specific cell surface markers, chemokines and cytokines. The fourth key event is T-cell proliferation.
+
+### 442D/GI/2
+
+*General Introduction · Keratinocyte activation Key Event based Test Guideline · PDF p. 6*
+
+This Test Guideline describes in vitro assays that address mechanisms described under the second Key Event of the AOP for skin sensitisation, namely keratinocyte activation (2). The Test Guideline comprises test methods to be used for supporting the discrimination between skin sensitisers and non-sensitisers in accordance with the UN GHS (1). The test methods currently described in this Test Guideline include three in vitro ARE-Nrf2 luciferase test methods and two test methods based on gene expression quantification: • The ARE-Nrf2 luciferase KeratinoSens™ test method (Appendix IA), • The ARE-Nrf2 luciferase LuSens test method (Appendix IB), • The Epidermal Sensitisation Assay – EpiSensA and the EpiDerm-Epidermal Sensitisation Assay – Epi2SensA (Appendix IC), • The FBS free ARE-Nrf2 luciferase α-Sens® test method (Appendix ID).
+
+### 442D/GI/3
+
+*General Introduction · Keratinocyte activation Key Event based Test Guideline · PDF p. 6-7*
+
+These test methods have all been considered scientifically valid. The KeratinoSens™ test method first underwent a validation study followed by an independent peer-review by EURL ECVAM Scientific Advisory Committee (ESAC) and positive recommendations by EURL ECVAM, and is considered the validated reference method (VRM) with regards to ARE-Nrf2 luciferase test methods (3) (4) (5) (6). Two test methods later underwent a Performance Standard-based validation study, i.e. (i) the LuSens, which was also reviewed and received positive opinion by ESAC (7) (8) (9) (10), and (ii) the α-Sens®, whose validation study (11) was followed by an independent peer review (12) conducted by the Japanese Center for the Validation of Alternative Methods (JaCVAM). The EpiSensA underwent a validation study (13) followed by an independent peer review (14) conducted by JaCVAM. The EpiSensA is considered a VRM with regards to test methods quantifying changes in the expression of marker genes associated with keratinocyte activation (ATF3, IL-8, GCLM, and DNAJB4), using Reverse Transcription-quantitative PCR in reconstructed human epidermis (RhE) models. Performance Standards (15) are available for this type of method too, to facilitate the validation and assessment of similar and modified RhE-based test methods. The Epi2SensA test method underwent a Performance Standard-based validation study (16). It was reviewed by an independent peer review panel (17).
+
+### 442D/GI/4
+
+*General Introduction · Background and principles of the test methods included in the Key Event based Test Guidelines · PDF p. 7*
+
+The assessment of skin sensitisation has historically involved the use of laboratory animals. The classical methods that use guinea-pigs, the Guinea Pig Maximisation Test (GPMT) of Magnusson and Kligman and the Buehler Test (OECD TG 406) (18), assess both the induction and elicitation phases of skin sensitisation. The murine tests, the LLNA (OECD TG 429) (19) and its three non-radioactive modifications, LLNA: DA (OECD TG 442A) (20) as well as LLNA: BrdU-ELISA and BrdU-FCM (OECD TG 442B) (21), all assess the induction response exclusively, and have gained acceptance since they provide an advantage over the guinea pig tests in terms of animal welfare together with an objective measurement of the induction phase of skin sensitisation.
+
+### 442D/GI/5
+
+*General Introduction · Background and principles of the test methods included in the Key Event based Test Guidelines · PDF p. 7*
+
+Mechanistically-based in chemico and in vitro test methods addressing the first three key events of the skin sensitisation AOP have been adopted for contributing to the evaluation of the skin sensitisation hazard potential of chemicals: the OECD TG 442C describes the Direct Peptide Reactivity Assay (22) addressing the first key event; the present Test Guideline assesses keratinocyte activation addressing the second key event and the OECD TG 442E addresses the activation of dendritic cells, the third key event of the skin sensitisation AOP (23). Finally, the fourth key event representing T-cell proliferation is indirectly assessed in the murine Local Lymph Node Assay (LLNA) (19). It should be noted that not all key events need to be assessed to determine a skin sensitisation categorisation.
+
+### 442D/GI/6
+
+*General Introduction · Background and principles of the test methods included in the Key Event based Test Guidelines · PDF p. 7*
+
+As keratinocyte activation represents only one key event of the skin sensitisation AOP (2) (24), information generated with test methods developed to address this specific key event may not be sufficient to conclude on the presence or absence of skin sensitisation potential of chemicals. Therefore data generated with the test methods described in this Test Guideline are proposed to support the discrimination between skin sensitisers (i.e. UN GHS Category 1) and non-sensitisers when used within Integrated Approaches to Testing and Assessment (IATA), together with other relevant complementary information, e.g. derived from in vitro assays addressing other key events of the skin sensitisation AOP as well as non-testing methods, including read-across from chemical analogues (24). Examples on the use of data generated with these methods within Defined Approaches, i.e. approaches standardised both in relation to the set of information sources used and in the procedure applied to derive predictions have been published (24) and are implemented in an OECD TG on defined approaches for skin sensitisation. If the intention is to use the data from these methods in a defined approach for skin sensitisation then refer to Test Guideline 497 for application of borderline criteria or other data interpretation procedures (25). For details on the application of the borderline criteria, refer to the Appendix IA, Figure 1.
+
+### 442D/GI/7
+
+*General Introduction · Background and principles of the test methods included in the Key Event based Test Guidelines · PDF p. 7*
+
+The test methods described in this Test Guideline cannot be used on their own, neither to sub-categorise skin sensitisers into subcategories 1A and 1B as defined by UN GHS (1), for authorities implementing these two optional subcategories, nor to predict potency for safety assessment decisions. However, depending on the regulatory framework, positive results generated with these methods may be used on their own to classify a chemical into UN GHS category 1.
+
+### 442D/GI/8
+
+*General Introduction · Background and principles of the test methods included in the Key Event based Test Guidelines · PDF p. 7*
+
+The test methods included in this Test Guideline might differ with regard to the procedures, the applicability domain and the limitations, but can each be used to address countries’ requirements for test results on the keratinocytes activation Key Event of the AOP for skin sensitisation while benefiting from the Mutual Acceptance of Data. In the context of Defined Approaches (DAs), methods are not automatically interchangeable; it is specified in TG 497 which methods/combination of methods should be used.
+
+### 442D/GI/9
+
+*General Introduction · Background and principles of the test methods included in the Key Event based Test Guidelines · PDF p. 8*
+
+The term "test chemical" is used in this Test Guideline to refer to what is being tested1 and is not related to the applicability of the test methods to the testing of mono-constituent substances, multi-constituent substances and/or mixtures. When testing in submerged cultures, it should be determined that the test chemical is dissolved in the exposure medium or at least forms a stable dispersion (e.g. by visual inspection of the test chemical dissolved/prepared at the maximal final test concentration in the exposure medium, showing that no undissolved residues remain and that no precipitate or phase separation forms if the solution is left to settle for several hours).
+
+### 442D/GI/10
+
+*General Introduction · Background and principles of the test methods included in the Key Event based Test Guidelines · PDF p. 8*
+
+Limited information is currently available on the applicability of the test methods to multi-constituent substances/mixtures (26) (27) (28). Although not evaluated in the validation studies, the test methods may nevertheless be technically applicable to the testing of multi-constituent substances and mixtures. When considering testing of mixtures, difficult-to-test chemicals (e.g. unstable), or test chemicals not clearly within the applicability domain described in this Guideline, upfront consideration should be given to whether the results of such testing will yield results that are meaningful scientifically. Moreover, when testing multi-constituent substances or mixtures, consideration should be given to possible interference of cytotoxic constituents with the observed responses (e.g. the presence of a high content of non-sensitising cytotoxic constituents may mask the response of weakly sensitising components or sensitising components present at low concentration). It might, depending on the particular case, be scientifically justified to test either single main constituents forming the major fraction or several fractions of the mixture to conclude on the sensitisation potential of the complex mixture.
+
+### 442D/IA/1
+
+*Appendix IA · Initial Considerations, Applicability and Limitations · PDF p. 15*
+
+The test method described in this Appendix to Test Guideline 442D addresses the second key event of the skin sensitisation AOP (1), namely keratinocytes activation, by assessing with the help of luciferase, the Nrf2-mediated activation of antioxidant response element (ARE)-dependent genes. Skin sensitisers have been reported to induce genes that are regulated by the ARE (2) (3). Small electrophilic substances such as skin sensitisers can act on the sensor protein Keap1 (Kelch-like ECH-associated protein 1), by e.g. covalent modification of its cysteine residue, resulting in its dissociation from the transcription factor Nrf2 (nuclear factor-erythroid 2-related factor 2). The dissociated Nrf2 can then activate ARE-dependent genes such as those coding for phase II detoxifying enzymes (2) (4) (5).
+
+### 442D/IA/2
+
+*Appendix IA · Initial Considerations, Applicability and Limitations · PDF p. 15*
+
+The in vitro ARE-Nrf2 luciferase KeratinoSens™ test method (hereafter called the KeratinoSens™ test method) underwent validation studies (3) (6) (7) followed by an independent peer review conducted by the European Union Reference Laboratory for Alternatives to Animal Testing (EURL ECVAM) (8). The KeratinoSens™ test method was considered scientifically valid to be used as part of an IATA, to support the discrimination between skin sensitisers and non-sensitisers for the purpose of hazard identification (8).
+
+### 442D/IA/3
+
+*Appendix IA · Initial Considerations, Applicability and Limitations · PDF p. 15*
+
+Based on the dataset from the validation study and in-house testing used for the independent peer-review of the test method, the KeratinoSens™ test method proved to be transferable to laboratories experienced in cell culture techniques (8). The level of reproducibility in predictions that can be expected from the KeratinoSens™ test method is in the order of 85% within and between laboratories (8). The accuracy (77% - 155/201), sensitivity (78% - 71/91) and specificity (76% - 84/110) of the KeratinoSens™ test method for discriminating skin sensitisers (i.e. UN GHS Cat. 1) from non-sensitisers when compared to LLNA results were calculated by considering all of the data submitted to EURL ECVAM for evaluation and peer-review of the test method (8). These figures are similar to those published based on in-house testing of about 145 test substances (77% accuracy, 79% sensitivity, 72% specificity) (7). This information indicates the usefulness of the KeratinoSens™ test method to contribute to the identification of skin sensitisation hazard. However, the accuracy values given here for KeratinoSens™ test method as a stand-alone test method, are only indicative since the test method should be considered in combination with other sources of information in the context of a Defined Approach or an IATA and in accordance with the provisions of paragraphs 7 and 8 in the General Introduction of this Test Guideline. Furthermore when evaluating non-animal methods for skin sensitisation, it should be kept in mind that the LLNA test as well as other animal tests may not fully reflect the situation in humans.
+
+### 442D/IA/4
+
+*Appendix IA · Initial Considerations, Applicability and Limitations · PDF p. 15-16*
+
+On the basis of the current data available, the KeratinoSens™ test method was shown to be applicable to test chemicals covering a variety of organic functional groups, reaction mechanisms, skin sensitisation potency (as determined with in vivo studies) and physico-chemical properties (3) (6) (7) (8). The test method is applicable to test chemicals soluble or that form a stable dispersion in the exposure medium (i.e. a colloid or suspension in which the test chemical does not settle or separate from the solvent into different phases). Test chemicals that do not fulfil these conditions at the highest final required concentration of 2 000 µM may still be tested at lower concentrations. In such a case, results fulfilling the criteria for positivity could still be used to support the identification of the test chemical as a skin sensitiser. In cases where a negative result is obtained in a test with a maximal concentrations < 1000 µM and no cytotoxicity is reached, the result should be considered as inconclusive (see prediction model in paragraph 32). If cytotoxicity (< 70% viability) is reached at a maximal soluble test concentration < 1000 µM, criteria for negativity can still be applied. In general mono constituent substances with a LogP above 7 may be insoluble in the exposure medium, however, if solubility or stable dispersion can be obtained and documented, testing may still be conducted.
+
+### 442D/IA/5
+
+*Appendix IA · Initial Considerations, Applicability and Limitations · PDF p. 16*
+
+Negative results should be interpreted with caution as substances with an exclusive reactivity towards lysine-residues can be detected as negative by the test method as the key mechanism leading to the activation of the Keap1-Nrf2-ARE pathway appears to be the electrophilic reaction of stressors with nucleophilic thiols (cysteine sulfhydryl groups) of Keap-1. Complementary information from peptide reactivity assays may help addressing this uncertainty, in particular assays able to distinguish between cysteine and lysine reactivity. Furthermore, because of the limited metabolic capability of the cell line used (10) and because of the experimental conditions, pro-haptens (i.e. chemicals requiring enzymatic activation for example via P450 enzymes) and pre-haptens (i.e. chemicals activated by auto-oxidation) in particular with a slow oxidation rate may also provide negative results. However, it has been shown that the majority of pre-haptens and pro-haptens are sufficiently well identified by a combination of test methods covering key events 1, 2 and 3 on the AOP so that negative results can in general be used to support classification (12) (20) (34). On the other hand, test chemicals that do not act as a sensitiser but are nevertheless chemical stressors may lead to false positive results (8). Finally, test chemicals that interfere with the luciferase enzyme can confound the activity of luciferase in cell-based assays causing either apparent inhibition or increased luminescence (13). For example, phytoestrogen concentrations higher than 1 µM were reported to interfere with the luminescence signals in other luciferase-based reporter gene assays due to over-activation of the luciferase reporter gene (14) As a consequence, luciferase expression obtained at high concentrations of phytoestrogens or similar compounds suspected of producing phytoestrogen-like over-activation of the luciferase reporter gene needs to be examined carefully (14). In cases where evidence can be demonstrated on the non-applicability of the KeratinoSens™ test method to other specific categories of test chemicals, the test method should not be used for those specific categories.
+
+### 442D/IA/6
+
+*Appendix IA · Initial Considerations, Applicability and Limitations · PDF p. 16*
+
+In addition to supporting discrimination between skin sensitisers (i.e. UN GHS Category 1) and non-sensitisers, the KeratinoSens™ test method also provides concentration-response information that may potentially contribute to the assessment of sensitising potency when used in integrated approaches such as IATA (11) (15). Examples on how to use the KeratinoSens™ test method results in combination with other information sources are reported in the literature (7) (11) (16) (17) (18) (19) (20). Specifically, the use of KeratinoSens™ test method dose-response data along with quantitative peptide reactivity data to assess potency in the LLNA and in human tests has been described (21) and has been used in Bayesian integrated testing strategies on LLNA potency (11) (22). Furthermore, evaluation has been conducted on how to specifically address potency in humans (23). Finally, the use of KeratinoSens™ test method to assess potency of specific chemical classes has also been described (21) (24).
+
+### 442D/IA/7
+
+*Appendix IA · Initial Considerations, Applicability and Limitations · PDF p. 16*
+
+Definitions are provided in the Annex 1 of the General Introduction.
+
+### 442D/IA/8
+
+*Appendix IA · Principle of the Test · PDF p. 16-17*
+
+The KeratinoSens™ test method makes use of an immortalised adherent cell line derived from human keratinocytes stably harbouring a luciferase reporter gene under the control of the antioxidant response element of the human AKR1C2 gene (25). This gene is known to be up-regulated by skin sensitisers (26) (27). The cell line contains the luciferase gene under the transcriptional control of a constitutive promoter fused with the ARE element. The luciferase signal reflects the activation by sensitisers of endogenous Nrf2 dependent genes, and the dependence of the luciferase signal in the recombinant cell line on Nrf2 has been demonstrated (28). This allows quantitative measurement (by luminescence detection) of luciferase gene induction, using well established light producing luciferase substrates, as an indicator of the activity of the Nrf2 transcription factor in cells following exposure to electrophilic test substances.
+
+### 442D/IA/9
+
+*Appendix IA · Principle of the Test · PDF p. 17*
+
+Test chemicals are considered positive in the KeratinoSens™ test method if they induce a statistically significant induction of the luciferase activity above a given threshold (i.e.  1.5-fold, or 50% increase), below a defined concentration which does not significantly affect cell viability (i.e. below 1000 µM and at a concentration at which the cellular viability is above 70% (3) (6). For this purpose, the maximal fold induction of the luciferase activity over solvent (negative) control (Imax) is determined. Furthermore, since cells are exposed to series of concentrations of the test chemicals, the concentration needed for a statistically significant induction of luciferase activity above the threshold (i.e. EC1.5 value) should be interpolated from the dose-response curve obtained from the series of tested concentrations of the test chemical (see paragraph 26 for calculations). Finally, parallel cytotoxicity measurements should be conducted to assess whether luciferase induction occurs at sub-cytotoxic concentrations.
+
+### 442D/IA/10
+
+*Appendix IA · Principle of the Test · PDF p. 17*
+
+Prior to routine use of the KeratinoSens™ test method that adheres to this Test Guideline, laboratories should demonstrate technical proficiency, using the ten Proficiency Substances listed in Annex 1 of this Appendix.
+
+### 442D/IA/11
+
+*Appendix IA · Principle of the Test · PDF p. 17*
+
+Performance standards (PS) (29) are available to facilitate the validation of new or modified in vitro ARE-Nrf2 luciferase test methods similar to the KeratinoSens™ VRM and allow for timely amendment of this Test Guideline for their inclusion. Mutual Acceptance of Data (MAD) will only be guaranteed for test methods validated according to the PS, if these test methods have been reviewed and included in this Test Guideline by the OECD.
+
+### 442D/IB/1
+
+*Appendix IB · Initial Considerations, Applicability and Limitations · PDF p. 36*
+
+The test method described in this Appendix to Test Guideline 442D addresses the second key event of the skin sensitisation AOP (1), namely keratinocytes activation, by assessing with the help of luciferase, the Nrf2-mediated activation of antioxidant response element (ARE)-dependent genes. Skin sensitisers have been reported to induce genes that are regulated by the ARE (2) (3). Small electrophilic substances such as skin sensitisers can act on the sensor protein Keap1 (Kelch-like ECH-associated protein 1), by e.g. covalent modification of its cysteine residue, resulting in its dissociation from the transcription factor Nrf2 (nuclear factor-erythroid 2-related factor 2). The dissociated Nrf2 can then activate ARE-dependent genes such as those coding for phase II detoxifying enzymes (2) (4) (5).
+
+### 442D/IB/2
+
+*Appendix IB · Initial Considerations, Applicability and Limitations · PDF p. 36*
+
+The in vitro ARE-Nrf2 luciferase LuSens test method (hereafter called the LuSens test method) underwent a Performance Standard-based validation study based on the KeratinoSensTM Validated Reference Method (VRM) (6) (7) (8) (9), followed by an independent peer review conducted by the European Union Reference Laboratory for Alternatives to Animal Testing (EURL ECVAM) (10). The LuSens test method was considered scientifically valid to be used as part of an IATA, to support the discrimination between skin sensitisers and non-sensitisers for the purpose of hazard identification (10).
+
+### 442D/IB/3
+
+*Appendix IB · Initial Considerations, Applicability and Limitations · PDF p. 36*
+
+The LuSens test method proved to be transferable to laboratories experienced in cell culture techniques and met the reproducibility performance standards required both within and between laboratories (10). Additional information from earlier in-house study on 72 test chemicals showed similar predictive capacity as the VRM (74% accuracy, 75% sensitivity, and 71% specificity) for discriminating skin sensitisers (i.e. UN GHS Cat. 1) from non-sensitisers when compared to LLNA results (7) (10), indicating the usefulness of the LuSens test method to contribute to the identification of skin sensitisation hazard. However, the accuracy values given here for LuSens test method as a stand-alone test method, are only indicative since the test method should be considered in combination with other sources of information in the context of a Defined Approach or an IATA and in accordance with the provisions of paragraphs 7 and 8 in the General Introduction of this Test Guideline. Furthermore when evaluating non-animal methods for skin sensitisation, it should be kept in mind that the LLNA test as well as other animal tests may not fully reflect the situation in humans.
+
+### 442D/IB/4
+
+*Appendix IB · Initial Considerations, Applicability and Limitations · PDF p. 36-37*
+
+On the basis of the current data available, the LuSens test method was shown to be applicable to test chemicals covering a variety of organic functional groups, reaction mechanisms, skin sensitisation potency (as determined with in vivo studies) and physico-chemical properties (7) (8). The test method is applicable to test chemicals soluble or that form a stable dispersion in the exposure medium (i.e. a colloid or suspension in which the test chemical does not settle or separate from the solvent into different phases). Test chemicals that do not fulfil these conditions at the highest final required testing concentration (i.e. 2000 µM or 2000 µg/mL if no molecular weight is available) may still be tested at lower concentrations. In such a case, results fulfilling the criteria for positivity could still be used to support the identification of the test chemical as a skin sensitiser. In cases where a negative result is obtained in a test with a maximal concentration < 2000 µM (or < 2000 µg/mL if no molecular weight is available) and no cytotoxicity is observed, the result should be considered as inconclusive (see prediction model in paragraph 32). If cytotoxicity (<70% viability) is reached at a test concentration < 2000 µM (or < 2000 µg/mL if no molecular weight is available), criteria for negativity can still be applied. In general mono constituent substances with a LogP above 7 may be insoluble in the exposure medium, however, if solubility or stable dispersion can be obtained and documented, testing may still be conducted.
+
+### 442D/IB/5
+
+*Appendix IB · Initial Considerations, Applicability and Limitations · PDF p. 37*
+
+Negative results should be interpreted with caution as substances with an exclusive reactivity towards lysine-residues can be detected as negative by the test method as the key mechanism leading to the activation of the Keap1-Nrf2-ARE pathway appears to be the electrophilic reaction of stressors with nucleophilic thiols (cysteine sulfhydryl groups) of Keap-1. Complementary information from peptide reactivity assays may help addressing this uncertainty, in particular assays able to distinguish between cysteine and lysine reactivity. Furthermore, because of the limited metabolic capability of the cell line used (12) and because of the experimental conditions, pro-haptens (i.e. chemicals requiring enzymatic activation for example via P450 enzymes) and pre-haptens (i.e. chemicals activated by auto-oxidation) in particular with a slow oxidation rate may also provide negative results. However, it has been shown that the majority of pre-haptens and pro-haptens are sufficiently well identified by a combination of test methods covering key events 1, 2 and 3 on the AOP so that negative results can in general be used to support classification (13) (14) (15). On the other hand, test chemicals that do not act as a sensitiser but are nevertheless chemical stressors may lead to false positive results as shown with the VRM (11). Finally, test chemicals that interfere with the luciferase enzyme can confound the activity of luciferase in cell-based assays causing either apparent inhibition or increased luminescence (16). For example, phytoestrogen concentrations higher than 1 µM were reported to interfere with the luminescence signals in other luciferase-based reporter gene assays due to over-activation of the luciferase reporter gene (17). As a consequence, luciferase expression obtained at high concentrations of phytoestrogens or similar compounds suspected of producing phytoestrogen-like over-activation of the luciferase reporter gene needs to be examined carefully (17). In cases where evidence can be demonstrated on the non-applicability of the LuSens test method to other specific categories of test chemicals, the test method should not be used for those specific categories.
+
+### 442D/IB/6
+
+*Appendix IB · Initial Considerations, Applicability and Limitations · PDF p. 37*
+
+In addition to supporting discrimination between skin sensitisers (i.e. UN GHS Category 1) and non-sensitisers, the LuSens test method also provides information (e.g. concentration response) that may potentially contribute to the assessment of sensitising potency when used in integrated approaches such as IATA such as described for the VRM (13). However, further work, preferably based on human data, is required to determine how the LuSens test method results can contribute to potency assessment, especially in the context of an IATA (18). Examples on how to use the ARE-Nrf2 luciferase test methods in combination with other information are reported in literature (15) (18).
+
+### 442D/IB/7
+
+*Appendix IB · Initial Considerations, Applicability and Limitations · PDF p. 37*
+
+Definitions are provided in Annex 1 of the General Introduction.
+
+### 442D/IB/8
+
+*Appendix IB · Principle of the Test · PDF p. 37*
+
+The LuSens test method makes use of an immortalised adherent cell line derived from human keratinocytes stably harbouring a luciferase reporter gene under the control of the antioxidant response element of the rat NQO1 gene (20). Genes dependent on the ARE such as NQO1 are known to be up-regulated by contact sensitisers (21) (22). The cell line contains the luciferase gene under the transcriptional control of a promoter fused with the ARE element (7). The luciferase signal reflects the activation by sensitisers of endogenous Nrf2 dependent genes, and the dependence of the luciferase signal in the recombinant cell line on Nrf2 has been directly demonstrated for the VMR (23), and indirectly demonstrated for the LuSens (7). This allows quantitative measurement (by luminescence detection) of luciferase gene induction, using well established light producing luciferase substrates, as an indicator of the activity of the Nrf2 transcription factor in cells following exposure to electrophilic test substances.
+
+### 442D/IB/9
+
+*Appendix IB · Principle of the Test · PDF p. 38*
+
+Test chemicals are considered positive in the LuSens test method if they induce a statistically significant induction of the luciferase activity above a given threshold (i.e.  1.5-fold, or 50% increase) in at least two consecutive concentrations which do not significantly affect cell viability (i.e. at which the cellular viability is above 70%) (7) (8). For this purpose, induction of the luciferase activity over solvent/vehicle control is determined. Furthermore, parallel cytotoxicity measurements should be conducted to assess whether luciferase activity induction levels occur at sub-cytotoxic concentrations.
+
+### 442D/IB/10
+
+*Appendix IB · Principle of the Test · PDF p. 38*
+
+Prior to routine use of the LuSens test method that adheres to this Test Guideline, laboratories should demonstrate technical proficiency, using the ten Proficiency Substances listed in Annex 1 of this Appendix.
+
+### 442D/IC/1
+
+*Appendix IC · Initial Considerations and Limitations · PDF p. 54*
+
+The EpiSensA and Epi2SensA test methods are proposed to address the second key event of the skin sensitisation Adverse Outcome Pathway (AOP) (1), namely keratinocyte activation, by quantifying changes in the expression of marker genes associated with keratinocyte activation in reconstructed human epidermis (RhE) models following exposure to sensitisers (2) (3). Two important keratinocyte responses occur in the skin sensitisation AOP: the inflammatory responses and the induction of cytoprotective gene pathways (2). Expression of the activating transcription factor 3 (ATF3) and interleukin-8 (IL-8) genes reflects the inflammatory response of keratinocytes, whereas expression of the glutamate-cysteine ligase modifier subunit (GCLM) and DnaJ (Hsp40) homolog subfamily B (DNAJB4) genes reflects the induction of cytoprotective gene pathways (3). In the EpiSensA and the Epi2SensA, relative changes in marker gene (i.e. ATF3, IL-8, GCLM, and DNAJB4) expression are quantified using Reverse Transcription-quantitative PCR (RT-qPCR), and these data are then used for supporting the discrimination between skin sensitisers and non-sensitisers.
+
+### 442D/IC/2
+
+*Appendix IC · Initial Considerations and Limitations · PDF p. 54*
+
+The EpiSensA test method underwent validation studies (4) followed by an independent peer review conducted by the Japanese Center for the Validation of Alternative Methods (JaCVAM) in cooperation with the International Collaboration on Alternative Test Methods (ICATM) (5). The Epi2SensA test method underwent a Performance Standard (PS)-based validation study (6) (7) and was subsequently reviewed by an independent peer review panel (8). The EpiSensA and Epi2SensA test methods were considered scientifically valid to be used as part of an Integrated Approaches to Testing and Assessment (IATA) to support the discrimination between skin sensitisers and non-sensitisers for the purpose of hazard identification.
+
+### 442D/IC/3
+
+*Appendix IC · Initial Considerations and Limitations · PDF p. 54*
+
+The RhE models used are the LabCyte EPI-MODEL24 and the EpiDerm™ model (EPI-200) in the EpiSensA and the Epi2SensA test methods, respectively. The EpiSensA test method is considered the Validated Reference Method (VRM) and Epi2SensA a validated similar method with regards to test methods quantifying changes in the expression of marker genes associated with keratinocyte activation (ATF3, IL-8, GCLM, and DNAJB4), using Reverse Transcription-quantitative PCR in reconstructed human epidermis (RhE) models. PS (9) are available to facilitate the validation of similar or modified EpiSensA test method and allow for timely amendment of this Test Guideline for their inclusion. A similar or modified EpiSensA test method will only be added to the test guideline after review and agreement that all criteria described in the PS are met.
+
+### 442D/IC/4
+
+*Appendix IC · Initial Considerations and Limitations · PDF p. 54-55*
+
+The EpiSensA and the Epi2SensA test methods were shown to be transferable to laboratories experienced in cell culture techniques (4) (5) (6) (7) (8) (10) (11) (12). The within-laboratory reproducibility of EpiSensA at two participating laboratories was 93.3% (14/15) and one was 86.7% (13/15). The calculated between-laboratory reproducibility at three participating laboratories for analyses of 27 test chemicals was 88.9% (11). Results generated in the validation study (4) and a published study (12) indicated that the accuracy of the EpiSensA in discriminating sensitisers (i.e. UN GHS Cat. 1) from non-sensitisers is 83.3% (120/144) with a sensitivity of 88.8% (95/107) and a specificity of 67.6% (25/37) when compared to LLNA results. The balanced accuracy is 78.2%. Compared to human results, the accuracy of the EpiSensA is 80.7% (71/88) with a sensitivity of 98.1% (53/54) and a specificity of 52.9% (18/34). The balanced accuracy is 75.5%. False negative EpiSensA predictions as compared with the LLNA are more likely for chemicals exhibiting low to moderate skin sensitisation potency (i.e. UN GHS subcategory 1B) than chemicals exhibiting high skin sensitisation potency (i.e. UN GHS subcategory 1A) (11). For the Epi2SensA method, the calculated average within-laboratory reproducibility in three laboratories participating to the validation was 83.3% with the subset of 12 chemicals of the performance standard and the between-laboratory reproducibility was 85% with the 20 chemicals of the validation study. The accuracy observed during the validation was 88.3% with a sensitivity of 88.1% and a specificity of 88.9% when compared to LLNA results. However, the accuracy values presented here for EpiSensA and Epi2SensA as stand-alone test methods are only suggestive, as results obtained with the test methods should be considered in combination with information from other sources in the context of a Defined Approach or an IATA and in accordance with the provisions of paragraphs 7 and 8 of the General Introduction of this Test Guideline (13). Furthermore, when using in vivo data as a reference to evaluate non-animal methods for assessing skin sensitisation, it should be kept in mind that the LLNA test as well as other animal tests may not fully reflect the situation in humans.
+
+### 442D/IC/5
+
+*Appendix IC · Initial Considerations and Limitations · PDF p. 55*
+
+Currently available data indicate that the EpiSensA and Epi2SensA test methods are applicable for the testing of chemicals representing a variety of organic functional groups, reaction mechanisms, skin sensitisation potencies (as determined through in vivo studies), and physico-chemical properties (3) (4) (5) (7) (11) (12). EpiSensA and Epi2SensA test methods are applicable for testing soluble chemicals or chemicals that form a stable dispersion in an appropriate vehicle (see paragraph 19 on Vehicle selection and assessment of test chemical solubility). In addition, as RhE represents a three-dimensional model involving an air-liquid interface, test chemicals are applied directly to the surface of the RhE model. Therefore, lipophilic vehicles can be used, and the test method can be used to test lipophilic chemicals (e.g. logKow > 3.5) (3) (4) (5) (7) (11) (12). Furthermore, a number of putative pro-haptens (i.e. chemicals which are suspected to require enzymatic activation to exert skin sensitisation potential) and pre-haptens (i.e. chemicals that are assumed to become sensitisers via abiotic transformation) were rated as correct-positives by the EpiSensA and Epi2SensA test methods (3) (4) (5) (11) (12). Metabolic capacity of RhE and human skin has been investigated in a limited number of studies (14) (15). These studies suggest that RhE models have similar metabolic capacity as human skin, but further confirmation is still needed. In view of that, the results can only be used to support the hazard identification (e.g. in the context of an IATA or a Defined Approach). Due to the limitations of the test exposure period, pro-haptens or pre-haptens that require more than 6 hours to be sufficiently metabolised or oxidised may not be detected by the EpiSensA and the Epi2SensA.
+
+### 442D/IC/6
+
+*Appendix IC · Initial Considerations and Limitations · PDF p. 55-56*
+
+Some surfactants can lead to false positive results due to non-specific expression of the ATF3 and IL-8 genes (4). In addition, testing chemicals at high concentrations (e.g. 100% or 50% (w/v)) using distilled water as the vehicle can induce high osmotic stress conditions that lead to non-specific expression of ATF3 (4). Therefore, positive results in such cases should be interpreted with caution. However, negative results can still be used to support the classification of a test chemical as a non-sensitiser. When the solubility is assessed, if the chemical is not soluble or does not form a stable dispersion at 0.0122% (see paragraph 19 on vehicle selection and assessment of test chemical solubility), the chemical is not applicable for testing using EpiSensA and Epi2SensA. However, other vehicles can be used if sufficient scientific rationale can be provided. Test chemicals that significantly affect the expression of the endogenous control gene glyceraldehyde 3-phosphate dehydrogenase (GAPDH) at concentrations at which cell viability remains ≥ 80% for EpiSensA and ≥ 60% for Epi2SensA (see Acceptance criteria paragraph) may not be applicable to the test method, as marker gene expression cannot be accurately measured by relative quantification using RT-qPCR. However, other endogenous control genes may be used if sufficient scientific rationale can be provided. In addition, test chemicals that either affect RNA itself (e.g. by inducing RNA degradation) or directly interfere with the RNA isolation system may not be applicable to the test method. In cases where there is evidence demonstrating the non-applicability of the EpiSensA or Epi2SensA test methods to specific category of test chemicals, it should not be used for those specific categories of chemicals.
+
+### 442D/IC/7
+
+*Appendix IC · Initial Considerations and Limitations · PDF p. 56*
+
+In addition to supporting the discrimination between skin sensitisers (i.e. UN GHS Category 1) and non-sensitisers, the EpiSensA and Epi2SensA test methods also provides information (e.g. concentration-response data) that could contribute to the assessment of sensitising potency when used in integrated approaches such as a Defined Approach or an IATA. However, further data (preferably based on human research) are required to determine how EpiSensA and Epi2SensA test results might contribute to potency assessment.
+
+### 442D/IC/8
+
+*Appendix IC · Initial Considerations and Limitations · PDF p. 56*
+
+Definitions are provided in the annex of the general introduction.
+
+### 442D/IC/9
+
+*Appendix IC · Principle of the Test · PDF p. 56*
+
+The EpiSensA and the Epi2SensA test methods are in vitro assay that quantify changes in the expression of four marker genes associated with keratinocyte activation (i.e. ATF3, GCLM, DNAJB4, and IL-8) in a RhE model following a 6-hour exposure or 1-hour + 5-hours postincubation, respectively, to the test chemical of interest. Relative changes in marker gene expression are quantified using RT-qPCR. Cytotoxicity is also assessed concurrently to determine whether upregulated expression of the marker genes occurs at sub-cytotoxic concentrations (cell viability ≥ 80% for EpiSensA and ≥ 60% for Epi2SensA). The relative induction of marker genes is calculated in comparison to vehicle controls. Test chemicals are considered positive if the expression of at least one marker gene for EpiSensA and at least two marker genes for Epi2SensA exceed the respective cut-off value (ATF3, 15-fold; GCLM, 2-fold; DNAJB4, 2-fold; IL-8, 4-fold) with cell viability remaining ≥ 80% for EpiSensA and ≥ 60% for Epi2SensA. For this purpose, the mean maximum fold-induction (Imax) value is determined using data from concentrations at which mean cell viability remains ≥ 80% for EpiSensA and ≥ 60% for Epi2SensA.
+
+### 442D/IC/10
+
+*Appendix IC · Principle of the Test · PDF p. 56*
+
+Prior to routine use of the EpiSensA or Epi2SensA test methods, laboratories should demonstrate technical proficiency, using the ten proficiency substances listed in Annex 1 of this Appendix. Users of the test method may want to consult Annex 2 for Imax ranges of each marker gene obtained for proficiency substances in the validation studies.
+
+### 442D/ID/1
+
+*Appendix ID · Initial Considerations, Applicability and Limitations · PDF p. 75*
+
+The test method described in this Appendix to Test Guideline 442D addresses the second key event of the skin sensitisation AOP (1), namely keratinocytes activation, by assessing with the help of luciferase, the Nrf2-mediated activation of antioxidant response element (ARE)-dependent genes. Skin sensitisers have been reported to induce genes that are regulated by the ARE (2) (3). Small electrophilic substances such as skin sensitisers can act on the sensor protein Keap1 (Kelch-like ECH-associated protein 1), by e.g. covalent modification of its cysteine residue, resulting in its dissociation from the transcription factor Nrf2 (nuclear factor-erythroid 2-related factor 2). The dissociated Nrf2 can then activate ARE-dependent genes such as those coding for phase II detoxifying enzymes (2) (4) (5).
+
+### 442D/ID/2
+
+*Appendix ID · Initial Considerations, Applicability and Limitations · PDF p. 75*
+
+The Foetal Bovine Serum (FBS) free in vitro ARE-Nrf2 luciferase α-Sens® test method (hereafter called the α-Sens® test method) underwent a Performance Standard-based validation study based on the KeratinoSensTM Validated Reference Method (VRM) (6) (7) (8), followed by an independent peer review conducted by the Japanese Center for the Validation of Alternative Methods (JaCVAM) (9).
+
+### 442D/ID/3
+
+*Appendix ID · Initial Considerations, Applicability and Limitations · PDF p. 75-76*
+
+The α-Sens test method was originally developed using PHK 16-0b cell line (an immortalised human keratinocyte by HPV16 virus genome) as host cells. It was stably transfected with two reporter constructs: an ARE inducible Firefly luciferase gene and a TK promoter-driven Renilla luciferase gene for cell viability measurement. This initial system, referred to as α-Sens (without the registered trademark symbol), functioned as a multiclonal assay system (7). The α-Sens system was later improved by including quadruplicated ARE elements in Firefly construct for yielding high responsiveness, and by replacing the Luc2 gene with Luc+ gene to avoid the patent restrictions. This improved system was then designated as the α-Sens® test method and used during the validation study (8). The α-Sens® test method proved to be transferable to laboratories experienced in cell culture techniques and met the performance standards required both for within and between laboratory reproducibility (8). The validation study provides evidence of an expanded LogP domain. The α-Sens® test method is applicable to substances with strong luminescence such as ethylene glycol dimethacrylate (EGDMA, CAS No. 97-90-5) by implementing procedures to eliminate the impact of high luminescence (See Paragraph 23). The ⍺-Sens® test method has a shorter incubation time, provides more rapid readouts, and requires fewer plates per test chemical. Additional information from earlier in-house study on 162 test chemicals showed similar predictive capacity as the VRM (74% (120/162) accuracy, 76% (100/131) sensitivity, and 65% (20/31) specificity) for discriminating skin sensitisers (i.e. UN GHS Cat. 1) from non-sensitisers when compared to LLNA results in DASS dataset (8), indicating the usefulness of the α-Sens® test method to contribute to the identification of skin sensitisation hazard. In addition, when evaluated against human reference data for 112 substances in DASS database, the α-Sens® test method showed 83% (93/112) accuracy, 84% (70/83) sensitivity, and 79% (23/29) specificity. These results further support the relevance of α-Sens® for identifying skin sensitisation hazards in humans. However, the accuracy values given here for α-Sens® test method as a stand-alone test method, are only indicative since the test method should be considered in combination with other sources of information in the context of a Defined Approach or an IATA and in accordance with the provisions of paragraphs 7 and 8 in the General Introduction of this Test Guideline. Furthermore, when evaluating non-animal methods for skin sensitisation, it should be kept in mind that the LLNA test as well as other animal tests may not fully reflect the situation in humans.
+
+### 442D/ID/4
+
+*Appendix ID · Initial Considerations, Applicability and Limitations · PDF p. 76*
+
+On the basis of the current data available, the α-Sens® test method was shown to be applicable to test chemicals covering a variety of organic functional groups, reaction mechanisms, hydrophobic chemicals, skin sensitisation potency (as determined with in vivo studies) and physico-chemical properties (7) (8). The test method is applicable to test chemicals soluble or that form a stable dispersion in the exposure medium (i.e. a colloid or suspension in which the test chemical does not settle or separate from the solvent into different phases). Test chemicals that do not fulfil these conditions at the highest final required testing concentration (i.e. 500 µg/mL) may still be tested at lower concentrations. In such a case, results fulfilling the criteria for positivity could still be used to support the identification of the test chemical as a skin sensitiser. In cases where a negative result is obtained in a test with a maximal concentrations < 500 µg/mL and no cytotoxicity is observed, the result should be considered as inconclusive (see paragraph 31). If cytotoxicity (<50% viability) is reached at a test concentration< 500 µg/mL, criteria for negativity can still be applied. In general mono constituent substances with a LogP above 7 may be insoluble in the exposure medium, however, if solubility or stable dispersion can be obtained and documented, testing may still be conducted.
+
+### 442D/ID/5
+
+*Appendix ID · Initial Considerations, Applicability and Limitations · PDF p. 76*
+
+Negative results should be interpreted with caution as substances with an exclusive reactivity towards lysine-residues can be detected as negative by the test method as the key mechanism leading to the activation of the Keap1-Nrf2-ARE pathway appears to be the electrophilic reaction of stressors with nucleophilic thiols (cysteine sulfhydryl groups) of Keap-1. Complementary information from peptide reactivity assays may help addressing this uncertainty, in particular from assays being able to distinguish between cysteine and lysine reactivity. Furthermore, because of the limited metabolic capability of the cell line used (10) and because of the experimental conditions, pro-haptens (i.e. chemicals requiring enzymatic activation for example via P450 enzymes) and pre-haptens (i.e. chemicals activated by auto-oxidation) in particular with a slow oxidation rate may also provide false negative results. However, it has been shown that the majority of pre-haptens and pro-haptens are sufficiently well identified by a combination of test methods covering key events 1, 2 and 3 on the AOP so that negative results can in general be used to support classification (11) (12) (13). On the other hand, test chemicals that do not act as a sensitiser but are nevertheless chemical stressors may lead to false positive results as shown with the VRM (14). Finally, test chemicals that interfere with the luciferase enzyme can confound the activity of luciferase in cell-based assays causing either apparent inhibition or increased luminescence (15). For example, phytoestrogen concentrations higher than 1 µM were reported to interfere with the luminescence signals in other luciferase-based reporter gene assays due to over-activation of the luciferase reporter gene (16). As a consequence, luciferase expression obtained at high concentrations of phytoestrogens or similar compounds suspected of producing phytoestrogen-like over-activation of the luciferase reporter gene needs to be examined carefully (16). In cases where evidence can be demonstrated on the non-applicability of the α-Sens® test method to other specific categories of test chemicals, the test method should not be used for those specific categories.
+
+### 442D/ID/6
+
+*Appendix ID · Initial Considerations, Applicability and Limitations · PDF p. 76-77*
+
+In addition to supporting discrimination between skin sensitisers (i.e. UN GHS Category 1) and non-sensitisers, the α-Sens® test method also provides information (e.g. dose-response) that may potentially contribute to the assessment of sensitising potency when used in integrated approaches such as IATA, as described for the VRM (12). For example, further work, preferably based on human data, is required to determine how the α-Sens® test method results can contribute to potency assessment, especially in the context of an IATA (17). Examples on how to use the ARE-Nrf2 luciferase test methods in combination with other information are reported in literature (14) (17).
+
+### 442D/ID/7
+
+*Appendix ID · Initial Considerations, Applicability and Limitations · PDF p. 77*
+
+Definitions are provided in Annex 1 of the General Introduction.
+
+### 442D/ID/8
+
+*Appendix ID · Principle of the Test · PDF p. 77*
+
+The α-Sens® test method employs an immortalised adherent cell line derived from human keratinocytes stably transfected with two reporter constructs: a Firefly luciferase gene (Luc+) under the control of quadruplicated ARE for detecting ARE activation, and a Renilla luciferase gene driven by a thymidine kinase (TK) promoter for assessing cell viability (8). The ARE sequence used in the reporter gene is identical to the VRM, corresponding to the regulatory region of the AKR1C2 gene (18) (19). The Firefly luciferase signal reflects the activation of endogenous Nrf2-dependent genes by sensitisers, and the dependence of the luciferase signal in the recombinant cell line on Nrf2 has been directly demonstrated for the VMR (20). This allows quantitative measurement (by luminescence detection) of Firefly luciferase gene induction, using well established light producing luciferase substrates, as an indicator of the activity of the Nrf2 transcription factor in cells following exposure to electrophilic test substances. The α-Sens® test method allows simultaneous measurement of ARE-mediated activity and cell viability by Renilla luciferase activity in the same cells. The normalised ARE-mediated transcriptional activity, referred to as normalised ARE Activity (nAA; see Annex 4), is used as a parameter to evaluate skin sensitisation potential. Therefore, both ARE activation and cell viability should be measured in every repetition.
+
+### 442D/ID/9
+
+*Appendix ID · Principle of the Test · PDF p. 77*
+
+Test chemicals are considered positive in the α-Sens® test method if they induce a mean nAA above a given threshold (i.e.  3.2) in a concentration which do not significantly affect cell viability (i.e. at which the mean cellular viability is  50%) (8).
+
+### 442D/ID/10
+
+*Appendix ID · Principle of the Test · PDF p. 77*
+
+Prior to routine use of the α-Sens® test method that adheres to this Test Guideline, laboratories should demonstrate technical proficiency, using the ten Proficiency Substances listed in ANNEX 1 of this Appendix.
+
+## Source
+
+OECD (2026), Test No. 442D: In Vitro Skin Sensitisation: Assays addressing the Adverse Outcome Pathway Key Event on Keratinocyte activation, OECD Guidelines for the Testing of Chemicals, Section 4, OECD Publishing, Paris.
+
+- DOI: https://doi.org/10.1787/9789264229822-en
+- Section 4: Health effects
+- 98 pages
+- PDF sha256: `7c8cf491665a06dfd7371bd093e14509a98e1b7268db46652768f99479cc2bd1`
+
+The DOI resolves to whichever edition is current, which is not necessarily the edition quoted here; the sha256 above is the durable identifier for the pinned PDF. The text was extracted by `scripts/extract_oecd_tg.py` and is committed under `data/oecd_tg/`, so this record is reproducible offline and byte-identical on re-extraction.
+
+License: OECD Guidelines for the Testing of Chemicals are published under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Quoted guideline text is attributed to the OECD; see NOTICE.
