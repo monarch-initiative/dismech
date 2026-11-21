@@ -171267,6 +171267,73 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Fetal Carbamazepine Syndrome",
+    "disease_id": "MONDO:0018263",
+    "category": "Environmental",
+    "parents": [
+      "Teratogenic disorder"
+    ],
+    "creation_date": "2026-11-20T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Fetal carbamazepine syndrome is the pattern of minor craniofacial dysmorphism, fingernail hypoplasia and developmental delay that follows exposure to the antiseizure medication carbamazepine before birth, defined by Jones and colleagues in 1989 from a prospective cohort. Maternal carbamazepine therapy is the necessary cause, and the overall major-malformation risk in exposed pregnancies is modest and dose-dependent \u2014 higher than the safest antiseizure medications but well below valproate. The mechanism curated here is the reactive arene oxide account: carbamazepine, like phenytoin, is oxidized through an arene oxide pathway to reactive intermediates including carbamazepine-10,11-epoxide, and the overlap of this syndrome with fetal hydantoin syndrome led to the proposal that the epoxide intermediate, rather than the parent drug, is the teratogen. It is curated as a distinct named entity from fetal valproate syndrome, with which it shares only a convergent craniofacial-and-neurodevelopment phenotype and not a mechanism: valproate acts through HDAC inhibition and folate antagonism, carbamazepine through reactive metabolite formation.",
+    "pathophysiology": [
+      "Transplacental Carbamazepine Exposure of the Embryo",
+      "Formation of Reactive Arene Oxide Metabolites",
+      "Impaired Embryonic Cell Differentiation"
+    ],
+    "cell_types": [
+      "cardiac muscle cell",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "xenobiotic metabolic process",
+      "cardiac muscle cell differentiation",
+      "hepatocyte differentiation"
+    ],
+    "phenotypes": [
+      "Minor craniofacial defects",
+      "Fingernail hypoplasia",
+      "Developmental delay"
+    ],
+    "phenotype_categories": [
+      "Head and Neck",
+      "Limbs",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001999",
+      "HP:0001804",
+      "HP:0001263"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Preconception antiseizure medication optimization"
+    ],
+    "environmental": [
+      "Maternal carbamazepine therapy during pregnancy"
+    ],
+    "biochemical": [],
+    "source_file": "Fetal_Carbamazepine_Syndrome.yaml",
+    "page_url": "../pages/disorders/Fetal_Carbamazepine_Syndrome.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Fetal Growth Restriction",
     "disease_id": "MONDO:0005030",
     "category": "Complex",
@@ -272502,6 +272569,72 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Malignant Melanotic Nerve Sheath Tumor",
+    "disease_id": "MONDO:0002558",
+    "category": "Neoplastic",
+    "parents": [
+      "nerve sheath neoplasm",
+      "tumor of cranial and spinal nerves"
+    ],
+    "creation_date": "2026-11-21T03:10:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Psammomatous",
+      "Isolated"
+    ],
+    "description": "Malignant melanotic nerve sheath tumour (MMNST) is a rare tumour of Schwann cells that make melanin. It arises most often from spinal or paraspinal nerve roots, and also from the sympathetic chain and the gastrointestinal tract, mostly in adults; a paraspinal tumour presents as a mass with pain or with signs of nerve root or spinal cord compression. Formerly called melanotic schwannoma, it was renamed and redefined as a potentially aggressive tumour in the 2020 WHO classification of soft tissue tumours and the 2021 WHO classification of central nervous system tumours, after case series and long-term data showed frequent metastasis and recurrence, and it is treated as a distinct tumour rather than a variant of schwannoma. In a series of 40, 35% of the patients with follow-up had a local recurrence and 44% metastases, and only a mitotic rate above 2 per 10 high-power fields correlated with metastasis. Some patients have the Carney complex, an autosomal dominant syndrome usually caused by germline PRKAR1A variants, and PRKAR1A loss of function is also reported in sporadic tumours; losing this regulatory subunit leaves protein kinase A unopposed. Complete resection is the accepted treatment, but there is no standard of care.",
+    "pathophysiology": [
+      "PRKAR1A Loss of Function",
+      "Unopposed Protein Kinase A Activity",
+      "Melanotic Schwann Cell Tumour Growth",
+      "Paraspinal Tumour Mass Effect",
+      "Distant Metastasis"
+    ],
+    "cell_types": [
+      "Schwann cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002573"
+    ],
+    "biological_processes": [
+      "cell proliferation",
+      "melanin synthesis"
+    ],
+    "phenotypes": [
+      "Radiculopathy",
+      "Pain",
+      "Spinal cord compression"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0012531",
+      "HP:0002176"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PRKAR1A"
+    ],
+    "treatments": [
+      "Surgical resection"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Malignant_Melanotic_Nerve_Sheath_Tumor.yaml",
+    "page_url": "../pages/disorders/Malignant_Melanotic_Nerve_Sheath_Tumor.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Malignant Mesothelioma",
     "disease_id": "MONDO:0006292",
     "category": "Neoplastic",
@@ -300084,7 +300217,9 @@ window.searchData = [
     ],
     "creation_date": "2026-11-13T21:30:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Mosaic NF2-SWN"
+    ],
     "description": "A dominantly inherited tumour-predisposition syndrome caused by loss of the NF2 tumour suppressor, whose hallmark is bilateral vestibular schwannoma and whose other tumours - meningioma, ependymoma, peripheral and spinal schwannoma - follow from the same two-hit mechanism in different cell types. The disease the field now calls NF2-related schwannomatosis was called neurofibromatosis type 2 until 2022, when the diagnostic criteria were revised and that name was retired. A large minority of patients are mosaic rather than constitutionally heterozygous, which makes their disease milder, later and more asymmetrical, and which is why genetic testing is part of the criteria rather than a confirmation of them.",
     "pathophysiology": [
       "Germline NF2 Inactivation",
@@ -300119,7 +300254,46 @@ window.searchData = [
       "Vertigo",
       "Posterior subcapsular cataract",
       "Retinal hamartoma",
-      "Peripheral neuropathy"
+      "Peripheral neuropathy",
+      "Hydrocephalus",
+      "Abnormality of the eye",
+      "Visual loss",
+      "Abnormal optic nerve morphology",
+      "Blindness",
+      "Amblyopia",
+      "Diplopia",
+      "Sensory neuropathy",
+      "Hyperpigmentation of the skin",
+      "Seizure",
+      "Dysarthria",
+      "Hemiparesis",
+      "Polyneuropathy",
+      "Abnormal cerebellum morphology",
+      "Dysphagia",
+      "Postural instability",
+      "Myelopathy",
+      "Unsteady gait",
+      "Memory impairment",
+      "Aphasia",
+      "Brain stem compression",
+      "Somatic sensory dysfunction",
+      "Cranial nerve paralysis",
+      "Reduced visual acuity",
+      "Remnants of the hyaloid vascular system",
+      "Neoplasm of the skin",
+      "Foot dorsiflexor weakness",
+      "Astrocytoma",
+      "Glioma",
+      "Mononeuropathy",
+      "Spinal cord tumor",
+      "Facial palsy",
+      "Neuroma",
+      "Wrist drop",
+      "Intracranial meningioma",
+      "Spinal meningioma",
+      "Epiretinal membrane",
+      "Cortical cataract",
+      "Hyperesthesia"
     ],
     "phenotype_categories": [
       "Neoplasm",
@@ -300128,9 +300302,13 @@ window.searchData = [
       "Ophthalmological"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Ear",
       "Eye",
       "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
       "Neoplasm",
       "Nervous System"
     ],
@@ -300138,18 +300316,58 @@ window.searchData = [
       "HP:0009589",
       "HP:0002858",
       "HP:0002888",
-      "HP:0100008",
+      "HP:0009593",
       "HP:0000407",
       "HP:0000360",
       "HP:0002321",
       "HP:0007787",
       "HP:0009594",
-      "HP:0009830"
+      "HP:0009830",
+      "HP:0000238",
+      "HP:0000478",
+      "HP:0000572",
+      "HP:0000587",
+      "HP:0000618",
+      "HP:0000646",
+      "HP:0000651",
+      "HP:0000763",
+      "HP:0000953",
+      "HP:0001250",
+      "HP:0001260",
+      "HP:0001269",
+      "HP:0001271",
+      "HP:0001317",
+      "HP:0002015",
+      "HP:0002172",
+      "HP:0002196",
+      "HP:0002317",
+      "HP:0002354",
+      "HP:0002381",
+      "HP:0002512",
+      "HP:0003474",
+      "HP:0006824",
+      "HP:0007663",
+      "HP:0007968",
+      "HP:0008069",
+      "HP:0009027",
+      "HP:0009592",
+      "HP:0009733",
+      "HP:0009831",
+      "HP:0010302",
+      "HP:0010628",
+      "HP:0030430",
+      "HP:0031189",
+      "HP:0100009",
+      "HP:0100010",
+      "HP:0100014",
+      "HP:0100019",
+      "HP:0100963"
     ],
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "VERY_RARE"
     ],
     "genes": [
       "NF2 germline inactivating variants"
@@ -300166,7 +300384,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "NF2-Related_Schwannomatosis.yaml",
     "page_url": "../pages/disorders/NF2-Related_Schwannomatosis.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 49,
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 6,
@@ -341479,7 +341697,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "4"
   },
   {
@@ -348395,7 +348613,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "39",
+    "causal_graph_edges": "41",
     "causal_graph_longest_path": "7"
   },
   {
@@ -382299,7 +382517,8 @@ window.searchData = [
       "High-Output Cardiac State from Tumour Vascular Steal",
       "Haemorrhage into the Tumour",
       "Malignant Yolk Sac Component",
-      "Pelvic and Perineal Mass Effect"
+      "Pelvic and Perineal Mass Effect",
+      "Pelvic and Sacral Nerve Injury"
     ],
     "cell_types": [
       "primordial germ cell",
@@ -382324,6 +382543,7 @@ window.searchData = [
       "Bowel incontinence",
       "Urinary incontinence",
       "Constipation",
+      "Lower limb weakness",
       "Cosmetically unacceptable surgical scar",
       "Associated major birth defect",
       "Stillbirth",
@@ -382337,6 +382557,7 @@ window.searchData = [
       "Biochemical",
       "Gastrointestinal",
       "Genitourinary",
+      "Neurological",
       "Dermatological",
       "Congenital",
       "Neonatal"
@@ -382346,6 +382567,7 @@ window.searchData = [
       "Constitutional",
       "Digestive",
       "Genitourinary",
+      "Limbs",
       "Metabolism",
       "Musculoskeletal",
       "Neoplasm",
@@ -382362,13 +382584,14 @@ window.searchData = [
       "HP:0002607",
       "HP:0000020",
       "HP:0002019",
+      "HP:0007340",
       "HP:0100699",
       "HP:0006267"
     ],
     "frequencies": [
       "OBLIGATE",
-      "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "FREQUENT"
     ],
     "genes": [
       "BAK1 rs210138",
@@ -382380,6 +382603,9 @@ window.searchData = [
       "Complete resection with the coccyx",
       "Fetal radiofrequency ablation of the feeding vessels",
       "Open fetal resection",
+      "Amnioreduction",
+      "Pre-emptive early delivery and immediate resection",
+      "Caesarean section for a large or vascular tumour",
       "JEB chemotherapy for malignant disease"
     ],
     "environmental": [],
@@ -382390,11 +382616,11 @@ window.searchData = [
     ],
     "source_file": "Sacrococcygeal_Teratoma.yaml",
     "page_url": "../pages/disorders/Sacrococcygeal_Teratoma.html",
-    "num_phenotypes": 16,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 17,
+    "num_pathophysiology": 8,
     "num_genes": 4,
-    "num_treatments": 4,
-    "causal_graph_edges": "30",
+    "num_treatments": 7,
+    "causal_graph_edges": "37",
     "causal_graph_longest_path": "5"
   },
   {
@@ -421709,6 +421935,98 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Thalidomide Embryopathy",
+    "disease_id": "MONDO:0018034",
+    "category": "Environmental",
+    "parents": [
+      "Teratogenic disorder"
+    ],
+    "creation_date": "2026-11-20T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Thalidomide embryopathy is the pattern of limb, ear, eye, cardiac and visceral malformation that follows exposure to the sedative thalidomide between about 20 and 36 days after fertilization. Maternal thalidomide intake during that narrow critical window is the sole necessary cause, and a single therapeutic tablet taken in it is reported to be sufficient to cause defects in up to half of exposed pregnancies. The entry models the modern molecular account alongside the older vascular one rather than ranking them: thalidomide binds cereblon (CRBN), the substrate receptor of a CRL4 E3 ubiquitin ligase, and reprograms it to degrade developmental transcription factors, chief among them SALL4, whose heterozygous loss of function phenocopies the limb, ear, eye and heart defects of the syndrome; in parallel the drug and its breakdown products have an antiangiogenic action on the nascent embryonic vasculature. The condition is the historical origin of modern teratology and of mandatory pre-market developmental toxicity testing, and it is the textbook case of a human teratogen whose effect is not reproduced in mice \u2014 because the cereblon-dependent degradation of SALL4 occurs in humans, primates and rabbits but not in rodents or fish.",
+    "pathophysiology": [
+      "Embryonic Thalidomide Exposure in the Critical Window",
+      "Cereblon Binding and E3 Ubiquitin Ligase Reprogramming",
+      "CRBN-Dependent Degradation of SALL4 and Developmental Transcription Factors",
+      "Antiangiogenic Disruption of the Embryonic Vasculature",
+      "Disrupted Limb Bud Outgrowth and FGF8/SHH Signaling",
+      "Impaired Cardiac and Visceral Organ Differentiation"
+    ],
+    "cell_types": [
+      "endothelial cell",
+      "cardiac muscle cell",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0000746",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "proteasome-mediated ubiquitin-dependent protein catabolic process",
+      "angiogenesis",
+      "blood vessel development",
+      "embryonic limb morphogenesis",
+      "fibroblast growth factor receptor signaling pathway",
+      "proximal/distal pattern formation",
+      "cardiac muscle cell differentiation",
+      "hepatocyte differentiation"
+    ],
+    "phenotypes": [
+      "Phocomelia",
+      "Absent thumb",
+      "Microtia",
+      "Anotia",
+      "Hearing impairment",
+      "Microphthalmia",
+      "Duane anomaly",
+      "Congenital heart defect",
+      "Renal malformation"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Head and Neck",
+      "Eye",
+      "Cardiovascular",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0009829",
+      "HP:0009777",
+      "HP:0008551",
+      "HP:0009892",
+      "HP:0000365",
+      "HP:0000568",
+      "HP:0009921",
+      "HP:0001627",
+      "HP:0000077"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [],
+    "environmental": [
+      "Maternal thalidomide intake during the critical window"
+    ],
+    "biochemical": [],
+    "source_file": "Thalidomide_Embryopathy.yaml",
+    "page_url": "../pages/disorders/Thalidomide_Embryopathy.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 0,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Thallium Poisoning",
     "disease_id": "MONDO:0041996",
     "category": "Environmental",
@@ -449603,19 +449921,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4138,
-  "total_subtypes": 5108,
-  "total_disorders_and_subtypes": 9246,
-  "total_unique_evidence_sources": 61822,
-  "total_unique_publications": 57753,
+  "total_disorder_pages": 4141,
+  "total_subtypes": 5111,
+  "total_disorders_and_subtypes": 9252,
+  "total_unique_evidence_sources": 61856,
+  "total_unique_publications": 57786,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4136,
-  "total_unique_pathological_events": 27355,
+  "total_pathographs": 4139,
+  "total_unique_pathological_events": 27369,
   "total_modules": 237,
   "total_research_reports": 4239,
   "total_classifications": 21,
   "total_comorbidities": 58,
-  "total_groupings": 141
+  "total_groupings": 143
 };
 window.dispatchEvent(new Event('searchDataReady'));
