@@ -103464,33 +103464,65 @@ window.searchData = [
     "creation_date": "2026-06-13T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Chronic neurovisceral acid sphingomyelinase deficiency (ASMD) is the intermediate (\"type A/B\") form of SMPD1-related disease, lying on the ASMD continuum between the fatal infantile neurovisceral form (historically Niemann-Pick type A) and the chronic visceral, essentially non-neuronopathic form (historically type B). Biallelic SMPD1 variants leave intermediate residual acid sphingomyelinase activity, yielding visceral sphingomyelin storage (splenomegaly, hepatomegaly, dyslipidemia, lung disease) together with later-onset and variable neurological involvement, which may be slowly progressive or relatively static. Enzyme replacement therapy (olipudase alfa) treats the visceral disease but does not address CNS involvement.",
+    "description": "Chronic neurovisceral acid sphingomyelinase deficiency (ASMD; Niemann-Pick disease type A/B or variant NPD-B) is the intermediate autosomal recessive form of SMPD1-related disease on the ASMD continuum between fatal infantile neurovisceral ASMD (type A) and chronic visceral non-neuronopathic ASMD (type B). Biallelic SMPD1 variants leave intermediate residual acid sphingomyelinase activity that prevents rapid infantile neurodegeneration but is insufficient to fully protect the central nervous system, producing visceral and pulmonary macrophage sphingomyelin storage (hepatosplenomegaly, cytopenias, atherogenic dyslipidemia, interstitial lung disease) combined with variable, later-onset neurological manifestations. Enzyme replacement therapy with olipudase alfa treats the non-CNS visceral and pulmonary manifestations but does not cross the blood-brain barrier to impact CNS disease.",
     "pathophysiology": [
       "Partial Acid Sphingomyelinase Deficiency from SMPD1 Variants",
-      "Intermediate Neurovisceral Sphingomyelin Storage"
+      "Intermediate Neurovisceral Sphingomyelin Storage",
+      "Visceral and Pulmonary Reticuloendothelial Foam-Cell Pathology",
+      "Central Nervous System Dysfunction"
     ],
     "cell_types": [
       "macrophage",
-      "neuron"
+      "macrophage derived foam cell",
+      "neuron",
+      "Kupffer cell",
+      "alveolar macrophage"
     ],
     "cell_type_ids": [
       "CL:0000235",
-      "CL:0000540"
+      "CL:0000517",
+      "CL:0000540",
+      "CL:0000091",
+      "CL:0000583"
     ],
     "biological_processes": [
-      "sphingomyelin catabolic process"
+      "sphingomyelin catabolic process",
+      "lipid storage"
     ],
     "phenotypes": [
       "Splenomegaly",
       "Hepatomegaly",
       "Neurological involvement",
-      "Interstitial lung disease"
+      "Ataxia",
+      "Delayed gross motor development",
+      "Specific learning disability",
+      "Interstitial lung disease",
+      "Decreased liver function",
+      "Thrombocytopenia",
+      "Osteopenia",
+      "Cherry red spot of the macula",
+      "Decreased HDL cholesterol concentration",
+      "Increased LDL cholesterol concentration",
+      "Hypertriglyceridemia"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Hematologic",
+      "Hepatic",
+      "Neurological",
+      "Respiratory",
+      "Musculoskeletal",
+      "Ophthalmologic",
+      "Metabolic"
+    ],
     "phenotype_hpo_categories": [
+      "Blood",
       "Cardiovascular",
       "Digestive",
+      "Eye",
+      "Head and Neck",
       "Immune",
+      "Metabolism",
+      "Musculoskeletal",
       "Nervous System",
       "Respiratory"
     ],
@@ -103498,7 +103530,17 @@ window.searchData = [
       "HP:0001744",
       "HP:0002240",
       "HP:0012638",
-      "HP:0006530"
+      "HP:0001251",
+      "HP:0002194",
+      "HP:0001328",
+      "HP:0006530",
+      "HP:0001410",
+      "HP:0001873",
+      "HP:0000938",
+      "HP:0010729",
+      "HP:0003233",
+      "HP:0003141",
+      "HP:0002155"
     ],
     "frequencies": [],
     "genes": [
@@ -103506,18 +103548,19 @@ window.searchData = [
     ],
     "treatments": [
       "Enzyme Replacement Therapy (olipudase alfa)",
-      "Supportive Care"
+      "Supportive Care",
+      "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Chronic_Neurovisceral_Acid_Sphingomyelinase_Deficiency.yaml",
     "page_url": "../pages/disorders/Chronic_Neurovisceral_Acid_Sphingomyelinase_Deficiency.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 14,
+    "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 3,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Chronic_Obstructive_Pulmonary_Disease",
@@ -153786,7 +153829,6 @@ window.searchData = [
       "Striae Distensae",
       "Soft, Doughy Skin",
       "Fragile Skin",
-      "Arterial Dissection and Rupture",
       "Keratoconus",
       "Mitral Valve Prolapse",
       "Arterial Dissection and Rupture",
@@ -153802,8 +153844,8 @@ window.searchData = [
     "phenotype_categories": [
       "Musculoskeletal",
       "Dermatologic",
-      "Cardiovascular",
       "Ophthalmologic",
+      "Cardiovascular",
       "Gastrointestinal",
       "Respiratory"
     ],
@@ -153828,7 +153870,9 @@ window.searchData = [
       "HP:0001030",
       "HP:0000563",
       "HP:0001634",
+      "HP:0025019",
       "HP:0002020",
+      "HP:0031869",
       "HP:0002829",
       "HP:0004349",
       "HP:0001252",
@@ -153867,7 +153911,7 @@ window.searchData = [
     ],
     "source_file": "Ehlers-Danlos_Syndrome.yaml",
     "page_url": "../pages/disorders/Ehlers-Danlos_Syndrome.html",
-    "num_phenotypes": 20,
+    "num_phenotypes": 19,
     "num_pathophysiology": 10,
     "num_genes": 9,
     "num_treatments": 4,
@@ -243039,7 +243083,8 @@ window.searchData = [
       "Secondary glaucoma",
       "Red eye",
       "Heterochromia iridis",
-      "Central nervous system symptoms"
+      "Central nervous system symptoms",
+      "Central diabetes insipidus"
     ],
     "phenotype_categories": [
       "Dermatologic",
@@ -243048,12 +243093,14 @@ window.searchData = [
       "Metabolic",
       "Hepatic",
       "Ophthalmologic",
-      "Neurologic"
+      "Neurologic",
+      "Endocrine"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
       "Digestive",
+      "Endocrine",
       "Eye",
       "Immune",
       "Integument",
@@ -243070,7 +243117,8 @@ window.searchData = [
       "HP:0000501",
       "HP:0025337",
       "HP:0001100",
-      "HP:0000707"
+      "HP:0000707",
+      "HP:0000863"
     ],
     "frequencies": [],
     "genes": [
@@ -243094,7 +243142,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Juvenile_Xanthogranuloma.yaml",
     "page_url": "../pages/disorders/Juvenile_Xanthogranuloma.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 11,
     "num_pathophysiology": 6,
     "num_genes": 7,
     "num_treatments": 6,
@@ -249623,42 +249671,70 @@ window.searchData = [
     "creation_date": "2026-06-13T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Krabbe disease due to saposin A deficiency is a rare atypical Krabbe disease (globoid cell leukodystrophy) caused by biallelic PSAP variants that abolish saposin A, the lysosomal sphingolipid activator protein required by galactosylceramidase (GALC) to degrade galactosylceramide. Although the GALC gene is normal, the missing cofactor leads to galactosylceramide accumulation and progressive central and peripheral demyelination, producing a clinical picture almost identical to classic Krabbe disease.",
+    "description": "Krabbe disease due to saposin A deficiency is an ultra-rare autosomal recessive atypical globoid cell leukodystrophy caused by biallelic pathogenic variants in the saposin A-coding domain of PSAP (encoding prosaposin). Saposin A is the essential in vivo lysosomal sphingolipid activator protein required by galactosylceramidase (GALC) to hydrolyze galactosylceramide and galactosylsphingosine (psychosine). Despite an intact GALC gene, loss of saposin A leads to intralysosomal galactosylceramide storage, elevated psychosine, impaired autophagosome-lysosome fusion, and progressive central white-matter demyelination with peripheral axonal polyneuropathy, producing an infantile neurodegenerative presentation nearly indistinguishable from classic infantile Krabbe disease.",
     "pathophysiology": [
       "Saposin A Deficiency from PSAP Variants",
-      "Galactosylceramide Accumulation and Demyelination",
-      "Autophagic-Lysosomal Dysfunction"
+      "Galactosylceramide and Psychosine Accumulation",
+      "Autophagic-Lysosomal Dysfunction",
+      "Central Nervous System White Matter Demyelination",
+      "Peripheral Nerve Axonal Degeneration and Demyelination"
     ],
     "cell_types": [
       "oligodendrocyte",
+      "Schwann cell",
       "fibroblast"
     ],
     "cell_type_ids": [
       "CL:0000128",
+      "CL:0002573",
       "CL:0000057"
     ],
     "biological_processes": [
+      "macromolecule catabolic process",
       "galactosylceramide catabolic process",
-      "autophagy"
+      "autophagosome-lysosome fusion",
+      "autophagy",
+      "lysosome organization",
+      "central nervous system myelination",
+      "myelin assembly",
+      "myelination in peripheral nervous system",
+      "axon ensheathment"
     ],
     "phenotypes": [
       "Progressive encephalopathy",
       "Leukodystrophy",
+      "Developmental regression",
       "Seizures",
       "Hypertonia",
-      "Peripheral neuropathy"
+      "Hyperreflexia",
+      "Peripheral axonal neuropathy",
+      "Feeding difficulties in infancy",
+      "Optic nerve thickening",
+      "Increased CSF protein concentration"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Neurologic",
+      "Gastrointestinal",
+      "Ophthalmologic"
+    ],
     "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Metabolism",
       "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0002448",
       "HP:0002415",
+      "HP:0002376",
       "HP:0001250",
       "HP:0001276",
-      "HP:0009830"
+      "HP:0001347",
+      "HP:0003477",
+      "HP:0008872",
+      "HP:0000587",
+      "HP:0002922"
     ],
     "frequencies": [],
     "genes": [
@@ -249671,12 +249747,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Krabbe_Disease_Due_To_Saposin_A_Deficiency.yaml",
     "page_url": "../pages/disorders/Krabbe_Disease_Due_To_Saposin_A_Deficiency.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Kufor-Rakeb syndrome",
@@ -304914,6 +304990,106 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Neurodevelopmental Disorder Nonprogressive With Spasticity And Transient Opisthotonus",
+    "disease_id": "MONDO:0859212",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-11-20T14:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive neurodevelopmental disorder caused by biallelic variants in TNR, which encodes tenascin-R, an extracellular matrix glycoprotein expressed only in the central nervous system and required for the assembly of the perineuronal nets that ensheath inhibitory interneurons. The core reported presentation is spastic para- or tetraparesis with axial muscular hypotonia, developmental delay, and an opisthotonus that begins in early infancy and later subsides; the course is nonprogressive, and affected individuals are frequently given a cerebral palsy label before a genetic diagnosis is reached. A 2026 sibling pair extends the spectrum downward to isolated dystonia and to a biallelic individual who was asymptomatic apart from adult-onset restless legs, so variable expressivity and reduced penetrance are part of the entity rather than exceptions to it.",
+    "pathophysiology": [
+      "Biallelic TNR Loss-of-Function Variants",
+      "Tenascin-R Deficiency in the Central Nervous System Extracellular Matrix",
+      "Defective Perineuronal Net Assembly around Inhibitory Interneurons",
+      "Impaired Hippocampal Synaptic Plasticity",
+      "Loss of Perineuronal Inhibitory Control of Motor Circuits"
+    ],
+    "cell_types": [
+      "oligodendrocyte",
+      "parvalbumin-expressing GABAergic interneuron",
+      "inhibitory interneuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000128",
+      "CL:0011005",
+      "CL:0000498"
+    ],
+    "biological_processes": [
+      "perineuronal net extracellular matrix organization",
+      "regulation of synaptic plasticity",
+      "long-term synaptic potentiation"
+    ],
+    "phenotypes": [
+      "Spastic paraparesis",
+      "Spastic tetraparesis",
+      "Axial hypotonia",
+      "Global developmental delay",
+      "Transient opisthotonus",
+      "Transient choreoathetosis",
+      "Hyperreflexia",
+      "Motor delay",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Abnormal myelination",
+      "Cerebellar vermis hypoplasia",
+      "EEG with centrotemporal focal spike waves",
+      "Dystonia",
+      "Restless legs",
+      "Secondary microcephaly",
+      "Scoliosis"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Growth",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002313",
+      "HP:0001285",
+      "HP:0008936",
+      "HP:0001263",
+      "HP:0002179",
+      "HP:0001266",
+      "HP:0001347",
+      "HP:0001270",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0012447",
+      "HP:0001320",
+      "HP:0012557",
+      "HP:0001332",
+      "HP:0012452",
+      "HP:0005484",
+      "HP:0002650"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TNR"
+    ],
+    "treatments": [
+      "Clonazepam",
+      "Levodopa and diphenhydramine"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_Nonprogressive_With_Spasticity_And_Transient_Opisthotonus.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_Nonprogressive_With_Spasticity_And_Transient_Opisthotonus.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Neurodevelopmental Disorder With Absent Speech and Movement and Behavioral Abnormalities",
     "disease_id": "MONDO:0859519",
     "category": "Mendelian",
@@ -307821,6 +307997,137 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "18",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Neurodevelopmental Disorder With Spasticity, Seizures, And Brain Abnormalities",
+    "disease_id": "MONDO:0859275",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental disorder",
+      "Developmental and epileptic encephalopathy"
+    ],
+    "creation_date": "2026-11-20T15:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive neurodevelopmental disorder caused by biallelic loss-of-function variants in NSRP1, the gene for Nuclear Speckle Splicing Regulatory Protein 1, a nuclear-speckle splicing factor that binds the serine/arginine-rich splicing factors SRSF1 and SRSF2 and opposes their alternative splice-site selection. Seven molecularly confirmed individuals from four unrelated families have been published, six of them in the 2021 report that established the gene-disease relationship and one in a 2024 case report that extended the spectrum to a milder end. The severe presentation comprises global developmental delay, infantile-onset and often drug-resistant epilepsy, hypotonia with appendicular spasticity amounting to a spastic cerebral palsy, variable microcephaly, dysphagia and dysmorphic facies, with brain imaging showing a simplified gyral pattern, under-opercularization and cerebellar vermian hypoplasia. Four of the five reported alleles converge on a single molecular consequence: loss or substitution of the C-terminal nuclear localization signal, which strands NSRP1 in the cytosol and so removes it from the compartment where it acts. The course is static rather than degenerative, which is why the authors raise NSRP1 as a candidate cerebral palsy gene. What no study has yet shown is which NSRP1-dependent splicing targets produce the brain phenotype; the chain from splicing failure to malformed cortex is recorded here as unestablished rather than as mechanism.",
+    "pathophysiology": [
+      "Biallelic NSRP1 Loss-of-Function Variants",
+      "Loss of the C-Terminal Nuclear Localization Signal",
+      "Transcript Depletion by Nonsense-Mediated Decay and Splice-Donor Disruption",
+      "Cytoplasmic Mislocalization of NSRP1 and Depletion from Nuclear Speckles",
+      "Loss of NSRP1-Dependent Alternative Splice Site Selection",
+      "Unopposed SRSF1 and SRSF2 Splicing Activity",
+      "Mis-splicing of Splicing-Factor and Cell-Cycle Transcripts",
+      "Disrupted Brain Development",
+      "Static Spastic Motor Impairment",
+      "Infantile-Onset Epilepsy"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "nonsense-mediated decay of the exon 2 premature-termination transcript",
+      "nuclear import of NSRP1",
+      "NSRP1-dependent alternative splice site selection",
+      "SRSF1- and SRSF2-driven alternative splice site selection",
+      "alternative processing of RNA splicing factor transcripts",
+      "brain development",
+      "cerebral cortex development"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Absent speech",
+      "Delayed speech and language development",
+      "Motor delay",
+      "Seizure",
+      "EEG abnormality",
+      "Hypotonia",
+      "Spasticity",
+      "Spastic tetraparesis",
+      "Cerebral palsy",
+      "Inability to walk",
+      "Gait ataxia",
+      "Dysphagia",
+      "Microcephaly",
+      "Abnormal facial shape",
+      "Simplified gyral pattern",
+      "Under-opercularization",
+      "Cerebellar vermis hypoplasia",
+      "Abnormal corpus callosum morphology",
+      "Hypoplasia of the brainstem",
+      "Early death"
+    ],
+    "phenotype_categories": [
+      "Neurodevelopmental",
+      "Neurological",
+      "Gastrointestinal",
+      "Craniofacial",
+      "Neuroimaging",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001344",
+      "HP:0000750",
+      "HP:0001270",
+      "HP:0001250",
+      "HP:0002353",
+      "HP:0001252",
+      "HP:0001257",
+      "HP:0001285",
+      "HP:0100021",
+      "HP:0002540",
+      "HP:0002066",
+      "HP:0002015",
+      "HP:0000252",
+      "HP:0001999",
+      "HP:0009879",
+      "HP:0002538",
+      "HP:0001320",
+      "HP:0001273",
+      "HP:0002365"
+    ],
+    "frequencies": [
+      "6/6 in the founding cohort; also present in the 2024 case",
+      "Reported in the 2024 case; the founding cohort is described as non-verbal rather than formally assessed",
+      "5/6 non-verbal in the founding cohort",
+      "Reported in the 2024 case",
+      "6/6 in the founding cohort, infantile onset, drug-resistant in 3/6",
+      "Abnormal in all patients; epileptiform discharges in 5/6",
+      "6/6 in the founding cohort",
+      "6/6 in the founding cohort, appendicular",
+      "Named by the authors for the founding cohort",
+      "The founding cohort's motor phenotype is described as spastic cerebral palsy",
+      "3/6 non-ambulatory in the founding cohort",
+      "4/6 in the founding cohort",
+      "5/6 in the founding cohort, Z-scores -0.95 to -5.60",
+      "3/4 of imaged patients",
+      "1/4 of imaged patients",
+      "2/6 in the founding cohort, plus one ungenotyped sibling"
+    ],
+    "genes": [
+      "NSRP1"
+    ],
+    "treatments": [
+      "Antiseizure medication"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Spasticity_Seizures_And_Brain_Abnormalities.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Spasticity,_Seizures,_And_Brain_Abnormalities.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Neurodevelopmental Disorder with Thin Corpus Callosum, Hypotonia, and Absent Language",
@@ -338382,7 +338689,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "6"
   },
   {
@@ -343060,27 +343367,46 @@ window.searchData = [
       "Autonomous Pituitary Hormone Secretion",
       "Sellar Mass Effect"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "endocrine cell",
+      "mammotroph",
+      "somatotroph",
+      "corticotroph",
+      "thyrotroph",
+      "gonadotroph"
+    ],
+    "cell_type_ids": [
+      "CL:0000163",
+      "CL:0002311",
+      "CL:0002312",
+      "CL:0002309",
+      "CL:0000476",
+      "CL:0000437"
+    ],
     "biological_processes": [
+      "cell population proliferation",
       "hormone secretion"
     ],
     "phenotypes": [
       "Pituitary Adenoma",
       "Headache",
       "Visual Field Defect",
+      "Menstrual Cycle Irregularities",
       "Galactorrhea",
       "Amenorrhea",
-      "Hypopituitarism"
+      "Hypopituitarism",
+      "Fatigue"
     ],
     "phenotype_categories": [
       "Neoplastic",
       "Neurologic",
       "Ophthalmic",
-      "Endocrine"
+      "Endocrine",
+      "Constitutional"
     ],
     "phenotype_hpo_categories": [
       "Breast",
+      "Constitutional",
       "Endocrine",
       "Eye",
       "Genitourinary",
@@ -343091,23 +343417,34 @@ window.searchData = [
       "HP:0002893",
       "HP:0002315",
       "HP:0001123",
+      "HP:0000140",
       "HP:0100829",
       "HP:0000141",
-      "HP:0040075"
+      "HP:0040075",
+      "HP:0012378"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [],
-    "treatments": [],
+    "treatments": [
+      "Dopamine Agonist Therapy (Cabergoline / Bromocriptine)",
+      "Transsphenoidal Pituitary Resection",
+      "Somatostatin Receptor Ligand Therapy (Octreotide / Lanreotide)",
+      "Pituitary Radiotherapy"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Pituitary_Tumor.yaml",
     "page_url": "../pages/disorders/Pituitary_Tumor.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 8,
     "num_pathophysiology": 3,
     "num_genes": 0,
-    "num_treatments": 0,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 4,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Placenta Accreta Spectrum",
@@ -347671,7 +348008,8 @@ window.searchData = [
       "TNF-alpha Release",
       "Purkinje Cell Intrinsic Hyperexcitability",
       "Cerebellar Dysfunction",
-      "Cerebellar Swelling and Mass Effect"
+      "Cerebellar Swelling and Mass Effect",
+      "Brainstem Compression and Tonsillar Herniation"
     ],
     "cell_types": [
       "microglial cell",
@@ -347697,13 +348035,17 @@ window.searchData = [
       "Encephalopathy",
       "Obstructive hydrocephalus",
       "Cognitive and behavioural sequelae",
-      "Cerebellar atrophy"
+      "Cerebellar atrophy",
+      "Increased intracranial pressure",
+      "Papilledema",
+      "Sudden death"
     ],
     "phenotype_categories": [
       "Neurological",
       "Clinical"
     ],
     "phenotype_hpo_categories": [
+      "Constitutional",
       "Digestive",
       "Eye",
       "Nervous System"
@@ -347719,7 +348061,10 @@ window.searchData = [
       "HP:0001298",
       "HP:0000238",
       "HP:0100543",
-      "HP:0001272"
+      "HP:0001272",
+      "HP:0002516",
+      "HP:0001085",
+      "HP:0001699"
     ],
     "frequencies": [
       "OCCASIONAL"
@@ -347747,11 +348092,11 @@ window.searchData = [
     ],
     "source_file": "Postinfectious_Cerebellitis.yaml",
     "page_url": "../pages/disorders/Postinfectious_Cerebellitis.html",
-    "num_phenotypes": 11,
-    "num_pathophysiology": 8,
+    "num_phenotypes": 14,
+    "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "31",
+    "causal_graph_edges": "34",
     "causal_graph_longest_path": "7"
   },
   {
@@ -448888,17 +449233,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4133,
+  "total_disorder_pages": 4135,
   "total_subtypes": 5105,
-  "total_disorders_and_subtypes": 9238,
-  "total_unique_evidence_sources": 61675,
-  "total_unique_publications": 57621,
+  "total_disorders_and_subtypes": 9240,
+  "total_unique_evidence_sources": 61717,
+  "total_unique_publications": 57657,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4131,
-  "total_unique_pathological_events": 27300,
+  "total_pathographs": 4133,
+  "total_unique_pathological_events": 27316,
   "total_modules": 237,
-  "total_research_reports": 4233,
+  "total_research_reports": 4235,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 140
