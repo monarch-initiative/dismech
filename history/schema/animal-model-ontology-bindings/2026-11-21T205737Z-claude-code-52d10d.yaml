@@ -1,0 +1,45 @@
+history_version: 1
+target:
+  kind: schema
+  slug: animal-model-ontology-bindings
+  path: src/dismech/schema/dismech.yaml
+session:
+  id: 2026-11-21T205737Z-claude-code-52d10d
+  timestamp: '2026-11-21T20:57:37Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs: []
+  urls: []
+events:
+- type: EDIT
+  outcome: needs_followup
+  sections:
+  - animal_models
+  - schema
+  - cache
+  summary: Rebase AnimalModel NCBITaxon/MP bindings onto main and re-backfill the
+    grown KB
+  details: |
+    Rebase of the species_term / associated_phenotype_terms work onto main after three months (6,397 commits of drift; the clone was shallow with no computable merge-base, so it was unshallowed first).
+
+    Conflict resolution: 44 of 282 files conflicted. The 39 regenerable ones (kb entries and term caches) were resolved to main's side and rebuilt by re-running the backfill, rather than hand-merged into a stale result. Two conflicted entries (Metastatic_Ovarian_Cancer, Usher_Syndrome) had been deleted on main; the deletions were accepted. Four source files were hand-merged.
+
+    Three corrections main forced, all because main moved first:
+    - AnimalModel.genes is now GeneOrProduct, bound to Alliance MOD identifiers (MGI/RGD/ZFIN/Xenbase/FB/WB/SGD) or NCBIGene. The schema comment and CLAUDE.md section from the original commit called that a known gap; both now say the opposite, that species_term and genes ground the model's taxon and its genes in that same organism, which together are what make a model joinable to a MOD record.
+    - Model cards were refactored into the shared partial src/dismech/templates/_model_cards.html.j2 (used by both disorder and module pages), so the rendering changes were ported there and the partial's documented macro contract was extended to name render_descriptor_tag.
+    - check_failure_to_recapitulate_links_are_substantiated replaced the pytest of the same name; no action needed, noted for orientation.
+
+    Bug found and fixed: verify_only_additions stripped the added keys from the updated document only, so any file that ALREADY carried a binding compared a stripped document against an unstripped one and was rejected as having changed content beyond the added keys. Eight files hit this on the first re-run, which means the script was not idempotent -- the one property a re-runnable migration must have. It now strips both sides and separately compares any pre-existing binding per model by position, so a modified or misplaced binding is still caught. tests/test_backfill_animal_model_terms.py is new and covers the regression plus the other guard paths (8 tests).
+
+    Re-backfill against the grown KB: 4,436 files scanned, 3,581 animal models (was 487 in August; 101 distinct species spellings, was 50). 3,139 species newly bound plus 418 carried through the rebase = 3,557 of 3,581, 99.3 percent. Phenotypes: 48 newly bound plus 91 carried = 139 of 955 strings. Refusals were left for a curator: 14 UNRESOLVED, 7 MULTI_SPECIES, 2 CONFLICT, 1 AMBIGUOUS species; 623 NO_MATCH and 2 AMBIGUOUS phenotypes. Zero verification rejections after the guard fix. KB diff is 15,921 insertions and 0 deletions with 0 collateral lines.
+
+    Validation: 8,805 tests pass (schema conformance over all disorder and comorbidity files, the animal-model binding tests, the new backfill tests, term tooltips). Term validation passes over the 26-file covering set that populated the new NCBITaxon and MP cache rows (written by linkml-term-validator, never by hand); cache integrity passes; caches normalized as pure additions. Disorder and module pages both render with the bound terms linked. Reference validation not run and not implicated -- no evidence items were touched.
+
+    Context worth recording: main now carries scripts/model_taxon_census.py, which buckets free-text species into clades with a hand-maintained regex table. That table currently classifies every species string in the KB, so this is not a correctness gap today; the case for species_term is that it gives species-level identity rather than clade, needs no maintained pattern list as new organisms appear, and is the join key to a MOD record.
+
+    Follow-up unchanged: ModelPhenotypeTerm is MP-scoped, so the KB's zebrafish, Xenopus, chicken, Drosophila and C. elegans models are still not bindable on the phenotype axis and need ZP/FBcv/WBPhenotype/uPheno added to source_nodes.

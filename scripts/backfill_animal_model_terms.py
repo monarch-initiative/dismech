@@ -422,10 +422,21 @@ def _list_end(lines: list[str], first: int, end: int, body_indent: int) -> int:
 def verify_only_additions(original: str, updated: str, added_keys: tuple[str, ...]) -> str | None:
     """Prove the rewrite added only ``added_keys`` and changed nothing else.
 
-    Strips the new keys back out of the updated document and compares the parsed
-    result against the parsed original. This is the check that makes line-level
-    text surgery safe: a misplaced insertion changes the parse, and a mangled
-    anchor makes the file fail to load. Returns an error string, or None if clean.
+    Strips the added keys out of BOTH parsed documents and compares the rest.
+    This is the check that makes line-level text surgery safe: a misplaced
+    insertion changes the parse, and a mangled anchor makes the file fail to
+    load. Returns an error string, or None if clean.
+
+    Stripping both sides, rather than only the updated one, is what makes the
+    script idempotent. A file that already carries a binding -- because an
+    earlier run bound it, or a curator wrote it by hand -- keeps that key in
+    `before`, so stripping only `after` compared a document without the key
+    against one with it and rejected a perfectly good rewrite. Eight files hit
+    exactly that on the first re-run over an already-partly-bound KB.
+
+    Removing the keys from both sides would stop the check seeing a *changed*
+    pre-existing value, so those are compared explicitly first, per model, by
+    position -- which also catches an insertion that lands in the wrong model.
     """
     import yaml as pyyaml
 
@@ -434,10 +445,22 @@ def verify_only_additions(original: str, updated: str, added_keys: tuple[str, ..
         after = pyyaml.safe_load(updated)
     except Exception as exc:  # noqa: BLE001
         return f"updated file does not parse: {exc}"
-    for model in (after or {}).get("animal_models") or []:
-        if isinstance(model, dict):
-            for key in added_keys:
-                model.pop(key, None)
+
+    before_models = (before or {}).get("animal_models") or []
+    after_models = (after or {}).get("animal_models") or []
+    if len(before_models) != len(after_models):
+        return (f"rewrite changed the number of animal models "
+                f"({len(before_models)} -> {len(after_models)})")
+
+    for i, (was, now) in enumerate(zip(before_models, after_models)):
+        if not (isinstance(was, dict) and isinstance(now, dict)):
+            continue
+        for key in added_keys:
+            if key in was and was[key] != now.get(key):
+                return f"rewrite changed the existing {key!r} on animal_models[{i}]"
+            was.pop(key, None)
+            now.pop(key, None)
+
     if before != after:
         return "rewrite changed content beyond the added keys"
     return None
