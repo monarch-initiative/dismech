@@ -1354,6 +1354,61 @@ and Nrf2-siRNA knockdowns that established it rather than asserting it — and t
 rest moved to `notes:`.
 
 
+### 6f. Pre-publication gene–disease databases are discovery leads, not a structured source (2026-11-21)
+
+**Decision.** The Human Disease Genes Website series (HDGW, `humandiseasegenes.nl`)
+— and pre-publication, moderator-contributed gene–disease databases like it — is a
+**discovery lead**, on the same footing as a deep-research report or AOP-Wiki. It is
+not admitted as a structured-database reference source: there is no `HDGW:` reference
+prefix, nothing from it is cited in an evidence `reference:`, and no `HDGWSource` is
+added under `src/dismech/structured_sources/`. A claim an HDGW page surfaces is sourced
+from the primary literature (or GeneReviews) the page itself rests on, exactly as a
+deep-research citation is.
+
+**Why.** Three independent gates each refuse it, against the structured-source contract
+in CLAUDE.md:
+
+1. *No machine-readable, redistributable feed to pin.* Every admitted source (Orphadata
+   XML, ClinGen CSV, CIViC TSV, ICEES KGX, the NCIT OAK build) is a `BulkFile` pinned by
+   sha256 in a `data/<source>/MANIFEST.yaml` and serialized deterministically. HDGW is a
+   Laravel single-page app behind a Sucuri WAF: every probed path (`/api`, `/genes.json`,
+   the sitemap) returns an empty `text/html` body to a non-browser client, `robots.txt`
+   sets `Crawl-delay: 3`, and content is session- and JS-gated. There is no bulk artifact
+   to checksum, and scraping ~1,400 JS-rendered pages is neither deterministic nor
+   reproducible in CI.
+2. *No license permitting redistribution.* `references_cache/*.md` is committed to the
+   repository, so a source must be redistributable. HDGW publishes no license,
+   terms-of-use, or copyright statement; the default is all-rights-reserved, and its own
+   content is described as "up to date (yet mostly unpublished)" clinical information.
+3. *Content below the evidence bar (§6, §6e).* dismech evidence requires a citable
+   identifier plus an exact-substring, independently verifiable snippet. HDGW exists to
+   hold aggregate cohort phenotypes *before* publication — by construction it carries no
+   quotable, citable record, and its quantitative HPO cohort data sits behind a
+   member-gated page.
+
+**Worked example.** ADNP / Helsmoortel–Van der Aa syndrome, one of HDGW's flagship
+pages. The public ADNP page gives ~13 clinical features as free-text prose, with no HPO
+IDs, no frequencies, and no citations. `kb/disorders/ADNP-Related_Syndrome.yaml` already
+carries 28 HPO-coded phenotypes, six with `frequency:` enums, across 13 cited PMIDs — its
+frequencies tracing to the published GeneReviews cohort chapter (`PMID:27054228`). The
+openly reachable HDGW page is thus *less* structured and *less* cited than the entry it
+might have fed, and the data that gives HDGW its value re-enters dismech, in citable
+form, as the GeneReviews/primary publication downstream of it.
+
+**This already happens, and that is the point.** HDGW URLs are cited in deep-research
+outputs under `research/` for several entries (TPP2, PIEZO2, PYCR1, ZSWIM6, PUM1). That
+is the correct place for it: a deep-research report is a lead, screened per §6, and any
+HDGW-surfaced claim is re-sourced before it reaches `kb/`. This decision records that
+HDGW stays at the lead layer and is not promoted to a cited source.
+
+**For the HPO-per-gene need itself**, the framework-shaped sources are licensed bulk
+files — Orphanet product4 (HPO associations with frequency, already ingested by
+`OrphanetSource`) and the HPO project's own annotation files. Note dismech already has an
+HPOA *exporter* (`dismech.export.hpoa_export`) in the opposite direction; ingesting the
+HPO annotations as an input structured source is a separate, unscoped follow-up, not
+blocked by this decision.
+
+
 ## 7. Curation process & governance
 
 **Decision.** DisMech is **agent-forward**: most curation is performed by AI agents,
