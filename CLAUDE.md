@@ -3149,6 +3149,74 @@ Do **not** migrate an existing `INCREASED`/`DECREASED` annotation to
 is very active" is `INCREASED`; "the pathway is no longer under host regulatory control"
 is `GAIN_OF_FUNCTION`.
 
+### Cytokine Production: the Production Term, or a Regulation Term? (dismech#18229)
+
+"This disease runs elevated IL-6" can be bound three ways, and the corpus has
+used all three: `GO:0032635` *interleukin-6 production* with
+`modifier: INCREASED`; the same term with no `modifier`; or `GO:0032755`
+*positive regulation of interleukin-6 production*. The choice matters for
+queries, not just style. In GO a regulation term is **not** a subtype of the
+process it regulates: `GO:0032755`'s `is_a` parents are `GO:0032675`
+*regulation of interleukin-6 production* and `GO:0001819` *positive regulation
+of cytokine production*, never `GO:0032635`. So two entries making the same
+claim through the two term classes cannot see each other through an `is_a` walk,
+and nothing in `cache/closure/` bridges them.
+
+The same choice applies to every `<cytokine> production` term (interleukins,
+TNF, the interferons, chemokines, `GO:0001816` *cytokine production* itself),
+not only interleukins.
+
+**1. The cytokine level changed → the production term, with the direction in
+`modifier`.** This is the default, and the large majority of existing bindings
+already follow it. "Serum IL-18 is elevated", "patient cells secrete more TNF",
+"IL-6 production was abolished" are all claims about how much cytokine appears,
+so bind the production term and set `INCREASED`, `DECREASED` or `ABSENT`. Do not
+bind `positive regulation of …production` with `modifier: INCREASED` to say the
+cytokine is elevated. That form says the direction twice and moves the claim to
+the regulation branch, where a query for the cytokine cannot find it.
+Inflammasome cleavage and secretion of IL-1β or IL-18 is part of how the
+cytokine is produced (GO defines production as "biosynthesis or secretion"), not
+a regulator of its production, so an inflammasome node reporting elevated mature
+IL-1β also takes the production term.
+
+**2. A regulator of the cytokine changed → the regulation term, with `modifier`
+describing the regulation.** Bind `positive/negative regulation of
+<cytokine> production` only when the node is about something that acts on the
+cytokine's production — a repressor, an inducing signal, a viral antagonist, a
+receptor-mediated brake — and the source reports a change in that regulator.
+The `modifier` then describes the regulation, not the cytokine level. Worked
+examples:
+
+| Entry | Binding | The claim |
+|---|---|---|
+| `ICHAD_Syndrome` | `GO:0032703` *negative regulation of interleukin-2 production* + `DECREASED` | ICHAD variants block HELIOS repression of the IL2 promoter. The repression is reduced; the source does not report a measured IL-2 level. |
+| `Interleukin-10_Receptor_Deficiency` | `GO:0032720` *negative regulation of tumor necrosis factor production* + `LOSS_OF_FUNCTION` | The IL-10 brake on myeloid cytokine secretion is lost. |
+| `Rift_Valley_Fever` | `GO:0032480` *negative regulation of type I interferon production* + `INCREASED` | The viral NSs protein suppresses interferon induction. |
+
+Converting `ICHAD_Syndrome` to `GO:0032623` + `INCREASED` would claim a measured
+rise in IL-2 that its source does not report. When a source reports both the
+change in the regulator and the resulting cytokine level, bind both terms on the
+node instead of choosing one. `Interleukin-10_Receptor_Deficiency` does this: the
+same node also binds `GO:0032640` *tumor necrosis factor production* +
+`INCREASED` for the measured rise in TNF secretion from patient cells.
+
+**3. A production term with no `modifier` means the direction was not recorded,
+not that it is unknown.** It is not a schema error and is not gated. But a
+disease node about cytokine production almost always has a direction, and often
+the entry's own evidence already states it (`Atopic_Dermatitis`, where the cited study reports that TOPK inhibition
+"reduces the levels of IgE, IL-6, IL-8 and IL-33"). When you touch such a
+binding, set the modifier the source supports. Leave it absent only when the
+source does not say which way the cytokine moves, and say so in `notes`.
+
+**GO's `gocheck_do_not_annotate` subset does not apply here.** The production
+terms carry that flag, and `GO:0001816` adds a note to "select one of the
+'regulation' children terms". That is a rule for GO annotation of a *gene
+product*: a protein does not itself carry out IL-6 production, it regulates it.
+A dismech `biological_processes` binding describes the state of a process in a
+disease, not what a gene product does, so the subset does not decide this
+choice. `just check-not4curation` does not read GO subsets, and this is
+deliberate.
+
 ### Treatment Terms (NCIT)
 Treatments are annotated with NCI Thesaurus (NCIT) clinical-intervention terms, all
 reachable from `NCIT:C25218` (Clinical Intervention or Procedure). (The Medical Action
