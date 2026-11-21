@@ -4054,7 +4054,7 @@ fetch-reference +identifiers:
     for identifier in "${ids[@]}"; do
         echo "Fetching reference: $identifier"
         case "$identifier" in
-            CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*|ICTRP:*|ictrp:*|CGGV:*|CGDS:*|ORPHA:*|Orphanet:*|ICEES:*|NCIT:*|OECDTG:*|oecdtg:*)
+            CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*|ICTRP:*|ictrp:*|CGGV:*|CGDS:*|ORPHA:*|Orphanet:*|ICEES:*|NCIT:*|OECDTG:*|oecdtg:*|IMPC:*)
                 if [ ${#flags[@]} -gt 0 ]; then
                     echo "Note: ${flags[*]} ignored for $identifier; structured-source records are always rebuilt." >&2
                 fi
@@ -4116,6 +4116,17 @@ fetch-reference +identifiers:
             # is pinned by sha256 in that manifest and is not needed here.
             OECDTG:*|oecdtg:*)
                 uv run python -m dismech.structured_sources.cli rebuild oecd-tg --id "$identifier"
+                ;;
+            IMPC:*)
+                # One record per mouse gene (IMPC:MGI:<n>), built from the
+                # three release reports pinned in data/impc/MANIFEST.yaml.
+                for impc_file in genotype-phenotype-assertions-ALL.csv.gz procedureCompletenessAndPhenotypeHits.csv.gz viability.csv.gz; do
+                    if [ ! -f "data/impc/$impc_file" ]; then
+                        uv run python -m dismech.structured_sources.cli refresh impc
+                        break
+                    fi
+                done
+                uv run python -m dismech.structured_sources.cli rebuild impc --id "$identifier"
                 ;;
             NCIT:*)
                 # `rebuild ncit` opens sqlite:obo:ncit, and OAK downloads that
@@ -4329,6 +4340,25 @@ icees-rebuild *args="":
 [group('Research')]
 icees-list limit="20":
     uv run python -m dismech.structured_sources.cli list icees --limit {{limit}}
+
+# Refresh the IMPC release reports (pinned by data/impc/MANIFEST.yaml).
+# --repin records new checksums after the manifest URLs move to a new release.
+[group('Research')]
+impc-refresh *ARGS:
+    uv run python -m dismech.structured_sources.cli refresh impc {{ARGS}}
+
+# Rebuild references_cache/IMPC_MGI_*.md. Pass --id IMPC:MGI:<n> (repeatable);
+# with no --id this writes a record for every IMPC gene, which is not what the
+# committed cache holds, so rebuild the cited genes only:
+#   just impc-rebuild --id IMPC:MGI:1353510
+[group('Research')]
+impc-rebuild *args="":
+    uv run python -m dismech.structured_sources.cli rebuild impc {{args}}
+
+# List the first N IMPC gene identifiers in the pinned release
+[group('Research')]
+impc-list limit="20":
+    uv run python -m dismech.structured_sources.cli list impc --limit {{limit}}
 
 # Refresh STRchive loci JSON (pinned by data/strchive/MANIFEST.yaml)
 [group('Research')]

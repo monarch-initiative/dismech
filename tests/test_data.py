@@ -103,6 +103,7 @@ ALLOWED_REFERENCE_PREFIXES = (
     "CIVIC_ASSERTION:",
     "CIVIC_EID:",
     "ICEES:",  # ICEES KG comorbidity pairs
+    "IMPC:",  # IMPC knockout phenotyping, one record per mouse gene (IMPC:MGI:<n>)
     "ICTRP:",  # WHO ICTRP trial registrations (ChiCTR, ISRCTN, EUCTR, JPRN, ...)
     "NCIT:",  # NCI Thesaurus predicate edges (e.g. NCIT:P302 therapeutic use)
     "STRCHIVE:",  # STRchive tandem-repeat disease loci (references_cache/STRCHIVE_*.md)
