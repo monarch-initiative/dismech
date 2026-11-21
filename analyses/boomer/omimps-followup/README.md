@@ -70,7 +70,9 @@ not a preference for whichever branch the solver happens to retain in a tie.
   explicitly said `broadMatch`. The corrected compiler lets that qualifier
   govern the grounding. It preserves broad/narrow direction and keeps related
   and close mappings non-entailing; incompatible qualifiers fail loudly.
-  The first five pilots' ten saved inputs and audits reproduce unchanged.
+  The first five pilots' logical inputs and audits reproduce unchanged; their
+  frozen artifact files are untouched. Label serialization is now sorted so
+  new builds also reproduce byte-for-byte across Python hash seeds.
 - **Weak mappings do not veto source-derived identity.** Waldenström's curated
   related mapping can coexist with MONDO's PS equivalence. Testing removal of
   that equivalence demonstrates the limitation; it does not adjudicate the
