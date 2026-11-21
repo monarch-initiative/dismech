@@ -3,6 +3,8 @@
 from pathlib import Path
 
 from dismech.clinical_trial_status import (
+    COMBINED_PHASES,
+    LEGACY_PHASE_SPELLINGS,
     PHASE_MAP,
     STATUS_MAP,
     AuditReport,
@@ -161,15 +163,80 @@ def test_status_map_targets_are_all_real_schema_enum_values():
     assert set(STATUS_MAP.values()) <= allowed
 
 
-def test_phase_map_targets_are_all_real_schema_enum_values():
+def _phase_enum_values() -> set[str]:
     import yaml
 
     schema = yaml.safe_load(
         (Path(__file__).parent.parent / "src/dismech/schema/dismech.yaml").read_text()
     )
-    allowed = set(schema["enums"]["ClinicalTrialPhaseEnum"]["permissible_values"])
+    return set(schema["enums"]["ClinicalTrialPhaseEnum"]["permissible_values"])
 
-    assert set(PHASE_MAP.values()) <= allowed
+
+def test_phase_map_targets_are_all_real_schema_enum_values():
+    assert set(PHASE_MAP.values()) <= _phase_enum_values()
+
+
+def test_combined_and_legacy_tables_name_only_real_enum_values():
+    """Both tables name enum values on every side, or the audit asserts a non-value."""
+    allowed = _phase_enum_values()
+    assert set(COMBINED_PHASES.values()) <= allowed
+    assert {value for key in COMBINED_PHASES for value in key} <= allowed
+    assert set(LEGACY_PHASE_SPELLINGS) <= allowed
+    assert {v for values in LEGACY_PHASE_SPELLINGS.values() for v in values} <= allowed
+
+
+# --------------------------------------------------------------------------
+# combined-phase designs (#15385)
+# --------------------------------------------------------------------------
+
+
+def test_a_combined_phase_value_agrees_with_its_registry_pair():
+    """The precise answer must not be reported as drift."""
+    assert audit_trials([_trial(phase="PHASE_I_II")], _live(phases=("PHASE1", "PHASE2"))) == []
+    assert (
+        audit_trials([_trial(phase="PHASE_II_III")], _live(phases=("PHASE2", "PHASE3")))
+        == []
+    )
+
+
+def test_a_combined_value_against_the_wrong_pair_is_still_drift():
+    findings = audit_trials(
+        [_trial(phase="PHASE_II_III")], _live(phases=("PHASE1", "PHASE2"))
+    )
+    assert [f.kind for f in findings] == ["phase_drift"]
+    assert findings[0].live == "PHASE_I_II"
+
+
+def test_missing_phase_reports_the_combined_value_the_curator_should_write():
+    findings = audit_trials([_trial(phase=None)], _live(phases=("PHASE2", "PHASE3")))
+    assert [f.kind for f in findings] == ["missing_phase"]
+    assert findings[0].live == "PHASE_II_III"
+
+
+def test_an_unregistered_combination_falls_through_to_its_components():
+    """PHASE1|PHASE3 is not a design dismech has a value for, so neither is asserted."""
+    assert audit_trials([_trial(phase="PHASE_I")], _live(phases=("PHASE1", "PHASE3"))) == []
+    findings = audit_trials([_trial(phase="PHASE_IV")], _live(phases=("PHASE1", "PHASE3")))
+    assert [f.kind for f in findings] == ["phase_drift"]
+    assert findings[0].live == "PHASE_I|PHASE_III"
+
+
+def test_early_phase_1_maps_to_its_own_value():
+    assert PHASE_MAP["EARLY_PHASE1"] == "EARLY_PHASE_I"
+    assert audit_trials([_trial(phase="EARLY_PHASE_I")], _live(phases=("EARLY_PHASE1",))) == []
+
+
+def test_the_pre_existing_rounded_spellings_are_not_reported_as_drift():
+    """#15385 is about stopping new rounding, not making an advisory audit loud.
+
+    Migrating a rounded row means re-reading its registry phase, so the backlog
+    stays quiet until somebody does that.
+    """
+    assert audit_trials([_trial(phase="PHASE_I")], _live(phases=("EARLY_PHASE1",))) == []
+    assert audit_trials([_trial(phase="PHASE_I")], _live(phases=("PHASE1", "PHASE2"))) == []
+    assert audit_trials([_trial(phase="PHASE_II")], _live(phases=("PHASE1", "PHASE2"))) == []
+    assert audit_trials([_trial(phase="PHASE_II")], _live(phases=("PHASE2", "PHASE3"))) == []
+    assert audit_trials([_trial(phase="PHASE_III")], _live(phases=("PHASE2", "PHASE3"))) == []
 
 
 # --------------------------------------------------------------------------
