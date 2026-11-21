@@ -716,6 +716,73 @@ def _resolve_fields(choice: str) -> tuple[str, ...]:
     return (choice,)
 
 
+def resolve_selection(
+    paths, rel_to: Path = ROOT, scan_dir: Path = SCAN_DIR
+) -> tuple[frozenset[str] | None, list[str]]:
+    """``(selected relpaths, problems)`` for the paths named on the command line.
+
+    ``None`` means "no paths given, scan everything", which is not the same as
+    the empty set: a directory that happens to hold no YAML selects nothing and
+    must not silently widen back to the whole corpus. Each path may be a file
+    or a directory, and must live under *scan_dir*; anything else is reported
+    rather than quietly ignored, because a mistyped path that selected nothing
+    would otherwise read as a clean run.
+    """
+    if not paths:
+        return None, []
+    selected: set[str] = set()
+    problems: list[str] = []
+    for raw in paths:
+        path = Path(raw)
+        resolved = (path if path.is_absolute() else rel_to / path).resolve()
+        try:
+            resolved.relative_to(scan_dir.resolve())
+        except ValueError:
+            problems.append(f"{raw}: not under {scan_dir.relative_to(rel_to)}/")
+            continue
+        if resolved.is_dir():
+            found = sorted(resolved.rglob("*.yaml"))
+            if not found:
+                problems.append(f"{raw}: directory holds no .yaml files")
+            selected.update(f.relative_to(rel_to).as_posix() for f in found)
+        elif resolved.is_file():
+            selected.add(resolved.relative_to(rel_to).as_posix())
+        else:
+            problems.append(f"{raw}: no such file or directory")
+    return frozenset(selected), problems
+
+
+def select_documents(documents, selected: frozenset[str] | None):
+    """The parsed documents for the selected files.
+
+    Narrowing the *input* to the per-file comparison rather than filtering its
+    output is the one place a path restriction buys real time: the corpus still
+    has to be parsed, because a cross-file pair's other side can be any entry,
+    but comparing 4,700 files' sentences against themselves need not happen at
+    all when five were touched.
+    """
+    if selected is None:
+        return documents
+    return [item for item in documents if item[0] in selected]
+
+
+def restrict_cross_file(cross, selected: frozenset[str] | None):
+    """Cross-file pairs with at least one side in the selected files.
+
+    The other side is deliberately unrestricted: the whole corpus is still the
+    comparison set, because a quote the touched entry grades one way may be
+    graded another way in a file this change never opened, and that file may be
+    the one that is wrong.
+    """
+    if selected is None:
+        return cross
+    return [
+        finding
+        for finding in cross
+        if finding.path_a in selected or finding.path_b in selected
+    ]
+
+
 @reports_disk_full("check-snippet-grading")
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -762,14 +829,50 @@ def main(argv=None) -> int:
             "The default check always runs both."
         ),
     )
+    parser.add_argument(
+        "paths",
+        nargs="*",
+        help=(
+            "optional kb/ files or directories to report on. The whole corpus "
+            "is still indexed, because a cross-file pair's other side can be "
+            "any entry, but only findings touching these paths are reported "
+            "and gated. Omit to scan everything."
+        ),
+    )
     args = parser.parse_args(argv)
+
+    selected, problems = resolve_selection(args.paths)
+    for problem in problems:
+        print(f"error: {problem}", file=sys.stderr)
+    if problems:
+        return 2
+    if selected is not None and args.update_baseline:
+        # A partial write would drop every unselected file's grandfathered
+        # findings, turning a convenience flag into a silent baseline wipe.
+        print(
+            "error: --update-baseline rewrites both baselines from the whole "
+            "corpus and cannot be restricted to paths",
+            file=sys.stderr,
+        )
+        return 2
 
     fields = GATED_FIELDS if args.update_baseline else _resolve_fields(args.fields)
     excerpt_fields, reference_fields = _field_names(None)
     documents = collect_items()
-    findings = within_file_findings(documents, excerpt_fields, reference_fields, fields)
-    cross = sorted(
-        find_cross_file_violations(documents, excerpt_fields, reference_fields)
+    findings = within_file_findings(
+        select_documents(documents, selected),
+        excerpt_fields,
+        reference_fields,
+        fields,
+    )
+    cross = restrict_cross_file(
+        sorted(find_cross_file_violations(documents, excerpt_fields, reference_fields)),
+        selected,
+    )
+    scope = (
+        ""
+        if selected is None
+        else f" (restricted to {len(selected)} selected file(s))"
     )
 
     if args.update_baseline:
@@ -790,12 +893,12 @@ def main(argv=None) -> int:
             gated = sum(1 for finding in cross if finding.gated)
             print(
                 f"\n{len(cross)} cross-file divergence(s): {gated} gated, "
-                f"{len(cross) - gated} report-only."
+                f"{len(cross) - gated} report-only{scope}."
             )
             return 0
         for finding in findings:
             print(format_finding(finding))
-        print(f"\n{len(findings)} snippet-grading divergence(s).")
+        print(f"\n{len(findings)} snippet-grading divergence(s){scope}.")
         return 0
 
     if args.count:
@@ -820,7 +923,7 @@ def main(argv=None) -> int:
         baseline = resolve_baseline(args.against_ref, fields=fields)
         files = {finding[0] for finding in findings}
         fields = Counter(finding[1] for finding in findings)
-        print(f"total findings: {len(findings)} across {len(files)} file(s)")
+        print(f"total findings: {len(findings)} across {len(files)} file(s){scope}")
         for field, count in sorted(fields.items()):
             print(f"  {field}: {count}")
         print(
@@ -871,7 +974,7 @@ def main(argv=None) -> int:
         return 1
     report_only = sum(1 for finding in cross if not finding.gated)
     print(
-        "OK: no new snippet-grading divergences "
+        f"OK: no new snippet-grading divergences{scope} "
         f"({sum(baseline.values())} occurrence(s) of {len(baseline)} distinct "
         "divergence(s) grandfathered in baseline; "
         f"{sum(cross_baseline.values())} gated cross-file pair(s) grandfathered, "
