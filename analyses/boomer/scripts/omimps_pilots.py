@@ -562,7 +562,7 @@ def build(out):
             print(slug, phase, len(kb["pfacts"]), "hypotheses", flush=True)
 
 
-def solve_all(out, source, timeout):
+def solve_all(out, source, timeout, phases=("before", "after")):
     source = source.resolve()
     commit = subprocess.check_output(
         ["git", "-C", str(source.parent), "rev-parse", "HEAD"], text=True
@@ -573,7 +573,7 @@ def solve_all(out, source, timeout):
         raise ValueError("Use a clean Boomer checkout")
     worker = Path(__file__).with_name("solve_pending.py")
     for slug in CASES:
-        for phase in ("before", "after"):
+        for phase in phases:
             folder = out / slug / phase
             content = (folder / "kb.yaml").read_bytes()
             # Never leave a previous successful result beside a failed attempt.
@@ -724,7 +724,7 @@ def certify_worker(folder, source):
     write_json(folder / "certificate.json", result)
 
 
-def verify_all(out, source, timeout, max_hypotheses=15):
+def verify_all(out, source, timeout, max_hypotheses=15, phases=("before", "after")):
     source = source.resolve()
     commit = subprocess.check_output(
         ["git", "-C", str(source.parent), "rev-parse", "HEAD"], text=True
@@ -734,7 +734,7 @@ def verify_all(out, source, timeout, max_hypotheses=15):
     ).strip():
         raise ValueError("Use a clean Boomer checkout")
     for slug in CASES:
-        for phase in ("before", "after"):
+        for phase in phases:
             folder = out / slug / phase
             kb = yaml.safe_load((folder / "kb.yaml").read_text())
             result = json.loads((folder / "result.json").read_text())
