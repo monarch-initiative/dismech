@@ -1817,6 +1817,14 @@ check-gene-namespaces-online *args:
 check-entity-refs *files:
     uv run python scripts/check_entity_refs.py "$@"
 
+# Criteria in `definitions[]` that do not yet name the phenotype they test for
+# (`CriteriaItem.attaches_to`). EXACT rows share the phenotype's term and
+# wording; `--apply` writes those and nothing else. TERM_ONLY rows share only
+# the CURIE and need a person. Report-only by default; `--format tsv` for rows.
+[group('QC')]
+list-criteria-item-refs *args:
+    uv run python scripts/criteria_item_refs.py "$@"
+
 # Check that a pathophysiology node's cell types and biological processes are
 # consistent WITH EACH OTHER (#9905). Every other gate validates one binding at
 # a time, so `CL:0000057 fibroblast` alongside `GO:0001837 epithelial to

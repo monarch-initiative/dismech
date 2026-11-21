@@ -26,6 +26,7 @@ from linkml.validator.plugins import JsonschemaValidationPlugin
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from dismech.conformance import normalize_conforms_to
+from dismech.definition_criteria import criteria_errors
 from dismech.entity_refs import (
     canonical_kind,
     entity_ref_errors,
@@ -1062,6 +1063,22 @@ def check_entity_ref_prefixes_are_schema_slot_names(filepath, data=None):
 
     assert not errors, (
         f"Non-canonical entity-ref prefixes in {Path(filepath).name}: {errors}"
+    )
+
+
+def check_definition_criteria(filepath, data=None):
+    """Definition criteria agree with the entry they belong to.
+
+    `criteria_set_logic` needs at least two criteria sets, and a criterion
+    that `attaches_to` a phenotype and carries its own `term` must carry that
+    phenotype's binding. The rules live in `dismech.definition_criteria` so
+    that `scripts/check_entity_refs.py`, which runs on `kb/`-only PRs, applies
+    the same ones.
+    """
+    data = _document(filepath, data)
+    errors = criteria_errors(data)
+    assert not errors, (
+        f"Definition criteria problems in {Path(filepath).name}: {errors}"
     )
 
 
@@ -2514,6 +2531,7 @@ CONFORMS_TO_CHECKS = (check_conforms_to_module_node_references,)
 ENTITY_REF_CHECKS = (
     check_entity_ref_foreign_keys,
     check_entity_ref_prefixes_are_schema_slot_names,
+    check_definition_criteria,
 )
 GROUPING_CHECKS = (
     check_grouping_member_foreign_keys,

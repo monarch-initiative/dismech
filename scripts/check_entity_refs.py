@@ -53,6 +53,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from dismech.definition_criteria import criteria_errors
 from dismech.entity_refs import entity_ref_errors
 from dismech.yaml_io import safe_load
 
@@ -137,6 +138,7 @@ def main() -> int:
 
     files = iter_yaml_files(args.paths)
     findings: list[tuple[Path, str]] = []
+    criteria_findings: list[tuple[Path, str]] = []
     for path in files:
         try:
             data = safe_load(path.read_text(encoding="utf-8"))
@@ -151,6 +153,7 @@ def main() -> int:
             print(f"{_display(path)}: could not parse ({exc})", file=sys.stderr)
             return 1
         findings.extend((path, error) for error in entity_ref_errors(data))
+        criteria_findings.extend((path, error) for error in criteria_errors(data))
 
     if findings:
         print("Broken entity reference(s) detected in KB YAML.\n")
@@ -163,6 +166,21 @@ def main() -> int:
         for path, error in findings:
             print(f"{_display(path)}: {error}")
         print(f"\n{len(findings)} finding(s) across {len(files)} file(s).")
+
+    if criteria_findings:
+        # Same sweep, because `CriteriaItem.attaches_to` is an entity reference:
+        # the rules for what a criterion's reference must agree with live in
+        # `dismech.definition_criteria`, and this is the one gate a
+        # `kb/`-only PR is guaranteed to run.
+        print("Definition criteria disagree with the entry they belong to.\n")
+        print("A criterion that attaches_to a phenotype must carry that")
+        print("phenotype's term, and criteria_set_logic needs two or more")
+        print("criteria sets. See `src/dismech/definition_criteria.py`.\n")
+        for path, error in criteria_findings:
+            print(f"{_display(path)}: {error}")
+        print(f"\n{len(criteria_findings)} finding(s) across {len(files)} file(s).")
+
+    if findings or criteria_findings:
         return 1
 
     print(f"OK: entity references resolve in {len(files)} KB file(s).")
