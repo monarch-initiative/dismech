@@ -1371,7 +1371,7 @@ Not brain exposure, since this is a behavioural proxy with no pharmacokinetic me
 
 ### Verbatim support
 
-Full text 2.8: "we found that none of the imidazodiazepines acids described herein impaired the ability of trained mice to balance on a rotating rod following oral doses of 40 mg/kg". The abstract states it in summary form: "The inability of GABAARs ligands to cross the blood-brain barrier was confirmed in vivo by the absence of sensorimotor inhibition."
+Full text 2.8: "we found that none of the imidazodiazepines acids described herein impaired the ability of trained mice to balance on a rotating rod following oral doses of 40 mg/kg". The abstract states it in summary form: "The inability of GABAAR ligands to cross the blood-brain barrier was confirmed in vivo by the absence of sensorimotor inhibition."
 
 ---
 
@@ -1528,7 +1528,7 @@ The module needs the note both sibling modules carry: a drug's point of attack h
 
 **What the mechanism is.** An ionised carboxylate holds the compounds out of the brain, so GABA_AR engagement is restricted to the periphery.
 
-**Quotes establishing it**, full text 2.8: "we found that none of the imidazodiazepines acids described herein impaired the ability of trained mice to balance on a rotating rod following oral doses of 40 mg/kg" and, for the comparator, "induced rapid and significant loss of sensorimotor coordination at 8 mg/kg". Abstract: "The inability of GABAARs ligands to cross the blood-brain barrier was confirmed in vivo by the absence of sensorimotor inhibition."
+**Quotes establishing it**, full text 2.8: "we found that none of the imidazodiazepines acids described herein impaired the ability of trained mice to balance on a rotating rod following oral doses of 40 mg/kg" and, for the comparator, "induced rapid and significant loss of sensorimotor coordination at 8 mg/kg". Abstract: "The inability of GABAAR ligands to cross the blood-brain barrier was confirmed in vivo by the absence of sensorimotor inhibition."
 
 **What node would be needed.** A compartment-restriction or off-target-exclusion node, which the candidate list does not contain. It cannot attach to any existing CNS GABAergic node, because the finding is the absence of engagement and a link would read as an assertion that the system informs CNS engagement. The node would express "mechanism X is absent in compartment Y at dose Z", carrying the bound on the negative: 0 of 12 animals gives a 95% upper bound of 22.1% on impairment incidence, at a 3.35-fold molar margin over diazepam.
 
@@ -1559,7 +1559,7 @@ The module needs the note both sibling modules carry: a drug's point of attack h
 
 ### The paper under study
 
-[PMID: 37418196](https://pubmed.ncbi.nlm.nih.gov/37418196/), PMC10833105. Every pairing, registry record and gap in this report is grounded in a verbatim quote from this paper's PMC full text or PubMed abstract, with the location marked in each case. Four abstract sentences carry the summary-level claims: the two functional systems ("Pharmacological activities at lung GABAARs were demonstrated by ex vivo relaxation of guinea pig airway smooth muscle and reduction of methacholine-induced airway hyperresponsiveness (AHR) in conscious mice"), the lead compound ("We identified bronchodilator 5c with an affinity of 9 nM for GABAARs that was metabolically stable in the presence of human and mouse microsomes"), the safety argument ("The inability of GABAARs ligands to cross the blood-brain barrier was confirmed in vivo by the absence of sensorimotor inhibition"), and the property profile ("The carboxylic acid containing GABAAR ligands have high aqueous solubility, low permeability, and low cell toxicity"). Everything finer-grained is full-text only.
+[PMID: 37418196](https://pubmed.ncbi.nlm.nih.gov/37418196/), PMC10833105. Every pairing, registry record and gap in this report is grounded in a verbatim quote from this paper's PMC full text or PubMed abstract, with the location marked in each case. Four abstract sentences carry the summary-level claims: the two functional systems ("Pharmacological activities at lung GABAARs were demonstrated by ex vivo relaxation of guinea pig airway smooth muscle and reduction of methacholine-induced airway hyperresponsiveness (AHR) in conscious mice"), the lead compound ("We identified bronchodilator 5c with an affinity of 9 nM for GABAARs that was metabolically stable in the presence of human and mouse microsomes"), the safety argument ("The inability of GABAAR ligands to cross the blood-brain barrier was confirmed in vivo by the absence of sensorimotor inhibition"), and the property profile ("The carboxylic acid containing GABAAR ligands have high aqueous solubility, low permeability, and low cell toxicity"). Everything finer-grained is full-text only.
 
 ### Literature used to judge validity, cited separately
 
