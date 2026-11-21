@@ -44,8 +44,11 @@ import datetime as dt
 import re
 import shutil
 import subprocess
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+
+import yaml
 
 from dismech.yaml_io import safe_load
 
@@ -70,6 +73,70 @@ def strip_run_suffix(provider: str) -> str:
         'cyberian-codex'
     """
     return RUN_SUFFIX_RE.sub("", provider)
+
+
+#: The frontmatter value ``deep-research-client`` (0.2.14+) writes when the
+#: provider says, or the client infers, that the run did not produce a report:
+#: an agent that answered from memory without retrieving anything, declined the
+#: task, or marked its own report incomplete. The client still writes the
+#: output, and the research recipes still place it in ``research/``, but the
+#: command exits 4. Such a file is not a deep-research report and must not
+#: count as one.
+UNSUCCESSFUL_ANSWER_STATUS = "unsuccessful"
+
+
+def is_unsuccessful(frontmatter: Mapping) -> bool:
+    """Say whether a report's frontmatter marks it as not a finished report.
+
+    Only an explicit ``answer_status: unsuccessful`` counts. A report with no
+    ``answer_status`` predates the field, or comes from a provider that never
+    sets it, and is treated as a report.
+
+    Examples:
+        >>> is_unsuccessful({"answer_status": "unsuccessful"})
+        True
+        >>> is_unsuccessful({"answer_status": "successful"})
+        False
+        >>> is_unsuccessful({})
+        False
+    """
+    status = frontmatter.get("answer_status")
+    return isinstance(status, str) and status.strip().lower() == UNSUCCESSFUL_ANSWER_STATUS
+
+
+def read_frontmatter_only(path: Path) -> dict:
+    """Return a report's frontmatter, reading no further than its end.
+
+    :func:`read_frontmatter` reads the whole file, which is fine for one report
+    and slow for every report in ``research/`` (several hundred megabytes).
+
+    Returns:
+        The parsed frontmatter, or an empty dict when the file has none, it is
+        unterminated, or it does not parse.
+    """
+    lines: list[str] = []
+    try:
+        with path.open(encoding="utf-8", errors="replace") as handle:
+            if handle.readline().rstrip("\r\n") != FRONTMATTER_DELIMITER:
+                return {}
+            for line in handle:
+                if line.rstrip("\r\n") == FRONTMATTER_DELIMITER:
+                    break
+                lines.append(line)
+            else:
+                return {}
+    except OSError:
+        return {}
+    try:
+        parsed = safe_load("".join(lines))
+    except yaml.YAMLError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def report_is_unsuccessful(path: Path) -> bool:
+    """Say whether the report at ``path`` is marked ``answer_status: unsuccessful``."""
+    return is_unsuccessful(read_frontmatter_only(path))
 
 
 class AlignmentError(RuntimeError):
