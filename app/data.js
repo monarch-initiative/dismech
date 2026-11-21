@@ -66455,11 +66455,14 @@ window.searchData = [
     "name": "Brain Malformations With Or Without Urinary Tract Defects",
     "disease_id": "MONDO:0100478",
     "category": "Mendelian",
-    "parents": [],
+    "parents": [
+      "syndromic intellectual disability",
+      "congenital nervous system disorder"
+    ],
     "creation_date": "2026-10-24T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "A single functional copy of NFIA is insufficient for normal development. Loss of one allele arises through 1p31.3 deletion, NFIA-disrupting translocation, or intragenic loss-of-function variant.",
+    "description": "Brain malformations with or without urinary tract defects (NFIA-related disorder; OMIM 613735) is an autosomal dominant neurodevelopmental and malformation syndrome caused by heterozygous loss-of-function variants, 1p31.3 deletions, or chromosomal rearrangements resulting in NFIA haploinsufficiency. Reduced dosage of the nuclear factor I/A transcription factor disrupts CNS neurogenesis-to-gliogenesis switching, midline callosal axon guidance, cerebrospinal fluid homeostasis, and dosage-sensitive ureteric bud and metanephric development. Core manifestations include agenesis or hypoplasia of the corpus callosum, ventriculomegaly or congenital hydrocephalus, macrocephaly, Chiari type I malformation, tethered spinal cord, developmental delay, intellectual disability, hypotonia, seizures, and incompletely penetrant vesicoureteral reflux and hydronephrosis.",
     "pathophysiology": [
       "NFIA Haploinsufficiency",
       "Reduced NFIA-Dependent Transcriptional Regulation",
@@ -66553,7 +66556,10 @@ window.searchData = [
       "NFIA"
     ],
     "treatments": [
-      "Symptomatic and supportive management"
+      "Symptomatic and supportive management",
+      "Ventriculoperitoneal Shunting and CSF Diversion",
+      "Ureteral Reimplantation and Urologic Management",
+      "Genetic Counseling and Cascade Testing"
     ],
     "environmental": [],
     "biochemical": [],
@@ -66562,8 +66568,8 @@ window.searchData = [
     "num_phenotypes": 19,
     "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "12",
+    "num_treatments": 4,
+    "causal_graph_edges": "33",
     "causal_graph_longest_path": "5"
   },
   {
@@ -135954,7 +135960,7 @@ window.searchData = [
     "creation_date": "2026-06-30T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Dermoid cyst (mature cystic teratoma) is a benign developmental lesion composed of mature, well-differentiated tissue derived from one or more embryonic germ layers, with ectodermal derivatives (keratinizing squamous epithelium, hair follicles, sebaceous glands, and teeth) predominating. The prototypical form is the ovarian mature cystic teratoma, which arises by parthenogenetic development of a germ cell. Dermoid cysts also occur at extragonadal sites, including the central nervous system (intracranial, spinal), the craniofacial midline (nasal dermoid sinus cyst, orbital/periorbital dermoid), the ocular surface (limbal/epibulbar dermoid), and the skin and subcutaneous tissue, where they reflect entrapment of ectoderm during embryonic midline fusion. Most lesions are sporadic; a rare hereditary ovarian form has been linked to a germline BMP15 mutation.\n",
+    "description": "Dermoid cyst (mature cystic teratoma) is a benign developmental lesion composed of mature, well-differentiated tissue derived from one or more embryonic germ layers, with ectodermal derivatives (keratinizing squamous epithelium, hair follicles, sebaceous glands, and teeth) predominating. The prototypical form is the ovarian mature cystic teratoma, which arises by parthenogenetic development of a germ cell. Dermoid cysts also occur at extragonadal sites, including the central nervous system (intracranial, spinal), the craniofacial midline (nasal dermoid sinus cyst, orbital/periorbital dermoid), the ocular surface (limbal/epibulbar dermoid), and the skin and subcutaneous tissue, where they reflect entrapment of ectoderm during embryonic midline fusion. Most lesions are sporadic; no germline variant has been shown to cause mature cystic teratoma, although a rare hereditary ovarian immature teratoma has been linked to a germline BMP15 mutation.\n",
     "pathophysiology": [
       "Germ Cell Parthenogenetic Origin",
       "BMP15 / H-Ras-MAPK Dysregulation in Hereditary Ovarian Teratoma",
@@ -135967,13 +135973,11 @@ window.searchData = [
     ],
     "cell_types": [
       "oocyte",
-      "granulosa cell",
       "keratinizing squamous epithelial cell",
       "sebaceous gland cell"
     ],
     "cell_type_ids": [
       "CL:0000023",
-      "CL:0000501",
       "CL:0000312",
       "CL:2000021"
     ],
@@ -135996,7 +136000,7 @@ window.searchData = [
       "Headache",
       "Seizure",
       "Meningitis",
-      "Carcinoma"
+      "Squamous cell carcinoma"
     ],
     "phenotype_categories": [
       "Clinical"
@@ -136008,6 +136012,7 @@ window.searchData = [
       "Genitourinary",
       "Head and Neck",
       "Immune",
+      "Integument",
       "Neoplasm",
       "Nervous System"
     ],
@@ -136022,7 +136027,7 @@ window.searchData = [
       "HP:0002315",
       "HP:0001250",
       "HP:0001287",
-      "HP:0030731"
+      "HP:0002860"
     ],
     "frequencies": [],
     "genes": [
@@ -136041,7 +136046,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "17",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "6"
   },
   {
@@ -301255,7 +301260,9 @@ window.searchData = [
       "MYC, TP63 and SOX2 Transcription Factor Activation",
       "Block to Squamous Differentiation",
       "Rapidly Enlarging Primary Mass",
-      "Early Metastatic Spread"
+      "Early Metastatic Spread",
+      "Low Tumour Mutational Burden and Microsatellite Stability",
+      "Immunologically Cold Tumour Microenvironment"
     ],
     "cell_types": [
       "squamous epithelial cell"
@@ -301305,17 +301312,18 @@ window.searchData = [
       "Radiotherapy",
       "Conventional chemotherapy",
       "BET bromodomain inhibition",
-      "Histone deacetylase inhibition"
+      "Histone deacetylase inhibition",
+      "Immune checkpoint inhibition"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "NUT_Carcinoma.yaml",
     "page_url": "../pages/disorders/NUT_Carcinoma.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 9,
     "num_genes": 4,
-    "num_treatments": 5,
-    "causal_graph_edges": "23",
+    "num_treatments": 6,
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "5"
   },
   {
@@ -343235,9 +343243,12 @@ window.searchData = [
     "description": "Pilocytic astrocytoma (PA) is a circumscribed World Health Organization grade 1 astrocytic glioma and the most common pediatric brain tumor. Most tumors arise in the cerebellum, optic pathway/hypothalamus, or brainstem and are driven by a single MAPK-pathway-activating alteration, most often KIAA1549-BRAF fusion. Clinical behavior is usually indolent, especially after gross total resection, but site-constrained tumors can cause major visual, endocrine, or hydrocephalic morbidity, and pilomyxoid astrocytoma represents a more aggressive histologic subtype within the same broader piloid disease program.",
     "pathophysiology": [
       "BRAF Fusion Oncogene Formation",
+      "NF1 Tumor Suppressor Inactivation",
       "Constitutive MAPK Cascade Activation",
       "Oncogene-Induced Senescence",
-      "Senescence-Constrained Low-Grade Progression Barrier"
+      "Senescence-Constrained Low-Grade Progression Barrier",
+      "Circumscribed Low-Grade Glioma Growth",
+      "Local Mass Effect and Anatomic Compression"
     ],
     "cell_types": [
       "neural stem cell"
@@ -343252,6 +343263,9 @@ window.searchData = [
     ],
     "phenotypes": [
       "Hydrocephalus",
+      "Increased intracranial pressure",
+      "Ataxia",
+      "Nystagmus",
       "Visual Impairment",
       "Hypopituitarism"
     ],
@@ -343267,6 +343281,9 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0000238",
+      "HP:0002516",
+      "HP:0001251",
+      "HP:0000639",
       "HP:0000505",
       "HP:0040075"
     ],
@@ -343289,12 +343306,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Pilocytic_Astrocytoma.yaml",
     "page_url": "../pages/disorders/Pilocytic_Astrocytoma.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 6,
+    "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 4,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Pineoblastoma",
@@ -348358,7 +348375,12 @@ window.searchData = [
       "Epstein-Barr virus infection",
       "Cytomegalovirus infection",
       "Human herpesvirus 6 infection",
-      "Varicella vaccination"
+      "Influenza A virus infection",
+      "SARS-CoV-2 infection",
+      "Mycoplasma pneumoniae infection",
+      "Mumps virus infection",
+      "Varicella vaccination",
+      "Vaccination before onset"
     ],
     "biochemical": [
       "Anti-glutamate receptor delta 2 antibody",
@@ -348373,7 +348395,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "34",
+    "causal_graph_edges": "39",
     "causal_graph_longest_path": "7"
   },
   {
@@ -381803,7 +381825,9 @@ window.searchData = [
     "name": "SYNCRIP-related Neurodevelopmental Disorder",
     "disease_id": "MONDO:0800456",
     "category": "Mendelian",
-    "parents": [],
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
     "creation_date": "2026-10-24T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
@@ -381902,8 +381926,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "SYNGAP1-Related Developmental and Epileptic Encephalopathy",
@@ -423359,9 +423383,11 @@ window.searchData = [
     "description": "Thymic carcinoma is an overtly malignant thymic epithelial tumor of the prevascular (anterior) mediastinum, distinct from thymoma by its frank cytologic atypia, infiltrative growth, high metastatic potential, and characteristic CD5/CD117 (KIT) immunophenotype. Unlike thymoma, thymic carcinoma carries a higher mutational burden (recurrent CDKN2A and TP53 loss, receptor tyrosine kinase pathway alterations including KIT) and generally lacks the autoimmune and paraneoplastic syndromes (e.g., myasthenia gravis, pure red cell aplasia, Good syndrome) that characterize thymoma. It usually presents at an advanced stage and behaves aggressively. Thymic squamous cell carcinoma is by far the most common histologic subtype.",
     "pathophysiology": [
       "Malignant thymic epithelial transformation",
-      "CDKN2A and TP53 tumor suppressor loss",
+      "CDKN2A and CDKN2B Tumor Suppressor Loss",
+      "TP53 Tumor Suppressor Inactivation",
       "Receptor tyrosine kinase pathway activation",
       "Aberrant cell-cycle progression and proliferation",
+      "PD-L1-Mediated Immune Checkpoint Evasion",
       "Local invasion and metastatic dissemination"
     ],
     "cell_types": [
@@ -423376,7 +423402,8 @@ window.searchData = [
       "negative regulation of apoptotic process",
       "Kit signaling pathway",
       "cell surface receptor protein tyrosine kinase signaling pathway",
-      "regulation of cell cycle"
+      "regulation of cell cycle",
+      "negative regulation of immune response"
     ],
     "phenotypes": [
       "Anterior mediastinal mass",
@@ -423385,7 +423412,7 @@ window.searchData = [
       "Cough",
       "Weight loss",
       "Pleural effusion",
-      "Lymphadenopathy"
+      "Mediastinal lymphadenopathy"
     ],
     "phenotype_categories": [
       "Thoracic",
@@ -423399,7 +423426,8 @@ window.searchData = [
       "Growth",
       "Immune",
       "Metabolism",
-      "Respiratory"
+      "Respiratory",
+      "Thoracic Cavity"
     ],
     "phenotype_ids": [
       "HP:0033827",
@@ -423408,12 +423436,13 @@ window.searchData = [
       "HP:0012735",
       "HP:0001824",
       "HP:0002202",
-      "HP:0002716"
+      "HP:0100721"
     ],
     "frequencies": [
       "OBLIGATE",
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "VERY_FREQUENT"
     ],
     "genes": [
       "CDKN2A loss",
@@ -423437,11 +423466,11 @@ window.searchData = [
     "source_file": "Thymic_Carcinoma.yaml",
     "page_url": "../pages/disorders/Thymic_Carcinoma.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 7,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Thymic Neuroendocrine Carcinoma",
@@ -449577,16 +449606,16 @@ window.searchMetrics = {
   "total_disorder_pages": 4138,
   "total_subtypes": 5108,
   "total_disorders_and_subtypes": 9246,
-  "total_unique_evidence_sources": 61787,
-  "total_unique_publications": 57724,
+  "total_unique_evidence_sources": 61822,
+  "total_unique_publications": 57753,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4136,
-  "total_unique_pathological_events": 27349,
+  "total_unique_pathological_events": 27355,
   "total_modules": 237,
   "total_research_reports": 4239,
   "total_classifications": 21,
   "total_comorbidities": 58,
-  "total_groupings": 140
+  "total_groupings": 141
 };
 window.dispatchEvent(new Event('searchDataReady'));
