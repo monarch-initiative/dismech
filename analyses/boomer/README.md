@@ -15,6 +15,10 @@ source corrections, the pending TPMT correction, explicitly qualified FOXE3
 grounding, and Waldenström susceptibility-series scope. They separate applied
 curation, corrected source mappings, and sensitivity experiments.
 
+[ORDO and ICD trials](omimps-icd-trials/README.md) add Orphanet, ICD-10-CM and
+ICD-11 Foundation separately and jointly to Gorlin, FOXE3 and Waldenström. They
+retain explicit mapping precision, obsolete-target checks and proxy-merge policy.
+
 dismech grounds its entries in MONDO, and separately asserts its own hierarchy
 through `has_subtypes` and `kb/groupings/`. Those are independent claims, and
 they can disagree. Nothing in the validation stack checks that they don't:
