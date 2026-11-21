@@ -171063,6 +171063,116 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Fetal Akinesia Respiratory Insufficiency Microcephaly Polymicrogyria And Dysmorphic Facies",
+    "disease_id": "MONDO:0859204",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Fetal Akinesia Deformation Sequence",
+      "Malformation of Cortical Development"
+    ],
+    "creation_date": "2026-11-20T14:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A lethal, prenatal-onset autosomal recessive syndrome (FARIMPD) caused by biallelic loss-of-function variants in ATP1A2, which encodes the alpha-2 catalytic subunit of the Na+/K+-ATPase. Affected brains contain no immunodetectable ATP1A2 protein, so the disorder is a true protein-null state rather than a hypomorph. The fetus neither moves nor breathes: absent spontaneous movement produces a fetal akinesia deformation sequence with arthrogryposis, polyhydramnios, hydrops and a compressed dysmorphic facies, and absent respiratory drive is lethal within hours to days of birth. The brain carries a reproducible and recognisable pattern of injury at autopsy - meningeal arterial calcification, necrotic and calcified basal ganglia, dentato-olivary dysplasia, severe hypoplasia or agenesis of the pyramidal tracts, and diffuse polymicrogyria. The mechanism follows from what the alpha-2 pump does. It maintains the local transmembrane Na+ and K+ gradients that Na+-dependent secondary transporters consume, and two of those consumers are demonstrated to fail in the Atp1a2-null mouse: the K-Cl cotransporter KCC2, which co-immunoprecipitates with the alpha-2 subunit and which neurons use to extrude chloride, and the glutamate and GABA reuptake transporters. Chloride accumulates in ventrolateral medullary neurons, inhibitory patterning in the brainstem respiratory network fails, and respiratory motoneuron output is defective before birth. In parallel, impaired transmitter reuptake leaves neurons hyperactive, with c-Fos induction followed by selective apoptosis. ATP1A2 carries a dual mode of transmission, and this entry is the recessive arm. Heterozygous ATP1A2 variants cause familial hemiplegic migraine type 2 and an alternating hemiplegia / developmental and epileptic encephalopathy spectrum, which ClinGen curates as a separate Definitive gene-disease relationship; parents of FARIMPD probands have themselves reported migraine.",
+    "pathophysiology": [
+      "Biallelic ATP1A2 Loss-of-Function Variants",
+      "Absence of Na+/K+-ATPase Alpha-2 Subunit",
+      "Collapse of Local Sodium and Potassium Gradients",
+      "KCC2-Dependent Chloride Extrusion Failure",
+      "Impaired Glutamate and GABA Reuptake",
+      "Neuronal Hyperactivity and Excitotoxic Apoptosis",
+      "Brainstem Respiratory Rhythm Failure",
+      "Absent Fetal Breathing and Spontaneous Movement",
+      "Basal Ganglia and Dentato-Olivary Grey Matter Necrosis",
+      "Pyramidal Tract Hypoplasia"
+    ],
+    "cell_types": [
+      "brain pericyte",
+      "neuron",
+      "astrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:2000043",
+      "CL:0000540",
+      "CL:0000127"
+    ],
+    "biological_processes": [
+      "regulation of membrane potential",
+      "chloride ion homeostasis",
+      "glutamate reuptake",
+      "neurotransmitter uptake",
+      "neuron apoptotic process",
+      "regulation of respiratory gaseous exchange by nervous system process"
+    ],
+    "phenotypes": [
+      "Fetal akinesia sequence",
+      "Respiratory insufficiency",
+      "Microcephaly",
+      "Polymicrogyria",
+      "Arthrogryposis multiplex congenita",
+      "Hydrops fetalis",
+      "Polyhydramnios",
+      "Seizure",
+      "Basal ganglia calcification",
+      "Abnormal facial shape",
+      "Congenital diaphragmatic hernia",
+      "Aplasia/Hypoplasia of the pyramidal tract",
+      "Meningeal calcification",
+      "Dentato-olivary dysplasia",
+      "Neonatal death"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Respiratory",
+      "Neurological",
+      "Musculoskeletal",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001989",
+      "HP:0002093",
+      "HP:0000252",
+      "HP:0002126",
+      "HP:0002804",
+      "HP:0001789",
+      "HP:0001561",
+      "HP:0001250",
+      "HP:0002135",
+      "HP:0001999",
+      "HP:0000776",
+      "HP:0007363",
+      "HP:0100250",
+      "HP:0100321"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ATP1A2"
+    ],
+    "treatments": [
+      "Palliative Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Fetal_Akinesia_Respiratory_Insufficiency_Microcephaly_Polymicrogyria_And_Dysmorphic_Facies.yaml",
+    "page_url": "../pages/disorders/Fetal_Akinesia_Respiratory_Insufficiency_Microcephaly_Polymicrogyria_And_Dysmorphic_Facies.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Fetal Alcohol Spectrum Disorder",
     "disease_id": "MONDO:0000408",
     "category": "Environmental",
@@ -209894,18 +210004,44 @@ window.searchData = [
     "pathophysiology": [
       "Candidate extracellular matrix remodeling abnormalities",
       "Joint instability and recurrent soft-tissue injury",
-      "Myofibroblast-like fibroblast transition"
+      "Myofibroblast-like fibroblast transition",
+      "Generalized connective tissue laxity and fragility",
+      "KLK15 variant-associated LOX mislocalization",
+      "Systemic complement and innate immune dysregulation",
+      "Impaired proprioception and muscle weakness",
+      "Central sensitization of nociceptive processing",
+      "Small fiber neuropathy with autonomic fiber loss",
+      "Venous pooling from distensible dependent vessels",
+      "Cardiovascular and gastrointestinal autonomic dysfunction",
+      "Functional heartburn and dyspeptic symptoms (disorder of gut-brain interaction)",
+      "Mast cell activation"
     ],
     "cell_types": [
       "fibroblast",
-      "dermal fibroblast"
+      "dermal fibroblast",
+      "peripheral sensory neuron",
+      "postganglionic sympathetic neuron",
+      "mast cell"
     ],
     "cell_type_ids": [
       "CL:0000057",
-      "CL:0002620"
+      "CL:0002620",
+      "CL:3000004",
+      "CL:0011103",
+      "CL:0000097"
     ],
     "biological_processes": [
-      "extracellular matrix organization"
+      "extracellular matrix organization",
+      "collagen fibril organization",
+      "elastic fiber assembly",
+      "complement activation",
+      "cytokine production",
+      "proprioception",
+      "sensory perception of pain",
+      "vascular process in circulatory system",
+      "regulation of heart rate",
+      "regulation of blood pressure",
+      "mast cell activation"
     ],
     "phenotypes": [
       "Joint hypermobility",
@@ -209985,7 +210121,10 @@ window.searchData = [
       "FREQUENT",
       "VERY_FREQUENT"
     ],
-    "genes": [],
+    "genes": [
+      "KLK15 (candidate, unreplicated)",
+      "ACKR3 regulatory locus"
+    ],
     "treatments": [
       "Exercise-based physical therapy and joint stabilization",
       "Multisystem symptom management"
@@ -209995,11 +210134,11 @@ window.searchData = [
     "source_file": "Hypermobile_Ehlers-Danlos_Syndrome.yaml",
     "page_url": "../pages/disorders/Hypermobile_Ehlers-Danlos_Syndrome.html",
     "num_phenotypes": 29,
-    "num_pathophysiology": 3,
-    "num_genes": 0,
+    "num_pathophysiology": 13,
+    "num_genes": 2,
     "num_treatments": 2,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Hyperornithinemia-hyperammonemia-homocitrullinuria syndrome",
@@ -234152,6 +234291,114 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Intellectual Developmental Disorder With Autistic Features And Language Delay With Or Without Seizures",
+    "disease_id": "MONDO:0030051",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Syndromic Intellectual Disability"
+    ],
+    "creation_date": "2026-11-20T14:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant neurodevelopmental disorder (IDDALDS) caused by heterozygous loss-of-function variants in TANC2, which encodes a large postsynaptic density scaffolding protein. The clinical core is intellectual disability, delayed speech and language development and autistic behaviour, with epilepsy in about half of reported patients - which is what the \"with or without seizures\" clause in the disease name records. Adult probands and carrier parents more often show complex psychiatric or behavioural problems than the childhood presentation suggests. The mechanism is haploinsufficiency acting through mTOR. TANC2 binds mTOR directly and inhibits both mTORC1 and mTORC2; complete loss is embryonic lethal in mouse, while the haploinsufficient mouse survives and shows mTORC1/2 hyperactivity with synaptic and behavioural deficits that rapamycin reverses. Downstream, the zebrafish knockout selectively expands the glutamatergic neuron population while leaving GABAergic and glycinergic populations intact, which is an excitatory/inhibitory imbalance, and Drosophila knockdown has been reported to raise seizure susceptibility, though an earlier knockdown in the same organism found no seizure-like behaviour and the entry records both. TANC2 also recruits KIF1A-transported dense core vesicles to postsynaptic sites, a second synaptic function lost with the protein. Two things about the evidence base shape how this entry is written. The human arm rests almost entirely on a single 20-patient cohort, so every reported frequency has a denominator between 9 and 20; and the steps from excitatory/inhibitory imbalance to the cognitive, language and social phenotype are inferred from parallel animal behaviour rather than from human neurophysiology, so they are not drawn as causal edges.",
+    "pathophysiology": [
+      "Heterozygous TANC2 Loss-of-Function Variant",
+      "Reduced TANC2 Protein at the Postsynaptic Density",
+      "Loss of Direct mTOR Inhibition",
+      "mTORC1 and mTORC2 Hyperactivity",
+      "Altered Dendritic Spine and Excitatory Synapse Development",
+      "Glutamatergic Expansion and Excitatory-Inhibitory Imbalance",
+      "Loss of KIF1A Dense Core Vesicle Capture at Spines"
+    ],
+    "cell_types": [
+      "glutamatergic neuron",
+      "GABAergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000679",
+      "CL:0000617"
+    ],
+    "biological_processes": [
+      "negative regulation of TOR signaling",
+      "TORC1 signaling",
+      "TORC2 signaling",
+      "dendritic spine development",
+      "synapse organization"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Autistic behavior",
+      "Seizure",
+      "Motor delay",
+      "Abnormal facial shape",
+      "Ataxia",
+      "Strabismus",
+      "Scoliosis",
+      "Hypotonia",
+      "Abnormal foot morphology",
+      "Craniosynostosis",
+      "Joint hypermobility",
+      "Abnormal thorax morphology",
+      "Constipation",
+      "Psychiatric and behavioural problems in adults and carriers"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Craniofacial",
+      "Ophthalmologic",
+      "Skeletal",
+      "Musculoskeletal",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0000729",
+      "HP:0001250",
+      "HP:0001270",
+      "HP:0001999",
+      "HP:0001251",
+      "HP:0000486",
+      "HP:0002650",
+      "HP:0001252",
+      "HP:0001760",
+      "HP:0001363",
+      "HP:0001382",
+      "HP:0000765",
+      "HP:0002019"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TANC2"
+    ],
+    "treatments": [
+      "Antiseizure Pharmacotherapy",
+      "Ketogenic Diet",
+      "Developmental and Educational Support"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Developmental_Disorder_With_Autistic_Features_And_Language_Delay_With_Or_Without_Seizures.yaml",
+    "page_url": "../pages/disorders/Intellectual_Developmental_Disorder_With_Autistic_Features_And_Language_Delay_With_Or_Without_Seizures.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Intellectual Developmental Disorder With Macrocephaly Seizures And Speech Delay",
@@ -263762,7 +264009,8 @@ window.searchData = [
       "Defective Cationic Amino Acid Transport",
       "Urea Cycle Substrate Deficiency",
       "Postprandial Hyperammonemic Decompensation",
-      "Alveolar Macrophage Dysfunction and Pulmonary Alveolar Proteinosis",
+      "Alveolar Macrophage Dysfunction",
+      "Alveolar Surfactant Clearance Failure",
       "Renal Involvement",
       "Hematologic and Immune Dysregulation",
       "Skeletal and Growth Involvement"
@@ -263793,7 +264041,8 @@ window.searchData = [
       "Failure to thrive",
       "Growth delay",
       "Hypercholesterolemia",
-      "Hypertriglyceridemia"
+      "Hypertriglyceridemia",
+      "Acute pancreatitis"
     ],
     "phenotype_categories": [
       "Metabolic",
@@ -263833,7 +264082,8 @@ window.searchData = [
       "HP:0001508",
       "HP:0001510",
       "HP:0003124",
-      "HP:0002155"
+      "HP:0002155",
+      "HP:0001735"
     ],
     "frequencies": [],
     "genes": [
@@ -263843,18 +264093,21 @@ window.searchData = [
       "Dietary protein restriction",
       "Citrulline supplementation",
       "Nitrogen-scavenger therapy for acute hyperammonemia",
+      "L-lysine-HCl supplementation",
+      "Carnitine supplementation",
       "Whole-lung lavage for pulmonary alveolar proteinosis",
-      "Inhaled GM-CSF (sargramostim) for pulmonary alveolar proteinosis"
+      "Inhaled GM-CSF (sargramostim) for pulmonary alveolar proteinosis",
+      "Influenza and varicella vaccination"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Lysinuric_Protein_Intolerance.yaml",
     "page_url": "../pages/disorders/Lysinuric_protein_intolerance.html",
-    "num_phenotypes": 16,
-    "num_pathophysiology": 8,
+    "num_phenotypes": 17,
+    "num_pathophysiology": 9,
     "num_genes": 1,
-    "num_treatments": 5,
-    "causal_graph_edges": "17",
+    "num_treatments": 8,
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "5"
   },
   {
@@ -279945,44 +280198,68 @@ window.searchData = [
     ],
     "creation_date": "2026-04-05T20:02:37Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "ILAE Type 1 Hippocampal Sclerosis",
+      "ILAE Type 2 Hippocampal Sclerosis",
+      "ILAE Type 3 Hippocampal Sclerosis"
+    ],
     "description": "Mesial temporal lobe epilepsy with hippocampal sclerosis is a rare epilepsy syndrome in which seizures arise from mesial temporal limbic structures and are associated with unilateral or asymmetric hippocampal sclerosis, memory deficits, and a high likelihood of later drug resistance.",
     "pathophysiology": [
       "Hippocampal Sclerosis",
+      "Mossy Fiber Sprouting",
+      "Hippocampal Circuit Hyperexcitability",
       "Large-Scale Network Reorganization"
     ],
     "cell_types": [
       "neuron",
-      "astrocyte"
+      "astrocyte",
+      "dentate gyrus granule cell"
     ],
     "cell_type_ids": [
       "CL:0000540",
-      "CL:0000127"
+      "CL:0000127",
+      "CL:2000089"
     ],
     "biological_processes": [
       "chemical synaptic transmission",
+      "reactive gliosis",
+      "collateral sprouting",
+      "excitatory chemical synaptic transmission",
       "transmission of nerve impulse"
     ],
     "phenotypes": [
       "Seizures",
-      "Memory Impairment"
+      "Focal Aware Seizure",
+      "Focal Automatism Seizure",
+      "Memory Impairment",
+      "Hippocampal Atrophy",
+      "Refractory Drug Response"
     ],
     "phenotype_categories": [
       "Neurological",
-      "Cognitive"
+      "Cognitive",
+      "Neuroimaging",
+      "Clinical"
     ],
     "phenotype_hpo_categories": [
+      "Metabolism",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0007359",
-      "HP:0002354"
+      "HP:0002349",
+      "HP:0032898",
+      "HP:0002354",
+      "HP:0410170",
+      "HP:0020174"
     ],
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT"
     ],
-    "genes": [],
+    "genes": [
+      "SCN1A"
+    ],
     "treatments": [
       "Anti-seizure Medication Pharmacotherapy",
       "Temporal Lobectomy for Drug-Resistant Disease",
@@ -279992,12 +280269,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Mesial_Temporal_Lobe_Epilepsy_with_Hippocampal_Sclerosis.yaml",
     "page_url": "../pages/disorders/Mesial_Temporal_Lobe_Epilepsy_with_Hippocampal_Sclerosis.html",
-    "num_phenotypes": 2,
-    "num_pathophysiology": 2,
-    "num_genes": 0,
+    "num_phenotypes": 6,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Mesomelia-Synostoses Syndrome",
@@ -341194,8 +341471,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Peters plus syndrome",
@@ -432227,6 +432504,70 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Urocanic Aciduria",
+    "disease_id": "MONDO:0010167",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn Error of Metabolism",
+      "Disorder of Amino Acid Metabolism"
+    ],
+    "creation_date": "2026-11-20T14:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Urocanic aciduria is an autosomal recessive block of the second step of histidine catabolism, caused by biallelic loss-of-function variants in UROC1, which encodes urocanate hydratase (urocanase, EC 4.2.1.49). Urocanase hydrates trans-urocanate to an imidazolone-propanoate intermediate in the cytosol of hepatocytes, and the enzyme is almost exclusively expressed in liver. When it is absent, urocanate produced by histidine ammonia-lyase upstream has no onward route, accumulates, and spills into urine and plasma. That biochemical phenotype is the obligate and well-established consequence of the enzyme block, and it is what the disease name describes. Whether the enzyme block produces a clinical phenotype is a separate and unsettled question, and this entry keeps the two apart. The disorder entered the literature in 1971 through a proband investigated for intellectual disability whose liver urocanase activity was deficient, and the first UROC1 variants were reported in 2009 in a girl with intellectual disability and intermittent ataxia. The OMIM synonym \"encephalopathy due to urocanase deficiency\" preserves that reading. It has since been undermined from the other direction: two compound-heterozygous siblings with the characteristic biochemical abnormality were reported as phenotypically normal, one of them with a general cognitive score in the 83rd percentile, and the authors concluded that urocanic aciduria may be an otherwise benign biochemical phenotype whose carriers with developmental delay should still be worked up for another cause. ClinGen's Aminoacidopathy expert panel, re-evaluating the pair in 2026, classifies UROC1 for urocanic aciduria as Limited and states directly that the relationship of the reported neurological phenotypes to the biochemical abnormality is unclear. The entry therefore records the metabolite phenotype as demonstrated, records the neurological features as reported in ascertained probands without asserting a causal edge to them, and carries the attribution question as a discussion.",
+    "pathophysiology": [
+      "Biallelic UROC1 Loss-of-Function Variants",
+      "Loss of Urocanate Hydratase Activity",
+      "Hepatic Block of Histidine Catabolism",
+      "Urocanate Accumulation"
+    ],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "L-histidine catabolic process"
+    ],
+    "phenotypes": [
+      "Elevated urinary urocanic acid",
+      "Intellectual disability",
+      "Ataxia"
+    ],
+    "phenotype_categories": [
+      "Biochemical",
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0033354",
+      "HP:0001249",
+      "HP:0001251"
+    ],
+    "frequencies": [],
+    "genes": [
+      "UROC1"
+    ],
+    "treatments": [
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Urocanic_Aciduria.yaml",
+    "page_url": "../pages/disorders/Urocanic_Aciduria.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Urticaria",
     "disease_id": "MONDO:0005492",
     "category": "Complex",
@@ -449233,17 +449574,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4135,
-  "total_subtypes": 5105,
-  "total_disorders_and_subtypes": 9240,
-  "total_unique_evidence_sources": 61717,
-  "total_unique_publications": 57657,
+  "total_disorder_pages": 4138,
+  "total_subtypes": 5108,
+  "total_disorders_and_subtypes": 9246,
+  "total_unique_evidence_sources": 61787,
+  "total_unique_publications": 57724,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4133,
-  "total_unique_pathological_events": 27316,
+  "total_pathographs": 4136,
+  "total_unique_pathological_events": 27349,
   "total_modules": 237,
-  "total_research_reports": 4235,
+  "total_research_reports": 4239,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 140
