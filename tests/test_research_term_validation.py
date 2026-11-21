@@ -133,3 +133,42 @@ def test_term_validation_can_be_switched_off(tmp_path) -> None:
     assert "--validate-terms" not in hypothesis_deep_research.build_command(
         record, validate_terms=False, **kwargs
     )
+
+
+def test_hypothesis_research_keeps_reference_validation_off_by_default(
+    tmp_path,
+) -> None:
+    """deep-research-client 0.2.15 validates references unless told not to.
+
+    The hypothesis runner never reference-validated, so after the upgrade it has
+    to say so explicitly, or every run would start resolving citations into the
+    client's own cache in the user's home directory.
+    """
+    record = hypothesis_deep_research.HypothesisRecord(
+        disease_slug="Long_COVID",
+        disease_name="Long COVID",
+        category="Complex",
+        hypothesis_group_id="canonical_persistence_immune_model",
+        hypothesis_label="Persistence",
+        status="EMERGING",
+        data={},
+    )
+    command = hypothesis_deep_research.build_command(
+        record,
+        provider="falcon",
+        output_root=tmp_path,
+        template=tmp_path / "t.md",
+        extra_args=[],
+    )
+
+    assert "--no-validate-references" in command
+    assert "--validate-references" not in command
+
+
+def test_caller_supplied_reference_flags_win() -> None:
+    args = hypothesis_deep_research.reference_validation_args
+    assert args([]) == ["--no-validate-references"]
+    assert args(["--validate-references"]) == []
+    assert args(["--no-validate-references"]) == []
+    assert args(["--validation-cache-dir", "references_cache"]) == []
+    assert args(["--validate-terms"]) == ["--no-validate-references"]
