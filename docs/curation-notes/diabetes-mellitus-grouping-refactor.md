@@ -1,14 +1,12 @@
 # Diabetes mellitus: grouping refactor + pathophysiology migration map
 
-**Status:** A2 largely done. Grouping landed; shared cascade is the
-`diabetic_vascular_complications` module; T1D/T2D/T5 conform to it; **the
-umbrella's blended mechanism graph has been retired** (3367→2024 lines) and
-replaced with a single node conforming to `#Chronic Hyperglycemia`. Remaining
-(deferred): reallocating the umbrella's still-blended
-`phenotypes`/`biochemical`/`genetic`/`treatments`/`clinical_trials`/`datasets`/
-`computational_models` sections (type-specific → per-type entry; cross-cutting →
-keep), and optionally promoting high-value subtypes (MODY genes, neonatal
-diabetes) to standalone entries so the umbrella could eventually be fully retired.
+**Status:** Done. The umbrella Disease entry `kb/disorders/Diabetes_Mellitus.yaml`
+has been retired. Diabetes mellitus is now the `Diabetes_Mellitus` grouping
+(holding `MONDO:0005015` as an exactMatch), the `diabetic_vascular_complications`
+module, and the member entries: type 1, type 2, type 5 and gestational diabetes,
+plus a nested `Monogenic_Diabetes` grouping over maturity-onset diabetes of the
+young, permanent and transient neonatal diabetes, and the syndromic monogenic
+forms. The sections below record how it got there.
 
 ## Problem
 
@@ -156,10 +154,40 @@ replaced with the single conforming node); **steps 4–5 DEFERRED**:
    mechanism without re-deriving it.
 3. ✅ **Keep** `has_subtypes` (the subtype catalog), the case-definition and USPSTF
    screening `definitions`, and disease-level framing.
-4. ⬜ **Reallocate** the blended `phenotypes` / `biochemical` / `genetic` /
-   `treatments` / `clinical_trials` / `datasets` / `computational_models`:
-   cross-cutting items stay; type-specific items are dropped if already covered by
-   the standalone entry, migrated if not.
-5. ⬜ Longer term, consider promoting the high-value subtypes (esp. MODY genes,
-   neonatal diabetes) to standalone entries + Grouping members, at which point the
-   umbrella Disease could be fully retired.
+4. ✅ **Reallocate** the blended sections. Type-specific rows already covered
+   by a per-type entry were deleted (T1/T2 susceptibility genes INS, PTPN22,
+   IL2RA, CTLA4, TCF7L2, PPARG, KCNJ11, SLC30A8; obesity, hyperinsulinaemia,
+   impaired glucose tolerance, DKA; metformin, GLP-1 RA, SGLT2i, tirzepatide,
+   teplizumab; the four type 2 metabolic models and BioProject datasets; the
+   type-specific exposures; two duplicate progression stages). Rows with no
+   per-type counterpart were moved: HLA-DQA1/DQB1 (as HGNC-bound records beside
+   the type 1 entry's DQ2/DQ8 haplotype rows), the teplizumab prevention trial
+   and the UVA/Padova simulator to type 1; the tirzepatide and empagliflozin
+   trials and the prediabetes stage to type 2; the pregnancy-onset stage to
+   gestational diabetes. LADA and SAID moved to the type 1 entry's
+   `has_subtypes`. What stays is cross-cutting: complication phenotypes, the
+   osmotic symptoms, HbA1c and glucose, insulin, monitoring, diet and exercise,
+   differential diagnoses, case definitions, drug- and checkpoint-inhibitor
+   exposures, and the share-of-diabetes prevalence rows, plus the monogenic
+   catalogue.
+5. ✅ **Retire the umbrella.** The monogenic catalogue became three entries,
+   each one genetically heterogeneous disease with a subtype per gene, the
+   pattern used for other locus-heterogeneous Mendelian diseases and the way
+   MONDO and GeneReviews divide them: `Maturity-Onset_Diabetes_of_the_Young`
+   (MODY 1-4, 6, 8, 10, 12, 13 and renal cysts and diabetes), with KLF11, PAX4,
+   BLK and APPL1 as DISPUTED genetic rows rather than subtypes;
+   `Permanent_Neonatal_Diabetes_Mellitus` (PNDM1-4, PTF1A, EIF2B1, and a pointer
+   to NDM-CH); and `Transient_Neonatal_Diabetes_Mellitus` (6q24 TNDM1, TNDM2,
+   TNDM3). The single monogenic beta-cell node was split into mechanism nodes
+   that state each gene's lost molecular function. Syndromic genes already
+   curated in their own entries (WFS1, CISD2, EIF2AK3, SLC19A2, GLIS3) were
+   not duplicated; heterozygous RFX6 stays a MODY gene, while biallelic RFX6 is
+   Mitchell-Riley syndrome. The remaining cross-cutting rows moved to the per-type
+   entries, except the disease-level case definition and a generic
+   environmental-determinants row, which only framed "diabetes in general" and
+   are carried by the grouping's description. Maternally-inherited diabetes and
+   deafness and lipoatrophic diabetes, which had no curated content, are in the
+   stub queue. Diabetic ketoacidosis, which MONDO places under diabetes
+   mellitus, is curated as a phenotype of the type entries. The two comorbidity
+   entries that anchored on the umbrella keep `MONDO:0005015` as their claim,
+   because their sources do not stratify by type, and no longer carry a slug.

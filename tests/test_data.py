@@ -923,6 +923,12 @@ def check_subtype_foreign_keys(filepath, data=None):
                 errors.append(
                     f"genetic[{i}].gene_disease_validity[{j}].subtype={val!r}"
                 )
+    for i, tx in enumerate(data.get("treatments", []) or []):
+        for j, em in enumerate(tx.get("effect_modifiers", []) or []):
+            for slot in ("stratum_subtype", "comparator_subtype"):
+                val = em.get(slot)
+                if val and not valid_subtypes:
+                    errors.append(f"treatments[{i}].effect_modifiers[{j}].{slot}={val!r}")
     if not valid_subtypes:
         assert not errors, (
             f"Subtype FK mismatches in {Path(filepath).name}: no has_subtypes "
@@ -955,6 +961,14 @@ def check_subtype_foreign_keys(filepath, data=None):
                         f"{section}[{i}].phenotype_contexts[{j}].subtype={val!r}"
                     )
 
+    # treatments[].effect_modifiers[].stratum_subtype / comparator_subtype
+    for i, tx in enumerate(data.get("treatments", []) or []):
+        for j, em in enumerate(tx.get("effect_modifiers", []) or []):
+            for slot in ("stratum_subtype", "comparator_subtype"):
+                val = em.get(slot)
+                if val and val not in valid_subtypes:
+                    errors.append(f"treatments[{i}].effect_modifiers[{j}].{slot}={val!r}")
+
     # mechanistic_hypotheses.applies_to_subtypes
     for i, hyp in enumerate(data.get("mechanistic_hypotheses", [])):
         for val in hyp.get("applies_to_subtypes", []):
@@ -967,6 +981,49 @@ def check_subtype_foreign_keys(filepath, data=None):
         f"Subtype FK mismatches in {Path(filepath).name}. "
         f"Valid subtypes: {valid_subtypes}. Bad refs: {errors}"
     )
+
+
+def check_subtype_derivations(filepath, data=None):
+    """A subtype's derivation must say what its boundary_type implies.
+
+    ``SubtypeDerivation.boundary_type`` distinguishes a discrete kind from a
+    data-driven cluster. The value alone is cheap to write and says nothing a
+    reader can check, so:
+
+    - a ``STATISTICAL_PARTITION`` must name the method, the features it was
+      computed over, and cite a source: a cluster is only defined relative to
+      its feature set, and an uncited one cannot be reproduced;
+    - a ``CATEGORICAL`` subtype must not carry a partition method or features,
+      which would contradict it;
+    - an effect modifier typed ``DISEASE_SUBTYPE`` must name the subtype in
+      ``stratum_subtype``, or the type promises a foreign key that is absent.
+    """
+    data = _document(filepath, data)
+    errors = []
+    for i, st in enumerate(data.get("has_subtypes", []) or []):
+        der = st.get("derivation")
+        if not der:
+            continue
+        where = f"has_subtypes[{i}] ({st.get('name')!r}).derivation"
+        btype = der.get("boundary_type")
+        if btype == "STATISTICAL_PARTITION":
+            for slot in ("partition_method", "partition_features", "evidence"):
+                if not der.get(slot):
+                    errors.append(f"{where}: STATISTICAL_PARTITION needs {slot}")
+        elif btype == "CATEGORICAL":
+            for slot in ("partition_method", "partition_features"):
+                if der.get(slot):
+                    errors.append(f"{where}: CATEGORICAL contradicts {slot}")
+    for i, tx in enumerate(data.get("treatments", []) or []):
+        for j, em in enumerate(tx.get("effect_modifiers", []) or []):
+            if em.get("effect_modifier_type") == "DISEASE_SUBTYPE" and not em.get(
+                "stratum_subtype"
+            ):
+                errors.append(
+                    f"treatments[{i}].effect_modifiers[{j}]: DISEASE_SUBTYPE "
+                    f"needs stratum_subtype"
+                )
+    assert not errors, f"Subtype derivation problems in {Path(filepath).name}: {errors}"
 
 
 def check_entity_ref_foreign_keys(filepath, data=None):
@@ -2491,6 +2548,7 @@ DISORDER_CHECKS = (
     check_evidence_items_have_references,
     check_non_therapeutic_actions_do_not_use_treatment_targets,
     check_subtype_foreign_keys,
+    check_subtype_derivations,
     check_experimental_model_mechanism_targets,
     check_computational_model_mechanism_targets,
     check_environmental_mechanism_targets,

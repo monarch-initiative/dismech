@@ -83,6 +83,7 @@ __all__ = [
     "KNOWN_KIND_SLOTS",
     "REFERENCE_ONLY_SLOTS",
     "REF_SLOTS",
+    "CLUSTER_DATA_KINDS",
     "SECTION_KEYS",
     "SINGLETON_SECTIONS",
     "EntityRef",
@@ -211,8 +212,21 @@ SECTION_KEYS: dict[str, tuple[str, tuple[str, ...]]] = {
 #: ``target_mechanisms`` for plain node names, so a ``target`` without a ``#``
 #: is simply not an entity reference and is skipped by the parser.
 REF_SLOTS: frozenset[str] = frozenset(
-    {"attaches_to", "measures", "would_support", "would_refute", "target"}
+    {
+        "attaches_to",
+        "measures",
+        "would_support",
+        "would_refute",
+        "target",
+        "cluster_data",
+    }
 )
+
+#: ``SubtypeDerivation.cluster_data`` may point only at the data a partition
+#: was computed from: a dataset record or a computational model. Any other
+#: kind resolves (it is in `SECTION_KEYS`) but names something that is not
+#: data, so `entity_ref_errors` rejects it.
+CLUSTER_DATA_KINDS: frozenset[str] = frozenset({"datasets", "computational_models"})
 
 #: Ref-bearing slot -> the slot a prose *outcome* belongs in instead (#9224).
 #:
@@ -240,7 +254,11 @@ REFERENCE_ONLY_SLOTS: dict[str, str] = {
 #: node names in `ModelMechanismLink` and `target_mechanisms`, and its 8
 #: unknown-kind values in `kb/` (`gene#`, `biological_process#`) look like real
 #: missing `SECTION_KEYS` entries rather than typos.
-KNOWN_KIND_SLOTS = frozenset(REFERENCE_ONLY_SLOTS) | {"attaches_to", "measures"}
+KNOWN_KIND_SLOTS = frozenset(REFERENCE_ONLY_SLOTS) | {
+    "attaches_to",
+    "measures",
+    "cluster_data",
+}
 
 
 def canonical_kind(kind: str) -> str:
@@ -475,7 +493,11 @@ def entity_ref_errors(data: dict) -> list[str]:
                 # `target` carries plain node names in its other homes, so a
                 # value without a `#` there is simply not a reference.
                 continue
-            if site.slot == "attaches_to" or site.ref in item_names:
+            if (
+                site.slot in ("attaches_to", "cluster_data")
+                or site.slot not in REFERENCE_ONLY_SLOTS
+                or site.ref in item_names
+            ):
                 # A value naming a real item is a reference missing its
                 # prefix, not a misfiled outcome -- telling a curator to move
                 # it into the prose slot would undo a working pointer.
@@ -500,6 +522,16 @@ def entity_ref_errors(data: dict) -> list[str]:
             errors.append(
                 f"{site.path}={_abbrev(site.ref)!r} uses the unknown section "
                 f"{parsed.kind + '#'!r}; use a section in `SECTION_KEYS`{fix}"
+            )
+            continue
+        if (
+            site.slot == "cluster_data"
+            and canonical_kind(parsed.kind) not in CLUSTER_DATA_KINDS
+        ):
+            errors.append(
+                f"{site.path}={_abbrev(site.ref)!r} names a "
+                f"{parsed.kind + '#'!r} item; cluster_data may only point at "
+                f"datasets# or computational_models#"
             )
             continue
         if resolve_entity_ref(data, site.ref) is False:
