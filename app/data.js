@@ -300228,22 +300228,26 @@ window.searchData = [
       "Loss of Merlin-Dependent Growth Restraint",
       "YAP and TAZ Activation",
       "Schwannoma Formation",
+      "Tumour Angiogenesis",
       "Tumour Mass Effect on the Eighth Nerve"
     ],
     "cell_types": [
       "Schwann cell",
       "meningothelial cell",
-      "ependymal cell"
+      "ependymal cell",
+      "tumour vascular endothelial cell"
     ],
     "cell_type_ids": [
       "CL:0002573",
       "CL:0002379",
-      "CL:0000065"
+      "CL:0000065",
+      "CL:0000071"
     ],
     "biological_processes": [
       "hippo signaling",
       "negative regulation of cell population proliferation",
-      "TEAD-dependent transcriptional activation by YAP and TAZ"
+      "TEAD-dependent transcriptional activation by YAP and TAZ",
+      "angiogenesis"
     ],
     "phenotypes": [
       "Bilateral vestibular schwannoma",
@@ -300386,11 +300390,11 @@ window.searchData = [
     "source_file": "NF2-Related_Schwannomatosis.yaml",
     "page_url": "../pages/disorders/NF2-Related_Schwannomatosis.html",
     "num_phenotypes": 49,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "NGLY1-congenital disorder of deglycosylation",
@@ -421981,19 +421985,25 @@ window.searchData = [
       "Anotia",
       "Hearing impairment",
       "Microphthalmia",
+      "Coloboma",
+      "Strabismus",
       "Duane anomaly",
       "Congenital heart defect",
-      "Renal malformation"
+      "Renal malformation",
+      "Chronic pain",
+      "Osteoarthritis"
     ],
     "phenotype_categories": [
       "Skeletal",
       "Head and Neck",
       "Eye",
       "Cardiovascular",
-      "Genitourinary"
+      "Genitourinary",
+      "Constitutional"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Constitutional",
       "Ear",
       "Eye",
       "Genitourinary",
@@ -422007,24 +422017,34 @@ window.searchData = [
       "HP:0009892",
       "HP:0000365",
       "HP:0000568",
+      "HP:0000589",
+      "HP:0000486",
       "HP:0009921",
       "HP:0001627",
-      "HP:0000077"
+      "HP:0000077",
+      "HP:0012532",
+      "HP:0002758"
     ],
     "frequencies": [],
     "genes": [],
-    "treatments": [],
+    "treatments": [
+      "Limb reconstruction",
+      "Carpal tunnel decompression",
+      "Joint arthroplasty for secondary osteoarthritis",
+      "Psychosocial and mental health care",
+      "Pregnancy prevention programme and controlled distribution"
+    ],
     "environmental": [
       "Maternal thalidomide intake during the critical window"
     ],
     "biochemical": [],
     "source_file": "Thalidomide_Embryopathy.yaml",
     "page_url": "../pages/disorders/Thalidomide_Embryopathy.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 13,
     "num_pathophysiology": 6,
     "num_genes": 0,
-    "num_treatments": 0,
-    "causal_graph_edges": "12",
+    "num_treatments": 5,
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "5"
   },
   {
@@ -449925,14 +449945,14 @@ window.searchMetrics = {
   "total_disorder_pages": 4141,
   "total_subtypes": 5111,
   "total_disorders_and_subtypes": 9252,
-  "total_unique_evidence_sources": 61861,
-  "total_unique_publications": 57790,
+  "total_unique_evidence_sources": 61894,
+  "total_unique_publications": 57821,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4139,
-  "total_unique_pathological_events": 27369,
+  "total_unique_pathological_events": 27370,
   "total_modules": 237,
-  "total_research_reports": 4239,
+  "total_research_reports": 4240,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 143
