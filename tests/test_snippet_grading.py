@@ -33,6 +33,9 @@ from scripts.check_snippet_grading import (
     new_cross_file_findings,
     new_findings,
     resolve_baseline,
+    resolve_selection,
+    restrict_cross_file,
+    select_documents,
     within_file_findings,
     write_baseline,
     write_cross_file_baseline,
@@ -598,3 +601,102 @@ def test_resolve_cross_file_baseline_falls_back_to_its_own_file(monkeypatch):
     assert resolve_baseline("bad-ref", cross_file=True) == load_baseline(
         CROSS_FILE_BASELINE_PATH
     )
+
+
+# -- restricting the report to named paths (#15991) ----------------------------
+
+
+def _kb(tmp_path: Path) -> Path:
+    scan = tmp_path / "kb" / "disorders"
+    scan.mkdir(parents=True)
+    for name in ("A.yaml", "B.yaml"):
+        (scan / name).write_text("name: x\n", encoding="utf-8")
+    return scan
+
+
+def test_no_paths_means_scan_everything(tmp_path):
+    """``None`` is not the empty set: it must not be confused with "nothing"."""
+    selected, problems = resolve_selection([], rel_to=tmp_path, scan_dir=_kb(tmp_path))
+    assert selected is None and problems == []
+
+
+def test_a_named_file_is_selected_by_its_relative_path(tmp_path):
+    scan = _kb(tmp_path)
+    selected, problems = resolve_selection(
+        ["kb/disorders/A.yaml"], rel_to=tmp_path, scan_dir=scan
+    )
+    assert selected == frozenset({"kb/disorders/A.yaml"}) and problems == []
+
+
+def test_a_named_directory_selects_the_yaml_below_it(tmp_path):
+    scan = _kb(tmp_path)
+    selected, _ = resolve_selection(["kb/disorders"], rel_to=tmp_path, scan_dir=scan)
+    assert selected == frozenset({"kb/disorders/A.yaml", "kb/disorders/B.yaml"})
+
+
+def test_a_path_outside_the_scan_dir_is_reported(tmp_path):
+    scan = _kb(tmp_path)
+    (tmp_path / "elsewhere.yaml").write_text("name: x\n", encoding="utf-8")
+    selected, problems = resolve_selection(
+        ["elsewhere.yaml"], rel_to=tmp_path, scan_dir=scan
+    )
+    assert selected == frozenset() and len(problems) == 1
+    assert "not under" in problems[0]
+
+
+def test_a_missing_path_is_reported_rather_than_selecting_nothing(tmp_path):
+    """A typo that selected nothing would otherwise read as a clean run."""
+    scan = _kb(tmp_path)
+    _, problems = resolve_selection(
+        ["kb/disorders/Nope.yaml"], rel_to=tmp_path, scan_dir=scan
+    )
+    assert len(problems) == 1 and "no such file" in problems[0]
+
+
+def test_within_file_comparison_is_narrowed_before_it_runs():
+    """The selection narrows the input, so the skipped work is never done."""
+    document = _doc(_item(SENTENCE), _item(SENTENCE, evidence_source="IN_VITRO"))
+    documents = [("kb/disorders/A.yaml", document), ("kb/disorders/B.yaml", document)]
+    excerpt_fields, reference_fields = csg._field_names(None)
+
+    def _run(selected):
+        return within_file_findings(
+            select_documents(documents, selected),
+            excerpt_fields,
+            reference_fields,
+            GATED_FIELDS,
+        )
+
+    assert {f[0] for f in _run(None)} == {
+        "kb/disorders/A.yaml",
+        "kb/disorders/B.yaml",
+    }
+    assert {f[0] for f in _run(frozenset({"kb/disorders/A.yaml"}))} == {
+        "kb/disorders/A.yaml"
+    }
+    assert _run(frozenset()) == []
+
+
+def test_cross_file_keeps_a_pair_whose_other_side_was_not_named():
+    """The untouched side may be the file that is wrong, so it stays in scope."""
+    found = _cross(
+        ("kb/disorders/A.yaml", _doc(_item(SENTENCE))),
+        ("kb/disorders/B.yaml", _doc(_item(SENTENCE, evidence_source="IN_VITRO"))),
+    )
+    assert len(found) == 1
+    assert restrict_cross_file(found, frozenset({"kb/disorders/A.yaml"})) == found
+    assert restrict_cross_file(found, frozenset({"kb/disorders/B.yaml"})) == found
+    assert restrict_cross_file(found, frozenset({"kb/disorders/C.yaml"})) == []
+    assert restrict_cross_file(found, None) == found
+
+
+def test_update_baseline_refuses_a_path_restriction(capsys):
+    """A partial write would drop every unselected file's grandfathered findings."""
+    assert csg.main(["--update-baseline", "kb/disorders"]) == 2
+    assert "cannot be restricted to paths" in capsys.readouterr().err
+
+
+def test_a_bad_path_exits_without_scanning(capsys):
+    assert csg.main(["--count", "docs"]) == 2
+    assert "not under" in capsys.readouterr().err
+
