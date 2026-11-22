@@ -5625,6 +5625,156 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "ACBD6-Related Neurodevelopmental Disorder",
+    "disease_id": "MONDO:0968976",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-11-21T21:28:18Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive disorder caused by biallelic, mostly loss-of-function variants in ACBD6 (MONDO:0968976, OMIM 620785). It begins in infancy with moderate-to-severe global developmental delay and intellectual disability with very limited speech, and a complex movement disorder develops on top of it: dystonia, typically truncal with a stooped and laterally flexed posture, together with mild cerebellar ataxia, limb spasticity, jerky tremor of the arms and head, and, from the second decade, parkinsonism. Motor and cognitive abilities deteriorate with age. Facial dysmorphism without a recognizable gestalt, oculomotor and behavioural abnormalities, microcephaly and seizures are common, and brain MRI usually shows hypoplasia or agenesis of the corpus callosum and anterior commissure. ACBD6 is an acyl-CoA-binding protein that supports protein N-myristoylation by N-myristoyltransferases; patient cells lack the protein and show altered N-myristoylation, but how this leads to the neurological disease is not known. The disease was defined in a 2024 cohort of 45 individuals from 28 families. There is no disease-specific treatment.",
+    "pathophysiology": [
+      "Biallelic ACBD6 Loss-of-Function Variant",
+      "ACBD6 Protein Deficiency",
+      "Dysregulated Protein N-Myristoylation",
+      "Reduced Lysophospholipid Acylation",
+      "Abnormal Brain Development",
+      "Presumed Progressive Neurodegeneration"
+    ],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "protein N-myristoylation",
+      "phosphatidylcholine acyl-chain remodelling",
+      "brain development",
+      "corpus callosum development"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Intellectual Disability",
+      "Expressive Language Impairment",
+      "Delayed Walking",
+      "Dystonia",
+      "Camptocormia",
+      "Lateral Trunk Flexion",
+      "Limb Dystonia",
+      "Cervical Dystonia",
+      "Cerebellar Ataxia",
+      "Limb Spasticity",
+      "Gait Abnormality",
+      "Upper Limb Tremor",
+      "Head Tremor",
+      "Parkinsonism",
+      "Tics",
+      "Progressive Motor and Cognitive Deterioration",
+      "Seizures",
+      "Microcephaly",
+      "Facial Dysmorphism",
+      "Oculomotor Abnormalities",
+      "Autistic Features",
+      "Aggressive Behavior",
+      "Hyperactivity",
+      "Sleep Disturbance",
+      "Urinary Incontinence",
+      "Overweight",
+      "Signs of Premature Ageing",
+      "Corpus Callosum Hypoplasia or Agenesis",
+      "Anterior Commissure Hypoplasia or Agenesis",
+      "Small Inferior Cerebellar Vermis",
+      "Ventriculomegaly",
+      "Pancytopenia",
+      "Type 2 Diabetes Mellitus",
+      "Liver Cirrhosis",
+      "End-Stage Renal Disease"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Imaging"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0002474",
+      "HP:0031936",
+      "HP:0001332",
+      "HP:0100595",
+      "HP:0002530",
+      "HP:0002451",
+      "HP:0000473",
+      "HP:0001251",
+      "HP:0001257",
+      "HP:0001288",
+      "HP:0001337",
+      "HP:0002346",
+      "HP:0001300",
+      "HP:0100033",
+      "HP:0002344",
+      "HP:0001250",
+      "HP:0000252",
+      "HP:0001999",
+      "HP:0000496",
+      "HP:0000729",
+      "HP:0000718",
+      "HP:0000752",
+      "HP:0002360",
+      "HP:0000020",
+      "HP:0025502",
+      "HP:0007495",
+      "HP:0007370",
+      "HP:0030301",
+      "HP:0007068",
+      "HP:0002119",
+      "HP:0001876",
+      "HP:0005978",
+      "HP:0001394",
+      "HP:0003774"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ACBD6"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Levodopa Trial",
+      "Tendon Release Surgery"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ACBD6-Related_Neurodevelopmental_Disorder.yaml",
+    "page_url": "../pages/disorders/ACBD6-Related_Neurodevelopmental_Disorder.html",
+    "num_phenotypes": 36,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "ACCES Syndrome",
     "disease_id": "MONDO:0859262",
     "category": "Mendelian",
@@ -43375,7 +43525,7 @@ window.searchData = [
     "creation_date": "2026-02-13T00:31:42Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Autosomal dominant osteopetrosis type II (ADO2), also known as Albers-Schonberg disease, is the most common form of osteopetrosis. It is caused by heterozygous mutations in the CLCN7 chloride channel gene, which acts through a dominant negative mechanism since chloride channels function as dimers. The disease has incomplete penetrance (66%) and variable expressivity. Clinical features include increased skeletal density, recurrent fractures, osteomyelitis (particularly mandibular), and cranial nerve complications including visual impairment, hearing loss, and facial palsy. CLCN7 mutations also cause autosomal recessive osteopetrosis when homozygous, establishing ADO2 as allelic with a subset of infantile malignant osteopetrosis.\n",
+    "description": "Autosomal dominant osteopetrosis type II (ADO2), also known as Albers-Schonberg disease, is the most common form of osteopetrosis. It is caused by heterozygous mutations in CLCN7, which encodes the lysosomal chloride/proton antiporter ClC-7. The mutations act through a dominant negative mechanism, since ClC proteins function as dimers. The disease has incomplete penetrance (66%) and variable expressivity. Clinical features include increased skeletal density, recurrent fractures, osteomyelitis (particularly mandibular), and cranial nerve complications including visual impairment, hearing loss, and facial palsy. CLCN7 mutations also cause autosomal recessive osteopetrosis when homozygous, establishing ADO2 as allelic with a subset of infantile malignant osteopetrosis.\n",
     "pathophysiology": [
       "CLCN7 Dominant Negative Chloride Channel Dysfunction",
       "Impaired Resorption Lacuna Acidification",
@@ -98179,12 +98329,19 @@ window.searchData = [
       "Idiosyncratic Bone Marrow Aplasia"
     ],
     "cell_types": [
-      "erythroid progenitor cell"
+      "hepatocyte",
+      "erythroid progenitor cell",
+      "cardiac muscle cell",
+      "hematopoietic stem cell"
     ],
     "cell_type_ids": [
-      "CL:0000038"
+      "CL:0000182",
+      "CL:0000038",
+      "CL:0000746",
+      "CL:0000037"
     ],
     "biological_processes": [
+      "xenobiotic metabolic process",
       "mitochondrial translation",
       "oxidative phosphorylation"
     ],
@@ -98248,7 +98405,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "23",
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "5"
   },
   {
@@ -118641,8 +118798,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Congenital Myasthenic Syndrome 7",
@@ -134631,7 +134788,7 @@ window.searchData = [
     ],
     "phenotypes": [
       "Carious Teeth",
-      "Enamel Hypomineralization",
+      "Non-Cavitated Enamel Caries Lesion",
       "Tooth Abscess"
     ],
     "phenotype_categories": [
@@ -134639,15 +134796,15 @@ window.searchData = [
     ],
     "phenotype_hpo_categories": [
       "Head and Neck",
-      "Immune",
-      "Musculoskeletal"
+      "Immune"
     ],
     "phenotype_ids": [
       "HP:0000670",
-      "HP:0006285",
       "HP:0030757"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
     "genes": [],
     "treatments": [
       "Fluoride Therapy",
@@ -134669,8 +134826,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 6,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Dental Fluorosis",
@@ -138834,14 +138991,19 @@ window.searchData = [
       "Patent ductus arteriosus",
       "Ventricular septal defect",
       "Left ventricular outflow tract obstruction",
-      "Heart failure"
+      "Heart failure",
+      "Tachypnea",
+      "Failure to thrive",
+      "Cardiomegaly"
     ],
     "phenotype_categories": [
       "Clinical"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
-      "Integument"
+      "Growth",
+      "Integument",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0031348",
@@ -138850,9 +139012,14 @@ window.searchData = [
       "HP:0001643",
       "HP:0001629",
       "HP:0032092",
-      "HP:0001635"
+      "HP:0001635",
+      "HP:0002789",
+      "HP:0001508",
+      "HP:0001640"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "FREQUENT"
+    ],
     "genes": [
       "Laterality and transcription-factor gene variants",
       "Common-variant polygenic susceptibility (WNT5A locus)"
@@ -138868,12 +139035,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Dextro_Transposition_of_the_Great_Arteries.yaml",
     "page_url": "../pages/disorders/Dextro-Transposition_of_the_Great_Arteries.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 10,
     "num_pathophysiology": 3,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Diabetes Deafness Developmental Delay and Short Stature Syndrome",
@@ -272622,7 +272789,13 @@ window.searchData = [
       "PRKAR1A"
     ],
     "treatments": [
-      "Surgical resection"
+      "Surgical resection",
+      "Adjuvant radiotherapy",
+      "Stereotactic radiosurgery",
+      "Craniospinal irradiation for leptomeningeal spread",
+      "Pembrolizumab before resection",
+      "Anlotinib with radiotherapy",
+      "Cytotoxic chemotherapy"
     ],
     "environmental": [],
     "biochemical": [],
@@ -272631,8 +272804,8 @@ window.searchData = [
     "num_phenotypes": 3,
     "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "9",
+    "num_treatments": 7,
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "5"
   },
   {
@@ -314966,10 +315139,12 @@ window.searchData = [
     "phenotypes": [
       "Orofacial gangrene",
       "Oral ulcer",
+      "Halitosis",
+      "Orofacial pain",
       "Facial edema",
       "Fever",
       "Facial disfigurement",
-      "Dysphagia",
+      "Feeding difficulties",
       "Speech impairment",
       "Trismus",
       "Dental abnormalities",
@@ -314990,32 +315165,43 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0100758",
       "HP:0000155",
+      "HP:0100812",
+      "HP:0046506",
       "HP:0000282",
       "HP:0001945",
       "HP:0000271",
-      "HP:0002015",
+      "HP:0011968",
       "HP:0002167",
       "HP:0000211",
       "HP:0000164",
       "HP:0004395"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "77%",
+      "54.4%",
+      "38.8%"
+    ],
     "genes": [],
     "treatments": [
       "Antibiotic Therapy",
+      "Local Oral Hygiene and Antiseptic Wound Care",
       "Surgical Rehabilitation",
       "Nutritional Support"
     ],
-    "environmental": [],
+    "environmental": [
+      "Protein-energy malnutrition",
+      "Extreme poverty",
+      "Concomitant systemic infections (measles, malaria, and HIV)"
+    ],
     "biochemical": [],
     "source_file": "Noma.yaml",
     "page_url": "../pages/disorders/Noma.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 12,
     "num_pathophysiology": 2,
     "num_genes": 0,
-    "num_treatments": 3,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 4,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Non-24-Hour Sleep-Wake Rhythm Disorder",
@@ -431312,6 +431498,97 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "UQCRC1-Related Parkinsonism With Polyneuropathy",
+    "disease_id": "MONDO:0036193",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary neurological disease"
+    ],
+    "creation_date": "2026-11-21T21:46:14Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "UQCRC1-related parkinsonism with polyneuropathy (PKNPY; OMIM 619279) is a late-onset autosomal dominant movement disorder first described in 2020 in Taiwanese and Japanese families. UQCRC1 encodes ubiquinol-cytochrome c reductase core protein 1, one of the two non-catalytic core proteins of mitochondrial respiratory chain complex III; it carries no Q-cycle redox chemistry itself but stabilises the complex III homodimer. The reported heterozygous missense variants p.Tyr314Ser and p.Ile311Leu alter conserved residues required for homodimerisation, and structural modelling and functional assays indicate they destabilise the complex and selectively reduce complex III activity, raising reactive oxygen species and impairing ATP production. Affected carriers develop asymmetrical, tremor-predominant, levodopa-responsive parkinsonism with onset between the late forties and the mid-sixties, together with a slowly progressive, length-dependent axonal sensorimotor polyneuropathy that begins distally in the limbs, often years before the motor signs; anxiety is common. CRISPR knock-in human dopaminergic cells, Drosophila and mice recapitulate age-dependent locomotor decline, nigral dopaminergic loss, striatal dopamine deficiency and peripheral nerve degeneration, and the mouse motor phenotype improves with levodopa. The gene's status as a Parkinson disease gene is contested: multiple candidate-gene cohorts in European and Chinese populations did not replicate an association, while a UK Biobank analysis of ~500,000 people linked rare UQCRC1 protein-truncating variants to Parkinson disease risk and a further Austrian family and functional studies support pathogenicity.",
+    "pathophysiology": [
+      "UQCRC1 Homodimer-Interface Missense Variant",
+      "Complex III Homodimer Destabilization",
+      "Reduced Complex III Activity",
+      "Impaired Mitochondrial Respiration and ATP Production",
+      "Increased Reactive Oxygen Species Production",
+      "Impaired PINK1-Dependent Mitophagy",
+      "Cytochrome c Release and Neuronal Apoptosis",
+      "Nigrostriatal Dopaminergic Neurodegeneration",
+      "Striatal Dopamine Deficiency",
+      "Peripheral Axonal Degeneration"
+    ],
+    "cell_types": [
+      "dopaminergic neuron",
+      "peripheral nervous system neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000700",
+      "CL:2000032"
+    ],
+    "biological_processes": [
+      "electron transfer from ubiquinol to cytochrome c (complex III)",
+      "ATP synthesis coupled electron transport",
+      "reactive oxygen species production",
+      "mitophagy",
+      "release of cytochrome c from mitochondria",
+      "neuron apoptotic process",
+      "dopamine secretion"
+    ],
+    "phenotypes": [
+      "Parkinsonism",
+      "Resting tremor",
+      "Polyneuropathy",
+      "Distal muscle weakness",
+      "Distal sensory impairment",
+      "Areflexia",
+      "Anxiety",
+      "Depression"
+    ],
+    "phenotype_categories": [
+      "Motor",
+      "Neurologic",
+      "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001300",
+      "HP:0002322",
+      "HP:0007141",
+      "HP:0002460",
+      "HP:0002936",
+      "HP:0001284",
+      "HP:0000739",
+      "HP:0000716"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "UQCRC1"
+    ],
+    "treatments": [
+      "Levodopa with Peripheral Decarboxylase Inhibitor"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "UQCRC1-Related_Parkinsonism_With_Polyneuropathy.yaml",
+    "page_url": "../pages/disorders/UQCRC1-Related_Parkinsonism_With_Polyneuropathy.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "USP8-related pituitary adenoma 4",
     "disease_id": "MONDO:0009050",
     "category": "Neoplastic",
@@ -449942,17 +450219,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4141,
+  "total_disorder_pages": 4143,
   "total_subtypes": 5111,
-  "total_disorders_and_subtypes": 9252,
-  "total_unique_evidence_sources": 61909,
-  "total_unique_publications": 57835,
+  "total_disorders_and_subtypes": 9254,
+  "total_unique_evidence_sources": 61942,
+  "total_unique_publications": 57865,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4139,
-  "total_unique_pathological_events": 27370,
+  "total_pathographs": 4141,
+  "total_unique_pathological_events": 27381,
   "total_modules": 237,
-  "total_research_reports": 4240,
+  "total_research_reports": 4242,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 143
