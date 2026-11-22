@@ -386149,7 +386149,7 @@ window.searchData = [
       "Neuroblastoma-like Schwannoma",
       "SMARCB1/LZTR1-Related"
     ],
-    "description": "Schwannoma is a benign, usually encapsulated, slow-growing peripheral nerve-sheath tumor composed almost entirely of neoplastic Schwann cells. The central molecular event is biallelic inactivation of the NF2 tumor suppressor gene and loss of its product merlin/schwannomin, which removes contact-dependent growth inhibition and de-represses downstream proliferative signaling \u2014 Hippo/YAP-TAZ-TEAD transcriptional output, receptor tyrosine kinase (ErbB2/3, IGF1R, PDGFR) accumulation with RAS-MAPK and PI3K-AKT activation, and mTORC1 signaling. Most schwannomas are sporadic and solitary, but they also arise in NF2-related schwannomatosis (characteristically bilateral vestibular schwannomas, meningiomas, and ependymomas) and in SMARCB1- or LZTR1-related schwannomatosis. Histologically schwannomas show compact, spindle-cell Antoni A areas with nuclear-palisading Verocay bodies, looser myxoid Antoni B areas, diffuse S-100/SOX10 positivity, and an encapsulated growth pattern. Recognized histologic variants include cellular, plexiform, melanotic/psammomatous, and epithelioid (SMARCB1/INI1-deficient) schwannoma. Malignant transformation is rare.",
+    "description": "Schwannoma is a benign, usually encapsulated, slow-growing peripheral nerve-sheath tumor composed almost entirely of neoplastic Schwann cells. The central molecular event is biallelic inactivation of the NF2 tumor suppressor gene and loss of its product merlin/schwannomin, which removes contact-dependent growth inhibition and de-represses downstream proliferative signaling \u2014 Hippo/YAP-TAZ-TEAD transcriptional output, receptor tyrosine kinase (ErbB2/3, IGF1R, PDGFR) accumulation with RAS-MAPK and PI3K-AKT activation, and mTORC1 signaling. Most schwannomas are sporadic and solitary, but they also arise in NF2-related schwannomatosis (characteristically bilateral vestibular schwannomas, meningiomas, and ependymomas) and in SMARCB1- or LZTR1-related schwannomatosis. Histologically schwannomas show compact, spindle-cell Antoni A areas with nuclear-palisading Verocay bodies, looser myxoid Antoni B areas, diffuse S-100/SOX10 positivity, and an encapsulated growth pattern. Recognized histologic variants include cellular, plexiform, and epithelioid (SMARCB1/INI1-deficient) schwannoma. Malignant transformation is rare. Melanotic (including psammomatous) schwannoma, once counted among the variants, is now classed by the WHO as a distinct tumor, the malignant melanotic nerve sheath tumor.",
     "pathophysiology": [
       "Biallelic NF2 Merlin Inactivation",
       "Loss of Contact-Dependent Growth Inhibition",
@@ -449945,8 +449945,8 @@ window.searchMetrics = {
   "total_disorder_pages": 4141,
   "total_subtypes": 5111,
   "total_disorders_and_subtypes": 9252,
-  "total_unique_evidence_sources": 61894,
-  "total_unique_publications": 57821,
+  "total_unique_evidence_sources": 61909,
+  "total_unique_publications": 57835,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4139,
