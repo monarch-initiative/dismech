@@ -12342,8 +12342,12 @@ window.searchData = [
       "Global Reduction of Spliceosomal Proteins",
       "Nuclear Envelope Invaginations"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
     "biological_processes": [
       "mRNA splicing, via spliceosome",
       "nuclear envelope organization"
@@ -12395,7 +12399,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "4"
   },
   {
