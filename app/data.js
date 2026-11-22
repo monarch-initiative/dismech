@@ -42062,15 +42062,18 @@ window.searchData = [
       "Heterozygous Pathogenic TECTA Variant",
       "Defective Tectorial Membrane Matrix Assembly",
       "Impaired Mechanical Coupling to Outer Hair Cell Stereocilia",
+      "Reduced Inner Hair Cell Drive at Best Frequency",
       "Cochlear Amplifier Failure",
       "Bilateral Sensorineural Hearing Loss",
       "Secondary Outer Hair Cell Vulnerability"
     ],
     "cell_types": [
-      "cochlear outer hair cell"
+      "cochlear outer hair cell",
+      "cochlear inner hair cell"
     ],
     "cell_type_ids": [
-      "CL:0000601"
+      "CL:0000601",
+      "CL:0000589"
     ],
     "biological_processes": [
       "tectorial membrane matrix assembly",
@@ -42116,10 +42119,10 @@ window.searchData = [
     "source_file": "Autosomal_Dominant_Nonsyndromic_Hearing_Loss_12.yaml",
     "page_url": "../pages/disorders/Autosomal_Dominant_Nonsyndromic_Hearing_Loss_12.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "6"
   },
   {
@@ -450226,12 +450229,12 @@ window.searchMetrics = {
   "total_disorder_pages": 4143,
   "total_subtypes": 5111,
   "total_disorders_and_subtypes": 9254,
-  "total_unique_evidence_sources": 61942,
-  "total_unique_publications": 57865,
+  "total_unique_evidence_sources": 61944,
+  "total_unique_publications": 57866,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4141,
-  "total_unique_pathological_events": 27381,
+  "total_unique_pathological_events": 27382,
   "total_modules": 237,
   "total_research_reports": 4242,
   "total_classifications": 21,
