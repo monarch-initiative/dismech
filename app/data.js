@@ -43771,7 +43771,8 @@ window.searchData = [
       "Kidney transplantation",
       "Somatostatin analogue therapy for symptomatic polycystic liver disease",
       "Specialist intervention for severe polycystic liver disease",
-      "Avoidance of nephrotoxic and liver-cyst-promoting exposures"
+      "Avoidance of nephrotoxic and liver-cyst-promoting exposures",
+      "Empagliflozin SGLT2 inhibitor therapy"
     ],
     "environmental": [],
     "biochemical": [
@@ -43783,7 +43784,7 @@ window.searchData = [
     "num_phenotypes": 30,
     "num_pathophysiology": 23,
     "num_genes": 9,
-    "num_treatments": 11,
+    "num_treatments": 12,
     "causal_graph_edges": "70",
     "causal_graph_longest_path": "8"
   },
@@ -304874,7 +304875,7 @@ window.searchData = [
     "creation_date": "2026-11-13T20:10:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "A mosaic disorder in which one post-zygotic NRAS mutation, arising in a melanoblast precursor before the neural crest has finished migrating, leaves melanocytic lesions in two places at once: congenital melanocytic naevi in the skin, and melanocytosis of the leptomeninges and brain parenchyma. The same codon 61 mutation is found in the skin and in the central nervous system lesions of one patient and is absent from their blood, which is what makes this one disease rather than two. Most central nervous system involvement is benign and much of it is silent, but it can obstruct cerebrospinal fluid flow, cause epilepsy, and transform to melanoma; symptomatic disease carries a poor prognosis. Non-melanocytic malformations - Dandy-Walker, arachnoid cysts, cortical dysplasia - occur in the same patients, and the non-melanocytic central nervous system samples that were sequenced in one series all carried the mutation. That series does not say which lesions those samples came from, so the mutation is established for the class and not for any named malformation.",
+    "description": "A mosaic disorder in which, in most patients, one post-zygotic NRAS mutation, arising in a melanoblast precursor before the neural crest has finished migrating, leaves melanocytic lesions in two places at once: congenital melanocytic naevi in the skin, and melanocytosis of the leptomeninges and brain parenchyma. The same codon 61 mutation is found in the skin and in the central nervous system lesions of one patient and is absent from their blood, which is what makes this one disease rather than two. Most central nervous system involvement is benign and much of it is silent, but it can obstruct cerebrospinal fluid flow, cause epilepsy, and transform to melanoma; new or progressive disease carries a poor prognosis, though symptoms alone need not. Non-melanocytic malformations - Dandy-Walker, arachnoid cysts, cortical dysplasia - occur in the same patients, and the non-melanocytic central nervous system samples that were sequenced in one series all carried the mutation. That series does not say which lesions those samples came from, so the mutation is established for the class and not for any named malformation.",
     "pathophysiology": [
       "Post-zygotic NRAS Codon 61 Mutation",
       "Mosaic Melanocytic Clone Spanning Skin and Neuraxis",
@@ -449924,8 +449925,8 @@ window.searchMetrics = {
   "total_disorder_pages": 4141,
   "total_subtypes": 5111,
   "total_disorders_and_subtypes": 9252,
-  "total_unique_evidence_sources": 61856,
-  "total_unique_publications": 57786,
+  "total_unique_evidence_sources": 61861,
+  "total_unique_publications": 57790,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4139,
