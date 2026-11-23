@@ -1829,6 +1829,7 @@ def test_reference_range_on_biochemical_validates(validator):
                         "evidence": [
                             {
                                 "reference": "PMID:12345678",
+                                "reference_title": "A placeholder title",
                                 "supports": "SUPPORT",
                                 "snippet": "serum potassium reference interval",
                             }
