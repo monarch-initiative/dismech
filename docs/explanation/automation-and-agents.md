@@ -318,7 +318,8 @@ be: a manual or comment-triggered run could be reviewing any PR, so it defers th
 whole sweep, under **Warnings** and as a run annotation; a `pull_request` run
 holds back only PRs on its own branch; and a run with no activity for 24 hours
 is treated as abandoned and holds back nothing, since runs that never leave the
-queue have been seen sitting there for weeks (#18787). Every retry/defer/skip
+queue have been seen sitting there for weeks (#18787). The same 24-hour rule
+applies to an active run that does belong to the PR being retried. Every retry/defer/skip
 appears in the Actions summary, without PR comment spam. API errors do not
 authorize retries. Discovery subdivides time ranges above the Actions API's
 1000-result limit rather than silently dropping older failures.

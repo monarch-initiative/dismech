@@ -149,6 +149,17 @@ def test_manual_review_still_running_defers_head_check_retry():
     assert reason(peers=[manual]) == "another review is queued or running"
 
 
+def test_abandoned_active_peer_does_not_hold_its_pr():
+    # A pull_request run queued on the PR's branch twelve days ago, and never
+    # started, used to answer "another review is queued or running" forever.
+    old = (NOW - timedelta(days=12)).isoformat()
+    stuck = run(id=21, status="queued", conclusion=None, created_at=old, updated_at=old)
+    assert reason(peers=[stuck]) is None
+    assert reason(peers=[stuck | {"updated_at": NOW.isoformat()}]) == (
+        "another review is queued or running"
+    )
+
+
 def test_manual_run_is_rerunnable_despite_main_sha():
     assert reason(run(event="workflow_dispatch", head_sha="main-sha")) is None
 
@@ -382,6 +393,9 @@ def test_describe_carries_stderr_safely():
     )
     assert retry.describe(subprocess.TimeoutExpired(["gh"], 120)) == "TimeoutExpired"
     assert retry.describe(KeyError("head")) == "KeyError"
+    assert (
+        retry.describe(RuntimeError("Too many runs")) == "RuntimeError: Too many runs"
+    )
     # One line, bounded, and unable to carry a routing phrase into a row.
     text = retry.describe(not_found("a: skipped; b\n`c`" + "x" * 500))
     assert "\n" not in text and "`" not in text and ": skipped;" not in text
@@ -423,6 +437,22 @@ def test_transient_lookup_failure_is_retried_once(monkeypatch):
     monkeypatch.setattr(retry, "pages", flaky)
     assert retry.current_review_runs("owner/repo", 7) == ([], [], 1)
     assert len(calls) == 2
+
+
+def test_lookup_retries_share_one_budget_per_sweep(monkeypatch):
+    sleeps = []
+    monkeypatch.setattr(retry.time, "sleep", sleeps.append)
+    monkeypatch.setattr(retry, "LOOKUP_RETRY_BUDGET", 2)
+    pulls = [pr(number=n) for n in range(5)]
+
+    def read_pages(path, key=None):
+        if path.endswith("pulls?state=open"):
+            return pulls
+        raise not_found()
+
+    monkeypatch.setattr(retry, "pages", read_pages)
+    _, warnings, inspected = retry.current_review_runs("o/r")
+    assert len(sleeps) == 2 and len(warnings) == 5 and inspected == 5
 
 
 def test_timeout_is_not_retried(monkeypatch):
@@ -501,6 +531,12 @@ def test_single_lookup_warning_neither_fails_nor_blocks_retry(monkeypatch):
     assert errors == 0 and len(writes) == 1
     summary = retry.render_summary("o/r", rows, False, 5)
     assert "### Warnings (1)" in summary and "### Errors" not in summary
+
+
+def test_stderr_saying_warning_does_not_move_an_error_row():
+    row = "PR #7, run 20: error (CalledProcessError: warning; x); no further action on this PR."
+    assert retry.row_group(row, "", "") == "Errors"
+    assert retry.row_group(WARNING, "", "") == retry.WARNINGS
 
 
 def test_lookup_warning_still_defers_to_an_active_review_on_the_branch(monkeypatch):
@@ -636,7 +672,10 @@ def test_stale_run_that_starts_during_the_sweep_blocks_the_write(monkeypatch):
     )
     rows, errors = retry.sweep("o/r", NOW)
     assert not writes and errors == 1
-    assert "PR #7, run 20: error (RuntimeError); no further action on this PR." in rows
+    assert (
+        "PR #7, run 20: error (RuntimeError: Cannot identify active review run 30 "
+        "started during discovery); no further action on this PR."
+    ) in rows
 
 
 def test_writer_token_only_reaches_rerun(monkeypatch):

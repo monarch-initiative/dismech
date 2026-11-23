@@ -9,6 +9,7 @@ import json
 import os
 import re
 import subprocess
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
@@ -36,6 +37,9 @@ STALE_ACTIVE_HOURS = 24
 # half of the PRs inspected, look like an outage and fail the job (#18766).
 OUTAGE_MIN_ERRORS = 3
 LOOKUP_RETRY_SECONDS = 5
+# Retries shared across one sweep's PR lookups. In an outage every lookup
+# fails; unbounded, the pauses alone could outlast the job's 20 minutes.
+LOOKUP_RETRY_BUDGET = 20
 STDERR_LIMIT = 200
 LOOKUP_ERRORS = (subprocess.SubprocessError, ValueError, KeyError, RuntimeError)
 ACTIVE = {"queued", "in_progress", "waiting", "pending", "requested"}
@@ -46,18 +50,20 @@ def timestamp(value):
 
 
 def describe(exc):
-    """The exception class, plus a failed command's stderr when it has one.
+    """The exception class, plus a failed command's stderr, or the message of
+    a RuntimeError (raised by this script, e.g. naming an unidentified run).
 
     The text goes into a summary row, which render_summary routes by substring
     and links by `PR #N` / `run N`. Collapse it to one line and break up the
     `: ` that every routing phrase contains, so stderr cannot reroute a row.
     """
     name = type(exc).__name__
-    detail = (
-        getattr(exc, "stderr", None)
-        if isinstance(exc, subprocess.CalledProcessError)
-        else None
-    )
+    if isinstance(exc, subprocess.CalledProcessError):
+        detail = exc.stderr
+    elif type(exc) is RuntimeError:
+        detail = str(exc)
+    else:
+        detail = None
     if isinstance(detail, bytes):
         detail = detail.decode(errors="replace")
     detail = " ".join((detail or "").split()).replace("`", "").replace(": ", " - ")
@@ -81,6 +87,11 @@ def last_activity(run):
     )
 
 
+def abandoned(run, now):
+    """An active run with no activity for STALE_ACTIVE_HOURS will not start."""
+    return now - last_activity(run) >= timedelta(hours=STALE_ACTIVE_HOURS)
+
+
 def blocks_all_retries(run, now):
     """Whether an active run that cannot be tied to a PR must hold every retry.
 
@@ -92,7 +103,7 @@ def blocks_all_retries(run, now):
     return (
         run["status"] != "completed"
         and run["event"] != "pull_request"
-        and now - last_activity(run) < timedelta(hours=STALE_ACTIVE_HOURS)
+        and not abandoned(run, now)
     )
 
 
@@ -280,6 +291,15 @@ def current_review_runs(repo, specific_pr=None):
                 runs.append(run)
         return runs
 
+    budget, lock = [LOOKUP_RETRY_BUDGET], threading.Lock()
+
+    def take_retry():
+        with lock:
+            if budget[0] <= 0:
+                return False
+            budget[0] -= 1
+            return True
+
     def inspect(pr):
         if pr["state"] != "open":
             return [], None
@@ -287,9 +307,12 @@ def current_review_runs(repo, specific_pr=None):
             try:
                 return lookup(pr), None
             except subprocess.CalledProcessError:
-                # Once, for a transient 5xx or secondary rate limit. Not for
-                # TimeoutExpired: a second 120-second wait per PR in an outage
-                # would run the job out of time before it writes a summary.
+                # Once, for a transient 5xx or secondary rate limit, within a
+                # budget shared by the sweep. Not for TimeoutExpired: a second
+                # 120-second wait per PR in an outage would run the job out of
+                # time before it writes a summary.
+                if not take_retry():
+                    raise
                 time.sleep(LOOKUP_RETRY_SECONDS)
                 return lookup(pr), None
         except LOOKUP_ERRORS as exc:
@@ -331,6 +354,10 @@ def skip_reason(run, pr, peers, reviews, now, minimum):
         if peer["id"] == run["id"] or peer.get("conclusion") == "skipped":
             continue
         if peer["status"] != "completed":
+            # A run stuck in the queue for a day holds nothing back, here as
+            # in blocks_all_retries; otherwise it would hold its PR for good.
+            if abandoned(peer, now):
+                continue
             return "another review is queued or running"
         if peer["event"] == "pull_request" and peer["head_sha"] != pr["head"]["sha"]:
             continue
@@ -676,7 +703,10 @@ WARNINGS = "Warnings"
 def row_group(row, restarted_title, diagnostics):
     """The summary section a row belongs in. Warnings are matched first, so
     nothing quoted inside one (such as a command's stderr) can reroute it."""
-    if ": warning;" in row or row.startswith("Retries deferred"):
+    # Only the row's own verb counts, never text quoted later in the row.
+    if row.partition(": ")[2].startswith("warning;") or row.startswith(
+        "Retries deferred"
+    ):
         return WARNINGS
     if ": retried failed jobs" in row:
         return restarted_title
