@@ -157,7 +157,9 @@ def harness(monkeypatch, rows=None, current=None, reviews=None, fresh=None, chec
     rows = [run()] if rows is None else rows
     writes = []
     monkeypatch.setattr(retry, "workflow_runs", lambda *args: list(rows))
-    monkeypatch.setattr(retry, "current_review_runs", lambda *args: (list(checks), []))
+    monkeypatch.setattr(
+        retry, "current_review_runs", lambda *args: (list(checks), [], 1)
+    )
     monkeypatch.setattr(retry, "pages", lambda *args: reviews or [])
 
     def read(path):
@@ -326,9 +328,9 @@ def test_current_check_discovery_validates_linked_workflow(monkeypatch, specific
 
     monkeypatch.setattr(retry, "pages", read_pages)
     monkeypatch.setattr(retry, "api", read)
-    found, errors = retry.current_review_runs("owner/repo", specific_pr)
+    found, warnings, inspected = retry.current_review_runs("owner/repo", specific_pr)
     assert [row["id"] for row in found] == [20]
-    assert not errors
+    assert not warnings and inspected == 1
     assert len(reads) == 3
 
 
@@ -363,34 +365,161 @@ def test_current_check_does_not_trust_name_alone(monkeypatch, overrides):
             )
         ),
     )
-    assert retry.current_review_runs("owner/repo", 7) == ([], [])
+    assert retry.current_review_runs("owner/repo", 7) == ([], [], 1)
 
 
-def test_current_check_lookup_error_is_reported(monkeypatch):
+def not_found(stderr="gh: Not Found (HTTP 404)\n"):
+    return subprocess.CalledProcessError(1, ["gh"], stderr=stderr)
+
+
+def test_describe_carries_stderr_safely():
+    assert retry.describe(not_found()) == (
+        "CalledProcessError: gh - Not Found (HTTP 404)"
+    )
+    # No stderr, or an exception that never has any, is just the class name.
+    assert retry.describe(subprocess.CalledProcessError(1, ["gh"])) == (
+        "CalledProcessError"
+    )
+    assert retry.describe(subprocess.TimeoutExpired(["gh"], 120)) == "TimeoutExpired"
+    assert retry.describe(KeyError("head")) == "KeyError"
+    # One line, bounded, and unable to carry a routing phrase into a row.
+    text = retry.describe(not_found("a: skipped; b\n`c`" + "x" * 500))
+    assert "\n" not in text and "`" not in text and ": skipped;" not in text
+    assert len(text) <= len("CalledProcessError: ") + retry.STDERR_LIMIT
+
+
+def test_current_check_lookup_error_is_a_warning_with_stderr(monkeypatch):
+    sleeps = []
+    monkeypatch.setattr(retry.time, "sleep", sleeps.append)
     monkeypatch.setattr(retry, "api", lambda path: pr(number=7))
 
     def fail(*args):
-        raise subprocess.CalledProcessError(1, ["gh"])
+        raise not_found()
 
     monkeypatch.setattr(retry, "pages", fail)
-    runs, errors = retry.current_review_runs("owner/repo", 7)
-    assert not runs
-    assert len(errors) == 1 and "PR #7: error" in errors[0]
+    runs, warnings, inspected = retry.current_review_runs("owner/repo", 7)
+    assert not runs and inspected == 1 and sleeps == [retry.LOOKUP_RETRY_SECONDS]
+    expected = (
+        "PR #7: warning; could not read current review checks "
+        "(CalledProcessError: gh - Not Found (HTTP 404))."
+    )
+    assert warnings == [expected]
 
 
-def test_incomplete_current_check_scan_marks_sweep_failed(monkeypatch):
-    writes = harness(monkeypatch, rows=[])
+def test_transient_lookup_failure_is_retried_once(monkeypatch):
+    monkeypatch.setattr(retry.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(retry, "api", lambda path: pr(number=7))
+    calls = []
+
+    def flaky(*args):
+        calls.append(args)
+        if len(calls) == 1:
+            raise not_found("HTTP 502: Bad Gateway")
+        return []
+
+    monkeypatch.setattr(retry, "pages", flaky)
+    assert retry.current_review_runs("owner/repo", 7) == ([], [], 1)
+    assert len(calls) == 2
+
+
+def test_timeout_is_not_retried(monkeypatch):
+    sleeps = []
+    monkeypatch.setattr(retry.time, "sleep", sleeps.append)
+    monkeypatch.setattr(retry, "api", lambda path: pr(number=7))
+
+    def hang(*args):
+        raise subprocess.TimeoutExpired(["gh"], 120)
+
+    monkeypatch.setattr(retry, "pages", hang)
+    _, warnings, _ = retry.current_review_runs("owner/repo", 7)
+    assert not sleeps and "(TimeoutExpired)" in warnings[0]
+
+
+def test_one_failed_pr_lookup_does_not_stop_the_others(monkeypatch):
+    monkeypatch.setattr(retry.time, "sleep", lambda seconds: None)
+    pulls = [pr(number=n, head={"sha": f"sha{n}", "ref": f"b{n}"}) for n in (7, 8, 9)]
+
+    def read_pages(path, key=None):
+        if path.endswith("pulls?state=open"):
+            return pulls
+        if "/commits/sha8/" in path:
+            raise not_found()
+        run_id = 20 if "/commits/sha7/" in path else 21
+        return [
+            {
+                "name": "claude-review",
+                "details_url": f"https://github.com/o/r/actions/runs/{run_id}",
+            }
+        ]
+
+    def read(path):
+        number, sha = (7, "sha7") if path.endswith("/20") else (9, "sha9")
+        return run(
+            id=int(path.rsplit("/", 1)[1]),
+            head_sha=sha,
+            pull_requests=[{"number": number}],
+            path=".github/workflows/claude-code-review.yml",
+        )
+
+    monkeypatch.setattr(retry, "pages", read_pages)
+    monkeypatch.setattr(retry, "api", read)
+    found, warnings, inspected = retry.current_review_runs("o/r")
+    assert sorted(r["id"] for r in found) == [20, 21] and inspected == 3
+    assert len(warnings) == 1 and warnings[0].startswith("PR #8: warning;")
+    assert "HTTP 404" in warnings[0]
+
+
+WARNING = "PR #8: warning; could not read current review checks (CalledProcessError)."
+
+
+@pytest.mark.parametrize(
+    "failed,inspected,outage",
+    [
+        (1, 40, False),
+        (2, 3, False),  # a majority, but below the minimum count
+        (3, 6, False),  # the minimum count, but only half
+        (3, 5, True),
+        (1, 1, True),  # a specific-PR request whose one lookup failed
+        (2, 2, True),
+        (0, 0, False),
+    ],
+)
+def test_lookup_outage_threshold(failed, inspected, outage):
+    assert retry.lookup_outage(failed, inspected) is outage
+
+
+def test_single_lookup_warning_neither_fails_nor_blocks_retry(monkeypatch):
+    # #18766: one PR's unreadable checks turned the whole job red. The PR it
+    # names is still retried: the reads just before the write guard against
+    # a duplicate review, not this cross-check.
+    writes = harness(monkeypatch)
+    monkeypatch.setattr(retry, "current_review_runs", lambda *args: ([], [WARNING], 12))
+    rows, errors = retry.sweep("o/r", NOW)
+    assert errors == 0 and len(writes) == 1
+    summary = retry.render_summary("o/r", rows, False, 5)
+    assert "### Warnings (1)" in summary and "### Errors" not in summary
+
+
+def test_lookup_warning_still_defers_to_an_active_review_on_the_branch(monkeypatch):
+    writes = harness(
+        monkeypatch, fresh=[run(), run(id=30, status="in_progress", conclusion=None)]
+    )
+    monkeypatch.setattr(retry, "current_review_runs", lambda *args: ([], [WARNING], 12))
+    rows, errors = retry.sweep("o/r", NOW)
+    assert errors == 0 and not writes
+    assert any("another review is queued or running" in row for row in rows)
+
+
+def test_majority_lookup_failure_fails_the_sweep(monkeypatch):
+    harness(monkeypatch, rows=[])
     monkeypatch.setattr(
-        retry,
-        "current_review_runs",
-        lambda *args: (
-            [],
-            ["PR #7: error (CalledProcessError) checking current review checks."],
-        ),
+        retry, "current_review_runs", lambda *args: ([], [WARNING] * 3, 4)
     )
     rows, errors = retry.sweep("owner/repo", NOW)
-    assert errors == 1 and not writes
-    assert any("checking current review checks" in row for row in rows)
+    assert errors == 1
+    row = "Current review checks unreadable for 3 of 4 open PRs; the cross-check is incomplete."
+    assert row in rows
+    assert "### Errors (1)" in retry.render_summary("owner/repo", rows, False, 5)
 
 
 def test_resolve_dispatch_and_legacy_dispatch(monkeypatch):
@@ -410,14 +539,101 @@ def test_resolve_dispatch_and_legacy_dispatch(monkeypatch):
     assert retry.run_pr(run(event="workflow_dispatch", pull_requests=[]), "o/r") == 7
 
 
-def test_unresolved_active_legacy_run_defers_without_duplicate_writes(monkeypatch):
+def active(**overrides):
+    """An active run the sweep cannot tie to a PR."""
+    return run(id=30, pull_requests=[], status="queued", conclusion=None) | overrides
+
+
+def stale(**overrides):
+    old = (NOW - timedelta(days=12)).isoformat()
+    return active(created_at=old, updated_at=old, run_started_at=old) | overrides
+
+
+def test_fresh_unattributable_manual_run_defers_every_retry(monkeypatch):
+    # A manual or comment review could be about any PR, so while it is fresh
+    # it still holds the sweep, and the summary now names it.
+    writes = harness(
+        monkeypatch, rows=[run(), active(event="workflow_dispatch", head_branch="main")]
+    )
+    rows, errors = retry.sweep("o/r", NOW)
+    assert not writes and errors == 0
+    assert rows[-1] == (
+        "Retries deferred: active review runs cannot yet be associated with a PR "
+        "(run 30)."
+    )
+    assert any(
+        row.startswith("Run 30: active (queued, workflow_dispatch, branch main")
+        and row.endswith("holds every retry this sweep.")
+        for row in rows
+    )
+    summary = retry.render_summary("o/r", rows, False, 5)
+    assert "### Warnings (1)" in summary
+    assert "[run 30](https://github.com/o/r/actions/runs/30)" in summary
+    assert retry.annotations(rows) == [f"::warning title=retry-reviews::{rows[-1]}"]
+
+
+@pytest.mark.parametrize("event", ["issue_comment", "workflow_dispatch"])
+def test_stale_unattributable_run_no_longer_blocks_retries(monkeypatch, event):
+    # #18787: runs queued on 2026-11-11 were still queued twelve days later,
+    # had no PR association, and stopped every retry in every sweep.
+    pages = []
     writes = harness(
         monkeypatch,
-        rows=[run(), run(id=30, pull_requests=[], status="queued", conclusion=None)],
+        rows=[run(), stale(event=event, head_branch="main")],
+        fresh=[run()],
     )
-    rows, _ = retry.sweep("o/r", NOW)
-    assert not writes
-    assert "active legacy review" in rows[-1]
+    original = retry.pages
+    monkeypatch.setattr(
+        retry, "pages", lambda *args: pages.append(args) or original(*args)
+    )
+    rows, errors = retry.sweep("o/r", NOW)
+    assert errors == 0 and len(writes) == 1 and writes[0][0][2] == "20"
+    assert any(
+        row.startswith("Run 30:") and "ignored, no activity for 24 hours" in row
+        for row in rows
+    )
+    # The pre-write check does not fetch that run's jobs a second time.
+    assert sum("/runs/30/jobs" in args[0] for args in pages) == 1
+
+
+def test_unattributable_pr_run_holds_only_its_branch(monkeypatch):
+    other = active(head_branch="elsewhere")
+    writes = harness(monkeypatch, rows=[run(), other], fresh=[run()])
+    rows, errors = retry.sweep("o/r", NOW)
+    assert errors == 0 and len(writes) == 1
+    assert any("holds only PRs on that branch" in row for row in rows)
+
+
+def test_unattributable_pr_run_on_the_same_branch_defers_that_pr(monkeypatch):
+    writes = harness(monkeypatch, rows=[run(), active(head_branch="feature")])
+    rows, errors = retry.sweep("o/r", NOW)
+    assert not writes and errors == 0
+    assert "PR #7, run 20: skipped; another review is queued or running." in rows
+
+
+def test_stale_run_that_starts_during_the_sweep_blocks_the_write(monkeypatch):
+    writes = harness(
+        monkeypatch, rows=[run(), stale(event="workflow_dispatch")], fresh=[run()]
+    )
+    started = stale(
+        event="workflow_dispatch", status="in_progress", run_started_at=NOW.isoformat()
+    )
+    calls = []
+    monkeypatch.setattr(
+        retry,
+        "workflow_runs",
+        lambda *args: (
+            calls.append(args)
+            or (
+                [run(), stale(event="workflow_dispatch")]
+                if len(calls) == 1
+                else [started]
+            )
+        ),
+    )
+    rows, errors = retry.sweep("o/r", NOW)
+    assert not writes and errors == 1
+    assert "PR #7, run 20: error (RuntimeError); no further action on this PR." in rows
 
 
 def test_writer_token_only_reaches_rerun(monkeypatch):
@@ -578,7 +794,7 @@ def test_summary_dry_run_does_not_claim_restarts():
     [
         "Review retries disabled (budget 0).",
         "No failed review runs need recovery.",
-        "Retries deferred: an active legacy review cannot yet be associated with a PR.",
+        "Retries deferred: active review runs cannot yet be associated with a PR.",
         "Discovery failed (CalledProcessError); no retries issued.",
         "PR #7, run 20: error (CalledProcessError); no further action on this PR.",
     ],
@@ -616,6 +832,18 @@ def test_main_writes_same_linked_summary_to_stdout_and_actions(
     assert "## Issue-workflow retry sweep" in text
     assert "[Issue #9](https://github.com/owner/repo/issues/9)" in text
     assert "### Restarted issue workflows (1)" in text
+
+
+def test_main_annotates_warnings_without_failing(monkeypatch, tmp_path, capsys):
+    output = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(output))
+    monkeypatch.setattr(retry, "sweep", lambda *args: ([WARNING], 0))
+    monkeypatch.setattr(retry, "sweep_issues", lambda *args: ([], 0))
+    assert retry.main(["--repo", "o/r"]) == 0
+    out = capsys.readouterr().out
+    assert f"::warning title=retry-reviews::{WARNING}" in out.splitlines()
+    assert "::warning" not in output.read_text()
+    assert "### Warnings (1)" in output.read_text()
 
 
 def test_main_specific_pr_skips_issue_pass_and_issue_errors_fail(monkeypatch):
