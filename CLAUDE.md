@@ -2305,6 +2305,32 @@ established-mechanism definition that still `attaches_to` its fever node). See
 and the candidate register in
 [`docs/reports/hypothesis-driven-ehr-case-finding-2026-07-12.md`](docs/reports/hypothesis-driven-ehr-case-finding-2026-07-12.md).
 
+### How Criteria Sets Combine, and Which Phenotype a Criterion Is
+
+`CriteriaSet.minimum_required` counts criteria **within** one set. How the
+sets of a definition combine goes in `Definition.criteria_set_logic`:
+`ALL_REQUIRED` (DSM criteria A to E, revised Sapporo), `ANY_SUFFICIENT`
+(alternative pathways, such as seropositive and seronegative NMOSD), `GRADED`
+(each set is a class or certainty level, such as the Mississippi HELLP
+classes) or `WEIGHTED_SCORE` (points totalled across sets, such as
+PARACELSUS).
+
+- **Copy it from the source** and quote the sentence that says how the sets
+  combine. Absent means not recorded, never an implicit `ALL_REQUIRED`.
+- **Two or more sets only**; `just check-entity-refs` reports it on one.
+- **Separate published systems are separate definitions**, not sets of one.
+
+A criterion names the phenotype it tests for with `attaches_to`, in the
+`<kind>#<name>` grammar (`phenotypes#Optic Neuritis`). It is a foreign key,
+resolved by `just check-entity-refs`, and a criterion that keeps its own
+`term` must carry that phenotype's binding, id and label alike, because the
+phenotype's binding is the one HPO validates. **A shared CURIE is not a
+match**: NMOSD's "Acute myelitis" criterion and its "Longitudinally Extensive
+Transverse Myelitis" phenotype share `HP:0012486`, and the phenotype is
+narrower. `just list-criteria-item-refs` is the worklist; `--apply` writes
+only criteria whose term *and* wording match one phenotype. See
+[`docs/definition-criteria.md`](docs/definition-criteria.md).
+
 ### Evidence Items
 All evidence must have PMID references and support classification:
 ```yaml
