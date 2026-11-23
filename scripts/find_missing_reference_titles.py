@@ -11,11 +11,13 @@ Two structures carry a human-readable publication title:
 A blank or absent ``reference_title`` on an evidence item **fails** this check.
 It is the presence half of the title guard: ``scripts/check_reference_titles.py``
 fails a title that is present and *wrong*, and says nothing about one that was
-never written. ``reference_title`` is ``recommended`` in the schema, so
-``linkml-validate`` is silent too. This gate holds the backlog at zero ahead of
-making the slot ``required``, which would otherwise turn every open curation PR
-that omits a title red the moment the schema change merged -- the merge-shaped
-failure ``check_enum_values.py`` describes (issue #10061).
+never written. ``reference_title`` is now ``required`` in the schema, so
+``linkml-validate`` fails the same gap; this check stays because it runs
+offline, whole-KB and ungated in CI, where ``validate-disorders`` runs only on
+changed files, and because it names the remedy. It held the backlog at zero
+while the slot was still ``recommended``, so the narrowing did not turn every
+open curation PR red at merge (the failure ``check_enum_values.py`` describes,
+issue #10061).
 
 Every gap so far has had its title sitting in the reference's
 ``references_cache/`` frontmatter, so the fix is mechanical and nothing needs to
@@ -29,10 +31,10 @@ change in prospect is to ``EvidenceItem.reference_title`` only.
 One more class is reported rather than gated: an item whose reference **is**
 cached but whose cache frontmatter has no ``title:``. There the remedy above
 has nothing to copy, and the only way to pass would be to type a title, which
-is how fabricated citations get in (issue #9138). PubMed book records are the
-known source: ``PMID:23304742``, an AHRQ Comparative Effectiveness Review, comes
-back from the fetcher with an empty title even under ``--force``. Those items
-stay listed until the fetcher learns to read a book record's title. An item
+is how fabricated citations get in (issue #9138). PubMed whole-book records
+were the known source until linkml/linkml-reference-validator#167 taught the
+fetcher to read their ``BookTitle``; re-fetch such a reference with
+``just fetch-reference <ID> --force`` to pick the title up. An item
 whose reference is not cached at all still fails: ``just fetch-reference``
 fixes that.
 
