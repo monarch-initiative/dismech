@@ -42122,7 +42122,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "15",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "6"
   },
   {
@@ -67065,7 +67065,9 @@ window.searchData = [
       "Seizures",
       "Hemiparesis",
       "Neuropsychological Deterioration",
-      "Spastic Tetraplegia"
+      "Spastic Tetraplegia",
+      "Intellectual Disability",
+      "Coma"
     ],
     "phenotype_categories": [
       "Neurological",
@@ -67087,7 +67089,9 @@ window.searchData = [
       "HP:0001250",
       "HP:0001269",
       "HP:0001268",
-      "HP:0002510"
+      "HP:0002510",
+      "HP:0001249",
+      "HP:0001259"
     ],
     "frequencies": [
       "3/7"
@@ -67102,11 +67106,11 @@ window.searchData = [
     ],
     "source_file": "Brain_Small_Vessel_Disease_4.yaml",
     "page_url": "../pages/disorders/Brain_Small_Vessel_Disease_4_NIT1.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 12,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
   },
   {
@@ -84739,11 +84743,13 @@ window.searchData = [
     "name": "Carbamate Poisoning",
     "disease_id": null,
     "category": "Environmental",
-    "parents": [],
+    "parents": [
+      "pesticide poisoning"
+    ],
     "creation_date": "2026-10-28T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "N-methyl carbamate insecticides (and carbamate drugs) carbamylate the serine hydroxyl in the catalytic site of acetylcholinesterase, inactivating the enzyme that hydrolyses acetylcholine. Unlike the organophosphate adduct, the carbamyl-enzyme bond hydrolyses spontaneously (decarbamylation) and does not \"age\", so inhibition is reversible and recovery does not require synthesis of new enzyme.",
+    "description": "Carbamate poisoning is an acute cholinergic toxic syndrome caused by exposure to N-methyl carbamate insecticides (such as carbofuran, carbosulfan, methomyl, fenobucarb, carbaryl, propoxur, and aldicarb), either through intentional self-poisoning by ingestion or occupational agricultural exposure. Carbamates reversibly carbamylate the catalytic serine of acetylcholinesterase, preventing hydrolysis of acetylcholine at autonomic, neuromuscular, and central nervous system synapses. Resulting muscarinic, nicotinic, and central overstimulation produces miosis, bronchorrhea, bronchospasm, bradycardia, hyperhidrosis, hypotension, muscle weakness, convulsions, reduced consciousness, and life-threatening respiratory failure. Unlike organophosphates, the carbamyl-enzyme adduct hydrolyses spontaneously and does not undergo irreversible aging, so clinical toxicity typically resolves faster and delayed organophosphate syndromes (intermediate syndrome and delayed polyneuropathy) are largely absent. Management centers on airway and ventilatory support, titrated antimuscarinic therapy with atropine, and benzodiazepines for seizures.",
     "pathophysiology": [
       "Acetylcholinesterase carbamylation",
       "Synaptic acetylcholine accumulation",
@@ -84816,7 +84822,8 @@ window.searchData = [
       "Occupational and agricultural carbamate insecticide exposure"
     ],
     "biochemical": [
-      "Red cell and plasma cholinesterase activity"
+      "Red-cell acetylcholinesterase activity",
+      "Plasma butyrylcholinesterase activity"
     ],
     "source_file": "Carbamate_Poisoning.yaml",
     "page_url": "../pages/disorders/Carbamate_Poisoning.html",
@@ -98172,7 +98179,10 @@ window.searchData = [
     "genes": [
       "CDC42BPB"
     ],
-    "treatments": [],
+    "treatments": [
+      "Physical and occupational rehabilitation therapy",
+      "Genetic counseling"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Chilton-Okur-Chung_Neurodevelopmental_Syndrome.yaml",
@@ -98180,8 +98190,8 @@ window.searchData = [
     "num_phenotypes": 7,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "13",
+    "num_treatments": 2,
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "5"
   },
   {
@@ -132175,7 +132185,9 @@ window.searchData = [
       "Synaptic vesicle endocytosis",
       "Synaptic vesicle cycle",
       "Autophagy",
-      "Lysosome organization"
+      "Lysosome organization",
+      "Lysosomal lumen acidification",
+      "vesicle-mediated transport"
     ],
     "phenotypes": [
       "Sensorineural hearing loss",
@@ -132188,22 +132200,43 @@ window.searchData = [
       "Epileptic encephalopathy",
       "Microcephaly",
       "Optic atrophy",
-      "Peripheral neuropathy"
+      "Peripheral neuropathy",
+      "Strabismus",
+      "EEG abnormality",
+      "Coarse facial features",
+      "Increased urine alpha-ketoglutarate concentration",
+      "Gingival overgrowth",
+      "Wide nasal bridge",
+      "Long philtrum",
+      "Anteverted nares",
+      "Floppy infant",
+      "Poor suck",
+      "Polyhydramnios",
+      "Bilateral tonic-clonic seizure",
+      "Focal impaired awareness seizure"
     ],
     "phenotype_categories": [
       "Neurologic",
       "Skin/Integument",
       "Musculoskeletal",
-      "HEENT"
+      "HEENT",
+      "Metabolic",
+      "Craniofacial",
+      "Gastrointestinal",
+      "Prenatal"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Ear",
       "Eye",
+      "Genitourinary",
       "Head and Neck",
       "Integument",
       "Limbs",
+      "Metabolism",
       "Musculoskeletal",
-      "Nervous System"
+      "Nervous System",
+      "Prenatal and Birth"
     ],
     "phenotype_ids": [
       "HP:0000407",
@@ -132216,10 +132249,25 @@ window.searchData = [
       "HP:0200134",
       "HP:0000252",
       "HP:0000648",
-      "HP:0009830"
+      "HP:0009830",
+      "HP:0000486",
+      "HP:0002353",
+      "HP:0000280",
+      "HP:0012402",
+      "HP:0000212",
+      "HP:0000431",
+      "HP:0000343",
+      "HP:0000463",
+      "HP:0008947",
+      "HP:0002033",
+      "HP:0001561",
+      "HP:0002069",
+      "HP:0002384"
     ],
     "frequencies": [
       "VERY_FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE",
       "FREQUENT"
     ],
     "genes": [
@@ -132241,12 +132289,12 @@ window.searchData = [
     ],
     "source_file": "DOORS_Syndrome.yaml",
     "page_url": "../pages/disorders/DOORS_Syndrome.html",
-    "num_phenotypes": 11,
+    "num_phenotypes": 24,
     "num_pathophysiology": 3,
     "num_genes": 2,
     "num_treatments": 7,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "DPAGT1-congenital disorder of glycosylation",
@@ -215959,11 +216007,13 @@ window.searchData = [
     ],
     "cell_types": [
       "oligodendrocyte",
-      "Schwann cell"
+      "Schwann cell",
+      "lens fiber cell"
     ],
     "cell_type_ids": [
       "CL:0000128",
-      "CL:0002573"
+      "CL:0002573",
+      "CL:0011004"
     ],
     "biological_processes": [
       "endoplasmic reticulum unfolded protein response",
@@ -215986,11 +216036,17 @@ window.searchData = [
       "Motor regression",
       "Peripheral demyelinating neuropathy",
       "Seizures",
+      "Loss of ambulation",
+      "Truncal titubation",
+      "Nystagmus",
+      "Scoliosis",
+      "Joint contractures",
       "Strabismus"
     ],
     "phenotype_categories": [
       "Ophthalmologic",
-      "Neurologic"
+      "Neurologic",
+      "Musculoskeletal"
     ],
     "phenotype_hpo_categories": [
       "Eye",
@@ -216014,10 +216070,16 @@ window.searchData = [
       "HP:0033044",
       "HP:0007108",
       "HP:0001250",
+      "HP:0002505",
+      "HP:0030147",
+      "HP:0000639",
+      "HP:0002650",
+      "HP:0001371",
       "HP:0000486"
     ],
     "frequencies": [
-      "VERY_FREQUENT"
+      "VERY_FREQUENT",
+      "FREQUENT"
     ],
     "genes": [
       "HYCC1"
@@ -216025,17 +216087,18 @@ window.searchData = [
     "treatments": [
       "Cataract extraction",
       "Rehabilitation and spasticity management",
-      "Orthopaedic and feeding management"
+      "Orthopaedic and feeding management",
+      "Genetic counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Hypomyelinating_Leukodystrophy_5.yaml",
     "page_url": "../pages/disorders/Hypomyelinating_Leukodystrophy_5.html",
-    "num_phenotypes": 16,
+    "num_phenotypes": 21,
     "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "27",
+    "num_treatments": 4,
+    "causal_graph_edges": "38",
     "causal_graph_longest_path": "6"
   },
   {
@@ -223944,14 +224007,21 @@ window.searchData = [
       "Loss of Immune Tolerance"
     ],
     "cell_types": [
+      "B cell",
+      "T cell",
+      "lymphocyte",
       "memory B cell"
     ],
     "cell_type_ids": [
+      "CL:0000236",
+      "CL:0000084",
+      "CL:0000542",
       "CL:0000787"
     ],
     "biological_processes": [
       "proteasome-mediated ubiquitin-dependent protein catabolic process",
-      "immunoglobulin production"
+      "immunoglobulin production",
+      "tolerance induction"
     ],
     "phenotypes": [
       "Hypogammaglobulinemia",
@@ -224027,7 +224097,8 @@ window.searchData = [
     ],
     "treatments": [
       "Immunoglobulin Replacement Therapy",
-      "Immunosuppressive Therapy"
+      "Immunosuppressive Therapy",
+      "Antibiotic Therapy"
     ],
     "environmental": [],
     "biochemical": [],
@@ -224036,9 +224107,9 @@ window.searchData = [
     "num_phenotypes": 18,
     "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "27",
-    "causal_graph_longest_path": "6"
+    "num_treatments": 3,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Immune Thrombocytopenia",
@@ -230082,7 +230153,8 @@ window.searchData = [
     "biological_processes": [
       "complement activation, lectin pathway",
       "opsonization",
-      "phagocytosis"
+      "phagocytosis",
+      "defense response to virus"
     ],
     "phenotypes": [
       "Recurrent Bacterial Infection",
@@ -230118,7 +230190,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "5"
   },
   {
@@ -362043,7 +362115,7 @@ window.searchData = [
       "Late-Onset Macular",
       "Syndromic"
     ],
-    "description": "RCBTB1-related retinopathy, also known as retinal dystrophy with or without extraocular anomalies (RDEOA), is a rare autosomal recessive inherited retinal dystrophy caused by biallelic (missense or loss-of-function) variants in RCBTB1 (RCC1 and BTB domain containing protein 1), which encodes a putative substrate adaptor for the CUL3-RING E3 ubiquitin ligase complex. Only a small number of families have been reported to date. The ocular phenotype is variable, ranging from a classic rod-cone dystrophy (retinitis pigmentosa) beginning in the second decade of life to a later-onset (fourth-to-fifth decade), macula-predominant chorioretinal atrophy with peripheral reticular degeneration, sharing phenotypic similarities with mitochondrial retinopathy. Patient-derived iPSC-RPE studies directly confirm mitochondrial dysfunction, elevated oxidative stress, and blunted NFE2L2 (NRF2) stress-response induction, tying the ubiquitination defect to a retinal oxidative-injury mechanism. A subset of families additionally show extraocular anomalies (goiter/thyroid dysfunction, primary ovarian insufficiency, mild intellectual disability, or adult-onset sensorineural hearing loss). Mechanistically, the biallelic variants studied here are distinct from heterozygous RCBTB1 haploinsufficiency, which has separately been associated with Norrin/FZD4-Wnt/beta-catenin-pathway retinal-angiogenesis disorders (Coats disease and familial exudative vitreoretinopathy) rather than photoreceptor/RPE degeneration; the two RCBTB1-associated disease mechanisms are not modeled as the same entry (see `differential_diagnoses`).\n",
+    "description": "RCBTB1-related retinopathy, also known as retinal dystrophy with or without extraocular anomalies (RDEOA), is a rare autosomal recessive inherited retinal dystrophy caused by biallelic (missense or truncating) variants in RCBTB1 (RCC1 and BTB domain containing protein 1), which encodes a putative substrate adaptor for the CUL3-RING E3 ubiquitin ligase complex. Only a small number of families have been reported to date. The ocular phenotype is variable, ranging from a classic rod-cone dystrophy (retinitis pigmentosa) beginning in the second decade of life to a later-onset (fourth-to-fifth decade), macula-predominant chorioretinal atrophy with peripheral reticular degeneration, sharing phenotypic similarities with mitochondrial retinopathy. Patient-derived iPSC-RPE studies directly confirm mitochondrial dysfunction, elevated oxidative stress, and blunted NFE2L2 (NRF2) stress-response induction, tying the ubiquitination defect to a retinal oxidative-injury mechanism. A subset of families additionally show extraocular anomalies (goiter/thyroid dysfunction, primary ovarian insufficiency, mild intellectual disability, or adult-onset sensorineural hearing loss). Mechanistically, the biallelic variants studied here are distinct from heterozygous RCBTB1 haploinsufficiency, which has separately been associated with Norrin/FZD4-Wnt/beta-catenin-pathway retinal-angiogenesis disorders (Coats disease and familial exudative vitreoretinopathy) rather than photoreceptor/RPE degeneration; the two RCBTB1-associated disease mechanisms are not modeled as the same entry (see `differential_diagnoses`).\n",
     "pathophysiology": [
       "RCBTB1 Loss of CUL3 Substrate-Adaptor Function",
       "Impaired NFE2L2 (NRF2)-Mediated Oxidative Stress Response",
@@ -362064,7 +362136,9 @@ window.searchData = [
       "Protein ubiquitination",
       "Response to oxidative stress",
       "Mitochondrion organization",
-      "Reactive oxygen species metabolic process"
+      "Reactive oxygen species metabolic process",
+      "photoreceptor cell maintenance",
+      "neuron apoptotic process"
     ],
     "phenotypes": [
       "Rod-cone dystrophy",
@@ -362118,8 +362192,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "RD3-Related Retinopathy",
@@ -365187,8 +365261,8 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 0,
     "num_treatments": 7,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Rabson-Mendenhall Syndrome",
@@ -366178,21 +366252,25 @@ window.searchData = [
     "parents": [
       "Vascular Disorder"
     ],
-    "creation_date": null,
+    "creation_date": "2026-11-07T16:23:15Z",
     "updated_date": null,
     "subtypes": [
       "Primary Raynaud Phenomenon",
       "Secondary Raynaud Phenomenon"
     ],
-    "description": "Raynaud disease (primary Raynaud phenomenon) is a vasospastic disorder characterized by episodic, excessive vasoconstriction of digital arteries and arterioles triggered by cold exposure or emotional stress. It manifests as triphasic color changes of the fingers and toes (pallor, cyanosis, erythema) reflecting vasospasm, deoxygenation, and reperfusion hyperemia. Primary Raynaud disease occurs without an underlying connective tissue disease and involves primarily functional vascular abnormalities. Secondary Raynaud phenomenon is associated with autoimmune conditions such as systemic sclerosis and involves both functional and structural vascular changes. The pathogenesis involves dysregulated neurovascular control, endothelial dysfunction, alpha-2C adrenoceptor-mediated vasoconstriction amplified by RhoA/ROCK signaling, and impaired nitric oxide-soluble guanylate cyclase-cGMP vasodilatory pathways.\n",
+    "description": "Raynaud disease (primary Raynaud phenomenon) is a vasospastic disorder characterized by episodic, excessive vasoconstriction of digital arteries and arterioles triggered by cold exposure or emotional stress. It manifests as triphasic color changes of the fingers and toes (pallor, cyanosis, erythema) reflecting vasospasm, deoxygenation, and reperfusion hyperemia. Primary Raynaud disease occurs without an underlying connective tissue disease and involves primarily functional vascular abnormalities. Secondary Raynaud phenomenon is associated with autoimmune conditions such as systemic sclerosis and involves both functional and structural vascular changes. The pathogenesis involves dysregulated neurovascular control, endothelial dysfunction, alpha-2A and alpha-2C adrenoceptor-mediated vasoconstriction amplified by RhoA/ROCK signaling, and impaired nitric oxide-soluble guanylate cyclase-cGMP vasodilatory pathways.\n",
     "pathophysiology": [
-      "Alpha-2C Adrenoceptor Cold-Induced Vasoconstriction",
+      "Cold-Induced Mitochondrial ROS Release",
       "RhoA/ROCK Potentiation of Vasospasm",
+      "Alpha-2C Adrenoceptor Cold-Induced Vasoconstriction",
+      "Alpha-2A Adrenoceptor Catecholamine Hypersensitivity",
+      "Vascular Smooth Muscle Calcium Influx",
       "Estrogen Potentiation of Alpha-2C-AR",
+      "IRX1-Associated Impaired Vasodilation",
       "Endothelial Dysfunction",
       "Sympathetic Nervous System Dysregulation",
       "Intravascular and Platelet Abnormalities",
-      "Oxidative Stress and Ischemia-Reperfusion Injury"
+      "Ischemia-Reperfusion Oxidative Injury"
     ],
     "cell_types": [
       "Vascular Smooth Muscle Cell",
@@ -366207,46 +366285,55 @@ window.searchData = [
       "CL:0000233"
     ],
     "biological_processes": [
-      "Vasoconstriction",
+      "reactive oxygen species biosynthetic process",
       "Cellular Response to Cold",
       "Vascular Smooth Muscle Contraction",
+      "Vasoconstriction",
+      "calcium ion transmembrane transport",
+      "adenylate cyclase-activating G protein-coupled receptor signaling pathway",
       "Vasodilation",
       "Nitric Oxide Biosynthesis",
       "Temperature Homeostasis",
       "Platelet Activation",
+      "response to ischemia",
       "Response to Oxidative Stress"
     ],
     "phenotypes": [
       "Raynaud Phenomenon",
-      "Acrocyanosis",
-      "Digital Pain and Paresthesia",
+      "Digital Cyanosis",
+      "Digital Pain",
+      "Digital Paresthesia and Numbness",
       "Digital Ulceration",
       "Digital Ischemia"
     ],
     "phenotype_categories": [
       "Vascular",
       "Pain",
+      "Neurological",
       "Dermatological"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Constitutional",
       "Integument",
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0030880",
-      "HP:0001063",
+      "HP:0034033",
+      "HP:0030837",
       "HP:0003401",
       "HP:0031917",
       "HP:0033402"
     ],
     "frequencies": [
-      "OBLIGATE",
-      "VERY_FREQUENT",
-      "VERY_RARE",
-      "FREQUENT"
+      "OBLIGATE"
     ],
-    "genes": [],
+    "genes": [
+      "ADRA2A",
+      "IRX1"
+    ],
     "treatments": [
       "Calcium Channel Blockers",
       "Cold Avoidance and Protective Measures",
@@ -366262,12 +366349,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Raynaud_Disease.yaml",
     "page_url": "../pages/disorders/Raynaud_Disease.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 7,
-    "num_genes": 0,
+    "num_phenotypes": 6,
+    "num_pathophysiology": 11,
+    "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "ReNU Syndrome",
@@ -399230,6 +399317,7 @@ window.searchData = [
       "Impaired Germ Cell Nuclear mRNA Export"
     ],
     "cell_types": [
+      "Spermatid",
       "elongating spermatid",
       "male germ cell"
     ],
@@ -399244,7 +399332,10 @@ window.searchData = [
     "phenotypes": [
       "Male infertility",
       "Acephalic spermatozoa",
-      "Abnormal sperm neck morphology"
+      "Abnormal sperm neck morphology",
+      "Reduced sperm motility",
+      "Bent sperm flagella",
+      "Abnormal sperm head morphology"
     ],
     "phenotype_categories": [
       "Reproductive"
@@ -399255,9 +399346,15 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0003251",
       "HP:0012869",
-      "HP:0012866"
+      "HP:0012866",
+      "HP:0012207",
+      "HP:0034811",
+      "HP:0012865"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
     "genes": [
       "SUN5"
     ],
@@ -399269,12 +399366,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Spermatogenic_Failure_16.yaml",
     "page_url": "../pages/disorders/Spermatogenic_Failure_16.html",
-    "num_phenotypes": 3,
+    "num_phenotypes": 6,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Spermatogenic Failure 18",
@@ -450735,16 +450832,16 @@ window.searchMetrics = {
   "total_disorder_pages": 4147,
   "total_subtypes": 5112,
   "total_disorders_and_subtypes": 9259,
-  "total_unique_evidence_sources": 61970,
-  "total_unique_publications": 57885,
+  "total_unique_evidence_sources": 61987,
+  "total_unique_publications": 57896,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4145,
-  "total_unique_pathological_events": 27401,
-  "total_modules": 237,
-  "total_research_reports": 4247,
+  "total_unique_pathological_events": 27405,
+  "total_modules": 238,
+  "total_research_reports": 4248,
   "total_classifications": 21,
   "total_comorbidities": 58,
-  "total_groupings": 143
+  "total_groupings": 144
 };
 window.dispatchEvent(new Event('searchDataReady'));
