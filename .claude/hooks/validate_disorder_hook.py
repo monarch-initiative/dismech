@@ -44,8 +44,9 @@ rejection) and the path is printed in the blocking message. That path is
 outside `kb/disorders/`, so the agent can repair it with ordinary edits, run
 `just validate-pre-edit` on it, and then write it into place. A blocked
 `Edit`/`MultiEdit` leaves the file on disk untouched and costs only its small
-strings to re-send, so it saves nothing. When a later `Write` of the same file
-passes, the saved copy is removed so a stale rejection is not left behind.
+strings to re-send, so it saves nothing. When any later tool call on the same
+file passes, the saved copy is removed so a stale rejection is not left behind;
+the blocking message suggests `mv` rather than `cp` for the same reason.
 """
 
 import json
@@ -236,6 +237,16 @@ def simulate_multi_edit(file_path: Path, edits: list) -> str:
     return content
 
 
+def write_proposed(path: Path, content: str) -> None:
+    """
+    Write proposed content exactly as given.
+
+    Used for both the validation copy and the saved rejection, so the file the
+    agent is told to re-check holds the same bytes the hook validated.
+    """
+    path.write_text(content, encoding="utf-8", newline="")
+
+
 def rejected_write_path(file_path: Path, project_root: Path) -> Path:
     """Where a blocked Write of `file_path` is saved (dismech#16164)."""
     return project_root / REJECTED_EDITS_DIR / file_path.name
@@ -254,7 +265,7 @@ def save_rejected_write(
     target = rejected_write_path(file_path, project_root)
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8", newline="")
+        write_proposed(target, content)
     except OSError as exc:
         print(f"(Could not save the rejected content: {exc})", file=sys.stderr)
         return None
@@ -262,7 +273,7 @@ def save_rejected_write(
 
 
 def discard_rejected_write(file_path: Path, project_root: Path) -> None:
-    """Remove a saved rejection once a Write of the same file has passed."""
+    """Remove a saved rejection once any edit of the same file has passed."""
     try:
         rejected_write_path(file_path, project_root).unlink(missing_ok=True)
     except OSError:
@@ -279,7 +290,7 @@ def validate_content(
     # Create temp file with same name in temp directory
     with tempfile.TemporaryDirectory() as tmpdir:
         temp_path = Path(tmpdir) / original_path.name
-        temp_path.write_text(content)
+        write_proposed(temp_path, content)
 
         # Run validation command. `validate-pre-edit` deliberately skips the
         # cache-normalizing steps that `validate` runs (#8542).
@@ -380,14 +391,14 @@ def main():
                 print(
                     "Fix it there with Edit (no need to re-send the whole file), "
                     f"check it with `just {VALIDATE_RECIPE} {saved}` (the same check "
-                    "this hook runs), and copy it into place once it passes.",
+                    f"this hook runs), and once it passes move it into place with "
+                    f"`mv {saved} {file_path}`. Re-sending it with Write gains nothing.",
                     file=sys.stderr,
                 )
         print("=" * 60 + "\n", file=sys.stderr)
         sys.exit(2)  # Block the operation
 
-    if tool_name == "Write":
-        discard_rejected_write(file_path, project_root)
+    discard_rejected_write(file_path, project_root)
 
     notice = terms_not_checked_notice(output)
     if notice is not None:

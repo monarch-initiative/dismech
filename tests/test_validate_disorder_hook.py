@@ -315,6 +315,7 @@ def test_blocked_write_saves_the_proposed_content(tmp_path, monkeypatch, capsys)
     err = capsys.readouterr().err
     assert str(saved) in err
     assert f"just {hook.VALIDATE_RECIPE} {saved}" in err
+    assert f"mv {saved} {target}" in err
 
 
 def test_a_second_rejection_overwrites_the_first(tmp_path, monkeypatch):
@@ -332,17 +333,23 @@ def test_a_second_rejection_overwrites_the_first(tmp_path, monkeypatch):
     assert (saved_dir / "Asthma.yaml").read_text() == "name: second\n"
 
 
-def test_a_passing_write_removes_a_stale_rejection(tmp_path, monkeypatch):
+@pytest.mark.parametrize("tool_name", ["Write", "Edit"])
+def test_a_passing_edit_removes_a_stale_rejection(tmp_path, monkeypatch, tool_name):
+    """Any passing change to the real file supersedes the saved rejection."""
     checkout = _make_checkout(tmp_path / "dismech-asthma")
     target = checkout / "kb" / "disorders" / "Asthma.yaml"
+    target.write_text("name: Asthma\n")
     saved = checkout / "tmp" / "rejected_edits" / "Asthma.yaml"
     saved.parent.mkdir(parents=True)
     saved.write_text("name: old rejection\n")
+    tool_input = {"file_path": str(target)}
+    if tool_name == "Write":
+        tool_input["content"] = "name: Asthma\n"
+    else:
+        tool_input.update(old_string="name: Asthma\n", new_string="name: Asthma \n")
 
     code = _run_main(
-        monkeypatch,
-        {"tool_name": "Write", "tool_input": {"file_path": str(target), "content": "name: Asthma\n"}},
-        passes=True,
+        monkeypatch, {"tool_name": tool_name, "tool_input": tool_input}, passes=True
     )
 
     assert code == 0
