@@ -59512,7 +59512,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 8,
-    "causal_graph_edges": "31",
+    "causal_graph_edges": "36",
     "causal_graph_longest_path": "5"
   },
   {
@@ -126705,25 +126705,29 @@ window.searchData = [
     ],
     "description": "Cryoglobulinemic vasculitis is an immune-complex mediated small-vessel vasculitis characterized by circulating cryoglobulins. Pathogenic cryoglobulins and B-cell clones form immune complexes that deposit on vascular endothelium, activate inflammatory pathways, and produce purpura, arthralgia, arthritis, peripheral neuropathy, glomerulonephritis, and other systemic manifestations.",
     "pathophysiology": [
-      "Cryoglobulin immune-complex vascular deposition",
       "B-cell clonal immune-complex production",
+      "Cryoglobulin immune-complex vascular deposition",
+      "Classical complement activation and neutrophil recruitment",
+      "Intramural neutrophil Fc-receptor activation and cytotoxic degranulation",
       "Immune-complex small-vessel vascular injury",
       "Cryoprotein occlusive vasculopathy and hyperviscosity"
     ],
     "cell_types": [
-      "endothelial cell",
       "B cell",
+      "endothelial cell",
       "neutrophil"
     ],
     "cell_type_ids": [
-      "CL:0000115",
       "CL:0000236",
+      "CL:0000115",
       "CL:0000775"
     ],
     "biological_processes": [
       "B cell proliferation",
       "immunoglobulin production",
-      "complement activation, classical pathway"
+      "complement activation, classical pathway",
+      "Fc-gamma receptor signaling pathway",
+      "neutrophil degranulation"
     ],
     "phenotypes": [
       "Necrotizing vasculitis",
@@ -126778,7 +126782,9 @@ window.searchData = [
       "Cyclophosphamide for hyperactive severe disease",
       "Therapeutic apheresis for hyperviscosity syndrome"
     ],
-    "environmental": [],
+    "environmental": [
+      "Chronic hepatitis C virus infection"
+    ],
     "biochemical": [
       "Serum cryoglobulins",
       "Low C4 complement",
@@ -126788,11 +126794,11 @@ window.searchData = [
     "source_file": "Cryoglobulinemic_Vasculitis.yaml",
     "page_url": "../pages/disorders/Cryoglobulinemic_Vasculitis.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Cryptococcal Meningitis",
@@ -450832,12 +450838,12 @@ window.searchMetrics = {
   "total_disorder_pages": 4147,
   "total_subtypes": 5112,
   "total_disorders_and_subtypes": 9259,
-  "total_unique_evidence_sources": 61987,
-  "total_unique_publications": 57896,
+  "total_unique_evidence_sources": 61994,
+  "total_unique_publications": 57899,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4145,
-  "total_unique_pathological_events": 27405,
+  "total_unique_pathological_events": 27407,
   "total_modules": 238,
   "total_research_reports": 4248,
   "total_classifications": 21,
