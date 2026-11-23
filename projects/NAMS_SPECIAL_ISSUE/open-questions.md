@@ -165,9 +165,70 @@ species. Recording one divergence for the construct loses which layer is affecte
 Tracked as dismech#16885.
 
 The pesticide AOP paper (PMID:38040083) finds that pairs of pesticides from different
-classes act synergistically on shared key events, with combination indexes below 1.
+classes act synergistically, with combination indexes below 1.
 dismech's `environmental[].influences_mechanisms` links one exposure to one node.
+
+The headline finding, read off the abstract (the full text was not retrievable in the
+curation environment, so the cached reference is abstract-only), is two specific pairs:
+
+| Pair | Classes | Finding |
+|---|---|---|
+| permethrin + fipronil | type-I pyrethroid + phenylpyrazole | combination index < 1 |
+| deltamethrin + fipronil | type-II pyrethroid + phenylpyrazole | combination index < 1 |
+
+In the paper's words, "combined exposure to a type-I pyrethroid permethrin or a type-II
+pyrethroid deltamethrin and the phenylpyrazole fipronil decreased the cell viability and
+the benchmark doses much more than either single exposure, indicating that the pair
+exhibited synergistic effects, since the combination indexes were less than 1." The
+synergy is reported on the *apical* endpoints — cell viability and the benchmark dose —
+and both classes are among the pesticides the paper also shows share the mitochondrial
+and proteolytic key events (decreased mitochondrial membrane potential and proteasome
+activity), which is the AOP-grouping rationale for testing them together.
+
+This interaction is recorded here, in the inventory, and **deliberately not** as a
+dismech model link or a pair of `influences_mechanisms` edges: the surviving key-event
+links for this paper (`mitochondrial_dysfunction#Bioenergetic Decline and Oxidative
+Stress`, `loss_of_proteostasis#Proteostasis Network Decline`) are single-exposure,
+single-node `ModelMechanismLink`s and carry nothing about the pairwise interaction.
 
 **Question:** nothing expresses "these two exposures together produce an effect greater
 than either alone". Two separate `TRIGGERS` links state that both act on the node and
-lose the interaction, which is the paper's actual finding.
+lose the interaction, which is the paper's actual finding — and here the interaction is
+on cell viability and the benchmark dose, downstream of the shared key events rather than
+on any one of them, so a per-node combination slot would also not be the whole answer.
+
+## 10. AOP-derived content inherits the qualitative/quantitative gap
+
+Raised by the PFOS paper (PMID:38580097, dismech#16870), but not specific to it.
+
+That paper's result is a negative one for the mechanism-based route: PFOS meets the ED
+criteria under the standard guidance-based assessment but **not** under the AOP/NAM
+mechanism-based assessment, and the authors discuss the need for *quantitative* AOPs —
+key-event relationships described quantitatively enough to carry a hazard call — for that
+route. Whether the qualitative thyroid→DNT KERs the paper used actually lack quantitative
+understanding is a checkable claim, not an asserted one: the AOP-Wiki KER
+`quantitative-understanding` fields answer it (the `aop-wiki` skill), and the full text
+that would name the exact AOP set the paper assembled was not reachable in this
+environment, so it is left unchecked here rather than stated. A qualitative AOP says A
+leads to B; it does not say how much of A produces how much of B, or whether a given
+exposure reaches the threshold.
+
+dismech's causal edges are qualitative by construction: a `downstream` or
+`influences_mechanisms` link asserts direction and, through `hypothesis_groups` and
+evidence grading, strength of belief — but not a dose-response. So any dismech content
+derived from an AOP inherits exactly the limitation this paper raises. An edge mapped from
+a qualitative AOP is a statement that the path is *plausible and supported*, never that a
+particular exposure *does* traverse it at a relevant dose.
+
+This matters most for exposure-initiated chains (the `environmental[].influences_mechanisms`
+edges), where the regulatory question is quantitative by definition. It is the same
+observation already open in [`AOP_EMOD_ALIGNMENT`](../AOP_EMOD_ALIGNMENT.md)'s
+quantitative-AOP-development thread, recorded here so the screen's own instance of it is
+not lost.
+
+**Question:** should AOP-derived edges carry an explicit marker that they are qualitative
+— distinguishing "this path is established in the AOP framework" from "this exposure
+traverses it at a relevant internal dose" — or is that distinction already adequately
+carried by evidence grading plus the absence of a dose slot? Either way, AOP-derived
+dismech content should not be read as a quantitative hazard statement, and a note to that
+effect belongs wherever such content is first added.
