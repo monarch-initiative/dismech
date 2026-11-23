@@ -32,8 +32,8 @@ One more class is reported rather than gated: an item whose reference **is**
 cached but whose cache frontmatter has no ``title:``. There the remedy above
 has nothing to copy, and the only way to pass would be to type a title, which
 is how fabricated citations get in (issue #9138). PubMed whole-book records
-were the known source until linkml-reference-validator 0.5.2 learned to read
-their ``BookTitle``; re-fetch such a reference with
+were the known source until linkml/linkml-reference-validator#167 taught the
+fetcher to read their ``BookTitle``; re-fetch such a reference with
 ``just fetch-reference <ID> --force`` to pick the title up. An item
 whose reference is not cached at all still fails: ``just fetch-reference``
 fixes that.
