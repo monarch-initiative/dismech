@@ -98,6 +98,18 @@ the condition has a distinct MONDO identity and a substantially independent mech
 otherwise prefer a subtype. See the subtype naming conventions in
 [`CLAUDE.md`](https://github.com/monarch-initiative/dismech/blob/main/CLAUDE.md).
 
+**OMIM phenotypic series have explicit mapping scope (2026-11-18).**
+`mappings.omimps_mappings` applies to Disease, Subtype, and Grouping records.
+Its separate type validates `OMIMPS:` identifiers against OMIM and prevents
+confusion with an individual `OMIM:` record sharing the same six-digit number.
+It also preserves a direct source alignment when a MONDO crosswalk has a
+different scope. A series can correspond to one syndrome Disease (BBS), a
+curated union of distinct diseases (hereditary tyrosinemias), or a susceptibility
+locus collection related to a complex Disease (celiac disease). The required
+justification explains that choice and the mapping predicate. Neither a
+series mapping nor its numbered members automatically establishes Mendelian
+inheritance, complete member curation, or a disease-grouping boundary.
+
 **Mechanism modules are conformance, not inheritance.** Modules in
 [`kb/modules/`](https://github.com/monarch-initiative/dismech/tree/main/kb/modules)
 capture conserved pathological processes (e.g. the fibrotic response) that recur across
