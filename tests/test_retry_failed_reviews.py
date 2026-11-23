@@ -149,6 +149,17 @@ def test_manual_review_still_running_defers_head_check_retry():
     assert reason(peers=[manual]) == "another review is queued or running"
 
 
+def test_abandoned_active_peer_does_not_hold_its_pr():
+    # A pull_request run queued on the PR's branch twelve days ago, and never
+    # started, used to answer "another review is queued or running" forever.
+    old = (NOW - timedelta(days=12)).isoformat()
+    stuck = run(id=21, status="queued", conclusion=None, created_at=old, updated_at=old)
+    assert reason(peers=[stuck]) is None
+    assert reason(peers=[stuck | {"updated_at": NOW.isoformat()}]) == (
+        "another review is queued or running"
+    )
+
+
 def test_manual_run_is_rerunnable_despite_main_sha():
     assert reason(run(event="workflow_dispatch", head_sha="main-sha")) is None
 
@@ -520,6 +531,12 @@ def test_single_lookup_warning_neither_fails_nor_blocks_retry(monkeypatch):
     assert errors == 0 and len(writes) == 1
     summary = retry.render_summary("o/r", rows, False, 5)
     assert "### Warnings (1)" in summary and "### Errors" not in summary
+
+
+def test_stderr_saying_warning_does_not_move_an_error_row():
+    row = "PR #7, run 20: error (CalledProcessError: warning; x); no further action on this PR."
+    assert retry.row_group(row, "", "") == "Errors"
+    assert retry.row_group(WARNING, "", "") == retry.WARNINGS
 
 
 def test_lookup_warning_still_defers_to_an_active_review_on_the_branch(monkeypatch):

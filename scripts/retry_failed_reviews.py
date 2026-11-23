@@ -87,6 +87,11 @@ def last_activity(run):
     )
 
 
+def abandoned(run, now):
+    """An active run with no activity for STALE_ACTIVE_HOURS will not start."""
+    return now - last_activity(run) >= timedelta(hours=STALE_ACTIVE_HOURS)
+
+
 def blocks_all_retries(run, now):
     """Whether an active run that cannot be tied to a PR must hold every retry.
 
@@ -98,7 +103,7 @@ def blocks_all_retries(run, now):
     return (
         run["status"] != "completed"
         and run["event"] != "pull_request"
-        and now - last_activity(run) < timedelta(hours=STALE_ACTIVE_HOURS)
+        and not abandoned(run, now)
     )
 
 
@@ -349,6 +354,10 @@ def skip_reason(run, pr, peers, reviews, now, minimum):
         if peer["id"] == run["id"] or peer.get("conclusion") == "skipped":
             continue
         if peer["status"] != "completed":
+            # A run stuck in the queue for a day holds nothing back, here as
+            # in blocks_all_retries; otherwise it would hold its PR for good.
+            if abandoned(peer, now):
+                continue
             return "another review is queued or running"
         if peer["event"] == "pull_request" and peer["head_sha"] != pr["head"]["sha"]:
             continue
@@ -694,7 +703,10 @@ WARNINGS = "Warnings"
 def row_group(row, restarted_title, diagnostics):
     """The summary section a row belongs in. Warnings are matched first, so
     nothing quoted inside one (such as a command's stderr) can reroute it."""
-    if ": warning;" in row or row.startswith("Retries deferred"):
+    # Only the row's own verb counts, never text quoted later in the row.
+    if row.partition(": ")[2].startswith("warning;") or row.startswith(
+        "Retries deferred"
+    ):
         return WARNINGS
     if ": retried failed jobs" in row:
         return restarted_title
