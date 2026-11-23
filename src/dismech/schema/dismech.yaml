@@ -321,6 +321,38 @@ enums:
         description: Case definition for surveillance or reporting
       OTHER:
         description: Other definition type
+  CriteriaSetLogicEnum:
+    description: How the criteria sets of a definition combine.
+    permissible_values:
+      ALL_OF:
+        description: A case must satisfy every criteria set (conjunction).
+      ANY_OF:
+        description: Satisfying any one criteria set suffices (disjunction).
+  CodeSystemEnum:
+    description: >-
+      Clinical code systems a CodeList can draw from. The value is also the
+      CURIE prefix of each code (`ICD10:D57.0`, `SNOMEDCT:127040003`).
+    permissible_values:
+      ICD9CM:
+        description: ICD-9-CM (US clinical modification of ICD-9)
+      ICD10:
+        description: >-
+          WHO ICD-10, as used in UK Hospital Episode Statistics. Not ICD-10-CM:
+          the same code can carry a different label in each.
+      ICD10CM:
+        description: ICD-10-CM (US clinical modification of ICD-10)
+      SNOMEDCT:
+        description: SNOMED CT concept identifiers
+      READ2:
+        description: Read codes version 2 (UK primary care, 5-byte)
+      CTV3:
+        description: Read codes version 3 / Clinical Terms Version 3
+      OPCS4:
+        description: OPCS-4 procedure codes (UK)
+      LOINC:
+        description: LOINC observation codes
+      RXNORM:
+        description: RxNorm drug concepts
   DefinitionDerivationBasisEnum:
     description: >-
       The epistemic grounding of a definition / phenotype algorithm, orthogonal
@@ -6335,6 +6367,50 @@ slots:
   minimum_required:
     description: Minimum number of criteria required in this criteria set
     range: integer
+  criteria_set_logic:
+    description: >-
+      How a definition's criteria_sets combine: ALL_OF (a case must satisfy
+      every set) or ANY_OF (one set suffices). Within a set,
+      minimum_required already says how many items must hold. Omit when the
+      source does not say; prose in `description` is then the only record.
+    range: CriteriaSetLogicEnum
+  source_reference:
+    description: >-
+      A reference CURIE (resolving to a references_cache/ entry) for the
+      record an object was transcribed from.
+    range: uriorcurie
+  code_lists:
+    description: >-
+      Code lists whose codes satisfy this criterion; a record matches if it
+      carries any code from any list. The criterion's preferred_term names
+      what the codes stand for.
+    multivalued: true
+    range: CodeList
+    inlined_as_list: true
+  codes:
+    description: >-
+      The codes in a code list, each as a Term whose id is
+      `<code_system>:<code>` and whose label is the source's own description.
+    multivalued: true
+    range: Term
+    inlined_as_list: true
+  code_system_version:
+    description: Version or release of the code system or refset a code list was drawn from.
+    range: string
+  minimum_occurrences:
+    description: >-
+      Minimum number of distinct records (encounters, code instances, results)
+      that must satisfy the criterion, e.g. 3 for "3 or more counts of the SLE
+      ICD-9 code". Absent means one occurrence suffices.
+    range: integer
+    minimum_value: 1
+  minimum_interval_days:
+    description: >-
+      Minimum days between the first and last qualifying occurrence, e.g. 30
+      for "two outpatient visits at least 30 days apart". Only meaningful with
+      minimum_occurrences of 2 or more.
+    range: integer
+    minimum_value: 0
   consistency:
     description: Consistency assertions for this mapping against other sources
     multivalued: true
@@ -9650,6 +9726,8 @@ classes:
       - description
       - scope
       - attaches_to
+      - source_reference
+      - criteria_set_logic
       - criteria_sets
       - inclusion_criteria
       - exclusion_criteria
@@ -9660,6 +9738,12 @@ classes:
         required: true
       definition_type:
         required: true
+      source_reference:
+        description: >-
+          The phenotype-library record this definition is transcribed from, as
+          a citable reference CURIE (`PHEKB:615`, `HDRUK:PH304`). Fetch it with
+          `just fetch-reference` so its cached body can be quoted as evidence.
+          Leave absent for a definition composed from the literature.
       attaches_to:
         description: >-
           For a hypothesis-based definition, the pathophysiology node(s)/edge(s)
@@ -9712,6 +9796,39 @@ classes:
   CriteriaItem:
     is_a: Descriptor
     description: A criterion element (clinical feature, test result, imaging requirement)
+    slots:
+      - code_lists
+      - minimum_occurrences
+      - minimum_interval_days
+
+  CodeList:
+    description: >-
+      A set of clinical codes from one code system, any one of which satisfies
+      the criterion carrying the list. This is how a computable phenotype's
+      codelist (an HDR UK concept, a PheKB code table, an OHDSI concept set) is
+      recorded: each code is copied with the label its source gives it, so a
+      list transcribed from a phenotype library can be checked row by row
+      against that library's cached record (`just check-codelists`).
+    slots:
+      - name
+      - code_system
+      - code_system_version
+      - source_reference
+      - codes
+    slot_usage:
+      code_system:
+        range: CodeSystemEnum
+        required: true
+      code_system_version:
+        description: >-
+          The release or refset version the source names (e.g.
+          `nhsd-primary-care-domain-refsets/sickle_cod/20250912`). Omit when
+          the source names none.
+      source_reference:
+        description: >-
+          The reference CURIE the codes were copied from (`HDRUK:PH304`,
+          `PHEKB:615`). Must be a cached reference; `just check-codelists`
+          confirms each code appears in it.
 
   TermMapping:
     description: Mapping from this disease entry to an external term or code
