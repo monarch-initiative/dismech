@@ -728,3 +728,68 @@ Hypermobile Ehlers-Danlos syndrome (hEDS) is the most common subtype of the Ehle
 
 - [OpenScientist final report](Hypermobile_Ehlers-Danlos_Syndrome-deep-research-openscientist_artifacts/final_report.html)
 - [OpenScientist final report](Hypermobile_Ehlers-Danlos_Syndrome-deep-research-openscientist_artifacts/final_report.pdf)
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.5.1.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 35 |
+| Resolved | 35 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 35 |
+| On topic | 20 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 54 |
+| Resolved | 48 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 2 |
+| Unverifiable | 4 |
+| Terms whose name was checked | 22 |
+| Terms named correctly | 10 |
+| Terms named as a **different** term | 4 |
+| Terms whose name is worth a second look | 8 |
+
+### Terms the report names something else
+
+These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
+
+- `HP:0007018` (1 mention) - the report calls it "ADHD / autistic traits"; HP calls it **Attention deficit hyperactivity disorder**
+- `HP:0003401` (1 mention) - the report calls it "Small-fiber neuropathy (paresthesia)"; HP calls it **Paresthesia**
+- `MAXO:0001152` (1 mention) - the report calls it "Pain management"; MAXO calls it **chest examination**
+- `MAXO:0000424` (1 mention) - the report calls it "Surgical/interventional"; MAXO calls it **magnetic resonance imaging procedure**
+
+### Obsolete terms
+
+These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:
+
+- `GO:0005615` (obsolete extracellular space) (1 mention) - replaced by `GO:0005576`
+- `GO:0062023` (obsolete collagen-containing extracellular matrix) (1 mention) - replaced by `GO:0031012`
+
+### Terms whose name is worth a second look
+
+The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a *related* synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:
+
+- `HP:0001382` (1 mention) - the report calls it "Generalized joint hypermobility"; HP calls it **Joint hypermobility**
+- `HP:0100790` (1 mention) - the report calls it "Recurrent hernias"; HP calls it **Hernia**, and lists "Hernias" among its other names
+- `HP:0002616` (1 mention) - the report calls it "Aortic root dilatation"; HP calls it **Aortic root aneurysm**, and lists "Aortic root dilatation" among its other names
+- `HP:0000020` (1 mention) - the report calls it "Pelvic floor / bladder dysfunction"; HP calls it **Urinary incontinence**, and lists "Loss of bladder control" among its other names
+- `HP:0030766` (1 mention) - the report calls it "jaw pain"; HP calls it **Ear pain**
+- `GO:0018149` (1 mention) - the report calls it "peptide cross-linking/LOX"; GO calls it **peptide cross-linking**
+- `GO:0002548` (1 mention) - the report calls it "mast cell chemotaxis"; GO calls it **monocyte chemotaxis**
+- `CL:0002138` (2 mentions) - the report calls it "endothelial cell"; CL calls it **endothelial cell of lymphatic vessel**, and lists "lymphatic endothelial cell" among its other names
+
+### Prefixes with no resolver
+
+Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: `ORPHA`.
