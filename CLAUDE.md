@@ -2270,6 +2270,26 @@ mode of inheritance, like a digenic one: an `inheritance` block bound to
 for the tiers, the cases that must not be bound (X-inactivation, parental
 mosaicism), and the `Somatic_Mosaic_Disorders` grouping.
 
+### Computable Phenotypes (PheKB, HDR UK)
+
+A computable phenotype is a `definitions[]` entry with `definition_type:
+PHENOTYPE_ALGORITHM`. Its codes go in `CriteriaItem.code_lists` (a `CodeList`
+with `code_system`, `codes` as `{id, label}` and `source_reference`), and counts
+and windows go in `minimum_occurrences` / `minimum_interval_days`. How the
+criteria sets combine goes in `Definition.criteria_set_logic` (`ALL_OF` /
+`ANY_OF`). The library record is cited as `HDRUK:PH<n>` or `PHEKB:<node>`
+(`just fetch-reference`), and `just hdruk-definition PH304` drafts a fragment.
+
+- **Copy each code and label from the cited record.** `just check-codelists`
+  (in `just qc`, ungated in CI) fails a code or label that is not in it, because
+  `codes` is not enum-bound and `validate-terms` never sees them.
+- **`ICD10` is WHO ICD-10 (UK records), not `ICD10CM`.**
+- **A count, interval or set-logic value goes in its slot only when the source
+  states it.** A library record with no validation section gets no
+  `validation_status`.
+
+See [`docs/computable-phenotypes.md`](docs/computable-phenotypes.md).
+
 ### Hypothesis-Based Phenotype Algorithms
 
 A `definitions[]` entry with `definition_type: PHENOTYPE_ALGORITHM` may be a
