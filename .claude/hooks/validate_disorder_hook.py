@@ -34,6 +34,18 @@ itself — but only when the worktree's `pyproject.toml` and `uv.lock` match the
 primary's byte for byte, and with `UV_NO_SYNC=1`, so the hook never re-syncs
 the shared environment or repoints its editable install at a worktree. The
 schema and data are read by path from the worktree's cwd either way.
+
+Rejected writes (dismech#16164): a blocked `Write` never reaches disk, and the
+validation copy lives in a temporary directory that is gone by the time the
+hook exits, so the whole proposed file used to be lost and had to be re-sent.
+On a blocked `Write` only, the proposed content is now saved to
+`<checkout>/tmp/rejected_edits/<basename>` (gitignored, overwritten on each
+rejection) and the path is printed in the blocking message. That path is
+outside `kb/disorders/`, so the agent can repair it with ordinary edits, run
+`just validate-pre-edit` on it, and then write it into place. A blocked
+`Edit`/`MultiEdit` leaves the file on disk untouched and costs only its small
+strings to re-send, so it saves nothing. When a later `Write` of the same file
+passes, the saved copy is removed so a stale rejection is not left behind.
 """
 
 import json
@@ -61,6 +73,10 @@ TERMS_NOT_CHECKED_CONTEXT = (
 NOT_CHECKED_LINE_PREFIX = "not checked:"
 # Keeps the context short when a file adds many new terms at once.
 MAX_NOT_CHECKED_LINES = 20
+
+# Where a blocked Write's content is kept, relative to the checkout root
+# (dismech#16164). `tmp/` is gitignored.
+REJECTED_EDITS_DIR = Path("tmp") / "rejected_edits"
 
 
 def terms_not_checked_notice(output: str) -> str | None:
@@ -220,6 +236,39 @@ def simulate_multi_edit(file_path: Path, edits: list) -> str:
     return content
 
 
+def rejected_write_path(file_path: Path, project_root: Path) -> Path:
+    """Where a blocked Write of `file_path` is saved (dismech#16164)."""
+    return project_root / REJECTED_EDITS_DIR / file_path.name
+
+
+def save_rejected_write(
+    content: str, file_path: Path, project_root: Path
+) -> Path | None:
+    """
+    Keep a blocked Write's content so it does not have to be re-sent.
+
+    Overwrites any earlier copy: the latest attempt is the one worth fixing.
+    Returns None if the copy could not be written (a full disk, #13119), so
+    saving can never turn an ordinary block into a crash.
+    """
+    target = rejected_write_path(file_path, project_root)
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8", newline="")
+    except OSError as exc:
+        print(f"(Could not save the rejected content: {exc})", file=sys.stderr)
+        return None
+    return target
+
+
+def discard_rejected_write(file_path: Path, project_root: Path) -> None:
+    """Remove a saved rejection once a Write of the same file has passed."""
+    try:
+        rejected_write_path(file_path, project_root).unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def validate_content(
     content: str, original_path: Path, project_root: Path
 ) -> tuple[bool, str]:
@@ -321,8 +370,24 @@ def main():
         print("❌ BLOCKING EDIT: Validation failed", file=sys.stderr)
         print("The proposed edit would create an invalid file.", file=sys.stderr)
         print("Fix the issues above before proceeding.", file=sys.stderr)
+        if tool_name == "Write":
+            saved = save_rejected_write(simulated_content, file_path, project_root)
+            if saved is not None:
+                print(
+                    f"Your proposed content was saved to {saved}",
+                    file=sys.stderr,
+                )
+                print(
+                    "Fix it there with Edit (no need to re-send the whole file), "
+                    f"check it with `just {VALIDATE_RECIPE} {saved}` (the same check "
+                    "this hook runs), and copy it into place once it passes.",
+                    file=sys.stderr,
+                )
         print("=" * 60 + "\n", file=sys.stderr)
         sys.exit(2)  # Block the operation
+
+    if tool_name == "Write":
+        discard_rejected_write(file_path, project_root)
 
     notice = terms_not_checked_notice(output)
     if notice is not None:
