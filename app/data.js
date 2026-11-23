@@ -137000,6 +137000,72 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Desmoplastic Myxoid Tumor of the Pineal Region, SMARCB1-Mutant",
+    "disease_id": "MONDO:1060253",
+    "category": "Cancer",
+    "parents": [
+      "pineal body neoplasm"
+    ],
+    "creation_date": "2026-11-23T17:31:56Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Desmoplastic myxoid tumour of the pineal region, SMARCB1-mutant (DMT) is a rare tumour of the pineal region of adolescents and adults that has lost the SMARCB1 (INI1) protein. It was proposed in 2020 from seven tumours, with a median patient age of 40 years (range 15-61), that shared spindled and epithelioid cells in a desmoplastic stroma alternating with a loose myxoid matrix, loss of nuclear SMARCB1, a low proliferation index in most, and a DNA methylation profile that grouped the seven together and resembled that of the MYC group of atypical teratoid/rhabdoid tumour (ATRT-MYC). The 2021 WHO classification of central nervous system tumours added it as a SMARCB1-mutant tumour lacking histological signs of malignancy. Reported presenting features include a pineal mass, with obstructive hydrocephalus in several reported cases, and headache, nausea and vomiting or an upgaze palsy (Parinaud syndrome). About 15 cases had been reported by 2026, seven of them in the 2020 series. Many patients are alive with stable disease or without recurrence after resection, with or without radiotherapy, but three of the first ten died. One patient had cells resembling the tumour's in the cerebrospinal fluid, which the authors judged to be tumour cells but could not confirm, and two 2026 reports describe spread seen on imaging, one in a patient followed for more than ten years. Grading criteria and the role of adjuvant therapy are not defined, and no cell of origin has been identified.",
+    "pathophysiology": [
+      "SMARCB1 Inactivation",
+      "Desmoplastic Myxoid Tumour Growth in the Pineal Region",
+      "Dissemination Beyond the Pineal Region"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Obstructive hydrocephalus",
+      "Upgaze palsy",
+      "Headache",
+      "Nausea and vomiting",
+      "Blurred vision"
+    ],
+    "phenotype_categories": [
+      "Nervous System",
+      "Eye",
+      "Digestive"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0010953",
+      "HP:0025331",
+      "HP:0002315",
+      "HP:0002017",
+      "HP:0000622"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SMARCB1"
+    ],
+    "treatments": [
+      "Surgical resection",
+      "Radiotherapy",
+      "Craniospinal irradiation",
+      "Endoscopic third ventriculostomy",
+      "Ventriculoperitoneal shunt",
+      "Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Desmoplastic_Myxoid_Tumor_of_the_Pineal_Region_SMARCB1_Mutant.yaml",
+    "page_url": "../pages/disorders/Desmoplastic_Myxoid_Tumor_of_the_Pineal_Region,_SMARCB1-Mutant.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Desmoplastic Small Round Cell Tumor",
     "disease_id": "MONDO:0019373",
     "category": "",
@@ -451874,17 +451940,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4158,
+  "total_disorder_pages": 4159,
   "total_subtypes": 5119,
-  "total_disorders_and_subtypes": 9277,
-  "total_unique_evidence_sources": 62139,
-  "total_unique_publications": 58037,
+  "total_disorders_and_subtypes": 9278,
+  "total_unique_evidence_sources": 62154,
+  "total_unique_publications": 58052,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4156,
-  "total_unique_pathological_events": 27457,
+  "total_pathographs": 4157,
+  "total_unique_pathological_events": 27460,
   "total_modules": 238,
-  "total_research_reports": 4259,
+  "total_research_reports": 4260,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 144
