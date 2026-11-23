@@ -4215,6 +4215,17 @@ cohd-signal *args="":
 cohd-add-signal file *args="":
     uv run python scripts/cohd_add_signal_to_comorbidity.py {{file}} {{args}}
 
+# ============== MMRRC mouse lines ==============
+
+# Fetch MMRRC holdings (via IMSR) and MGI's mouse->HGNC report into data/mmrrc/ (gitignored).
+mmrrc-fetch *ARGS:
+    uv run python scripts/mmrrc_fetch.py {{ARGS}}
+
+# A lead generator, not curation; see the script docstring.
+# Join MMRRC holdings to dismech entries: BIND / ADD / CURATE buckets per line.
+mmrrc-join *ARGS:
+    uv run python scripts/mmrrc_join.py {{ARGS}}
+
 # ============== Structured-database reference sources ==============
 #
 # Structured sources (e.g. Orphanet) ingest a knowledge base and emit
