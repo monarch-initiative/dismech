@@ -67028,6 +67028,95 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Brain Small Vessel Disease 3 (COLGALT1)",
+    "disease_id": "MONDO:0100105",
+    "category": "Mendelian",
+    "parents": [
+      "Familial porencephaly",
+      "Cerebral small vessel disease"
+    ],
+    "creation_date": "2026-11-23T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Brain small vessel disease 3 is an autosomal recessive cerebral small vessel disease caused by biallelic variants in COLGALT1, which encodes collagen beta(1-O)galactosyltransferase 1 (ColGalT1, also called GLT25D1), a soluble endoplasmic reticulum enzyme that adds galactose to hydroxylysine residues of collagens. Loss of ColGalT1 activity reduces production and secretion of the collagen IV alpha1 chain, the main structural collagen of vascular basement membranes, so the disease is thought to share its downstream pathogenesis with the dominant COL4A1 and COL4A2 brain small vessel diseases. The phenotype depends on the timing and site of intracranial bleeding. Onset in utero or infancy gives porencephaly, periventricular hemorrhage, hydrocephalus, microcephaly, severe developmental delay, epilepsy including infantile spasms, and spastic tetraplegia; another patient had an acute basal ganglia hemorrhage at 14 years, and a homozygous hypomorphic allele of uncertain significance has been reported in an adult with recurrent lacunar strokes, leukoencephalopathy and microbleeds. About five patients have been reported. ClinGen classifies the COLGALT1 association as Moderate. There is no disease-specific treatment.",
+    "pathophysiology": [
+      "COLGALT1 Loss of Function",
+      "Impaired Collagen IV Production and Secretion",
+      "Cerebral Small Vessel Basement Membrane Fragility"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "collagen IV biosynthesis",
+      "basement membrane organization"
+    ],
+    "phenotypes": [
+      "Cerebral Hemorrhage",
+      "Intraventricular Hemorrhage",
+      "Porencephaly",
+      "Hydrocephalus",
+      "Leukoencephalopathy",
+      "Lacunar Stroke",
+      "Hemiparesis",
+      "Impaired Executive Functioning",
+      "Global Developmental Delay",
+      "Seizure",
+      "Infantile Spasms",
+      "Spastic Tetraplegia",
+      "Microcephaly",
+      "Strabismus",
+      "Optic Disc Pallor"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001342",
+      "HP:0030746",
+      "HP:0002132",
+      "HP:0000238",
+      "HP:0002352",
+      "HP:0032325",
+      "HP:0001269",
+      "HP:0033051",
+      "HP:0001263",
+      "HP:0001250",
+      "HP:0012469",
+      "HP:0002510",
+      "HP:0000252",
+      "HP:0000486",
+      "HP:0000543"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COLGALT1"
+    ],
+    "treatments": [
+      "Neurosurgical Management of Hemorrhage and Hydrocephalus",
+      "Genetic Counseling",
+      "Corticosteroid Therapy for Infantile Spasms"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Brain_Small_Vessel_Disease_3.yaml",
+    "page_url": "../pages/disorders/Brain_Small_Vessel_Disease_3_COLGALT1.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Brain Small Vessel Disease 4 (NIT1)",
     "disease_id": "MONDO:0979873",
     "category": "Mendelian",
@@ -78898,6 +78987,175 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "39",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "COG6-Congenital Disorder of Glycosylation",
+    "disease_id": "MONDO:0013810",
+    "category": "Mendelian",
+    "parents": [
+      "congenital disorder of glycosylation type II",
+      "defect in conserved oligomeric Golgi complex"
+    ],
+    "creation_date": "2026-11-23T17:13:54Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "COG6-congenital disorder of glycosylation (COG6-CDG, CDG-IIL) is a rare autosomal recessive type II congenital disorder of glycosylation caused by biallelic loss-of-function variants in COG6, which encodes a lobe B subunit of the conserved oligomeric Golgi (COG) tethering complex. Loss of COG6 fragments the COG complex, disturbs Golgi integrity and retrograde Golgi trafficking, and mislocalizes Golgi glycosylation enzymes, producing a combined N- and O-glycosylation defect. The clinical spectrum runs from prenatal-onset or neonatal-lethal disease with arthrogryposis and skin involvement to survival into childhood with intellectual disability. Core features are liver involvement, microcephaly, developmental disability, recurrent infections, early lethality and ectodermal signs (hypohidrosis predisposing to hyperthermia, hyperkeratosis, enamel hypoplasia). Recurrent febrile episodes, some meeting criteria for hemophagocytic lymphohistiocytosis, and male disorders of sex development are also reported. Shaheen syndrome, a milder allelic COG6 disorder caused by a hypomorphic deep intronic founder variant, is a separate concept in MONDO and OMIM and is not covered by this entry.",
+    "pathophysiology": [
+      "COG6 Loss of Function",
+      "COG Complex Fragmentation and Loss of Golgi Integrity",
+      "Impaired Retrograde Golgi Trafficking",
+      "Golgi SNARE STX6 Deficiency",
+      "Mislocalized Golgi Glycosylation Machinery",
+      "Combined N- and O-glycosylation Defect",
+      "Hyperinflammatory Febrile Episodes"
+    ],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "Golgi organization",
+      "retrograde Golgi-to-ER vesicle transport",
+      "intra-Golgi vesicle-mediated transport",
+      "N-glycan processing",
+      "protein O-linked glycosylation"
+    ],
+    "phenotypes": [
+      "Abnormal glycosylation",
+      "Liver involvement",
+      "Cirrhosis",
+      "Cholestasis",
+      "Microcephaly",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Delayed CNS myelination",
+      "Abnormal corpus callosum morphology",
+      "Seizure",
+      "Intracranial hemorrhage",
+      "Abnormality of coagulation",
+      "Recurrent infections",
+      "Combined immunodeficiency",
+      "Hemophagocytosis",
+      "Recurrent fever",
+      "Hypohidrosis",
+      "Hyperthermia",
+      "Hyperkeratosis",
+      "Skin erosion",
+      "Enamel hypoplasia",
+      "Growth delay",
+      "Abnormal facial shape",
+      "Arthrogryposis multiplex congenita",
+      "Pierre-Robin sequence",
+      "Ambiguous genitalia",
+      "Intestinal malrotation",
+      "Inflammation of the large intestine",
+      "Rectovaginal fistula",
+      "Postaxial hand polydactyly",
+      "Death in infancy",
+      "Abnormal heart morphology",
+      "Splenomegaly",
+      "Hydrocephalus",
+      "Hypoplasia of the brainstem",
+      "Cerebellar hypoplasia",
+      "Diarrhea"
+    ],
+    "phenotype_categories": [
+      "Biochemical",
+      "Hepatic",
+      "Neurological",
+      "Hematological",
+      "Immunological",
+      "Dermatological",
+      "Systemic",
+      "Dental",
+      "Growth",
+      "Craniofacial",
+      "Musculoskeletal",
+      "Genitourinary",
+      "Gastrointestinal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0012345",
+      "HP:0001392",
+      "HP:0001394",
+      "HP:0001396",
+      "HP:0000252",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0002188",
+      "HP:0001273",
+      "HP:0001250",
+      "HP:0002170",
+      "HP:0001928",
+      "HP:0002719",
+      "HP:0005387",
+      "HP:0012156",
+      "HP:0001954",
+      "HP:0000966",
+      "HP:0001945",
+      "HP:0000962",
+      "HP:0200041",
+      "HP:0006297",
+      "HP:0001510",
+      "HP:0001999",
+      "HP:0002804",
+      "HP:0000201",
+      "HP:0000062",
+      "HP:0002566",
+      "HP:0002037",
+      "HP:0000143",
+      "HP:0001162",
+      "HP:0001627",
+      "HP:0001744",
+      "HP:0000238",
+      "HP:0002365",
+      "HP:0001321",
+      "HP:0002014"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "COG6"
+    ],
+    "treatments": [
+      "Supportive and Symptomatic Care",
+      "Early or prophylactic corticosteroid therapy for febrile episodes",
+      "Liver Transplantation",
+      "Genetic Counseling and Prenatal Diagnosis"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Type II serum transferrin isoelectric focusing pattern",
+      "Abnormal apolipoprotein C-III isoelectric focusing",
+      "Underprocessed serum N-glycans"
+    ],
+    "source_file": "COG6-Congenital_Disorder_of_Glycosylation.yaml",
+    "page_url": "../pages/disorders/COG6-Congenital_Disorder_of_Glycosylation.html",
+    "num_phenotypes": 37,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "COG7-congenital disorder of glycosylation",
@@ -193058,6 +193316,139 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "HIKESHI-Related Hypomyelinating Leukodystrophy",
+    "disease_id": "MONDO:0014813",
+    "category": "Mendelian",
+    "parents": [
+      "leukodystrophy"
+    ],
+    "creation_date": "2026-11-23T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "HIKESHI-related hypomyelinating leukodystrophy (hypomyelinating leukodystrophy 13, HLD13, MIM 616881) is an autosomal recessive infantile-onset hypomyelinating leukodystrophy caused by biallelic loss-of-function variants in HIKESHI (formerly C11orf73). HIKESHI encodes a small, evolutionarily conserved carrier that imports the ATP-bound form of the HSP70 chaperones into the nucleus through the nuclear pore, a pathway that operates most strongly under heat stress. Affected children present in the first year of life with axial hypotonia, feeding difficulties and poor growth, nystagmus and global developmental delay; the hypotonia evolves into a progressive spastic and dystonic quadriplegia with hyperreflexia and clonus, and optic atrophy and acquired microcephaly are common. Brain MRI shows diffuse hypomyelination with a thin corpus callosum, and autopsy shows a near-total absence of CNS myelin with relative preservation of axons. The distinguishing clinical feature is a severe vulnerability to febrile illness: about half of the reported patients died suddenly, in childhood, during or after a febrile illness, in several cases with cardiogenic shock or myopericarditis. Most patients are Ashkenazi Jewish and homozygous for the founder allele c.160G>C p.(Val54Leu), whose carrier frequency in that population is about 1 in 200; private alleles have been reported in Finnish, Afghan and Christian Arab families.\nThe mechanism is loss of HIKESHI protein. Every characterised allele leaves little or no detectable HIKESHI in patient cells, and patient fibroblasts and iPSCs fail to move HSP70 into the nucleus during heat shock, a defect reversed by re-expressing wild-type HIKESHI. Two consequences are documented. In the oligodendrocyte lineage, nuclear HSP70 is needed during differentiation, where in mouse it binds and stabilises the master myelination transcription factor SOX10; Hikeshi-deficient mice show oligodendrocyte maturation arrest and CNS hypomyelination, and patient iPSC-derived oligodendrocyte cultures have fewer Olig2-positive cells and aberrant myelination. Under heat stress, cells lacking HIKESHI cannot use nuclear HSP70 to reverse heat-induced nuclear damage, lose viability, and show a dysregulated HSF1 heat-shock response; this is the proposed, still inferred, explanation for the fever-associated deterioration. For the sudden deaths the founding report puts forward two untested hypotheses: excess HSP70 left outside the nucleus triggering cytokine release or natural-killer-cell targeting, or, as the alternative, loss of nuclear HSP70 protection of stressed cells. There is no disease-modifying therapy. Management is supportive and focuses on preventing and treating febrile episodes early. Gene replacement and proteasome inhibitors that rescue the unstable mutant protein are preclinical.",
+    "pathophysiology": [
+      "Biallelic HIKESHI Loss of Function",
+      "Impaired Nuclear Import of HSP70",
+      "Extra-nuclear HSP70 Accumulation with Immune Activation",
+      "Loss of Nuclear HSP70 Protection of SOX10",
+      "Oligodendrocyte Differentiation Arrest",
+      "CNS Hypomyelination",
+      "Dysregulated HSF1 Heat-Shock Response",
+      "Unrepaired Heat-Induced Nuclear Damage"
+    ],
+    "cell_types": [
+      "oligodendrocyte precursor cell",
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002453",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "protein import into nucleus",
+      "oligodendrocyte differentiation",
+      "central nervous system myelination",
+      "cellular response to heat"
+    ],
+    "phenotypes": [
+      "CNS hypomyelination on MRI",
+      "Delayed myelination",
+      "Thin corpus callosum",
+      "Periventricular cysts",
+      "Cerebellar vermis atrophy",
+      "Axial hypotonia",
+      "Progressive spastic dystonic quadriplegia",
+      "Spastic paraparesis",
+      "Dystonia",
+      "Ataxia",
+      "Hyperreflexia",
+      "Clonus",
+      "Nystagmus",
+      "Optic atrophy",
+      "Acquired microcephaly",
+      "Global developmental delay",
+      "Seizure",
+      "Irritability",
+      "Feeding difficulties",
+      "Failure to thrive",
+      "Short stature",
+      "Anarthria",
+      "Acute deterioration during febrile illness",
+      "Sudden death",
+      "Cardiogenic shock",
+      "Myopericarditis"
+    ],
+    "phenotype_categories": [
+      "Neuroimaging",
+      "Neurologic",
+      "Gastrointestinal",
+      "Growth",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003429",
+      "HP:0012448",
+      "HP:0033725",
+      "HP:0007109",
+      "HP:0006855",
+      "HP:0008936",
+      "HP:0002478",
+      "HP:0002313",
+      "HP:0001332",
+      "HP:0001251",
+      "HP:0001347",
+      "HP:0002169",
+      "HP:0000639",
+      "HP:0000648",
+      "HP:0005484",
+      "HP:0001263",
+      "HP:0001250",
+      "HP:0000737",
+      "HP:0011968",
+      "HP:0001508",
+      "HP:0004322",
+      "HP:0002425",
+      "HP:0007307",
+      "HP:0001699",
+      "HP:0030149",
+      "HP:0012819"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "HIKESHI"
+    ],
+    "treatments": [
+      "Supportive care with fever prevention and early febrile management",
+      "HIKESHI gene replacement (preclinical)",
+      "Proteasome inhibitors (preclinical)"
+    ],
+    "environmental": [
+      "Febrile illness"
+    ],
+    "biochemical": [],
+    "source_file": "HIKESHI-Related_Hypomyelinating_Leukodystrophy.yaml",
+    "page_url": "../pages/disorders/HIKESHI-Related_Hypomyelinating_Leukodystrophy.html",
+    "num_phenotypes": 26,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "HNRNPU-Related Developmental and Epileptic Encephalopathy",
     "disease_id": "MONDO:0033363",
     "category": "Mendelian",
@@ -269128,6 +269519,104 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "42",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "MORM Syndrome",
+    "disease_id": "MONDO:0012423",
+    "category": "Mendelian",
+    "parents": [
+      "Ciliopathy",
+      "Syndromic obesity"
+    ],
+    "creation_date": "2026-11-23T17:15:44Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "MORM syndrome (mental retardation, truncal obesity, retinal dystrophy and micropenis) is an autosomal recessive ciliopathy caused by biallelic nonsense variants in the last exon of INPP5E that truncate the protein just upstream of its C-terminal CaaX farnesylation motif. It was first described in a large consanguineous Pakistani kindred, where a founder p.Gln627* allele segregates, and a second truncating allele (p.Gln633*) has since been reported in a Slovenian girl. The truncated phosphatase loses its PDE6D-dependent ciliary targeting rather than its catalytic activity, which distinguishes MORM syndrome mechanistically from the allelic Joubert syndrome 1, whose INPP5E variants cluster in the phosphatase domain and abolish 5-phosphatase activity. The clinical picture is static intellectual disability, early-onset truncal obesity with hyperphagia and insulin resistance, retinal dystrophy, and micropenis in males, without the molar tooth sign or renal involvement of Joubert syndrome.",
+    "pathophysiology": [
+      "INPP5E C-terminal Truncation Removing the CaaX Motif",
+      "Failed PDE6D-Dependent Ciliary Targeting of INPP5E",
+      "Ciliary Phosphoinositide Imbalance",
+      "Repressed Ciliary Hedgehog Signaling",
+      "Primary Cilium Instability",
+      "Photoreceptor Ciliary Dysfunction",
+      "Hypothalamic Ciliary Dysfunction in MC4R Neurons"
+    ],
+    "cell_types": [
+      "photoreceptor cell",
+      "MC4R-expressing hypothalamic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000210",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "protein localization to cilium",
+      "phosphatidylinositol dephosphorylation",
+      "smoothened signaling pathway",
+      "ciliary PI3K/AKT signalling"
+    ],
+    "phenotypes": [
+      "Moderate intellectual disability",
+      "Truncal obesity",
+      "Hyperphagia",
+      "Insulin resistance with hyperinsulinemia",
+      "Impaired glucose tolerance",
+      "Hypertension",
+      "Sleep hypopnea",
+      "Retinal dystrophy",
+      "Nystagmus",
+      "Micropenis",
+      "Primary amenorrhea"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Metabolic",
+      "Cardiovascular",
+      "Respiratory",
+      "Ophthalmological",
+      "Genitourinary",
+      "Endocrine"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002342",
+      "HP:0001956",
+      "HP:0002591",
+      "HP:0000855",
+      "HP:0040270",
+      "HP:0000822",
+      "HP:0040213",
+      "HP:0000556",
+      "HP:0000639",
+      "HP:0000054",
+      "HP:0000786"
+    ],
+    "frequencies": [],
+    "genes": [
+      "INPP5E"
+    ],
+    "treatments": [
+      "Metformin",
+      "Nutritional Counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "MORM_Syndrome.yaml",
+    "page_url": "../pages/disorders/MORM_Syndrome.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "MOS-related Oocyte Zygote Embryo Maturation Arrest",
@@ -345672,6 +346161,83 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Platelet-type Bleeding Disorder 11",
+    "disease_id": "MONDO:0013623",
+    "category": "Mendelian",
+    "parents": [
+      "inherited bleeding disorder, platelet-type"
+    ],
+    "creation_date": "2026-11-23T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Platelet-type bleeding disorder 11 (BDPLT11) is an autosomal recessive inherited platelet function disorder caused by biallelic loss-of-function variants in GP6, the gene for platelet glycoprotein VI. GPVI is the immunoglobulin-superfamily collagen receptor that pairs non-covalently with the Fc receptor gamma-chain and signals through an ITAM pathway; it is the activating arm of the platelet response to collagen, working alongside integrin alpha2beta1, which carries most of the adhesive arm. Reported genotypes are compound heterozygous missense plus frameshift alleles in single French and Belgian families and a homozygous exon 6 adenine insertion that truncates the protein before its transmembrane domain in a cluster of Chilean families with a founder effect. Platelets from affected individuals carry no surface GPVI, do not aggregate or secrete in response to collagen, convulxin or collagen-related peptide, and respond normally to other agonists. Under flow they still adhere to collagen but build no stable, procoagulant aggregate. Clinically the result is a lifelong but mild mucocutaneous bleeding diathesis with a normal platelet count, which is why so few individuals with the Chilean founder allele have ever been ascertained - and why GPVI is a leading antithrombotic drug target rather than a severe bleeding gene. Acquired GPVI deficiency, in which an anti-GPVI autoantibody sheds the receptor from circulating platelets, is a separate and more frequently reported entity that phenocopies this disorder and is not curated here.",
+    "pathophysiology": [
+      "Biallelic GP6 Loss of Function",
+      "Absent Platelet Surface GPVI/FcR Gamma-Chain Collagen Receptor",
+      "Failure of Collagen-Induced Platelet Activation",
+      "Absent Collagen-Induced Aggregation and Granule Secretion",
+      "Reduced Thrombus Growth and Procoagulant Activity Under Flow",
+      "Failure of Primary Hemostatic Plug Formation",
+      "Mild Mucocutaneous Bleeding Diathesis"
+    ],
+    "cell_types": [
+      "Megakaryocyte",
+      "Platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0000556",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "collagen-activated signaling pathway",
+      "platelet activation",
+      "platelet aggregation",
+      "platelet degranulation",
+      "platelet aggregation under flow",
+      "platelet procoagulant phosphatidylserine exposure",
+      "primary hemostasis"
+    ],
+    "phenotypes": [
+      "Mucocutaneous Bleeding",
+      "Bruising",
+      "Prolonged Bleeding Time",
+      "Impaired collagen-induced platelet aggregation",
+      "Abnormal platelet ATP dense granule secretion"
+    ],
+    "phenotype_categories": [
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0001892",
+      "HP:0031364",
+      "HP:0003010",
+      "HP:0008320",
+      "HP:0030398"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GP6"
+    ],
+    "treatments": [
+      "Antifibrinolytic Therapy or Desmopressin for Mild Bleeding"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Platelet-type_Bleeding_Disorder_11.yaml",
+    "page_url": "../pages/disorders/Platelet-type_Bleeding_Disorder_11.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Platelet-type Bleeding Disorder 12",
@@ -451308,17 +451874,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4153,
+  "total_disorder_pages": 4158,
   "total_subtypes": 5119,
-  "total_disorders_and_subtypes": 9272,
-  "total_unique_evidence_sources": 62075,
-  "total_unique_publications": 57978,
+  "total_disorders_and_subtypes": 9277,
+  "total_unique_evidence_sources": 62139,
+  "total_unique_publications": 58037,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4151,
-  "total_unique_pathological_events": 27430,
+  "total_pathographs": 4156,
+  "total_unique_pathological_events": 27457,
   "total_modules": 238,
-  "total_research_reports": 4254,
+  "total_research_reports": 4259,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 144
