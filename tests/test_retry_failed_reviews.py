@@ -382,6 +382,9 @@ def test_describe_carries_stderr_safely():
     )
     assert retry.describe(subprocess.TimeoutExpired(["gh"], 120)) == "TimeoutExpired"
     assert retry.describe(KeyError("head")) == "KeyError"
+    assert (
+        retry.describe(RuntimeError("Too many runs")) == "RuntimeError: Too many runs"
+    )
     # One line, bounded, and unable to carry a routing phrase into a row.
     text = retry.describe(not_found("a: skipped; b\n`c`" + "x" * 500))
     assert "\n" not in text and "`" not in text and ": skipped;" not in text
@@ -423,6 +426,22 @@ def test_transient_lookup_failure_is_retried_once(monkeypatch):
     monkeypatch.setattr(retry, "pages", flaky)
     assert retry.current_review_runs("owner/repo", 7) == ([], [], 1)
     assert len(calls) == 2
+
+
+def test_lookup_retries_share_one_budget_per_sweep(monkeypatch):
+    sleeps = []
+    monkeypatch.setattr(retry.time, "sleep", sleeps.append)
+    monkeypatch.setattr(retry, "LOOKUP_RETRY_BUDGET", 2)
+    pulls = [pr(number=n) for n in range(5)]
+
+    def read_pages(path, key=None):
+        if path.endswith("pulls?state=open"):
+            return pulls
+        raise not_found()
+
+    monkeypatch.setattr(retry, "pages", read_pages)
+    _, warnings, inspected = retry.current_review_runs("o/r")
+    assert len(sleeps) == 2 and len(warnings) == 5 and inspected == 5
 
 
 def test_timeout_is_not_retried(monkeypatch):
@@ -636,7 +655,10 @@ def test_stale_run_that_starts_during_the_sweep_blocks_the_write(monkeypatch):
     )
     rows, errors = retry.sweep("o/r", NOW)
     assert not writes and errors == 1
-    assert "PR #7, run 20: error (RuntimeError); no further action on this PR." in rows
+    assert (
+        "PR #7, run 20: error (RuntimeError: Cannot identify active review run 30 "
+        "started during discovery); no further action on this PR."
+    ) in rows
 
 
 def test_writer_token_only_reaches_rerun(monkeypatch):
