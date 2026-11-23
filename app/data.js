@@ -246990,6 +246990,94 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Kaposiform Hemangioendothelioma",
+    "disease_id": "MONDO:0016236",
+    "category": "Neoplastic",
+    "parents": [
+      "hemangioendothelioma",
+      "soft tissue neoplasm"
+    ],
+    "creation_date": "2026-11-21T00:06:12Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Kaposiform hemangioendothelioma (KHE) is a rare vascular tumour of infancy and early childhood, of intermediate type: locally aggressive, it infiltrates skin, fat, muscle and bone, without distant metastasis. Its endothelium carries lymphatic markers. The cause of most tumours is unknown; a somatic activating GNA14 variant has been reported in one KHE in the cited studies, and whether it causes the tumour is not known. Its best-known complication, the Kasabach-Merritt phenomenon, in which platelets are trapped and consumed inside the tumour, is reported in 42% to 78% of patients across the KHE series cited here (40% where tufted angioma is pooled in) and is curated separately as Kasabach-Merritt Syndrome. This entry is the tumour itself, with or without that complication. It is related to tufted angioma, and the two may be one spectrum.",
+    "pathophysiology": [
+      "Somatic GNA14 Activation",
+      "Lymphatic-Type Endothelial Proliferation",
+      "Locally Infiltrative Tumour Growth",
+      "Intralesional Platelet Trapping"
+    ],
+    "cell_types": [
+      "lymphatic endothelial cell",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0002138",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "lymphangiogenesis",
+      "angiogenesis",
+      "endothelial cell proliferation",
+      "platelet aggregation"
+    ],
+    "phenotypes": [
+      "Locally Aggressive Cutaneous Mass",
+      "Thrombocytopenia",
+      "Anemia",
+      "Pain",
+      "Joint Involvement",
+      "Bone Destruction",
+      "Chronic Lymphedema"
+    ],
+    "phenotype_categories": [
+      "Integumentary",
+      "Hematological",
+      "Musculoskeletal",
+      "Lymphatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0100742",
+      "HP:0001873",
+      "HP:0001903",
+      "HP:0012531",
+      "HP:0003040",
+      "HP:0002797",
+      "HP:0001004"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GNA14"
+    ],
+    "treatments": [
+      "Sirolimus",
+      "Corticosteroids",
+      "Vincristine",
+      "Surgical resection"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Kaposiform_Hemangioendothelioma.yaml",
+    "page_url": "../pages/disorders/Kaposiform_Hemangioendothelioma.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Kariminejad Neurodevelopmental Syndrome",
     "disease_id": "MONDO:0975795",
     "category": "Mendelian",
@@ -338603,6 +338691,90 @@ window.searchData = [
     "num_treatments": 9,
     "causal_graph_edges": "38",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Perineurioma",
+    "disease_id": "MONDO:0019404",
+    "category": "Neoplastic",
+    "parents": [
+      "nerve sheath neoplasm",
+      "tumor of cranial and spinal nerves"
+    ],
+    "creation_date": "2026-11-20T20:20:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Intraneural",
+      "Soft tissue",
+      "Reticular",
+      "Sclerosing",
+      "Malignant"
+    ],
+    "description": "Perineurioma is a rare, benign tumour of the peripheral nerve sheath made of perineurial cells, the specialised lining cells of the nerve sheath; the tumour cells stain for epithelial membrane antigen and not, or only in a few tumours, for S-100 protein. It has two main forms, which differ in site, in course and in the genetic lesions reported in each. Intraneural perineurioma grows within a peripheral nerve, most often the sciatic nerve or its branches, and causes a slowly progressive, motor-predominant mononeuropathy in children and young adults; a TRAF7 mutation was found in 10 of 16 tumours in one series and 2 of 9 in another. Soft tissue (extraneural) perineurioma is a usually painless mass in the soft tissue or skin of adults, with reticular and sclerosing variants, the sclerosing one mostly in the fingers and palm; NF2 is mutated in some. Both forms behave benignly: a 2007 systematic review states that the intraneural form does not recur, and an 81-case series reports that soft tissue tumours rarely recur. Malignant perineurioma is rare, and whether it is a distinct tumour is disputed.",
+    "pathophysiology": [
+      "Somatic TRAF7 WD40-Domain Mutation",
+      "Intraneural Perineurial Cell Proliferation",
+      "Axonal Degeneration in the Affected Nerve",
+      "Somatic NF2 Inactivation",
+      "Soft Tissue Perineurial Cell Proliferation"
+    ],
+    "cell_types": [
+      "perineurial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002576"
+    ],
+    "biological_processes": [
+      "cell proliferation"
+    ],
+    "phenotypes": [
+      "Muscle weakness",
+      "Skeletal muscle atrophy",
+      "Hypoesthesia",
+      "Pain",
+      "Mononeuropathy",
+      "Painless soft tissue mass"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001324",
+      "HP:0003202",
+      "HP:0033748",
+      "HP:0012531",
+      "HP:0009831",
+      "HP:0031459"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "TRAF7",
+      "NF2"
+    ],
+    "treatments": [
+      "Observation",
+      "Tendon transfer",
+      "Surgical excision"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Perineurioma.yaml",
+    "page_url": "../pages/disorders/Perineurioma.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Periodic Fever, Immunodeficiency, and Thrombocytopenia Syndrome",
@@ -450835,17 +451007,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4147,
-  "total_subtypes": 5112,
-  "total_disorders_and_subtypes": 9259,
-  "total_unique_evidence_sources": 61994,
-  "total_unique_publications": 57899,
+  "total_disorder_pages": 4149,
+  "total_subtypes": 5117,
+  "total_disorders_and_subtypes": 9266,
+  "total_unique_evidence_sources": 62025,
+  "total_unique_publications": 57930,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4145,
-  "total_unique_pathological_events": 27407,
+  "total_pathographs": 4147,
+  "total_unique_pathological_events": 27416,
   "total_modules": 238,
-  "total_research_reports": 4248,
+  "total_research_reports": 4250,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 144
