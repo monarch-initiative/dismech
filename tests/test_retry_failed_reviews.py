@@ -386,6 +386,9 @@ def test_describe_carries_stderr_safely():
     text = retry.describe(not_found("a: skipped; b\n`c`" + "x" * 500))
     assert "\n" not in text and "`" not in text and ": skipped;" not in text
     assert len(text) <= len("CalledProcessError: ") + retry.STDERR_LIMIT
+    # The cause, which gh prints last, survives the cut.
+    long = 'Get "https://api.github.com/' + "q" * 400 + '": dial tcp - i/o timeout'
+    assert retry.describe(not_found(long)).endswith("i/o timeout")
 
 
 def test_current_check_lookup_error_is_a_warning_with_stderr(monkeypatch):

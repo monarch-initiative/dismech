@@ -64,7 +64,11 @@ def describe(exc):
     if not detail:
         return name
     if len(detail) > STDERR_LIMIT:
-        detail = detail[: STDERR_LIMIT - 1].rstrip() + "…"
+        # gh leads with the request URL and ends with the cause (HTTP 404,
+        # i/o timeout), so keep both ends and drop the middle.
+        head = STDERR_LIMIT // 3
+        tail = STDERR_LIMIT - head - 3
+        detail = f"{detail[:head].rstrip()} … {detail[-tail:].lstrip()}"
     return f"{name}: {detail}"
 
 
