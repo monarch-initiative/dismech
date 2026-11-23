@@ -14,7 +14,9 @@ The identity ladder (see the plan for the argument):
 1. ``module_node``   -- a ``kb/modules/`` node is its own canonical identity.
 2. ``conforms_to``   -- a disorder node that declares conformance *is* an
                         instance of that module node. Curator-asserted, so this
-                        is the gold standard and the evaluation label.
+                        is the gold standard and the evaluation label. The slot
+                        is multivalued; a node declaring several anchors keys on
+                        the whole set (``conforms_to_multi``), never on one.
 3. ``hp_term``       -- a phenotype grounded in HP is identified by its term.
 4. ``core_terms``    -- an identity-bearing grounding (GO / CHEBI / HGNC / NCIT
                         / ECTO) keyed together with its CL/UBERON *context*.
@@ -151,9 +153,19 @@ def canonical_key(
 
     if sub == "modules" and node_type == "pathophysiology":
         return ("MODULE", f"{stem}#{name}"), "module_node"
-    conforms = item.get("conforms_to") if item else None
-    if node_type == "pathophysiology" and conforms in anchors:
-        return ("MODULE", str(conforms)), "conforms_to"
+    if node_type == "pathophysiology":
+        # `conforms_to` is multivalued: a node may declare conformance to
+        # several module nodes. A multi-anchor node is one concept keyed on the
+        # whole sorted set, never silently filed under the first anchor -- and
+        # it is counted separately, because a node claiming two conserved
+        # mechanisms is the lump/split signal the module system exists to show.
+        declared = item.get("conforms_to") if item else None
+        declared = declared if isinstance(declared, list) else [declared]
+        resolved = tuple(sorted({str(c) for c in declared if str(c) in anchors}))
+        if len(resolved) == 1:
+            return ("MODULE", resolved[0]), "conforms_to"
+        if len(resolved) > 1:
+            return ("MODULE_SET", resolved), "conforms_to_multi"
     if node_type == "phenotype" and terms.get("HP"):
         return ("HP", tuple(sorted(terms["HP"]))), "hp_term"
     if core:
