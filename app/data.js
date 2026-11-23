@@ -125984,6 +125984,59 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Cribriform Neuroepithelial Tumor",
+    "disease_id": "MONDO:1060254",
+    "category": "Cancer",
+    "parents": [
+      "central nervous system cancer"
+    ],
+    "creation_date": "2026-11-20T20:12:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cribriform neuroepithelial tumour (CRINET) is a rare SMARCB1-deficient tumour in and around the ventricles of young children, defined by cribriform strands and ribbons without the rhabdoid cells of atypical teratoid/rhabdoid tumour (AT/RT). Whether it is a disease of its own or a pattern within AT/RT is open. In the largest cited series, of ten children and published in 2017, and the only cited study to compare the tumours' methylation with the AT/RT groups, all eight tumours with methylation data clustered inside the TYR group of AT/RT, all ten stained for tyrosinase as that group does, and, like that group, most had a large deletion of one SMARCB1 copy and a mutation of the other. But the children did far better: one of the ten died, a month after surgery, and the mean overall survival was 125 months against 53 months in 27 children with AT/RT of the TYR group. A summary of the WHO classification of paediatric tumours says it was introduced as a provisional entity, biologically distinct from AT/RT.",
+    "pathophysiology": [
+      "Biallelic SMARCB1 Inactivation",
+      "Non-Rhabdoid Cribriform Tumour Growth in the Ventricles"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Obstructive hydrocephalus",
+      "Increased intracranial pressure",
+      "Gait imbalance"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0010953",
+      "HP:0002516",
+      "HP:0002141"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SMARCB1"
+    ],
+    "treatments": [
+      "Surgical resection",
+      "Chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cribriform_Neuroepithelial_Tumor.yaml",
+    "page_url": "../pages/disorders/Cribriform_Neuroepithelial_Tumor.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Crigler-Najjar Syndrome",
     "disease_id": "MONDO:0009044",
     "category": "Mendelian",
@@ -206206,6 +206259,98 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "0",
     "causal_graph_longest_path": "0"
+  },
+  {
+    "name": "Histiocytic Sarcoma",
+    "disease_id": "MONDO:0019479",
+    "category": "Cancer",
+    "parents": [
+      "histiocytic and dendritic cell neoplasm"
+    ],
+    "creation_date": "2026-11-21T00:06:12Z",
+    "updated_date": null,
+    "subtypes": [
+      "Primary",
+      "Secondary"
+    ],
+    "description": "Histiocytic sarcoma is a rare, aggressive malignant neoplasm of cells with the morphological and immunophenotypic features of mature tissue histiocytes (macrophages): the tumour cells express CD163, CD68 and lysozyme, and the diagnosis is made by excluding the tumours it resembles. It occurs frequently in adults and most often outside the lymph nodes; in a US registry of adults the median age was 63, the incidence 0.17 per million, and the commonest presenting sites the skin and connective tissue and the lymph nodes. It arises either alone or with or after another haematological malignancy, often a B-cell lymphoma or leukaemia whose clone it can share. Most tumours carry a RAS-MAPK pathway mutation. Median overall survival is about six months.",
+    "pathophysiology": [
+      "Somatic RAS-MAPK Pathway Mutation",
+      "MAPK/ERK Pathway Activation",
+      "PI3K Pathway Activation",
+      "CDKN2A Alteration",
+      "Neoplastic Histiocyte Proliferation",
+      "Transdifferentiation from a B-Cell Clone"
+    ],
+    "cell_types": [
+      "histiocyte",
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "MAPK cascade",
+      "ERK1 and ERK2 cascade",
+      "PI3K/AKT signalling",
+      "negative regulation of CDK activity",
+      "cell population proliferation"
+    ],
+    "phenotypes": [
+      "Skin Tumour",
+      "Soft Tissue Tumour",
+      "Lymphadenopathy",
+      "Weight Loss",
+      "Fever",
+      "Night Sweats"
+    ],
+    "phenotype_categories": [
+      "Neoplasm",
+      "Lymphatic",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0008069",
+      "HP:0031459",
+      "HP:0002716",
+      "HP:0001824",
+      "HP:0001945",
+      "HP:0030166"
+    ],
+    "frequencies": [],
+    "genes": [
+      "KRAS",
+      "MAP2K1",
+      "BRAF",
+      "NF1",
+      "CDKN2A"
+    ],
+    "treatments": [
+      "Surgical resection",
+      "Radiotherapy",
+      "CHOP chemotherapy",
+      "MEK inhibitors"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Histiocytic_Sarcoma.yaml",
+    "page_url": "../pages/disorders/Histiocytic_Sarcoma.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
+    "num_genes": 5,
+    "num_treatments": 4,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Histiocytoid Cardiomyopathy",
@@ -308229,7 +308374,6 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "VERY_RARE",
       "OCCASIONAL"
     ],
     "genes": [
@@ -337235,6 +337379,76 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Pediatric Cystic Nephroma",
+    "disease_id": "MONDO:0004356",
+    "category": "Neoplastic",
+    "parents": [
+      "childhood multilocular cystic kidney neoplasm",
+      "kidney benign neoplasm"
+    ],
+    "creation_date": "2026-11-21T00:48:03Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pediatric cystic nephroma is a benign, typically multicystic tumour of the kidney in young children and one of the commonest tumours of DICER1 tumour predisposition: among germline DICER1 carriers in a 2024 analysis of two registries and an NCI study, the median age at diagnosis was 2 years, with 90% diagnosed by age 5. Most of these tumours carry DICER1 variants, in many children a germline loss-of-function variant with a somatic missense variant in the RNase IIIb domain as the second hit. The name cystic nephroma has also been used for an adult kidney tumour, now placed with mixed epithelial and stromal tumour; that tumour is a different entity and is not covered here. Surgery is the main treatment and the outcome is excellent, but the childhood tumour is presumed to be the benign precursor of anaplastic sarcoma of the kidney.",
+    "pathophysiology": [
+      "Germline DICER1 Loss-of-Function Variant",
+      "Somatic DICER1 Second Hit",
+      "Defective microRNA Processing",
+      "Benign Multicystic Kidney Tumour Formation",
+      "Progression to Anaplastic Sarcoma of the Kidney"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "pre-microRNA processing"
+    ],
+    "phenotypes": [
+      "Abdominal Mass",
+      "Abdominal Pain",
+      "Hematuria",
+      "Other Tumours"
+    ],
+    "phenotype_categories": [
+      "Abdominal",
+      "Genitourinary",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0031500",
+      "HP:0002027",
+      "HP:0000790",
+      "HP:0002664"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "DICER1"
+    ],
+    "treatments": [
+      "Nephrectomy",
+      "Nephron-sparing surgery"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pediatric_Cystic_Nephroma.yaml",
+    "page_url": "../pages/disorders/Pediatric_Cystic_Nephroma.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Peeling Skin Syndrome",
     "disease_id": "MONDO:0019347",
     "category": "Mendelian",
@@ -344660,6 +344874,91 @@ window.searchData = [
     "num_treatments": 10,
     "causal_graph_edges": "45",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Pituitary Blastoma",
+    "disease_id": "MONDO:0858916",
+    "category": "Cancer",
+    "parents": [
+      "pituitary cancer",
+      "blastoma"
+    ],
+    "creation_date": "2026-11-20T20:06:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pituitary blastoma is a rare embryonal tumour of the anterior pituitary gland that presents in the first two years of life, most often with Cushing syndrome from ACTH made by the tumour, and sometimes with cranial nerve palsies, reduced visual acuity or raised intracranial pressure, probably from the mass. It resembles the embryonic pituitary, with Rathke-type epithelium, small primitive cells and secretory cells. Most children carry a germline DICER1 variant (12 of 13 tested in the outcome series, 11 of 14 in a 2022 review) and the tumour a somatic DICER1 hit, so finding the tumour is a strong pointer to DICER1 syndrome. It is not one of the pituitary neuroendocrine tumours (adenomas) or the metastatic tumours once called pituitary carcinoma, which the Pituitary_Tumor entry covers. Mortality is high, but in the outcome series only one of eight deaths was from tumour progression. Young adult cases have also been described; the outcome series mentions a 19-year-old woman as a possible 18th case but does not include her.",
+    "pathophysiology": [
+      "Germline DICER1 Loss-of-Function Variant",
+      "Somatic DICER1 Second Hit",
+      "Defective 5p microRNA Processing",
+      "Arrested Pituitary Development with Uncontrolled Proliferation",
+      "Tumoral ACTH Secretion",
+      "Sellar Mass Effect"
+    ],
+    "cell_types": [
+      "corticotroph-like tumour cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002309"
+    ],
+    "biological_processes": [
+      "pre-microRNA processing",
+      "adenohypophysis development",
+      "cell proliferation",
+      "ACTH secretion"
+    ],
+    "phenotypes": [
+      "Cushing syndrome",
+      "Cranial nerve palsy",
+      "Reduced visual acuity",
+      "Developmental delay",
+      "Increased intracranial pressure",
+      "Secondary hypothyroidism",
+      "Diabetes insipidus"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Neurological",
+      "Ophthalmological",
+      "Neurodevelopmental"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011744",
+      "HP:0006824",
+      "HP:0007663",
+      "HP:0001263",
+      "HP:0002516",
+      "HP:0008245",
+      "HP:0000873"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "DICER1"
+    ],
+    "treatments": [
+      "Surgical resection",
+      "Adjuvant chemotherapy",
+      "Focal radiotherapy",
+      "Genetic counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pituitary_Blastoma.yaml",
+    "page_url": "../pages/disorders/Pituitary_Blastoma.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Pituitary Tumor",
@@ -383573,7 +383872,9 @@ window.searchData = [
       "Amnioreduction",
       "Pre-emptive early delivery and immediate resection",
       "Caesarean section for a large or vascular tumour",
-      "JEB chemotherapy for malignant disease"
+      "JEB chemotherapy for malignant disease",
+      "PEB chemotherapy for malignant disease",
+      "Preoperative chemotherapy with delayed resection"
     ],
     "environmental": [],
     "biochemical": [
@@ -383586,8 +383887,8 @@ window.searchData = [
     "num_phenotypes": 17,
     "num_pathophysiology": 8,
     "num_genes": 4,
-    "num_treatments": 7,
-    "causal_graph_edges": "37",
+    "num_treatments": 9,
+    "causal_graph_edges": "38",
     "causal_graph_longest_path": "5"
   },
   {
@@ -451007,17 +451308,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4149,
-  "total_subtypes": 5117,
-  "total_disorders_and_subtypes": 9266,
-  "total_unique_evidence_sources": 62025,
-  "total_unique_publications": 57930,
+  "total_disorder_pages": 4153,
+  "total_subtypes": 5119,
+  "total_disorders_and_subtypes": 9272,
+  "total_unique_evidence_sources": 62075,
+  "total_unique_publications": 57978,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4147,
-  "total_unique_pathological_events": 27416,
+  "total_pathographs": 4151,
+  "total_unique_pathological_events": 27430,
   "total_modules": 238,
-  "total_research_reports": 4250,
+  "total_research_reports": 4254,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 144
