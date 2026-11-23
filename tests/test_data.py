@@ -104,6 +104,8 @@ ALLOWED_REFERENCE_PREFIXES = (
     "CIVIC_EID:",
     "ICEES:",  # ICEES KG comorbidity pairs
     "ICTRP:",  # WHO ICTRP trial registrations (ChiCTR, ISRCTN, EUCTR, JPRN, ...)
+    "HDRUK:",  # HDR UK Phenotype Library computable phenotypes (references_cache/HDRUK_*.md)
+    "PHEKB:",  # PheKB phenotype algorithm pages (references_cache/PHEKB_*.md)
     "NCIT:",  # NCI Thesaurus predicate edges (e.g. NCIT:P302 therapeutic use)
     "STRCHIVE:",  # STRchive tandem-repeat disease loci (references_cache/STRCHIVE_*.md)
     "metabolights:",  # dataset accession; skip_prefixes in the validator config
@@ -439,7 +441,9 @@ def check_orpha_evidence_is_graded_other(filepath, data=None):
                     f"record is a database entry, not a study, so it takes OTHER"
                 )
 
-    assert not errors, f"ORPHA evidence_source errors in {Path(filepath).name}: {errors}"
+    assert not errors, (
+        f"ORPHA evidence_source errors in {Path(filepath).name}: {errors}"
+    )
 
 
 def test_schema_validity(validator):
