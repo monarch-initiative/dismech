@@ -104,7 +104,9 @@ just hdruk-definition PH304 --disorder kb/disorders/Sickle_Cell_Disease.yaml \
   record the entry already cites (by `source_reference`) is not added again,
   so a re-run is a no-op.
 - A record is skipped, with a `SKIP` line on stderr, when its own MONDO tag
-  names a different disease from the entry's `disease_term`, or when none of
+  names a disease other than the entry's `disease_term`, a `has_subtypes`
+  term or an `exactMatch` MONDO mapping, when the entry already cites it
+  (the cache file is then left alone too), or when none of
   its codes has a dismech code system (for example, every code is a CPRD
   medcode or an omitted SNOMED CT code). A record with no MONDO tag is not
   refused; matching it is the curator's call.

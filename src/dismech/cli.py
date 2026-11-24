@@ -165,6 +165,7 @@ def hdruk_definition_command(
 
     from dismech.computable_phenotypes import (
         append_definitions,
+        cited_references,
         definition_from_hdruk,
         mondo_tag_conflict,
         transcribable_codes,
@@ -198,7 +199,11 @@ def hdruk_definition_command(
             typer.echo(f"SKIP {record.phenotype_id}: no transcribable codes", err=True)
             continue
         if disorder is not None:
-            conflict = mondo_tag_conflict(record, safe_load_path(disorder))
+            entry_doc = safe_load_path(disorder)
+            if f"HDRUK:{record.phenotype_id}" in cited_references(entry_doc):
+                typer.echo(f"SKIP {record.phenotype_id}: already cited", err=True)
+                continue
+            conflict = mondo_tag_conflict(record, entry_doc)
             if conflict:
                 typer.echo(f"SKIP {record.phenotype_id}: {conflict}", err=True)
                 continue

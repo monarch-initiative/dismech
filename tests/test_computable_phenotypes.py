@@ -505,3 +505,51 @@ def test_an_all_numeric_read_concept_is_cached_but_not_transcribed():
     body = entry_for(record).body
     assert "READ2:11536" not in body
     assert "11536 (Read codes v2 (all numeric" in body
+
+
+def test_an_exact_match_mondo_mapping_satisfies_the_tag_check(ph304):
+    entry = {
+        "disease_term": {"term": {"id": "MONDO:0007915"}},
+        "mappings": {
+            "mondo_mappings": [
+                {
+                    "term": {"id": "MONDO:0011382"},
+                    "mapping_predicate": "skos:exactMatch",
+                }
+            ]
+        },
+    }
+    ph304.ontology = [("MONDO:0011382", "sickle cell disease")]
+    assert computable_phenotypes.mondo_tag_conflict(ph304, entry) is None
+
+
+def test_an_inline_definitions_value_is_refused(ph304, tmp_path):
+    path = tmp_path / "Test_Disease.yaml"
+    path.write_text(ENTRY.format(block="definitions: []\n"), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="not a block"):
+        computable_phenotypes.append_definitions(path, [definition_from_hdruk(ph304)])
+
+
+def test_cli_leaves_the_cache_alone_for_an_already_cited_record(tmp_path, monkeypatch):
+    monkeypatch.setenv("DISMECH_ROOT", str(tmp_path))
+    (tmp_path / "justfile").write_text("", encoding="utf-8")
+    (tmp_path / "kb").mkdir()
+    entry = tmp_path / "Test_Disease.yaml"
+    entry.write_text(ENTRY.format(block=""), encoding="utf-8")
+    args = [
+        "hdruk-definition",
+        "PH304",
+        "--detail-json",
+        str(DATA / "hdruk" / "PH304.detail.json"),
+        "--codes-json",
+        str(DATA / "hdruk" / "PH304.codes.json"),
+        "--disorder",
+        str(entry),
+    ]
+    assert CliRunner().invoke(app, args).exit_code == 0
+    cache = tmp_path / "references_cache" / "HDRUK_PH304.md"
+    full = cache.read_text(encoding="utf-8")
+    result = CliRunner().invoke(app, [*args, "--exclude-code-system", "READ2"])
+    assert result.exit_code == 0, result.output
+    assert "SKIP PH304: already cited" in result.output
+    assert cache.read_text(encoding="utf-8") == full

@@ -37,7 +37,7 @@ from dismech.yaml_io import safe_load
 CODE_PATTERNS: dict[str, re.Pattern] = {
     # ICD-9-CM and ICD-10-CM are accepted with or without the dot: EHR and
     # claims extracts commonly store them dotless (441.3 as 4413).
-    "ICD9CM": re.compile(r"^(\d{3}\.?\d{0,2}|V\d{2}\.?\d{0,2}|E\d{3}\.?\d?)$"),
+    "ICD9CM": re.compile(r"^(\d{3}(\.?\d{1,2})?|V\d{2}(\.?\d{1,2})?|E\d{3}(\.?\d)?)$"),
     "ICD10": re.compile(r"^[A-Z]\d{2}(\.?[0-9A-Z]{1,4})?$"),
     "ICD10CM": re.compile(r"^[A-Z]\d[0-9A-Z](\.?[0-9A-Z]{1,4})?$"),
     "SNOMEDCT": re.compile(r"^\d{6,18}$"),
@@ -194,7 +194,9 @@ def transcribable_codes(record: PhenotypeRecord) -> int:
 def mondo_tag_conflict(record: PhenotypeRecord, entry: dict) -> str | None:
     """Explain why a record's own MONDO tag rules out this entry, else ``None``.
 
-    A record with no MONDO tag is the curator's call and is not refused.
+    The entry's MONDO terms are its ``disease_term``, its ``has_subtypes``
+    terms, and its ``skos:exactMatch`` MONDO mappings. A record with no MONDO
+    tag is the curator's call and is not refused.
 
     >>> from dismech.structured_sources.hdruk import PhenotypeRecord
     >>> r = PhenotypeRecord("PH1", 1, "x", ontology=[("MONDO:0011382", "scd")])
@@ -205,12 +207,41 @@ def mondo_tag_conflict(record: PhenotypeRecord, entry: dict) -> str | None:
     """
     tags = [curie for curie, _ in record.ontology if curie.startswith("MONDO:")]
     term = ((entry.get("disease_term") or {}).get("term") or {}).get("id")
-    if not tags or term in tags:
+    if not tags or set(tags) & entry_mondo_terms(entry):
         return None
     return (
         f"HDR UK tags {record.phenotype_id} {', '.join(tags)}, "
         f"not the entry disease_term {term}"
     )
+
+
+def entry_mondo_terms(entry: dict) -> set[str]:
+    """The MONDO terms an entry is about: its disease_term, subtypes and exact matches.
+
+    >>> sorted(entry_mondo_terms({
+    ...     "disease_term": {"term": {"id": "MONDO:1"}},
+    ...     "has_subtypes": [{"subtype_term": {"term": {"id": "MONDO:2"}}}],
+    ...     "mappings": {"mondo_mappings": [
+    ...         {"term": {"id": "MONDO:3"}, "mapping_predicate": "skos:exactMatch"},
+    ...         {"term": {"id": "MONDO:4"}, "mapping_predicate": "skos:broadMatch"}]}}))
+    ['MONDO:1', 'MONDO:2', 'MONDO:3']
+    """
+
+    def term_id(descriptor: object) -> str | None:
+        return ((descriptor or {}).get("term") or {}).get("id")
+
+    terms = {term_id(entry.get("disease_term"))}
+    for subtype in entry.get("has_subtypes") or []:
+        terms.add(term_id(subtype.get("subtype_term")))
+    for mapping in (entry.get("mappings") or {}).get("mondo_mappings") or []:
+        if mapping.get("mapping_predicate") == "skos:exactMatch":
+            terms.add((mapping.get("term") or {}).get("id"))
+    return {t for t in terms if t}
+
+
+def cited_references(entry: dict) -> set[str]:
+    """The ``source_reference`` of every definition an entry already carries."""
+    return {d.get("source_reference") for d in entry.get("definitions") or []}
 
 
 def append_definitions(path: Path, definitions: list[dict]) -> list[str]:
@@ -234,6 +265,11 @@ def append_definitions(path: Path, definitions: list[dict]) -> list[str]:
     start = next(
         (i for i, line in enumerate(lines) if line.rstrip() == "definitions:"), None
     )
+    if start is None and any(line.startswith("definitions:") for line in lines):
+        raise RuntimeError(
+            f"{path} has a definitions: line that is not a block (e.g. "
+            "`definitions: []`); edit it by hand"
+        )
     if start is None:
         if lines and not lines[-1].endswith("\n"):
             lines[-1] += "\n"
