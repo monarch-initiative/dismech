@@ -345505,15 +345505,18 @@ window.searchData = [
       "Genetic counselling"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "ACTH",
+      "Cortisol"
+    ],
     "source_file": "Pituitary_Blastoma.yaml",
     "page_url": "../pages/disorders/Pituitary_Blastoma.html",
     "num_phenotypes": 7,
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Pituitary Tumor",
@@ -451943,8 +451946,8 @@ window.searchMetrics = {
   "total_disorder_pages": 4159,
   "total_subtypes": 5119,
   "total_disorders_and_subtypes": 9278,
-  "total_unique_evidence_sources": 62154,
-  "total_unique_publications": 58052,
+  "total_unique_evidence_sources": 62156,
+  "total_unique_publications": 58054,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4157,
@@ -451953,6 +451956,6 @@ window.searchMetrics = {
   "total_research_reports": 4260,
   "total_classifications": 21,
   "total_comorbidities": 58,
-  "total_groupings": 144
+  "total_groupings": 145
 };
 window.dispatchEvent(new Event('searchDataReady'));
