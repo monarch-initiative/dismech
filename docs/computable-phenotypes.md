@@ -67,8 +67,10 @@ just fetch-reference PHEKB:615       # references_cache/PHEKB_615.md
 - **PheKB** (`PHEKB:<node>`) is read from the phenotype page, because PheKB
   has no API. The cache holds the page's metadata and description, and the
   extracted text of each PDF attachment that is an algorithm document. A PDF
-  whose first page carries a DOI is a published article: it is listed but not
-  transcribed, and is cited by its PMID instead. Word, SQL and spreadsheet
+  whose first page carries a DOI or an "Abstract" heading is an article or
+  author manuscript: it is listed but not transcribed, and is cited by its
+  PMID instead. An attachment that restricts its own distribution ("not for
+  distribution outside eMERGE") is listed with that note and not transcribed. Word, SQL and spreadsheet
   attachments are listed only. PheKB states no licence for its content.
 
 ## Converting an HDR UK record

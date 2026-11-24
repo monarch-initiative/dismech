@@ -553,3 +553,15 @@ def test_cli_leaves_the_cache_alone_for_an_already_cited_record(tmp_path, monkey
     assert result.exit_code == 0, result.output
     assert "SKIP PH304: already cited" in result.output
     assert cache.read_text(encoding="utf-8") == full
+
+
+def test_a_restricted_phekb_attachment_is_listed_but_not_transcribed():
+    page = phekb.PhenotypePage(
+        node_id="162",
+        title="Autism",
+        files=[("Glossary, not for distribution outside eMERGE", "u")],
+        restricted=["Glossary, not for distribution outside eMERGE"],
+    )
+    body = phekb.entry_for(page).body
+    assert "(restricted distribution; not transcribed)" in body
+    assert "## Attachment" not in body
