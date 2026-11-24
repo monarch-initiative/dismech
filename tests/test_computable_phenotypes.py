@@ -480,3 +480,28 @@ def test_malformed_source_codes_are_left_out_and_counted():
     assert "1 ICD10 codes entries" in definition["notes"]
     assert "(e.g. A15-A19)" in definition["notes"]
     assert "(e.g. 4109NC)" in definition["notes"]
+
+
+def test_an_all_numeric_read_concept_is_cached_but_not_transcribed():
+    record = hdruk.PhenotypeRecord(
+        "PH9",
+        1,
+        "x",
+        codes=hdruk.relabel_numeric_read_codes(
+            [
+                hdruk.Code(
+                    "Read codes v2", "11536", "Methylphenidate 20mg", "ADHD prod"
+                ),
+                hdruk.Code(
+                    "Read codes v2", "13212", "Methylphenidate 10mg", "ADHD prod"
+                ),
+                hdruk.Code("ICD10 codes", "F90.0", "Disturbance of activity", "ADHD"),
+            ]
+        ),
+    )
+    assert computable_phenotypes.transcribable_codes(record) == 1
+    definition = definition_from_hdruk(record)
+    assert "all numeric: CPRD medcodes or product codes" in definition["notes"]
+    body = entry_for(record).body
+    assert "READ2:11536" not in body
+    assert "11536 (Read codes v2 (all numeric" in body

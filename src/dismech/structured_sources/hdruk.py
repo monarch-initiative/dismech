@@ -256,7 +256,44 @@ def parse_record(detail: dict | list, codes: list[dict]) -> PhenotypeRecord:
                 concept=" ".join(row["concept_name"].split()),
             )
         )
+    record.codes = relabel_numeric_read_codes(record.codes)
     return record
+
+
+#: System name given to a "Read codes v2" concept whose codes are all digits.
+NUMERIC_READ_SYSTEM = "Read codes v2 (all numeric: CPRD medcodes or product codes)"
+
+
+def relabel_numeric_read_codes(codes: list[Code]) -> list[Code]:
+    """Relabel a Read v2 concept whose codes are all digits as unmapped.
+
+    Some library records list CPRD medcodes or product codes (``10081``
+    "Chronic uraemia", ``11536`` "Methylphenidate 20mg ...") under "Read codes
+    v2". A Read v2 code has five characters drawn from digits, letters and
+    dots, so a five-digit medcode passes a syntax check, but a whole concept
+    with no letter or dot anywhere is not a Read list. Its codes keep their
+    values and get a system name with no dismech prefix, so they are cached
+    but not transcribed.
+
+    >>> codes = [Code("Read codes v2", "10081", "Chronic uraemia", "CKD"),
+    ...          Code("Read codes v2", "1803", "Nephrotic syndrome", "CKD"),
+    ...          Code("Read codes v2", "21260", "Epilepsy resolved", "Epilepsy"),
+    ...          Code("Read codes v2", "F25..", "Epilepsy", "Epilepsy")]
+    >>> [(c.code, c.prefix) for c in relabel_numeric_read_codes(codes)]
+    [('10081', None), ('1803', None), ('21260', 'READ2'), ('F25..', 'READ2')]
+    """
+    numeric: dict[str, bool] = {}
+    for code in codes:
+        if code.system == "Read codes v2":
+            numeric[code.concept] = (
+                numeric.get(code.concept, True) and code.code.isdigit()
+            )
+    return [
+        replace(code, system=NUMERIC_READ_SYSTEM)
+        if code.system == "Read codes v2" and numeric[code.concept]
+        else code
+        for code in codes
+    ]
 
 
 def render_body(record: PhenotypeRecord) -> str:

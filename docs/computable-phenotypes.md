@@ -108,6 +108,9 @@ just hdruk-definition PH304 --disorder kb/disorders/Sickle_Cell_Disease.yaml \
   its codes has a dismech code system (for example, every code is a CPRD
   medcode or an omitted SNOMED CT code). A record with no MONDO tag is not
   refused; matching it is the curator's call.
+- A "Read codes v2" concept whose codes are all digits is a CPRD medcode or
+  product-code list the library has mislabelled. Its codes are cached under a
+  system name with no dismech prefix, and not transcribed.
 - `--exclude-code-system` leaves every code of that system out of both the
   definition and the cached record, and both say how many were left out.
   SNOMED CT codes are excluded from bulk imports until the redistribution
