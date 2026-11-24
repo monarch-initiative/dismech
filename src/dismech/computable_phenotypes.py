@@ -221,15 +221,15 @@ def mondo_tag_conflict(record: PhenotypeRecord, entry: dict) -> str | None:
     >>> mondo_tag_conflict(r, {"disease_term": {"term": {"id": "MONDO:0011382"}}}) is None
     True
     >>> mondo_tag_conflict(r, {"disease_term": {"term": {"id": "MONDO:0007915"}}})
-    'HDR UK tags PH1 MONDO:0011382, not the entry disease_term MONDO:0007915'
+    'HDR UK tags PH1 MONDO:0011382, not any of the entry MONDO terms (MONDO:0007915)'
     """
     tags = [curie for curie, _ in record.ontology if curie.startswith("MONDO:")]
-    term = ((entry.get("disease_term") or {}).get("term") or {}).get("id")
-    if not tags or set(tags) & entry_mondo_terms(entry):
+    terms = entry_mondo_terms(entry)
+    if not tags or set(tags) & terms:
         return None
     return (
         f"HDR UK tags {record.phenotype_id} {', '.join(tags)}, "
-        f"not the entry disease_term {term}"
+        f"not any of the entry MONDO terms ({', '.join(sorted(terms))})"
     )
 
 
