@@ -32980,7 +32980,9 @@ window.searchData = [
     "genes": [
       "EMILIN1"
     ],
-    "treatments": [],
+    "treatments": [
+      "Genetic counseling"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Arterial_Tortuosity-Bone_Fragility_Syndrome.yaml",
@@ -32988,8 +32990,8 @@ window.searchData = [
     "num_phenotypes": 10,
     "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "13",
+    "num_treatments": 1,
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "5"
   },
   {
@@ -110138,7 +110140,7 @@ window.searchData = [
     "creation_date": "2026-09-12T14:05:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "An X-linked combined immunodeficiency caused by hemizygous variants in MSN, which encodes moesin. Affected males have profound lymphopenia with hypogammaglobulinemia, fluctuating monocytopenia and neutropenia, poor vaccine responses, and susceptibility to bacterial and varicella zoster virus infection.\nThe mechanism is cytoskeletal rather than signalling, and that is the reason to curate it. Moesin is an ERM (ezrin-radixin-moesin) protein that cross-links the cortical actin cytoskeleton to the plasma membrane. Most inborn errors of immunity in this clinical space are defects of a receptor or a kinase; here the lesion is in the mechanical scaffold that lymphocytes need in order to reorganise their cortex. What follows is a set of defects that are all recognisably cytoskeletal: poor chemokine receptor expression, altered adhesion and migration, and impaired proliferation.\nTwo features are worth reading carefully.\nFirst, the proliferation defect is rescued by wild-type MSN. That is a complementation result in patient cells, and it is what raises the mechanism from an association between a genotype and a set of assays to a demonstrated dependency.\nSecond, and in contrast to several other entries in this knowledge base, the mouse works. Moesin-deficient mice show a lymphopenia phenotype similar to the human one, so the model is curated as RECAPITULATES rather than as a mismatch. The mouse also does something the human data do not: it identifies a specific IL-15-dependent CD8+ regulatory T cell population whose loss breaks self-tolerance. That is recorded as a separate link. Its model_scale is CELLULAR and the node it targets is also CELLULAR, so no upward extrapolation is involved. It still carries its own limitations, because the CD8+ Treg population has not been shown to be the relevant one in patients.\nTreatment is haematopoietic stem cell transplantation, which is mechanistically appropriate since moesin acts in haematopoietic lineages. The curated evidence for it is a single case report, and the treatment record says so rather than presenting it as established practice.\nNo pathophysiology node declares conforms_to. kb/modules/ was searched; no module covers ERM-protein or cortical-actin failure in lymphocytes.",
+    "description": "Combined immunodeficiency due to moesin deficiency (X-linked moesin-associated immunodeficiency, X-MAID) is an X-linked recessive inborn error of immunity caused by hemizygous loss-of-function variants in MSN, which encodes moesin. Affected males present with profound T- and B-cell lymphopenia, hypogammaglobulinemia, fluctuating neutropenia and monocytopenia, impaired vaccine-antigen antibody responses, increased susceptibility to bacterial, varicella zoster virus, and severe molluscum contagiosum infections, eczema, and autoimmune cytopenias (such as immune thrombocytopenia and thrombotic thrombocytopenic purpura); NK-cell counts vary across presentations, summarized as T-B-NK- lymphopenia in ClinGen's disease curation whereas severe infantile cases detected on TREC newborn screening can present with a T-B-NK+ severe combined immunodeficiency (SCID) immunophenotype.\nMoesin is a member of the ezrin-radixin-moesin (ERM) family of structural proteins that tether cortical filamentous actin to plasma-membrane proteins. Loss of moesin disrupts lymphocyte cortical actin organization, leading to impaired chemokine receptor display, dysregulated cell adhesion and migration, defective thymic and bone-marrow lymphocyte egress, and reduced mitogen-driven T-cell proliferation that is rescued in vitro by wild-type MSN re-expression. Moesin-deficient mice recapitulate peripheral lymphopenia and additionally exhibit loss of IL-15-dependent CD8+ regulatory T cells with systemic autoimmunity. Clinical management ranges from immunoglobulin replacement, antimicrobial prophylaxis, and granulocyte colony-stimulating factor (G-CSF) for cytopenias and infection prevention to curative allogeneic hematopoietic stem cell transplantation in severe or SCID-like disease.",
     "pathophysiology": [
       "Hemizygous MSN Loss-of-Function Variants",
       "Loss of Cortical Actin-Membrane Cross-Linking",
@@ -110168,16 +110170,21 @@ window.searchData = [
       "Decreased total monocyte count",
       "Decreased circulating IgG concentration",
       "Recurrent bacterial infections",
-      "Varicella zoster virus susceptibility"
+      "Varicella zoster virus susceptibility",
+      "Autoimmune cytopenia",
+      "Eczema",
+      "Severe molluscum contagiosum"
     ],
     "phenotype_categories": [
       "Hematologic",
-      "Immunologic"
+      "Immunologic",
+      "Dermatologic"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cellular",
       "Immune",
+      "Integument",
       "Metabolism"
     ],
     "phenotype_ids": [
@@ -110186,24 +110193,30 @@ window.searchData = [
       "HP:0012312",
       "HP:0004315",
       "HP:0002718",
-      "HP:0004429"
+      "HP:0004429",
+      "HP:5210419",
+      "HP:0000964",
+      "HP:0032163"
     ],
     "frequencies": [],
     "genes": [
       "MSN"
     ],
     "treatments": [
-      "Allogeneic hematopoietic stem cell transplantation"
+      "Allogeneic hematopoietic stem cell transplantation",
+      "Immunoglobulin Replacement Therapy",
+      "Granulocyte Colony-Stimulating Factor Therapy",
+      "Antimicrobial Prophylaxis"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Combined_Immunodeficiency_Due_To_Moesin_Deficiency.yaml",
     "page_url": "../pages/disorders/Combined_Immunodeficiency_Due_To_Moesin_Deficiency.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 9,
     "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "15",
+    "num_treatments": 4,
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "5"
   },
   {
@@ -117019,7 +117032,8 @@ window.searchData = [
       "FLT4"
     ],
     "treatments": [
-      "Surgical repair of tetralogy of Fallot"
+      "Surgical repair of tetralogy of Fallot",
+      "Genetic counseling"
     ],
     "environmental": [],
     "biochemical": [],
@@ -117028,8 +117042,8 @@ window.searchData = [
     "num_phenotypes": 5,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "16",
+    "num_treatments": 2,
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "5"
   },
   {
@@ -184503,6 +184517,112 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "PPP1R12A-Related Urogenital and/or Brain Malformation Syndrome",
+    "disease_id": "MONDO:0032934",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Disorder of Sex Development",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-11-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Genitourinary and/or brain malformation syndrome (GUBS) is a rare autosomal dominant congenital multiple-malformation syndrome caused by heterozygous, usually de novo, loss-of-function variants in PPP1R12A, which encodes MYPT1, the regulatory subunit that targets protein phosphatase 1 to myosin and forms the myosin phosphatase complex. Affected individuals have malformations of the brain (most severely on the holoprosencephaly spectrum, with agenesis of the corpus callosum and, at the extreme, anencephaly) and/or the genitourinary system, and 46,XY individuals frequently have a difference of sex development with gonadal dysgenesis, undermasculinization and persistent Mullerian derivatives. Gastrointestinal atresias, developmental delay, intellectual disability, seizures and eye anomalies also occur. Around two dozen individuals have been reported; both brain and genitourinary involvement in the same person is the minority.\nMYPT1 haploinsufficiency reduces myosin phosphatase activity, leaving myosin regulatory light chain over-phosphorylated and actomyosin contractility excessive; this disrupts the cell-shape change, epithelial relaxation and collective migration that embryonic morphogenesis depends on. The same mechanism acts at distinct sites and critical periods - the prosencephalic neural folds (forebrain midline division), the genital tubercle and lower urinary tract (urogenital development), and the gut - producing the branch-specific malformations. The human relevance of the contractility step is inferred from model organisms.",
+    "pathophysiology": [
+      "PPP1R12A (MYPT1) Loss of Function",
+      "Excess Actomyosin Contractility",
+      "Disrupted Cell Migration and Epithelial Morphogenesis",
+      "Failed Forebrain Midline Division",
+      "Impaired Genitourinary Morphogenesis",
+      "Impaired Digestive Tract Morphogenesis"
+    ],
+    "cell_types": [
+      "epithelial cell",
+      "smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000066",
+      "CL:0000192"
+    ],
+    "biological_processes": [
+      "actomyosin structure organization",
+      "cell migration",
+      "forebrain development",
+      "male genitalia development",
+      "digestive tract development"
+    ],
+    "phenotypes": [
+      "Holoprosencephaly",
+      "Female external genitalia in individual with 46,XY karyotype",
+      "Gonadal dysgenesis",
+      "Persistent Mullerian derivatives",
+      "Hypospadias",
+      "Cryptorchidism",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Seizures",
+      "Intestinal atresia",
+      "Omphalocele",
+      "Strabismus",
+      "Microphthalmia",
+      "Feeding difficulties"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Genitourinary",
+      "Neurodevelopmental",
+      "Gastrointestinal",
+      "Abdominal",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001360",
+      "HP:0008730",
+      "HP:0000133",
+      "HP:0000130",
+      "HP:0000047",
+      "HP:0000028",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0011100",
+      "HP:0001539",
+      "HP:0000486",
+      "HP:0000568",
+      "HP:0011968"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "PPP1R12A"
+    ],
+    "treatments": [
+      "Disorder of Sex Development Management",
+      "Supportive and Developmental Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Genitourinary_And_Or_Brain_Malformation_Syndrome.yaml",
+    "page_url": "../pages/disorders/PPP1R12A-Related_Urogenital_and_or_Brain_Malformation_Syndrome.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Genitourinary Syndrome of Menopause",
     "disease_id": "MONDO:0001410",
     "category": "Endocrine",
@@ -201855,7 +201975,9 @@ window.searchData = [
     "cell_type_ids": [
       "CL:0000115"
     ],
-    "biological_processes": [],
+    "biological_processes": [
+      "blood vessel development"
+    ],
     "phenotypes": [
       "Recurrent Epistaxis",
       "Telangiectases",
@@ -206174,14 +206296,18 @@ window.searchData = [
     "creation_date": "2026-10-24T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Visceral heterotaxy 14 (HTX14) is an autosomal recessive laterality disorder caused by bi-allelic inactivating variants in CIROZ (previously C1orf127). CIROZ encodes a secreted protein with a signal peptide and three zona pellucida N (ZP-N) domains that is specifically expressed in the embryonic left-right organizer (LRO). It belongs to a conserved genetic module (with DAND5, PKD1L1, MMP21 and CIROP) that evolved in vertebrates whose LRO carries motile cilia; its precise molecular step within that module is not yet established. Loss of CIROZ function disrupts breaking of embryonic bilateral symmetry, producing heterotaxy (situs ambiguus) with congenital heart defects. The human phenotype is reproduced by the mouse knockout, which develops situs anomalies, but notably not by zebrafish or Xenopus knockouts, in which CIROZ is dispensable for left-right patterning. The gene was defined in a 2025 cohort of 16 individuals from 10 families; the literature is therefore recent and still thin, and no GeneReviews chapter exists.",
+    "description": "Visceral heterotaxy 14 (HTX14) is an autosomal recessive laterality disorder caused by bi-allelic inactivating variants in CIROZ (previously C1orf127). CIROZ encodes a secreted protein with a signal peptide and three zona pellucida N (ZP-N) domains that autonomously homooligomerizes and is specifically expressed in the embryonic left-right organizer (LRO). It belongs to a conserved genetic module (with DAND5, PKD1L1, MMP21 and CIROP) that evolved in vertebrates whose LRO carries motile cilia; its downstream molecular step within that module is not yet established. Loss of CIROZ function disrupts breaking of embryonic bilateral symmetry, producing heterotaxy (situs ambiguus) with congenital heart defects. The human phenotype is reproduced by the mouse knockout, which develops situs anomalies, but notably not by zebrafish or Xenopus knockouts, in which CIROZ is dispensable for left-right patterning.",
     "pathophysiology": [
       "Biallelic CIROZ Loss of Function",
       "Loss of CIROZ in the Left-Right Organizer",
       "Failure of Left-Right Axis Determination"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "ciliated pit cell of the left-right organizer"
+    ],
+    "cell_type_ids": [
+      "CL:0000064"
+    ],
     "biological_processes": [
       "determination of left/right symmetry"
     ],
@@ -206232,7 +206358,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "4"
   },
   {
@@ -307328,6 +307454,117 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Neurodevelopmental Disorder With Cerebellar Atrophy And With Or Without Seizures",
+    "disease_id": "MONDO:0020841",
+    "category": "Mendelian",
+    "parents": [
+      "Intellectual Disability",
+      "Neurodevelopmental Disorder",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-11-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Neurodevelopmental disorder with cerebellar atrophy and with or without seizures (NEDCAS) is an autosomal recessive disorder caused by biallelic variants in BRAT1, encoding a cytoplasmic chaperone that stabilizes the INTS9/INTS11 endonuclease module of the Integrator complex. NEDCAS is the mild, survivable end of the BRAT1 disease spectrum: affected individuals have intellectual disability, global developmental delay, cerebellar atrophy and ataxia, variable seizures, and axial hypotonia, usually following a static or nonprogressive course. It contrasts with the lethal neonatal end of the spectrum, rigidity and multifocal seizure syndrome (RMFSL). Genotype predicts which end: biallelic truncating alleles cause RMFSL, whereas at least one missense (hypomorphic) allele, leaving residual BRAT1 protein, gives NEDCAS.\nReduced BRAT1 destabilizes the Integrator cleavage module INTS11/INTS9, impairing 3'-end processing of small nuclear RNAs (notably U1), snoRNAs and histone pre-mRNAs; unprocessed U1 snRNA accumulates and its magnitude tracks clinical severity. The resulting transcriptional/RNA-processing disturbance is inferred to derail cerebellar neurodevelopment. Notably, patient-cell data argue against the gene's historical ATM-regulation and mitochondrial roles as the disease cause.",
+    "pathophysiology": [
+      "BRAT1 Loss of Function",
+      "Destabilization of the Integrator Cleavage Module",
+      "Defective snRNA 3'-End Processing",
+      "Impaired Cerebellar Neurodevelopment"
+    ],
+    "cell_types": [
+      "cerebellar neuron"
+    ],
+    "cell_type_ids": [
+      "CL:1001611"
+    ],
+    "biological_processes": [
+      "Integrator cleavage-module stabilization",
+      "snRNA processing",
+      "cerebellum development"
+    ],
+    "phenotypes": [
+      "Cerebellar atrophy",
+      "Ataxia",
+      "Intellectual disability",
+      "Axial hypotonia",
+      "Delayed speech and language development",
+      "Seizure",
+      "Global developmental delay",
+      "Nystagmus",
+      "Dysarthria",
+      "Strabismus",
+      "Oculomotor apraxia",
+      "Retinopathy",
+      "Abnormal facial shape",
+      "Secondary microcephaly",
+      "Limb hypertonia",
+      "Neonatal hypotonia",
+      "Short stature",
+      "Abnormal optic nerve morphology",
+      "Abnormal corpus callosum morphology"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Neurodevelopmental",
+      "Ophthalmologic",
+      "Craniofacial",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001272",
+      "HP:0001251",
+      "HP:0001249",
+      "HP:0008936",
+      "HP:0000750",
+      "HP:0001250",
+      "HP:0001263",
+      "HP:0000639",
+      "HP:0001260",
+      "HP:0000486",
+      "HP:0000657",
+      "HP:0000488",
+      "HP:0001999",
+      "HP:0005484",
+      "HP:0002509",
+      "HP:0001319",
+      "HP:0004322",
+      "HP:0000587",
+      "HP:0001273"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "BRAT1"
+    ],
+    "treatments": [
+      "Supportive and Developmental Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Cerebellar_Atrophy_And_With_Or_Without_Seizures.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Cerebellar_Atrophy_And_With_Or_Without_Seizures.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Neurodevelopmental Disorder With Characteristic Facial And Ectodermal Features And Tetraparesis 1",
     "disease_id": "MONDO:0975745",
     "category": "Mendelian",
@@ -351956,7 +352193,8 @@ window.searchData = [
       "HSF2BP"
     ],
     "treatments": [
-      "Hormone replacement therapy"
+      "Hormone replacement therapy",
+      "Fertility treatment"
     ],
     "environmental": [],
     "biochemical": [],
@@ -351965,8 +352203,8 @@ window.searchData = [
     "num_phenotypes": 7,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "20",
+    "num_treatments": 2,
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "6"
   },
   {
@@ -354739,7 +354977,7 @@ window.searchData = [
   {
     "name": "Primary Hypertrophic Osteoarthropathy",
     "disease_id": "MONDO:0016620",
-    "category": "Genetic",
+    "category": "Mendelian",
     "parents": [
       "Bone Disease",
       "Connective Tissue Disorder"
@@ -354756,6 +354994,7 @@ window.searchData = [
       "Defective PGE2 Degradation (HPGD)",
       "Impaired PGE2 Transport (SLCO2A1)",
       "Periosteal New Bone Formation",
+      "Increased Bone Resorption",
       "Connective Tissue Proliferation",
       "Myelofibrosis (SLCO2A1)"
     ],
@@ -354773,12 +355012,14 @@ window.searchData = [
       "Prostaglandin catabolic process",
       "Prostaglandin transport",
       "Bone formation",
+      "bone resorption",
       "Collagen biosynthetic process",
       "Hematopoiesis"
     ],
     "phenotypes": [
       "Digital Clubbing",
       "Periostosis",
+      "Osteolysis",
       "Pachydermia",
       "Cutis Verticis Gyrata",
       "Arthralgia",
@@ -354812,6 +355053,7 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0001217",
       "HP:0030314",
+      "HP:0002797",
       "HP:0001072",
       "HP:0010541",
       "HP:0002829",
@@ -354825,6 +355067,7 @@ window.searchData = [
     ],
     "frequencies": [
       "VERY_FREQUENT",
+      "OCCASIONAL",
       "FREQUENT"
     ],
     "genes": [
@@ -354835,6 +355078,7 @@ window.searchData = [
     "treatments": [
       "COX-2 Inhibitor (Etoricoxib)",
       "NSAIDs",
+      "Bisphosphonate (Pamidronate)",
       "Genetic Counseling"
     ],
     "environmental": [],
@@ -354845,12 +355089,12 @@ window.searchData = [
     ],
     "source_file": "Primary_Hypertrophic_Osteoarthropathy.yaml",
     "page_url": "../pages/disorders/Primary_Hypertrophic_Osteoarthropathy.html",
-    "num_phenotypes": 12,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
     "num_genes": 3,
-    "num_treatments": 3,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "2"
+    "num_treatments": 4,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Primary Lateral Sclerosis",
@@ -368194,6 +368438,101 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "LBR-Related Regressive Spondylometaphyseal Dysplasia",
+    "disease_id": "MONDO:0018663",
+    "category": "Mendelian",
+    "parents": [
+      "Spondylometaphyseal Dysplasia",
+      "Skeletal Dysplasia",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-11-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Regressive spondylometaphyseal dysplasia is a rare autosomal recessive skeletal dysplasia caused by biallelic (homozygous or compound heterozygous) hypomorphic variants in LBR, which encodes the lamin B receptor, a dual-function inner nuclear membrane protein with 3-beta-hydroxysterol Delta14-reductase (sterol C14-reductase) activity and a structural role tethering heterochromatin to the nuclear lamina. It sits at the mild, survivable end of the LBR allelic spectrum, between heterozygous Pelger-Huet anomaly (a benign neutrophil finding) and the homozygous lethal Greenberg/HEM dysplasia. Affected individuals present prenatally or in infancy with short stature, rhizomelic limb shortening and bowed long bones; the spondylometaphyseal radiographic changes characteristically improve spontaneously over childhood, which gives the disorder its name. A hyposegmented Pelger-Huet neutrophil pattern is usual but not invariant. Fewer than about 15 individuals and fetuses have been reported.\nReduced sterol C14-reductase activity leaves accumulated cholesta-8,14-dien-3-beta-ol and impairs cell-autonomous cholesterol biosynthesis, which is inferred to disturb endochondral ossification in the growth plate; partial residual activity and paralogue (TM7SF2/DHCR14) redundancy are thought to underlie the radiographic regression. In parallel, a reduced dose of the structural LBR protein causes the failure of neutrophil nuclear lobulation seen as the Pelger-Huet anomaly. The relative weight of the enzymatic and structural roles remains debated, because Lbr-null mice show the neutrophil phenotype without a tissue sterol defect.",
+    "pathophysiology": [
+      "LBR Sterol C14-Reductase Deficiency",
+      "Accumulation of Cholesta-8,14-dien-3-beta-ol and Impaired Cholesterol Biosynthesis",
+      "Disturbed Endochondral Ossification",
+      "Failed Neutrophil Nuclear Lobulation"
+    ],
+    "cell_types": [
+      "chondrocyte",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000138",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "cholesterol biosynthetic process",
+      "endochondral ossification",
+      "nuclear envelope organization"
+    ],
+    "phenotypes": [
+      "Short stature",
+      "Rhizomelic limb shortening",
+      "Bowing of the long bones",
+      "Femoral bowing",
+      "Spondylometaphyseal dysplasia",
+      "Osteopenia",
+      "Narrow chest",
+      "Frontal bossing",
+      "Midface retrusion",
+      "Hyposegmentation of neutrophil nuclei"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Thoracic",
+      "Craniofacial",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0004322",
+      "HP:0008905",
+      "HP:0006487",
+      "HP:0002980",
+      "HP:0002657",
+      "HP:0000938",
+      "HP:0000774",
+      "HP:0002007",
+      "HP:0011800",
+      "HP:0011447"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "OBLIGATE"
+    ],
+    "genes": [
+      "LBR"
+    ],
+    "treatments": [
+      "Orthopedic Management",
+      "Physical Therapy",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Regressive_Spondylometaphyseal_Dysplasia.yaml",
+    "page_url": "../pages/disorders/LBR-Related_Regressive_Spondylometaphyseal_Dysplasia.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Relapsing Fever",
     "disease_id": "MONDO:0019633",
     "category": "Infectious Disease",
@@ -371521,7 +371860,10 @@ window.searchData = [
     "name": "Rhabdoid Tumor",
     "disease_id": "MONDO:0002728",
     "category": "",
-    "parents": [],
+    "parents": [
+      "Embryonal neoplasm",
+      "Pediatric solid tumor"
+    ],
     "creation_date": "2026-04-12T05:17:45Z",
     "updated_date": null,
     "subtypes": [
@@ -371538,8 +371880,12 @@ window.searchData = [
       "Aberrant MRT Cell Growth",
       "Blocked Cellular Differentiation"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "early neural crest progenitor"
+    ],
+    "cell_type_ids": [
+      "CL:0011012"
+    ],
     "biological_processes": [
       "chromatin remodeling",
       "negative regulation of gene expression, epigenetic",
@@ -371596,8 +371942,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Rhabdoid Tumor Predisposition Syndrome 1",
@@ -392627,6 +392973,147 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "28",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Severe Congenital Neutropenia 6, Autosomal Recessive",
+    "disease_id": "MONDO:0014456",
+    "category": "Mendelian",
+    "parents": [
+      "congenital neutropenia",
+      "inborn error of immunity",
+      "congenital disorder of glycosylation"
+    ],
+    "creation_date": "2026-10-18T12:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Severe congenital neutropenia type 6 is an autosomal recessive inborn error of immunity caused by biallelic variants in JAGN1, which encodes Jagunal homolog 1, a small endoplasmic reticulum (ER)-resident transmembrane protein of the early secretory pathway that interacts with the COPI vesicle coat. Loss of JAGN1 function in myeloid cells leaves an enlarged ER, almost no neutrophil granules, aberrant N-glycosylation (reduced fucosylation of multi-antennary glycans, and in murine cells reduced sialylation of adhesion receptors), a hypoglycosylated and less abundant G-CSF receptor with weakened downstream signalling, and a raised propensity of neutrophils to die. The bone marrow shows maturation arrest at the promyelocyte/myelocyte stage and the absolute neutrophil count is usually below 0.5 x 10^9/L from infancy, with early-onset recurrent bacterial infections of the ear-nose-throat tract, skin and mucosa, and severe periodontitis. About a third of patients also have a syndromic picture (facial features, short stature, bone metabolism disorders, developmental delay), and some have low immunoglobulin levels, consistent with JAGN1's role in antibody glycosylation. Response to G-CSF is often poor and dose requirements are high; allogeneic haematopoietic stem cell transplantation cures the haematological and infectious phenotype in refractory cases. Because JAGN1 deficiency is a defect of glycosylation trafficking, it is also counted among the congenital disorders of glycosylation with immune involvement (JAGN1-CDG).",
+    "pathophysiology": [
+      "Biallelic JAGN1 Loss of Function",
+      "Early Secretory Pathway and ER Dysfunction",
+      "Aberrant Myeloid N-Glycosylation",
+      "Reduced G-CSF Receptor Signaling",
+      "ER Stress and Increased Myeloid Cell Death",
+      "Defective Neutrophil Granule Formation",
+      "Myeloid Maturation Arrest",
+      "Impaired Neutrophil Antimicrobial Function",
+      "B Cell ER Dysfunction and Altered IgG Glycosylation"
+    ],
+    "cell_types": [
+      "promyelocyte",
+      "neutrophil",
+      "neutrophil progenitor cell",
+      "neutrophilic myelocyte",
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000836",
+      "CL:0000775",
+      "CL:0000834",
+      "CL:0000580",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "retrograde vesicle-mediated transport, Golgi to endoplasmic reticulum",
+      "endoplasmic reticulum organization",
+      "protein N-linked glycosylation",
+      "protein sialylation",
+      "granulocyte colony-stimulating factor signaling pathway",
+      "response to endoplasmic reticulum stress",
+      "neutrophil apoptotic process",
+      "secretory granule organization",
+      "neutrophil differentiation",
+      "neutrophil-mediated killing of fungus",
+      "immunoglobulin production"
+    ],
+    "phenotypes": [
+      "Severely decreased neutrophil count",
+      "Bone marrow arrest at the promyelocytic stage",
+      "Recurrent bacterial infections",
+      "Recurrent otitis media",
+      "Pneumonia",
+      "Cutaneous abscess",
+      "Periodontitis",
+      "Oral ulcer",
+      "Neonatal omphalitis",
+      "Abnormal facial shape",
+      "Short stature",
+      "Global developmental delay",
+      "Osteopenia",
+      "Scoliosis",
+      "Increased total monocyte count",
+      "Increased circulating immunoglobulin concentration",
+      "Decreased circulating immunoglobulin concentration",
+      "Intracranial hemorrhage",
+      "Diabetes mellitus",
+      "Acute myeloid leukemia"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Ear",
+      "Endocrine",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0025826",
+      "HP:0033607",
+      "HP:0002718",
+      "HP:0000403",
+      "HP:0002090",
+      "HP:0031292",
+      "HP:0000704",
+      "HP:0000155",
+      "HP:0032435",
+      "HP:0001999",
+      "HP:0004322",
+      "HP:0001263",
+      "HP:0000938",
+      "HP:0002650",
+      "HP:0012311",
+      "HP:0010702",
+      "HP:0004313",
+      "HP:0002170",
+      "HP:0000819",
+      "HP:0004808"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OBLIGATE",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "JAGN1"
+    ],
+    "treatments": [
+      "G-CSF (filgrastim)",
+      "Allogeneic hematopoietic stem cell transplantation",
+      "GM-CSF (sargramostim)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Severe_Congenital_Neutropenia_6_Autosomal_Recessive.yaml",
+    "page_url": "../pages/disorders/Severe_Congenital_Neutropenia_6,_Autosomal_Recessive.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Severe Congenital Neutropenia 7, Autosomal Recessive",
@@ -452826,17 +453313,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4165,
+  "total_disorder_pages": 4169,
   "total_subtypes": 5124,
-  "total_disorders_and_subtypes": 9289,
-  "total_unique_evidence_sources": 62222,
-  "total_unique_publications": 58112,
+  "total_disorders_and_subtypes": 9293,
+  "total_unique_evidence_sources": 62257,
+  "total_unique_publications": 58141,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4163,
-  "total_unique_pathological_events": 27508,
+  "total_pathographs": 4167,
+  "total_unique_pathological_events": 27531,
   "total_modules": 239,
-  "total_research_reports": 4266,
+  "total_research_reports": 4270,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 146
