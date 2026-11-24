@@ -19,24 +19,27 @@ dependencies = [
   "httpx>=0.28.1",
   "koza>=2.3.1",
   "linkml-data-qc[viz]",
-  # >=0.5.1: 0.5.0 matches excerpts on whole words, keeps comparisons,
-  # plus-minus, minus signs and decimal separators instead of folding them to
-  # spaces, and caps cache filenames at 200 bytes with a hash suffix
-  # (linkml/linkml-reference-validator#150-#153, #162); 0.5.1 stops the
-  # extractors welding headings and citation markers onto words, which
-  # whole-word matching would otherwise turn into failed quotes (#163).
-  # dismech.reference_cache_names calls the validator's filename functions.
-  # It also carries the earlier fixes behind the 0.4.0 floor: a bot-challenge
-  # page is a failed url: fetch, not a document (#117, issue #12747), and
-  # #66-74, #85, #87 and #88.
+  # >=0.8.0 stops caching file: references (they are read from disk on every
+  # run, linkml/linkml-reference-validator#173), validates inlined objects as
+  # their designates_type subclass (#170), makes an explicit --config beat
+  # user-level config (#123), and adds `excerpts sync` (0.7.0, #172), which
+  # `just sync-signed-excerpts` runs.
+  # >=0.6.0 adds signed_excerpts_dir fallback and fair-use excerpt length/fraction
+  # caps (linkml/linkml-reference-validator#171), on top of >=0.5.1 whole-word
+  # matching, comparison/minus preservation, 200-byte cache filename hashing
+  # (#150-#153, #162, #163), and the >=0.4.0 bot-challenge detection (#117).
   # dismech does not patch the validator's internals; what this floor protects
   # is the *behaviour* pinned by tests/test_upstream_validator_behaviours.py.
-  "linkml-reference-validator>=0.5.1",
+  "linkml-reference-validator>=0.8.0",
   "linkml-runtime >=1.9.4",
   # Direct: scripts/extract_oecd_tg.py needs extract_text(extraction_mode="layout"),
   # added in 4.0.0. Otherwise only present transitively via the reference validator.
   "pypdf>=4.0.0",
   "linkml-term-validator>=0.4.5",
+  # Direct: dismech.structured_sources.phekb fetches phekb.org, which serves no
+  # intermediate certificate; the OS trust store completes the chain where
+  # certifi cannot. Otherwise only present transitively.
+  "truststore>=0.10.4",
   "ndex2>=3.9.0,<4",
   "networkx>=3,<4",
   "oaklib>=0.7.4",
@@ -61,9 +64,12 @@ dev = [
     "mkdocs-material>=8.2.8",
     "jupyter>=1.0.0",
     "mknotebooks>=0.8.0",
-    "deep-research-client[biomni,cyberian,terms,validation]>=0.2.13",
+    "deep-research-client[biomni,cyberian,edison,terms,validation]>=0.2.15",
     "pytest-xdist>=3.6.0",
     "yamlfix==1.19.1",
+    # Pinned: keep in step with [tool.ruff] required-version and the
+    # ruff-pre-commit rev. tests/test_ruff_version_pin.py checks they agree.
+    "ruff==0.17.5",
 ]
 export = [
     "biolink-model>=4.3.1",
@@ -170,6 +176,12 @@ ignore-regex = 'pyridox\(am\)ine'
 
 # Ref.: https://github.com/astral-sh/ruff
 [tool.ruff]
+# One ruff version for CI (`uv run ruff check .`), local `uv run ruff`, `just
+# lint-python` and pre-commit. Any other ruff exits with an error instead of
+# applying a different rule set. Bumping it is a deliberate PR: change this,
+# the `ruff==` dev dependency and the ruff-pre-commit `rev` together, run
+# `uv lock`, and fix what the new version reports in the same change (#9964).
+required-version = "==0.17.5"
 exclude = [
   "src/dismech/datamodel/dismech.py",
   "src/dismech/datamodel/dismech_pydantic.py",
@@ -182,11 +194,14 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-# We intentionally track ruff's default rule set (no explicit `select`) rather
-# than pinning the ruff version, and mark the rules that don't fit this project
-# as deliberately ignored. These are framework false-positives and intentional
-# defensive/test patterns, not latent bugs — everything else ruff flags is fixed
-# in-tree.
+# We track ruff's default rule set (no explicit `select`) and mark the rules
+# that don't fit this project as deliberately ignored. These are framework
+# false-positives and intentional defensive/test patterns, not latent bugs —
+# everything else ruff flags is fixed in-tree. The *version* is pinned (see
+# required-version above), so a new ruff release changes the rule set only when
+# a PR bumps the pin. Before #9964 the version floated in CI, and each release
+# that changed the defaults turned every open PR red at once (E402 in 0.15,
+# DTZ001 in 0.16, the DTZ default change in 0.17, SIM102 in 0.17.4).
 ignore = [
   "B008",   # function-call-in-default-argument: idiomatic Typer/Click CLI defaults (typer.Option/Argument)
   "BLE001", # blind-except: intentional defensive fallback paths (rendering, cache warmups, optional integrations)
