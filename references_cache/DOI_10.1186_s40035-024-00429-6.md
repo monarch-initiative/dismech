@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1186/s40035-024-00429-6
+extractor_version: 1
 title: "Tau in neurodegenerative diseases: molecular mechanisms, biomarkers, and therapeutic strategies"
 authors:
 - Xingyu Zhang
@@ -10,12 +11,14 @@ journal: Translational Neurodegeneration
 year: '2024'
 doi: 10.1186/s40035-024-00429-6
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://translationalneurodegeneration.biomedcentral.com/counter/pdf/10.1186/s40035-024-00429-6"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1186_s40035-024-00429-6.pdf
+full_text_access_type: open
 ---
 
 # Tau in neurodegenerative diseases: molecular mechanisms, biomarkers, and therapeutic strategies
@@ -25,7 +28,9 @@ local_pdf_path: files/DOI_10.1186_s40035-024-00429-6.pdf
 
 ## Content
 
-AbstractThe deposition of abnormal tau protein is characteristic of Alzheimer’s disease (AD) and a class of neurodegenerative diseases called tauopathies. Physiologically, tau maintains an intrinsically disordered structure and plays diverse roles in neurons. Pathologically, tau undergoes abnormal post-translational modifications and forms oligomers or fibrous aggregates in tauopathies. In this review, we briefly introduce several tauopathies and discuss the mechanisms mediating tau aggregation and propagation. We also describe the toxicity of tau pathology. Finally, we explore the early diagnostic biomarkers and treatments targeting tau. Although some encouraging results have been achieved in animal experiments and preclinical studies, there is still no cure for tauopathies. More in-depth basic and clinical research on the pathogenesis of tauopathies is necessary.
+Abstract
+
+The deposition of abnormal tau protein is characteristic of Alzheimer’s disease (AD) and a class of neurodegenerative diseases called tauopathies. Physiologically, tau maintains an intrinsically disordered structure and plays diverse roles in neurons. Pathologically, tau undergoes abnormal post-translational modifications and forms oligomers or fibrous aggregates in tauopathies. In this review, we briefly introduce several tauopathies and discuss the mechanisms mediating tau aggregation and propagation. We also describe the toxicity of tau pathology. Finally, we explore the early diagnostic biomarkers and treatments targeting tau. Although some encouraging results have been achieved in animal experiments and preclinical studies, there is still no cure for tauopathies. More in-depth basic and clinical research on the pathogenesis of tauopathies is necessary.
 
 Zhang et al. Translational Neurodegeneration           (2024) 13:40  
 https://doi.org/10.1186/s40035-024-00429-6

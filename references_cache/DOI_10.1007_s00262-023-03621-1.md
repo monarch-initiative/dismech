@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00262-023-03621-1
+extractor_version: 1
 title: Updated systematic review and network meta-analysis of first-line treatments for metastatic renal cell carcinoma with extended follow-up data
 authors:
 - Takafumi Yanagisawa
@@ -24,12 +25,14 @@ journal: "Cancer Immunology, Immunotherapy"
 year: '2024'
 doi: 10.1007/s00262-023-03621-1
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00262-023-03621-1.pdf"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s00262-023-03621-1.pdf
+full_text_access_type: open
 ---
 
 # Updated systematic review and network meta-analysis of first-line treatments for metastatic renal cell carcinoma with extended follow-up data
@@ -39,7 +42,9 @@ local_pdf_path: files/DOI_10.1007_s00262-023-03621-1.pdf
 
 ## Content
 
-AbstractImmune checkpoint inhibitor (ICI)-based combination therapies are the recommended first-line treatment for metastatic renal cell carcinoma (mRCC). However, no head-to-head phase-3 randomized controlled trials (RCTs) have compared the efficacy of different ICI-based combination therapies. Here, we compared the efficacy of various first-line ICI-based combination therapies in patients with mRCC using updated survival data from phase-3 RCTs. Three databases were searched in June 2023 for RCTs that analyzed oncologic outcomes in mRCC patients treated with ICI-based combination therapies as first-line treatment. A network meta-analysis compared outcomes including overall survival (OS), progression-free survival (PFS), objective response rate (ORR), and complete response (CR) rate. Subgroup analyses were based on the International mRCC Database Consortium risk classification. The treatment ranking analysis of the entire cohort showed that nivolumab + cabozantinib (81%) had the highest likelihood of improving OS, followed by nivolumab + ipilimumab (75%); pembrolizumab + lenvatinib had the highest likelihood of improving PFS (99%), ORR (97%), and CR (86%). These results remained valid even when the analysis was limited to patients with intermediate/poor risk, except that nivolumab + ipilimumab had the highest likelihood of achieving CR (100%). Further, OS benefits of ICI doublets were not inferior to those of ICI + tyrosine kinase inhibitor combinations. Recommendation of combination therapies with ICIs and/or tyrosine kinase inhibitors based on survival benefits and patient pretreatment risk classification will help advance personalized medicine for mRCC.
+Abstract
+
+Immune checkpoint inhibitor (ICI)-based combination therapies are the recommended first-line treatment for metastatic renal cell carcinoma (mRCC). However, no head-to-head phase-3 randomized controlled trials (RCTs) have compared the efficacy of different ICI-based combination therapies. Here, we compared the efficacy of various first-line ICI-based combination therapies in patients with mRCC using updated survival data from phase-3 RCTs. Three databases were searched in June 2023 for RCTs that analyzed oncologic outcomes in mRCC patients treated with ICI-based combination therapies as first-line treatment. A network meta-analysis compared outcomes including overall survival (OS), progression-free survival (PFS), objective response rate (ORR), and complete response (CR) rate. Subgroup analyses were based on the International mRCC Database Consortium risk classification. The treatment ranking analysis of the entire cohort showed that nivolumab + cabozantinib (81%) had the highest likelihood of improving OS, followed by nivolumab + ipilimumab (75%); pembrolizumab + lenvatinib had the highest likelihood of improving PFS (99%), ORR (97%), and CR (86%). These results remained valid even when the analysis was limited to patients with intermediate/poor risk, except that nivolumab + ipilimumab had the highest likelihood of achieving CR (100%). Further, OS benefits of ICI doublets were not inferior to those of ICI + tyrosine kinase inhibitor combinations. Recommendation of combination therapies with ICIs and/or tyrosine kinase inhibitors based on survival benefits and patient pretreatment risk classification will help advance personalized medicine for mRCC.
 
 Vol.:(0123456789)
 Cancer Immunology, Immunotherapy (2024) 73:38 

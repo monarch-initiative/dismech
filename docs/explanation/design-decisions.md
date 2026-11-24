@@ -98,6 +98,18 @@ the condition has a distinct MONDO identity and a substantially independent mech
 otherwise prefer a subtype. See the subtype naming conventions in
 [`CLAUDE.md`](https://github.com/monarch-initiative/dismech/blob/main/CLAUDE.md).
 
+**OMIM phenotypic series have explicit mapping scope (2026-11-18).**
+`mappings.omimps_mappings` applies to Disease, Subtype, and Grouping records.
+Its separate type validates `OMIMPS:` identifiers against OMIM and prevents
+confusion with an individual `OMIM:` record sharing the same six-digit number.
+It also preserves a direct source alignment when a MONDO crosswalk has a
+different scope. A series can correspond to one syndrome Disease (BBS), a
+curated union of distinct diseases (hereditary tyrosinemias), or a susceptibility
+locus collection related to a complex Disease (celiac disease). The required
+justification explains that choice and the mapping predicate. Neither a
+series mapping nor its numbered members automatically establishes Mendelian
+inheritance, complete member curation, or a disease-grouping boundary.
+
 **Mechanism modules are conformance, not inheritance.** Modules in
 [`kb/modules/`](https://github.com/monarch-initiative/dismech/tree/main/kb/modules)
 capture conserved pathological processes (e.g. the fibrotic response) that recur across
@@ -737,6 +749,7 @@ the table below mirrors it.
 | Anatomy | UBERON | `UBERON:` |
 | Chemicals / drugs | ChEBI | `CHEBI:` |
 | Genes | HGNC | `hgnc:` (canonical lowercase), `HGNC:` (legacy) |
+| Non-human genes, on model and dataset genes only (`animal_models[].genes`, `experimental_models[].genes`, `datasets[].genes`) | Alliance of Genome Resources MODs first; NCBI Gene for a species without one | `MGI:`, `RGD:`, `ZFIN:`, `Xenbase:`, `FB:`, `WB:`, `SGD:`; then `NCBIGene:` |
 | Inheritance / variant effects | Genotype Ontology | `GENO:` |
 | Physical variant classes / genomic sequence contexts | Sequence Ontology | `SO:` |
 | Treatments / clinical interventions | NCI Thesaurus | `NCIT:` |
@@ -765,6 +778,26 @@ of fake identifiers.
 
 - **HGNC casing**: gene CURIEs use **lowercase** `hgnc:` (e.g. `hgnc:746`). This is the
   canonical form that passes validation; do not flag it as an error.
+- **Non-human genes (2026-10-09, revised 2026-10-15, #13548)**: a model system or
+  dataset names its genes in its own species, so the `genes` of `AnimalModel`,
+  `ExperimentalModel` and `Dataset` accept non-human identifiers. Every other gene slot
+  stays HGNC-only, and a human gene is `hgnc:` even inside a model. The order of
+  preference, set by @cmungall's review: the species' **Alliance MOD** (MGI mouse, RGD
+  rat, ZFIN zebrafish, Xenbase Xenopus, FB fly, WB worm, SGD yeast) whenever one exists,
+  whether the model acts on the gene or its product; otherwise `NCBIGene:`.
+  This is the Monarch KG's convention (the MOD ID is the
+  gene node; NCBI Gene is ingested only for non-MOD taxa), and it **deliberately differs**
+  from Biolink's `id_prefixes` order and Translator node normalization, which both lead
+  with NCBIGene. Prefix spellings are Biolink's, shared by the Monarch KG and GO; GO's
+  `MGI:MGI:` local-ID form is rejected. None of the MOD prefixes or NCBIGene is routed in
+  `conf/oak_config.yaml`, so the term validator would pass any label on them; they are
+  checked by `scripts/check_gene_namespaces.py` (`just check-gene-namespaces`) against
+  committed `cache/<prefix>/terms.csv` files filled from the Alliance API and NCBI
+  E-utilities. The same script
+  gates any of these prefixes outside a model's or dataset's `genes`, and a fallback
+  prefix on a species that has a MOD. A gene-product (`UniProtKB:`) accession is not an
+  accepted namespace for now; a follow-up issue tracks adding it. Orthology to the human
+  gene is prose for now; a structured link is a planned follow-up.
 - **`preferred_term` vs `term.label`**: `term.label` must exactly match the canonical
   ontology label (OAK-verified); `preferred_term` may be more specific/clinical when the
   ontology term is too broad.
@@ -965,6 +998,12 @@ exactly.
   reference, enforced by `linkml-reference-validator`. Paraphrase fails validation.
 - **Cache files are tool-generated**: `references_cache/*.md` are created exclusively by
   `just fetch-reference` or the validator. They are **never** hand-written or hand-edited.
+- **Signed full-text excerpts are synced from `claimstore`, never hand-authored**:
+  `signed_excerpts/*.yaml` contain brief fair-use excerpts synced from the private
+  `monarch-initiative/claimstore` repository, where closed-access full-text PDFs and
+  extracted Markdowns are validated with `linkml-reference-validator` and
+  `linkml-term-validator` (see §6d below). They are **never** created or edited by hand in
+  `dismech`.
 - **`evidence_source` describes the study type** reported in the publication
   (HUMAN_CLINICAL, MODEL_ORGANISM, IN_VITRO, COMPUTATIONAL, OTHER), **not** how curation
   was performed. Model-organism evidence must not be the sole support for a human
@@ -1223,6 +1262,96 @@ value for them; see [#10262](https://github.com/monarch-initiative/dismech/issue
 Whether `quote_role` should ever be gated, and whether the same treatment should reach a
 full text's own section headings
 ([#9711](https://github.com/monarch-initiative/dismech/issues/9711)), are both open.
+
+### 6d. Signed full-text excerpts (`signed_excerpts/`) are verified in `claimstore` and synced as fair-use bundles (2026-11-15)
+
+**Decision.** When a cited publication's full text cannot be redistributed in
+`references_cache/` (for example, a paywalled publisher PDF or an article whose public
+fetch returns `abstract_only` or `unavailable`), brief fair-use excerpts may be verified
+against the full-text PDF and extracted Markdown in the private
+[`monarch-initiative/claimstore`](https://github.com/monarch-initiative/claimstore)
+repository and synced into `signed_excerpts/<REF_ID>.yaml`.
+
+- **Two-stage verification.** In `claimstore`, `linkml-reference-validator` (`>=0.6.0`)
+  verifies that every excerpt is an exact substring (with `...` ellipsis support) of the
+  full-text Markdown in `claimstore/references_cache/`, enforces fair-use length and
+  fraction bounds (`max_excerpt_part_length: 250`, `max_excerpt_length: 450`,
+  `max_total_chars_per_reference: 1500`, `max_reference_fraction: 0.05`), and checks the
+  publication title; `linkml-term-validator` verifies all ontology entity annotations.
+- **Exact-match fallback in `dismech`.** Both `linkml-reference-validator` (configured via
+  `signed_excerpts_dir: signed_excerpts` in `conf/reference_validator_config.yaml` and
+  `.linkml-reference-validator.yaml`) and `just count-verified-snippets`
+  (`src/dismech/reference_snippet_audit.py`) accept a `kb/` snippet when it either
+  substring-matches `references_cache/` **or** exact-matches (after whitespace
+  normalization) a verified entry in `signed_excerpts/<REF_ID>.yaml`. Any local edit or
+  paraphrase of a signed excerpt fails the exact-match check and falls through to normal
+  `references_cache/` substring matching, failing validation.
+- **Synced with `just sync-signed-excerpts`.** The recipe runs
+  `linkml-reference-validator excerpts sync` against a local claimstore clone
+  (`../claimstore` or `$CLAIMSTORE_DIR`), so only people with claimstore read access can
+  run it; CI only validates the committed copy. The `signed_excerpts_sync` section of
+  `conf/reference_validator_config.yaml` selects a bundle if an excerpt is tagged
+  `target_repo: dismech:...` or its reference is cited anywhere under `kb/`, copies it
+  byte-for-byte, and prunes bundles no longer selected. `--check` reports drift without
+  writing.
+- **Never hand-authored in `dismech`.** `signed_excerpts/*.yaml` files are synced from
+  `claimstore` and are governed by the same no-hand-editing rule as `references_cache/*.md`.
+  `tests/test_signed_excerpts.py` enforces provenance metadata (`reference_id`,
+  `source_md_sha256`, `source_pdf_sha256`, `source_char_count`), per-excerpt `sha256` and
+  `char_count` integrity, and fair-use bounds on every committed bundle, and `signed_excerpts/`
+  is excluded from the routine curation PR scope allowlist in `.github/workflows/main.yaml`.
+
+
+### 6e. Regulatory test guidelines are leads, not evidence (2026-11-16)
+
+**Decision.** An OECD Test Guideline, and any comparable regulatory consensus
+document, may not be cited in an evidence `reference:`. It is a lead, on the same
+footing as AOP-Wiki: it points at a claim, and the claim is then sourced from the
+primary literature. `OECDTG:` is deliberately absent from
+`ALLOWED_REFERENCE_PREFIXES` in `tests/test_data.py`, as `AOP:` always has been.
+
+**Why.** A Test Guideline describes what an assay measures in the **key-event**
+terms of an Adverse Outcome Pathway. TG 442D is titled for the AOP key event on
+keratinocyte activation, and its methods are defined as addressing KE2 of the skin
+sensitisation AOP. A key event is not a dismech pathograph node. The two are
+different objects at different granularity, written by different communities for
+different purposes, and nothing in this repository records the correspondence
+between any particular pair of them.
+
+So an evidence item on a `modeled_mechanisms` link citing a guideline asserts that
+correspondence silently, under a citation that does not make it. The guideline
+says the assay reads KE2; the entry says the model recapitulates a named node; the
+step between is the curator's, and a reader following the citation finds no trace
+of it. That is a provenance skip, and it falls on exactly the claim a guideline is
+least entitled to support.
+
+EnviroMech already treats this step as something that must be written down rather
+than assumed: a `KeyEventAggregation` record carries an explicit
+`aggregation_relation`, a rationale, and any level mismatch between the key event
+and the node it is mapped onto. A guideline citation in `evidence` is the same
+step taken without any of that.
+
+**What this does not say.** A guideline is still worth reading, caching and
+recording. `references_cache/OECDTG_442D.md` and the committed paragraph index stay,
+and `just fetch-reference OECDTG:442D` still works — they are how a curator reads
+the guideline, and how `data/oecd_tg/*-methods.json` extraction is audited. What
+changes is only that the cached text may not appear behind an evidence
+`reference:`.
+
+**Where guideline-only facts go.** Some facts have no primary source: a method's
+Validated Reference Method standing, a guideline's own judgement that a result is
+shown only indirectly, a construct description that differs from the originating
+paper's. Record these in the record's `notes:`, attributed to the guideline and
+marked as a lead. `notes:` is curator prose and carries no evidence claim, which is
+the correct strength for a fact whose only source is a consensus document.
+
+**Worked example.** `Contact_Dermatitis`, which carries the TG 442D methods. The
+branch adding the last two of them (#18286) first cited `OECDTG:442D` in eleven
+evidence items; under this decision all eleven were removed. Two re-sourced to
+something stronger than the guideline — the marker-gene-to-response mapping behind
+EpiSensA and Epi2SensA now cites `PMID:27965148`, which reports the P2X7-antagonist
+and Nrf2-siRNA knockdowns that established it rather than asserting it — and the
+rest moved to `notes:`.
 
 
 ## 7. Curation process & governance
@@ -1687,6 +1816,7 @@ This section details decisions we have **not yet made or formalized**.
 |---|---|---|
 | Exposure → disease relations (`disease_effect` / `causal_role`) | **PROPOSED, not ratified.** An `environmental[]` entry can say an exposure acts on a *mechanism node* (`influences_mechanisms`), but nothing states how it acts on the *disease*. The only slot for that is free-text `effect:`, used on 285 entries across 118 files — of which ~64 carry enum-shaped values (`HARMFUL` 28, `TRIGGERS` 20, `RISK_FACTOR` 7, `CAUSATIVE` 5, `EXACERBATES` 4) written into a string because no vocabulary exists at this scope. The KGX exporter already emits the exposure→disease edge and infers its predicate by requiring unanimity across mechanism links, then regex-matching four phrasings of the prose (`kgx_export.py:_exposure_predicate`); its docstring records the unanimity rule as a workaround for one exposure protecting against a mechanism while driving another. Proposal: two scalar slots on `Environmental` — `disease_effect` (direction, reusing `EnvironmentalEffectEnum` with scope-neutral value descriptions) and `causal_role` (strength, a new `EnvironmentalCausalRoleEnum`) — supported by the entry's existing `evidence:` block, which already holds the disease-level claim. Would home the ~22 exposures #10359 could not place, and let KGX read one declared field. **Open:** whether `causal_role` is its own axis or folds into `disease_effect`; whether the `NECESSARY`/`SUFFICIENT`/`COMPONENT_CAUSE` framing is heavier than the KB needs; and how to migrate `HARMFUL` (a valence, not a direction) and `CAUSATIVE` (which collapses both axes). Settle the vocabulary before populating at scale — narrowing an enum later is the merge-shaped failure of #10061. | [#11112](https://github.com/monarch-initiative/dismech/issues/11112) · draft schema in PR |
 | Experiment-grounded evidence (`experiment.design` / `inference.role`) | Design exploration, **not yet a schema change.** The `EvidenceItem` model is a validated citation-pointer (real reference + exact snippet + validator = citation integrity) with a thin appraisal layer — `supports` is polarity, `evidence_source` is a coarse organism bucket, and neither records *what experiment* produced a claim or *how* the mechanistic edge was inferred from it. Proposal: an optional `experiment{design, system, perturbation, readout, result, inference}` block plus two small closed enums — `experiment.design` (*how it was shown*) and `inference.role` (*necessity / sufficiency / rescue / direct-physical / therapeutic-rescue*, what the result licenses about the edge), mutually constraining so strength is *derived, not authored* and `experiment.result.snippet` stays substring-validated. Bespoke enum preferred over ECO (which types entity→term annotations, not causal-graph assertions); SEPIO reserved for the export layer. Worked on the FH PCSK9 sub-graph. | [The Evidence Model](evidence-model.md) · [FH worked example](../reports/fh-experiment-grounded-evidence-2026-07-30.md) |
+| `Experiment` class shape / cloud-lab execution | **PARTLY ENACTED.** Stages 1a and 1b have landed; the rest is design proposal. `Experiment` is one flat class reached from `Discussion.proposed_experiments`, and the fill rates across 2,378 experiments show it does not fit what curators write: `experiment_type` 15.5%, `model_systems` 5.7%, `assays` 0.5%, against `description` at 99.7% — and of 368 `experiment_type` values there are 330 distinct strings and exactly one ontology CURIE, curators hand-rolling the taxonomy the schema declined to give them. (The documented "prefer OBI terms" instruction is currently unfollowable: OBI is absent from `conf/oak_config.yaml` and has no `cache/enums/` membership cache, the same gap already recorded for `assays:`.) Proposal: an abstract base carrying the type-agnostic slots plus `is_a` subclasses per **design family** (perturbation screen / human observational / interventional trial / in-silico), whose discriminating slots are near-disjoint; an `executability` ladder (`CONCEPTUAL` / `SPECIFIED` / `PARAMETERIZED` / `EXECUTABLE`, where all 2,378 are today `CONCEPTUAL`); and a typed `protocol_binding` handle to an external LabOP/Autoprotocol/protocols.io document. **Key boundary:** execution detail (reagents, plate maps, volumes) is protocol engineering, not disease knowledge, and does not belong in `kb/` — it would duplicate across every entry that screens a library. What dismech owns is the pre-registered decision rule bound to a named causal edge, so hardening `decision_criterion` (free text, 30.5% filled) is worth more than any reagent slot — an asymmetry against the already-hardened `would_support` (#9224) that is backwards. **Fixes a live bug independently:** `Experiment.model_systems` has range `ExperimentalModel` (non-animal NAMs only), so animal, human-cohort and in-silico proposals all leak into `experimental_model_type: OTHER` — 38 of 135 — which `ExperimentalModel`'s own comment forbids; #8199 closed this for realized models but never for proposed ones. **Must be co-designed with the Experiment-grounded evidence row above:** those are the same object prospective vs retrospective (`experiment.design` is this row's design-family enum; `experiment.readout` is `Experiment.readouts`), and designing them separately would yield two vocabularies for one concept. **Enacted (stage 1a):** `ExperimentDesignEnum` (8 values: perturbation screen, targeted perturbation, human observational, interventional trial, descriptive profiling, in-silico, method development, mixed) and `ExperimentExecutabilityEnum` (`CONCEPTUAL` / `SPECIFIED` / `PARAMETERIZED` / `EXECUTABLE`) are available as the optional `experiment_design` and `executability` slots on `Experiment`, and `animal_models` / `computational_models` are now `Experiment` slots, reusing the existing classes so the experiment level mirrors the disease level's three-way model split. Both enum slots are optional, so all 2,378 existing prose-level proposals validate unchanged (39,410 `kb_data` assertions pass). **Two findings worth keeping:** LinkML 1.10 already gives implicit subclass polymorphism on a plain `inlined_as_list` range — it accepts any subclass and rejects a chimera that mixes two siblings' slots — so the `any_of` this row originally proposed for `proposed_experiments` is unnecessary; and `any_of` over *inlined object* ranges is actively unsafe here, because `range: Any` + `any_of` (the idiom `percentage` uses for scalars) leaves only `$ref: Any` effective under JSON Schema's ignore-siblings-of-`$ref` rule and silently accepts arbitrary keys — the `qualifiers` blind spot (#10197) in a new place. Backfilling `experiment_design` across the 330 free-text `experiment_type` strings is stage 1b and not yet done. **Enacted (stage 1b):** `scripts/backfill_experiment_design.py` classified **1,165 of 3,200 experiments (36.4%)** across 729 files, in a diff of 1,165 insertions and zero deletions (a line edit, not a YAML round-trip, so no folded scalar reflows). `experiment_design` is now better filled than `decision_criterion` (26.4%) and nearly 3x better than the `experiment_type` it supersedes (13.4%) -- whose distinct-string ratio is meanwhile getting *worse* (330/368 values in September, 384/428 now), which is the strongest evidence this was a schema problem and not a curation-effort one. The other 2,035 are worklisted rather than guessed, per `migrate_supports_enum.py`. Precision was *measured* on two blind stratified hand-read samples: 80%, then 94% after scoping matches to each experiment's method statement, with the two residual failures fixed by guards now in the script, and a later review's systematic `hypomorphic` error (patients' own alleles read as an engineered perturbation) fixed by requiring an engineered system in the same method statement. **Two findings:** `PERTURBATION_SCREEN` matches only twice in 3,191, so the cloud-lab-executable slice is far thinner than the headline proposal count and stage 3 should be sized against the screens, not the corpus; and of the 59 model systems still typed `OTHER`/absent, only 17 are migrations (each an `organism`->`species` transformation, not a move, so left as curator work rather than mechanically mis-tagged) while **21 are human cohorts with no home in any of the three model classes** -- a patient cohort is the study population, not a model of anything, which is why curators parked it in `OTHER`. That is the single largest use of the bucket this row set out to close, and it moves a study-population slot into stage 1c. **Stage 3 is largely superseded:** `Experiment.executable_protocols` / `ExecutableProtocol` landed upstream while this was being written, carrying provider, `venue_type`, catalogue `protocol_id`/`protocol_url`, `inputs_required`, `retrieved_date` and a `measures` link into the pathograph, with `test_executable_protocol_schema.py` gating both the deliberate exclusion of price/turnaround/throughput and the rule that an identifier is never stored without its retrieval date. It is a better fit for the layer-1/layer-2 boundary than the `protocol_binding` sketch this row originally proposed -- it is documented as a feasibility note that does not authorise running anything, and it ties the service to the node whose gap it would close. The only remaining gap there is a machine-readable protocol *format* (LabOP/Autoprotocol), which a provider URL is not, and which is worth closing only with real automation access. | [The Experiment Model](experiment-model.md) · [`projects/AUTONOMOUS_LABS.md`](../../projects/AUTONOMOUS_LABS.md) |
 | Chromosomal-disorder curation guidelines | **Partly addressed (§15, PR #11943).** Optional named regions, cytoband syntax, and qualitative gene landmarks represent affected intervals without patient-specific coordinates. The noncoding-variant-impact skill covers their use; a dedicated chromosomal-disorder skill and the wider formation-mechanism guidance remain open. | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
 | Noncoding region–disease representation | **Qualitative representation added (§15, PR #11943).** Regional `Genetic` records can name affected enhancers and intervals without substituting a host gene. Stable region identifiers and dedicated region nodes in external knowledge graphs remain separate follow-ups. | [#4394](https://github.com/monarch-initiative/dismech/issues/4394) |
 | Structural `knowledge_gaps:` schema slot | Deferred; knowledge gaps currently modeled via `discussions` (`kind: KNOWLEDGE_GAP`) | schema follow-up |
@@ -1710,7 +1840,7 @@ This section details decisions we have **not yet made or formalized**.
 | Bulk pattern-matched LOINC binding (karyotype) | **Open; deliberately not dispatched (2026-10-17).** Roughly 140 `kb/disorders/` entries name karyotype in a diagnosis row, and the two karyotype identity codes bound individually to specific tranche-K rows (`LOINC:29770-5`, Blood or Tissue; `LOINC:33773-3`, Amniotic fluid) would attach mechanically to nearly all of them by pattern match: find the row, read its specimen, bind the matching code. Every LOINC binding made so far has instead rested on reading one entry's own claim among several candidate codes — specimen, screen-vs-confirmation, panel-vs-component — and a bare karyotype mention does not reliably say which specimen was used (blood/tissue, amniotic fluid/CVS, or something a pattern match cannot tell apart, such as a postmortem sample or a buccal swab). The choice: (a) a slower dedicated pass that still reads each row individually, or (b) a deliberately separate rule-based bulk operation with its own review standard. Neither has been acted on; if the entry count makes (a) impractical, narrowing the pattern (require the row's own `presence:` value to name a specific abnormal result) is the better fallback over lowering what counts as a binding. | [`projects/LOINC_DIAGNOSTICS.md`](../../projects/LOINC_DIAGNOSTICS.md) · [tranche K closing ledger](../reports/loinc-tranche-k-closing-ledger-2026-10-17.md) |
 | Whether a bare LOINC Part may fill `biochemical[].loinc_term` | **Open; no convention recorded, and the corpus has not settled it.** §17's identity convention (prefer the Part or the panel / total-score code) was written for `diagnosis[].measurements`. Whether it also governs `biochemical[].loinc_term` is unresolved, and the two readings diverge: the slot describes *the measurement that quantifies the marker*, which argues for an observation code carrying a scale, specimen and units, while a Part is a component that quantifies nothing. Against that, **64 `biochemical[].loinc_term` bindings across 38 entries are `LOINC:LP…` Parts** (counted 2026-10-17), several of them deliberate — `Neurohypophyseal_Diabetes_Insipidus`'s plasma copeptin binds `LOINC:LP200145-3` with a `notes` line saying the only 2.83 observation code is immunoassay- and specimen-specific, which is the argument for the Part rather than an oversight. So declaring Parts inadmissible here would make 64 merged bindings non-conforming and would need a migration, and declaring them admissible would need to say when an observation code is nonetheless preferred. Entries that found a Part and chose not to bind it record that in the record's own `notes` (`Renal_Hypomagnesemia_4`, `Isolated_Growth_Hormone_Deficiency`), which is the current practice in both directions. Decide the slot's reading first; the count is the migration cost either way. | [`projects/LOINC_DIAGNOSTICS.md`](../../projects/LOINC_DIAGNOSTICS.md) |
 | `ReferenceRangeBand` bounds cannot state a strict `>` or a non-strict `≤` threshold | **Open; recorded, not a proposed schema change.** The half-open convention (`lower_bound` inclusive, `upper_bound` exclusive) expresses `< x`, `≥ x` and `[x, y)` exactly, and the two complementary forms not at all: there is **no exclusive lower bound**, so a source's `> x` criterion cannot be stated, and **no inclusive upper bound**, so a source's `≤ x` criterion cannot be stated either. In both cases the only available bound misclassifies the boundary value — which is usually the exact value at which the cited operating characteristics were computed, so moving it is not a rounding matter. The gap is therefore two-sided, and either side alone can be mistaken for a curator's oversight. Worked cases: `Narcolepsy`'s CSF hypocretin-1 "above 200 pg/mL" normal tier, where `lower_bound: 200` wrongly includes exactly 200 and banding the tier below it as `[110, 200)` wrongly excludes 200 from either side; and `Cushing_Disease`'s early postoperative nadir serum cortisol "at or below 3 mcg/dL", where `upper_bound: 3` wrongly excludes exactly 3 and the complementary higher-nadir band is a strict `>` that fails the other way. `Renal_Hypomagnesemia_4`'s fractional magnesium excretion "above 2%" is a third instance of the strict-`>` side. Note the convention is not simply too coarse: a source stating `< x` (`Familial_Hypocalciuric_Hypercalcemia_1`'s calcium/creatinine clearance ratio cut-off at `< 0.020`) is expressed faithfully by an exclusive upper bound, so the right response to an unrepresentable threshold is to decline the band and record the inequality, not to widen the convention per entry. | [`projects/LOINC_DIAGNOSTICS.md`](../../projects/LOINC_DIAGNOSTICS.md) |
-| Computed indices and composite endpoints in aging biology | **Undecided — surfaced by curation, no schema change proposed yet.** Curating biomarkers into the aging-hallmark modules (`inflammaging`, `mitochondrial_dysfunction`, `telomere_attrition`, `epigenetic_alterations`, `deregulated_nutrient_sensing`) hit the same wall five times: **dismech represents mechanisms and analytes, and does not represent anything computed over them.** On inspection this is *two* related gaps, not one, and conflating them would produce the wrong schema. **(1) Computed indices over measurements.** An epigenetic clock is a penalized regression over hundreds of CpG sites whose output is an age estimate in years; a composite biomarker panel is a fitted combination the field explicitly prefers over any single analyte (the 2025 Delphi consensus states "there is no existing consensus on the best combination of biomarkers to fully capture biological aging" and calls closing that a research priority); a deficit-accumulation frailty index is a ratio over a 36-item deficit list. None is an analyte, so none belongs in `Biochemical` — yet `Biochemical.readouts` is the only place a `BiomarkerReadout` link to a pathograph node can live, so DNAm PhenoAge is currently curated there under protest, with the reasoning recorded in the entry's own `notes`. **(2) Composite clinical outcome endpoints.** Disability-free survival (ASPREE: a time-to-event composite of death, dementia, and persistent physical disability) and multimorbidity (TAME: a count of incident age-related diseases) are *outcomes*, not measurements — a different type again, and the thing a candidate surrogate would be surrogate *for*. `kb/surrogate_endpoints/fda_surrogate_endpoints.yaml` holds 225 FDA rows and none is an aging endpoint, so `BiomarkerReadout.regulatory_endpoint_refs` has no target and every `endpoint_context: CANDIDATE_SURROGATE` in these modules currently points nowhere. The frailty index straddles the two, being a computed index used as an outcome. **Nothing existing covers it:** `SeverityTier`/`severity_scale` is a threshold-label pair on a model variable, not an estimator; `computational_models:` means mechanistic simulation (tellurium/SED-ML), not a fitted predictor. **Candidate shapes, none worked through:** (a) a `CompositeMeasure`/`derived_index` class carrying the input features, the fitting provenance, and reusing `BiomarkerReadout` for its mechanism links; (b) admit estimators to `computational_models:` and reach the pathograph via the existing `ModelMechanismLink`, accepting that "computational model" then means two different things; (c) extend `SurrogateEndpoint` beyond the FDA import to carry non-regulatory clinical outcome assessments, addressing gap (2) only. **Interim state:** five `KNOWLEDGE_GAP` discussions record the problem where a curator will meet it — `knowledge_gap_composite_vs_single_inflammaging_markers` and `knowledge_gap_surrogate_for_which_geroscience_endpoint` in `inflammaging`, `knowledge_gap_no_ontology_term_for_epigenetic_clock` in `epigenetic_alterations`, plus the marker-or-driver and telomere-reliability gaps. **Ontology sub-gap (§4):** NCIT has no term for an epigenetic clock or for biological age — "Epigenetic Clock" returns nothing and "Biological Age" returns only *Biological Agent* and descendants. `NCIT:C17961` (DNA Methylation) and `NCIT:C16269` (Aging) were considered and rejected as not-the-measurement; the interim binding names the assay (`NCIT:C63328`, DNA Methylation Analysis) and carries the clock identity in `preferred_term`, per the Ontology Term Contract. An NCIT term request is the real fix and is not yet filed. This blocks little today but compounds: five hallmark modules remain uncurated, and each will work around the same absence. | [report](../reports/biomarkers-of-aging-gap-analysis-2026-08-31.md) · schema follow-up |
+| Computed indices and composite endpoints in aging biology | **Undecided — surfaced by curation, no schema change proposed yet.** Curating biomarkers into the aging-hallmark modules (`inflammaging`, `mitochondrial_dysfunction`, `telomere_attrition`, `epigenetic_alterations`, `deregulated_nutrient_sensing`) hit the same wall five times: **dismech represents mechanisms and analytes, and does not represent anything computed over them.** On inspection this is *two* related gaps, not one, and conflating them would produce the wrong schema. **(1) Computed indices over measurements.** An epigenetic clock is a penalized regression over hundreds of CpG sites whose output is an age estimate in years; a composite biomarker panel is a fitted combination the field explicitly prefers over any single analyte (the 2025 Delphi consensus states "there is no existing consensus on the best combination of biomarkers to fully capture biological aging" and calls closing that a research priority); a deficit-accumulation frailty index is a ratio over a 36-item deficit list. None is an analyte, so none belongs in `Biochemical` — yet `Biochemical.readouts` is the only place a `BiomarkerReadout` link to a pathograph node can live, so DNAm PhenoAge is currently curated there under protest, with the reasoning recorded in the entry's own `notes`. **(2) Composite clinical outcome endpoints.** Disability-free survival (ASPREE: a time-to-event composite of death, dementia, and persistent physical disability) and multimorbidity (TAME: a count of incident age-related diseases) are *outcomes*, not measurements — a different type again, and the thing a candidate surrogate would be surrogate *for*. `kb/surrogate_endpoints/fda_surrogate_endpoints.yaml` holds 225 FDA rows and none is an aging endpoint, so `BiomarkerReadout.regulatory_endpoint_refs` has no target and every `endpoint_context: CANDIDATE_SURROGATE` in these modules currently points nowhere. The frailty index straddles the two, being a computed index used as an outcome. So does RetiME (Xu et al. 2026, DOI:10.1038/s41551-026-01822-4), a deep-learning predictor of 13-year mortality from a single fundus photograph: its input is an image rather than any analyte, so the interim biochemical binding would name a photography procedure (`NCIT:C147467` Eye Fundus Photography) as the biomarker, and it is trained directly on death, so it has no mechanism node of its own to read out. It is curated provisionally under `inflammaging` `computational_models:`, linked only to the mortality outcome node, following the EpInflammAge precedent there, which is candidate shape (b) adopted case by case rather than decided. **Nothing existing covers it:** `SeverityTier`/`severity_scale` is a threshold-label pair on a model variable, not an estimator; `computational_models:` means mechanistic simulation (tellurium/SED-ML), not a fitted predictor. **Candidate shapes, none worked through:** (a) a `CompositeMeasure`/`derived_index` class carrying the input features, the fitting provenance, and reusing `BiomarkerReadout` for its mechanism links; (b) admit estimators to `computational_models:` and reach the pathograph via the existing `ModelMechanismLink`, accepting that "computational model" then means two different things; (c) extend `SurrogateEndpoint` beyond the FDA import to carry non-regulatory clinical outcome assessments, addressing gap (2) only. **Interim state:** five `KNOWLEDGE_GAP` discussions record the problem where a curator will meet it — `knowledge_gap_composite_vs_single_inflammaging_markers` and `knowledge_gap_surrogate_for_which_geroscience_endpoint` in `inflammaging`, `knowledge_gap_no_ontology_term_for_epigenetic_clock` in `epigenetic_alterations`, plus the marker-or-driver and telomere-reliability gaps. **Ontology sub-gap (§4):** NCIT has no term for an epigenetic clock or for biological age — "Epigenetic Clock" returns nothing and "Biological Age" returns only *Biological Agent* and descendants. `NCIT:C17961` (DNA Methylation) and `NCIT:C16269` (Aging) were considered and rejected as not-the-measurement; the interim binding names the assay (`NCIT:C63328`, DNA Methylation Analysis) and carries the clock identity in `preferred_term`, per the Ontology Term Contract. An NCIT term request is the real fix and is not yet filed. This blocks little today but compounds: five hallmark modules remain uncurated, and each will work around the same absence. | [report](../reports/biomarkers-of-aging-gap-analysis-2026-08-31.md) · schema follow-up |
 | Obsolete ontology terms | Should fail validation but do not yet | [#712](https://github.com/monarch-initiative/dismech/issues/712) |
 | Unlisted ontology prefixes | Silently skipped by term validation (only a warning) — an unconstrained prefix can pass unchecked | — |
 | Schema docs vs. script docs separation | Schema element pages currently mix in script docs | [#2737](https://github.com/monarch-initiative/dismech/issues/2737) |
@@ -1926,16 +2056,17 @@ should work from this list:
    MPATH gap into a silent NCIt gap, and the register gains nothing on that axis. Decide
    alongside Q2.
 
-## 14. Pathograph node classes are curated content under `kb/`, not a schema slot and not a new ontology (2026-09-15)
+## 14. Pathograph node classes are curated content under `kb/`, not a new ontology (2026-09-15; slot added 2026-11-04)
 
 **Decision.** The pathograph node-class tree
 (`kb/node_classes/pathograph_node_classes.txt`, with its GO seed table alongside) is
-**curated content, edited by pull request like any other `kb/` entry**. It is **not** a
-schema slot: no `Disease` entry names a node class, no enum carries the vocabulary, and
-`node_class_scan` applies it read-only. It is also **not** a new ontology in the sense
-§1 forbids: it mints no CURIEs, and where a class *can* be stated in existing ontology
-terms it carries a `= ...` logical definition over the GO / CL / UBERON / CHEBI / ECTO
-slots a node already binds, checked against those ontologies.
+**curated content, edited by pull request like any other `kb/` entry**. Since tree
+v1.0 its classes under the cascade tiers and DISPOSITION are also the permissible values
+of an optional `Pathophysiology.node_class` slot, through an enum generated from the tree
+(see the revision below). It is **not** a new ontology in the sense §1 forbids: it mints
+no CURIEs, and where a class *can* be stated in existing ontology terms it carries a
+`= ...` logical definition over the GO / CL / UBERON / CHEBI / ECTO slots a node already
+binds, checked against those ontologies.
 
 **Why `kb/` and not `docs/`.** The tree began life as a design artifact under
 `docs/superpowers/`, and the argument for moving it is that its leaves are real
@@ -1957,14 +2088,41 @@ own, but the *leaves* are anchored to existing ontologies wherever a term exists
 the classes without a definition are the ones no ontology term can decide (a standing
 disposition, the body pushing back, "aetiology unresolved"). That is reuse, not minting.
 
-**What would change this.** Two things are deliberately deferred. (1) A `node_class`
-slot on `Pathophysiology`, which would also settle whether it supersedes
-`biological_scale` (it is close to a refinement of it; two slots saying nearly the same
-thing would be worse than either). (2) Deriving the seed table from the definitions and
-retiring the hand-labelled GO rows. Both wait on the leaf set stabilising. The design
-record is
+**What would change this.** As recorded on 2026-09-15, two things were deferred until
+the leaf set stabilised: (1) a `node_class` slot on `Pathophysiology`, which would also
+settle whether it supersedes `biological_scale`; (2) deriving the seed table from the
+definitions and retiring the hand-labelled GO rows. The design record is
 [`docs/superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md`](../superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md);
 the tree's own build notes record what each draw forced.
+
+**Revision (2026-11-04): the slot exists, beside `biological_scale`.** No draw was run
+after the seventh, so waiting for the leaf set to stabilise had no process behind it,
+while the slots the tree was meant to inform kept growing: `biological_scale` went from
+about 30% of nodes to about 68%, and the free-text `role` from 69 normalised values to
+over 150. So the tree was declared **v1.0** and given versioning rules in its header (a
+new class is a minor version; a rename, move or removal is a major one, because it
+changes or invalidates curated values), and (1) was settled:
+
+- `node_class` is optional and single-valued, ranged on `PathographNodeClassEnum`,
+  which `just gen-node-class-enum` generates from the tree into
+  `src/dismech/schema/pathograph_node_class.yaml`; a test fails while the two disagree.
+  Values are the classes under the nine cascade tiers and DISPOSITION, each carrying
+  the class it sits under as `is_a`. ALSO CLASSES are excluded because a compensating
+  or targeted node is also a cellular or tissue effect, which a single-valued slot
+  cannot say; DEBUNDLE TARGETS and STILL UNPLACED are worklists.
+- **It does not supersede `biological_scale`.** The two answer different questions
+  (what kind of claim, and at what scale its substrate sits), and scale cannot be
+  migrated into class mechanically: MOLECULAR alone covers four tiers. A report-only
+  check (`just node-class-scan --format scale`) flags a node whose class tier and scale
+  disagree. Whether the slot should later replace `biological_scale` is left to the
+  coverage the slot actually reaches.
+- No entry was backfilled. Nothing in `kb/` is required to carry the slot, and the
+  scanner's term-based suggestions are not written into entries: they are tier-level,
+  and on lesion nodes the GO molecular-function rule mostly disagrees with the module
+  side of `conforms_to` pairs (it is rated MEDIUM confidence for that reason).
+
+(2) stays deferred: as a classifier the definitions agree less with `conforms_to` pairs
+than the seed table does, so retiring the seed rows is not yet a free swap.
 
 ## 15. Affected genomic regions use names and qualitative landmarks (2026-09-21)
 
@@ -2303,3 +2461,210 @@ members, comorbidity entries) and needs a `history/` record with
 slugs stay fixed while names change is undecided. Until it is decided, renames
 change `name` and `synonyms` only. Tracked in dismech#15894, with the tooling
 (`check-entry-names`, stub name candidates) and the content worklist.
+
+## 19. Natural menopause and perimenopause are a life stage, not an entry (2026-11-14)
+
+**Decision.** Natural menopause and the perimenopausal transition are not DisMech
+entries. There is no `Menopause` or `Perimenopause` `Disease` entry and neither is a
+`Grouping`. What DisMech curates instead is the mechanism oestrogen withdrawal sets off,
+as a `kb/modules/` mechanism module, plus the disorders of the transition that the field
+names, diagnoses and treats as units. The stage itself is recorded on the entries it
+bears on, through the slots in *Where a menopause fact goes* below.
+
+**In scope.**
+
+- A mechanism module for oestrogen-withdrawal biology, which oestrogen-sensitive entries
+  conform to rather than re-deriving. §3's conformance rules apply: the module holds the
+  shared chain once and conforming entries substitute the tissue-specific receptor, cell
+  type and effector.
+- **Vasomotor symptoms**, **genitourinary syndrome of menopause** and **postmenopausal
+  osteoporosis**, each a disorder of the transition rather than the transition. All three
+  were curated under this decision on 2026-11-14, and their anchoring is uneven, so §3
+  decides each one separately.
+
+  **Which predicate an entry records follows the direction of the mismatch, and §3e
+  states the reading once** (*The predicate direction, stated once*): a SKOS mapping
+  reads subject to object with the dismech entry as the subject, so `skos:broadMatch`
+  asserts the mapped class is broader than the entry and `skos:narrowMatch` asserts it
+  is narrower. §3a's case is the first of those — a promoted stratum anchoring its
+  broader parent class, which records `broadMatch`.
+
+  Genitourinary syndrome of menopause is the second, and so is the **mirror image** of
+  §3a rather than an application of it. MONDO has no class under that name;
+  `MONDO:0001410` *postmenopausal atrophic vaginitis* is the nearest one and it is
+  narrower than the entry, because MONDO defines it as inflammation of the vagina while
+  the entry also covers the vulva, vestibule, urethra and bladder. The entry therefore
+  anchors `MONDO:0001410` as its `disease_term` and records it as `skos:narrowMatch` in
+  `mappings.mondo_mappings`. §3e's note that `narrowMatch` is a legacy spelling being
+  migrated away from is about the first case, where it was used for what `broadMatch`
+  now says; it does not reach this one, which is a different direction and not a
+  different spelling of the same one. What the two cases do share is the rest of the
+  convention: anchor the nearest available class, and say in `mappings.mondo_mappings`
+  how the entry differs from it rather than reusing the class silently.
+
+  Postmenopausal osteoporosis has its own MONDO class (`MONDO:0008159`), now bound as a
+  `has_subtypes` stratum of `Osteoporosis` (see *Settled by this decision's own
+  curation* below) while the parent entry keeps `MONDO:0005298`. Vasomotor symptoms has
+  no MONDO class at all (MONDO searches for `vasomotor symptom` and `hot flash`, OLS,
+  2026-11-14), only `HP:0031217` *Hot flashes*, so that entry carries no `disease_term`
+  and records the gap as a `KNOWLEDGE_GAP` discussion instead of anchoring a proxy
+  class.
+- The existing premature and primary ovarian insufficiency entries, which are diseases on
+  any reading and need no special treatment here. MONDO files `MONDO:0001119` *premature
+  menopause* as a descendant of `MONDO:0005387` *primary ovarian failure*, not as a
+  variant of the life stage. `kb/disorders/` holds the `Premature_Ovarian_Failure_*` and
+  `Fragile_X-Associated_Primary_Ovarian_Insufficiency` entries, and
+  `stubs/Primary_Ovarian_Failure.yaml` carries the parent with `entry_type: GROUPING`.
+
+**Out of scope.** Any entry, grouping or module whose subject is the life stage as such.
+Such an entry would have no etiology to root a pathograph in, and no phenotype set that
+is not either normal physiology or one of the disorders above. Note that the curation
+queue cannot record this exclusion: `CurationStub.mondo_id` is `required` and
+`identifier`, and MONDO has no term for the stage, so there is no stub to mark
+`OUT_OF_SCOPE` and this register is the only place the decision can live.
+
+**Rationale: the ontologies already draw this line.** GO, MONDO and HP checked against
+OLS on 2026-11-14; the annotation counts below against QuickGO the same day.
+
+- **GO** has `GO:0042697` *menopause*, but as a phase: its parents are `GO:0022601`
+  *menstrual cycle phase* and `GO:1990636` *reproductive senescence*, both under
+  `GO:0044848` *biological phase*, and it carries GO's phase-term `rdfs:comment` that the
+  term "should not be used for direct annotation", directing annotators to a regulation
+  term, a process occurring during the phase, or an annotation extension. QuickGO returns
+  zero annotations for `GO:0042697` and zero for `GO:1990636`. So the stage has a GO
+  identifier that is explicitly not an annotation target, which is also why no DisMech
+  node should bind it.
+- **MONDO** has no term for natural menopause or perimenopause. Searches for
+  `perimenopause` and `climacteric` return nothing at all; `menopause` and `menopausal`
+  return no stage term, and the only four classes whose *label* carries the word are
+  `MONDO:0001119` *premature menopause*, the two disorder classes above, and
+  `MONDO:0017379` *polyneuropathy-intellectual disability-acromicria-premature menopause
+  syndrome* (the remaining hits match on a synonym or definition). MONDO thus already
+  treats the normal transition as outside the disease hierarchy while naming its
+  pathological forms, which is the same split this decision adopts.
+- **HP** files `HP:0040406` *Perimenopausal* under `HP:0032443` *Past medical history*,
+  not under `HP:0000118` *Phenotypic abnormality* — it is patient context, not a finding.
+  The findings of the transition are filed as abnormalities (`HP:0033840` *Postmenopausal
+  bleeding* and `HP:0031217` *Hot flashes* both sit under *Phenotypic abnormality*), and
+  the stage-as-timing is a clinical modifier (`HP:6000314` *Perimenopausal onset* and
+  `HP:6000315` *Postmenopausal onset*, under `HP:0003674` *Onset*). Those three homes map
+  onto the three DisMech slots a menopause fact can take: context, phenotype, onset.
+
+**Rationale: the KB's own precedent.** DisMech already curates disorders of a life stage
+without curating the stage. `Preeclampsia` (`MONDO:0005081`) and `Ectopic_Pregnancy`
+(`MONDO:0000755`) are entries; pregnancy is not. `Central_Precocious_Puberty`
+(`MONDO:0019165`) is an entry; puberty is not. This is the same rule §3e and §3f state
+for their own domains — a phase is never an entry, and the entry sits where the mechanism
+is.
+
+**The ICD-anchored route is not forbidden.**
+`Ageing_Associated_Decline_in_Intrinsic_Capacity` shows that a life-stage-adjacent concept
+can be an entry without a MONDO class: it carries no `disease_term` at all, only a
+`mappings.icd11f_mappings` `skos:exactMatch` to `icd11f:835503193`, an ICD-11 Foundation
+entity under *Symptoms, signs or clinical findings*. Symptomatic menopause could take the
+same route, and what would justify it is a project that needs the symptomatic transition
+as a single unit — one entry carrying the vasomotor, genitourinary, skeletal and
+sleep/mood phenotypes together, because the clinical question is about the syndrome rather
+than about any one of its disorders. Absent such a project the default stands, since an
+umbrella entry would duplicate the three disorder entries and the module. An entry taken
+this way must use the ICD anchor rather than binding `GO:0042697` or reusing a MONDO
+disorder class as a proxy for the stage, and would need §4 ontology sign-off.
+
+**Where a menopause fact goes.**
+
+| The fact being recorded | Where it goes | Worked example |
+|---|---|---|
+| Oestrogen withdrawal drives a mechanism in this disease | An `environmental:` record whose `exposure_term` binds `ECTO:9000010` *exposure to estrogens* with `modifier: DECREASED`, linked by `influences_mechanisms`. Bind the hormonal state, not the stage: ECTO has no menopause term. Where the entry also carries the receptor step as a node, point the link at that node rather than at the lesion below it, so the exposure is not asserted as the cause of a lesion that other drivers reach by other routes | `Osteoporosis` (*Estrogen Deficiency*, `TRIGGERS`, targeting *Loss of Bone-Cell Estrogen Receptor Signalling*, which is the node that conforms to the module), `Semicircular_Canal_Dehiscence_Syndrome` (*Post-Menopausal Estrogen Decline*, `PREDISPOSES`) |
+| The withdrawal is itself a step in the entry's causal chain | A root `pathophysiology` node at `ORGANISM` scale, with the receptor-level consequence as a separate `CELLULAR` node bound to `GO:0030520` *estrogen receptor signaling pathway* with `modifier: DECREASED`. The receptor node is also the right conformance target for the module, since that is the step the module holds once; the halves are separable, and an entry whose scope is not postmenopausal disease can take the receptor node without the systemic one | `Heart_Failure` (*Postmenopausal Oestrogen Withdrawal* → *Loss of Myocardial Oestrogen Receptor Signalling*); `Osteoporosis` takes the receptor node alone, with the systemic fall left as the exposure record above |
+| The disease behaves differently before and after the transition | `progression:` phases across the reproductive lifespan | `Uterine_Leiomyoma` (Premenarchal / Reproductive years / Postmenopausal) |
+| A treatment's effect differs by menopausal status | `treatments[].effect_modifiers` with `effect_modifier_type: REPRODUCTIVE_STATUS`, which exists for exactly this stratifier and is distinct from `SEX` | `Sarcopenia` (resistance training, `NO_DIFFERENCE`, `META_ANALYSIS_SUBGROUP`) |
+| A laboratory interval differs by menopausal status | Two `reference_ranges` on the same `loinc_term`, separated by `population` | `Gout` (serum urate, `LOINC:3084-1`) |
+| A finding occurs only after the transition | A `phenotypes:` entry bound to the HP term for the finding itself | four entries bind `HP:0033840` *Postmenopausal bleeding* |
+| A phenotype's frequency or severity differs by status | `phenotypes[].phenotype_contexts[].population` | `CHEK2-related_Cancer_Predisposition` |
+| The disease's onset is at or after the transition | `onset.onset_category: PERIMENOPAUSAL` or `POSTMENOPAUSAL` (`HP:6000314` / `HP:6000315`), added to `OnsetEnum` with this decision alongside the existing `PUERPERAL` | none yet; `Morgagni-Stewart-Morel_Syndrome` carries it as free-text `progression[].age_range` |
+
+Two slots in that table are free text and not bound to a vocabulary: `population` on a
+reference range or a phenotype context, and `stratum` on an effect modifier. §16 binds
+populations to HANCESTRO for ancestry only, and reproductive status is not ancestry, so
+these strings stay free text; §12's deferred *structured effect-modifier / life-stage*
+row is the standing proposal that would change that.
+
+**What not to do.** Do not bind `GO:0042697` on a pathophysiology node, for the reason
+above. Do not bind `HP:0040406` *Perimenopausal* as a phenotype: it is past medical
+history, not an abnormality. Do not use a menopause-scoped NCIT treatment term for a
+treatment that is not menopausal hormone therapy — `NCIT:C15599` *Hormone Replacement
+Therapy* is defined by NCIT as post-menopausal or post-ovariectomy oestrogen replacement
+("Treatment with estrogens or estrogen/progesterone after menopause or ovariectomy...")
+and is widely bound to growth-hormone, thyroid and adrenal replacement instead
+(dismech#11705, open, which carries the current count and the proposed sweep).
+
+**Current state.** The census below was taken immediately before this decision's own
+curation landed, so it does not count the two new entries or the `Osteoporosis` changes
+described above. Menopause was mentioned in 75 `kb/disorders/` entries. In 64 of them it
+appeared only in prose — a `description`, `notes`, or an evidence `snippet` or
+`explanation` — and so was not queryable. Eleven carried it in a named slot, and those
+are the worked examples above. `Osteoporosis` was counted in the prose group, correctly
+at the time: its exposure record is named *Estrogen Deficiency* and binds oestrogen,
+with menopause appearing only in the surrounding prose, which is what the first table
+row asks for. It now also carries the stage in named slots — a `Postmenopausal`
+`has_subtypes` stratum and two `progression:` phases keyed to the final menstrual
+period — so it belongs in the named-slot group.
+
+**Settled by this decision's own curation (2026-11-14).**
+
+- **Postmenopausal osteoporosis is a `has_subtypes` stratum of `Osteoporosis`, not its
+  own entry on `MONDO:0008159`.** It shares the parent's whole downstream chain — the
+  RANKL/OPG shift, the remodelling imbalance, the microarchitectural deterioration and
+  the fracture phenotypes — and the parent's first-line therapy. What is specific to it
+  is the driver (ovarian oestrogen withdrawal rather than ageing, hypogonadism or a
+  secondary cause) and the timing (bone loss anchored on the final menstrual period and
+  largely spent within three years of it, rather than accumulating with age). A driver
+  and a tempo are exactly what a `has_subtypes` row plus `progression:` phases carry,
+  and §3a's promotion test reads the same way: the stratum has no pathophysiology of its
+  own beyond its driver, so it does not earn an entry. `MONDO:0008159` is bound as the
+  stratum's `subtype_term`.
+- **Both new entries need a MONDO term request.** The vasomotor entry carries no
+  `disease_term` because MONDO has no class for the concept; the genitourinary entry
+  anchors a class narrower than itself. Each says so in its own `notes`, and the
+  vasomotor entry carries it as a `KNOWLEDGE_GAP` discussion. So the question is not
+  whether a request is warranted but that neither has been filed, which is the open item
+  below.
+
+**Still open.** Two MONDO term requests, neither filed: a class for the vasomotor
+syndrome of menopause, sibling to `MONDO:0001410`, and a class for genitourinary
+syndrome of menopause as a parent of `MONDO:0001410` and a sibling of the lower urinary
+tract classes. And whether the free-text status strings above should move to a bound
+vocabulary (§12).
+
+## 20. Computable phenotypes live on the disorder, and their codes are transcribed, not bound (2026-11-22)
+
+**Decision.** A computable phenotype (an EHR case-finding algorithm from PheKB, the HDR
+UK Phenotype Library, OHDSI or a paper) is a `definitions[]` entry on the disorder it
+identifies, with `definition_type: PHENOTYPE_ALGORITHM`. It is not a separate knowledge
+base. Its codes go in `CriteriaItem.code_lists` as `CodeList` objects, its counts and
+time windows go in `minimum_occurrences` / `minimum_interval_days`, and the way its
+criteria sets combine goes in `Definition.criteria_set_logic`. The library record it was
+transcribed from is cited as a structured-source reference (`HDRUK:`, `PHEKB:`) through
+`source_reference`. See [`docs/computable-phenotypes.md`](../computable-phenotypes.md).
+
+**Why the codes are not ontology bindings.** The codes come from ICD-9-CM, WHO ICD-10,
+SNOMED CT, Read v2/CTV3 and OPCS-4, and none of these is in the §4 ontology set. SNOMED
+CT in particular stays "never bound", for the reasons §13 gives. A code in a `CodeList`
+does not say what a dismech node or phenotype *is*. It records a code that a cited
+algorithm uses, together with the label that algorithm gives it, in the same way that a
+snippet records a sentence. So `codes` is an unbound `Term` list, and
+`just check-codelists` checks it against the cited record instead of against a
+vocabulary. That check confirms the code was copied from the source; it does not show
+that the vocabulary still contains the code. For ICD-10-CM codes, the label is also
+compared with the committed term cache.
+
+**Licensing.** HDR UK records are CC BY-SA 4.0 for non-commercial use, or they carry
+their own notice in the definition text (OpenSAFELY codelists drawn from NHS Digital
+refsets are under the Open Government Licence). The cached records keep that text.
+PheKB states no licence, so its cache transcribes only the phenotype page and PDF
+algorithm documents, not journal articles.
+
+**Still open.** Whether SNOMED CT identifiers drawn from UK refsets can be
+redistributed this way at the scale of a bulk import. The pilot entries carry 109
+SNOMED codes. Also open: a vocabulary check for the code systems that have no adapter.
+WHO ICD-10 and SNOMED builds exist outside `conf/oak_config.yaml`.

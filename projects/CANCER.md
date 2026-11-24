@@ -112,7 +112,7 @@ Defined by characteristic chromosomal translocations.
 | Alveolar Rhabdomyosarcoma | PAX3-FOXO1, PAX7-FOXO1 | Transcription factor fusion | [ ] |
 | Synovial Sarcoma | SS18-SSX | Chromatin remodeling | [ ] |
 | Acute Lymphoblastic Leukemia (Ph+) | BCR-ABL1 | Tyrosine kinase | [ ] |
-| Neuroblastoma | MYCN amplification | Transcription factor | [ ] |
+| Neuroblastoma | MYCN amplification | Transcription factor | [x] |
 
 ### Tier 5: Molecularly-Defined Breast Cancer Subtypes (High Priority)
 Modern oncology treats these as distinct disease entities requiring different therapeutic approaches.
@@ -224,7 +224,7 @@ Cancers with strong environmental/infectious causation - important for preventio
 | Alveolar Rhabdomyosarcoma | PAX3/7-FOXO1 fusions | Aggressive pediatric | [ ] |
 | Embryonal Rhabdomyosarcoma | Loss of 11p15 | Better prognosis | [ ] |
 | Synovial Sarcoma | SS18-SSX fusions | Young adults | [ ] |
-| Neuroblastoma | MYCN amplification | Risk stratification | [ ] |
+| Neuroblastoma | MYCN amplification | Risk stratification | [x] |
 | Wilms Tumor | WT1, WTX, CTNNB1 | Excellent outcomes | [ ] |
 | Desmoplastic Small Round Cell Tumor | EWSR1-WT1 fusion | Poor prognosis | [ ] |
 | Clear Cell Sarcoma | EWSR1-ATF1 fusion | "Melanoma of soft parts" | [ ] |
@@ -385,11 +385,11 @@ Recent developments informing this curation:
 - [ ] Primary Myelofibrosis
 - [ ] Essential Thrombocythemia
 
-## Tier 13: Pediatric/Rare Sarcomas (0/8)
+## Tier 13: Pediatric/Rare Sarcomas (1/8)
 - [ ] Alveolar Rhabdomyosarcoma
 - [ ] Embryonal Rhabdomyosarcoma
 - [ ] Synovial Sarcoma
-- [ ] Neuroblastoma
+- [x] Neuroblastoma (family tracked in [NEUROBLASTOMA.md](NEUROBLASTOMA.md))
 - [ ] Wilms Tumor
 - [ ] Desmoplastic Small Round Cell Tumor
 - [ ] Clear Cell Sarcoma
@@ -397,7 +397,7 @@ Recent developments informing this curation:
 
 ## Progress Summary
 - **Total planned**: 78+ cancers (original 28 + 50 expansion + open-ended)
-- **Completed**: 12/78 (15.4%)
+- **Completed**: 13/78 (16.7%)
 - **In progress**: 0
 
 ### Expansion Rationale (50 new entries)

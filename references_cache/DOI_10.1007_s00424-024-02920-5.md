@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s00424-024-02920-5
+extractor_version: 1
 title: Metabolic characteristics of transmembrane prolyl 4-hydroxylase (P4H-TM) deficient mice
 authors:
 - Tuulia Ala-Nisula
@@ -25,12 +26,14 @@ journal: Pflügers Archiv - European Journal of Physiology
 year: '2024'
 doi: 10.1007/s00424-024-02920-5
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s00424-024-02920-5.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s00424-024-02920-5.pdf
+full_text_access_type: open
 ---
 
 # Metabolic characteristics of transmembrane prolyl 4-hydroxylase (P4H-TM) deficient mice
@@ -40,7 +43,9 @@ local_pdf_path: files/DOI_10.1007_s00424-024-02920-5.pdf
 
 ## Content
 
-AbstractTransmembrane prolyl 4-hydroxylase (P4H-TM) is an enigmatic enzyme whose cellular function and primary substrate remain to be identified. Its loss-of-function mutations cause a severe neurological HIDEA syndrome with hypotonia, intellectual disability, dysautonomia and hypoventilation. Previously, P4H-TM deficiency in mice was associated with reduced atherogenesis and lower serum triglyceride levels. Here, we characterized the glucose and lipid metabolism of P4h-tm−/− mice in physiological and tissue analyses. P4h-tm−/− mice showed variations in 24-h oscillations of energy expenditure, VO2 and VCO2 and locomotor activity compared to wild-type (WT) mice. Their rearing activity was reduced, and they showed significant muscle weakness and compromised coordination. Sedated P4h-tm−/− mice had better glucose tolerance, lower fasting insulin levels, higher fasting lactate levels and lower fasting free fatty acid levels compared to WT. These alterations were not present in conscious P4h-tm−/− mice. Fasted P4h-tm−/− mice presented with faster hepatic glycogenolysis. The respiratory rate of conscious P4h-tm−/− mice was significantly lower compared to the WT, the decrease being further exacerbated by sedation and associated with acidosis and a reduced ventilatory response to both hypoxia and hypercapnia. P4H-TM deficiency in mice is associated with alterations in whole-body energy metabolism, day-night rhythm of activity, glucose homeostasis and neuromuscular and respiratory functions. Although the underlying mechanism(s) are not yet fully understood, the phenotype appears to have neurological origins, controlled by brain and central nervous system circuits. The phenotype of P4h-tm−/− mice recapitulates some of the symptoms of HIDEA patients, making this mouse model a valuable tool to study and develop tailored therapies.
+Abstract
+
+Transmembrane prolyl 4-hydroxylase (P4H-TM) is an enigmatic enzyme whose cellular function and primary substrate remain to be identified. Its loss-of-function mutations cause a severe neurological HIDEA syndrome with hypotonia, intellectual disability, dysautonomia and hypoventilation. Previously, P4H-TM deficiency in mice was associated with reduced atherogenesis and lower serum triglyceride levels. Here, we characterized the glucose and lipid metabolism of P4h-tm−/− mice in physiological and tissue analyses. P4h-tm−/− mice showed variations in 24-h oscillations of energy expenditure, VO2 and VCO2 and locomotor activity compared to wild-type (WT) mice. Their rearing activity was reduced, and they showed significant muscle weakness and compromised coordination. Sedated P4h-tm−/− mice had better glucose tolerance, lower fasting insulin levels, higher fasting lactate levels and lower fasting free fatty acid levels compared to WT. These alterations were not present in conscious P4h-tm−/− mice. Fasted P4h-tm−/− mice presented with faster hepatic glycogenolysis. The respiratory rate of conscious P4h-tm−/− mice was significantly lower compared to the WT, the decrease being further exacerbated by sedation and associated with acidosis and a reduced ventilatory response to both hypoxia and hypercapnia. P4H-TM deficiency in mice is associated with alterations in whole-body energy metabolism, day-night rhythm of activity, glucose homeostasis and neuromuscular and respiratory functions. Although the underlying mechanism(s) are not yet fully understood, the phenotype appears to have neurological origins, controlled by brain and central nervous system circuits. The phenotype of P4h-tm−/− mice recapitulates some of the symptoms of HIDEA patients, making this mouse model a valuable tool to study and develop tailored therapies.
 
 Vol.:(0123456789)
 Pflügers Archiv - European Journal of Physiology (2024) 476:1339–1351 

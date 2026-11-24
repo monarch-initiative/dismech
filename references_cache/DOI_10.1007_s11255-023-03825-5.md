@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s11255-023-03825-5
+extractor_version: 1
 title: Strong apoptotic response of testis tumor cells following cisplatin treatment
 authors:
 - Beate Köberle
@@ -13,12 +14,14 @@ journal: International Urology and Nephrology
 year: '2023'
 doi: 10.1007/s11255-023-03825-5
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s11255-023-03825-5.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s11255-023-03825-5.pdf
+full_text_access_type: open
 ---
 
 # Strong apoptotic response of testis tumor cells following cisplatin treatment
@@ -28,7 +31,9 @@ local_pdf_path: files/DOI_10.1007_s11255-023-03825-5.pdf
 
 ## Content
 
-AbstractMost solid metastatic cancers are resistant to chemotherapy. However, metastatic testicular germ cell tumors (TGCT) are cured in over 80% of patients using cisplatin-based combination therapy. Published data suggest that TGCTs are sensitive to cisplatin due to limited DNA repair and presumably also to a propensity to undergo apoptosis. To further investigate this aspect, cisplatin-induced activation of apoptotic pathways was investigated in cisplatin-sensitive testis tumor cells (TTC) and compared to cisplatin-resistant bladder cancer cells. Apoptosis induction was investigated using flow cytometry, caspase activation and PARP-1 cleavage. Immunoblotting and RT-PCR were applied to investigate pro- and anti-apoptotic proteins. Transfections were performed to target p53- and Fas/FasL-mediated apoptotic signaling. Immunoblotting experiments revealed p53 to be induced in TTC, but not bladder cancer cells following cisplatin. Higher levels of pro-apoptotic Bax and Noxa were observed in TTC, anti-apoptotic Bcl-2 was solely expressed in bladder cancer cells. Cisplatin led to translocation of Bax to the mitochondrial membrane in TTC, resulting in cytochrome C release. Cisplatin increased the expression of FasR mRNA and FasL protein in all tumor cell lines. Targeting the apoptotic pathway via siRNA-mediated knockdown of p53 and FAS reduced death receptor-mediated apoptosis and increased cisplatin resistance in TTC, indicating the involvement of FAS-mediated apoptosis in the cisplatin TTC response. In conclusion, both the death receptor and the mitochondrial apoptotic pathway become strongly activated in TTC following cisplatin treatment, explaining, together with attenuated DNA repair, their unique sensitivity toward platinum-based anticancer drugs.
+Abstract
+
+Most solid metastatic cancers are resistant to chemotherapy. However, metastatic testicular germ cell tumors (TGCT) are cured in over 80% of patients using cisplatin-based combination therapy. Published data suggest that TGCTs are sensitive to cisplatin due to limited DNA repair and presumably also to a propensity to undergo apoptosis. To further investigate this aspect, cisplatin-induced activation of apoptotic pathways was investigated in cisplatin-sensitive testis tumor cells (TTC) and compared to cisplatin-resistant bladder cancer cells. Apoptosis induction was investigated using flow cytometry, caspase activation and PARP-1 cleavage. Immunoblotting and RT-PCR were applied to investigate pro- and anti-apoptotic proteins. Transfections were performed to target p53- and Fas/FasL-mediated apoptotic signaling. Immunoblotting experiments revealed p53 to be induced in TTC, but not bladder cancer cells following cisplatin. Higher levels of pro-apoptotic Bax and Noxa were observed in TTC, anti-apoptotic Bcl-2 was solely expressed in bladder cancer cells. Cisplatin led to translocation of Bax to the mitochondrial membrane in TTC, resulting in cytochrome C release. Cisplatin increased the expression of FasR mRNA and FasL protein in all tumor cell lines. Targeting the apoptotic pathway via siRNA-mediated knockdown of p53 and FAS reduced death receptor-mediated apoptosis and increased cisplatin resistance in TTC, indicating the involvement of FAS-mediated apoptosis in the cisplatin TTC response. In conclusion, both the death receptor and the mitochondrial apoptotic pathway become strongly activated in TTC following cisplatin treatment, explaining, together with attenuated DNA repair, their unique sensitivity toward platinum-based anticancer drugs.
 
 Vol.:(0123456789)1 3
 International Urology and Nephrology (2024) 56:1007–1017 

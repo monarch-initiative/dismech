@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1186/s13023-020-01401-z
+extractor_version: 1
 title: The Glycosylphosphatidylinositol biosynthesis pathway in human diseases
 authors:
 - Tenghui Wu
@@ -12,12 +13,14 @@ journal: Orphanet Journal of Rare Diseases
 year: '2020'
 doi: 10.1186/s13023-020-01401-z
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://ojrd.biomedcentral.com/track/pdf/10.1186/s13023-020-01401-z"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1186_s13023-020-01401-z.pdf
+full_text_access_type: open
 ---
 
 # The Glycosylphosphatidylinositol biosynthesis pathway in human diseases
@@ -27,7 +30,9 @@ local_pdf_path: files/DOI_10.1186_s13023-020-01401-z.pdf
 
 ## Content
 
-AbstractGlycosylphosphatidylinositol biosynthesis defects cause rare genetic disorders characterised by developmental delay/intellectual disability, seizures, dysmorphic features, and diverse congenital anomalies associated with a wide range of additional features (hypotonia, hearing loss, elevated alkaline phosphatase, and several other features). Glycosylphosphatidylinositol functions as an anchor to link cell membranes and protein. These proteins function as enzymes, adhesion molecules, complement regulators, or co-receptors in signal transduction pathways. Biallelic variants involved in the glycosylphosphatidylinositol anchored proteins biosynthetic pathway are responsible for a growing number of disorders, including multiple congenital anomalies-hypotonia-seizures syndrome; hyperphosphatasia with mental retardation syndrome/Mabry syndrome; coloboma, congenital heart disease, ichthyosiform dermatosis, mental retardation, and ear anomalies/epilepsy syndrome; and early infantile epileptic encephalopathy-55. This review focuses on the current understanding of Glycosylphosphatidylinositol biosynthesis defects and the associated genes to further understand its wide phenotype spectrum.
+Abstract
+
+Glycosylphosphatidylinositol biosynthesis defects cause rare genetic disorders characterised by developmental delay/intellectual disability, seizures, dysmorphic features, and diverse congenital anomalies associated with a wide range of additional features (hypotonia, hearing loss, elevated alkaline phosphatase, and several other features). Glycosylphosphatidylinositol functions as an anchor to link cell membranes and protein. These proteins function as enzymes, adhesion molecules, complement regulators, or co-receptors in signal transduction pathways. Biallelic variants involved in the glycosylphosphatidylinositol anchored proteins biosynthetic pathway are responsible for a growing number of disorders, including multiple congenital anomalies-hypotonia-seizures syndrome; hyperphosphatasia with mental retardation syndrome/Mabry syndrome; coloboma, congenital heart disease, ichthyosiform dermatosis, mental retardation, and ear anomalies/epilepsy syndrome; and early infantile epileptic encephalopathy-55. This review focuses on the current understanding of Glycosylphosphatidylinositol biosynthesis defects and the associated genes to further understand its wide phenotype spectrum.
 
 R E V I E W Open Access
 The Glycosylphosphatidylinositol

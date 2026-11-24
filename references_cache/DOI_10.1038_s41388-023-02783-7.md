@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41388-023-02783-7
+extractor_version: 1
 title: Genetically engineered mouse models of head and neck cancers
 authors:
 - Jason Tasoulas
@@ -13,12 +14,14 @@ journal: Oncogene
 year: '2023'
 doi: 10.1038/s41388-023-02783-7
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41388-023-02783-7.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1038_s41388-023-02783-7.pdf
+full_text_access_type: open
 ---
 
 # Genetically engineered mouse models of head and neck cancers
@@ -28,7 +31,9 @@ local_pdf_path: files/DOI_10.1038_s41388-023-02783-7.pdf
 
 ## Content
 
-AbstractThe head and neck region is one of the anatomic sites commonly afflicted by cancer, with ~1.5 million new diagnoses reported worldwide in 2020 alone. Remarkable progress has been made in understanding the underlying disease mechanisms, personalizing care based on each tumor’s individual molecular characteristics, and even therapeutically exploiting the inherent vulnerabilities of these neoplasms. In this regard, genetically engineered mouse models (GEMMs) have played an instrumental role. While progress in the development of GEMMs has been slower than in other major cancer types, several GEMMs are now available that recapitulate most of the heterogeneous characteristics of head and neck cancers such as the tumor microenvironment. Different approaches have been employed in GEMM development and implementation, though each can generally recapitulate only certain disease aspects. As a result, appropriate model selection is essential for addressing specific research questions. In this review, we present an overview of all currently available head and neck cancer GEMMs, encompassing models for head and neck squamous cell carcinoma, nasopharyngeal carcinoma, and salivary and thyroid gland carcinomas.
+Abstract
+
+The head and neck region is one of the anatomic sites commonly afflicted by cancer, with ~1.5 million new diagnoses reported worldwide in 2020 alone. Remarkable progress has been made in understanding the underlying disease mechanisms, personalizing care based on each tumor’s individual molecular characteristics, and even therapeutically exploiting the inherent vulnerabilities of these neoplasms. In this regard, genetically engineered mouse models (GEMMs) have played an instrumental role. While progress in the development of GEMMs has been slower than in other major cancer types, several GEMMs are now available that recapitulate most of the heterogeneous characteristics of head and neck cancers such as the tumor microenvironment. Different approaches have been employed in GEMM development and implementation, though each can generally recapitulate only certain disease aspects. As a result, appropriate model selection is essential for addressing specific research questions. In this review, we present an overview of all currently available head and neck cancer GEMMs, encompassing models for head and neck squamous cell carcinoma, nasopharyngeal carcinoma, and salivary and thyroid gland carcinomas.
 
 REVIEW ARTICLE OPEN
 Genetically engineered mouse models of head and neck

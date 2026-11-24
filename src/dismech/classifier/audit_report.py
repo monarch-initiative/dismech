@@ -126,7 +126,20 @@ def write_reports(output, complete=True):
                     ] += 1
                     claim = row["claim"]
                     value = (
-                        {k: claim[k] for k in ("about", "assertion_type", "assertion")}
+                        {
+                            k: claim[k]
+                            for k in (
+                                (
+                                    "scope",
+                                    "subject",
+                                    "relationship",
+                                    "object",
+                                    "definitions",
+                                )
+                                if "relationship" in claim
+                                else ("about", "assertion_type", "assertion")
+                            )
+                        }
                         if path == "/"
                         else resolve(claim, path)
                     )
@@ -223,8 +236,11 @@ def merge_shards(output, source, expected):
         "dry_run",
         "prompt",
         "criteria",
+        "edge_prompt",
+        "edge_criteria",
+        "assertion_types",
     )
-    if any(any(m[k] != first[k] for k in keys) for m in manifests):
+    if any(any(m.get(k) != first.get(k) for k in keys) for m in manifests):
         raise click.ClickException(
             "Cannot combine shards with different sources or inference settings"
         )
@@ -243,7 +259,7 @@ def merge_shards(output, source, expected):
                 continue
             with results.open() as source_stream:
                 shutil.copyfileobj(source_stream, stream)
-    metadata = {k: first[k] for k in keys} | {
+    metadata = {k: first.get(k) for k in keys} | {
         "complete": complete,
         "missing_shards": sorted(set(range(expected)) - set(indices)),
         "shards": manifests,

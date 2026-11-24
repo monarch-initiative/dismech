@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1038/s41398-021-01225-w
+extractor_version: 1
 title: DNA methylation differences associated with social anxiety disorder and early life adversity
 authors:
 - Ariane Wiegand
@@ -15,12 +16,14 @@ journal: Translational Psychiatry
 year: '2021'
 doi: 10.1038/s41398-021-01225-w
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.nature.com/articles/s41398-021-01225-w.pdf"
 oa_status: gold
-license: other-oa
+license: cc-by
 local_pdf_path: files/DOI_10.1038_s41398-021-01225-w.pdf
+full_text_access_type: open
 ---
 
 # DNA methylation differences associated with social anxiety disorder and early life adversity
@@ -30,7 +33,9 @@ local_pdf_path: files/DOI_10.1038_s41398-021-01225-w.pdf
 
 ## Content
 
-AbstractSocial anxiety disorder (SAD) is a psychiatric disorder characterized by extensive fear in social situations. Multiple genetic and environmental factors are known to contribute to its pathogenesis. One of the main environmental risk factors is early life adversity (ELA). Evidence is emerging that epigenetic mechanisms such as DNA methylation might play an important role in the biological mechanisms underlying SAD and ELA. To investigate the relationship between ELA, DNA methylation, and SAD, we performed an epigenome-wide association study for SAD and ELA examining DNA from whole blood of a cohort of 143 individuals using DNA methylation arrays. We identified two differentially methylated regions (DMRs) associated with SAD located within the genesSLC43A2andTNXB. As this was the first epigenome-wide association study for SAD, it is worth noting that both genes have previously been associated with panic disorder. Further, we identified two DMRs associated with ELA within theSLC17A3promoter region and theSIAH3gene and several DMRs that were associated with the interaction of SAD and ELA. Of these, the regions withinC2CD2LandMRPL28showed the largest difference in DNA methylation. Lastly, we found that two DMRs were associated with both the severity of social anxiety and ELA, however, neither of them was found to mediate the contribution of ELA to SAD later in life. Future studies are needed to replicate our findings in independent cohorts and to investigate the biological pathways underlying these effects.
+Abstract
+
+Social anxiety disorder (SAD) is a psychiatric disorder characterized by extensive fear in social situations. Multiple genetic and environmental factors are known to contribute to its pathogenesis. One of the main environmental risk factors is early life adversity (ELA). Evidence is emerging that epigenetic mechanisms such as DNA methylation might play an important role in the biological mechanisms underlying SAD and ELA. To investigate the relationship between ELA, DNA methylation, and SAD, we performed an epigenome-wide association study for SAD and ELA examining DNA from whole blood of a cohort of 143 individuals using DNA methylation arrays. We identified two differentially methylated regions (DMRs) associated with SAD located within the genesSLC43A2andTNXB. As this was the first epigenome-wide association study for SAD, it is worth noting that both genes have previously been associated with panic disorder. Further, we identified two DMRs associated with ELA within theSLC17A3promoter region and theSIAH3gene and several DMRs that were associated with the interaction of SAD and ELA. Of these, the regions withinC2CD2LandMRPL28showed the largest difference in DNA methylation. Lastly, we found that two DMRs were associated with both the severity of social anxiety and ELA, however, neither of them was found to mediate the contribution of ELA to SAD later in life. Future studies are needed to replicate our findings in independent cohorts and to investigate the biological pathways underlying these effects.
 
 Wiegand et al. Translational Psychiatry          (2021) 11:104 
 https://doi.org/10.1038/s41398-021-01225-w Translational Psychiatry

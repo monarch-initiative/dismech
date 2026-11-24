@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.3389/fncel.2023.1094503
+extractor_version: 1
 title: "Striatal spatial heterogeneity, clustering, and white matter association of GFAP+ astrocytes in a mouse model of Huntington’s disease"
 authors:
 - Taylor G. Brown
@@ -13,12 +14,14 @@ journal: Frontiers in Cellular Neuroscience
 year: '2023'
 doi: 10.3389/fncel.2023.1094503
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://www.frontiersin.org/articles/10.3389/fncel.2023.1094503/pdf?isPublishedV2=False"
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.3389_fncel.2023.1094503.pdf
+full_text_access_type: open
 ---
 
 # Striatal spatial heterogeneity, clustering, and white matter association of GFAP+ astrocytes in a mouse model of Huntington’s disease
@@ -28,7 +31,21 @@ local_pdf_path: files/DOI_10.3389_fncel.2023.1094503.pdf
 
 ## Content
 
-IntroductionHuntington’s disease (HD) is a neurodegenerative disease that primarily affects the striatum, a brain region that controls movement and some forms of cognition. Neuronal dysfunction and loss in HD is accompanied by increased astrocyte density and astrocyte pathology. Astrocytes are a heterogeneous population classified into multiple subtypes depending on the expression of different gene markers. Studying whether mutant Huntingtin (HTT) alters specific subtypes of astrocytes is necessary to understand their relative contribution to HD.MethodsHere, we studied whether astrocytes expressing two different markers; glial fibrillary acidic protein (GFAP), associated with astrocyte activation, and S100 calcium-binding protein B (S100B), a marker of matured astrocytes and inflammation, were differentially altered in HD.ResultsFirst, we found three distinct populations in the striatum of WT and symptomatic zQ175 mice: GFAP+, S100B+, and dual GFAP+S100B+. The number of GFAP+ and S100B+ astrocytes throughout the striatum was increased in HD mice compared to WT, coinciding with an increase in HTT aggregation. Overlap between GFAP and S100B staining was expected, but dual GFAP+S100B+ astrocytes only accounted for less than 10% of all tested astrocytes and the number of GFAP+S100B+ astrocytes did not differ between WT and HD, suggesting that GFAP+ astrocytes and S100B+ astrocytes are distinct types of astrocytes. Interestingly, a spatial characterization of these astrocyte subtypes in HD mice showed that while S100B+ were homogeneously distributed throughout the striatum, GFAP+ preferentially accumulated in “patches” in the dorsomedial (dm) striatum, a region associated with goal-directed behaviors. In addition, GFAP+ astrocytes in the dm striatum of zQ175 mice showed increased clustering and association with white matter fascicles and were preferentially located in areas with low HTT aggregate load.DiscussionIn summary, we showed that GFAP+ and S100B+ astrocyte subtypes are distinctly affected in HD and exist in distinct spatial arrangements that may offer new insights to the function of these specific astrocytes subtypes and their potential implications in HD pathology.
+Introduction
+
+Huntington’s disease (HD) is a neurodegenerative disease that primarily affects the striatum, a brain region that controls movement and some forms of cognition. Neuronal dysfunction and loss in HD is accompanied by increased astrocyte density and astrocyte pathology. Astrocytes are a heterogeneous population classified into multiple subtypes depending on the expression of different gene markers. Studying whether mutant Huntingtin (HTT) alters specific subtypes of astrocytes is necessary to understand their relative contribution to HD.
+
+Methods
+
+Here, we studied whether astrocytes expressing two different markers; glial fibrillary acidic protein (GFAP), associated with astrocyte activation, and S100 calcium-binding protein B (S100B), a marker of matured astrocytes and inflammation, were differentially altered in HD.
+
+Results
+
+First, we found three distinct populations in the striatum of WT and symptomatic zQ175 mice: GFAP+, S100B+, and dual GFAP+S100B+. The number of GFAP+ and S100B+ astrocytes throughout the striatum was increased in HD mice compared to WT, coinciding with an increase in HTT aggregation. Overlap between GFAP and S100B staining was expected, but dual GFAP+S100B+ astrocytes only accounted for less than 10% of all tested astrocytes and the number of GFAP+S100B+ astrocytes did not differ between WT and HD, suggesting that GFAP+ astrocytes and S100B+ astrocytes are distinct types of astrocytes. Interestingly, a spatial characterization of these astrocyte subtypes in HD mice showed that while S100B+ were homogeneously distributed throughout the striatum, GFAP+ preferentially accumulated in “patches” in the dorsomedial (dm) striatum, a region associated with goal-directed behaviors. In addition, GFAP+ astrocytes in the dm striatum of zQ175 mice showed increased clustering and association with white matter fascicles and were preferentially located in areas with low HTT aggregate load.
+
+Discussion
+
+In summary, we showed that GFAP+ and S100B+ astrocyte subtypes are distinctly affected in HD and exist in distinct spatial arrangements that may offer new insights to the function of these specific astrocytes subtypes and their potential implications in HD pathology.
 
 fncel-17-1094503 April 24, 2023 Time: 15:39 # 1
 TYPE Original Research

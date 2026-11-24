@@ -1,14 +1,16 @@
-"""Apply the candidate node-class tree to every pathophysiology node in the KB.
+"""Apply the node-class tree to every pathophysiology node in the KB.
 
 This is the executable half of the pathograph node-classification design
 (``kb/node_classes/pathograph_node_classes.txt``). It reads the hand-built
 GO-term seed table, walks ``kb/``, and assigns each pathophysiology node a
-candidate class — or flags it as a **debundle candidate** when its own
+class at tier level — or flags it as a **debundle candidate** when its own
 annotations disagree with each other.
 
-Nothing here writes to ``kb/`` and no schema slot exists yet; the tree and
-seed table are read-only inputs. The output is a worklist and a measurement, deliberately kept reproducible so the numbers in
-the design doc can be re-derived rather than trusted.
+Nothing here writes to ``kb/``; the tree and seed table are read-only inputs.
+A node a curator has classified carries ``node_class``, and that value wins;
+for every other node the result is a suggestion. The output is a worklist and
+a measurement, deliberately kept reproducible so the numbers in the design doc
+can be re-derived rather than trusted.
 
 How a node is classified
 ------------------------
@@ -16,14 +18,23 @@ Rules are tried in order, and the first that fires wins. Each carries its own
 confidence, because they are not equally trustworthy — the measurements behind
 them are in the design doc:
 
+0. **Curated ``node_class``** → the tier that value sits under (``CURATED``).
 1. **GO biological_process, seeded, HIGH confidence.** Exactly one class among
    the node's HIGH-confidence seeded BP terms → that class (``HIGH``).
 2. **GO biological_process, conflicting.** More than one class → ``CONFLICT``.
    This is the signal, not a failure: a node whose own annotations span two
    classes is making two claims.
-3. **GO molecular_function present** → ``ACTIVITY`` (``HIGH``). MF is
-   near-definitional for the activity tier — 91% of MF-bearing nodes carry the
-   curator's ``MOLECULAR`` scale tag, 98% when a gene is also present.
+3. **GO molecular_function present** → ``ACTIVITY`` (``MEDIUM``). This rule
+   was ``HIGH`` until 2026-11 on the evidence that 91% of MF-bearing nodes
+   carry the curator's ``MOLECULAR`` scale tag. That evidence cannot test it:
+   ``MOLECULAR`` spans the GENOMIC, ACTIVITY, SUBSTANCE and PATHWAY tiers
+   alike. The independent test is conformance, and the rule failed it: once
+   ~3,000 nodes carried an MF term, the ``conforms_to`` pairs it decided
+   disagreed 133 times in 232 (57%), against 7.4% for pairs decided by seeded
+   GO BP terms on both sides. Most of those are lesion nodes such as
+   ``Germline PTEN Loss of Function``, annotated with the wild-type activity
+   of the affected gene, which says what the gene does rather than what kind
+   of claim the node makes.
 4. **CHEBI present** → ``SUBSTANCE`` (``MEDIUM``).
 5. **Gene present** → ``GENOMIC`` (``LOW``). Deliberately low: a gene
    annotation does not distinguish a genomic lesion from a broken molecular
@@ -56,16 +67,63 @@ from pathlib import Path
 from typing import Any
 
 from dismech.conformance import iter_conforms_to
+from dismech.node_classes import node_class_tiers
 
 DEFAULT_SEED = Path("kb/node_classes/pathograph_node_class_go_seed.tsv")
 DEFAULT_KB_DIRS = (Path("kb/disorders"), Path("kb/modules"))
 
 CONFLICT = "CONFLICT"
 
+#: The scanner's label for each tier of the generated ``node_class`` enum. The
+#: seed table uses the same labels.
+TIER_LABELS = {
+    "GENOMIC_EFFECT": "GENOMIC",
+    "ENVIRONMENTAL_EFFECT": "ENVIRONMENTAL",
+    "MOLECULAR_ACTIVITY_EFFECT": "ACTIVITY",
+    "MOLECULAR_SUBSTANCE_EFFECT": "SUBSTANCE",
+    "PATHWAY_EFFECT": "PATHWAY",
+    "CELLULAR_EFFECT": "CELLULAR",
+    "TISSUE_ORGAN_EFFECT": "TISSUE",
+    "SYSTEMIC_EFFECT": "SYSTEMIC",
+    "OUTCOME": "OUTCOME",
+    "DISPOSITION": "DISPOSITION",
+}
+
+#: ``biological_scale`` values compatible with each tier, for ``--format
+#: scale``. Two tiers span two scales because BiologicalScaleEnum's own
+#: descriptions split them: it files a chemical that accumulates under
+#: MOLECULAR and a chronically elevated metabolite under ORGANISM, and kinase
+#: activity under MOLECULAR but intracellular signalling under CELLULAR. An
+#: outcome can be a tissue transformation or a patient-level endpoint. A tier
+#: absent here (an exposure, a disposition) can sit at any scale.
+TIER_SCALES = {
+    "GENOMIC": frozenset({"MOLECULAR"}),
+    "ACTIVITY": frozenset({"MOLECULAR"}),
+    "SUBSTANCE": frozenset({"MOLECULAR", "ORGANISM"}),
+    "PATHWAY": frozenset({"MOLECULAR", "CELLULAR"}),
+    "CELLULAR": frozenset({"CELLULAR"}),
+    "TISSUE": frozenset({"TISSUE"}),
+    "SYSTEMIC": frozenset({"ORGANISM"}),
+    "OUTCOME": frozenset({"TISSUE", "ORGANISM"}),
+}
+#: Classes whose compatible scales differ from their tier's: a single failing
+#: organ is TISSUE in BiologicalScaleEnum's terms.
+CLASS_SCALES = {"ORGAN_FAILURE": frozenset({"TISSUE", "ORGANISM"})}
+
+#: Rule confidences, weakest first. A conformance pair is only as trustworthy
+#: as its weaker side, so the gate compares ranks rather than names. CURATED is
+#: a class a curator recorded in ``node_class``, above every term-based rule.
+CONFIDENCE_RANK = {"NONE": 0, "LOW": 1, "MEDIUM": 2, "HIGH": 3, "CURATED": 4}
+
 
 @dataclass(frozen=True)
 class Assignment:
-    """One node's candidate class and how it was reached."""
+    """One node's class and how it was reached.
+
+    ``detail`` holds the curated value for a ``curated`` assignment and the
+    clashing classes for a conflict; ``scale`` is the node's own
+    ``biological_scale``, empty when it has none.
+    """
 
     disease: str
     node: str
@@ -73,6 +131,7 @@ class Assignment:
     basis: str
     confidence: str
     detail: str = ""
+    scale: str = ""
 
     @property
     def is_conflict(self) -> bool:
@@ -112,10 +171,15 @@ def _term_ids(node: dict[str, Any], slot: str) -> list[str]:
 
 
 def classify_node(node: dict[str, Any], seed: dict[str, tuple[str, str]]) -> Assignment:
-    """Assign one pathophysiology node a candidate class. See module docstring."""
+    """Assign one pathophysiology node a class. See module docstring."""
+    name = str(node.get("name", ""))
+    curated = node.get("node_class")
+    tier = node_class_tiers().get(str(curated)) if curated else None
+    if tier is not None:
+        return Assignment("", name, TIER_LABELS[tier], "curated", "CURATED", str(curated))
+
     bp = _term_ids(node, "biological_processes")
     hits = {seed[c][0] for c in bp if c in seed and seed[c][1] == "HIGH"}
-    name = str(node.get("name", ""))
 
     if len(hits) == 1:
         return Assignment("", name, next(iter(hits)), "go_bp", "HIGH")
@@ -124,7 +188,7 @@ def classify_node(node: dict[str, Any], seed: dict[str, tuple[str, str]]) -> Ass
             "", name, CONFLICT, "go_bp", "HIGH", " + ".join(sorted(hits))
         )
     if _term_ids(node, "molecular_functions"):
-        return Assignment("", name, "ACTIVITY", "go_mf", "HIGH")
+        return Assignment("", name, "ACTIVITY", "go_mf", "MEDIUM")
     if _term_ids(node, "chemical_entities"):
         return Assignment("", name, "SUBSTANCE", "chebi", "MEDIUM")
     if node.get("genes") or node.get("gene"):
@@ -163,6 +227,7 @@ def scan(
                     basis=base.basis,
                     confidence=base.confidence,
                     detail=base.detail,
+                    scale=str(node.get("biological_scale") or ""),
                 )
                 result.assignments.append(assignment)
                 result.index[(path.stem, assignment.node)] = assignment
@@ -177,12 +242,12 @@ def conformance_pairs(
 ) -> list[tuple[Assignment, Assignment, str]]:
     """Resolvable ``conforms_to`` pairs where both sides carry a class.
 
-    ``high_only`` keeps only pairs where *both* classes came from a HIGH
-    confidence rule (seeded GO BP, or GO MF). That gate matters: pairs with a
-    LOW-confidence side disagree several times more often than pairs where both
-    sides are HIGH, so the gene/CL/UBERON fallbacks contribute mostly noise
-    here. Run ``--format conformance-gates`` for the current numbers rather than
-    quoting a figure from this docstring, which the KB's growth will outdate.
+    ``high_only`` keeps only pairs where *both* classes are curated or came from
+    a HIGH confidence rule (a seeded GO BP term). That gate matters: pairs with a
+    MEDIUM or LOW side disagree several times more often than pairs where both
+    sides are HIGH, so the fallback rules contribute mostly noise here. Run
+    ``--format conformance-gates`` for the current numbers rather than quoting
+    a figure from this docstring, which the KB's growth will outdate.
     """
     out = []
     pairs = [
@@ -200,12 +265,15 @@ def conformance_pairs(
             continue
         if CONFLICT in (target.node_class, source.node_class):
             continue
-        if high_only and not (
-            source.confidence == "HIGH" and target.confidence == "HIGH"
-        ):
+        if high_only and _weakest((source, target, ref)) < CONFIDENCE_RANK["HIGH"]:
             continue
         out.append((source, target, ref))
     return out
+
+
+def _weakest(pair: tuple[Assignment, Assignment, str]) -> int:
+    """Rank of the less trustworthy side of a conformance pair."""
+    return min(CONFIDENCE_RANK.get(a.confidence, 0) for a in pair[:2])
 
 
 def conformance_mismatches(
@@ -231,32 +299,52 @@ def conformance_mismatches(
 def conformance_gate_table(result: ScanResult) -> list[tuple[str, int, int]]:
     """Mismatch rate under each confidence gate, as ``(label, bad, total)``.
 
-    The gate is the finding, not a knob: the gene/CL/UBERON fallbacks are useful
-    for coverage and useless for adjudication, and this table is what says so.
-    Every row here is derived from the same pair list the ``conformance`` format
-    prints, so the numbers quoted in the spec can be re-derived rather than
-    taken on trust.
+    The gate is the finding, not a knob: the fallback rules are useful for
+    coverage and useless for adjudication, and this table is what says so. A
+    pair is filed under its *weaker* side, so each row measures one confidence
+    level. Every row is derived from the same pair list the ``conformance``
+    format prints, so the numbers quoted in the spec can be re-derived rather
+    than taken on trust.
     """
-    def both_high(pair: tuple[Assignment, Assignment, str]) -> bool:
-        return pair[0].confidence == "HIGH" and pair[1].confidence == "HIGH"
-
     every = conformance_pairs(result, high_only=False)
-    high = [p for p in every if both_high(p)]
-    go_bp = [p for p in high if p[0].basis == "go_bp" and p[1].basis == "go_bp"]
-    # Predicate rather than `p not in high`: membership on a list of tuples of
-    # dataclasses is a linear scan with field-by-field comparison, so the
-    # obvious spelling is quadratic in the pair count.
-    low = [p for p in every if not both_high(p)]
+    by_rank: dict[int, list[tuple[Assignment, Assignment, str]]] = {}
+    for pair in every:
+        by_rank.setdefault(_weakest(pair), []).append(pair)
 
     def bad(pairs: list[tuple[Assignment, Assignment, str]]) -> int:
         return sum(1 for src, tgt, _ in pairs if src.node_class != tgt.node_class)
 
-    return [
-        ("both sides HIGH (seeded GO BP or GO MF)", bad(high), len(high)),
-        ("both sides from seeded GO BP alone", bad(go_bp), len(go_bp)),
-        ("either side from a LOW fallback rule", bad(low), len(low)),
-        ("all pairs", bad(every), len(every)),
+    rows = [
+        ("both sides curated (node_class)", "CURATED"),
+        ("weakest side HIGH (seeded GO BP)", "HIGH"),
+        ("weakest side MEDIUM (GO MF or CHEBI)", "MEDIUM"),
+        ("weakest side LOW (gene, UBERON or CL)", "LOW"),
     ]
+    table = []
+    for label, level in rows:
+        pairs = by_rank.get(CONFIDENCE_RANK[level], [])
+        table.append((label, bad(pairs), len(pairs)))
+    table.append(("all pairs", bad(every), len(every)))
+    return table
+
+
+def scale_disagreements(result: ScanResult) -> list[tuple[Assignment, frozenset[str]]]:
+    """Curated nodes whose ``node_class`` tier and ``biological_scale`` disagree.
+
+    Report-only. Both slots are curated, so a disagreement is a question rather
+    than a defect: one of the two is wrong, or the node describes one thing at
+    two scales and is bundling two claims. Nodes classified only by the term
+    rules are not checked; their tier is a suggestion. Returns ``(assignment,
+    compatible scales)``.
+    """
+    rows = []
+    for a in result.assignments:
+        if a.basis != "curated" or not a.scale:
+            continue
+        expected = CLASS_SCALES.get(a.detail) or TIER_SCALES.get(a.node_class or "")
+        if expected is not None and a.scale not in expected:
+            rows.append((a, expected))
+    return rows
 
 
 def summarize(result: ScanResult) -> dict[str, Any]:
@@ -299,15 +387,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--format",
-        choices=("summary", "tsv", "debundle", "conformance", "conformance-gates"),
+        choices=("summary", "tsv", "debundle", "conformance", "conformance-gates", "scale"),
         default="summary",
     )
     parser.add_argument("--seed", default=str(DEFAULT_SEED))
     parser.add_argument(
         "--include-low",
         action="store_true",
-        help="conformance: also compare pairs classified by a LOW-confidence "
-        "fallback rule (measured ~40%% mismatch vs ~9%% -- mostly noise)",
+        help="conformance: also compare pairs where a side was classified by a "
+        "MEDIUM or LOW rule (mostly noise; --format conformance-gates gives "
+        "the rate at each level)",
     )
     parser.add_argument(
         "--kb-dir",
@@ -333,6 +422,22 @@ def main(argv: list[str] | None = None) -> int:
         writer.writerows(_iter_tsv(result))
         return 0
 
+    if args.format == "scale":
+        rows = scale_disagreements(result)
+        for a, expected in rows:
+            print(
+                f"{a.detail:30s} scale {a.scale:9s} (expected "
+                f"{'|'.join(sorted(expected))})  {a.node}  [{a.disease}]"
+            )
+        curated = [a for a in result.assignments if a.basis == "curated"]
+        both = sum(1 for a in curated if a.scale)
+        print(
+            f"\n{len(curated)} nodes carry node_class, {both} of them also "
+            f"biological_scale; {len(rows)} disagree (report-only)",
+            file=sys.stderr,
+        )
+        return 0
+
     if args.format == "debundle":
         rows = [a for a in result.assignments if a.is_conflict]
         for a in rows:
@@ -342,8 +447,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.format == "conformance-gates":
         for label, bad, total in conformance_gate_table(result):
-            pct = 100 * bad / total if total else 0.0
-            print(f"{label:42s} {pct:5.1f}%  ({bad}/{total})")
+            pct = f"{100 * bad / total:5.1f}%" if total else "     -"
+            print(f"{label:42s} {pct}  ({bad}/{total})")
         return 0
 
     if args.format == "conformance":
