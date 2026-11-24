@@ -25505,7 +25505,12 @@ window.searchData = [
       "NMDA Receptor Antagonist",
       "Cognitive Therapy",
       "Supportive Care",
-      "Lifestyle Modifications"
+      "Lifestyle Modifications",
+      "Brexpiprazole for Agitation",
+      "Citalopram for Agitation",
+      "Atypical Antipsychotics for Psychosis and Agitation",
+      "Suvorexant for Insomnia",
+      "Antidepressants for Depression"
     ],
     "environmental": [
       "Cumulative exposure to strong central anticholinergic medication",
@@ -25522,8 +25527,8 @@ window.searchData = [
     "num_phenotypes": 15,
     "num_pathophysiology": 29,
     "num_genes": 19,
-    "num_treatments": 7,
-    "causal_graph_edges": "74",
+    "num_treatments": 12,
+    "causal_graph_edges": "79",
     "causal_graph_longest_path": "10"
   },
   {
@@ -136367,7 +136372,10 @@ window.searchData = [
     "name": "Dermatopathia Pigmentosa Reticularis",
     "disease_id": "MONDO:0007445",
     "category": "Mendelian",
-    "parents": [],
+    "parents": [
+      "ectodermal dysplasia",
+      "autosomal dominant disease"
+    ],
     "creation_date": "2026-10-09T12:00:00Z",
     "updated_date": null,
     "subtypes": [],
@@ -136447,7 +136455,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "17",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "6"
   },
   {
@@ -208647,6 +208655,7 @@ window.searchData = [
       "Extrasynaptic GluN2B-NMDA Receptor Redistribution",
       "Excitotoxicity",
       "Mitochondrial Dysfunction",
+      "Sphingolipid Dysregulation",
       "D2 Receptor Medium Spiny Neuron Selective Vulnerability",
       "Transcriptional Dysregulation",
       "mHTT Suppression of Non-Homologous End Joining",
@@ -208688,6 +208697,9 @@ window.searchData = [
       "response to oxidative stress",
       "oxidative phosphorylation",
       "mitochondrion organization",
+      "sphingolipid metabolic process",
+      "ganglioside biosynthetic process",
+      "sphingomyelin metabolic process",
       "protein aggregation",
       "synaptic transmission",
       "regulation of transcription by RNA polymerase II",
@@ -208836,7 +208848,9 @@ window.searchData = [
       "Supportive Care",
       "Antipsychotic Medications",
       "Selective Serotonin Reuptake Inhibitors (SSRIs)",
-      "XJB-5-131 (Mitochondria-Targeted Antioxidant)"
+      "XJB-5-131 (Mitochondria-Targeted Antioxidant)",
+      "GM1 Ganglioside (Monosialotetrahexosylganglioside)",
+      "Fingolimod (FTY720)"
     ],
     "environmental": [],
     "biochemical": [
@@ -208847,10 +208861,10 @@ window.searchData = [
     "source_file": "Huntington_Disease.yaml",
     "page_url": "../pages/disorders/Huntington_Disease.html",
     "num_phenotypes": 43,
-    "num_pathophysiology": 20,
+    "num_pathophysiology": 21,
     "num_genes": 15,
-    "num_treatments": 14,
-    "causal_graph_edges": "102",
+    "num_treatments": 16,
+    "causal_graph_edges": "108",
     "causal_graph_longest_path": "8"
   },
   {
@@ -253232,6 +253246,7 @@ window.searchData = [
       "Striatal Dopamine Deficiency and Basal Ganglia Circuit Dysfunction"
     ],
     "cell_types": [
+      "dopaminergic neuron",
       "substantia nigra dopaminergic neuron"
     ],
     "cell_type_ids": [
@@ -253253,13 +253268,22 @@ window.searchData = [
       "Dystonia",
       "Freezing of gait",
       "REM sleep behavior disorder",
-      "Cognitive decline"
+      "Cognitive decline",
+      "Constipation",
+      "Depression",
+      "Anxiety",
+      "Orthostatic hypotension"
     ],
     "phenotype_categories": [
       "Neurological",
-      "Neoplastic"
+      "Neoplastic",
+      "Gastrointestinal",
+      "Psychiatric",
+      "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
       "Musculoskeletal",
       "Neoplasm",
       "Nervous System"
@@ -253274,7 +253298,11 @@ window.searchData = [
       "HP:0001332",
       "HP:0031825",
       "HP:5200291",
-      "HP:0000726"
+      "HP:0000726",
+      "HP:0002019",
+      "HP:0000716",
+      "HP:0000739",
+      "HP:0001278"
     ],
     "frequencies": [],
     "genes": [
@@ -253284,6 +253312,9 @@ window.searchData = [
     ],
     "treatments": [
       "Levodopa (dopaminergic replacement)",
+      "Dopamine Agonist Therapy",
+      "Monoamine Oxidase Type B Inhibitor Therapy",
+      "Physical, Occupational, and Speech Therapy",
       "LRRK2 kinase inhibitor therapy",
       "Genetic counseling"
     ],
@@ -253291,11 +253322,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "LRRK2-Related_Parkinson_Disease.yaml",
     "page_url": "../pages/disorders/LRRK2-Related_Parkinson_Disease.html",
-    "num_phenotypes": 10,
+    "num_phenotypes": 14,
     "num_pathophysiology": 6,
     "num_genes": 3,
-    "num_treatments": 3,
-    "causal_graph_edges": "12",
+    "num_treatments": 6,
+    "causal_graph_edges": "30",
     "causal_graph_longest_path": "8"
   },
   {
@@ -308240,28 +308271,47 @@ window.searchData = [
       "Cytoplasmic Dynein-1 Complex Dysfunction",
       "Abnormal Mitotic Spindle Morphology",
       "Prolonged Mitosis",
-      "Increased Apoptosis in the Developing Head"
+      "Increased Apoptosis in the Developing Head",
+      "Impaired Cortical Neurogenesis",
+      "Impaired Midline Commissural Axon Tract Organization",
+      "Altered Craniofacial Cartilage Patterning"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "neural progenitor cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:0000540"
+    ],
     "biological_processes": [
       "dynein-mediated microtubule-based movement",
       "mitotic spindle organization",
       "mitotic progression",
-      "apoptotic process"
+      "apoptotic process",
+      "neurogenesis",
+      "cerebral cortex development",
+      "axon guidance",
+      "embryonic cranial skeleton morphogenesis"
     ],
     "phenotypes": [
       "Microcephaly",
       "Intellectual Disability",
       "Simplified Gyral Pattern",
       "Corpus Callosum Hypoplasia",
+      "Agenesis of Corpus Callosum",
+      "Colpocephaly",
+      "Brainstem Hypoplasia",
       "Global Developmental Delay",
       "Delayed Speech and Language Development",
+      "Dysarthria",
       "Delayed Ability to Walk",
       "Spasticity",
       "Hyperreflexia",
+      "Hypotonia",
       "Seizures",
       "Short Stature",
+      "Attention Deficit Hyperactivity Disorder",
       "Aggressive Behavior",
       "Upslanted Palpebral Fissures",
       "Anteverted Nares",
@@ -308284,13 +308334,19 @@ window.searchData = [
       "HP:0001249",
       "HP:0009879",
       "HP:0002079",
+      "HP:0001274",
+      "HP:0030048",
+      "HP:0002365",
       "HP:0001263",
       "HP:0000750",
+      "HP:0001260",
       "HP:0031936",
       "HP:0001257",
       "HP:0001347",
+      "HP:0001252",
       "HP:0001250",
       "HP:0004322",
+      "HP:0007018",
       "HP:0000718",
       "HP:0000582",
       "HP:0000463",
@@ -308300,17 +308356,19 @@ window.searchData = [
     "genes": [
       "DYNC1I2"
     ],
-    "treatments": [],
+    "treatments": [
+      "Genetic Counseling"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Neurodevelopmental_Disorder_With_Microcephaly_And_Structural_Brain_Anomalies.yaml",
     "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Microcephaly_And_Structural_Brain_Anomalies.html",
-    "num_phenotypes": 15,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 21,
+    "num_pathophysiology": 8,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "7"
+    "num_treatments": 1,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Neurodevelopmental Disorder With Microcephaly, Arthrogryposis, And Structural Brain Anomalies",
@@ -345125,12 +345183,15 @@ window.searchData = [
     ],
     "description": "Pineoblastoma is a rare, aggressive embryonal pineal parenchymal malignancy that occurs predominantly in children. Current molecular data support a disease-level model with multiple epigenetic consensus subgroups rather than separate disorder pages for each ontology subclass. Major causal programs include microRNA-processing pathway disruption in PB-miRNA1/PB-miRNA2, RB1-pathway loss in PB-RB1, and FOXR2-associated oncogenic activation in PB-MYC/FOXR2, with recurrent OTX2 gain observed across subtypes.",
     "pathophysiology": [
+      "DROSHA and DICER1 RNase III Endonuclease Inactivation",
+      "DGCR8 Microprocessor RNA-Binding Subunit Inactivation",
       "MicroRNA-Processing Pathway Inactivation",
       "Mature microRNA Depletion",
       "Proliferation-Differentiation Imbalance",
       "RB1 Pathway Inactivation",
       "FOXR2 Oncogenic Activation",
-      "OTX2 Copy-Number Gain"
+      "OTX2 Copy-Number Gain",
+      "Pineal Parenchymal Tumor Mass and CSF Obstruction"
     ],
     "cell_types": [
       "pinealocyte"
@@ -345139,6 +345200,7 @@ window.searchData = [
       "CL:0000652"
     ],
     "biological_processes": [
+      "miRNA processing",
       "cell population proliferation",
       "cell differentiation",
       "cell cycle checkpoint signaling",
@@ -345147,18 +345209,35 @@ window.searchData = [
     "phenotypes": [
       "Headache",
       "Ataxia",
-      "Hydrocephalus"
+      "Hydrocephalus",
+      "Increased Intracranial Pressure",
+      "Impaired Convergence",
+      "Progressive Neurologic Deterioration",
+      "Cognitive Impairment",
+      "Memory Impairment",
+      "Atypical Behavior",
+      "Papilledema"
     ],
     "phenotype_categories": [
-      "Neurologic"
+      "Neurologic",
+      "Ophthalmologic",
+      "Psychiatric"
     ],
     "phenotype_hpo_categories": [
+      "Eye",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0002315",
       "HP:0001251",
-      "HP:0000238"
+      "HP:0000238",
+      "HP:0002516",
+      "HP:0000619",
+      "HP:0002344",
+      "HP:0100543",
+      "HP:0002354",
+      "HP:0000708",
+      "HP:0001085"
     ],
     "frequencies": [
       "FREQUENT",
@@ -345175,18 +345254,19 @@ window.searchData = [
     "treatments": [
       "Maximal Safe Surgical Resection",
       "Craniospinal Irradiation",
-      "Multi-agent Chemotherapy"
+      "Multi-agent Chemotherapy",
+      "Genetic Counseling and Predisposition Surveillance"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Pineoblastoma.yaml",
     "page_url": "../pages/disorders/Pineoblastoma.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 10,
+    "num_pathophysiology": 9,
     "num_genes": 6,
-    "num_treatments": 3,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 4,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Pinta",
@@ -351691,8 +351771,8 @@ window.searchData = [
       "Ovarian Follicle Depletion"
     ],
     "cell_types": [
-      "primordial oocyte",
-      "oocyte"
+      "oocyte",
+      "primordial oocyte"
     ],
     "cell_type_ids": [
       "CL:0000023"
@@ -351744,7 +351824,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "5"
   },
   {
@@ -380330,6 +380410,131 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "SNUPN-Related Muscular Dystrophy",
+    "disease_id": "MONDO:0100584",
+    "category": "Mendelian",
+    "parents": [
+      "Muscular Dystrophy",
+      "Limb-Girdle Muscular Dystrophy",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-11-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "LGMDR29"
+    ],
+    "description": "SNUPN-related muscular dystrophy is an autosomal recessive muscular dystrophy caused by biallelic, mostly hypomorphic variants in SNUPN, which encodes snurportin-1 (SPN1), the adapter that binds the trimethylguanosine cap of spliceosomal U snRNPs and importin-beta to import them into the nucleus. Most variants cluster in the last coding exon and impair SPN1 self-oligomerization or importin-beta binding; snRNP components accumulate in the cytoplasm, Cajal bodies break down, spliceosome maturation fails and splicing is deregulated, notably in sarcolemmal, extracellular matrix and splicing-factor genes.\nOnset ranges from birth to about 10 years in the two founding cohorts, with an adult-onset family reported later. Patients have progressive proximal limb weakness, often with distal and axial weakness, joint contractures, spinal deformity, raised creatine kinase and a myopathic EMG; many lose independent ambulation. Restrictive respiratory insufficiency is common and can be fatal in childhood. Muscle biopsy shows dystrophic changes with endomysial fibrosis and myofibrillar-like features (myotilin and desmin aggregates, Z-disc disorganization). Extramuscular involvement is variable: cerebellar atrophy, thin corpus callosum and congenital bilateral cataracts, and two families have presented mainly with spinocerebellar atrophy. Treatment is supportive.",
+    "pathophysiology": [
+      "Snurportin-1 Oligomerization and Importin-beta Binding Defect",
+      "Defective U snRNP Nuclear Import",
+      "Defective Spliceosome Maturation",
+      "Widespread mRNA Mis-splicing",
+      "Sarcolemmal Dystrophin-Glycoprotein Complex Disruption",
+      "Myofibrillar Disorganization and Protein Aggregation",
+      "Myofiber Degeneration and Endomysial Fibrosis",
+      "Purkinje Cell Mis-splicing",
+      "Cerebellar Maldevelopment"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber",
+      "fibroblast",
+      "Purkinje cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000057",
+      "CL:0000121"
+    ],
+    "biological_processes": [
+      "snRNA import into nucleus",
+      "spliceosomal snRNP assembly",
+      "mRNA splicing, via spliceosome",
+      "extracellular matrix organization",
+      "cerebellar Purkinje cell layer development"
+    ],
+    "phenotypes": [
+      "Proximal upper limb muscle weakness",
+      "Proximal lower limb muscle weakness",
+      "Distal upper limb muscle weakness",
+      "Distal lower limb muscle weakness",
+      "Axial muscle weakness",
+      "Inability to walk",
+      "Highly elevated creatine kinase",
+      "EMG myopathic abnormalities",
+      "Abnormal muscle fiber morphology",
+      "Increased endomysial connective tissue",
+      "Z-band streaming",
+      "Limb joint contracture",
+      "Abnormality of the vertebral column",
+      "Respiratory insufficiency",
+      "Restrictive ventilatory defect",
+      "Cerebellar atrophy",
+      "Ataxia",
+      "Thin corpus callosum",
+      "Developmental cataract"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Laboratory",
+      "Neuromuscular",
+      "Respiratory",
+      "Neurologic",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0008997",
+      "HP:0008994",
+      "HP:0008959",
+      "HP:0009053",
+      "HP:0003327",
+      "HP:0002540",
+      "HP:0030234",
+      "HP:0003458",
+      "HP:0004303",
+      "HP:0100297",
+      "HP:0020203",
+      "HP:0003121",
+      "HP:0000925",
+      "HP:0002093",
+      "HP:0002091",
+      "HP:0001272",
+      "HP:0001251",
+      "HP:0033725",
+      "HP:0000519"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "SNUPN"
+    ],
+    "treatments": [
+      "Respiratory Support",
+      "Cataract Surgery",
+      "Physical Therapy",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SNUPN-Related_Muscular_Dystrophy.yaml",
+    "page_url": "../pages/disorders/SNUPN-Related_Muscular_Dystrophy.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "SOCS1 Haploinsufficiency",
     "disease_id": "MONDO:0800130",
     "category": "Mendelian",
@@ -401193,6 +401398,111 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Spermatogenic Failure 38",
+    "disease_id": "MONDO:0032748",
+    "category": "Mendelian",
+    "parents": [
+      "Spermatogenic Failure",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-11-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spermatogenic failure 38 (SPGF38) is autosomal recessive male infertility caused by biallelic variants in ARMC2, which encodes an armadillo-repeat protein expressed mainly in the testis. In the green alga Chlamydomonas the ARMC2 ortholog (PF27) is a cargo adapter that carries radial spokes into the growing flagellum on intraflagellar transport (IFT) trains; without it, radial spokes are confined to the proximal flagellum.\nAffected men have severe asthenoteratozoospermia with multiple morphological abnormalities of the sperm flagella (MMAF): absent, short, coiled, bent and irregular-caliber flagella and severely reduced progressive motility; one compound heterozygote carrying a missense allele kept about a quarter progressive motility. Sperm concentration is normal in some patients and reported as reduced in others. Electron microscopy shows loss of the axonemal central pair complex and wider axonemal and peri-axonemal disorganization, and the central-pair proteins SPAG6 and SPEF2 are missing from patient and Armc2-mutant sperm. Reported alleles are mostly nonsense, frameshift and splice variants, with a few missense variants, almost all homozygous. One Chinese patient also had recurrent airway infections, bronchitis, bronchiectasis, rhinosinusitis and otitis media, and Armc2-deficient mice have shortened, poorly beating tracheal and oviduct cilia, hydrocephalus and laterality defects, so a primary ciliary dyskinesia component is possible but is documented in a single patient. Intracytoplasmic sperm injection (ICSI) has produced live births.",
+    "pathophysiology": [
+      "Loss of ARMC2 Radial Spoke Cargo Adapter",
+      "Defective Intraflagellar Transport of Radial Spokes",
+      "Loss of the Sperm Axonemal Central Pair Complex",
+      "Sperm Axonemal Disorganization",
+      "Multiple Morphological Abnormalities of the Sperm Flagella",
+      "Airway Motile Cilia Dysfunction"
+    ],
+    "cell_types": [
+      "sperm"
+    ],
+    "cell_type_ids": [
+      "CL:0000019"
+    ],
+    "biological_processes": [
+      "intraciliary transport",
+      "radial spoke assembly",
+      "axonemal central apparatus assembly",
+      "sperm axoneme assembly",
+      "sperm flagellum assembly",
+      "mucociliary clearance"
+    ],
+    "phenotypes": [
+      "Male infertility",
+      "Reduced sperm motility",
+      "Oligozoospermia",
+      "Absent sperm flagella",
+      "Short sperm flagella",
+      "Coiled sperm flagella",
+      "Bent sperm flagella",
+      "Irregularly shaped sperm tail",
+      "Absent sperm axoneme central pair complex",
+      "Abnormal sperm axoneme morphology",
+      "Recurrent respiratory infections",
+      "Bronchitis",
+      "Sinusitis",
+      "Bronchiectasis",
+      "Otitis media"
+    ],
+    "phenotype_categories": [
+      "Reproductive",
+      "Respiratory",
+      "Otolaryngological"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003251",
+      "HP:0012207",
+      "HP:0000798",
+      "HP:0032558",
+      "HP:0032559",
+      "HP:0032560",
+      "HP:0034811",
+      "HP:0033393",
+      "HP:0033525",
+      "HP:0033524",
+      "HP:0002205",
+      "HP:0012387",
+      "HP:0000246",
+      "HP:0002110",
+      "HP:0000388"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "ARMC2"
+    ],
+    "treatments": [
+      "Intracytoplasmic Sperm Injection",
+      "Testicular Armc2 mRNA Electroporation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spermatogenic_Failure_38.yaml",
+    "page_url": "../pages/disorders/Spermatogenic_Failure_38.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Spermatogenic Failure 39",
     "disease_id": "MONDO:0032845",
     "category": "Mendelian",
@@ -407395,7 +407705,10 @@ window.searchData = [
     "name": "Spondyloepimetaphyseal Dysplasia Krakow Type",
     "disease_id": "MONDO:0032571",
     "category": "Mendelian",
-    "parents": [],
+    "parents": [
+      "Spondyloepimetaphyseal dysplasia",
+      "Skeletal dysplasia"
+    ],
     "creation_date": "2026-09-15T13:18:10Z",
     "updated_date": null,
     "subtypes": [],
@@ -407457,16 +407770,22 @@ window.searchData = [
     "genes": [
       "SIK3"
     ],
-    "treatments": [],
+    "treatments": [
+      "Multidisciplinary supportive care and immunological surveillance",
+      "Genetic counseling"
+    ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Serum calcium",
+      "Intact parathyroid hormone"
+    ],
     "source_file": "Spondyloepimetaphyseal_Dysplasia_Krakow_Type.yaml",
     "page_url": "../pages/disorders/Spondyloepimetaphyseal_Dysplasia_Krakow_Type.html",
     "num_phenotypes": 8,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "7",
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "4"
   },
   {
@@ -431257,6 +431576,158 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Turnpenny-Fry Syndrome",
+    "disease_id": "MONDO:0032707",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Chromatinopathy",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-11-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Turnpenny-Fry syndrome (TPFS) is an autosomal dominant neurodevelopmental syndrome caused by heterozygous missense variants at a single residue, Pro65, of PCGF2 (MEL18), a Polycomb group RING finger protein of the canonical Polycomb repressive complex 1 (PRC1). Almost all variants are de novo (p.Pro65Leu recurrently, p.Pro65Ser in monozygotic twins), with transmission from a mosaic parent reported twice.\nPatients have global developmental delay and intellectual disability with delayed or absent speech, hypotonia, feeding difficulties and constipation, impaired growth, and a recognizable facial gestalt: frontal bossing, sparse scalp hair, periorbital fullness, malar hypoplasia, narrow palpebral fissures, a small mouth and dysplastic \"satyr\" ears. Brain MRI shows white matter changes, polymicrogyria or ventricular enlargement; most patients have cardiac or vascular anomalies (patent ductus arteriosus, septal defects, aortic dilatation, vessel tortuosity), and vertebral anomalies, kyphoscoliosis, hearing loss and diaphragmatic hernia occur. No functional study has established how the Pro65 substitutions act; structural modelling suggests they alter an N-terminal loop needed for histone binding, and a dominant-negative effect on PRC1 has been proposed. About sixteen patients have been reported.",
+    "pathophysiology": [
+      "PCGF2 Pro65 Missense Substitution",
+      "Impaired PRC1-Mediated Polycomb Repression",
+      "Abnormal Axial Skeletal Patterning",
+      "Abnormal Craniofacial Development",
+      "Abnormal Brain Development"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "epigenetic negative regulation of gene expression",
+      "anterior/posterior pattern specification",
+      "face morphogenesis",
+      "brain development"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Intellectual disability",
+      "Delayed speech and language development",
+      "Hypotonia",
+      "Seizure",
+      "Abnormal cerebral white matter morphology",
+      "Polymicrogyria",
+      "Ventriculomegaly",
+      "Frontal bossing",
+      "Sparse scalp hair",
+      "Periorbital fullness",
+      "Malar flattening",
+      "Narrow palpebral fissure",
+      "Satyr ear",
+      "Prominent nasal tip",
+      "Narrow mouth",
+      "Mandibular prognathia",
+      "High palate",
+      "Growth delay",
+      "Small for gestational age",
+      "Microcephaly",
+      "Macrocephaly",
+      "Polyhydramnios",
+      "Feeding difficulties",
+      "Constipation",
+      "Gastroesophageal reflux",
+      "Congenital diaphragmatic hernia",
+      "Abnormal heart morphology",
+      "Kyphoscoliosis",
+      "Vertebral hypoplasia",
+      "Hearing impairment",
+      "Cryptorchidism",
+      "T-cell acute lymphoblastic leukemias"
+    ],
+    "phenotype_categories": [
+      "Neurodevelopmental",
+      "Neurologic",
+      "Craniofacial",
+      "Growth",
+      "Prenatal",
+      "Gastrointestinal",
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Otolaryngological",
+      "Genitourinary",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System",
+      "Prenatal and Birth"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0001252",
+      "HP:0001250",
+      "HP:0002500",
+      "HP:0002126",
+      "HP:0002119",
+      "HP:0002007",
+      "HP:0002209",
+      "HP:0000629",
+      "HP:0000272",
+      "HP:0045025",
+      "HP:0030676",
+      "HP:0005274",
+      "HP:0000160",
+      "HP:0000303",
+      "HP:0000218",
+      "HP:0001510",
+      "HP:0001518",
+      "HP:0000252",
+      "HP:0000256",
+      "HP:0001561",
+      "HP:0011968",
+      "HP:0002019",
+      "HP:0002020",
+      "HP:0000776",
+      "HP:0001627",
+      "HP:0002751",
+      "HP:0008417",
+      "HP:0000365",
+      "HP:0000028",
+      "HP:0006727"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "PCGF2"
+    ],
+    "treatments": [
+      "Antiseizure Medication",
+      "Cardiac Surveillance",
+      "Developmental Therapies",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Turnpenny-Fry_Syndrome.yaml",
+    "page_url": "../pages/disorders/Turnpenny-Fry_Syndrome.html",
+    "num_phenotypes": 33,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Twin to Twin Transfusion Syndrome",
     "disease_id": "MONDO:0019805",
     "category": "Complex",
@@ -451943,17 +452414,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4159,
-  "total_subtypes": 5119,
-  "total_disorders_and_subtypes": 9278,
-  "total_unique_evidence_sources": 62156,
-  "total_unique_publications": 58054,
+  "total_disorder_pages": 4162,
+  "total_subtypes": 5120,
+  "total_disorders_and_subtypes": 9282,
+  "total_unique_evidence_sources": 62198,
+  "total_unique_publications": 58091,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4157,
-  "total_unique_pathological_events": 27460,
-  "total_modules": 238,
-  "total_research_reports": 4260,
+  "total_pathographs": 4160,
+  "total_unique_pathological_events": 27482,
+  "total_modules": 239,
+  "total_research_reports": 4263,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 145
