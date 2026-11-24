@@ -733,6 +733,53 @@ enums:
       OTHER:
         text: OTHER
         description: Other definition type
+  CriteriaSetLogicEnum:
+    name: CriteriaSetLogicEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/CriteriaSetLogicEnum
+    description: How the criteria sets of a definition combine.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      ALL_OF:
+        text: ALL_OF
+        description: A case must satisfy every criteria set (conjunction).
+      ANY_OF:
+        text: ANY_OF
+        description: Satisfying any one criteria set suffices (disjunction).
+  CodeSystemEnum:
+    name: CodeSystemEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/CodeSystemEnum
+    description: Clinical code systems a CodeList can draw from. The value is also
+      the CURIE prefix of each code (`ICD10:D57.0`, `SNOMEDCT:127040003`).
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      ICD9CM:
+        text: ICD9CM
+        description: ICD-9-CM (US clinical modification of ICD-9)
+      ICD10:
+        text: ICD10
+        description: 'WHO ICD-10, as used in UK Hospital Episode Statistics. Not ICD-10-CM:
+          the same code can carry a different label in each.'
+      ICD10CM:
+        text: ICD10CM
+        description: ICD-10-CM (US clinical modification of ICD-10)
+      SNOMEDCT:
+        text: SNOMEDCT
+        description: SNOMED CT concept identifiers
+      READ2:
+        text: READ2
+        description: Read codes version 2 (UK primary care, 5-byte)
+      CTV3:
+        text: CTV3
+        description: Read codes version 3 / Clinical Terms Version 3
+      OPCS4:
+        text: OPCS4
+        description: OPCS-4 procedure codes (UK)
+      LOINC:
+        text: LOINC
+        description: LOINC observation codes
+      RXNORM:
+        text: RXNORM
+        description: RxNorm drug concepts
   DefinitionDerivationBasisEnum:
     name: DefinitionDerivationBasisEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/DefinitionDerivationBasisEnum
@@ -9878,6 +9925,7 @@ slots:
     - ModelingConsideration
     - Definition
     - CriteriaSet
+    - CodeList
     - ComorbidityAssociation
     - Grouping
     - ModuleCollection
@@ -10453,6 +10501,12 @@ slots:
     - dcterms:title
     description: The title of the referenced publication
     comments:
+    - 'Required. Copy the title from the `title:` frontmatter of the reference''s
+      references_cache/ file, never from memory: `uv run python scripts/backfill_reference_titles.py
+      <file>` does it verbatim. If the cache has no title, re-fetch with `just fetch-reference
+      <ID> --force`; typing a title by hand is how invented citations get in. The
+      slot was `recommended` until every evidence item in kb/ carried one and scripts/find_missing_reference_titles.py
+      had gated new gaps in CI.'
     - "`dcterms:title` is what makes this slot machine-checked: linkml-reference-validator\
       \ compares a declared title against the fetched publication and errors on a\
       \ mismatch, and its TitleURIs matches only \"dcterms:title\" / \"dc/terms/title\"\
@@ -10474,7 +10528,7 @@ slots:
     domain_of:
     - EvidenceItem
     range: string
-    recommended: true
+    required: true
   explanation:
     name: explanation
     definition_uri: https://w3id.org/monarch-initiative/dismech/explanation
@@ -15721,6 +15775,97 @@ slots:
     domain_of:
     - CriteriaSet
     range: integer
+  criteria_set_logic:
+    name: criteria_set_logic
+    definition_uri: https://w3id.org/monarch-initiative/dismech/criteria_set_logic
+    description: 'How a definition''s criteria_sets combine: ALL_OF (a case must satisfy
+      every set) or ANY_OF (one set suffices). Within a set, minimum_required already
+      says how many items must hold. Omit when the source does not say; prose in `description`
+      is then the only record.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:criteria_set_logic
+    owner: Definition
+    domain_of:
+    - Definition
+    range: CriteriaSetLogicEnum
+  source_reference:
+    name: source_reference
+    definition_uri: https://w3id.org/monarch-initiative/dismech/source_reference
+    description: A reference CURIE (resolving to a references_cache/ entry) for the
+      record an object was transcribed from.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:source_reference
+    owner: CodeList
+    domain_of:
+    - Definition
+    - CodeList
+    range: uriorcurie
+  code_lists:
+    name: code_lists
+    definition_uri: https://w3id.org/monarch-initiative/dismech/code_lists
+    description: Code lists whose codes satisfy this criterion; a record matches if
+      it carries any code from any list. The criterion's preferred_term names what
+      the codes stand for.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:code_lists
+    owner: CriteriaItem
+    domain_of:
+    - CriteriaItem
+    range: CodeList
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  codes:
+    name: codes
+    definition_uri: https://w3id.org/monarch-initiative/dismech/codes
+    description: The codes in a code list, each as a Term whose id is `<code_system>:<code>`
+      and whose label is the source's own description.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:codes
+    owner: CodeList
+    domain_of:
+    - CodeList
+    range: Term
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  code_system_version:
+    name: code_system_version
+    definition_uri: https://w3id.org/monarch-initiative/dismech/code_system_version
+    description: Version or release of the code system or refset a code list was drawn
+      from.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:code_system_version
+    owner: CodeList
+    domain_of:
+    - CodeList
+    range: string
+  minimum_occurrences:
+    name: minimum_occurrences
+    definition_uri: https://w3id.org/monarch-initiative/dismech/minimum_occurrences
+    description: Minimum number of distinct records (encounters, code instances, results)
+      that must satisfy the criterion, e.g. 3 for "3 or more counts of the SLE ICD-9
+      code". Absent means one occurrence suffices.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:minimum_occurrences
+    owner: CriteriaItem
+    domain_of:
+    - CriteriaItem
+    range: integer
+    minimum_value: 1
+  minimum_interval_days:
+    name: minimum_interval_days
+    definition_uri: https://w3id.org/monarch-initiative/dismech/minimum_interval_days
+    description: Minimum days between the first and last qualifying occurrence, e.g.
+      30 for "two outpatient visits at least 30 days apart". Only meaningful with
+      minimum_occurrences of 2 or more.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:minimum_interval_days
+    owner: CriteriaItem
+    domain_of:
+    - CriteriaItem
+    range: integer
+    minimum_value: 0
   consistency:
     name: consistency
     definition_uri: https://w3id.org/monarch-initiative/dismech/consistency
@@ -15831,6 +15976,9 @@ slots:
     description: Code system used for a condition reference (e.g., ICD-10, OMOP, MONDO)
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:code_system
+    owner: CodeList
+    domain_of:
+    - CodeList
     range: string
   code:
     name: code
@@ -19526,10 +19674,11 @@ slots:
     definition_uri: https://w3id.org/monarch-initiative/dismech/title
     implements:
     - linkml:title
-    description: 'Title of the referenced publication. Recommended so that linkml-data-qc
-      scores its absence, matching the `recommended: true` already carried by the
-      EvidenceItem `reference_title` twin. Set here via slot_usage rather than on
-      the shared `title` slot, which is also used by Dataset and TrackedIssue.'
+    description: Title of the referenced publication. Recommended so that linkml-data-qc
+      scores its absence. Its EvidenceItem twin, `reference_title`, is required; this
+      slot stays recommended because scripts/find_missing_reference_titles.py only
+      reports its gaps. Set here via slot_usage rather than on the shared `title`
+      slot, which is also used by Dataset and TrackedIssue.
     comments:
     - "The `linkml:title` annotation is INERT for linkml-reference-validator detection\
       \ \u2014 lrv's TitleURIs matches only \"dcterms:title\" / \"dc/terms/title\"\
@@ -20728,6 +20877,24 @@ slots:
     usage_slot_name: definition_type
     range: DefinitionTypeEnum
     required: true
+  Definition_source_reference:
+    name: Definition_source_reference
+    definition_uri: https://w3id.org/monarch-initiative/dismech/source_reference
+    description: The phenotype-library record this definition is transcribed from,
+      as a citable reference CURIE (`PHEKB:615`, `HDRUK:PH304`). Fetch it with `just
+      fetch-reference` so its cached body can be quoted as evidence. Leave absent
+      for a definition composed from the literature.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: source_reference
+    domain: Definition
+    slot_uri: dismech:source_reference
+    alias: source_reference
+    owner: Definition
+    domain_of:
+    - Definition
+    is_usage_slot: true
+    usage_slot_name: source_reference
+    range: uriorcurie
   Definition_attaches_to:
     name: Definition_attaches_to
     definition_uri: https://w3id.org/monarch-initiative/dismech/attaches_to
@@ -20801,6 +20968,55 @@ slots:
     usage_slot_name: name
     range: string
     required: true
+  CodeList_code_system:
+    name: CodeList_code_system
+    definition_uri: https://w3id.org/monarch-initiative/dismech/code_system
+    description: Code system used for a condition reference (e.g., ICD-10, OMOP, MONDO)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: code_system
+    domain: CodeList
+    slot_uri: dismech:code_system
+    alias: code_system
+    owner: CodeList
+    domain_of:
+    - CodeList
+    is_usage_slot: true
+    usage_slot_name: code_system
+    range: CodeSystemEnum
+    required: true
+  CodeList_code_system_version:
+    name: CodeList_code_system_version
+    definition_uri: https://w3id.org/monarch-initiative/dismech/code_system_version
+    description: The release or refset version the source names (e.g. `nhsd-primary-care-domain-refsets/sickle_cod/20250912`).
+      Omit when the source names none.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: code_system_version
+    domain: CodeList
+    slot_uri: dismech:code_system_version
+    alias: code_system_version
+    owner: CodeList
+    domain_of:
+    - CodeList
+    is_usage_slot: true
+    usage_slot_name: code_system_version
+    range: string
+  CodeList_source_reference:
+    name: CodeList_source_reference
+    definition_uri: https://w3id.org/monarch-initiative/dismech/source_reference
+    description: The reference CURIE the codes were copied from (`HDRUK:PH304`, `PHEKB:615`).
+      Must be a cached reference; `just check-codelists` confirms each code appears
+      in it.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: source_reference
+    domain: CodeList
+    slot_uri: dismech:source_reference
+    alias: source_reference
+    owner: CodeList
+    domain_of:
+    - CodeList
+    is_usage_slot: true
+    usage_slot_name: source_reference
+    range: uriorcurie
   TermMapping_term:
     name: TermMapping_term
     definition_uri: https://w3id.org/monarch-initiative/dismech/term
@@ -24070,10 +24286,11 @@ classes:
         required: true
       title:
         name: title
-        description: 'Title of the referenced publication. Recommended so that linkml-data-qc
-          scores its absence, matching the `recommended: true` already carried by
-          the EvidenceItem `reference_title` twin. Set here via slot_usage rather
-          than on the shared `title` slot, which is also used by Dataset and TrackedIssue.'
+        description: Title of the referenced publication. Recommended so that linkml-data-qc
+          scores its absence. Its EvidenceItem twin, `reference_title`, is required;
+          this slot stays recommended because scripts/find_missing_reference_titles.py
+          only reports its gaps. Set here via slot_usage rather than on the shared
+          `title` slot, which is also used by Dataset and TrackedIssue.
         recommended: true
     class_uri: dismech:PublicationReference
   ExternalAssertion:
@@ -25439,6 +25656,8 @@ classes:
     - description
     - scope
     - Definition_attaches_to
+    - Definition_source_reference
+    - criteria_set_logic
     - criteria_sets
     - inclusion_criteria
     - exclusion_criteria
@@ -25451,6 +25670,12 @@ classes:
       definition_type:
         name: definition_type
         required: true
+      source_reference:
+        name: source_reference
+        description: The phenotype-library record this definition is transcribed from,
+          as a citable reference CURIE (`PHEKB:615`, `HDRUK:PH304`). Fetch it with
+          `just fetch-reference` so its cached body can be quoted as evidence. Leave
+          absent for a definition composed from the literature.
       attaches_to:
         name: attaches_to
         description: For a hypothesis-based definition, the pathophysiology node(s)/edge(s)
@@ -25525,7 +25750,41 @@ classes:
     - clinical_course
     - severity
     - qualifiers
+    - code_lists
+    - minimum_occurrences
+    - minimum_interval_days
     class_uri: dismech:CriteriaItem
+  CodeList:
+    name: CodeList
+    definition_uri: https://w3id.org/monarch-initiative/dismech/CodeList
+    description: 'A set of clinical codes from one code system, any one of which satisfies
+      the criterion carrying the list. This is how a computable phenotype''s codelist
+      (an HDR UK concept, a PheKB code table, an OHDSI concept set) is recorded: each
+      code is copied with the label its source gives it, so a list transcribed from
+      a phenotype library can be checked row by row against that library''s cached
+      record (`just check-codelists`).'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - name
+    - CodeList_code_system
+    - CodeList_code_system_version
+    - CodeList_source_reference
+    - codes
+    slot_usage:
+      code_system:
+        name: code_system
+        range: CodeSystemEnum
+        required: true
+      code_system_version:
+        name: code_system_version
+        description: The release or refset version the source names (e.g. `nhsd-primary-care-domain-refsets/sickle_cod/20250912`).
+          Omit when the source names none.
+      source_reference:
+        name: source_reference
+        description: The reference CURIE the codes were copied from (`HDRUK:PH304`,
+          `PHEKB:615`). Must be a cached reference; `just check-codelists` confirms
+          each code appears in it.
+    class_uri: dismech:CodeList
   TermMapping:
     name: TermMapping
     definition_uri: https://w3id.org/monarch-initiative/dismech/TermMapping
@@ -26170,6 +26429,6 @@ classes:
 metamodel_version: 1.7.0
 source_file: dismech.yaml
 source_file_date: '2025-01-01T00:00:00'
-source_file_size: 420468
+source_file_size: 425749
 generation_date: '2025-01-01T00:00:00'
 
