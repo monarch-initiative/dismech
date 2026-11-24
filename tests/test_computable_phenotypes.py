@@ -149,7 +149,11 @@ def test_definition_from_hdruk_validates_against_the_schema(ph304, validator):
     systems = [item["code_lists"][0]["code_system"] for item in items]
     assert systems == ["READ2", "ICD10"]  # medcodes dropped
     assert "Med codes (13 codes)" in definition["notes"]
-    assert definition["evidence"][0]["snippet"].startswith("At the specified date")
+    assert (
+        definition["evidence"][0]["snippet"]
+        == "Ontology | MONDO:0011382 sickle cell disease"
+    )
+    assert "does not restate it" in definition["description"]
     disease = {"name": "Sickle Cell Disease", "definitions": [definition]}
     assert _errors(validator, disease) == []
 
@@ -250,7 +254,7 @@ def _write_cache(tmp_path, reference, body):
     [
         ([{"id": "ICD10CM:D57.0", "label": "x"}], "ICD10", "prefix does not match"),
         ([{"id": "SNOMEDCT:12ab", "label": "x"}], "SNOMEDCT", "not a well-formed"),
-        ([{"id": "ICD9CM:2824", "label": "x"}], "ICD9CM", "not a well-formed"),
+        ([{"id": "ICD9CM:28X4", "label": "x"}], "ICD9CM", "not a well-formed"),
     ],
 )
 def test_checker_flags_malformed_codes(codes, system, problem, tmp_path):
@@ -330,3 +334,262 @@ def test_cli_check_codelists_exit_codes(tmp_path, monkeypatch):
     result = runner.invoke(app, ["check-codelists", str(bad)])
     assert result.exit_code == 1
     assert "prefix does not match code_system SNOMEDCT" in result.stdout
+
+
+# ----- bulk import support -----
+
+
+def test_omitted_code_systems_are_left_out_and_recorded(ph304, tmp_path):
+    record = hdruk.omit_code_systems(ph304, {"READ2"})
+    assert record.omitted == {"Read codes v2": 13}
+    assert not any(c.prefix == "READ2" for c in record.codes)
+    body = entry_for(record).body
+    assert "READ2:" not in body
+    assert "Not cached: 13 Read codes v2." in body
+    definition = definition_from_hdruk(record)
+    systems = [
+        item["code_lists"][0]["code_system"]
+        for item in definition["criteria_sets"][0]["inclusion_criteria"]
+    ]
+    assert systems == ["ICD10"]
+    assert "Codes omitted from this transcription" in definition["notes"]
+    assert "13 Read codes v2" in definition["notes"]
+    (tmp_path / entry_for(record).filename()).write_text(
+        entry_for(record).render(), encoding="utf-8"
+    )
+    doc = {"definitions": [definition]}
+    assert check_document(doc, Path("x.yaml"), tmp_path, tmp_path) == []
+
+
+def test_a_record_with_only_omitted_codes_has_nothing_to_transcribe(ph304):
+    record = hdruk.omit_code_systems(ph304, {"READ2", "ICD10"})
+    assert computable_phenotypes.transcribable_codes(record) == 0
+
+
+ENTRY = """\
+name: Test Disease
+disease_term:
+  term:
+    id: MONDO:0011382
+    label: sickle cell disease
+{block}notes: kept   # a comment the loader never sees
+"""
+
+EXISTING = """\
+definitions:
+- name: Older definition
+  definition_type: OTHER
+"""
+
+
+@pytest.mark.parametrize("block", ["", EXISTING])
+def test_append_definitions_adds_once_and_leaves_the_rest_alone(ph304, tmp_path, block):
+    path = tmp_path / "Test_Disease.yaml"
+    path.write_text(ENTRY.format(block=block), encoding="utf-8")
+    definition = definition_from_hdruk(ph304)
+    added = computable_phenotypes.append_definitions(path, [definition])
+    assert added == [definition["name"]]
+    text = path.read_text(encoding="utf-8")
+    assert "notes: kept   # a comment the loader never sees" in text
+    doc = yaml.safe_load(text)
+    assert doc["definitions"][-1]["source_reference"] == "HDRUK:PH304"
+    assert len(doc["definitions"]) == (2 if block else 1)
+    assert computable_phenotypes.append_definitions(path, [definition]) == []
+    assert path.read_text(encoding="utf-8") == text
+
+
+def test_cli_hdruk_definition_appends_to_a_disorder(tmp_path, monkeypatch):
+    monkeypatch.setenv("DISMECH_ROOT", str(tmp_path))
+    (tmp_path / "justfile").write_text("", encoding="utf-8")
+    (tmp_path / "kb").mkdir()
+    entry = tmp_path / "Test_Disease.yaml"
+    entry.write_text(ENTRY.format(block=""), encoding="utf-8")
+    args = [
+        "hdruk-definition",
+        "PH304",
+        "--detail-json",
+        str(DATA / "hdruk" / "PH304.detail.json"),
+        "--codes-json",
+        str(DATA / "hdruk" / "PH304.codes.json"),
+        "--exclude-code-system",
+        "READ2",
+        "--disorder",
+        str(entry),
+    ]
+    result = CliRunner().invoke(app, args)
+    assert result.exit_code == 0, result.output
+    doc = yaml.safe_load(entry.read_text(encoding="utf-8"))
+    assert "13 Read codes v2" in doc["definitions"][0]["notes"]
+    cache = (tmp_path / "references_cache" / "HDRUK_PH304.md").read_text(
+        encoding="utf-8"
+    )
+    assert "READ2:" not in cache
+
+
+def test_cli_hdruk_definition_skips_a_record_tagged_for_another_disease(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("DISMECH_ROOT", str(tmp_path))
+    (tmp_path / "justfile").write_text("", encoding="utf-8")
+    (tmp_path / "kb").mkdir()
+    entry = tmp_path / "Other.yaml"
+    entry.write_text(
+        ENTRY.format(block="").replace("MONDO:0011382", "MONDO:0007915"),
+        encoding="utf-8",
+    )
+    before = entry.read_text(encoding="utf-8")
+    result = CliRunner().invoke(
+        app,
+        [
+            "hdruk-definition",
+            "PH304",
+            "--detail-json",
+            str(DATA / "hdruk" / "PH304.detail.json"),
+            "--codes-json",
+            str(DATA / "hdruk" / "PH304.codes.json"),
+            "--disorder",
+            str(entry),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "SKIP PH304: HDR UK tags PH304 MONDO:0011382" in result.output
+    assert entry.read_text(encoding="utf-8") == before
+    assert not (tmp_path / "references_cache" / "HDRUK_PH304.md").exists()
+
+
+def test_a_label_containing_a_pipe_matches_its_escaped_cache_row():
+    body = "| READ2:E1100 | single manic episode-unspecif\\| single manic episode, unspecified | c |"
+    label = "single manic episode-unspecif| single manic episode, unspecified"
+    assert code_in_source("READ2:E1100", label, body)
+
+
+def test_malformed_source_codes_are_left_out_and_counted():
+    record = hdruk.PhenotypeRecord(
+        "PH9",
+        1,
+        "x",
+        codes=[
+            hdruk.Code("ICD10 codes", "A15-A19", "Tuberculosis", "c"),
+            hdruk.Code("ICD10 codes", "A15.0", "Tuberculosis of lung", "c"),
+            hdruk.Code("Read codes v2", "4109NC", "CORONARY INFARCTION", "c"),
+        ],
+    )
+    assert computable_phenotypes.transcribable_codes(record) == 1
+    definition = definition_from_hdruk(record)
+    lists = [
+        item["code_lists"][0]
+        for item in definition["criteria_sets"][0]["inclusion_criteria"]
+    ]
+    assert [c["id"] for cl in lists for c in cl["codes"]] == ["ICD10:A15.0"]
+    assert "1 ICD10 codes entries" in definition["notes"]
+    assert "(e.g. A15-A19)" in definition["notes"]
+    assert "(e.g. 4109NC)" in definition["notes"]
+
+
+def test_an_all_numeric_read_concept_is_cached_but_not_transcribed():
+    record = hdruk.PhenotypeRecord(
+        "PH9",
+        1,
+        "x",
+        codes=hdruk.relabel_numeric_read_codes(
+            [
+                hdruk.Code(
+                    "Read codes v2", "11536", "Methylphenidate 20mg", "ADHD prod"
+                ),
+                hdruk.Code(
+                    "Read codes v2", "13212", "Methylphenidate 10mg", "ADHD prod"
+                ),
+                hdruk.Code("ICD10 codes", "F90.0", "Disturbance of activity", "ADHD"),
+            ]
+        ),
+    )
+    assert computable_phenotypes.transcribable_codes(record) == 1
+    definition = definition_from_hdruk(record)
+    assert "all numeric: CPRD medcodes or product codes" in definition["notes"]
+    body = entry_for(record).body
+    assert "READ2:11536" not in body
+    assert "11536 (Read codes v2 (all numeric" in body
+
+
+def test_an_exact_match_mondo_mapping_satisfies_the_tag_check(ph304):
+    entry = {
+        "disease_term": {"term": {"id": "MONDO:0007915"}},
+        "mappings": {
+            "mondo_mappings": [
+                {
+                    "term": {"id": "MONDO:0011382"},
+                    "mapping_predicate": "skos:exactMatch",
+                }
+            ]
+        },
+    }
+    ph304.ontology = [("MONDO:0011382", "sickle cell disease")]
+    assert computable_phenotypes.mondo_tag_conflict(ph304, entry) is None
+
+
+def test_an_inline_definitions_value_is_refused(ph304, tmp_path):
+    path = tmp_path / "Test_Disease.yaml"
+    path.write_text(ENTRY.format(block="definitions: []\n"), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="not a block"):
+        computable_phenotypes.append_definitions(path, [definition_from_hdruk(ph304)])
+
+
+def test_cli_leaves_the_cache_alone_for_an_already_cited_record(tmp_path, monkeypatch):
+    monkeypatch.setenv("DISMECH_ROOT", str(tmp_path))
+    (tmp_path / "justfile").write_text("", encoding="utf-8")
+    (tmp_path / "kb").mkdir()
+    entry = tmp_path / "Test_Disease.yaml"
+    entry.write_text(ENTRY.format(block=""), encoding="utf-8")
+    args = [
+        "hdruk-definition",
+        "PH304",
+        "--detail-json",
+        str(DATA / "hdruk" / "PH304.detail.json"),
+        "--codes-json",
+        str(DATA / "hdruk" / "PH304.codes.json"),
+        "--disorder",
+        str(entry),
+    ]
+    assert CliRunner().invoke(app, args).exit_code == 0
+    cache = tmp_path / "references_cache" / "HDRUK_PH304.md"
+    full = cache.read_text(encoding="utf-8")
+    result = CliRunner().invoke(app, [*args, "--exclude-code-system", "READ2"])
+    assert result.exit_code == 0, result.output
+    assert "SKIP PH304: already cited" in result.output
+    assert cache.read_text(encoding="utf-8") == full
+
+
+def test_a_restricted_phekb_attachment_is_listed_but_not_transcribed():
+    page = phekb.PhenotypePage(
+        node_id="162",
+        title="Autism",
+        files=[("Glossary, not for distribution outside eMERGE", "u")],
+        restricted=["Glossary, not for distribution outside eMERGE"],
+    )
+    body = phekb.entry_for(page).body
+    assert "(restricted distribution; not transcribed)" in body
+    assert "## Attachment" not in body
+
+
+def test_a_concept_named_as_excluded_codes_is_not_transcribed():
+    record = hdruk.PhenotypeRecord(
+        "PH9",
+        1,
+        "x",
+        codes=[
+            hdruk.Code(
+                "Read codes v2", "F25..", "Epilepsy", "Epilepsy diagnosis codes"
+            ),
+            hdruk.Code(
+                "Read codes v2",
+                "115Q.",
+                "No history of epilepsy",
+                "Excluded codes - codes not indicating epilepsy",
+            ),
+        ],
+    )
+    assert computable_phenotypes.transcribable_codes(record) == 1
+    definition = definition_from_hdruk(record)
+    items = definition["criteria_sets"][0]["inclusion_criteria"]
+    assert [item["preferred_term"] for item in items] == ["Epilepsy diagnosis codes"]
+    assert "Excluded codes - codes not indicating epilepsy" in definition["notes"]
