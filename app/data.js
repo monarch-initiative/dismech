@@ -156342,7 +156342,8 @@ window.searchData = [
     "environmental": [],
     "biochemical": [
       "Urinary xanthurenic acid",
-      "Urinary 3-hydroxykynurenine"
+      "Urinary 3-hydroxykynurenine",
+      "Urinary kynurenine"
     ],
     "source_file": "Encephalopathy_Due_To_Hydroxykynureninuria.yaml",
     "page_url": "../pages/disorders/Encephalopathy_Due_To_Hydroxykynureninuria.html",
@@ -156350,7 +156351,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "5"
   },
   {
@@ -228444,14 +228445,18 @@ window.searchData = [
       "Susceptibility to Cutaneous HPV Disease"
     ],
     "cell_types": [
+      "peripheral blood mononuclear cell",
       "naive T cell",
       "keratinocyte"
     ],
     "cell_type_ids": [
+      "CL:2000001",
       "CL:0000898",
       "CL:0000312"
     ],
-    "biological_processes": [],
+    "biological_processes": [
+      "defense response to virus"
+    ],
     "phenotypes": [
       "Severe Cutaneous Warts",
       "Aberrant CD127 and PD-1 Expression on Naive T Cells"
@@ -228488,8 +228493,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Immunodeficiency 73B",
@@ -268853,15 +268858,22 @@ window.searchData = [
     ],
     "cell_types": [
       "naive CD8-positive alpha-beta T cell",
-      "natural killer cell"
+      "natural killer cell",
+      "macrophage"
     ],
     "cell_type_ids": [
       "CL:0000900",
-      "CL:0000623"
+      "CL:0000623",
+      "CL:0000235"
     ],
     "biological_processes": [
       "peptide antigen transport",
-      "TAP-dependent MHC class I antigen presentation"
+      "TAP-dependent MHC class I antigen presentation",
+      "T cell differentiation in thymus",
+      "positive T cell selection",
+      "natural killer cell mediated cytotoxicity",
+      "chronic inflammatory response",
+      "defense response to virus"
     ],
     "phenotypes": [
       "Recurrent respiratory infections",
@@ -268920,7 +268932,9 @@ window.searchData = [
       "Chest Physiotherapy",
       "Hematopoietic Stem Cell Transplantation"
     ],
-    "environmental": [],
+    "environmental": [
+      "Wild-Type or Live-Attenuated Rubella Virus Exposure"
+    ],
     "biochemical": [],
     "source_file": "MHC_Class_I_Deficiency_2.yaml",
     "page_url": "../pages/disorders/MHC_Class_I_Deficiency_2.html",
@@ -268928,8 +268942,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "MICPCH Syndrome",
@@ -286783,8 +286797,18 @@ window.searchData = [
       "Impaired Succinate Oxidation and Electron Transfer to Ubiquinone",
       "Bioenergetic Failure and Multisystem Energy Deficit"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "skeletal muscle fiber",
+      "cardiac muscle cell",
+      "neuron",
+      "retinal ganglion cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000746",
+      "CL:0000540",
+      "CL:0000740"
+    ],
     "biological_processes": [
       "respiratory chain complex II assembly",
       "mitochondrial electron transport, succinate to ubiquinone",
@@ -286850,7 +286874,10 @@ window.searchData = [
     "genes": [
       "SDHD biallelic pathogenic variants"
     ],
-    "treatments": [],
+    "treatments": [
+      "Avoidance of prolonged fasting and dehydration",
+      "Genetic counseling and carrier tumor-risk counseling"
+    ],
     "environmental": [],
     "biochemical": [
       "Reduced succinate dehydrogenase (complex II) enzyme activity"
@@ -286860,8 +286887,8 @@ window.searchData = [
     "num_phenotypes": 15,
     "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "20",
+    "num_treatments": 2,
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "5"
   },
   {
@@ -308028,6 +308055,102 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "39",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Neurodevelopmental Disorder With Hypotonia and Variable Intellectual and Behavioral Abnormalities",
+    "disease_id": "MONDO:0032829",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-11-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "NEDHIB is an autosomal dominant neurodevelopmental disorder caused by heterozygous, usually de novo, variants in POLR2A, which encodes RPB1, the largest catalytic subunit of RNA polymerase II (the enzyme that transcribes all protein-coding genes). Affected individuals have global developmental delay with prominent infantile-onset hypotonia, variable intellectual disability, feeding difficulties, strabismus, and white-matter and other brain imaging abnormalities; epilepsy, ataxia, autistic behaviour and temporary infection-triggered regression occur in a substantial minority, and some have multisystem features.\nTwo molecular routes are distinguished. Missense (and some in-frame) variants in catalytic regions produce a full-length RPB1 that still assembles into Pol II but is catalytically impaired, acting as a dominant negative on transcription and giving the more severe phenotype; early truncating variants cannot assemble and act through haploinsufficiency, giving a milder phenotype. There is no disease-specific therapy; management is supportive.",
+    "pathophysiology": [
+      "Heterozygous POLR2A Variant",
+      "Dominant-Negative Impairment of RNA Polymerase II",
+      "RNA Polymerase II Haploinsufficiency",
+      "Impaired Neurodevelopment"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "transcription elongation by RNA polymerase II",
+      "transcription by RNA polymerase II",
+      "nervous system development",
+      "myelination"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Generalized hypotonia",
+      "Intellectual disability",
+      "Seizure",
+      "Ataxia",
+      "Autistic behavior",
+      "Feeding difficulties",
+      "Strabismus",
+      "Delayed myelination",
+      "Thin corpus callosum",
+      "Developmental regression",
+      "Joint hypermobility",
+      "Short stature"
+    ],
+    "phenotype_categories": [
+      "Neurodevelopmental",
+      "Neurologic",
+      "Behavioral",
+      "Gastrointestinal",
+      "Ophthalmologic",
+      "Musculoskeletal",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0001290",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0001251",
+      "HP:0000729",
+      "HP:0011968",
+      "HP:0000486",
+      "HP:0012448",
+      "HP:0033725",
+      "HP:0002376",
+      "HP:0001382",
+      "HP:0004322"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "POLR2A"
+    ],
+    "treatments": [
+      "Supportive and Developmental Care",
+      "Levodopa-Benserazide (single case)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neurodevelopmental_Disorder_With_Hypotonia_And_Variable_Intellectual_And_Behavioral_Abnormalities.yaml",
+    "page_url": "../pages/disorders/Neurodevelopmental_Disorder_With_Hypotonia_and_Variable_Intellectual_and_Behavioral_Abnormalities.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Neurodevelopmental Disorder With Hypotonia, Seizures, And Absent Language",
@@ -353272,10 +353395,13 @@ window.searchData = [
     ],
     "cell_types": [
       "Respiratory tract multiciliated cell",
+      "multiciliated epithelial cell",
+      "respiratory tract multiciliated cell",
       "Sperm"
     ],
     "cell_type_ids": [
       "CL:4030034",
+      "CL:0005012",
       "CL:0000019"
     ],
     "biological_processes": [
@@ -353331,7 +353457,8 @@ window.searchData = [
     ],
     "treatments": [
       "In Vitro Fertilization",
-      "Airway Clearance and Chronic Infection Management"
+      "Airway Clearance and Chronic Infection Management",
+      "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [],
@@ -353340,8 +353467,8 @@ window.searchData = [
     "num_phenotypes": 11,
     "num_pathophysiology": 5,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "19",
+    "num_treatments": 3,
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "4"
   },
   {
@@ -374868,6 +374995,87 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Ross River Fever",
+    "disease_id": "MONDO:0000344",
+    "category": "Infectious",
+    "parents": [
+      "Alphavirus Infection",
+      "Arboviral Disease"
+    ],
+    "creation_date": "2026-11-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Ross River fever is an acute, often prolonged arthritogenic illness caused by Ross River virus (RRV), a mosquito-borne alphavirus (family Togaviridae) endemic to Australia and the Pacific, where it is the most commonly notified mosquito-borne disease. The virus is maintained in an enzootic mosquito-vertebrate cycle with native macropods as the principal reservoir; humans are generally spillover hosts. After an incubation of about a week, symptomatic patients (only a minority of those infected) develop polyarthralgia and arthritis of the peripheral joints, fatigue, myalgia, maculopapular rash and fever. Most recover over weeks to months, but a substantial minority have arthralgia persisting for many months.\nMuch of the mechanism is inferred from a mouse model that only partially resembles human disease. RRV enters cells through the MXRA8 receptor, disseminates to musculoskeletal tissue, and recruits an inflammatory monocyte/macrophage infiltrate; downstream, mannose-binding-lectin-pathway complement activation triggered by viral envelope N-glycans drives the tissue destruction. There is no licensed vaccine or antiviral; management is symptomatic.",
+    "pathophysiology": [
+      "Ross River Virus Cell Entry via MXRA8",
+      "Dissemination to Musculoskeletal Tissue",
+      "Monocyte and Macrophage Infiltration",
+      "Complement Activation and Tissue Destruction"
+    ],
+    "cell_types": [
+      "macrophage",
+      "monocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000576"
+    ],
+    "biological_processes": [
+      "symbiont entry into host cell",
+      "inflammatory response",
+      "complement activation, lectin pathway"
+    ],
+    "phenotypes": [
+      "Arthralgia",
+      "Arthritis",
+      "Fatigue",
+      "Joint stiffness",
+      "Myalgia",
+      "Maculopapular exanthema",
+      "Fever"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Constitutional",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0002829",
+      "HP:0001369",
+      "HP:0012378",
+      "HP:0001387",
+      "HP:0003326",
+      "HP:0040186",
+      "HP:0001945"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Symptomatic Pharmacotherapy",
+      "Physiotherapy and Graded Exercise"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Ross_River_Fever.yaml",
+    "page_url": "../pages/disorders/Ross_River_Fever.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Rotaviral Enteritis",
@@ -452533,17 +452741,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4162,
+  "total_disorder_pages": 4164,
   "total_subtypes": 5124,
-  "total_disorders_and_subtypes": 9286,
-  "total_unique_evidence_sources": 62203,
-  "total_unique_publications": 58095,
+  "total_disorders_and_subtypes": 9288,
+  "total_unique_evidence_sources": 62217,
+  "total_unique_publications": 58108,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4160,
-  "total_unique_pathological_events": 27497,
+  "total_pathographs": 4162,
+  "total_unique_pathological_events": 27504,
   "total_modules": 239,
-  "total_research_reports": 4263,
+  "total_research_reports": 4265,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 146

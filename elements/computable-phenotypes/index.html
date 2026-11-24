@@ -26339,8 +26339,10 @@ just<span class="w"> </span>fetch-reference<span class="w"> </span>PHEKB:615<spa
 <li><strong>PheKB</strong> (<code>PHEKB:&lt;node&gt;</code>) is read from the phenotype page, because PheKB
   has no API. The cache holds the page's metadata and description, and the
   extracted text of each PDF attachment that is an algorithm document. A PDF
-  whose first page carries a DOI is a published article: it is listed but not
-  transcribed, and is cited by its PMID instead. Word, SQL and spreadsheet
+  whose first page carries a DOI or an "Abstract" heading is an article or
+  author manuscript: it is listed but not transcribed, and is cited by its
+  PMID instead. An attachment that restricts its own distribution ("not for
+  distribution outside eMERGE") is listed with that note and not transcribed. Word, SQL and spreadsheet
   attachments are listed only. PheKB states no licence for its content.</li>
 </ul>
 <h2 id="converting-an-hdr-uk-record">Converting an HDR UK record</h2>
@@ -26349,9 +26351,17 @@ just<span class="w"> </span>fetch-reference<span class="w"> </span>PHEKB:615<spa
 <p>The converter writes the fragment below. It is a draft for a curator to
 finish, not finished content.</p>
 <ul>
-<li>One criteria set, "Qualifying codes", with one item per library concept.
-  Each item has a code list copied code by code from the resolved export.</li>
-<li>One evidence item quoting the first sentence of the library's definition.</li>
+<li>One criteria set, "Library concept code lists", with one item per library
+  concept. Each item has a code list copied code by code from the resolved
+  export. The description says that the library's own definition, not this
+  set, states how the concepts combine: many records need a code <em>and</em> a
+  prescription, or a count within a window.</li>
+<li>A concept the record names as excluded codes ("Excluded codes - codes not
+  indicating epilepsy", "(Exclusion Codes)") is not transcribed and is named
+  in <code>notes</code>. The authors kept it to document what they rejected.</li>
+<li>One evidence item quoting the record's <code>Ontology</code> row, the library's own
+  MONDO tag. A record with no MONDO tag gets the first sentence of at least
+  six words from its definition instead.</li>
 <li><code>notes</code> with the record URL, the library's ontology tag, any dropped coding
   systems, and whether the record has a validation section.</li>
 </ul>
@@ -26359,6 +26369,34 @@ finish, not finished content.</p>
 in some other way than "any code qualifies", restructure the fragment. Check
 that the library's MONDO tag matches the entry's <code>disease_term</code>. Then run
 <code>just validate</code> on the entry.</p>
+<p>To write into an entry instead of printing:</p>
+<div class="highlight"><pre><span></span><code>just<span class="w"> </span>hdruk-definition<span class="w"> </span>PH304<span class="w"> </span>--disorder<span class="w"> </span>kb/disorders/Sickle_Cell_Disease.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--exclude-code-system<span class="w"> </span>SNOMEDCT
+</code></pre></div>
+<ul>
+<li><code>--disorder</code> appends to the entry's <code>definitions:</code> block, or adds one at
+  the end of the file. Nothing else in the file changes, and the command
+  refuses to write if the result would parse differently anywhere else. A
+  record the entry already cites (by <code>source_reference</code>) is not added again,
+  so a re-run is a no-op.</li>
+<li>A record is skipped, with a <code>SKIP</code> line on stderr, when its own MONDO tag
+  names a disease other than the entry's <code>disease_term</code>, a <code>has_subtypes</code>
+  term or an <code>exactMatch</code> MONDO mapping, when the entry already cites it
+  (the cache file is then left alone too), or when none of
+  its codes has a dismech code system (for example, every code is a CPRD
+  medcode or an omitted SNOMED CT code). A record with no MONDO tag is not
+  refused; matching it is the curator's call.</li>
+<li>A "Read codes v2" concept whose codes are all digits is a CPRD medcode or
+  product-code list the library has mislabelled. Its codes are cached under a
+  system name with no dismech prefix, and not transcribed.</li>
+<li><code>--exclude-code-system</code> leaves every code of that system out of both the
+  definition and the cached record, and both say how many were left out.
+  SNOMED CT codes are excluded from bulk imports until the redistribution
+  question in design decision §20 is settled. The codes remain in the library
+  record, so they can be added later by re-running without the option.</li>
+<li>Re-fetching an omitted record with <code>just fetch-reference HDRUK:&lt;id&gt;</code> writes
+  the full code list back into the cache, because that path omits nothing.</li>
+</ul>
 <h2 id="checking-code-lists">Checking code lists</h2>
 <div class="highlight"><pre><span></span><code>just<span class="w"> </span>check-codelists<span class="w">                                  </span><span class="c1"># every kb/ file with a code list</span>
 just<span class="w"> </span>check-codelists<span class="w"> </span>kb/disorders/Sickle_Cell_Disease.yaml
