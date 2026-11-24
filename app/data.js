@@ -234666,6 +234666,91 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Intellectual Developmental Disorder, Autosomal Dominant 65",
+    "disease_id": "MONDO:0023657",
+    "category": "Mendelian",
+    "parents": [
+      "Intellectual Disability",
+      "Neurodevelopmental Disorder",
+      "Genetic Disease"
+    ],
+    "creation_date": "2026-11-24T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant intellectual developmental disorder 65 (MRD65) is a chromatinopathy caused by heterozygous variants in KDM4B (formerly JMJD2B), a JmjC-domain lysine demethylase that removes the repressive H3K9me3/me2 histone mark. Affected individuals have global developmental delay with language and motor skills most affected, variable intellectual disability, dysmorphic features (no single feature consistent), and in a minority seizures and structural brain anomalies ranging from agenesis of the corpus callosum with hydrocephalus to polymicrogyria, abnormal hippocampi and cystic change. Behavioural abnormalities are reported. About two dozen patients are reported, mostly with de novo variants; a single biallelic case is more severely affected.\nLoss of KDM4B is proposed to leave excess repressive H3K9 methylation at neurodevelopmental loci, dysregulating their transcription. A heterozygous mouse reproduces the reduced brain volume, small dentate gyrus, partial corpus callosum agenesis and ventriculomegaly, and a neuron-specific knockout shows abnormal dendritic spine maturation with hyperactivity, memory deficits and seizures. There is no disease-specific therapy; management is supportive.",
+    "pathophysiology": [
+      "KDM4B Loss of Function",
+      "Excess Repressive H3K9 Methylation",
+      "Dysregulated Neurodevelopmental Transcription",
+      "Abnormal Forebrain Morphogenesis",
+      "Defective Dendritic Spine Maturation"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "chromatin organization",
+      "forebrain development",
+      "dendritic spine development"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Delayed speech and language development",
+      "Delayed gross motor development",
+      "Intellectual disability",
+      "Abnormal facial shape",
+      "Seizure",
+      "Agenesis of corpus callosum",
+      "Hydrocephalus",
+      "Polymicrogyria"
+    ],
+    "phenotype_categories": [
+      "Neurodevelopmental",
+      "Craniofacial",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0002194",
+      "HP:0001249",
+      "HP:0001999",
+      "HP:0001250",
+      "HP:0001274",
+      "HP:0000238",
+      "HP:0002126"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "KDM4B"
+    ],
+    "treatments": [
+      "Supportive and Developmental Care",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Developmental_Disorder_Autosomal_Dominant_65.yaml",
+    "page_url": "../pages/disorders/Intellectual_Developmental_Disorder,_Autosomal_Dominant_65.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Intellectual Developmental Disorder, Autosomal Dominant 72",
     "disease_id": "MONDO:0957397",
     "category": "Mendelian",
@@ -452741,17 +452826,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4164,
+  "total_disorder_pages": 4165,
   "total_subtypes": 5124,
-  "total_disorders_and_subtypes": 9288,
-  "total_unique_evidence_sources": 62217,
-  "total_unique_publications": 58108,
+  "total_disorders_and_subtypes": 9289,
+  "total_unique_evidence_sources": 62222,
+  "total_unique_publications": 58112,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4162,
-  "total_unique_pathological_events": 27504,
+  "total_pathographs": 4163,
+  "total_unique_pathological_events": 27508,
   "total_modules": 239,
-  "total_research_reports": 4265,
+  "total_research_reports": 4266,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 146
