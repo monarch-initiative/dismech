@@ -82,9 +82,17 @@ just hdruk-definition PH304 PH3021    # prints a definitions: fragment, caches t
 The converter writes the fragment below. It is a draft for a curator to
 finish, not finished content.
 
-- One criteria set, "Qualifying codes", with one item per library concept.
-  Each item has a code list copied code by code from the resolved export.
-- One evidence item quoting the first sentence of the library's definition.
+- One criteria set, "Library concept code lists", with one item per library
+  concept. Each item has a code list copied code by code from the resolved
+  export. The description says that the library's own definition, not this
+  set, states how the concepts combine: many records need a code *and* a
+  prescription, or a count within a window.
+- A concept the record names as excluded codes ("Excluded codes - codes not
+  indicating epilepsy", "(Exclusion Codes)") is not transcribed and is named
+  in `notes`. The authors kept it to document what they rejected.
+- One evidence item quoting the record's `Ontology` row, the library's own
+  MONDO tag. A record with no MONDO tag gets the first sentence of at least
+  six words from its definition instead.
 - `notes` with the record URL, the library's ontology tag, any dropped coding
   systems, and whether the record has a validation section.
 

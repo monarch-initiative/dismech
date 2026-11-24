@@ -149,7 +149,11 @@ def test_definition_from_hdruk_validates_against_the_schema(ph304, validator):
     systems = [item["code_lists"][0]["code_system"] for item in items]
     assert systems == ["READ2", "ICD10"]  # medcodes dropped
     assert "Med codes (13 codes)" in definition["notes"]
-    assert definition["evidence"][0]["snippet"].startswith("At the specified date")
+    assert (
+        definition["evidence"][0]["snippet"]
+        == "Ontology | MONDO:0011382 sickle cell disease"
+    )
+    assert "does not restate it" in definition["description"]
     disease = {"name": "Sickle Cell Disease", "definitions": [definition]}
     assert _errors(validator, disease) == []
 
@@ -565,3 +569,27 @@ def test_a_restricted_phekb_attachment_is_listed_but_not_transcribed():
     body = phekb.entry_for(page).body
     assert "(restricted distribution; not transcribed)" in body
     assert "## Attachment" not in body
+
+
+def test_a_concept_named_as_excluded_codes_is_not_transcribed():
+    record = hdruk.PhenotypeRecord(
+        "PH9",
+        1,
+        "x",
+        codes=[
+            hdruk.Code(
+                "Read codes v2", "F25..", "Epilepsy", "Epilepsy diagnosis codes"
+            ),
+            hdruk.Code(
+                "Read codes v2",
+                "115Q.",
+                "No history of epilepsy",
+                "Excluded codes - codes not indicating epilepsy",
+            ),
+        ],
+    )
+    assert computable_phenotypes.transcribable_codes(record) == 1
+    definition = definition_from_hdruk(record)
+    items = definition["criteria_sets"][0]["inclusion_criteria"]
+    assert [item["preferred_term"] for item in items] == ["Epilepsy diagnosis codes"]
+    assert "Excluded codes - codes not indicating epilepsy" in definition["notes"]

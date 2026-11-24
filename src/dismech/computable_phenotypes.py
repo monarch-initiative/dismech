@@ -91,7 +91,11 @@ def definition_from_hdruk(record: PhenotypeRecord) -> dict:
     items: list[dict] = []
     dropped: list[str] = []
     malformed: dict[str, list[str]] = {}
+    excluded: list[str] = []
     for (concept, system), all_codes in record.concepts().items():
+        if is_exclusion_concept(concept):
+            excluded.append(concept)
+            continue
         prefix = all_codes[0].prefix
         if prefix is None:
             dropped.append(f"{system} ({len(all_codes)} codes)")
@@ -122,20 +126,37 @@ def definition_from_hdruk(record: PhenotypeRecord) -> dict:
         "description": (
             f"HDR UK Phenotype Library phenotype {record.phenotype_id} "
             f"(version {record.version_id}; {record.fields.get('Template') or 'untyped'} template). "
-            "A record qualifies if it carries any code in any of the code lists below."
+            "The code lists below are the library's resolved code export, one per "
+            "concept. How the concepts combine (any one code, a code together with "
+            "a prescription, a count within a window) is set out in the library's "
+            "own definition and implementation text, cached with the record; this "
+            "transcription does not restate it."
         ),
     }
     if record.fields.get("Data sources"):
         definition["scope"] = f"UK EHR: {record.fields['Data sources']}"
     definition["criteria_sets"] = [
         {
-            "name": "Qualifying codes",
-            "description": "Any one code from any concept's code list qualifies.",
-            "minimum_required": 1,
+            "name": "Library concept code lists",
+            "description": "One item per concept in the library's resolved code export.",
             "inclusion_criteria": items,
         }
     ]
-    snippet = _first_sentence(record.definition)
+    mondo = [(c, label) for c, label in record.ontology if c.startswith("MONDO:")]
+    if mondo:
+        snippet = f"Ontology | {mondo[0][0]} {mondo[0][1]}".strip()
+        explanation = (
+            "The library record's own ontology tag names this disease; the code "
+            "lists are checked code by code against the same record by "
+            "`just check-codelists`."
+        )
+    else:
+        snippet = _first_sentence(record.definition)
+        explanation = (
+            "Opening of the phenotype library's own definition of this "
+            "phenotype; the code lists are checked code by code against the "
+            "same record by `just check-codelists`."
+        )
     if snippet:
         definition["evidence"] = [
             {
@@ -144,11 +165,7 @@ def definition_from_hdruk(record: PhenotypeRecord) -> dict:
                 "evidence_source": "OTHER",
                 "reference_title": record.name,
                 "snippet": snippet,
-                "explanation": (
-                    "Opening of the phenotype library's own definition of this "
-                    "phenotype; the code lists are checked code by code against the "
-                    "same record by `just check-codelists`."
-                ),
+                "explanation": explanation,
             }
         ]
     notes = [f"Transcribed from {record.url} by `just hdruk-definition`."]
@@ -163,6 +180,11 @@ def definition_from_hdruk(record: PhenotypeRecord) -> dict:
             "Coding systems with no dismech code system, not transcribed: "
             + ", ".join(dropped)
             + "."
+        )
+    if excluded:
+        notes.append(
+            "Concepts the library record names as excluded codes are not "
+            "transcribed: " + "; ".join(excluded) + "."
         )
     for system, bad in sorted(malformed.items()):
         examples = ", ".join(dict.fromkeys(bad[:3]))
@@ -181,6 +203,28 @@ def definition_from_hdruk(record: PhenotypeRecord) -> dict:
         notes.append("The library record has no validation section.")
     definition["notes"] = " ".join(notes)
     return definition
+
+
+_EXCLUSION_CONCEPT_RE = re.compile(
+    r"^\s*(?:excluded|exclusions?)\b|\(\s*exclusion codes?\s*\)", re.IGNORECASE
+)
+
+
+def is_exclusion_concept(name: str) -> bool:
+    """True for a concept the library record names as a list of excluded codes.
+
+    A resolved export lists every concept's codes, including concepts the
+    authors kept to document what they rejected. Those are not qualifying
+    codes. A qualifier inside a name ("excluding gabapentin") is not one.
+
+    >>> is_exclusion_concept("Excluded codes - codes not indicating epilepsy")
+    True
+    >>> is_exclusion_concept("Type 2 Diabetes (Exclusion Codes) - Primary Care")
+    True
+    >>> is_exclusion_concept("Anti-seizure medication codes (excluding gabapentin)")
+    False
+    """
+    return bool(_EXCLUSION_CONCEPT_RE.search(name))
 
 
 def well_formed(prefix: str, code: str) -> bool:
@@ -205,7 +249,9 @@ def transcribable_codes(record: PhenotypeRecord) -> int:
     return sum(
         1
         for code in record.codes
-        if code.prefix is not None and well_formed(code.prefix, code.code)
+        if code.prefix is not None
+        and well_formed(code.prefix, code.code)
+        and not is_exclusion_concept(code.concept)
     )
 
 
