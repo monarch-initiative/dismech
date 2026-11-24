@@ -424,6 +424,12 @@ def code_in_source(curie: str, label: str, body: str) -> bool:
     True
     >>> code_in_source("ICD9CM:282.60", "HbSS disease", "282.61 HbSS disease")
     False
+
+    A PDF that gives the label in parentheses after the code also matches.
+
+    >>> code_in_source("ICD9CM:441.3", "Abdominal aortic aneurysm, ruptured",
+    ...     "• 441.3 (Abdominal aortic aneurysm, ruptured) *Note")
+    True
     """
     body = _normalize(body)
     # The cache escapes a literal "|" in a cell as "\\|".
@@ -431,9 +437,10 @@ def code_in_source(curie: str, label: str, body: str) -> bool:
     if f"| {curie} | {cell} |" in body:
         return True
     code = curie.split(":", 1)[1]
+    label_re = re.escape(_normalize(label))
     return (
         re.search(
-            rf"(?<![\w.]){re.escape(code)} {re.escape(_normalize(label))}(?![\w])", body
+            rf"(?<![\w.]){re.escape(code)} (?:{label_re}(?![\w])|\({label_re}\))", body
         )
         is not None
     )
