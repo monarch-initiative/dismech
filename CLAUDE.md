@@ -4539,6 +4539,7 @@ just check-folded-hyphens
 just check-folded-yaml
 just check-snippet-length
 just check-title-snippets
+just check-snippet-grading kb/disorders/MyDisease.yaml
 just check-reference-titles
 just check-retired-support-prose
 just check-environmental-evidence
@@ -4562,26 +4563,11 @@ step also runs three that do not (`check-skill-files`, `check-case-collisions`,
 scripts, such as `compliance-connectivity`; the step itself is the
 authoritative list.
 
-**`just check-snippet-grading` is not in that list, because CI does not run it
-on a `kb/`-only PR.** It has no step of its own: it runs as
-`tests/test_snippet_grading.py` inside the `Run Python code/logic tests` step,
-which fires only when the `python` path filter matches (`src/`, `tests/`,
-workflows, the justfiles and a handful of named scripts, but no `kb/` path) or
-in the merge queue. A curation PR touches none of those paths, so
-a re-graded quote passes every check on the PR and is first caught when the
-merge queue runs the full suite and ejects it. This is the hazard described
-under *Why the entity-ref check is a CI step and not just a test* below. Run
-it yourself before pushing a curation PR, naming the files you touched:
-
-```bash
-just check-snippet-grading kb/disorders/MyDisease.yaml
-```
-
-The whole corpus is still indexed, because the cross-file half compares one
-sentence against every other entry and the file that is wrong may be one this
-change never opened. Only findings touching the named paths are reported and
-gated, so the output is the worklist for this PR rather than the KB-wide
-backlog. With no paths it scans everything, as CI does.
+`check-snippet-grading` takes file paths but still indexes the whole corpus,
+because its cross-file half compares one sentence against every other entry,
+and the file that is wrong may be one this change never opened. Only findings
+touching the named paths are reported and gated; with no paths it scans
+everything, as CI does.
 
 They catch folded-scalar word corruption, evidence items swallowed into a
 block scalar, non-propositional short snippets,
@@ -4594,14 +4580,14 @@ block scalars, enum values a schema change has retired, inconsistent
 references, broken bare-name pathograph targets, shared `disease_term`s that do
 not say how they are shared, genes landing on a node that names no molecular
 function, coarse HPO bindings with no stated basis, wrong qualifier ontology
-labels, and prose claims about
-defective sources that the cache contradicts. Nine of the gates in the list
+labels, one quoted sentence graded with two `evidence_source` values, and prose
+claims about defective sources that the cache contradicts. Ten of the gates in the list
 carry a committed baseline file grandfathering a pre-existing backlog:
 `check-snippet-length`, `check-title-snippets`, `check-reference-titles`,
 `check-retired-support-prose`, `check-block-scalar-comments` (shrink-only, see
 YAML Formatter Safety), `check-causal-targets`, `check-shared-disease-terms`,
-`check-gene-activity-grounding` and `check-coarse-phenotypes`.
-`check-snippet-grading` has one too.
+`check-gene-activity-grounding`, `check-coarse-phenotypes` and
+`check-snippet-grading`.
 Inspect `tests/*_baseline.txt` for the current set. Do not update a baseline
 to admit a defect introduced by the current change.
 
