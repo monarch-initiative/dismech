@@ -3804,6 +3804,46 @@ grip and lean-mass benefit in women and none in men, but from separate
 within-sex results with no interaction test and for a multicomponent programme,
 so that result sits in the treatment's `evidence`, not in `effect_modifiers`.
 
+### Treatments That Failed or Did Harm (`NO_EFFECT`, `EXACERBATES`)
+
+A `target_mechanisms` link draws an arrow, and only its `treatment_effect` tells
+the graph what kind. Prose does not travel with it, so a link typed `MODULATES`
+whose description says "does not work" renders as a treatment that works. Type
+the negative result instead (design decisions §21, dismech#10151):
+
+```yaml
+  target_mechanisms:
+  - target: Progressive Noninflammatory Articular Cartilage Loss
+    treatment_effect: NO_EFFECT
+    evidence:
+    - reference: PMID:22791401
+      supports: SUPPORT      # the source says it does not help, which is the claim
+      ...
+```
+
+- **`NO_EFFECT`** means the treatment was given or tested for this node and did
+  not improve it, and a source says so. Untested, partial or inconsistent
+  response, and a result seen only in a model system are none of them
+  `NO_EFFECT`.
+- **`EXACERBATES`** means it worsens the node, including a drug given for one
+  node that worsens another (one link each). It records an effect, not a
+  prescribing rule; there is no `CONTRAINDICATED` value.
+- **Both need evidence on the link**, graded against the link as typed. A paper
+  reporting the failure is `SUPPORT`; a trial that found a benefit is `REFUTE`.
+  Change the grade and its `explanation` when you change the effect.
+- **If nobody expected the treatment to act on the node, the link is wrong**, not
+  negative. A pacemaker does not target Z-disc aggregates; link the arrhythmia.
+  Substituting for a lost function is `BYPASSES`.
+
+```bash
+just check-treatment-effects    # gate: a negative effect needs link evidence (in `just qc` and CI)
+just list-treatment-effects     # leads: links whose prose or evidence denies their effect
+```
+
+The leads never fail and are not a number to drive to zero: a description can
+negate something other than its link. Retype the effect, move the link, or leave
+it (dismech#10048).
+
 ### Entry Names
 
 The `disease_term` binding fixes what an entry is; the `name` is dismech's own

@@ -129,7 +129,7 @@ treatments:
         description: AAV-mediated GCDH replacement restores enzyme activity.
 ```
 
-Treatment effects use the `TreatmentEffectEnum`: `INHIBITS`, `RESTORES`, `ACTIVATES`, `MODULATES`, `BYPASSES`, `REPLACES`.
+Treatment effects use the `TreatmentEffectEnum`: `INHIBITS`, `RESTORES`, `ACTIVATES`, `MODULATES`, `BYPASSES`, and, for a treatment that failed or did harm, `NO_EFFECT` and `EXACERBATES`.
 
 ### 4. Pathophysiology-level gene binding
 

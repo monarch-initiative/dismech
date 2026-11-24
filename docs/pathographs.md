@@ -190,6 +190,22 @@ term directly on a mechanism node. Use `triggers` to annotate a node's exposure
 term; use `influences_mechanisms` to pull a disease-level `environmental:` entry
 into the graph as its own node.
 
+### Treatment `target_mechanisms` edges
+
+`treatment_effect` says how the treatment acts on the node. Five values draw a
+`targets` edge; the two negative ones draw their own, so a treatment that failed
+or did harm never reads as one that works:
+
+| `treatment_effect` | Edge predicate | Drawn as |
+|---|---|---|
+| `INHIBITS`, `ACTIVATES`, `MODULATES`, `BYPASSES`, `RESTORES`, *(omitted)* | `targets` | Solid arrow |
+| `NO_EFFECT` | `no_effect_on` | Red, dotted, tee head |
+| `EXACERBATES` | `worsens` | Amber, dashed arrow |
+
+When every link from a treatment to a node is negative, a `target_phenotypes` row
+naming the same node draws no `treats` edge. Neither negative predicate counts
+as mechanistically explaining its target.
+
 The `target` field must match the `name` of another entry in any section. Unresolved targets appear as orphan nodes with dashed red borders.
 
 ## Node Granularity and Debundling (case study: CSAN)

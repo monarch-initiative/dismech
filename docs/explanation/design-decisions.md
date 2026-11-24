@@ -2668,3 +2668,33 @@ algorithm documents, not journal articles.
 redistributed this way at the scale of a bulk import. The pilot entries carry 109
 SNOMED codes. Also open: a vocabulary check for the code systems that have no adapter.
 WHO ICD-10 and SNOMED builds exist outside `conf/oak_config.yaml`.
+
+## 21. A treatment that failed or did harm is a typed link with its own predicate (2026-11-24)
+
+**Decision.** `TreatmentEffectEnum` has two negative values, `NO_EFFECT` and
+`EXACERBATES`. The pathograph draws them as `no_effect_on` and `worsens`; every
+other value, and an absent one, still draws `targets`. Both need evidence on the
+link, and `supports` is graded against the link as typed, so a paper reporting
+that a drug failed is `SUPPORT` for a `NO_EFFECT` link.
+
+**Why.** `graph.py` drew every `target_mechanisms` link as `targets`, so an entry
+that curated a drug because it does not work rendered the opposite claim
+([#10151](https://github.com/monarch-initiative/dismech/issues/10151)). Entries
+reached for `MODULATES` with the denial in prose, or `ACTIVATES` with the harm in
+prose ([#10004](https://github.com/monarch-initiative/dismech/issues/10004)).
+Environmental and model links already carried their direction in the predicate.
+
+**Rejected.**
+
+- *Infer the sign from `REFUTE` grades.* 23 links carry both `SUPPORT` and
+  `REFUTE` evidence, and a refuting trial does not settle which way the link
+  should read.
+- *Reuse `exacerbates`.* It is in `qc_plugins.CAUSAL_PREDICATES`, so a drug would
+  count as the mechanism that explains a phenotype.
+- *A `CONTRAINDICATED` value.* A contraindication is a claim about the treatment
+  record, not about one link, and stays open on #10151.
+
+**Not settled here.** Existing links were not migrated in bulk. Prose that denies
+its link ([#10048](https://github.com/monarch-initiative/dismech/issues/10048))
+is reported by `just list-treatment-effects` and repaired entry by entry. KGX
+does not export `target_mechanisms`, so no Biolink predicate was chosen.
