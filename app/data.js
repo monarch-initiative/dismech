@@ -89891,11 +89891,15 @@ window.searchData = [
     ],
     "biological_processes": [
       "protein folding",
+      "protein oxidation",
       "amyloid fibril formation",
+      "inclusion body assembly",
       "protein-containing complex assembly",
+      "lens fiber cell differentiation",
       "actin filament organization",
       "intracellular calcium ion homeostasis",
       "proteolysis",
+      "cell death",
       "maintenance of lens transparency"
     ],
     "phenotypes": [
@@ -89929,7 +89933,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "9"
   },
   {
@@ -104666,16 +104670,23 @@ window.searchData = [
     "cell_types": [
       "auditory hair cell",
       "vestibular hair cell",
-      "neural progenitor cell"
+      "neural progenitor cell",
+      "neuron"
     ],
     "cell_type_ids": [
       "CL:0000202",
       "CL:0000609",
-      "CL:0011020"
+      "CL:0011020",
+      "CL:0000540"
     ],
     "biological_processes": [
+      "actin filament bundle assembly",
+      "inner ear receptor cell stereocilium organization",
       "auditory receptor cell stereocilium organization",
-      "establishment of mitotic spindle orientation"
+      "establishment of mitotic spindle orientation",
+      "actin filament organization",
+      "cerebral cortex development",
+      "corpus callosum development"
     ],
     "phenotypes": [
       "Sensorineural hearing impairment",
@@ -104719,6 +104730,7 @@ window.searchData = [
     ],
     "treatments": [
       "Cochlear implantation",
+      "Hearing aid rehabilitation",
       "Ventricular shunting for hydrocephalus"
     ],
     "environmental": [],
@@ -104728,9 +104740,9 @@ window.searchData = [
     "num_phenotypes": 11,
     "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "18",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 3,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Chung-Jansen Syndrome",
@@ -173118,10 +173130,11 @@ window.searchData = [
       "Infantile Fibrosarcoma",
       "Adult-Type Fibrosarcoma"
     ],
-    "description": "Fibrosarcoma is a malignant fibroblastic mesenchymal neoplasm that can arise in soft tissue or bone. Contemporary evidence is strongest for the congenital/infantile fibrosarcoma subset, which commonly carries an ETV6-NTRK3 fusion and can respond to TRK inhibitors. Classic adult-type fibrosarcoma remains less directly covered by the currently cached evidence.",
+    "description": "Fibrosarcoma is a rare malignant fibroblastic mesenchymal neoplasm arising in soft tissue or bone and composed of collagen-producing spindle fibroblasts. It comprises two clinically and biologically distinct age-related forms: infantile (congenital) fibrosarcoma, which is driven in most cases by a recurrent t(12;15)(p13;q25) ETV6-NTRK3 gene fusion (or alternative NTRK/kinase fusions), rarely metastasizes, and responds rapidly to selective TRK inhibitors, and adult-type fibrosarcoma, an aggressive spindle-cell sarcoma diagnosed by exclusion that carries a substantial risk of local recurrence and distant metastasis.",
     "pathophysiology": [
-      "Fibroblastic Malignant Proliferation",
       "Fusion-Driven Oncogenic Signaling",
+      "Fibroblastic Malignant Proliferation",
+      "Local Invasion and Distant Metastasis in Adult-Type Fibrosarcoma",
       "TRK-Inhibitor-Sensitive Tumor Maintenance",
       "Infantile Fibrosarcoma Tumor Microenvironment"
     ],
@@ -173137,20 +173150,25 @@ window.searchData = [
     ],
     "biological_processes": [
       "cell population proliferation",
+      "cell migration",
       "angiogenesis",
       "inflammatory response"
     ],
     "phenotypes": [
-      "Localized Painless Mass"
+      "Localized Painless Mass",
+      "Adult-Type Soft Tissue or Bone Fibrosarcoma",
+      "Locally Recurrent Fibrosarcoma"
     ],
     "phenotype_categories": [
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Neoplastic"
     ],
     "phenotype_hpo_categories": [
       "Neoplasm"
     ],
     "phenotype_ids": [
-      "HP:0031459"
+      "HP:0031459",
+      "HP:0100244"
     ],
     "frequencies": [
       "FREQUENT"
@@ -173170,12 +173188,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Fibrosarcoma.yaml",
     "page_url": "../pages/disorders/Fibrosarcoma.html",
-    "num_phenotypes": 1,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 3,
+    "num_pathophysiology": 5,
     "num_genes": 3,
     "num_treatments": 4,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Fibrosis, Neurodegeneration, and Cerebral Angiomatosis",
@@ -279129,7 +279147,9 @@ window.searchData = [
     ],
     "treatments": [
       "Ventricular Shunting for Hydrocephalus",
-      "Antiseizure Therapy"
+      "Antiseizure Therapy",
+      "Topiramate",
+      "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [],
@@ -279138,9 +279158,9 @@ window.searchData = [
     "num_phenotypes": 13,
     "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 4,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Meier-Gorlin syndrome",
@@ -284561,8 +284581,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Microcephaly, Cataracts, Impaired Intellectual Development, and Dystonia with Abnormal Striatum",
@@ -296346,11 +296366,19 @@ window.searchData = [
     ],
     "creation_date": "2026-02-13T00:31:42Z",
     "updated_date": null,
-    "subtypes": [],
-    "description": "Multiple synostoses syndrome (SYNS) is an autosomal dominant disorder characterized by progressive joint fusion (synostosis) affecting proximal interphalangeal joints, carpal and tarsal bones, and the cervical spine. It is caused by mutations in genes involved in BMP signaling, primarily NOG (encoding noggin, a BMP antagonist) and GDF5 (encoding growth/differentiation factor 5, a BMP ligand). The disorder typically presents in childhood with progressive stiffness and conductive hearing loss from stapes fixation.\n",
+    "subtypes": [
+      "SYNS1",
+      "SYNS2",
+      "SYNS3",
+      "SYNS4"
+    ],
+    "description": "Multiple synostoses syndrome (SYNS) is a genetically heterogeneous autosomal dominant skeletal disorder characterized by progressive bony fusion (synostosis) of synovial joints, most consistently involving the proximal interphalangeal joints (symphalangism), carpal and tarsal bones, elbow (humeroradial joint), and cervical or lumbar vertebrae, frequently accompanied by conductive hearing loss from middle-ear stapes fixation and brachydactyly. Four molecular subtypes are established: SYNS1 (NOG loss-of-function variants impairing noggin-mediated BMP antagonism), SYNS2 (noggin-resistant GDF5 gain-of-function variants), SYNS3 (FGF9 missense variants impairing FGFR binding and joint-interzone formation), and SYNS4 (noggin-resistant GDF6 gain-of-function variants or 3' regulatory disruption). Both excessive joint BMP signaling (SYNS1, SYNS2, SYNS4) and impaired interzone FGF9 signaling (SYNS3) prevent embryonic joint-interzone specification and cavitation, resulting in progressive chondrogenesis and joint ankylosis.",
     "pathophysiology": [
+      "Noggin BMP-Antagonist Loss of Function (SYNS1)",
+      "Noggin-Resistant GDF5 and GDF6 Gain of Function (SYNS2, SYNS4)",
+      "Reduced GDF6 Expression via 3' Regulatory Disruption (SYNS4)",
       "BMP Signaling Dysregulation",
-      "FGF9 Signaling Loss in the Joint Interzone",
+      "FGF9 Receptor-Binding and Signaling Loss",
       "Abnormal Joint Cavitation"
     ],
     "cell_types": [
@@ -296363,8 +296391,8 @@ window.searchData = [
     ],
     "biological_processes": [
       "BMP Signaling Pathway",
-      "Limb Development",
       "Chondrocyte Differentiation",
+      "Limb Development",
       "FGF receptor signaling in the joint interzone",
       "Embryonic skeletal joint morphogenesis",
       "Mesenchymal cell differentiation at the prospective joint",
@@ -296372,29 +296400,40 @@ window.searchData = [
     ],
     "phenotypes": [
       "Proximal Symphalangism",
-      "Carpal and Tarsal Fusion",
+      "Carpal Synostosis",
+      "Tarsal Synostosis",
       "Humeroradial Synostosis",
       "Conductive Hearing Loss",
       "Vertebral Fusion",
       "Joint stiffness",
       "Brachydactyly",
-      "Broad thumb"
+      "Broad thumb",
+      "Craniosynostosis",
+      "Cleft Palate"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Skeletal",
+      "Audiologic",
+      "Craniofacial"
+    ],
     "phenotype_hpo_categories": [
       "Ear",
+      "Head and Neck",
       "Limbs",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0100264",
       "HP:0009702",
+      "HP:0008368",
       "HP:0003041",
       "HP:0000405",
       "HP:0002948",
       "HP:0001387",
       "HP:0001156",
-      "HP:0011304"
+      "HP:0011304",
+      "HP:0001363",
+      "HP:0000175"
     ],
     "frequencies": [],
     "genes": [
@@ -296406,18 +296445,19 @@ window.searchData = [
     "treatments": [
       "Hearing Aid",
       "Stapedectomy",
+      "Corrective Osteotomy and Joint Surgery",
       "Orthopedic Management"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Multiple_Synostoses_Syndrome.yaml",
     "page_url": "../pages/disorders/Multiple_Synostoses_Syndrome.html",
-    "num_phenotypes": 8,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 11,
+    "num_pathophysiology": 6,
     "num_genes": 4,
-    "num_treatments": 3,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 4,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Multiple System Atrophy",
@@ -299493,9 +299533,11 @@ window.searchData = [
       "Craniofacial and Dysmorphic Features"
     ],
     "cell_types": [
+      "fibroblast",
       "skeletal muscle fiber"
     ],
     "cell_type_ids": [
+      "CL:0000057",
       "CL:0008002"
     ],
     "biological_processes": [
@@ -299506,6 +299548,12 @@ window.searchData = [
       "Skeletal Muscle Atrophy",
       "Congenital Hypotonia",
       "Distal Joint Hypermobility",
+      "Joint Contractures",
+      "Joint Dislocation",
+      "Soft, Doughy Skin",
+      "Atrophic Scars",
+      "Blue Sclerae",
+      "Respiratory Insufficiency Due to Muscle Weakness",
       "Arthrogryposis",
       "Hip Dysplasia",
       "Gingival Overgrowth",
@@ -299515,19 +299563,36 @@ window.searchData = [
       "Kyphoscoliosis",
       "Motor Delay"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Neurological",
+      "Dermatological",
+      "Ophthalmological",
+      "Respiratory",
+      "Head and Neck",
+      "Cardiovascular"
+    ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Eye",
       "Head and Neck",
+      "Integument",
       "Limbs",
       "Musculoskeletal",
-      "Nervous System"
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0003701",
       "HP:0003202",
       "HP:0001252",
       "HP:0020152",
+      "HP:0034392",
+      "HP:0001373",
+      "HP:0001027",
+      "HP:0001075",
+      "HP:0000592",
+      "HP:0002747",
       "HP:0002804",
       "HP:0001385",
       "HP:0000212",
@@ -299551,12 +299616,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Myopathic_Ehlers-Danlos_Syndrome.yaml",
     "page_url": "../pages/disorders/Myopathic_Ehlers-Danlos_Syndrome.html",
-    "num_phenotypes": 12,
+    "num_phenotypes": 18,
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Myopathy Congenital Proximal With Minicore Lesions",
@@ -305399,10 +305464,21 @@ window.searchData = [
       "Glutamatergic Excitotoxicity",
       "Seizure-Driven Limbic Neurodegeneration"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "cholinergic neuron",
+      "muscle cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000108",
+      "CL:0000187",
+      "CL:0000540"
+    ],
     "biological_processes": [
       "acetylcholine catabolic process",
+      "cholinergic synaptic transmission",
+      "G protein-coupled acetylcholine receptor signaling pathway",
+      "neuromuscular synaptic transmission",
       "respiratory gaseous exchange by respiratory system",
       "glutamate secretion",
       "NMDA receptor-mediated glutamate signalling",
@@ -305425,6 +305501,10 @@ window.searchData = [
       "Anxiety"
     ],
     "phenotype_categories": [
+      "Eye",
+      "Respiratory",
+      "Digestive",
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_hpo_categories": [
@@ -305470,7 +305550,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "33",
+    "causal_graph_edges": "39",
     "causal_graph_longest_path": "7"
   },
   {
@@ -423422,13 +423502,15 @@ window.searchData = [
       "Choriocarcinoma",
       "Teratoma"
     ],
-    "description": "Testicular germ cell tumors (TGCTs) are the most common solid malignancies in young men aged 15-35 years. They arise from primordial germ cells and are broadly classified into seminomas and non-seminomatous germ cell tumors (NSGCTs), which include embryonal carcinoma, yolk sac tumor, choriocarcinoma, and teratoma. A hallmark cytogenetic abnormality is isochromosome 12p [i(12p)], present in virtually all cases. Seminomas frequently harbor KIT and KRAS mutations. TGCTs are highly chemosensitive, with cisplatin-based regimens (particularly BEP: bleomycin, etoposide, cisplatin) achieving cure rates exceeding 80% even in metastatic disease. Serum tumor markers (AFP, beta-hCG, LDH) are critical for diagnosis, staging, and monitoring treatment response, though circulating miR-371a-3p is emerging as a superior biomarker.",
+    "description": "Testicular germ cell tumors (TGCTs) are the most common solid malignancies in young men aged 15-39 years. Postpubertal (type II) TGCTs arise from germ cell neoplasia in situ (GCNIS), a preinvasive lesion of arrested fetal gonocytes, and are broadly classified into seminomas and non-seminomatous germ cell tumors (NSGCTs), which include embryonal carcinoma, yolk sac tumor, choriocarcinoma, and teratoma. A hallmark cytogenetic abnormality is isochromosome 12p [i(12p)] or 12p overrepresentation, present in virtually all GCNIS-derived cases, while seminomas frequently harbor somatic KIT and KRAS mutations. TGCTs are highly chemosensitive, with cisplatin-based regimens (particularly BEP: bleomycin, etoposide, cisplatin) achieving cure rates exceeding 80% even in metastatic disease. Serum tumor markers (AFP, beta-hCG, LDH) are critical for diagnosis, IGCCCG risk stratification, and monitoring treatment response, while circulating miR-371a-3p has emerged as a high-accuracy biomarker for viable non-teratomatous disease.",
     "pathophysiology": [
       "Germ Cell Neoplasia In Situ (GCNIS)",
       "Isochromosome 12p and Genomic Amplification",
       "KIT/RAS Signaling Activation",
       "Cisplatin Sensitivity and DNA Damage Response",
-      "Cisplatin Resistance Mechanisms",
+      "TP53 Mutation and MDM2 Amplification in Cisplatin Resistance",
+      "Neddylation-Mediated Cisplatin Resistance",
+      "Promoter Hypermethylation and Teratomatous Cisplatin Resistance",
       "Epigenetic Regulation of Subtype Identity"
     ],
     "cell_types": [
@@ -423445,18 +423527,22 @@ window.searchData = [
       "phosphatidylinositol 3-kinase signaling",
       "apoptotic process",
       "nucleotide-excision repair",
-      "response to drug",
+      "protein neddylation",
+      "DNA modification",
+      "response to xenobiotic stimulus",
       "DNA methylation"
     ],
     "phenotypes": [
       "Testicular Mass",
       "Elevated Serum Alpha-Fetoprotein",
-      "Gynecomastia",
-      "Cryptorchidism (Risk Factor)"
+      "Elevated Serum Beta-hCG",
+      "Elevated Serum LDH",
+      "Gynecomastia"
     ],
     "phenotype_categories": [
       "Neoplastic",
-      "Clinical"
+      "Biochemical",
+      "Endocrine"
     ],
     "phenotype_hpo_categories": [
       "Breast",
@@ -423467,19 +423553,22 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0010788",
       "HP:0006254",
-      "HP:0000771",
-      "HP:0000028"
+      "HP:6000485",
+      "HP:0025435",
+      "HP:0000771"
     ],
     "frequencies": [
       "OBLIGATE",
       "OCCASIONAL",
-      "VERY_RARE"
+      "FREQUENT"
     ],
     "genes": [
       "KIT",
       "KRAS",
       "Isochromosome 12p",
-      "TP53"
+      "KITLG",
+      "TP53",
+      "MDM2"
     ],
     "treatments": [
       "Radical Inguinal Orchiectomy",
@@ -423501,12 +423590,12 @@ window.searchData = [
     ],
     "source_file": "Testicular_Germ_Cell_Tumor.yaml",
     "page_url": "../pages/disorders/Testicular_Germ_Cell_Tumor.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 6,
-    "num_genes": 4,
+    "num_phenotypes": 5,
+    "num_pathophysiology": 8,
+    "num_genes": 6,
     "num_treatments": 6,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Testicular Seminoma",
@@ -436357,9 +436446,18 @@ window.searchData = [
     "description": "Uveal melanoma is the most common primary intraocular malignancy in adults, arising from melanocytes of the uveal tract (iris, ciliary body, and choroid). Unlike cutaneous melanoma, uveal melanoma is characterized by distinct driver mutations, with GNAQ or GNA11 mutations present in approximately 85% of cases, activating the Gq/11-PKC-MAPK signaling axis. BAP1 mutations are the most significant prognostic factor, associated with metastatic disease. Uveal melanoma has a propensity for hepatic metastasis, with approximately 50% of patients eventually developing liver metastases despite successful treatment of the primary tumor. Tebentafusp, a bispecific T-cell engager targeting gp100, represents the first systemic therapy to improve overall survival in metastatic uveal melanoma.",
     "pathophysiology": [
       "GNAQ/GNA11 Oncogenic Mutations",
+      "CYSLTR2 Oncogenic Activation",
+      "PLCB4 Oncogenic Activation",
       "PKC-MAPK Pathway Activation",
       "Uncontrolled Uveal Melanocyte Proliferation",
-      "BAP1 Loss and Metastatic Progression"
+      "Tumor-Associated Subretinal Exudation",
+      "Somatic Monosomy 3",
+      "BAP1 Loss and Metastatic Progression",
+      "SF3B1 Spliceosome Dysregulation",
+      "EIF1AX Translation Initiation Alteration",
+      "Hepatic Metastatic Colonization",
+      "MBD4 Glycosylase Deficiency",
+      "CpG-to-TpG Hypermutation"
     ],
     "cell_types": [
       "melanocyte"
@@ -436369,53 +436467,74 @@ window.searchData = [
     ],
     "biological_processes": [
       "signal transduction",
+      "phospholipase C-activating G protein-coupled receptor signaling pathway",
       "MAPK cascade",
-      "cell population proliferation"
+      "cell population proliferation",
+      "protein deubiquitination",
+      "chromatin remodeling",
+      "mRNA splicing, via spliceosome",
+      "translational initiation",
+      "negative regulation of T cell mediated immune response to tumor cell",
+      "base-excision repair"
     ],
     "phenotypes": [
       "Uveal Melanoma",
       "Decreased Visual Acuity",
-      "Visual Field Defect"
+      "Visual Field Defect",
+      "Exudative Retinal Detachment",
+      "Photopsia",
+      "Hepatic Metastasis"
     ],
     "phenotype_categories": [
-      "Ocular"
+      "Ocular",
+      "Hepatic"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Eye",
       "Neoplasm"
     ],
     "phenotype_ids": [
       "HP:0007716",
       "HP:0007663",
-      "HP:0001123"
+      "HP:0001123",
+      "HP:0012231",
+      "HP:0030786",
+      "HP:0002896"
     ],
     "frequencies": [
       "OBLIGATE",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
-      "GNAQ Q209",
-      "GNA11 Q209",
+      "GNAQ",
+      "GNA11",
+      "CYSLTR2",
+      "PLCB4",
       "BAP1",
       "SF3B1",
-      "EIF1AX"
+      "EIF1AX",
+      "MBD4"
     ],
     "treatments": [
       "Tebentafusp",
       "Plaque Brachytherapy",
+      "Proton Beam Therapy",
       "Enucleation",
-      "Immune Checkpoint Inhibitors"
+      "Immune Checkpoint Inhibitors",
+      "Percutaneous Hepatic Perfusion"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Uveal_Melanoma.yaml",
     "page_url": "../pages/disorders/Uveal_Melanoma.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 4,
-    "num_genes": 5,
-    "num_treatments": 4,
-    "causal_graph_edges": "2",
-    "causal_graph_longest_path": "2"
+    "num_phenotypes": 6,
+    "num_pathophysiology": 13,
+    "num_genes": 8,
+    "num_treatments": 6,
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Uveitis",
@@ -452415,14 +452534,14 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 4162,
-  "total_subtypes": 5120,
-  "total_disorders_and_subtypes": 9282,
-  "total_unique_evidence_sources": 62198,
-  "total_unique_publications": 58091,
+  "total_subtypes": 5124,
+  "total_disorders_and_subtypes": 9286,
+  "total_unique_evidence_sources": 62203,
+  "total_unique_publications": 58095,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4160,
-  "total_unique_pathological_events": 27482,
+  "total_unique_pathological_events": 27497,
   "total_modules": 239,
   "total_research_reports": 4263,
   "total_classifications": 21,
