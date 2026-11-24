@@ -28,13 +28,18 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
+import yaml
+
 from dismech.structured_sources.hdruk import PhenotypeRecord
+from dismech.yaml_io import safe_load
 
 #: Code syntax per ``CodeSystemEnum`` value (the part after the prefix).
 CODE_PATTERNS: dict[str, re.Pattern] = {
-    "ICD9CM": re.compile(r"^(\d{3}(\.\d{1,2})?|V\d{2}(\.\d{1,2})?|E\d{3}(\.\d)?)$"),
+    # ICD-9-CM and ICD-10-CM are accepted with or without the dot: EHR and
+    # claims extracts commonly store them dotless (441.3 as 4413).
+    "ICD9CM": re.compile(r"^(\d{3}\.?\d{0,2}|V\d{2}\.?\d{0,2}|E\d{3}\.?\d?)$"),
     "ICD10": re.compile(r"^[A-Z]\d{2}(\.?[0-9A-Z]{1,4})?$"),
-    "ICD10CM": re.compile(r"^[A-Z]\d[0-9A-Z](\.[0-9A-Z]{1,4})?$"),
+    "ICD10CM": re.compile(r"^[A-Z]\d[0-9A-Z](\.?[0-9A-Z]{1,4})?$"),
     "SNOMEDCT": re.compile(r"^\d{6,18}$"),
     "READ2": re.compile(r"^[0-9A-Za-z.]{5}(\d{2})?$"),
     "CTV3": re.compile(r"^[0-9A-Za-z.]{5}$"),
@@ -67,10 +72,17 @@ def definition_from_hdruk(record: PhenotypeRecord) -> dict:
     reference = f"HDRUK:{record.phenotype_id}"
     items: list[dict] = []
     dropped: list[str] = []
-    for (concept, system), codes in record.concepts().items():
-        prefix = codes[0].prefix
+    malformed: dict[str, list[str]] = {}
+    for (concept, system), all_codes in record.concepts().items():
+        prefix = all_codes[0].prefix
         if prefix is None:
-            dropped.append(f"{system} ({len(codes)} codes)")
+            dropped.append(f"{system} ({len(all_codes)} codes)")
+            continue
+        codes = [c for c in all_codes if well_formed(prefix, c.code)]
+        for c in all_codes:
+            if c not in codes:
+                malformed.setdefault(system, []).append(c.code)
+        if not codes:
             continue
         code_list = {
             "name": concept,
@@ -134,10 +146,118 @@ def definition_from_hdruk(record: PhenotypeRecord) -> dict:
             + ", ".join(dropped)
             + "."
         )
+    for system, bad in sorted(malformed.items()):
+        examples = ", ".join(dict.fromkeys(bad[:3]))
+        notes.append(
+            f"{len(bad)} {system} entries in the library record are not "
+            f"well-formed codes of that system (e.g. {examples}), so they are "
+            "not transcribed."
+        )
+    if record.omitted:
+        notes.append(
+            "Codes omitted from this transcription and from the cached record: "
+            + ", ".join(f"{n} {system}" for system, n in sorted(record.omitted.items()))
+            + ". They remain in the library record and can be added later."
+        )
     if not record.validation:
         notes.append("The library record has no validation section.")
     definition["notes"] = " ".join(notes)
     return definition
+
+
+def well_formed(prefix: str, code: str) -> bool:
+    """True when ``code`` has the syntax of code system ``prefix``.
+
+    >>> well_formed("ICD10", "D57.0"), well_formed("ICD10", "A15-A19")
+    (True, False)
+    >>> well_formed("READ2", "4109NC"), well_formed("ICD9CM", "4413")
+    (False, True)
+    """
+    pattern = CODE_PATTERNS.get(prefix)
+    return pattern is None or bool(pattern.match(code))
+
+
+def transcribable_codes(record: PhenotypeRecord) -> int:
+    """How many of a record's codes have a dismech code system and its syntax.
+
+    A record with none (every code a CPRD medcode, dm+d, malformed or omitted
+    SNOMED CT code) yields a definition with no code lists, so it is not
+    imported.
+    """
+    return sum(
+        1
+        for code in record.codes
+        if code.prefix is not None and well_formed(code.prefix, code.code)
+    )
+
+
+def mondo_tag_conflict(record: PhenotypeRecord, entry: dict) -> str | None:
+    """Explain why a record's own MONDO tag rules out this entry, else ``None``.
+
+    A record with no MONDO tag is the curator's call and is not refused.
+
+    >>> from dismech.structured_sources.hdruk import PhenotypeRecord
+    >>> r = PhenotypeRecord("PH1", 1, "x", ontology=[("MONDO:0011382", "scd")])
+    >>> mondo_tag_conflict(r, {"disease_term": {"term": {"id": "MONDO:0011382"}}}) is None
+    True
+    >>> mondo_tag_conflict(r, {"disease_term": {"term": {"id": "MONDO:0007915"}}})
+    'HDR UK tags PH1 MONDO:0011382, not the entry disease_term MONDO:0007915'
+    """
+    tags = [curie for curie, _ in record.ontology if curie.startswith("MONDO:")]
+    term = ((entry.get("disease_term") or {}).get("term") or {}).get("id")
+    if not tags or term in tags:
+        return None
+    return (
+        f"HDR UK tags {record.phenotype_id} {', '.join(tags)}, "
+        f"not the entry disease_term {term}"
+    )
+
+
+def append_definitions(path: Path, definitions: list[dict]) -> list[str]:
+    """Append definitions to a KB entry's ``definitions:`` block, in place.
+
+    Definitions whose ``source_reference`` the entry already carries are
+    skipped, so a re-run adds nothing. The rest of the file is left byte for
+    byte as it was: the new items are inserted as text at the end of the
+    existing block, or as a new block at the end of the file. Returns the
+    names of the definitions added.
+    """
+    text = path.read_text(encoding="utf-8")
+    doc = safe_load(text)
+    before = list(doc.get("definitions") or [])
+    present = {d.get("source_reference") for d in before}
+    new = [d for d in definitions if d.get("source_reference") not in present]
+    if not new:
+        return []
+    fragment = yaml.safe_dump(new, sort_keys=False, allow_unicode=True, width=100)
+    lines = text.splitlines(keepends=True)
+    start = next(
+        (i for i, line in enumerate(lines) if line.rstrip() == "definitions:"), None
+    )
+    if start is None:
+        if lines and not lines[-1].endswith("\n"):
+            lines[-1] += "\n"
+        lines.append("definitions:\n" + fragment)
+    else:
+        end = next(
+            (
+                i
+                for i in range(start + 1, len(lines))
+                if re.match(r"[A-Za-z_]", lines[i])
+            ),
+            len(lines),
+        )
+        lines.insert(end, fragment)
+    updated = "".join(lines)
+    after = safe_load(updated)
+    if after.get("definitions") != before + new or {
+        k: v for k, v in after.items() if k != "definitions"
+    } != {k: v for k, v in doc.items() if k != "definitions"}:
+        raise RuntimeError(
+            f"appending definitions would change other content of {path}"
+        )
+    path.write_text(updated, encoding="utf-8")
+    return [d["name"] for d in new]
 
 
 # ----- code-list checking -----
@@ -206,7 +326,9 @@ def code_in_source(curie: str, label: str, body: str) -> bool:
     False
     """
     body = _normalize(body)
-    if f"| {curie} | {_normalize(label)} |" in body:
+    # The cache escapes a literal "|" in a cell as "\\|".
+    cell = _normalize(label).replace("|", r"\|")
+    if f"| {curie} | {cell} |" in body:
         return True
     code = curie.split(":", 1)[1]
     return (

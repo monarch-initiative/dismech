@@ -91,6 +91,31 @@ in some other way than "any code qualifies", restructure the fragment. Check
 that the library's MONDO tag matches the entry's `disease_term`. Then run
 `just validate` on the entry.
 
+To write into an entry instead of printing:
+
+```bash
+just hdruk-definition PH304 --disorder kb/disorders/Sickle_Cell_Disease.yaml \
+  --exclude-code-system SNOMEDCT
+```
+
+- `--disorder` appends to the entry's `definitions:` block, or adds one at
+  the end of the file. Nothing else in the file changes, and the command
+  refuses to write if the result would parse differently anywhere else. A
+  record the entry already cites (by `source_reference`) is not added again,
+  so a re-run is a no-op.
+- A record is skipped, with a `SKIP` line on stderr, when its own MONDO tag
+  names a different disease from the entry's `disease_term`, or when none of
+  its codes has a dismech code system (for example, every code is a CPRD
+  medcode or an omitted SNOMED CT code). A record with no MONDO tag is not
+  refused; matching it is the curator's call.
+- `--exclude-code-system` leaves every code of that system out of both the
+  definition and the cached record, and both say how many were left out.
+  SNOMED CT codes are excluded from bulk imports until the redistribution
+  question in design decision §20 is settled. The codes remain in the library
+  record, so they can be added later by re-running without the option.
+- Re-fetching an omitted record with `just fetch-reference HDRUK:<id>` writes
+  the full code list back into the cache, because that path omits nothing.
+
 ## Checking code lists
 
 ```bash

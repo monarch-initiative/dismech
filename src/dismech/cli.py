@@ -131,20 +131,52 @@ def hdruk_definition_command(
         "--write-cache/--no-write-cache",
         help="Also write references_cache/HDRUK_<id>.md.",
     ),
+    exclude_code_system: list[str] = typer.Option(
+        [],
+        "--exclude-code-system",
+        help=(
+            "Leave out every code of this CodeSystemEnum value (e.g. SNOMEDCT), "
+            "from both the definition and the cache file; repeatable. The "
+            "omission is recorded in each."
+        ),
+    ),
+    disorder: Path | None = typer.Option(
+        None,
+        "--disorder",
+        exists=True,
+        dir_okay=False,
+        help=(
+            "Append the definitions to this KB entry instead of printing them. "
+            "A record already cited there is skipped, as is one whose MONDO tag "
+            "names a different disease or that has no transcribable codes."
+        ),
+    ),
 ) -> None:
-    """Print a dismech `definitions:` fragment for HDR UK phenotype(s).
+    """Draft dismech `definitions:` for HDR UK phenotype(s).
 
     Fetches each record from the HDR UK Phenotype Library API (or reads the
-    saved payloads), writes its HDRUK: reference cache file so the fragment's
-    evidence and code lists verify, and prints the fragment as YAML.
+    saved payloads), writes its HDRUK: reference cache file so the evidence and
+    code lists verify, and prints the fragment as YAML, or with --disorder
+    appends it to that entry.
     """
     import json
 
     import yaml
 
-    from dismech.computable_phenotypes import definition_from_hdruk
+    from dismech.computable_phenotypes import (
+        append_definitions,
+        definition_from_hdruk,
+        mondo_tag_conflict,
+        transcribable_codes,
+    )
     from dismech.repo_root import repo_root
-    from dismech.structured_sources.hdruk import HDRUKSource, entry_for, parse_record
+    from dismech.structured_sources.hdruk import (
+        HDRUKSource,
+        entry_for,
+        omit_code_systems,
+        parse_record,
+    )
+    from dismech.yaml_io import safe_load_path
 
     if (detail_json is None) != (codes_json is None):
         raise typer.BadParameter("--detail-json and --codes-json go together.")
@@ -161,11 +193,24 @@ def hdruk_definition_command(
             )
         else:
             record = source.fetch(phenotype_id)
+        record = omit_code_systems(record, set(exclude_code_system))
+        if not transcribable_codes(record):
+            typer.echo(f"SKIP {record.phenotype_id}: no transcribable codes", err=True)
+            continue
+        if disorder is not None:
+            conflict = mondo_tag_conflict(record, safe_load_path(disorder))
+            if conflict:
+                typer.echo(f"SKIP {record.phenotype_id}: {conflict}", err=True)
+                continue
         if write_cache:
             entry = entry_for(record)
             cache_dir.mkdir(parents=True, exist_ok=True)
             (cache_dir / entry.filename()).write_text(entry.render(), encoding="utf-8")
         definitions.append(definition_from_hdruk(record))
+    if disorder is not None:
+        added = append_definitions(disorder, definitions)
+        typer.echo(f"{disorder}: added {len(added)} definition(s)", err=True)
+        return
     typer.echo(
         yaml.safe_dump(
             {"definitions": definitions}, sort_keys=False, allow_unicode=True, width=100

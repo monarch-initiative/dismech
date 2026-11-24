@@ -2284,6 +2284,10 @@ criteria sets combine goes in `Definition.criteria_set_logic` (`ALL_OF` /
   (in `just qc`, ungated in CI) fails a code or label that is not in it, because
   `codes` is not enum-bound and `validate-terms` never sees them.
 - **`ICD10` is WHO ICD-10 (UK records), not `ICD10CM`.**
+- **Bulk imports exclude SNOMED CT** (`--exclude-code-system SNOMEDCT`) until
+  design decision §20's redistribution question is settled; the omission is
+  recorded in each definition's `notes` and in its cached record.
+  `--disorder <file>` appends to an entry and is idempotent.
 - **A count, interval or set-logic value goes in its slot only when the source
   states it.** A library record with no validation section gets no
   `validation_status`.
