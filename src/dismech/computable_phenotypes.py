@@ -49,27 +49,36 @@ CODE_PATTERNS: dict[str, re.Pattern] = {
 }
 
 
-def _first_sentence(text: str, limit: int = 400) -> str:
-    """The first sentence of the first paragraph, for an evidence snippet.
+def _first_sentence(text: str, limit: int = 400, min_words: int = 6) -> str:
+    """The first real sentence of a definition, for an evidence snippet.
 
-    >>> _first_sentence("At the date, a patient is X. More text.")
-    'At the date, a patient is X.'
-    >>> _first_sentence("No full stop here")
-    'No full stop here'
+    Headings ("Objectives:", "The database:") and title-only lines are
+    skipped: a sentence needs ``min_words`` words, because a shorter snippet
+    asserts nothing and fails ``check-snippet-length``.
+
+    >>> _first_sentence("At the date, a patient is coded with X. More text.")
+    'At the date, a patient is coded with X.'
+    >>> _first_sentence("Objectives:\\n\\nWe identify people with X in primary care. More.")
+    'We identify people with X in primary care.'
+    >>> _first_sentence("Takayasu arteritis")
+    ''
 
     A sentence longer than ``limit`` is cut at the last whole word, because
     a snippet must start and end on whole words to verify.
 
-    >>> _first_sentence("one two three four", limit=12)
+    >>> _first_sentence("one two three four five six seven", limit=12)
     'one two'
     """
-    paragraph = text.split("\n\n", 1)[0].strip()
-    match = re.match(r"(.+?[.:])(\s|$)", paragraph)
-    sentence = match.group(1) if match else paragraph
-    if len(sentence) > limit:
-        cut = sentence[: limit + 1]
-        sentence = cut.rsplit(None, 1)[0] if cut[-1:].strip() else cut
-    return sentence.rstrip()
+    for paragraph in text.split("\n\n"):
+        for sentence in re.split(r"(?<=[.:])\s+", paragraph.strip()):
+            sentence = sentence.strip()
+            if len(sentence.split()) < min_words:
+                continue
+            if len(sentence) > limit:
+                cut = sentence[: limit + 1]
+                sentence = cut.rsplit(None, 1)[0] if cut[-1:].strip() else cut
+            return sentence.rstrip()
+    return ""
 
 
 def definition_from_hdruk(record: PhenotypeRecord) -> dict:
