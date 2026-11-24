@@ -3831,6 +3831,8 @@ the negative result instead (design decisions §21, dismech#10151):
 - **Both need evidence on the link**, graded against the link as typed. A paper
   reporting the failure is `SUPPORT`; a trial that found a benefit is `REFUTE`.
   Change the grade and its `explanation` when you change the effect.
+  Evidence on the treatment itself is graded against the treatment's own
+  `description`, as before; this rule does not reach it.
 - **If nobody expected the treatment to act on the node, the link is wrong**, not
   negative. A pacemaker does not target Z-disc aggregates; link the arrhythmia.
   Substituting for a lost function is `BYPASSES`.
@@ -4587,6 +4589,7 @@ just check-duplicate-keys kb/disorders/MyDisease.yaml
 just check-block-scalar-comments kb/disorders/MyDisease.yaml
 just check-enum-values kb/disorders/MyDisease.yaml
 just check-delivery-system kb/disorders/MyDisease.yaml
+just check-treatment-effects kb/disorders/MyDisease.yaml
 just check-entity-refs kb/disorders/MyDisease.yaml
 just check-logical-rules kb/disorders/MyDisease.yaml
 just check-causal-targets kb/disorders/MyDisease.yaml
