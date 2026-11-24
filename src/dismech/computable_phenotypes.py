@@ -56,11 +56,20 @@ def _first_sentence(text: str, limit: int = 400) -> str:
     'At the date, a patient is X.'
     >>> _first_sentence("No full stop here")
     'No full stop here'
+
+    A sentence longer than ``limit`` is cut at the last whole word, because
+    a snippet must start and end on whole words to verify.
+
+    >>> _first_sentence("one two three four", limit=12)
+    'one two'
     """
     paragraph = text.split("\n\n", 1)[0].strip()
     match = re.match(r"(.+?[.:])(\s|$)", paragraph)
     sentence = match.group(1) if match else paragraph
-    return sentence[:limit].rstrip()
+    if len(sentence) > limit:
+        cut = sentence[: limit + 1]
+        sentence = cut.rsplit(None, 1)[0] if cut[-1:].strip() else cut
+    return sentence.rstrip()
 
 
 def definition_from_hdruk(record: PhenotypeRecord) -> dict:
