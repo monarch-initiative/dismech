@@ -16,31 +16,18 @@ the same document checksums before writing anything. Word/EndNote field
 instructions are omitted; displayed text and table-cell paragraphs retain their
 document order. The extraction test checks this distinction.
 
-The reference validator supports `file:` sources. Generate their caches through
-its normal CLI, using the repository root as the relative source base:
+The reference validator supports `file:` sources. A KB entry cites one by its
+path relative to the repository root, e.g.
+`reference: file:data/literature_supplements/CRADD_Polla_2019_Supplement.extracted.md`.
 
-```sh
-uv run python - <<'PY'
-from pathlib import Path
-import subprocess
-import tempfile
-import yaml
+Since linkml-reference-validator 0.8.0 the validator reads a `file:` source
+directly on every run and writes **no** copy to `references_cache/`
+(linkml/linkml-reference-validator#173). Do not generate one: the extracted text
+here is already the committed source, and a cache copy would only duplicate it
+and drift from it. `just count-verified-snippets` reads the file the same way.
+The relative path resolves against the working directory (the validator's
+`reference_base_dir` default), so run the `just` recipes from the checkout root.
 
-config = yaml.safe_load(Path('conf/reference_validator_config.yaml').read_text())
-config['reference_base_dir'] = '.'
-manifest = yaml.safe_load(Path('data/literature_supplements/manifest.yaml').read_text())
-with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml') as stream:
-    yaml.safe_dump(config, stream)
-    stream.flush()
-    for record in manifest['supplements']:
-        ref = 'file:data/literature_supplements/' + record['output']
-        subprocess.run([
-            'scripts/run_reference_validator.sh', 'cache', 'reference', ref,
-            '--force', '--config', stream.name,
-        ], check=True)
-PY
-```
-
-No validation settings are weakened. The extracted source, manifest and generated
-cache travel together so the quotations remain verifiable without publisher
-network access. Do not edit generated source text or reference caches by hand.
+No validation settings are weakened. The extracted source and manifest travel
+together so the quotations remain verifiable without publisher network access.
+Do not edit generated source text by hand.
