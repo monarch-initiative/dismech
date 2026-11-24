@@ -142,6 +142,7 @@ jobs:
               - 'scripts/run_reference_validator.sh'
               - 'conf/reference_validator_config.yaml'
               - '.linkml-reference-validator.yaml'
+              - 'signed_excerpts/**'
               - 'tests/**/*.py'
               - 'pyproject.toml'
               - 'uv.lock'
@@ -446,8 +447,26 @@ jobs:
           echo "Validating changed grouping KB files..."
           just validate-grouping-batch ${{ steps.changes.outputs.kb_groupings_files }}
 
+      # The per-entry structural checks in tests/test_data.py (evidence
+      # reference prefixes, subtype and mechanism-target foreign keys, model
+      # links, conforms_to) carry the `kb_data` marker, and the whole-KB sweep
+      # that runs them is gated on schema changes and merge_group. None of them
+      # is in `validate-disorders`, so a kb/-only PR never ran them and an
+      # entry-local defect surfaced only as a merge-queue ejection (#18313,
+      # #18286). This runs just the changed entries' items: seconds, not the
+      # sweep's ~17 minutes. Cross-file breakage stays with the queue.
+      # Filter-gated on merge_group like the steps above, since it consumes
+      # the filter's file lists; the queue runs the full sweep anyway.
+      - name: Test changed KB entries
+        if: steps.changes.outputs.kb_disorders == 'true' || steps.changes.outputs.kb_modules == 'true' || steps.changes.outputs.kb_comorbidities == 'true'
+        run: |
+          just test-kb-files ${{ steps.changes.outputs.kb_disorders_files }} ${{ steps.changes.outputs.kb_modules_files }} ${{ steps.changes.outputs.kb_comorbidities_files }}
+
+      # `uv run`, not `uvx`: the version comes from the dev dependency group
+      # (pinned with [tool.ruff] required-version), so CI lints with the same
+      # ruff a contributor gets locally and the review agent can run (#9964).
       - name: Lint with ruff
-        run: uvx ruff check .
+        run: uv run ruff check .
 
       # Ungated: older curation PRs can restore the retired shared blob without
       # touching Python. This inspects Git metadata, never the JSON contents.
@@ -490,6 +509,13 @@ jobs:
           # it validates while silently dropping out of the snippet count
           # (issue #11230). No baseline; the tree was clean when it landed.
           Check for YAML structure swallowed into block scalars :: uv run python scripts/check_folded_yaml.py
+
+          # Ungated: a computable-phenotype code list arrives in a kb/-only
+          # curation PR, and its codes are not bound to any ontology enum, so
+          # this is the only check that they were copied from the cited
+          # HDRUK:/PHEKB: record. Offline, no baseline (the KB was clean when
+          # CodeList landed).
+          Check computable-phenotype code lists against their sources :: uv run dismech check-codelists
 
           # Also ungated: the pytest snippet-length ratchet only runs when src/tests
           # change, so kb-only curation PRs -- the ones that actually add short
@@ -599,6 +625,12 @@ jobs:
           # add them touch only kb/ and references_cache/, so a path-filtered pytest
           # lane would skip them. <1s, offline.
           Check for case-colliding paths :: uv run python scripts/check_case_collisions.py
+
+          # Ungated and whole-tree for the same reason: a deep-research run that
+          # produced no report (deep-research-client exit 4, answer_status:
+          # unsuccessful) is still placed in research/, and the PR that commits it
+          # touches only research/ and kb/. ~2s, offline.
+          Check research/ for unsuccessful deep-research runs :: uv run python scripts/check_unsuccessful_research.py
 
           # Ungated and whole-tree for the same reason as the case-collision step:
           # the PRs that add a reference cache file touch only kb/ and
@@ -999,8 +1031,9 @@ jobs:
       # flips the validity of a file still in flight on another branch: those
       # PRs touch no schema, so this filter never fires for them (issue #10061).
       # The ungated `check_enum_values.py` step above covers that half of the
-      # window for enum values specifically. Parallelized with xdist inside
-      # `just test-kb`.
+      # window for enum values specifically. The "Test changed KB entries" step
+      # runs this sweep's per-entry items on the files a PR changes (#18313).
+      # Parallelized with xdist inside `just test-kb`.
       - name: Run whole-KB schema-conformance sweep
         if: github.event_name == 'merge_group' || steps.changes.outputs.schema == 'true'
         run: just test-kb
