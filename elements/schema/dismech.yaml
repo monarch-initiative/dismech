@@ -54,6 +54,9 @@ prefixes:
   MONDO:
     prefix_prefix: MONDO
     prefix_reference: http://purl.obolibrary.org/obo/MONDO_
+  OMIMPS:
+    prefix_prefix: OMIMPS
+    prefix_reference: https://omim.org/phenotypicSeries/PS
   ICD10CM:
     prefix_prefix: ICD10CM
     prefix_reference: http://purl.obolibrary.org/obo/ICD10CM_
@@ -730,6 +733,53 @@ enums:
       OTHER:
         text: OTHER
         description: Other definition type
+  CriteriaSetLogicEnum:
+    name: CriteriaSetLogicEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/CriteriaSetLogicEnum
+    description: How the criteria sets of a definition combine.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      ALL_OF:
+        text: ALL_OF
+        description: A case must satisfy every criteria set (conjunction).
+      ANY_OF:
+        text: ANY_OF
+        description: Satisfying any one criteria set suffices (disjunction).
+  CodeSystemEnum:
+    name: CodeSystemEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/CodeSystemEnum
+    description: Clinical code systems a CodeList can draw from. The value is also
+      the CURIE prefix of each code (`ICD10:D57.0`, `SNOMEDCT:127040003`).
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      ICD9CM:
+        text: ICD9CM
+        description: ICD-9-CM (US clinical modification of ICD-9)
+      ICD10:
+        text: ICD10
+        description: 'WHO ICD-10, as used in UK Hospital Episode Statistics. Not ICD-10-CM:
+          the same code can carry a different label in each.'
+      ICD10CM:
+        text: ICD10CM
+        description: ICD-10-CM (US clinical modification of ICD-10)
+      SNOMEDCT:
+        text: SNOMEDCT
+        description: SNOMED CT concept identifiers
+      READ2:
+        text: READ2
+        description: Read codes version 2 (UK primary care, 5-byte)
+      CTV3:
+        text: CTV3
+        description: Read codes version 3 / Clinical Terms Version 3
+      OPCS4:
+        text: OPCS4
+        description: OPCS-4 procedure codes (UK)
+      LOINC:
+        text: LOINC
+        description: LOINC observation codes
+      RXNORM:
+        text: RXNORM
+        description: RxNorm drug concepts
   DefinitionDerivationBasisEnum:
     name: DefinitionDerivationBasisEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/DefinitionDerivationBasisEnum
@@ -2157,6 +2207,13 @@ enums:
     - Uses HGNC gene nomenclature committee identifiers
     - Validation requires exact label match with HGNC database
     from_schema: https://w3id.org/monarch-initiative/dismech
+  OMIMPSTerm:
+    name: OMIMPSTerm
+    definition_uri: https://w3id.org/monarch-initiative/dismech/OMIMPSTerm
+    description: An OMIM phenotypic series. Validates identifier existence and the
+      canonical label through the OMIM OAK adapter, without a disease-hierarchy constraint.
+      A series may describe a Mendelian disease family or susceptibility loci.
+    from_schema: https://w3id.org/monarch-initiative/dismech
   LoincTerm:
     name: LoincTerm
     definition_uri: https://w3id.org/monarch-initiative/dismech/LoincTerm
@@ -2777,6 +2834,14 @@ enums:
         meaning: HP:4000040
         aliases:
         - Puerpural onset
+      PERIMENOPAUSAL:
+        text: PERIMENOPAUSAL
+        description: Perimenopausal onset
+        meaning: HP:6000314
+      POSTMENOPAUSAL:
+        text: POSTMENOPAUSAL
+        description: Postmenopausal onset
+        meaning: HP:6000315
   ZygosityEnum:
     name: ZygosityEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/ZygosityEnum
@@ -3056,9 +3121,10 @@ enums:
       strings in the KB and clustering them, with the animal and NAM sets probed to
       establish which kinds are shared -- see docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md.
       A single link usually carries more than one, which is why `divergences` is multivalued.
-      The set is deliberately computational-model-first; extending it to animal models
-      would add supraphysiological expression and incomplete phenotype, each already
-      evidenced in that set.
+      The set was deliberately computational-model-first; INCOMPLETE_PHENOTYPE was
+      added when the animal set it was predicted from became the dominant population
+      (#11743). SUPRAPHYSIOLOGICAL_EXPRESSION remains the other predicted addition
+      and has not been added.
     from_schema: https://w3id.org/monarch-initiative/dismech
     see_also:
     - PMID:32993675
@@ -3121,8 +3187,27 @@ enums:
         text: SPECIES_MISMATCH
         description: The model, or the data behind it, derives from a non-human system.
           Marginal among computational models and dominant among animal models, where
-          it is the principal translational caveat.
+          it is the principal translational caveat. Use it when the organism structurally
+          cannot express the node -- a mouse has no IgG4 subclass, Drosophila has
+          no thalamus. Contrast INCOMPLETE_PHENOTYPE, where the organism could express
+          it and the model does not.
         title: Species mismatch
+      INCOMPLETE_PHENOTYPE:
+        text: INCOMPLETE_PHENOTYPE
+        description: 'The model reproduces part of the disease phenotype and not the
+          rest, and nothing about the organism explains the missing part. A mouse
+          can have seizures; a model that does not show them is incomplete rather
+          than species-mismatched. It also covers a feature the model''s reports are
+          simply silent on, which is the commoner case: "not shown" and "not looked
+          for" are rarely separable from a publication, and both leave the phenotype
+          incomplete. The distinction from SPECIES_MISMATCH carries a consequence
+          for a reader deciding what the model is worth: a species-structural gap
+          will never close in that organism, while an incomplete phenotype may be
+          a matter of background strain, age at assay, penetrance, or an assay nobody
+          ran. Both can apply to one model for different features, which is why `divergences`
+          is multivalued -- record each against the feature it concerns rather than
+          choosing between them.'
+        title: Incomplete phenotype
       POPULATION_MISMATCH:
         text: POPULATION_MISMATCH
         description: The modelled cohort, subtype, or indication is not the one this
@@ -3225,17 +3310,33 @@ enums:
   ClinicalTrialPhaseEnum:
     name: ClinicalTrialPhaseEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/ClinicalTrialPhaseEnum
-    description: Clinical trial phase categories per FDA/NIH standards
+    description: 'Clinical trial phase categories per FDA/NIH standards, plus the
+      combined-phase designs ClinicalTrials.gov registers in its own vocabulary. A
+      combined-phase trial takes the combined value rather than either component:
+      rounding it to one phase makes a query for "phase III trials in X" include some
+      phase 2/3 trials and silently exclude others.'
     from_schema: https://w3id.org/monarch-initiative/dismech
     permissible_values:
+      EARLY_PHASE_I:
+        text: EARLY_PHASE_I
+        description: Early Phase I - exploratory first-in-human or pharmacodynamic
+          study (ClinicalTrials.gov EARLY_PHASE1, formerly Phase 0)
       PHASE_I:
         text: PHASE_I
         description: Phase I - Initial safety and dosage assessment in small group
           (20-100 participants)
+      PHASE_I_II:
+        text: PHASE_I_II
+        description: Combined Phase I/II design, registered by ClinicalTrials.gov
+          as PHASE1|PHASE2
       PHASE_II:
         text: PHASE_II
         description: Phase II - Efficacy and side effects assessment in larger group
           (100-500 participants)
+      PHASE_II_III:
+        text: PHASE_II_III
+        description: Combined Phase II/III design, registered by ClinicalTrials.gov
+          as PHASE2|PHASE3
       PHASE_III:
         text: PHASE_III
         description: Phase III - Efficacy confirmation and monitoring in large population
@@ -9824,6 +9925,7 @@ slots:
     - ModelingConsideration
     - Definition
     - CriteriaSet
+    - CodeList
     - ComorbidityAssociation
     - Grouping
     - ModuleCollection
@@ -9888,6 +9990,7 @@ slots:
     - SurrogateEndpointCollection
     - GeneClassificationCollection
     - ExternalAssertion
+    - ProgressionInfo
     - EpidemiologyInfo
     - Pathophysiology
     - Phenotype
@@ -10398,6 +10501,12 @@ slots:
     - dcterms:title
     description: The title of the referenced publication
     comments:
+    - 'Required. Copy the title from the `title:` frontmatter of the reference''s
+      references_cache/ file, never from memory: `uv run python scripts/backfill_reference_titles.py
+      <file>` does it verbatim. If the cache has no title, re-fetch with `just fetch-reference
+      <ID> --force`; typing a title by hand is how invented citations get in. The
+      slot was `recommended` until every evidence item in kb/ carried one and scripts/find_missing_reference_titles.py
+      had gated new gaps in CI.'
     - "`dcterms:title` is what makes this slot machine-checked: linkml-reference-validator\
       \ compares a declared title against the fetched publication and errors on a\
       \ mismatch, and its TitleURIs matches only \"dcterms:title\" / \"dc/terms/title\"\
@@ -10419,7 +10528,7 @@ slots:
     domain_of:
     - EvidenceItem
     range: string
-    recommended: true
+    required: true
   explanation:
     name: explanation
     definition_uri: https://w3id.org/monarch-initiative/dismech/explanation
@@ -15453,6 +15562,23 @@ slots:
     multivalued: true
     inlined: true
     inlined_as_list: true
+  omimps_mappings:
+    name: omimps_mappings
+    definition_uri: https://w3id.org/monarch-initiative/dismech/omimps_mappings
+    description: Mappings to OMIM phenotypic series, with an explicit scope relationship.
+      Use exactMatch only for the same disease or disease-family concept; use relatedMatch
+      when a series of susceptibility loci concerns this disease but is not a union
+      of its disease subtypes. A mapping does not assert complete member coverage
+      or Mendelian inheritance.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:omimps_mappings
+    owner: DiseaseMappings
+    domain_of:
+    - DiseaseMappings
+    range: OMIMPSMapping
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   ncit_mappings:
     name: ncit_mappings
     definition_uri: https://w3id.org/monarch-initiative/dismech/ncit_mappings
@@ -15649,6 +15775,97 @@ slots:
     domain_of:
     - CriteriaSet
     range: integer
+  criteria_set_logic:
+    name: criteria_set_logic
+    definition_uri: https://w3id.org/monarch-initiative/dismech/criteria_set_logic
+    description: 'How a definition''s criteria_sets combine: ALL_OF (a case must satisfy
+      every set) or ANY_OF (one set suffices). Within a set, minimum_required already
+      says how many items must hold. Omit when the source does not say; prose in `description`
+      is then the only record.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:criteria_set_logic
+    owner: Definition
+    domain_of:
+    - Definition
+    range: CriteriaSetLogicEnum
+  source_reference:
+    name: source_reference
+    definition_uri: https://w3id.org/monarch-initiative/dismech/source_reference
+    description: A reference CURIE (resolving to a references_cache/ entry) for the
+      record an object was transcribed from.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:source_reference
+    owner: CodeList
+    domain_of:
+    - Definition
+    - CodeList
+    range: uriorcurie
+  code_lists:
+    name: code_lists
+    definition_uri: https://w3id.org/monarch-initiative/dismech/code_lists
+    description: Code lists whose codes satisfy this criterion; a record matches if
+      it carries any code from any list. The criterion's preferred_term names what
+      the codes stand for.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:code_lists
+    owner: CriteriaItem
+    domain_of:
+    - CriteriaItem
+    range: CodeList
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  codes:
+    name: codes
+    definition_uri: https://w3id.org/monarch-initiative/dismech/codes
+    description: The codes in a code list, each as a Term whose id is `<code_system>:<code>`
+      and whose label is the source's own description.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:codes
+    owner: CodeList
+    domain_of:
+    - CodeList
+    range: Term
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  code_system_version:
+    name: code_system_version
+    definition_uri: https://w3id.org/monarch-initiative/dismech/code_system_version
+    description: Version or release of the code system or refset a code list was drawn
+      from.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:code_system_version
+    owner: CodeList
+    domain_of:
+    - CodeList
+    range: string
+  minimum_occurrences:
+    name: minimum_occurrences
+    definition_uri: https://w3id.org/monarch-initiative/dismech/minimum_occurrences
+    description: Minimum number of distinct records (encounters, code instances, results)
+      that must satisfy the criterion, e.g. 3 for "3 or more counts of the SLE ICD-9
+      code". Absent means one occurrence suffices.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:minimum_occurrences
+    owner: CriteriaItem
+    domain_of:
+    - CriteriaItem
+    range: integer
+    minimum_value: 1
+  minimum_interval_days:
+    name: minimum_interval_days
+    definition_uri: https://w3id.org/monarch-initiative/dismech/minimum_interval_days
+    description: Minimum days between the first and last qualifying occurrence, e.g.
+      30 for "two outpatient visits at least 30 days apart". Only meaningful with
+      minimum_occurrences of 2 or more.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:minimum_interval_days
+    owner: CriteriaItem
+    domain_of:
+    - CriteriaItem
+    range: integer
+    minimum_value: 0
   consistency:
     name: consistency
     definition_uri: https://w3id.org/monarch-initiative/dismech/consistency
@@ -15759,6 +15976,9 @@ slots:
     description: Code system used for a condition reference (e.g., ICD-10, OMOP, MONDO)
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:code_system
+    owner: CodeList
+    domain_of:
+    - CodeList
     range: string
   code:
     name: code
@@ -16831,6 +17051,24 @@ slots:
     range: uriorcurie
     required: true
     pattern: ^LOINC:(LP|LG)?[0-9]+-[0-9]$
+  OMIMPSCode_id:
+    name: OMIMPSCode_id
+    definition_uri: https://w3id.org/monarch-initiative/dismech/id
+    description: Ontology term identifier (CURIE)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: id
+    domain: OMIMPSCode
+    slot_uri: dismech:id
+    identifier: true
+    alias: id
+    owner: OMIMPSCode
+    domain_of:
+    - OMIMPSCode
+    is_usage_slot: true
+    usage_slot_name: id
+    range: uriorcurie
+    required: true
+    pattern: ^OMIMPS:[0-9]{6}$
   Descriptor_description:
     name: Descriptor_description
     definition_uri: https://w3id.org/monarch-initiative/dismech/description
@@ -18047,10 +18285,13 @@ slots:
   ClinicalTrial_phase:
     name: ClinicalTrial_phase
     definition_uri: https://w3id.org/monarch-initiative/dismech/phase
-    description: 'Trial phase. Enum-bound: use PHASE_I, PHASE_II, PHASE_III, PHASE_IV,
-      or NOT_APPLICABLE, not the prose spellings ("Phase III").'
+    description: 'Trial phase. Enum-bound: use EARLY_PHASE_I, PHASE_I, PHASE_I_II,
+      PHASE_II, PHASE_II_III, PHASE_III, PHASE_IV or NOT_APPLICABLE, not the prose
+      spellings ("Phase III"). A trial the registry records as PHASE1|PHASE2 or PHASE2|PHASE3
+      takes the combined value, not either component.'
     examples:
     - value: PHASE_III
+    - value: PHASE_II_III
     - value: NOT_APPLICABLE
     from_schema: https://w3id.org/monarch-initiative/dismech
     is_a: phase
@@ -19433,10 +19674,11 @@ slots:
     definition_uri: https://w3id.org/monarch-initiative/dismech/title
     implements:
     - linkml:title
-    description: 'Title of the referenced publication. Recommended so that linkml-data-qc
-      scores its absence, matching the `recommended: true` already carried by the
-      EvidenceItem `reference_title` twin. Set here via slot_usage rather than on
-      the shared `title` slot, which is also used by Dataset and TrackedIssue.'
+    description: Title of the referenced publication. Recommended so that linkml-data-qc
+      scores its absence. Its EvidenceItem twin, `reference_title`, is required; this
+      slot stays recommended because scripts/find_missing_reference_titles.py only
+      reports its gaps. Set here via slot_usage rather than on the shared `title`
+      slot, which is also used by Dataset and TrackedIssue.
     comments:
     - "The `linkml:title` annotation is INERT for linkml-reference-validator detection\
       \ \u2014 lrv's TitleURIs matches only \"dcterms:title\" / \"dc/terms/title\"\
@@ -19613,6 +19855,26 @@ slots:
     - GeneDiseaseValidityAssertion
     is_usage_slot: true
     usage_slot_name: subtype
+    range: string
+  ProgressionInfo_description:
+    name: ProgressionInfo_description
+    definition_uri: https://w3id.org/monarch-initiative/dismech/description
+    description: What happens during this phase. This is the phase's own account of
+      the disease and belongs here rather than in `notes`, which is for the caveats
+      and qualifications that account needs.
+    examples:
+    - value: Fetal thrombocytopenia can begin in the second trimester and is detectable
+        on cordocentesis before any clinical bleeding.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: description
+    domain: ProgressionInfo
+    slot_uri: dismech:description
+    alias: description
+    owner: ProgressionInfo
+    domain_of:
+    - ProgressionInfo
+    is_usage_slot: true
+    usage_slot_name: description
     range: string
   ClinicalBurden_burden_level:
     name: ClinicalBurden_burden_level
@@ -20615,6 +20877,24 @@ slots:
     usage_slot_name: definition_type
     range: DefinitionTypeEnum
     required: true
+  Definition_source_reference:
+    name: Definition_source_reference
+    definition_uri: https://w3id.org/monarch-initiative/dismech/source_reference
+    description: The phenotype-library record this definition is transcribed from,
+      as a citable reference CURIE (`PHEKB:615`, `HDRUK:PH304`). Fetch it with `just
+      fetch-reference` so its cached body can be quoted as evidence. Leave absent
+      for a definition composed from the literature.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: source_reference
+    domain: Definition
+    slot_uri: dismech:source_reference
+    alias: source_reference
+    owner: Definition
+    domain_of:
+    - Definition
+    is_usage_slot: true
+    usage_slot_name: source_reference
+    range: uriorcurie
   Definition_attaches_to:
     name: Definition_attaches_to
     definition_uri: https://w3id.org/monarch-initiative/dismech/attaches_to
@@ -20688,6 +20968,55 @@ slots:
     usage_slot_name: name
     range: string
     required: true
+  CodeList_code_system:
+    name: CodeList_code_system
+    definition_uri: https://w3id.org/monarch-initiative/dismech/code_system
+    description: Code system used for a condition reference (e.g., ICD-10, OMOP, MONDO)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: code_system
+    domain: CodeList
+    slot_uri: dismech:code_system
+    alias: code_system
+    owner: CodeList
+    domain_of:
+    - CodeList
+    is_usage_slot: true
+    usage_slot_name: code_system
+    range: CodeSystemEnum
+    required: true
+  CodeList_code_system_version:
+    name: CodeList_code_system_version
+    definition_uri: https://w3id.org/monarch-initiative/dismech/code_system_version
+    description: The release or refset version the source names (e.g. `nhsd-primary-care-domain-refsets/sickle_cod/20250912`).
+      Omit when the source names none.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: code_system_version
+    domain: CodeList
+    slot_uri: dismech:code_system_version
+    alias: code_system_version
+    owner: CodeList
+    domain_of:
+    - CodeList
+    is_usage_slot: true
+    usage_slot_name: code_system_version
+    range: string
+  CodeList_source_reference:
+    name: CodeList_source_reference
+    definition_uri: https://w3id.org/monarch-initiative/dismech/source_reference
+    description: The reference CURIE the codes were copied from (`HDRUK:PH304`, `PHEKB:615`).
+      Must be a cached reference; `just check-codelists` confirms each code appears
+      in it.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: source_reference
+    domain: CodeList
+    slot_uri: dismech:source_reference
+    alias: source_reference
+    owner: CodeList
+    domain_of:
+    - CodeList
+    is_usage_slot: true
+    usage_slot_name: source_reference
+    range: uriorcurie
   TermMapping_term:
     name: TermMapping_term
     definition_uri: https://w3id.org/monarch-initiative/dismech/term
@@ -20823,6 +21152,47 @@ slots:
     recommended: true
     inlined: true
     inlined_as_list: false
+  OMIMPSMapping_term:
+    name: OMIMPSMapping_term
+    definition_uri: https://w3id.org/monarch-initiative/dismech/term
+    description: Optional structured ontology term reference
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: TermMapping_term
+    domain: OMIMPSMapping
+    slot_uri: dismech:term
+    alias: term
+    owner: OMIMPSMapping
+    domain_of:
+    - OMIMPSMapping
+    is_usage_slot: true
+    usage_slot_name: term
+    range: OMIMPSCode
+    bindings:
+    - range: OMIMPSTerm
+      obligation_level:
+        text: REQUIRED
+        description: The metadata element is required to be present in the model
+      binds_value_of: id
+    required: true
+    recommended: true
+    inlined: true
+    inlined_as_list: false
+  OMIMPSMapping_mapping_justification:
+    name: OMIMPSMapping_mapping_justification
+    definition_uri: https://w3id.org/monarch-initiative/dismech/mapping_justification
+    description: Brief rationale or justification for the mapping
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: mapping_justification
+    domain: OMIMPSMapping
+    slot_uri: dismech:mapping_justification
+    alias: mapping_justification
+    owner: OMIMPSMapping
+    domain_of:
+    - OMIMPSMapping
+    is_usage_slot: true
+    usage_slot_name: mapping_justification
+    range: string
+    required: true
   MappingConsistency_reference:
     name: MappingConsistency_reference
     definition_uri: https://w3id.org/monarch-initiative/dismech/reference
@@ -21361,6 +21731,21 @@ classes:
         name: id
         pattern: ^LOINC:(LP|LG)?[0-9]+-[0-9]$
     class_uri: dismech:LoincCode
+  OMIMPSCode:
+    name: OMIMPSCode
+    definition_uri: https://w3id.org/monarch-initiative/dismech/OMIMPSCode
+    description: An OMIM phenotypic-series identifier, distinct from an individual
+      OMIM phenotype or gene record even when their six-digit numbers coincide.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: Term
+    slots:
+    - label
+    - OMIMPSCode_id
+    slot_usage:
+      id:
+        name: id
+        pattern: ^OMIMPS:[0-9]{6}$
+    class_uri: dismech:OMIMPSCode
   Descriptor:
     name: Descriptor
     definition_uri: https://w3id.org/monarch-initiative/dismech/Descriptor
@@ -22947,10 +23332,13 @@ classes:
         recommended: true
       phase:
         name: phase
-        description: 'Trial phase. Enum-bound: use PHASE_I, PHASE_II, PHASE_III, PHASE_IV,
-          or NOT_APPLICABLE, not the prose spellings ("Phase III").'
+        description: 'Trial phase. Enum-bound: use EARLY_PHASE_I, PHASE_I, PHASE_I_II,
+          PHASE_II, PHASE_II_III, PHASE_III, PHASE_IV or NOT_APPLICABLE, not the prose
+          spellings ("Phase III"). A trial the registry records as PHASE1|PHASE2 or
+          PHASE2|PHASE3 takes the combined value, not either component.'
         examples:
         - value: PHASE_III
+        - value: PHASE_II_III
         - value: NOT_APPLICABLE
         range: ClinicalTrialPhaseEnum
         recommended: true
@@ -23898,10 +24286,11 @@ classes:
         required: true
       title:
         name: title
-        description: 'Title of the referenced publication. Recommended so that linkml-data-qc
-          scores its absence, matching the `recommended: true` already carried by
-          the EvidenceItem `reference_title` twin. Set here via slot_usage rather
-          than on the shared `title` slot, which is also used by Dataset and TrackedIssue.'
+        description: Title of the referenced publication. Recommended so that linkml-data-qc
+          scores its absence. Its EvidenceItem twin, `reference_title`, is required;
+          this slot stays recommended because scripts/find_missing_reference_titles.py
+          only reports its gaps. Set here via slot_usage rather than on the shared
+          `title` slot, which is also used by Dataset and TrackedIssue.
         recommended: true
     class_uri: dismech:PublicationReference
   ExternalAssertion:
@@ -24041,9 +24430,12 @@ classes:
   ProgressionInfo:
     name: ProgressionInfo
     definition_uri: https://w3id.org/monarch-initiative/dismech/ProgressionInfo
+    description: 'One phase of a disease''s natural history: what happens during it,
+      how long it lasts, and the age or incubation interval at which it occurs.'
     from_schema: https://w3id.org/monarch-initiative/dismech
     slots:
     - phase
+    - ProgressionInfo_description
     - subtype
     - age_range
     - evidence
@@ -24053,6 +24445,15 @@ classes:
     - notes
     - duration_days
     - duration
+    slot_usage:
+      description:
+        name: description
+        description: What happens during this phase. This is the phase's own account
+          of the disease and belongs here rather than in `notes`, which is for the
+          caveats and qualifications that account needs.
+        examples:
+        - value: Fetal thrombocytopenia can begin in the second trimester and is detectable
+            on cordocentesis before any clinical bleeding.
     class_uri: dismech:ProgressionInfo
   ClinicalBurden:
     name: ClinicalBurden
@@ -25255,6 +25656,8 @@ classes:
     - description
     - scope
     - Definition_attaches_to
+    - Definition_source_reference
+    - criteria_set_logic
     - criteria_sets
     - inclusion_criteria
     - exclusion_criteria
@@ -25267,6 +25670,12 @@ classes:
       definition_type:
         name: definition_type
         required: true
+      source_reference:
+        name: source_reference
+        description: The phenotype-library record this definition is transcribed from,
+          as a citable reference CURIE (`PHEKB:615`, `HDRUK:PH304`). Fetch it with
+          `just fetch-reference` so its cached body can be quoted as evidence. Leave
+          absent for a definition composed from the literature.
       attaches_to:
         name: attaches_to
         description: For a hypothesis-based definition, the pathophysiology node(s)/edge(s)
@@ -25341,7 +25750,41 @@ classes:
     - clinical_course
     - severity
     - qualifiers
+    - code_lists
+    - minimum_occurrences
+    - minimum_interval_days
     class_uri: dismech:CriteriaItem
+  CodeList:
+    name: CodeList
+    definition_uri: https://w3id.org/monarch-initiative/dismech/CodeList
+    description: 'A set of clinical codes from one code system, any one of which satisfies
+      the criterion carrying the list. This is how a computable phenotype''s codelist
+      (an HDR UK concept, a PheKB code table, an OHDSI concept set) is recorded: each
+      code is copied with the label its source gives it, so a list transcribed from
+      a phenotype library can be checked row by row against that library''s cached
+      record (`just check-codelists`).'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - name
+    - CodeList_code_system
+    - CodeList_code_system_version
+    - CodeList_source_reference
+    - codes
+    slot_usage:
+      code_system:
+        name: code_system
+        range: CodeSystemEnum
+        required: true
+      code_system_version:
+        name: code_system_version
+        description: The release or refset version the source names (e.g. `nhsd-primary-care-domain-refsets/sickle_cod/20250912`).
+          Omit when the source names none.
+      source_reference:
+        name: source_reference
+        description: The reference CURIE the codes were copied from (`HDRUK:PH304`,
+          `PHEKB:615`). Must be a cached reference; `just check-codelists` confirms
+          each code appears in it.
+    class_uri: dismech:CodeList
   TermMapping:
     name: TermMapping
     definition_uri: https://w3id.org/monarch-initiative/dismech/TermMapping
@@ -25460,6 +25903,34 @@ classes:
             description: The metadata element is required to be present in the model
           binds_value_of: id
     class_uri: dismech:NCITMapping
+  OMIMPSMapping:
+    name: OMIMPSMapping
+    definition_uri: https://w3id.org/monarch-initiative/dismech/OMIMPSMapping
+    description: Mapping to an OMIM phenotypic series, not an individual OMIM record
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: TermMapping
+    slots:
+    - TermMapping_mapping_predicate
+    - mapping_source
+    - consistency
+    - tracked_issues
+    - notes
+    - OMIMPSMapping_term
+    - OMIMPSMapping_mapping_justification
+    slot_usage:
+      term:
+        name: term
+        range: OMIMPSCode
+        bindings:
+        - range: OMIMPSTerm
+          obligation_level:
+            text: REQUIRED
+            description: The metadata element is required to be present in the model
+          binds_value_of: id
+      mapping_justification:
+        name: mapping_justification
+        required: true
+    class_uri: dismech:OMIMPSMapping
   MappingConsistency:
     name: MappingConsistency
     definition_uri: https://w3id.org/monarch-initiative/dismech/MappingConsistency
@@ -25488,6 +25959,7 @@ classes:
     - icd10cm_mappings
     - icd11f_mappings
     - mondo_mappings
+    - omimps_mappings
     - ncit_mappings
     class_uri: dismech:DiseaseMappings
   ConditionDescriptor:
@@ -25957,6 +26429,6 @@ classes:
 metamodel_version: 1.7.0
 source_file: dismech.yaml
 source_file_date: '2025-01-01T00:00:00'
-source_file_size: 415797
+source_file_size: 425749
 generation_date: '2025-01-01T00:00:00'
 
