@@ -13,6 +13,8 @@ import subprocess
 from collections import Counter
 from pathlib import Path
 
+import pytest
+
 from scripts import check_snippet_grading as csg
 from scripts.check_snippet_grading import (
     BASELINE_REF_ENV,
@@ -65,6 +67,7 @@ def _doc(*items):
 SENTENCE = "HAGH functions in a pathway to detoxify methylglyoxal in the brain."
 
 
+@pytest.mark.ci_step_twin("scripts/check_snippet_grading.py")
 def test_no_new_snippet_grading_divergences():
     # resolve_baseline() grandfathers against origin/main when CI sets
     # SNIPPET_GRADING_BASELINE_REF (so the base branch is green by construction
