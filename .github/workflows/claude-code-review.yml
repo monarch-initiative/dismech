@@ -13,11 +13,62 @@ on:
         required: true
         type: number
 
+# Every comment on a PR starts an issue_comment run of this workflow. Only a
+# `/review` comment asks for a review; any other comment's run skips all jobs.
+# It must not share the PR's group, or it cancels the queued or running review
+# on its way to skipping (dismech#18311). Such runs get their own group by
+# appending the run id, so only real review requests replace each other.
 concurrency:
-  group: claude-review-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}
+  group: >-
+    claude-review-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number }}${{ github.event_name == 'issue_comment' && github.event.comment.body != '/review' && format('-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 jobs:
+  # dismech#18311: a `/review` comment otherwise gets no sign it was accepted
+  # until the review job reaches a runner, which can take many minutes when CI
+  # is busy. This small job (no project install, one-file checkout) posts a
+  # status comment as soon as any runner is free: "queued" for an accepted
+  # request, or a refusal saying why. The review job then edits that comment
+  # to "started" and to the outcome. Gated on the exact body so ordinary
+  # comments start no job here. The comment is posted with GITHUB_TOKEN, and
+  # comments made with that token do not trigger workflows, so it cannot start
+  # (or cancel) another run.
+  acknowledge:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request != null &&
+      github.event.comment.body == '/review'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout the status-comment script
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          sparse-checkout: scripts/review_status_comment.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Post the review request status
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          RUN_ID: ${{ github.run_id }}
+          SERVER_URL: ${{ github.server_url }}
+          REQUESTER: ${{ github.event.comment.user.login }}
+          AUTHOR_ASSOCIATION: ${{ github.event.comment.author_association }}
+          # Must match the author check in claude-review's `if:` below.
+          ACCEPTED: ${{ contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) }}
+        run: |
+          if [[ "$ACCEPTED" == "true" ]]; then
+            bash scripts/review_status_comment.sh queued
+          else
+            bash scripts/review_status_comment.sh refused
+          fi
+
   # Automated page-build regen PRs (auto/generate-pages,
   # auto/generate-grouping-pages, auto/generate-project-pages — opened by
   # ai4c-agent, with legacy open PRs authored by github-actions[bot]) are pure
@@ -131,6 +182,22 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 1
+
+      # dismech#18311. Copy the script out of the default-branch checkout before
+      # the next steps switch to the PR branch, so the status updates always run
+      # main's copy, then mark the request as started.
+      - name: Mark the /review status comment as started
+        if: github.event_name == 'issue_comment'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          SERVER_URL: ${{ github.server_url }}
+          REQUESTER: ${{ github.event.comment.user.login }}
+        run: |
+          cp scripts/review_status_comment.sh "${RUNNER_TEMP}/review_status_comment.sh"
+          bash "${RUNNER_TEMP}/review_status_comment.sh" started
 
       - name: Resolve agent config
         uses: ./.github/actions/resolve-agent-config
@@ -306,6 +373,41 @@ jobs:
         if: steps.diff-scale.outputs.oversized != 'true'
         run: echo "at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
+      # dismech#18298: GitHub's reviews API reports every review's `commit_id`
+      # as the PR's CURRENT head, not the commit that was reviewed — after a
+      # rebase, older approvals are relabelled onto the new commit. An agent
+      # that asks "is the head the commit I last approved?" from that field
+      # always gets yes, declines to review, publishes nothing, and the verdict
+      # check below turns the job red on a commit no later event can re-run.
+      # Hand the agent the one comparison that is sound instead: a review
+      # submitted before the head commit was committed cannot be a review of
+      # it. (The converse does not hold — a later review may still predate a
+      # push of an older commit — so the summary only ever says "predates".)
+      # Fails open: if the API cannot be read, the agent is told so and
+      # reviews from scratch, which is the safe direction.
+      - name: Summarise prior reviews against the head commit
+        id: prior-reviews
+        if: steps.diff-scale.outputs.oversized != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          summary="$(
+            head_sha="$(gh pr view "${PR_NUMBER}" --repo "${REPO}" --json headRefOid --jq .headRefOid)" \
+              && head_at="$(gh api "repos/${REPO}/commits/${head_sha}" --jq .commit.committer.date)" \
+              && reviews="$(gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/reviews" \
+                   --jq ".[] | select(.submitted_at != null) | \"- \\(.submitted_at) \\(.state) by \\(.user.login)\\(if .submitted_at < \"${head_at}\" then \" — PREDATES the head commit, so it is not a review of it\" else \"\" end)\"")" \
+              && printf 'Head commit %s was committed at %s.\nPrior reviews (submitted_at, state, author):\n%s\n' \
+                   "${head_sha}" "${head_at}" "${reviews:-- none}"
+          )" || summary="Prior-review summary unavailable (GitHub API error). Review the PR from scratch."
+          echo "$summary"
+          {
+            echo "text<<PRIOR_REVIEWS_EOF"
+            echo "$summary"
+            echo "PRIOR_REVIEWS_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Run Claude Code Review
         id: claude-review
         if: steps.diff-scale.outputs.oversized != 'true'
@@ -349,6 +451,27 @@ jobs:
             PR NUMBER: ${{ env.PR_NUMBER }}
 
             Review this pull request using the dismech-pr-review skill.
+
+            EVERY RUN MUST END IN A SUBMITTED REVIEW (dismech#18298). Do not
+            decline to review because the PR "was already reviewed" or
+            "nothing changed". A run that submits no review fails this job,
+            and that red check cannot be cleared by re-running it.
+
+            Do NOT use a review's `commit_id` to decide what you have already
+            reviewed. GitHub reports `commit_id` as the PR's current head, not
+            the commit that was reviewed: after a rebase or force-push every
+            earlier review is relabelled onto the new head, so "the head is
+            the commit last approved" is always true and always meaningless.
+            Use the deterministic summary below instead. A review marked
+            PREDATES was made before the head commit existed and is not a
+            review of it.
+
+            ${{ steps.prior-reviews.outputs.text }}
+
+            If you are confident the head differs from what was last reviewed
+            only by a rebase onto `main` (check `gh pr diff`, not commit ids),
+            you may keep the review short — but still submit a verdict:
+            re-approve, or re-request the outstanding changes.
 
             Focus on:
             - Biological and clinical validity
@@ -575,3 +698,27 @@ jobs:
           echo "::error title=Claude review published no verdict::${msg}"
           printf '### ❌ Claude review published no verdict\n\n%s\n' "$msg" >> "$GITHUB_STEP_SUMMARY"
           exit 1
+
+      # dismech#18311: close out the /review status comment with the outcome.
+      # Runs last so job.status reflects every step above, including the
+      # verdict check: success here means a verdict was published.
+      - name: Record the /review outcome in the status comment
+        if: always() && github.event_name == 'issue_comment'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          SERVER_URL: ${{ github.server_url }}
+          REQUESTER: ${{ github.event.comment.user.login }}
+          JOB_STATUS: ${{ job.status }}
+          OVERSIZED: ${{ steps.diff-scale.outputs.oversized }}
+        run: |
+          script="${RUNNER_TEMP}/review_status_comment.sh"
+          [[ -f "$script" ]] || { echo "::warning::Status script missing; not updating the status comment."; exit 0; }
+          if [[ "$OVERSIZED" == "true" ]]; then state=skipped
+          elif [[ "$JOB_STATUS" == "success" ]]; then state=success
+          elif [[ "$JOB_STATUS" == "cancelled" ]]; then state=cancelled
+          else state=failure
+          fi
+          bash "$script" "$state"
