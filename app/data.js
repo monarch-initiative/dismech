@@ -145600,8 +145600,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Distal Arthrogryposis Type 2B1",
@@ -179313,8 +179313,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "GJB2-GJB6 Digenic Nonsyndromic Hearing Loss",
@@ -218926,15 +218926,16 @@ window.searchData = [
       "Progressive Hair Follicle Failure"
     ],
     "cell_types": [
-      "keratinocyte",
-      "inner root sheath cell"
+      "inner root sheath cell",
+      "keratinocyte"
     ],
     "cell_type_ids": [
-      "CL:0000312",
-      "CL:0002560"
+      "CL:0002560",
+      "CL:0000312"
     ],
     "biological_processes": [
       "amyloid fibril formation by truncated corneodesmosin",
+      "oligomer-induced keratinocyte death",
       "hair follicle cycling"
     ],
     "phenotypes": [
@@ -218971,7 +218972,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "5"
   },
   {
@@ -260599,7 +260600,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "6"
   },
   {
@@ -285549,8 +285550,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Microcephaly, Growth Restriction, and Increased Sister Chromatid Exchange 2",
@@ -327066,6 +327067,7 @@ window.searchData = [
     "subtypes": [],
     "description": "Osteogenesis imperfecta type XXI (OI type XXI) is a severe autosomal recessive brittle bone disease caused by biallelic loss-of-function variants in KDELR2, the gene encoding KDEL endoplasmic reticulum protein retention receptor 2. KDELR2 is a cis-Golgi/ERGIC transmembrane receptor that captures soluble ER-resident proteins bearing a C-terminal KDEL-like retrieval signal and returns them to the endoplasmic reticulum via COPI-coated retrograde transport. A key cargo is HSP47 (SERPINH1), the collagen-specific molecular chaperone whose own loss causes the mechanistically linked OI type X. HSP47 binds the type I procollagen triple helix in the ER and must dissociate from procollagen as the cargo reaches the lower-pH cis-Golgi/ERGIC; KDELR2-mediated retrieval is required to release HSP47 from procollagen and recycle it to the ER. When KDELR2 is inactive, HSP47 cannot be released and instead remains bound to collagen type I molecules, is depleted intracellularly, and is carried out with the secreted collagen, where persistent HSP47 binding disrupts normal collagen fibril formation. Patient fibroblasts show intracellular decrease of HSP47 and FKBP65 with reduced procollagen type I in the culture media and abnormal secreted collagen fibrils. The resulting defective bone collagen matrix fails to mineralize and assemble normally, producing severe skeletal fragility with recurrent fractures, reduced bone mineral density, growth deficiency, and bone deformity. OI type XXI was defined in 2020 (van Dijk et al.) in four families with biallelic KDELR2 variants; a second group reported additional biallelic KDELR2 missense variants with associated neurodevelopmental features.",
     "pathophysiology": [
+      "Biallelic KDELR2 Loss of Function",
       "KDELR2 Loss Disables Retrograde Recycling of ER-Resident Chaperones",
       "Impaired GSK3-beta/Beta-Catenin Osteoblast Differentiation Signaling",
       "Failure to Release and Recycle HSP47 from Procollagen",
@@ -327122,11 +327124,11 @@ window.searchData = [
     "source_file": "Osteogenesis_Imperfecta_Type_XXI.yaml",
     "page_url": "../pages/disorders/Osteogenesis_Imperfecta_Type_XXI.html",
     "num_phenotypes": 4,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Osteogenesis Imperfecta Type XXII",
@@ -357367,8 +357369,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 1,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Progressive Familial Intrahepatic Cholestasis",
@@ -372254,7 +372256,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "3"
   },
   {
@@ -454009,12 +454011,12 @@ window.searchMetrics = {
   "total_disorder_pages": 4174,
   "total_subtypes": 5137,
   "total_disorders_and_subtypes": 9311,
-  "total_unique_evidence_sources": 62342,
+  "total_unique_evidence_sources": 62343,
   "total_unique_publications": 58217,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4172,
-  "total_unique_pathological_events": 27564,
+  "total_unique_pathological_events": 27565,
   "total_modules": 240,
   "total_research_reports": 4276,
   "total_classifications": 21,
