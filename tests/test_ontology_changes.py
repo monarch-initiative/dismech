@@ -8,12 +8,12 @@ import pytest
 import yaml
 
 from dismech.ontology_changes import (
-    ROOT,
     load_registry,
     main,
     render_request,
     validate_record,
 )
+from dismech.repo_root import repo_root
 
 
 @pytest.fixture
@@ -173,6 +173,13 @@ def test_decoded_json_quote(proposal, tmp_path):
     assert not validate_record(proposal, tmp_path)
 
 
+def test_json_syntax_is_not_supporting_text(proposal, tmp_path):
+    proposal["evidence"][0]["supporting_text"] = '"mapping": "old"'
+    assert any(
+        "supporting_text not found" in e for e in validate_record(proposal, tmp_path)
+    )
+
+
 def test_duplicate_snapshot_ids_rejected(proposal, tmp_path):
     proposal["source_snapshots"].append(copy.deepcopy(proposal["source_snapshots"][0]))
     assert validate_record(proposal, tmp_path)
@@ -274,6 +281,33 @@ def test_invalid_registry_cannot_be_exported(proposal, tmp_path, capsys):
     assert not capsys.readouterr().out
 
 
+def test_default_registry_follows_working_tree_after_import(
+    proposal, tmp_path, monkeypatch, capsys
+):
+    monkeypatch.delenv("DISMECH_ROOT", raising=False)
+    for name in ("first", "second"):
+        tree = tmp_path / name
+        (tree / "kb").mkdir(parents=True)
+        (tree / "justfile").write_text("")
+        (tree / "source.json").write_bytes((tmp_path / "source.json").read_bytes())
+        proposal["title"] = name
+        write_registry(proposal, tree)
+        monkeypatch.chdir(tree / "kb")
+        assert not validate_record(proposal)
+        records, errors = load_registry()
+        assert not errors
+        assert records[0]["title"] == name
+        assert main(["list"]) == 0
+        assert json.loads(capsys.readouterr().out)[0]["title"] == name
+
+
+def test_registry_honors_environment_override(proposal, tmp_path, monkeypatch, capsys):
+    write_registry(proposal, tmp_path)
+    monkeypatch.setenv("DISMECH_ROOT", str(tmp_path))
+    assert main(["validate"]) == 0
+    assert "Validated 1" in capsys.readouterr().out
+
+
 def test_proposal_only_changes_one_current_mondo_qualifier():
     records, errors = load_registry()
     assert not errors
@@ -283,7 +317,9 @@ def test_proposal_only_changes_one_current_mondo_qualifier():
         if r["id"] == "mondo-0019503-icd11-anterior-segment-broad-match"
     )
     source = next(s for s in record["source_snapshots"] if s["id"] == "mondo-current")
-    stanza = json.loads((ROOT / source["artifact"]["path"]).read_text())["stanza"]
+    stanza = json.loads((repo_root() / source["artifact"]["path"]).read_text())[
+        "stanza"
+    ]
     target_line = next(
         line
         for line in stanza.splitlines()

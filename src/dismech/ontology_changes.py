@@ -19,9 +19,9 @@ import yaml
 from jsonschema import Draft7Validator, FormatChecker
 from linkml.generators.jsonschemagen import JsonSchemaGenerator
 
+from dismech.repo_root import repo_root
 from dismech.yaml_io import find_duplicate_keys, safe_load
 
-ROOT = Path(__file__).resolve().parents[2]
 SCHEMA = Path(__file__).parent / "schema" / "ontology_change.yaml"
 REGISTRY = "ontology_changes"
 CURIE = re.compile(r"^\S+:\S+$")
@@ -101,16 +101,17 @@ def _text_values(value):
 
 def _contains_quote(path: Path, quote: str) -> bool:
     text = path.read_text(encoding="utf-8")
-    if quote in text:
-        return True
+    if path.suffix.lower() != ".json":
+        return quote in text
     try:
         return any(quote in value for value in _text_values(json.loads(text)))
     except ValueError:
         return False
 
 
-def validate_record(record: dict, root: Path = ROOT) -> list[str]:
+def validate_record(record: dict, root: Path | None = None) -> list[str]:
     """Check schema, edit identity, lifecycle, evidence and local artifact integrity."""
+    root = root if root is not None else repo_root()
     data = json.loads(json.dumps(record, default=_json_default))
     errors = [
         f"{'/'.join(map(str, e.path))}: {e.message}"
@@ -181,9 +182,11 @@ def validate_record(record: dict, root: Path = ROOT) -> list[str]:
             errors.append(f"unknown evidence source: {evidence['source']}")
         else:
             path = _local_file(root, snapshots[evidence["source"]]["artifact"]["path"])
-            if path is not None and not _contains_quote(
-                path, evidence["supporting_text"]
-            ):
+            if path is None:
+                errors.append(
+                    f"cannot verify supporting_text: artifact missing for {evidence['source']}"
+                )
+            elif not _contains_quote(path, evidence["supporting_text"]):
                 errors.append(
                     f"supporting_text not found in source: {evidence['source']}"
                 )
@@ -206,8 +209,9 @@ def validate_record(record: dict, root: Path = ROOT) -> list[str]:
     return errors
 
 
-def load_registry(root: Path = ROOT) -> tuple[list[dict], list[str]]:
+def load_registry(root: Path | None = None) -> tuple[list[dict], list[str]]:
     """Read every proposal; reject duplicate keys, IDs and misleading filenames."""
+    root = root if root is not None else repo_root()
     records, errors, seen = [], [], set()
     paths = sorted((root / REGISTRY).glob("*.yaml"))
     if not paths:
@@ -251,7 +255,9 @@ def render_request(record: dict) -> str:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=ROOT)
+    parser.add_argument(
+        "--root", type=Path, help="Checkout override; otherwise use repo_root()"
+    )
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("validate")
     listing = sub.add_parser("list")
