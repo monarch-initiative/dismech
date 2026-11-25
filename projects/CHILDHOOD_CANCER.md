@@ -80,6 +80,10 @@ entries (two of them only in part), and one has neither. In the *Where* column,
 a name in parentheses is the `name` of a row in that entry's `has_subtypes`
 list.
 
+For a systematic comparison against the CCDI diagnosis categories and value
+lists and the WHO 5th edition Paediatric Tumours and CNS classifications, see
+[CCDI_PEDIATRIC_CANCER_COVERAGE.md](CCDI_PEDIATRIC_CANCER_COVERAGE.md).
+
 | Target | Status | Where |
 |--------|--------|-------|
 | Hepatoblastoma | Own entry | `Hepatoblastoma` |
@@ -98,7 +102,7 @@ list.
 | CIC-rearranged sarcoma | Own entry | `CIC-Rearranged_Sarcoma` |
 | BCOR-altered sarcoma | Own entry | `Sarcoma_with_BCOR_Genetic_Alterations` |
 | Alveolar soft part sarcoma | Own entry | `Alveolar_Soft_Part_Sarcoma` |
-| NUT carcinoma | Subtype only, in part | `Thymic_Carcinoma` (`NUT`): the thymic / mediastinal form only |
+| NUT carcinoma | Own entry | `NUT_Carcinoma` (MONDO:0005563); also `Thymic_Carcinoma` (`NUT`) for the thymic / mediastinal form. Corrected 2026-11-18: the 2026-11-13 count above listed this target as subtype only. |
 
 Pediatric adrenocortical carcinoma has no entry of its own and no subtype row.
 No entry has adrenocortical carcinoma, adrenal cortex carcinoma, or adrenal

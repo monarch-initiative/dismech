@@ -325,6 +325,78 @@ def test_broad_match_mapping_does_not(cache):
     assert _kinds(findings) == [("other_disease", "LIMITED")]
 
 
+# A panel that files locus-level curations under a generic term: the Hearing
+# Loss panel's "nonsyndromic genetic hearing loss" speaks for a DFNA/DFNB entry
+# that declares the generic term as a broadMatch and binds the same MOI.
+
+HL_GENERIC = "MONDO:0019497"
+HL_AD = "CGGV:assertion_dddd-2020-01-01T000000.000Z"
+HL_AR = "CGGV:assertion_eeee-2020-01-01T000000.000Z"
+AD_INHERITANCE = [{"inheritance_term": {"term": {"id": "HP:0000006"}}}]
+
+
+@pytest.fixture
+def hl_cache(cache):
+    rows = {
+        HL_AD: ("TUBA4A", "HGNC:12407", "nshl", HL_GENERIC, "AD", "Definitive"),
+        HL_AR: ("TUBA4A", "HGNC:12407", "nshl", HL_GENERIC, "AR", "Limited"),
+    }
+    for curie, row in rows.items():
+        mod.cache_path(curie, cache).write_text(_cache_file(*row), encoding="utf-8")
+    return cache
+
+
+def _broad(term):
+    return {
+        "mondo_mappings": [
+            {"term": {"id": term}, "mapping_predicate": "skos:broadMatch"}
+        ]
+    }
+
+
+def test_panel_lumped_record_counts_for_a_declared_locus(hl_cache):
+    entry = _entry(
+        HL_AD, mondo="MONDO:9", mappings=_broad(HL_GENERIC), inheritance=AD_INHERITANCE
+    )
+    assert _kinds(assess(entry, "x.yaml", hl_cache)) == [("backfill", "DEFINITIVE")]
+
+
+def test_panel_lumped_record_needs_the_broad_match_declaration(hl_cache):
+    entry = _entry(HL_AD, mondo="MONDO:9", inheritance=AD_INHERITANCE)
+    assert _kinds(assess(entry, "x.yaml", hl_cache)) == [
+        ("other_disease", "DEFINITIVE")
+    ]
+
+
+def test_panel_lumped_record_needs_the_entry_inheritance_to_agree(hl_cache):
+    """A recessive record must not land on the gene's dominant locus."""
+    entry = _entry(
+        HL_AD,
+        HL_AR,
+        mondo="MONDO:9",
+        mappings=_broad(HL_GENERIC),
+        inheritance=AD_INHERITANCE,
+    )
+    assert _kinds(assess(entry, "x.yaml", hl_cache)) == [("backfill", "DEFINITIVE")]
+
+
+def test_panel_lumped_record_without_bound_inheritance_does_not_count(hl_cache):
+    entry = _entry(HL_AD, mondo="MONDO:9", mappings=_broad(HL_GENERIC))
+    assert _kinds(assess(entry, "x.yaml", hl_cache)) == [
+        ("other_disease", "DEFINITIVE")
+    ]
+
+
+def test_panel_lumped_record_feeds_overstated(hl_cache):
+    entry = _entry(
+        HL_AR,
+        mondo="MONDO:9",
+        mappings=_broad(HL_GENERIC),
+        inheritance=[{"inheritance_term": {"term": {"id": "HP:0000007"}}}],
+    )
+    assert ("overstated", "LIMITED") in _kinds(assess(entry, "x.yaml", hl_cache))
+
+
 def test_subtype_term_counts_as_the_entry_disease(cache):
     subtypes = [{"name": "Macro", "subtype_term": {"term": {"id": "MONDO:0000001"}}}]
     findings = assess(
