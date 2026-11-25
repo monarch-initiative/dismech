@@ -119,6 +119,49 @@ def model_edge_predicate(relationship: Any) -> str:
     return DEFAULT_MODEL_PREDICATE
 
 
+# TreatmentEffectEnum value to pathograph edge predicate. Only the two negative
+# values change the predicate: a treatment curated as not working, or as making
+# the node worse, must not be drawn as a "targets" arrow (#10151). The five
+# therapeutic values stay on "targets" and are told apart by export styling.
+# "worsens" rather than "exacerbates" because the latter is in
+# qc_plugins.CAUSAL_PREDICATES: a drug must not count as the mechanism that
+# explains a phenotype.
+NEGATIVE_TREATMENT_EFFECT_PREDICATES = {
+    "NO_EFFECT": "no_effect_on",
+    "EXACERBATES": "worsens",
+}
+
+DEFAULT_TREATMENT_PREDICATE = "targets"
+
+
+def treatment_edge_predicate(treatment_effect: Any) -> str:
+    """Map a target_mechanisms link's treatment_effect onto its edge predicate."""
+    if isinstance(treatment_effect, str):
+        return NEGATIVE_TREATMENT_EFFECT_PREDICATES.get(
+            treatment_effect, DEFAULT_TREATMENT_PREDICATE
+        )
+    return DEFAULT_TREATMENT_PREDICATE
+
+
+def negated_treatment_targets(treatment: dict[str, Any]) -> set[str]:
+    """Targets whose every link from this treatment is a negative claim.
+
+    A ``target_phenotypes`` row resolving to one of these would draw a "treats"
+    arrow the entry itself denies, so the graph omits it.
+    """
+    negative: set[str] = set()
+    other: set[str] = set()
+    for link in treatment.get("target_mechanisms", []) or []:
+        if not isinstance(link, dict) or "target" not in link:
+            continue
+        is_negative = (
+            treatment_edge_predicate(link.get("treatment_effect"))
+            != DEFAULT_TREATMENT_PREDICATE
+        )
+        (negative if is_negative else other).add(link["target"])
+    return negative - other
+
+
 def _sanitize_node_id(name: str) -> str:
     """Convert a node name to a valid Mermaid node ID."""
     # Replace problematic characters with underscores
@@ -634,16 +677,20 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
                     Edge(
                         source=source,
                         target=target_item["target"],
-                        predicate="targets",
+                        predicate=treatment_edge_predicate(
+                            target_item.get("treatment_effect")
+                        ),
                         source_type="treatment",
+                        description=target_item.get("description"),
                     )
                 )
 
+        negated_targets = negated_treatment_targets(item)
         for descriptor in item.get("target_phenotypes", []) or []:
             if not isinstance(descriptor, dict):
                 continue
             target = _resolve_descriptor_target(descriptor, phenotype_lookup)
-            if not target:
+            if not target or target in negated_targets:
                 continue
             graph.edges.append(
                 Edge(
@@ -908,6 +955,10 @@ def generate_mermaid(graph: CausalGraph) -> str:
         # Use dashed line for edges to orphan targets
         if edge.target in graph.orphan_targets or edge.predicate == "readout":
             lines.append(f"    {source_id} -.-> {target_id}")
+        elif edge.predicate in NEGATIVE_TREATMENT_EFFECT_PREDICATES.values():
+            # Mermaid styles links by position; a label says it outright.
+            label = edge.predicate.replace("_", " ")
+            lines.append(f"    {source_id} -.->|{label}| {target_id}")
         else:
             lines.append(f"    {source_id} --> {target_id}")
 

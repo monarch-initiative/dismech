@@ -36,6 +36,7 @@ from dismech.graph import (
     graph_to_json,
     iter_variant_items,
     model_edge_predicate,
+    treatment_edge_predicate,
 )
 from dismech.yaml_io import safe_load, safe_load_path
 
@@ -246,6 +247,22 @@ EDGE_STYLE_BY_PREDICATE = {
         color="#0f766e",
         line_style="dashed",
         target_arrow_shape="tee",
+        width=2,
+    ),
+    # Treatment links curated as negative claims (#10151), for the same reason as
+    # fails_to_model. A treatment that does nothing ends in a tee; one that makes
+    # the node worse is a real effect, so it keeps an arrowhead, but in a dashed
+    # amber no therapeutic edge uses.
+    "no_effect_on": EdgeStyle(
+        color="#b91c1c",
+        line_style="dotted",
+        target_arrow_shape="tee",
+        width=2,
+    ),
+    "worsens": EdgeStyle(
+        color="#b45309",
+        line_style="dashed",
+        target_arrow_shape="triangle",
         width=2,
     ),
     "readout": EdgeStyle(
@@ -1106,7 +1123,7 @@ def _build_edge_detail_lookup(
             add_detail(
                 source_name,
                 str(target_item["target"]),
-                "targets",
+                treatment_edge_predicate(target_item.get("treatment_effect")),
                 {
                     "description": target_item.get("description"),
                     "evidence": target_item.get("evidence") or parent_evidence,

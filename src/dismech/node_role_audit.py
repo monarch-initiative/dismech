@@ -72,6 +72,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from dismech.graph import negated_treatment_targets
+
 DEFAULT_KB_DIRS = (Path("kb/disorders"), Path("kb/modules"))
 
 SOURCE = "SOURCE"
@@ -234,7 +236,16 @@ def _link_index(data: dict[str, Any]) -> dict[str, set[str]]:
     idx: dict[str, set[str]] = {
         "targeted": set(), "modeled": set(), "read_out": set(), "influenced": set(),
     }
-    idx["targeted"].update(_targets(data.get("treatments"), "target_mechanisms"))
+    # A node a drug was shown not to act on, or to worsen, is not an
+    # intervention point (#10151).
+    for treatment in data.get("treatments") or []:
+        if isinstance(treatment, dict):
+            negated = negated_treatment_targets(treatment)
+            idx["targeted"].update(
+                target
+                for target in _targets([treatment], "target_mechanisms")
+                if target not in negated
+            )
     for section in ("experimental_models", "animal_models", "computational_models"):
         idx["modeled"].update(_targets(data.get(section), "modeled_mechanisms"))
     idx["read_out"].update(_targets(data.get("biochemical"), "readouts"))

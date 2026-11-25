@@ -5733,6 +5733,14 @@ class TreatmentEffectEnum(str, Enum):
     """
     Restores normal function of a disrupted mechanism (e.g., gene therapy, enzyme replacement)
     """
+    No_effect = "NO_EFFECT"
+    """
+    The treatment was given or tested for this mechanism or phenotype and did not improve it (e.g., anti-inflammatory drugs for the noninflammatory cartilage loss of progressive pseudorheumatoid arthropathy). A negative claim: the pathograph does not draw it as a treatment that works.
+    """
+    Exacerbates = "EXACERBATES"
+    """
+    The treatment worsens or adds to the mechanism or phenotype (e.g., beta blockade potentiating cocaine-induced coronary vasoconstriction). Includes a treatment given for one node that worsens another, which carries one link per node. A negative claim, distinct from MODULATES (no clear unidirectional effect) and from ACTIVATES (promotes a mechanism, as in restoring a deficient pathway).
+    """
 
 
 class EnvironmentalEffectEnum(str, Enum):
@@ -15058,7 +15066,16 @@ class EvidenceItem(ConfiguredBaseModel):
     reference: Optional[str] = Field(default=None, description="""The authoritative reference (publication) for this evidence item""", json_schema_extra = { "linkml_meta": {'domain_of': ['EvidenceItem', 'PublicationReference', 'MappingConsistency'],
          'examples': [{'value': 'PMID:35533128'}],
          'implements': ['linkml:authoritative_reference']} })
-    reference_title: Optional[str] = Field(default=None, description="""The title of the referenced publication""", json_schema_extra = { "linkml_meta": {'comments': ['`dcterms:title` is what makes this slot machine-checked: '
+    reference_title: str = Field(default=..., description="""The title of the referenced publication""", json_schema_extra = { "linkml_meta": {'comments': ['Required. Copy the title from the `title:` frontmatter of the '
+                      "reference's references_cache/ file, never from memory: `uv run "
+                      'python scripts/backfill_reference_titles.py <file>` does it '
+                      'verbatim. If the cache has no title, re-fetch with `just '
+                      'fetch-reference <ID> --force`; typing a title by hand is how '
+                      'invented citations get in. The slot was `recommended` until '
+                      'every evidence item in kb/ carried one and '
+                      'scripts/find_missing_reference_titles.py had gated new gaps in '
+                      'CI.',
+                      '`dcterms:title` is what makes this slot machine-checked: '
                       'linkml-reference-validator compares a declared title against '
                       'the fetched publication and errors on a mismatch, and its '
                       'TitleURIs matches only "dcterms:title" / "dc/terms/title". '
@@ -15078,8 +15095,7 @@ class EvidenceItem(ConfiguredBaseModel):
                       'check starts failing in bulk; a single failure is far more '
                       'likely to be a genuinely wrong citation, which is the point.'],
          'domain_of': ['EvidenceItem'],
-         'implements': ['dcterms:title'],
-         'recommended': True} })
+         'implements': ['dcterms:title']} })
     supports: Optional[EvidenceItemSupportEnum] = Field(default=None, description="""Which way the cited evidence cuts relative to the claim. Direction only -- use `directness` for how directly the quote bears on it.""", json_schema_extra = { "linkml_meta": {'comments': ['Maps to EvidenceLine.directionOfEvidenceProvided in the draft '
                       'SEPIO LinkML model. The NO_EVIDENCE value has no SEPIO '
                       'counterpart; see EvidenceItemSupportEnum.'],
@@ -15317,7 +15333,11 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'ModelMechanismLink',
                        'BiomarkerReadout',
                        'PhenotypeReadout']} })
-    treatment_effect: Optional[TreatmentEffectEnum] = Field(default=None, description="""How the treatment affects the targeted mechanism""", json_schema_extra = { "linkml_meta": {'domain_of': ['TreatmentMechanismTarget']} })
+    treatment_effect: Optional[TreatmentEffectEnum] = Field(default=None, description="""How the treatment affects the targeted mechanism""", json_schema_extra = { "linkml_meta": {'comments': ['NO_EFFECT and EXACERBATES are negative claims and require link '
+                      'evidence (`just check-treatment-effects`); the pathograph gives '
+                      'each its own predicate so a failed or harmful treatment is not '
+                      'drawn as one that works.'],
+         'domain_of': ['TreatmentMechanismTarget']} })
     description: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
                        'GenomicRegion',
@@ -17642,10 +17662,12 @@ class PublicationReference(ConfiguredBaseModel):
                                       'required': True},
                         'title': {'description': 'Title of the referenced publication. '
                                                  'Recommended so that linkml-data-qc '
-                                                 'scores its absence, matching the '
-                                                 '`recommended: true` already carried '
-                                                 'by the EvidenceItem '
-                                                 '`reference_title` twin. Set here via '
+                                                 'scores its absence. Its EvidenceItem '
+                                                 'twin, `reference_title`, is '
+                                                 'required; this slot stays '
+                                                 'recommended because '
+                                                 'scripts/find_missing_reference_titles.py '
+                                                 'only reports its gaps. Set here via '
                                                  'slot_usage rather than on the shared '
                                                  '`title` slot, which is also used by '
                                                  'Dataset and TrackedIssue.',
@@ -17655,7 +17677,7 @@ class PublicationReference(ConfiguredBaseModel):
     reference: str = Field(default=..., description="""The authoritative reference (publication) for this evidence item""", json_schema_extra = { "linkml_meta": {'domain_of': ['EvidenceItem', 'PublicationReference', 'MappingConsistency'],
          'examples': [{'value': 'PMID:35533128'}],
          'implements': ['linkml:authoritative_reference']} })
-    title: Optional[str] = Field(default=None, description="""Title of the referenced publication. Recommended so that linkml-data-qc scores its absence, matching the `recommended: true` already carried by the EvidenceItem `reference_title` twin. Set here via slot_usage rather than on the shared `title` slot, which is also used by Dataset and TrackedIssue.""", json_schema_extra = { "linkml_meta": {'comments': ['The `linkml:title` annotation is INERT for '
+    title: Optional[str] = Field(default=None, description="""Title of the referenced publication. Recommended so that linkml-data-qc scores its absence. Its EvidenceItem twin, `reference_title`, is required; this slot stays recommended because scripts/find_missing_reference_titles.py only reports its gaps. Set here via slot_usage rather than on the shared `title` slot, which is also used by Dataset and TrackedIssue.""", json_schema_extra = { "linkml_meta": {'comments': ['The `linkml:title` annotation is INERT for '
                       "linkml-reference-validator detection — lrv's TitleURIs matches "
                       'only "dcterms:title" / "dc/terms/title". Where this slot IS '
                       "title-checked (on PublicationReference) that happens via lrv's "

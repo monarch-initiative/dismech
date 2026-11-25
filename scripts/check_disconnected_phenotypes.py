@@ -117,7 +117,8 @@ ATTACH_NONCAUSAL = "NONCAUSAL_INBOUND"
 ATTACH_SEQUELA_SOURCE = "SEQUELA_SOURCE"
 
 # Predicates a treatment contributes: `targets` from `target_mechanisms`,
-# `treats` from `target_phenotypes`.
+# `treats` from `target_phenotypes`. A failed or harmful treatment (`no_effect_on`,
+# `worsens`) does not treat the node, so it falls through to NONCAUSAL_INBOUND.
 TREATMENT_PREDICATES = frozenset({"targets", "treats"})
 
 # Per-entry findings.

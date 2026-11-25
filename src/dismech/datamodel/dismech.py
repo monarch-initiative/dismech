@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-11-22T20:14:40
+# Generation date: 2026-11-24T15:38:18
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -1602,9 +1602,7 @@ class PhenotypeContext(YAMLRoot):
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.genetic_context is not None and not isinstance(self.genetic_context, GeneticContext):
             self.genetic_context = GeneticContext(**as_dict(self.genetic_context))
@@ -1691,9 +1689,7 @@ class Dataset(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="findings", slot_type=Finding, key_name="statement", keyed=False)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -1775,9 +1771,7 @@ class ExperimentalModel(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="findings", slot_type=Finding, key_name="statement", keyed=False)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -1888,9 +1882,7 @@ class Experiment(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="datasets", slot_type=Dataset, key_name="accession", keyed=True)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -1959,9 +1951,7 @@ class ExperimentalPerturbation(YAMLRoot):
         if self.effect is not None and not isinstance(self.effect, str):
             self.effect = str(self.effect)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -2021,9 +2011,7 @@ class ExperimentalReadout(YAMLRoot):
         if self.interpretation is not None and not isinstance(self.interpretation, str):
             self.interpretation = str(self.interpretation)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -2064,9 +2052,7 @@ class ExperimentalControl(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="perturbations", slot_type=ExperimentalPerturbation, key_name="name", keyed=True)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -2132,9 +2118,7 @@ class ExecutableProtocol(YAMLRoot):
         if self.retrieved_date is not None and not isinstance(self.retrieved_date, XSDDate):
             self.retrieved_date = XSDDate(self.retrieved_date)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -2178,9 +2162,7 @@ class ClinicalTrial(YAMLRoot):
         if self.status is not None and not isinstance(self.status, ClinicalTrialStatusEnum):
             self.status = ClinicalTrialStatusEnum(self.status)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         self._normalize_inlined_as_list(slot_name="target_phenotypes", slot_type=PhenotypeDescriptor, key_name="preferred_term", keyed=False)
 
@@ -2259,9 +2241,7 @@ class ComputationalModel(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="findings", slot_type=Finding, key_name="statement", keyed=False)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -2412,9 +2392,7 @@ class DifferentialDiagnosis(YAMLRoot):
             self.distinguishing_features = [self.distinguishing_features] if self.distinguishing_features is not None else []
         self.distinguishing_features = [v if isinstance(v, str) else str(v) for v in self.distinguishing_features]
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -2468,9 +2446,7 @@ class Subtype(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.review_notes is not None and not isinstance(self.review_notes, str):
             self.review_notes = str(self.review_notes)
@@ -2538,8 +2514,8 @@ class EvidenceItem(YAMLRoot):
     class_name: ClassVar[str] = "EvidenceItem"
     class_model_uri: ClassVar[URIRef] = DISMECH.EvidenceItem
 
+    reference_title: str = None
     reference: Optional[str] = None
-    reference_title: Optional[str] = None
     supports: Optional[Union[str, "EvidenceItemSupportEnum"]] = None
     directness: Optional[Union[str, "DirectnessEnum"]] = None
     quote_role: Optional[Union[str, "QuoteRoleEnum"]] = None
@@ -2549,11 +2525,13 @@ class EvidenceItem(YAMLRoot):
     images: Optional[Union[str, list[str]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.reference_title):
+            self.MissingRequiredField("reference_title")
+        if not isinstance(self.reference_title, str):
+            self.reference_title = str(self.reference_title)
+
         if self.reference is not None and not isinstance(self.reference, str):
             self.reference = str(self.reference)
-
-        if self.reference_title is not None and not isinstance(self.reference_title, str):
-            self.reference_title = str(self.reference_title)
 
         if self.supports is not None and not isinstance(self.supports, EvidenceItemSupportEnum):
             self.supports = EvidenceItemSupportEnum(self.supports)
@@ -2608,9 +2586,7 @@ class CausalEdge(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if not isinstance(self.hypothesis_groups, list):
             self.hypothesis_groups = [self.hypothesis_groups] if self.hypothesis_groups is not None else []
@@ -2656,9 +2632,7 @@ class TreatmentMechanismTarget(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         super().__post_init__(**kwargs)
 
@@ -2698,9 +2672,7 @@ class EnvironmentalMechanismTarget(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         super().__post_init__(**kwargs)
 
@@ -2737,9 +2709,7 @@ class ModelDivergence(YAMLRoot):
         if self.materiality is not None and not isinstance(self.materiality, ModelDivergenceMaterialityEnum):
             self.materiality = ModelDivergenceMaterialityEnum(self.materiality)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         super().__post_init__(**kwargs)
 
@@ -2793,9 +2763,7 @@ class ModelMechanismLink(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="divergences", slot_type=ModelDivergence, key_name="divergence_type", keyed=False)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         super().__post_init__(**kwargs)
 
@@ -2850,9 +2818,7 @@ class BiomarkerReadout(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         super().__post_init__(**kwargs)
 
@@ -2905,9 +2871,7 @@ class PhenotypeReadout(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         super().__post_init__(**kwargs)
 
@@ -3006,9 +2970,7 @@ class ReferenceRange(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="interpretation_bands", slot_type=ReferenceRangeBand, key_name="name", keyed=True)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -3159,9 +3121,7 @@ class SurrogateEndpoint(YAMLRoot):
         if self.retrieved_date is not None and not isinstance(self.retrieved_date, XSDDate):
             self.retrieved_date = XSDDate(self.retrieved_date)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -3474,9 +3434,7 @@ class ExternalAssertion(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -3551,9 +3509,7 @@ class Finding(YAMLRoot):
         if self.supporting_text is not None and not isinstance(self.supporting_text, str):
             self.supporting_text = str(self.supporting_text)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         super().__post_init__(**kwargs)
 
@@ -3604,9 +3560,7 @@ class Prevalence(YAMLRoot):
         if self.rate_denominator is not None and not isinstance(self.rate_denominator, RateDenominatorEnum):
             self.rate_denominator = RateDenominatorEnum(self.rate_denominator)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -3654,9 +3608,7 @@ class GeneCaseFraction(YAMLRoot):
         if self.cohort_size is not None and not isinstance(self.cohort_size, int):
             self.cohort_size = int(self.cohort_size)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -3703,9 +3655,7 @@ class GeneDiseaseValidityAssertion(YAMLRoot):
         if self.subtype is not None and not isinstance(self.subtype, str):
             self.subtype = str(self.subtype)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -3748,9 +3698,7 @@ class ProgressionInfo(YAMLRoot):
         if self.age_range is not None and not isinstance(self.age_range, str):
             self.age_range = str(self.age_range)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.incubation_days is not None and not isinstance(self.incubation_days, str):
             self.incubation_days = str(self.incubation_days)
@@ -3800,9 +3748,7 @@ class ClinicalBurden(YAMLRoot):
         if self.rationale is not None and not isinstance(self.rationale, str):
             self.rationale = str(self.rationale)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -3857,9 +3803,7 @@ class EpidemiologyInfo(YAMLRoot):
         if self.unit is not None and not isinstance(self.unit, str):
             self.unit = str(self.unit)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         super().__post_init__(**kwargs)
 
@@ -3919,9 +3863,7 @@ class Pathophysiology(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="cell_types", slot_type=CellTypeDescriptor, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         self._normalize_inlined_as_list(slot_name="biological_processes", slot_type=BiologicalProcessDescriptor, key_name="preferred_term", keyed=False)
 
@@ -4049,9 +3991,7 @@ class Phenotype(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="sequelae", slot_type=CausalEdge, key_name="target", keyed=False)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.context is not None and not isinstance(self.context, str):
             self.context = str(self.context)
@@ -4129,9 +4069,7 @@ class Biochemical(YAMLRoot):
             self.reference_ranges = [self.reference_ranges] if self.reference_ranges is not None else []
         self.reference_ranges = [v if isinstance(v, ReferenceRange) else ReferenceRange(**as_dict(v)) for v in self.reference_ranges]
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.specificity is not None and not isinstance(self.specificity, str):
             self.specificity = str(self.specificity)
@@ -4200,9 +4138,7 @@ class HistopathologyFinding(YAMLRoot):
         if self.diagnostic is not None and not isinstance(self.diagnostic, Bool):
             self.diagnostic = Bool(self.diagnostic)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -4280,9 +4216,7 @@ class ImagingFinding(YAMLRoot):
         if self.modifier is not None and not isinstance(self.modifier, ModifierEnum):
             self.modifier = ModifierEnum(self.modifier)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -4342,9 +4276,7 @@ class Genetic(YAMLRoot):
         if self.presence is not None and not isinstance(self.presence, str):
             self.presence = str(self.presence)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.association is not None and not isinstance(self.association, str):
             self.association = str(self.association)
@@ -4423,9 +4355,7 @@ class Environmental(YAMLRoot):
         if self.presence is not None and not isinstance(self.presence, str):
             self.presence = str(self.presence)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -4695,9 +4625,7 @@ class Stage(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -4752,9 +4680,7 @@ class AgentLifeCycle(YAMLRoot):
             self.vectors = [self.vectors] if self.vectors is not None else []
         self.vectors = [v if isinstance(v, str) else str(v) for v in self.vectors]
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -4797,9 +4723,7 @@ class AgentLifeCycleStage(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -4871,9 +4795,7 @@ class AnimalModel(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="modeled_mechanisms", slot_type=ModelMechanismLink, key_name="target", keyed=False)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -4960,9 +4882,7 @@ class Treatment(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="pdb_structures", slot_type=ProteinStructure, key_name="pdb_id", keyed=False)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -5115,9 +5035,7 @@ class TreatmentEffectModifier(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -5173,9 +5091,7 @@ class DeliverySystem(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -5211,9 +5127,7 @@ class InfectiousAgent(YAMLRoot):
         if self.food_source is not None and not isinstance(self.food_source, FoodDescriptor):
             self.food_source = FoodDescriptor(**as_dict(self.food_source))
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
@@ -5247,9 +5161,7 @@ class Transmission(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -5322,9 +5234,7 @@ class Diagnosis(YAMLRoot):
         if self.presence is not None and not isinstance(self.presence, str):
             self.presence = str(self.presence)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -5384,9 +5294,7 @@ class Inheritance(YAMLRoot):
         if self.parent_of_origin_effect is not None and not isinstance(self.parent_of_origin_effect, str):
             self.parent_of_origin_effect = str(self.parent_of_origin_effect)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
@@ -5441,9 +5349,7 @@ class Variant(YAMLRoot):
         if self.regulatory_target_gene is not None and not isinstance(self.regulatory_target_gene, GeneDescriptor):
             self.regulatory_target_gene = GeneDescriptor(**as_dict(self.regulatory_target_gene))
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if not isinstance(self.functional_effects, list):
             self.functional_effects = [self.functional_effects] if self.functional_effects is not None else []
@@ -5550,9 +5456,7 @@ class VariantPopulationEffect(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -5655,9 +5559,7 @@ class ModelingConsideration(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         super().__post_init__(**kwargs)
 
@@ -5678,9 +5580,7 @@ class ClassificationAssignment(YAMLRoot):
     notes: Optional[str] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -6285,9 +6185,7 @@ class Definition(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="exclusion_criteria", slot_type=CriteriaItem, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -6322,9 +6220,7 @@ class AlgorithmValidationStatus(YAMLRoot):
         if self.rationale is not None and not isinstance(self.rationale, str):
             self.rationale = str(self.rationale)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         super().__post_init__(**kwargs)
 
@@ -6381,9 +6277,7 @@ class CriteriaSet(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="additional_requirements", slot_type=CriteriaItem, key_name="preferred_term", keyed=False)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -6799,9 +6693,7 @@ class ComorbidityAssociation(YAMLRoot):
             self.association_signals = [self.association_signals] if self.association_signals is not None else []
         self.association_signals = [v if isinstance(v, AssociationSignal) else AssociationSignal(**as_dict(v)) for v in self.association_signals]
 
-        if not isinstance(self.literature_evidence, list):
-            self.literature_evidence = [self.literature_evidence] if self.literature_evidence is not None else []
-        self.literature_evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.literature_evidence]
+        self._normalize_inlined_as_list(slot_name="literature_evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if not isinstance(self.hypotheses, list):
             self.hypotheses = [self.hypotheses] if self.hypotheses is not None else []
@@ -6919,9 +6811,7 @@ class AssociationSignal(YAMLRoot):
         if self.go_enrichment is not None and not isinstance(self.go_enrichment, GOEnrichment):
             self.go_enrichment = GOEnrichment(**as_dict(self.go_enrichment))
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -7020,9 +6910,7 @@ class AssociationStatistics(YAMLRoot):
             self.metrics = [self.metrics] if self.metrics is not None else []
         self.metrics = [v if isinstance(v, AssociationMetric) else AssociationMetric(**as_dict(v)) for v in self.metrics]
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -7118,9 +7006,7 @@ class ComorbidityHypothesis(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         self._normalize_inlined_as_list(slot_name="pathophysiology", slot_type=Pathophysiology, key_name="name", keyed=True)
 
@@ -7150,9 +7036,7 @@ class UpstreamConditionHypothesis(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         super().__post_init__(**kwargs)
 
@@ -7197,9 +7081,7 @@ class MechanisticHypothesis(YAMLRoot):
             self.applies_to_subtypes = [self.applies_to_subtypes] if self.applies_to_subtypes is not None else []
         self.applies_to_subtypes = [v if isinstance(v, str) else str(v) for v in self.applies_to_subtypes]
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -7264,9 +7146,7 @@ class Discussion(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="proposed_experiments", slot_type=Experiment, key_name="name", keyed=True)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.posed_by is not None and not isinstance(self.posed_by, str):
             self.posed_by = str(self.posed_by)
@@ -7432,9 +7312,7 @@ class GroupingCriteria(YAMLRoot):
         if self.logic is not None and not isinstance(self.logic, LogicalCriterion):
             self.logic = LogicalCriterion(**as_dict(self.logic))
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -7550,9 +7428,7 @@ class GroupingMember(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="differentiating_mechanisms", slot_type=DifferentiatingMechanism, key_name="description", keyed=False)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -7602,9 +7478,7 @@ class DifferentiatingMechanism(YAMLRoot):
         if self.modifier is not None and not isinstance(self.modifier, ModifierEnum):
             self.modifier = ModifierEnum(self.modifier)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -7664,9 +7538,7 @@ class ModuleCollection(YAMLRoot):
             self.child_collections = [self.child_collections] if self.child_collections is not None else []
         self.child_collections = [v if isinstance(v, str) else str(v) for v in self.child_collections]
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -7706,9 +7578,7 @@ class ModuleCollectionMember(YAMLRoot):
         if self.description is not None and not isinstance(self.description, str):
             self.description = str(self.description)
 
-        if not isinstance(self.evidence, list):
-            self.evidence = [self.evidence] if self.evidence is not None else []
-        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+        self._normalize_inlined_as_list(slot_name="evidence", slot_type=EvidenceItem, key_name="reference_title", keyed=False)
 
         if self.notes is not None and not isinstance(self.notes, str):
             self.notes = str(self.notes)
@@ -10248,6 +10118,14 @@ class TreatmentEffectEnum(EnumDefinitionImpl):
     RESTORES = PermissibleValue(
         text="RESTORES",
         description="Restores normal function of a disrupted mechanism (e.g., gene therapy, enzyme replacement)")
+    NO_EFFECT = PermissibleValue(
+        text="NO_EFFECT",
+        title="No effect",
+        description="""The treatment was given or tested for this mechanism or phenotype and did not improve it (e.g., anti-inflammatory drugs for the noninflammatory cartilage loss of progressive pseudorheumatoid arthropathy). A negative claim: the pathograph does not draw it as a treatment that works.""")
+    EXACERBATES = PermissibleValue(
+        text="EXACERBATES",
+        title="Exacerbates",
+        description="""The treatment worsens or adds to the mechanism or phenotype (e.g., beta blockade potentiating cocaine-induced coronary vasoconstriction). Includes a treatment given for one node that worsens another, which carries one link per node. A negative claim, distinct from MODULATES (no clear unidirectional effect) and from ACTIVATES (promotes a mechanism, as in restoring a deficient pathway).""")
 
     _defn = EnumDefinition(
         name="TreatmentEffectEnum",
@@ -14854,7 +14732,7 @@ slots.snippet = Slot(uri=DISMECH.snippet, name="snippet", curie=DISMECH.curie('s
                    model_uri=DISMECH.snippet, domain=None, range=Optional[str])
 
 slots.reference_title = Slot(uri=DISMECH.reference_title, name="reference_title", curie=DISMECH.curie('reference_title'),
-                   model_uri=DISMECH.reference_title, domain=None, range=Optional[str])
+                   model_uri=DISMECH.reference_title, domain=None, range=str)
 
 slots.explanation = Slot(uri=DISMECH.explanation, name="explanation", curie=DISMECH.curie('explanation'),
                    model_uri=DISMECH.explanation, domain=None, range=Optional[str])

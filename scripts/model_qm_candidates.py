@@ -64,6 +64,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from model_inventory import repo_commit
 
 from dismech import kb_cache
+from dismech.graph import negated_treatment_targets
 from dismech.model_registry import iter_model_dirs
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -107,8 +108,14 @@ def decision_targets(doc: dict) -> dict[str, list[str]]:
     for treatment in _list(doc.get("treatments")):
         if not isinstance(treatment, dict):
             continue
+        # A failed or harmful treatment does not make the node a target (#10151).
+        negated = negated_treatment_targets(treatment)
         for tm in _list(treatment.get("target_mechanisms")):
-            if isinstance(tm, dict) and tm.get("target"):
+            if (
+                isinstance(tm, dict)
+                and tm.get("target")
+                and tm["target"] not in negated
+            ):
                 routes.setdefault(tm["target"], [])
                 if "treatment target" not in routes[tm["target"]]:
                     routes[tm["target"]].append("treatment target")

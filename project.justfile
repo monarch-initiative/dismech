@@ -1154,7 +1154,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-unsuccessful-research check-reference-cache-nul-bytes check-reference-cache-welded-headings check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-gene-namespaces check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-codelists check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-unsuccessful-research check-reference-cache-nul-bytes check-reference-cache-welded-headings check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-treatment-effects check-gene-namespaces check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-codelists check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1779,6 +1779,24 @@ check-enum-values *files:
 [group('QC')]
 check-delivery-system *args:
     uv run python scripts/check_delivery_system.py {{args}}
+
+# A target_mechanisms link whose prose or evidence denies its typed
+# treatment_effect draws an arrow the entry itself rejects (#10048, #10151). Gates
+# on one class: NO_EFFECT or EXACERBATES with no evidence on the link. The rest are
+# leads for a curator and never fail.
+#
+#   just check-treatment-effects kb/disorders/Asthma.yaml
+#
+# Check that treatment effects agree with their link's prose and evidence
+[group('QC')]
+check-treatment-effects *files:
+    uv run python scripts/check_treatment_effects.py "$@"
+
+# Every treatment-effect finding, including the reported classes (triage view)
+[group('QC')]
+list-treatment-effects *files:
+    uv run python scripts/check_treatment_effects.py --format list "$@"
+
 
 # Check the gene namespace of every model and dataset gene, and that its
 # identifier is real. Non-human genes (Alliance MODs: MGI, RGD, ZFIN, Xenbase,
