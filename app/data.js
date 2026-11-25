@@ -122609,19 +122609,21 @@ window.searchData = [
       "AML with t(8;21)(q22;q22) RUNX1-RUNX1T1",
       "AML with inv(16)(p13.1q22) or t(16;16) CBFB-MYH11"
     ],
-    "description": "Core binding factor (CBF) acute myeloid leukemia encompasses two favorable-risk AML subtypes defined by chromosomal abnormalities affecting the CBF transcription factor complex: t(8;21)(q22;q22) creating RUNX1-RUNX1T1 fusion, and inv(16)(p13.1q22) or t(16;16)(p13.1;q22) creating CBFB-MYH11 fusion. CBF is essential for definitive hematopoiesis, and these fusion proteins act as dominant-negative inhibitors of normal CBF function, blocking myeloid differentiation. CBF-AML represents 15-20% of adult AML and has favorable prognosis with intensive chemotherapy, particularly with high-dose cytarabine consolidation.",
+    "description": "Core binding factor (CBF) acute myeloid leukemia encompasses two favorable-risk AML subtypes defined by chromosomal abnormalities affecting the CBF transcription factor complex: t(8;21)(q22;q22) creating RUNX1-RUNX1T1 fusion, and inv(16)(p13.1q22) or t(16;16)(p13.1;q22) creating CBFB-MYH11 fusion. CBF is essential for definitive hematopoiesis, and these fusion proteins act as dominant-negative inhibitors of normal CBF function, blocking myeloid differentiation. CBF-AML represents approximately 12-15% of adult de novo AML and has a favorable prognosis with intensive chemotherapy, particularly with high-dose cytarabine consolidation.",
     "pathophysiology": [
       "CBF Transcription Factor Complex Disruption",
       "Differentiation Block at Myeloid Stage",
       "Self-Renewal Maintenance",
-      "Leukemic Blast Accumulation"
+      "Cooperating KIT Receptor Tyrosine Kinase Activation",
+      "Leukemic Blast Accumulation",
+      "Extramedullary Leukemic Infiltration"
     ],
     "cell_types": [
-      "myeloid progenitor cell",
+      "CD34+ hematopoietic stem/progenitor cell",
       "myeloblast"
     ],
     "cell_type_ids": [
-      "CL:0000049",
+      "CL:0000037",
       "CL:0000835"
     ],
     "biological_processes": [
@@ -122663,30 +122665,32 @@ window.searchData = [
       "OCCASIONAL"
     ],
     "genes": [
-      "RUNX1-RUNX1T1 Fusion",
-      "CBFB-MYH11 Fusion",
-      "KIT"
+      "RUNX1 Fusion Partner",
+      "RUNX1T1 Fusion Partner",
+      "CBFB Fusion Partner",
+      "MYH11 Fusion Partner",
+      "KIT",
+      "NRAS",
+      "FLT3",
+      "KRAS"
     ],
     "treatments": [
       "Intensive Chemotherapy (7+3) with High-Dose Cytarabine Consolidation",
       "Venetoclax with Hypomethylating Agent",
       "Gemtuzumab Ozogamicin",
-      "MRD-Guided Therapy",
+      "MRD-Guided Post-Remission Therapy",
       "Allogeneic Stem Cell Transplantation"
     ],
     "environmental": [],
-    "biochemical": [
-      "Cytogenetic Analysis",
-      "Molecular Fusion Detection"
-    ],
+    "biochemical": [],
     "source_file": "Core_Binding_Factor_AML.yaml",
     "page_url": "../pages/disorders/Acute_Myeloid_Leukemia,_Core_Binding_Factor.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 4,
-    "num_genes": 3,
+    "num_pathophysiology": 6,
+    "num_genes": 8,
     "num_treatments": 5,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Cori Forbes Disease",
@@ -144369,8 +144373,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Dilated Cardiomyopathy 1Y",
@@ -203740,13 +203744,19 @@ window.searchData = [
       "Heterozygous ATL1 Variant with Reduced Atlastin-1 GTPase Activity",
       "Impaired Homotypic ER Membrane Fusion",
       "Disrupted Tubular ER Network",
-      "Distal Degeneration of Long Sensory Axons"
+      "Distal Degeneration of Long Sensory Axons",
+      "Distal Motor Axon Degeneration",
+      "Corticospinal Tract Axonopathy"
     ],
     "cell_types": [
-      "dorsal root ganglion sensory neuron"
+      "dorsal root ganglion sensory neuron",
+      "lower motor neuron",
+      "upper motor neuron"
     ],
     "cell_type_ids": [
-      "CL:1001451"
+      "CL:1001451",
+      "CL:0008039",
+      "CL:0008048"
     ],
     "biological_processes": [
       "homotypic endoplasmic reticulum membrane fusion",
@@ -203792,10 +203802,10 @@ window.searchData = [
     "source_file": "Hereditary_Sensory_Neuropathy_Type_1D.yaml",
     "page_url": "../pages/disorders/Hereditary_Sensory_Neuropathy_Type_1D.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "7"
   },
   {
@@ -255651,7 +255661,8 @@ window.searchData = [
       "Supportive Care"
     ],
     "environmental": [
-      "Grass pea (Lathyrus sativus) overconsumption"
+      "Grass pea (Lathyrus sativus) overconsumption",
+      "Beta-aminopropionitrile (BAPN) lathyrogen exposure"
     ],
     "biochemical": [],
     "source_file": "Lathyrism.yaml",
@@ -255660,8 +255671,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Lead Poisoning",
@@ -275255,15 +275266,26 @@ window.searchData = [
       "Multi-Element First and Second Arch Malformation"
     ],
     "cell_types": [
-      "cranial neural crest cell"
+      "migratory neural crest cell",
+      "cranial neural crest cell",
+      "neural crest cell",
+      "chondrocyte",
+      "osteoblast"
     ],
     "cell_type_ids": [
-      "CL:0000008"
+      "CL:0000333",
+      "CL:0000008",
+      "CL:0011012",
+      "CL:0000138",
+      "CL:0000062"
     ],
     "biological_processes": [
+      "neural crest cell development",
       "G protein-coupled receptor signaling pathway",
       "regionalization",
-      "embryonic skeletal system morphogenesis"
+      "embryonic skeletal system morphogenesis",
+      "face morphogenesis",
+      "embryonic cranial skeleton morphogenesis"
     ],
     "phenotypes": [
       "Mandibular Hypoplasia",
@@ -275303,7 +275325,11 @@ window.searchData = [
     "genes": [
       "EDNRA"
     ],
-    "treatments": [],
+    "treatments": [
+      "Hearing Aid Rehabilitation",
+      "Eyelid Coloboma Surgical Repair",
+      "Genetic Counseling"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Mandibulofacial_Dysostosis_With_Alopecia.yaml",
@@ -275311,9 +275337,9 @@ window.searchData = [
     "num_phenotypes": 9,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 3,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Mandibulofacial dysostosis with microcephaly",
@@ -453334,12 +453360,12 @@ window.searchMetrics = {
   "total_disorder_pages": 4169,
   "total_subtypes": 5124,
   "total_disorders_and_subtypes": 9293,
-  "total_unique_evidence_sources": 62267,
-  "total_unique_publications": 58151,
+  "total_unique_evidence_sources": 62277,
+  "total_unique_publications": 58159,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4167,
-  "total_unique_pathological_events": 27534,
+  "total_unique_pathological_events": 27536,
   "total_modules": 239,
   "total_research_reports": 4271,
   "total_classifications": 21,
