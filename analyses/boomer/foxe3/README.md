@@ -17,8 +17,9 @@ This investigation checks the saved input against current source context on
 2026-09-20. The dismech KB now explicitly qualifies its existing MONDO grounding
 as `skos:broadMatch`; the combined FOXE3 clinical scope is retained. A
 [proxy MONDO request](https://github.com/monarch-initiative/dismech/issues/12404)
-tracks the proposed gene-specific grouping. The ICD correction remains a
-proposal. Saved Boomer inputs and solutions are retained as the historical
+tracks the proposed gene-specific grouping. The ICD correction is recorded in the
+[structured proposal registry](../../../ontology_changes/mondo-0019503-icd11-anterior-segment-broad-match.yaml),
+which tracks its current verification date and upstream request status. Saved Boomer inputs and solutions are retained as the historical
 baseline analyzed below; they predate the KB mapping qualification.
 
 ## Entities in play
