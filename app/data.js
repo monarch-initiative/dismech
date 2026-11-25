@@ -25514,7 +25514,12 @@ window.searchData = [
     ],
     "environmental": [
       "Cumulative exposure to strong central anticholinergic medication",
-      "Oral glucosamine supplementation"
+      "Oral glucosamine supplementation",
+      "Tobacco smoking",
+      "Ambient air pollution",
+      "Physical inactivity",
+      "Midlife hypertension",
+      "Midlife obesity"
     ],
     "biochemical": [
       "Amyloid Beta (A\u03b242)",
@@ -25528,7 +25533,7 @@ window.searchData = [
     "num_pathophysiology": 29,
     "num_genes": 19,
     "num_treatments": 12,
-    "causal_graph_edges": "79",
+    "causal_graph_edges": "83",
     "causal_graph_longest_path": "10"
   },
   {
@@ -137237,7 +137242,9 @@ window.searchData = [
     ],
     "cell_types": [],
     "cell_type_ids": [],
-    "biological_processes": [],
+    "biological_processes": [
+      "SWI/SNF chromatin remodelling"
+    ],
     "phenotypes": [
       "Obstructive hydrocephalus",
       "Upgaze palsy",
@@ -329827,6 +329834,93 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "PBX1-Related Syndromic CAKUT",
+    "disease_id": "MONDO:0060549",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-11-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant, highly pleiotropic developmental disorder (CAKUTHED; OMIM 617641) caused by heterozygous loss of function of PBX1, a TALE-class homeodomain transcription factor that acts in multimeric complexes with HOX and other TALE proteins. PBX1 haploinsufficiency - from 1q23.3 microdeletions, truncating variants, or deleterious missense variants that impair PBX-dependent transactivation or nuclear localization - disrupts PBX1/HOX transcriptional programs in developing mesenchyme. The core feature is congenital anomalies of the kidney and urinary tract (most often bilateral renal hypoplasia), with variable extrarenal involvement: developmental delay, external-ear anomalies and hearing loss, facial dysmorphism, 46,XY differences of sex development and cryptorchidism, congenital heart defects, and diaphragmatic eventration. Severity ranges from perinatal lethality to mild renal hypoplasia recognized only in adulthood. Most cases are de novo; parental (including gonadal) mosaicism is documented and raises recurrence risk.",
+    "pathophysiology": [
+      "PBX1 Haploinsufficiency",
+      "Impaired Metanephric Mesenchymal Function",
+      "Impaired Urogenital Ridge Development"
+    ],
+    "cell_types": [
+      "metanephric mesenchyme stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000324"
+    ],
+    "biological_processes": [
+      "regulation of transcription by RNA polymerase II",
+      "nephron development",
+      "male gonad development"
+    ],
+    "phenotypes": [
+      "Renal hypoplasia",
+      "Developmental delay",
+      "External ear anomalies",
+      "Ambiguous genitalia / 46,XY DSD",
+      "Congenital heart defect",
+      "Diaphragmatic hernia",
+      "Diaphragmatic eventration",
+      "Hearing impairment",
+      "Cryptorchidism",
+      "Facial dysmorphism"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Neurologic",
+      "Otologic",
+      "Genitourinary",
+      "Cardiovascular",
+      "Respiratory",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Genitourinary",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000089",
+      "HP:0001263",
+      "HP:0000356",
+      "HP:0000062",
+      "HP:0001627",
+      "HP:0000776",
+      "HP:0009110",
+      "HP:0000365",
+      "HP:0000028",
+      "HP:0001999"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "PBX1 variants"
+    ],
+    "treatments": [
+      "Supportive and multidisciplinary care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "PBX1-Related_Syndromic_CAKUT.yaml",
+    "page_url": "../pages/disorders/PBX1-Related_Syndromic_CAKUT.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 3,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "PCDH19 Clustering Epilepsy",
     "disease_id": "MONDO:0010246",
     "category": "Mendelian",
@@ -340526,7 +340620,7 @@ window.searchData = [
       "Sclerosing",
       "Malignant"
     ],
-    "description": "Perineurioma is a rare, benign tumour of the peripheral nerve sheath made of perineurial cells, the specialised lining cells of the nerve sheath; the tumour cells stain for epithelial membrane antigen and not, or only in a few tumours, for S-100 protein. It has two main forms, which differ in site, in course and in the genetic lesions reported in each. Intraneural perineurioma grows within a peripheral nerve, most often the sciatic nerve or its branches, and causes a slowly progressive, motor-predominant mononeuropathy in children and young adults; a TRAF7 mutation was found in 10 of 16 tumours in one series and 2 of 9 in another. Soft tissue (extraneural) perineurioma is a usually painless mass in the soft tissue or skin of adults, with reticular and sclerosing variants, the sclerosing one mostly in the fingers and palm; NF2 is mutated in some. Both forms behave benignly: a 2007 systematic review states that the intraneural form does not recur, and an 81-case series reports that soft tissue tumours rarely recur. Malignant perineurioma is rare, and whether it is a distinct tumour is disputed.",
+    "description": "Perineurioma is a rare, benign tumour of the peripheral nerve sheath made of perineurial cells, the specialised lining cells of the nerve sheath; the tumour cells stain for epithelial membrane antigen and not, or only in a few tumours, for S-100 protein, though epithelial membrane antigen does not stain every tumour, the negative tumours in the sources cited here being in the gut. It has two main forms, which differ in site, in course and in the genetic lesions reported in each. Intraneural perineurioma grows within a peripheral nerve, most often the sciatic nerve or its branches, and causes a slowly progressive, motor-predominant mononeuropathy in children and young adults; a TRAF7 mutation was found in 10 of 16 tumours in one series and 2 of 9 in another. Soft tissue (extraneural) perineurioma is a usually painless mass in the soft tissue or skin of adults, or a small polyp in the gut, mostly the colon. It has reticular and sclerosing variants, the sclerosing one mostly in the fingers and palm, and NF2 is mutated in some of its tumours. Both forms behave benignly: a 2007 systematic review states that the intraneural form does not recur, and an 81-case series reports that soft tissue tumours rarely recur. Malignant perineurioma is rare, and whether it is a distinct tumour is disputed.",
     "pathophysiology": [
       "Somatic TRAF7 WD40-Domain Mutation",
       "Intraneural Perineurial Cell Proliferation",
@@ -340552,14 +340646,18 @@ window.searchData = [
       "Foot drop",
       "Wrist drop",
       "Reduced or absent reflexes",
-      "Painless soft tissue mass"
+      "Painless soft tissue mass",
+      "Colonic mucosal polyp",
+      "Gastric polyp"
     ],
     "phenotype_categories": [
       "Neurological",
-      "Neoplastic"
+      "Neoplastic",
+      "Gastrointestinal"
     ],
     "phenotype_hpo_categories": [
       "Constitutional",
+      "Digestive",
       "Limbs",
       "Musculoskeletal",
       "Neoplasm",
@@ -340574,7 +340672,9 @@ window.searchData = [
       "HP:0009027",
       "HP:0031189",
       "HP:0001315",
-      "HP:0031459"
+      "HP:0031459",
+      "HP:0005266",
+      "HP:0006753"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -340595,11 +340695,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Perineurioma.yaml",
     "page_url": "../pages/disorders/Perineurioma.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 11,
     "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "15",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "4"
   },
   {
@@ -381068,6 +381168,86 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "21",
     "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "SMO-Related Pallister-Hall-Like Syndrome",
+    "disease_id": "MONDO:0009436",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-11-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A pleiotropic autosomal recessive developmental disorder caused by biallelic germline loss-of-function variants in SMO (Smoothened), the obligatory transducer of Hedgehog signalling at the primary cilium. Loss of SMO blocks Hedgehog signal transduction, producing a continuum of malformations: hypothalamic hamartoma (with gelastic or dacrystic seizures), microcephaly, atrioventricular septal defect, postaxial polydactyly, narrow chest and short long bones, and enteric aganglionosis (Hirschsprung disease). It is distinct from GLI3-related Pallister-Hall syndrome (autosomal dominant, a constitutive GLI3 repressor) and from the mosaic activating-SMO Curry-Jones syndrome (MONDO:1030005); the shared Hedgehog pathway is the common thread. A germline plus somatic (two-hit) SMO mechanism has also been found in sporadic hypothalamic hamartoma.",
+    "pathophysiology": [
+      "Biallelic SMO Loss of Function",
+      "Impaired Hedgehog Signal Transduction"
+    ],
+    "cell_types": [
+      "fibroblast (patient)"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "smoothened signaling pathway"
+    ],
+    "phenotypes": [
+      "Hypothalamic hamartoma",
+      "Gelastic seizures",
+      "Microcephaly",
+      "Atrioventricular septal defect",
+      "Postaxial polydactyly",
+      "Shortening of long bones",
+      "Narrow chest",
+      "Hirschsprung disease",
+      "Craniofacial dysmorphism",
+      "Delayed speech and language development"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Gastrointestinal",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002444",
+      "HP:0010821",
+      "HP:0000252",
+      "HP:0006695",
+      "HP:0100259",
+      "HP:0003026",
+      "HP:0000774",
+      "HP:0002251",
+      "HP:0001999",
+      "HP:0000750"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SMO variants"
+    ],
+    "treatments": [
+      "Supportive and surgical care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SMO-Related_Hypothalamic_Hamartoma_Syndrome.yaml",
+    "page_url": "../pages/disorders/SMO-Related_Pallister-Hall-Like_Syndrome.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 2,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "SNAP25-Related Developmental and Epileptic Encephalopathy",
@@ -454109,17 +454289,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4175,
+  "total_disorder_pages": 4177,
   "total_subtypes": 5137,
-  "total_disorders_and_subtypes": 9312,
-  "total_unique_evidence_sources": 62359,
-  "total_unique_publications": 58233,
+  "total_disorders_and_subtypes": 9314,
+  "total_unique_evidence_sources": 62385,
+  "total_unique_publications": 58255,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4173,
-  "total_unique_pathological_events": 27570,
+  "total_pathographs": 4175,
+  "total_unique_pathological_events": 27574,
   "total_modules": 240,
-  "total_research_reports": 4277,
+  "total_research_reports": 4279,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 149
