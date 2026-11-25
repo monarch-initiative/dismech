@@ -454011,8 +454011,8 @@ window.searchMetrics = {
   "total_disorder_pages": 4174,
   "total_subtypes": 5137,
   "total_disorders_and_subtypes": 9311,
-  "total_unique_evidence_sources": 62343,
-  "total_unique_publications": 58217,
+  "total_unique_evidence_sources": 62345,
+  "total_unique_publications": 58219,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4172,
@@ -454021,6 +454021,6 @@ window.searchMetrics = {
   "total_research_reports": 4276,
   "total_classifications": 21,
   "total_comorbidities": 58,
-  "total_groupings": 147
+  "total_groupings": 148
 };
 window.dispatchEvent(new Event('searchDataReady'));

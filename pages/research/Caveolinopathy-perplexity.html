@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caveolinopathy · Perplexity · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Caveolinopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Caveolinopathy</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-11-24</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-perplexity">Perplexity</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0016146" target="_blank" rel="noopener noreferrer">MONDO:0016146</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: sonar-deep-research</span>
+                    
+                    
+                    <span class="meta-chip">20 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<h3>Overview and disease definition</h3>
+<p>Caveolinopathy, in the narrow sense relevant to <a href="http://purl.obolibrary.org/obo/MONDO_0016146" target="_blank" rel="noopener noreferrer">MONDO:0016146</a>, denotes <strong>CAV3‑related disease due to qualitative or quantitative defects of caveolin‑3</strong>, the muscle-specific caveolae protein.[10][17][18][19] MedlinePlus Genetics defines isolated hyperCKemia as “one of a group of conditions called caveolinopathies, which are caused by mutations in the <em>CAV3</em> gene,” explicitly linking the term caveolinopathy to CAV3 and to caveolin‑3 deficiency in the muscle cell membrane.[10] The comprehensive review “Caveolinopathies: from the biology of caveolin‑3 to human diseases” further formalizes caveolinopathies as the spectrum of skeletal muscle and cardiac phenotypes associated with caveolin‑3 defects and emphasizes that in muscle tissue caveolin‑3 forms caveolae—flask-shaped invaginations on the cytoplasmic surface of the sarcolemmal membrane that maintain plasma membrane integrity and mediate vesicular trafficking and signal transduction.[17] In human genetic nosology, disease-level entities have historically been defined by phenotypes such as limb‑girdle muscular dystrophy 1C (LGMD1C) or rippling muscle disease 2 (RMD2), then later recognized as caveolinopathies once CAV3 mutations were identified; OMIM entry #606072, “RIPPLING MUSCLE DISEASE 2; RMD2,” explicitly states that heterozygous mutation in CAV3 at chromosome 3p25.3 causes RMD2 and notes that LGMD1C has been reclassified into this category.[16]</p>
+<p>Conceptually, the disease family is best understood as <strong>CAV3‑related caveolinopathy</strong>, a MONDO entity that aggregates multiple phenotypic diagnoses (RMD, distal myopathy, LGMD1C, isolated hyperCKemia, hypertrophic cardiomyopathy) under a shared molecular etiology.[10][15][16][17][18][19] MedGen similarly treats “Rippling muscle disease 2 (RMD2)” as “CAV3‑Related Rippling Muscle Disease; Limb-girdle muscular dystrophy, type 1C; RMD2,” explicitly listing LGMD1C as a synonym and associating the phenotype concept with CAV3 on 3p25.3.[18] An allied MedGen concept, “Distal myopathy, Tateyama type (MPDT),” is defined as “CAV3-related distal myopathy,” again mapping the clinical label to a shared CAV3 etiology.[15] Collectively, these derived resources demonstrate that caveolinopathy refers to disease-level entities derived from aggregated case series and genetic analyses rather than single-patient EHR data, although individual patients’ records underlie the primary reports that feed OMIM, MedGen, Orphanet, and related databases.[10][11][15][16][17][18][19]</p>
+<h3>Key identifiers (OMIM, Orphanet, ICD, MeSH, MONDO)</h3>
+<p>Although there is no single OMIM entry titled “caveolinopathy,” several OMIM phenotypes fall under the caveolinopathy umbrella. OMIM #606072 designates <strong>rippling muscle disease 2 (RMD2)</strong>, defined as an autosomal dominant disorder “caused by heterozygous mutation in the gene encoding caveolin‑3 (CAV3; 601253) on chromosome 3p25.3.”[16] The distal myopathy variant, Tateyama type, is recorded under OMIM #614321 and is indexed in MedGen as “CAV3-related distal myopathy.”[15] Limb‑girdle muscular dystrophy type 1C (LGMD1C), formerly catalogued separately, has been reclassified into RMD2 by Straub et al. (2018) and in OMIM and Orphanet nomenclature “this entity has been excluded from the Orphanet nomenclature of rare diseases and moved to Rippling muscle disease.”[11][16] The causal gene CAV3 itself is recorded as OMIM #601253, with the NCBI Gene entry #859 providing a detailed summary of its genomic location at 3p25.3, exon structure, and functional annotation.[1][3]</p>
+<p>Orphanet formerly listed <strong>autosomal dominant limb-girdle muscular dystrophy type 1C (<a href="https://bioregistry.io/ORPHA:265" target="_blank" rel="noopener noreferrer">ORPHA:265</a>)</strong> as “Limb-girdle muscular dystrophy due to caveolin-3 deficiency,” but now notes that the entity has been moved to the Rippling muscle disease group; this reflects the current consensus that LGMD1C is not a distinct nosological entity, but part of the CAV3-related RMD phenotype spectrum.[11][16][18] MedGen’s concept “Rippling muscle disease 2 (C1832560)” links RMD2 to OMIM #606072, and to <a href="http://purl.obolibrary.org/obo/MONDO_0019947" target="_blank" rel="noopener noreferrer">MONDO:0019947</a> (hereditary rippling muscle disease), with CAV3 as the directly associated gene and synonyms “CAV3-Related Rippling Muscle Disease; Limb-girdle muscular dystrophy, type 1C; RMD2.”[18] A broader MedGen concept “Rippling muscle disease (C1853698)” describes RMD as “a benign myopathy with symptoms and signs of muscular hyperexcitability,” again associating the condition with CAV3 and OMIM #606072.[19] MedlinePlus Genetics uses the term “caveolinopathy” specifically in the context of isolated hyperCKemia, clarifying that CAV3 mutations underlie a group of conditions including CAV3-related distal myopathy, limb-girdle muscular dystrophy, rippling muscle disease, and hypertrophic cardiomyopathy.[10]</p>
+<p>International coding systems such as ICD‑10 and ICD‑11 do not presently include a dedicated code for caveolinopathy, and cases are typically recorded under muscular dystrophy or myopathy codes (e.g., ICD‑10 G71.0 for muscular dystrophy) or cardiomyopathy codes when cardiac involvement predominates. Similarly, MeSH does not maintain a descriptor titled “caveolinopathy,” but uses “Muscular Dystrophies,” “Myopathies,” and “Cardiomyopathy” together with “Caveolin 3” as a substance or gene keyword. MONDO, in contrast, explicitly groups CAV3‑related disorders under <a href="http://purl.obolibrary.org/obo/MONDO_0016146" target="_blank" rel="noopener noreferrer">MONDO:0016146</a> “caveolinopathy,” making it the primary ontological identifier of interest for knowledge-base integration.</p>
+<h3>Synonyms and alternative names</h3>
+<p>The caveolinopathy umbrella includes multiple disease-level synonyms and alternative names that reflect historical phenotypic classification. At the skeletal muscle level, key clinical entities include <strong>rippling muscle disease (RMD; RMD2)</strong>, <strong>limb-girdle muscular dystrophy type 1C (LGMD1C)</strong>, <strong>CAV3-related distal myopathy (Tateyama type; MPDT)</strong>, and <strong>isolated hyperCKemia</strong>.[10][11][15][16][17][18][19] MedGen notes that synonyms for RMD2 include “CAV3-Related Rippling Muscle Disease; Limb-girdle muscular dystrophy, type 1C; RMD2,” emphasizing that LGMD1C is a synonym rather than a distinct disorder.[18] The distal myopathy phenotype is termed “Distal myopathy, Tateyama type (MPDT)” and “CAV3-related distal myopathy” in MedGen, with OMIM #614321 and Orphanet ORPHA488650 providing additional cross-references.[15] The CAV3 gene entry notes gene synonyms “LGMD1C; LQT9; MPDT; RMD2; VIP-21; VIP21,” reflecting its association with limb‑girdle muscular dystrophy, long QT syndrome type 9, distal myopathy Tateyama type, and rippling muscle disease 2.[3] MedlinePlus lists “CAV3-related distal myopathy, limb-girdle muscular dystrophy, rippling muscle disease, and hypertrophic cardiomyopathy” as caveolinopathies.[10]</p>
+<p>At the gene-protein level, synonyms include <strong>caveolin‑3</strong>, <strong>caveolin 3</strong>, and <strong>VIP-21</strong>, and species-specific Gene symbols such as Cav3 in mouse.[1][2][3][5] Many clinical reports also use phrases such as “qualitative or quantitative defects of caveolin‑3” or “partial caveolin‑3 deficiency” to describe the pathogenic state.[13][17] For ontology mapping, the overarching disease concept “caveolinopathy (CAV3-related)” corresponds to <a href="http://purl.obolibrary.org/obo/MONDO_0016146" target="_blank" rel="noopener noreferrer">MONDO:0016146</a>, while individual clinical phenotypes map to <a href="http://purl.obolibrary.org/obo/MONDO_0019947" target="_blank" rel="noopener noreferrer">MONDO:0019947</a> (hereditary rippling muscle disease) and <a href="http://purl.obolibrary.org/obo/MONDO_0013686" target="_blank" rel="noopener noreferrer">MONDO:0013686</a> (distal myopathy, Tateyama type).[15][18][19]</p>
+<h3>Source type: individual-level vs aggregated disease resources</h3>
+<p>The information synthesized in this report is primarily derived from <strong>aggregated disease-level resources</strong>—including OMIM, Orphanet, MedGen, MedlinePlus, and expert reviews—as well as primary clinical and mechanistic studies indexed in PubMed and Europe PMC.[10][11][13][14][15][16][17][18][19][20] For example, MedGen and Orphanet definitions aggregate multiple case series and genetic studies to define disease entities such as RMD2 or distal myopathy Tateyama type, whereas primary case reports provide individual-level details about specific mutations (e.g., Arg26Gln, A46T, Val57Met) and their associated phenotypes.[7][9][12][14] There is no evidence that the disease definitions themselves are drawn from de-identified EHR databases; rather, they reflect curated synthesis of published case reports, cohorts, and mechanistic studies. As a result, prevalence, penetrance, and some clinical variability parameters remain imprecise and are inferred from relatively small cohorts, an important consideration for downstream knowledge representation.</p>
+<h2>2. Etiology</h2>
+<h3>Primary causal factors: genetic basis in CAV3</h3>
+<p>The primary cause of caveolinopathy is <strong>pathogenic germline variation in the CAV3 gene</strong>, encoding caveolin‑3, a muscle-specific component of caveolae in the plasma membrane of skeletal and cardiac muscle cells.[1][2][3][10][17] The NCBI Gene summary for human CAV3 (Gene ID 859) notes that caveolin proteins “are proposed to be scaffolding proteins for organizing and concentrating certain caveolin-interacting molecules” and that mutations in CAV3 “lead to interference with protein oligomerization or intra-cellular routing, disrupting caveolae formation and resulting in Limb-Girdle muscular dystrophy type-1C (LGMD-1C), hyperCKemia or rippling muscle disease (RMD).”[1][3] MedlinePlus Genetics explains that CAV3 gene mutations cause caveolinopathies, including isolated hyperCKemia, CAV3-related distal myopathy, limb-girdle muscular dystrophy, rippling muscle disease, and hypertrophic cardiomyopathy, by resulting “in a shortage of caveolin-3 protein in the muscle cell membrane and a reduction in the number of caveolae.”[10] The caveolinopathy review by Gazzerro et al. further emphasizes that most CAV3 mutations cause severe loss of caveolin‑3 protein, visible as reduced or absent immunohistochemical staining in muscle biopsies, and are associated with disruption of sarcolemmal integrity and T‑tubule organization.[17]</p>
+<p>Hereditary rippling muscle disease has been definitively linked to CAV3 mutations. The OMIM entry for RMD2 states that “rippling muscle disease-2 (RMD2) is caused by heterozygous mutation in the gene encoding caveolin-3 (CAV3; 601253) on chromosome 3p25.3,” and that it is an autosomal dominant disorder characterized by mechanically triggered skeletal muscle contractions.[16] MedGen similarly annotates RMD2 as directly associated with CAV3 at 3p25.3.[18][19] Multiple primary reports have identified specific missense mutations in CAV3 causing RMD, including Arg26Gln in a sporadic de novo case, A46T in a large Swedish family, and other novel variants.[7][9][14] For instance, Klinge et al. reported a de novo Arg26Gln missense mutation in a 24‑year‑old patient with sporadic RMD; muscle biopsy showed reduced caveolin‑3 surface expression, confirming the pathogenic role of the mutation.[14] Similarly, Bedside diagnosis work in a Swedish family found a CAV3 c.G136A transition leading to a p.Ala46Thr missense mutation in affected members, with muscle biopsies showing caveolin‑3 deficiency and absence of caveolae.[9]</p>
+<p>HyperCKemia and distal myopathy forms of caveolinopathy also derive from CAV3 mutations. A study of two children with persistent elevated serum CK but no weakness identified a novel sporadic CAV3 mutation; immunohistochemistry revealed partial caveolin‑3 deficiency, leading the authors to conclude that partial caveolin‑3 deficiency should be considered in idiopathic hyperCKemia.[13] Another report described a novel Val57Met CAV3 mutation in a family with familial isolated hyperCKemia, noting this was the second mutation associated with isolated hyperCKemia and suggesting that CAV3 mutations can cause benign biochemical phenotypes as well as dystrophic myopathy.[12] MedGen’s distal myopathy Tateyama type entry explicitly links the phenotype to CAV3 at 3p25.3, reinforcing CAV3 as the causal gene for this distal myopathy variant.[15]</p>
+<p>Cardiac involvement, particularly hypertrophic cardiomyopathy, can also be part of caveolinopathy, though the phenotypic classification is less well formalized. MedlinePlus notes that CAV3 mutations can cause “a heart disorder called hypertrophic cardiomyopathy” in addition to skeletal muscle phenotypes.[10] Caveolin‑3 knockout mice provide strong mechanistic evidence that loss of Cav3 is sufficient to induce progressive cardiomyopathy, with hypertrophy, dilation, reduced fractional shortening, and interstitial fibrosis, accompanied by hyperactivation of p42/44 MAPK (ERK1/2).[20] Together, human genetic data and animal models converge to establish CAV3 loss or dysfunction as the primary etiological factor in caveolinopathy across skeletal and cardiac muscle.</p>
+<h3>Risk factors: genetic and environmental</h3>
+<p>The dominant risk factors for caveolinopathy are <strong>genetic</strong>, specifically carrying a pathogenic or likely pathogenic germline variant in CAV3. Most reported CAV3 mutations are missense variants that alter key residues involved in caveolin‑3 oligomerization, membrane targeting, or interactions with binding partners such as dystrophin, phosphofructokinase M, or neuronal nitric oxide synthase (nNOS).[2][12][13][14][17] The NCBI Gene entry lists several gene synonyms, including LGMD1C, RMD2, and MPDT, reflecting that specific variants in CAV3 have been repeatedly observed in families with limb-girdle weakness, rippling muscle disease, and distal myopathy.[1][3] In many pedigrees, a single CAV3 variant segregates with disease in an autosomal dominant fashion, making carrier status an overwhelming predictor of disease risk.[9][12][14][16][18][19]</p>
+<p>De novo CAV3 mutations also represent a risk factor in individuals without family history. Klinge et al. documented a de novo Arg26Gln mutation in a young adult with sporadic RMD, demonstrating that CAV3 mutations may arise in the germline or early embryogenesis and cause disease even in the absence of familial predisposition.[14] The Swedish family studied by Hedberg et al. illustrates strong genetic risk, as 23 out of 39 family members carried the A46T mutation and displayed RMD with caveolin‑3 deficiency and absent caveolae.[9] Such family studies suggest high penetrance in some pedigrees, though isolated hyperCKemia kindreds and asymptomatic carriers indicate that penetrance can be incomplete and that genetic modifiers likely exist.[10][12][13][17]</p>
+<p>Environmental and lifestyle risk factors for caveolinopathy, in terms of disease onset or severity, are less clearly defined. Rippling muscle disease is characterized by mechanically triggered muscle contractions—induced by mechanical stretch, percussion, or sudden voluntary contraction followed by stretch—but these triggers are <strong>provocative stimuli</strong> rather than etiologic causes.[8][9][14][19] The spectrum review of RMD emphasizes that the disorder is a rare myopathy of muscle hyperexcitability triggered by mechanical stimuli, but does not identify environmental exposures that increase the likelihood of developing RMD in the absence of CAV3 mutations.[8] Similarly, there is no robust evidence that toxins, diet, or occupational exposures cause caveolinopathy; rather, they may modulate muscle symptoms in individuals already genetically predisposed. MedlinePlus notes that caveolinopathy phenotypes are caused by CAV3 mutations; environmental factors such as exercise or trauma might influence symptom expression but are not primary etiologic drivers.[10]</p>
+<p>Potential <strong>genetic modifiers</strong> and susceptibility loci beyond CAV3 remain poorly characterized. The caveolinopathy review discusses complex pathogenetic mechanisms, including interactions of caveolin‑3 with the dystrophin‑glycoprotein complex and metabolic regulators, but does not identify specific modifier genes that consistently alter disease severity.[17] Reports of autosomal recessive caveolae-associated disease due to CAVIN1/PTRF mutations causing hereditary RMD underscore that caveola biology can be disrupted by genes other than CAV3, but these represent distinct genetic etiologies rather than modifiers of CAV3-associated caveolinopathy.[8] In summary, risk of caveolinopathy is overwhelmingly determined by CAV3 genotype, with environmental factors playing a secondary role in symptom provocation rather than disease causation.</p>
+<h3>Protective factors</h3>
+<p>Defined <strong>protective factors</strong> against caveolinopathy are not well established. Because caveolinopathy is driven by germline CAV3 mutations, absence of such mutations is essentially protective, but this is trivially true for all Mendelian disorders. Within mutation carriers, certain genetic or environmental factors may mitigate disease severity, but robust evidence is lacking due to the rarity of the condition and small cohort sizes.[8][9][12][13][17][19] Many CAV3 mutation carriers exhibit milder phenotypes such as isolated hyperCKemia or remain asymptomatic despite reduced caveolin‑3 expression, suggesting that genetic background, muscle fiber type composition, and lifestyle factors such as activity level or body weight might modify expression.[10][12][13][17] However, no specific protective variants or alleles have been reproducibly identified.</p>
+<p>From an environmental perspective, avoidance of strenuous eccentric exercise, repetitive mechanical muscle trauma, and unmanaged cardiovascular risk may plausibly reduce symptom provocation and long-term complications in caveolinopathy, but such factors are inferred from general myopathy management rather than demonstrated in controlled studies.[8][9][17] There is no evidence that particular diets, supplements, or pharmacologic agents confer protection against CAV3-related disease, though standard cardiovascular risk reduction (e.g., blood pressure control, lipid management) is likely beneficial in those with cardiomyopathy as for other inherited cardiomyopathies.[20] Consequently, for ontology-based representation, protective factor fields should largely be annotated as “unknown” or “not well-defined,” with qualitative notes that asymptomatic carriers and benign hyperCKemia phenotypes suggest underlying modifiers.</p>
+<h3>Gene–environment interactions</h3>
+<p>The most characteristic <strong>gene–environment interaction</strong> in caveolinopathy is the way mechanical stimuli interact with CAV3-mutant muscle to produce clinically distinctive rippling phenomena. RMD is defined by “rippling wave-like muscle contractions induced by mechanical stretch or voluntary contraction followed by sudden stretch, painful muscle stiffness, percussion-induced rapid muscle contraction (PIRC), and percussion-induced muscle mounding (PIMM).”[8] Hedberg et al. examined 39 members of a Swedish family with RMD due to the A46T mutation; they found that PIMM and PIRC were present at all ages in affected individuals and concluded that these mechanically triggered phenomena are diagnostic across the lifespan.[9] Crucially, EMG recordings showed that ripples and PIMM were electrically silent, underscoring that mechanical stimuli interacting with structurally abnormal caveolae and sarcolemma—not classical electrical hyperexcitability—drive these contractions.[9] Thus, the mutation in CAV3 creates a structural susceptibility in muscle fibers that translates mechanical perturbation into visible, propagating contractions.</p>
+<p>The caveolinopathy review discusses how caveolin‑3 deficiency leads to sarcolemmal membrane alterations, disorganization of the skeletal muscle T‑tubule network, and disruption of signaling pathways, all of which may modulate mechanical sensitivity and stress responses.[17] Caveolae are known mechanosensors, and their loss or dysfunction in CAV3-mutant muscle likely alters <strong>mechanotransduction</strong>, amplifying responses to stretch or percussion and producing ripples.[17] This represents a gene–environment interaction where mechanical stress acts as a trigger on a genetically primed substrate. Similarly, in cardiac muscle, Cav3 knockout mice show exaggerated MAPK/ERK activation in response to stress, indicating that environmental or physiological stressors (e.g., pressure overload, ischemia) may interact with Cav3 deficiency to accelerate cardiomyopathy.[20]</p>
+<p>However, beyond mechanical stimuli, there is limited evidence for more complex gene–environment interactions, such as lifestyle factors, toxins, or infections interacting with CAV3 genotype to modify disease risk. The existing literature emphasizes mechanical triggers in skeletal muscle and physiological stress in cardiac muscle, but does not provide systematic data on interactions with common environmental exposures.[8][17][20] For ontology annotation, mechanosensitivity and mechanical stimulus-triggered ripples should be flagged as a key gene–environment interaction feature, with GO terms such as “response to mechanical stimulus” and “mechanosensory behavior” as relevant biological processes.</p>
+<h2>3. Phenotypes</h2>
+<h3>Overall phenotype spectrum and clinical categories</h3>
+<p>Caveolinopathy presents as a <strong>phenotypic continuum</strong> spanning several recognizable clinical categories: hereditary rippling muscle disease (RMD2), CAV3-related distal myopathy (Tateyama type), limb-girdle muscular dystrophy patterns of weakness (historical LGMD1C), isolated hyperCKemia without weakness, and hypertrophic cardiomyopathy.[10][15][16][17][18][19] Gazzerro et al. succinctly state that “Caveolin-3 defects lead to four distinct skeletal muscle disease phenotypes: limb girdle muscular dystrophy, rippling muscle disease, distal myopathy, and hyperCKemia,” underscoring the shared molecular etiology but divergent phenotypic manifestations.[17] MedlinePlus adds hypertrophic cardiomyopathy as a caveolinopathy phenotype, reflecting cardiac involvement in some CAV3 mutation carriers.[10] The recent review by Rashed and Milone on “The spectrum of rippling muscle disease” emphasizes that hereditary RMD due to CAV3 mutations spans clinical severity from asymptomatic CK elevation to severe muscle weakness, with overlapping phenotypes common.[8] MedGen similarly notes that RMD is “a benign myopathy with symptoms and signs of muscular hyperexcitability,” and that RMD2 is an autosomal dominant condition characterized by mechanically triggered contractions and electrically silent ripples.[18][19]</p>
+<p>This phenotypic diversity can be mapped onto <strong>Human Phenotype Ontology (HPO)</strong> terms. Rippling muscle disease corresponds to features such as “rippling muscle” (<a href="http://purl.obolibrary.org/obo/HP_0006200" target="_blank" rel="noopener noreferrer">HP:0006200</a>), “percussion-induced muscle contractions” (<a href="http://purl.obolibrary.org/obo/HP_0003745" target="_blank" rel="noopener noreferrer">HP:0003745</a>), and “muscle mounding” (<a href="http://purl.obolibrary.org/obo/HP_0003738" target="_blank" rel="noopener noreferrer">HP:0003738</a>). Limb-girdle weakness is captured by “Muscle weakness of the proximal lower limbs” (<a href="http://purl.obolibrary.org/obo/HP_0008994" target="_blank" rel="noopener noreferrer">HP:0008994</a>) and “Muscle weakness of the pelvic girdle” (<a href="http://purl.obolibrary.org/obo/HP_0003746" target="_blank" rel="noopener noreferrer">HP:0003746</a>). Distal myopathy features include “Distal muscle weakness” (<a href="http://purl.obolibrary.org/obo/HP_0003553" target="_blank" rel="noopener noreferrer">HP:0003553</a>) and “Muscle atrophy of the hands and feet” (<a href="http://purl.obolibrary.org/obo/HP_0003470" target="_blank" rel="noopener noreferrer">HP:0003470</a>). Isolated hyperCKemia is represented by “Elevated serum creatine kinase” (<a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" rel="noopener noreferrer">HP:0003236</a>). Hypertrophic cardiomyopathy corresponds to “Hypertrophic cardiomyopathy” (<a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" rel="noopener noreferrer">HP:0001639</a>). Additional common features include “Myalgia” (<a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a>), “Exercise intolerance” (<a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" rel="noopener noreferrer">HP:0003546</a>), and “Benign course” (<a href="http://purl.obolibrary.org/obo/HP_0003581" target="_blank" rel="noopener noreferrer">HP:0003581</a>) in many RMD cases.[8][9][10][12][13][17][19]</p>
+<h3>Rippling muscle disease phenotype</h3>
+<p>Hereditary RMD due to CAV3 mutations is characterized by a highly distinctive set of <strong>skeletal muscle hyperexcitability phenomena</strong>. Rashed and Milone summarize that RMD is “characterized by rippling wave-like muscle contractions induced by mechanical stretch or voluntary contraction followed by sudden stretch, painful muscle stiffness, percussion-induced rapid muscle contraction (PIRC), and percussion-induced muscle mounding (PIMM).”[8] These contractions are typically electrically silent on EMG, differentiating RMD from neuromyotonia or myotonia, where electrical activity accompanies symptoms.[8][9][19] Hedberg et al. found in their Swedish A46T family that ripples and PIMM lacked electrical activity on electromyogram, and that muscle biopsy confirmed caveolin‑3 deficiency and absence of caveolae.[9] MedGen’s RMD definition echoes these core features: “In rippling muscle disease, mechanical stimulation leads to electrically silent muscle contractions that spread to neighboring fibers that cause visible ripples to move over the muscle.”[18]</p>
+<p>Clinically, affected individuals show <strong>localized muscle mounding</strong> upon percussion, wave-like contractions moving across the muscle surface, and often muscle hypertrophy in involved muscle groups.[7][8][9][14][19] For example, Oestergaard et al. reported a 17‑year‑old patient with muscular hypertrophy, local mounding on percussion, and a rippling phenomenon; muscle immunohistochemistry showed partial caveolin‑3 deficiency, and genetic analysis identified a novel CAV3 mutation associated with RMD.[7] Age of onset in RMD is typically childhood to early adulthood, but symptoms may be subtle and discovered only upon careful examination; Hedberg et al. reported RMD features in family members aged 1 to 67 years, with PIMM and PIRC serving as consistent diagnostic signs across ages.[9] Rashed and Milone emphasize that hereditary RMD can be benign and nonprogressive, though severity varies and overlapping phenotypes with limb-girdle weakness occur.[8] OMIM notes that hereditary RMD is usually benign, with no effect on life expectancy, though some patients report painful muscle stiffness and exercise intolerance.[16]</p>
+<p>In terms of <strong>symptom severity and progression</strong>, RMD associated with A46T appears to be homogeneous, benign, and nonprogressive in the Swedish kindred.[9] Bedside diagnosis work concluded that “the phenotype in these 23 cases of RMD with this mutation appears to be homogenous, benign, and nonprogressive,” and that presence of PIMM and PIRC were diagnostic, whereas absence of hyperCKemia or rippling did not exclude the diagnosis.[9] However, broader surveys show that some CAV3-RMD patients develop significant muscle weakness or overlapping LGMD phenotypes, indicating variability.[8][17][18][19] Quality of life impact depends on severity of stiffness and weakness; many individuals maintain normal or near-normal function, while others experience difficulty with strenuous activity or muscle pain. HPO terms such as “Benign course” and “Variable expressivity” capture this range.</p>
+<h3>Limb-girdle muscular dystrophy and distal myopathy phenotypes</h3>
+<p>Limb-girdle muscular dystrophy patterns of weakness, historically classified as LGMD1C, are now understood as part of the <strong>caveolinopathy spectrum</strong>, especially overlapping with RMD2.[11][16][17][18] Gazzerro et al. note that caveolin‑3 defects can produce limb-girdle weakness, characterized by predominant proximal muscle involvement of the shoulder and pelvic girdles.[17] OMIM and Orphanet now treat LGMD1C as reclassified under RMD2; Straub et al. (2018), on behalf of an LGMD workshop study group, proposed this reclassification, recognizing that the phenotype overlaps extensively with RMD and is driven by CAV3 mutations.[16] Clinically, LGMD-type caveolinopathy typically manifests in adolescence or early adulthood with proximal weakness, difficulty climbing stairs, or lifting objects, sometimes accompanied by calf hypertrophy or mild rippling phenomena.[17] Progression may be slow, and many patients remain ambulatory for decades, though severe cases can develop significant functional impairment.</p>
+<p>CAV3-related <strong>distal myopathy (Tateyama type; MPDT)</strong> is defined in MedGen as “one form of distal myopathy, a group of disorders characterized by weakness and loss of function affecting the muscles farthest from the center of the body (distal muscles), such as those of the hands and feet.”[15] People with CAV3-related distal myopathy “experience wasting (atrophy) and weakness of the small muscles in the hands and feet that generally become noticeable in adulthood,” producing difficulties with fine motor tasks and gait.[15] Age of onset is usually adult, with slow progression and varied severity.[15][17] HPO terms for distal caveolinopathy include “Distal muscle weakness” (<a href="http://purl.obolibrary.org/obo/HP_0003553" target="_blank" rel="noopener noreferrer">HP:0003553</a>), “Atrophy of hand muscles” (<a href="http://purl.obolibrary.org/obo/HP_0003470" target="_blank" rel="noopener noreferrer">HP:0003470</a>), and “Difficulty walking” (<a href="http://purl.obolibrary.org/obo/HP_0002355" target="_blank" rel="noopener noreferrer">HP:0002355</a>). Quality of life impact can be substantial when hand function is impaired, affecting work and daily activities.</p>
+<p>The <strong>spectrum review of RMD</strong> draws attention to overlapping phenotypes, noting that CAV3-RMD “manifests with a wide spectrum of clinical phenotypes, ranging from asymptomatic creatine kinase elevation to severe muscle weakness,” and that overlapping phenotypes are common.[8] Muscle caveolin‑3 immunoreactivity is often absent or diffusely reduced in CAV3-RMD, irrespective of whether the clinical presentation is predominantly rippling, limb-girdle, or distal.[8][17] Consequently, caveolinopathy phenotypes are best understood not as discrete categories but as points along a continuum of caveolin‑3 deficiency.</p>
+<h3>Isolated hyperCKemia and subclinical phenotypes</h3>
+<p>Isolated hyperCKemia represents the <strong>biochemical end</strong> of the caveolinopathy spectrum. MedlinePlus Genetics defines isolated hyperCKemia as “a condition characterized by elevated levels of an enzyme called creatine kinase in the blood” and notes that it is one of the caveolinopathies caused by CAV3 mutations.[10] Individuals with isolated hyperCKemia exhibit persistent elevation of serum CK levels without muscle weakness; in some families, this phenotype remains benign, while others may later develop subtle muscle symptoms.[10][12][13][17] For instance, a study of three family members with persistent high CK but no weakness identified a novel heterozygous Val57Met CAV3 mutation; the authors concluded that this was the second mutation associated with familial isolated hyperCKemia and that CAV3 mutations can cause hyperCKemia without overt myopathy.[12] Another study reported two children with sporadic hyperCKemia and partial caveolin‑3 deficiency on muscle biopsy; a novel CAV3 mutation was identified, leading the authors to recommend considering caveolin‑3 deficiency in idiopathic hyperCKemia.[13]</p>
+<p>The <strong>age of onset</strong> of isolated hyperCKemia is often childhood or adolescence, discovered incidentally during evaluation for unrelated symptoms or family screening.[12][13] Symptom severity is minimal, as patients lack weakness or pain, and disease progression is uncertain; some remain lifelong asymptomatic, while others may transition into mild RMD or LGMD phenotypes.[10][17] HPO representation includes “Elevated serum creatine kinase” (<a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" rel="noopener noreferrer">HP:0003236</a>) and “Asymptomatic” (<a href="http://purl.obolibrary.org/obo/HP_0003828" target="_blank" rel="noopener noreferrer">HP:0003828</a>). Quality of life impact is generally minimal, though psychological burden of a rare genetic diagnosis may exist. These cases underscore incomplete penetrance and variable expressivity within caveolinopathy.</p>
+<h3>Cardiac phenotype: hypertrophic cardiomyopathy</h3>
+<p>Cardiac involvement in caveolinopathy most commonly appears as <strong>hypertrophic cardiomyopathy (HCM)</strong>, though dilated and mixed phenotypes can occur, especially in animal models.[10][17][20] MedlinePlus states that in addition to skeletal muscle phenotypes, CAV3 gene mutations can cause “a heart disorder called hypertrophic cardiomyopathy,” characterized by thickening of the heart muscle that can impair function and predispose to arrhythmias.[10] Caveolin‑3 knockout mice provide compelling experimental support: “Caveolin-3 knock-out mice develop a progressive cardiomyopathic phenotype. At four months of age, Cav-3 knock-out hearts display significant hypertrophy, dilation, and reduced fractional shortening, as revealed by gated cardiac MRI and transthoracic echocardiography,” with histology showing myocyte hypertrophy, cellular infiltrates, and progressive interstitial/peri-vascular fibrosis.[20] The same study demonstrated hyperactivation of p42/44 MAPK (ERK1/2) in Cav‑3 knockout hearts, implicating dysregulated signaling pathways in cardiomyopathy pathogenesis.[20]</p>
+<p>Human caveolinopathy cohorts, though smaller, report <strong>hypertrophic cardiomyopathy and arrhythmias</strong> in some CAV3 mutation carriers.[10][17] Caveolin‑3 is expressed in cardiac myocytes and localizes to sarcolemmal caveolae where it regulates ion channels and signaling; thus, CAV3 mutations may alter cardiac excitability and hypertrophic responses.[1][17][20] HPO terms for cardiac phenotypes include “Hypertrophic cardiomyopathy” (<a href="http://purl.obolibrary.org/obo/HP_0001639" target="_blank" rel="noopener noreferrer">HP:0001639</a>), “Cardiac arrhythmia” (<a href="http://purl.obolibrary.org/obo/HP_0001645" target="_blank" rel="noopener noreferrer">HP:0001645</a>), and “Left ventricular hypertrophy” (<a href="http://purl.obolibrary.org/obo/HP_0001712" target="_blank" rel="noopener noreferrer">HP:0001712</a>). Age of onset is variable, ranging from adolescence to middle age, with symptom severity from asymptomatic echo findings to symptomatic heart failure. Quality of life impact can be significant in advanced cases, and cardiomyopathy may influence mortality risk, though caveolinopathy overall remains rare.[17][20]</p>
+<h3>Quality of life impact</h3>
+<p>Quality of life in caveolinopathy depends heavily on phenotype, severity, and progression. Individuals with isolated hyperCKemia or mild RMD may have nearly normal daily functioning, with minor limitations in strenuous exercise or discomfort from muscle stiffness.[9][10][12][13][17] For example, Hedberg et al. describe a benign, nonprogressive phenotype in their A46T family, suggesting relatively preserved function and low disability burden.[9] Conversely, distal myopathy or LGMD phenotypes can impair fine motor skills, gait, and independence, particularly if distal hand muscles or proximal pelvic girdle muscles are severely involved.[15][17] Painful muscle stiffness and cramping may also reduce quality of life, particularly in RMD patients with prominent hyperexcitability symptoms.[8][19]</p>
+<p>Cardiac involvement introduces additional quality of life challenges, including dyspnea, fatigue, episodic chest pain, and potential arrhythmic episodes, alongside the psychological burden of an inherited cardiomyopathy.[10][17][20] While formal EQ‑5D or SF‑36 data are not widely reported for caveolinopathy due to its rarity, extrapolation from muscular dystrophy and cardiomyopathy literature suggests that mobility, self-care, usual activities, and anxiety/depression domains can be affected. For ontology mapping, HPO terms such as “Impaired mobility” (<a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" rel="noopener noreferrer">HP:0002540</a>), “Exercise intolerance” (<a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" rel="noopener noreferrer">HP:0003546</a>), and “Fatigue” (<a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a>) are appropriate, alongside quality-of-life fields indicating variable impact.</p>
+<h2>4. Genetic and Molecular Information</h2>
+<h3>CAV3 gene: structure, expression, and function</h3>
+<p>The human <strong>CAV3</strong> gene (Gene ID: 859) encodes caveolin‑3, a member of the caveolin family that functions as a core component of caveolae in plasma membranes.[1][3][17] Located on chromosome 3p25.3, CAV3 comprises multiple exons and produces at least two transcript variants differing in 3′ UTR intron inclusion but encoding identical proteins.[1][3] The reference mRNA sequence NM_033337.3 (transcript variant 1) is 1422 bp long; RefSeq notes that this gene encodes a caveolin family member that “functions as a component of the caveolae plasma membranes found in most cell types,” and that caveolin proteins serve as scaffolding proteins for organizing and concentrating caveolin-interacting molecules.[3] CAV3 transcripts utilize multiple polyA sites and contain two potential translation initiation sites, indicating regulatory complexity.[3]</p>
+<p>Caveolin‑3 protein is <strong>muscle-specific</strong>, expressed predominantly in skeletal and cardiac muscle cells and forming homooligomers that cluster into caveolae.[2][17] The mouse Cav3 ortholog shows similar properties: “The encoded protein is muscle-specific and forms homooligomers in muscle cells. The protein binds and regulates phosphofructokinase M and neuronal nitric oxide synthase. It also associates with dystrophin in muscle cells. Mutations in this gene are associated with muscular dystrophy.”[2] These functions are conserved and relevant to human disease. Caveolin‑3 localizes to the cytoplasmic side of the sarcolemma and T‑tubules, where it helps maintain membrane integrity and organize signaling molecules including ion channels, GPCRs, and kinases.[1][2][17] Gene Ontology annotations for CAV3 indicate molecular functions such as <strong>molecular adaptor activity</strong>, <strong>transmembrane transporter binding</strong>, <strong>connexin binding</strong>, <strong>nitric-oxide synthase binding</strong>, <strong>sodium channel regulator activity</strong>, and <strong>potassium channel inhibitor activity</strong>, and biological processes including <strong>caveola assembly</strong> and <strong>regulation of membrane depolarization during cardiac muscle cell action potential</strong>.[1][4][6]</p>
+<p>The canonical CAV3 protein is a small (~151 amino acid) integral membrane protein with an N‑terminal cytosolic region, a central hydrophobic domain forming a hairpin-like membrane anchor, and a C‑terminal cytosolic tail containing a <strong>caveolin scaffolding domain (CSD)</strong> crucial for binding signaling partners.[17] Many pathogenic variants cluster in functionally important regions that affect oligomerization, trafficking, or binding. Caveolin‑3 interacts with dystrophin and components of the dystrophin‑glycoprotein complex, contributing to sarcolemmal stability; it also associates with metabolic enzymes like phosphofructokinase M and signaling enzymes such as nNOS, implicating it in metabolic and nitric oxide signaling.[2][17]</p>
+<h3>Pathogenic variants: types, locations, and functional classes</h3>
+<p>Pathogenic CAV3 variants associated with caveolinopathy are predominantly <strong>missense mutations</strong>, though small deletions and other qualitative defects have been reported.[7][9][12][13][14][16][17] These variants are germline, inherited in autosomal dominant fashion or arising de novo, and alter key amino acids essential for proper caveolin‑3 function. For example, Klinge et al. described a de novo Arg26Gln (R26Q) missense mutation in exon 2 of CAV3 in a sporadic RMD patient; immunohistochemistry revealed reduced caveolin‑3 expression at the sarcolemma, demonstrating a functional impact.[14] Oestergaard et al. identified a novel heterozygous A&gt;C transition at nucleotide position 140 in exon 2, generating a missense mutation in a 17‑year‑old with RMD, and observed partial caveolin‑3 deficiency on muscle protein analysis.[7] Hedberg et al. found a CAV3 c.G136A transition resulting in a p.Ala46Thr (A46T) missense mutation in a large Swedish family; muscle biopsy showed caveolin‑3 deficiency and absence of caveolae.[9] The Val57Met (V57M) mutation, arising from a G→A transition at nucleotide 169 in exon 2, was associated with familial isolated hyperCKemia.[12]</p>
+<p>These missense variants are often classified as <strong>pathogenic</strong> or <strong>likely pathogenic</strong> under ACMG/AMP guidelines, based on segregation in families, absence from population databases, functional evidence of caveolin‑3 deficiency, and consistent phenotypes.[7][9][12][13][14][17][19] Many affect residues within the N‑terminal cytosolic domain or the caveolin scaffolding domain, areas critical for oligomerization and protein-protein interactions. Functional studies demonstrate that mutant caveolin‑3 proteins may be retained in the Golgi apparatus, mislocalized, or form unstable oligomers, resulting in <strong>loss of function</strong> (LOF) at the sarcolemma and dominant-negative effects on wild-type caveolin‑3.[17] Gazzerro et al. note that “most of CAV3 mutations cause a severe loss of Cav-3 protein as shown both by immunohistochemistry and immunoblot analysis on muscle biopsies,” and some mutants may produce a stable but dysfunctional protein.[17]</p>
+<p>Population allele frequencies of known pathogenic CAV3 variants are extremely low in general population databases such as gnomAD, consistent with their deleterious effects and rarity of caveolinopathy. While specific allele frequency data are not detailed in the sources provided, the absence of variants like A46T and V57M from large control cohorts has been noted in primary reports.[9][12][13][17] Most variants are <strong>germline</strong>, present in all tissues, although somatic CAV3 mutations could theoretically occur in cancer; caveolin‑3’s role in cardiomyocyte hypertrophy suggests possible somatic involvement in cardiac remodeling, but this remains speculative and is not supported by caveolinopathy literature.[17][20]</p>
+<h3>Variant–phenotype correlations and modifier genes</h3>
+<p>CAV3 variant–phenotype correlations show some patterns but are not entirely deterministic. Certain mutations, such as A46T in the Swedish family, are consistently associated with a benign, nonprogressive RMD phenotype characterized by PIMM, PIRC, and absent caveolae.[9] Others, such as V57M, appear preferentially associated with isolated hyperCKemia without weakness.[12] Yet, numerous variants produce overlapping phenotypes or variable expression, reinforcing the idea of <strong>variable expressivity</strong> and <strong>incomplete penetrance</strong>.[8][10][17][19] Rashed and Milone underscore that CAV3-RMD manifests with a wide spectrum of clinical phenotypes ranging from asymptomatic CK elevation to severe muscle weakness, and overlapping phenotypes are common.[8] MedlinePlus similarly notes that CAV3 mutations can cause multiple caveolinopathies, including distal myopathy, LGMD, RMD, and hypertrophic cardiomyopathy.[10]</p>
+<p>Modifier genes that systematically alter caveolinopathy severity remain largely unidentified. The caveolinopathy review suggests that caveolin‑3 interacts with multiple signaling pathways, including insulin signaling and glucose homeostasis, and that caveolin‑3 knockout models indicate roles in whole-body metabolism.[17] This raises the possibility that metabolic genes and pathways may modulate disease presentation. However, no specific single-gene modifiers have been validated across multiple families, and the rarity of caveolinopathy makes genome-wide association studies practically infeasible.[17] Therefore, while polygenic background likely influences expressivity, for knowledge representation, caveolinopathy should be modeled primarily as monogenic with qualitatively described variability.</p>
+<h3>Epigenetic and chromosomal considerations</h3>
+<p>There is currently no evidence that <strong>epigenetic modifications</strong> such as DNA methylation or histone changes at the CAV3 locus play a primary role in caveolinopathy. Caveolin‑3 expression is tightly regulated during muscle differentiation, but pathogenic states have been consistently traced to coding sequence mutations rather than epigenetic dysregulation.[1][3][17] Similarly, chromosomal abnormalities (large deletions, translocations, inversions) involving 3p25.3 have not been prominently reported in association with caveolinopathy; the disease is instead driven by point mutations and small intragenic changes.[1][3][16][17] DECIPHER and structural variant databases do not currently identify recurrent CAV3 structural variants linked to muscle disease, reflecting that caveolinopathy is primarily a single-gene sequence disorder.</p>
+<p>For ontology annotation, CAV3 should be linked to GO biological processes such as “caveola assembly” (<a href="http://purl.obolibrary.org/obo/GO_0005901" target="_blank" rel="noopener noreferrer">GO:0005901</a>), “regulation of membrane depolarization during cardiac muscle cell action potential,” and “glucose homeostasis,” and to GO molecular functions such as “structural constituent of muscle,” “molecular adaptor activity,” “connexin binding,” and “nitric-oxide synthase binding.”[1][4][6][17] At the cellular component level, CAV3 localizes to “caveola” (<a href="http://purl.obolibrary.org/obo/GO_0005901" target="_blank" rel="noopener noreferrer">GO:0005901</a>), “sarcolemma” (<a href="http://purl.obolibrary.org/obo/GO_0042383" target="_blank" rel="noopener noreferrer">GO:0042383</a>), and “T-tubule” (<a href="http://purl.obolibrary.org/obo/GO_0030315" target="_blank" rel="noopener noreferrer">GO:0030315</a>). These annotations enable integration of caveolinopathy into pathway and ontology-based knowledge graphs.</p>
+<h2>5. Environmental Information</h2>
+<h3>Non-genetic contributing factors</h3>
+<p>Non-genetic contributing factors to caveolinopathy are limited, as the disease is fundamentally <strong>Mendelian</strong>, driven by CAV3 germline mutation.[1][3][10][16][17] Nevertheless, certain environmental and physiological factors influence <strong>symptom expression</strong> and may be considered modifiers. The most prominent is <strong>mechanical stimulus</strong>, which provokes rippling wave-like contractions in RMD, as described by Rashed and Milone: “Rippling muscle disease (RMD) is a rare disorder of muscle hyperexcitability. It is characterized by rippling wave-like muscle contractions induced by mechanical stretch or voluntary contraction followed by sudden stretch, painful muscle stiffness, percussion-induced rapid muscle contraction (PIRC), and percussion-induced muscle mounding (PIMM).”[8] Percussion, stretching, and sudden movement are environmental stimuli that interact with structurally abnormal caveolae and sarcolemma to produce visible ripples.[8][9][14][19] However, these stimuli do not cause the disease; they merely reveal it.</p>
+<p>No robust data link specific toxins, radiation, pollution, or occupational exposures to increased risk of developing caveolinopathy in individuals without CAV3 mutations.[10][17] Standard muscle and heart health considerations apply: systemic exposure to myotoxic drugs (e.g., statins), endocrine disorders, or malnutrition could exacerbate symptoms or unmask subclinical disease, but such relationships are extrapolated from general neuromuscular practice rather than systematically studied in caveolinopathy cohorts.[17] Caveolin‑3’s role in glucose homeostasis and metabolic regulation suggests that metabolic stressors (e.g., obesity, insulin resistance) might interact with CAV3 deficiency, but the evidence for this is largely drawn from knockout mice and in vitro studies rather than human caveolinopathy patients.[17]</p>
+<h3>Lifestyle factors</h3>
+<p>Lifestyle factors, including <strong>exercise patterns</strong>, <strong>diet</strong>, and <strong>smoking</strong>, have not been systematically evaluated as determinants of caveolinopathy risk or progression. Clinical experience in muscular dystrophy suggests that moderate exercise is beneficial for muscle health, whereas excessive eccentric loading may provoke symptoms and accelerate damage; caveolinopathy likely follows similar principles.[17] In the Swedish A46T family, RMD was benign and nonprogressive despite diverse activity levels, implying that lifestyle factors do not drastically alter this particular phenotype.[9] However, individual patients report that certain activities intensify rippling or stiffness, and it is reasonable to advise avoidance of extreme mechanical muscle stress to reduce symptom provocation.[8][9][17] Diet and smoking have standard cardiovascular and metabolic implications relevant to hypertrophic cardiomyopathy, but their specific role in CAV3-mediated cardiomyopathy remains unknown.[10][17][20]</p>
+<h3>Infectious agents</h3>
+<p>Infectious agents have not been implicated as <strong>causal or primary triggering factors</strong> in caveolinopathy. There is no evidence that viral, bacterial, fungal, or parasitic infections directly cause caveolin‑3 deficiency or mimic CAV3-related phenotypes.[10][17] As with other myopathies, systemic infections can exacerbate muscle symptoms or precipitate metabolic decompensation, but they are not etiologic. Autoimmune-mediated RMD (immune-mediated RMD) has been described in the broader RMD literature, with some cases linked to caveolae-associated protein 1 (CAVIN1/PTRF) rather than CAV3, and possible immune triggers have been hypothesized, but these represent distinct etiologies and are outside the strict scope of CAV3-related caveolinopathy.[8]</p>
+<p>For ontology purposes, environmental factor fields should note mechanical stimulus as a key trigger for symptom expression, but classify environmental etiologic contributions as minimal or unproven. CHEBI entities are not directly implicated, beyond general metabolic substrates and signaling molecules (e.g., nitric oxide, glucose) involved in caveolin‑3 function.[2][17]</p>
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain from mutation to clinical manifestation</h3>
+<p>Step 1 – Germline pathogenic variants in CAV3 lead to qualitative or quantitative defects of caveolin‑3 protein in skeletal and cardiac muscle cells.[1][3][10][12][13][14][17]  </p>
+<p>Step 2 – Caveolin‑3 defects result in impaired caveola assembly and abnormal localization or stability of caveolin‑3 at the sarcolemmal membrane and T‑tubule system.[1][4][6][17]  </p>
+<p>Step 3 – Disrupted caveolae and sarcolemmal architecture lead to sarcolemmal fragility, altered mechanotransduction, and disorganization of the skeletal muscle T‑tubule network.[17]  </p>
+<p>Step 4 – These structural defects cause dysregulation of multiple signaling pathways, including nitric oxide signaling (via nNOS), metabolic regulation (via phosphofructokinase M), and kinase cascades such as MAPK/ERK, particularly in cardiac muscle.[2][17][20]  </p>
+<p>Step 5 – Altered signaling and membrane mechanics result in electrically silent, mechanically triggered muscle contractions (rippling, PIMM, PIRC) and in some individuals progressive muscle fiber damage, weakness, and dystrophic changes.[8][9][14][17][18][19]  </p>
+<p>Step 6 – In cardiac muscle, caveolin‑3 deficiency and caveola perturbation lead to hyperactivation of p42/44 MAPK (ERK1/2), cardiomyocyte hypertrophy, interstitial fibrosis, and progressive cardiomyopathy, inferred from Cav3 knockout mice and extrapolated to humans.[17][20]  </p>
+<p>Step 7 – System-level manifestations include rippling muscle disease, limb-girdle or distal myopathy, isolated hyperCKemia (due to increased sarcolemmal leak of CK), and hypertrophic cardiomyopathy, with variable expressivity and incomplete penetrance.[8][10][12][13][16][17][19][20]</p>
+<h3>Molecular pathways and signaling cascades</h3>
+<p>Caveolin‑3 participates in several <strong>molecular pathways</strong> critical for muscle and heart physiology, and its deficiency perturbs these cascades. Caveolae are specialized lipid rafts enriched in cholesterol and sphingolipids that compartmentalize signaling molecules; caveolin‑3 serves as a scaffolding protein binding and regulating kinases, receptors, and enzymes within these microdomains.[1][2][17] The mouse Cav3 gene summary highlights binding to phosphofructokinase M (PFKM) and neuronal nitric oxide synthase (nNOS), indicating roles in glycolysis regulation and nitric oxide signaling.[2] Caveolin‑3 also associates with dystrophin and the dystrophin‑glycoprotein complex, which link the cytoskeleton to the extracellular matrix and maintain sarcolemmal integrity.[2][17]</p>
+<p>In cardiac muscle, caveolin‑3 regulates <strong>MAPK/ERK signaling</strong>, as demonstrated by Cav3 knockout mice. In these mice, “p42/44 MAPK (ERK1/2) is hyperactivated in hearts derived from Cav-3 knock-out mice,” and loss of Cav3 expression is sufficient to induce a molecular program leading to cardiomyocyte hypertrophy and cardiomyopathy.[20] This suggests that caveolin‑3 normally restrains ERK1/2 activity and that its absence allows unchecked hypertrophic signaling. Caveolin‑3 also modulates cardiac ion channels and GPCR signaling, contributing to regulation of membrane depolarization during cardiac muscle cell action potential, as reflected in GO annotations.[4][6] Thus, CAV3 deficiency alters electrophysiological and hypertrophic responses, predisposing to cardiomyopathy and arrhythmias.</p>
+<p>In skeletal muscle, caveolin‑3 interacts with nNOS at the sarcolemma, regulating nitric oxide production and downstream cGMP signaling pathways that modulate blood flow and muscle metabolism.[2][17] Caveolin‑3 defects may mislocalize nNOS, similar to some dystrophinopathies, causing impaired vasoregulation and metabolic stress during exercise.[17] Caveolin‑3’s interaction with phosphofructokinase M links it to glycolytic flux and energy metabolism; defective binding may alter muscle energy utilization and fatigue responses.[2][17] Additionally, caveolae participate in insulin receptor signaling, and caveolin‑3 deficiency in knockout models leads to altered insulin signaling and glucose homeostasis.[17] These metabolic pathway disturbances likely contribute to muscle performance and systemic metabolic phenotypes, although human caveolinopathy data are limited.</p>
+<h3>Cellular processes: membrane integrity, mechanotransduction, and excitation–contraction coupling</h3>
+<p>At the cellular level, caveolin‑3 deficiency disrupts several <strong>core processes</strong> in muscle fibers. Gazzerro et al. emphasize that “caveolin-3 deficiency is associated to sarcolemmal membrane alterations, disorganization of skeletal muscle T-tubule network and disruption of distinct cell-signaling pathways.”[17] Caveolae act as membrane reservoirs and mechanosensors, buffering mechanical stress and modulating tension; their loss or dysfunction increases sarcolemmal fragility and alters mechanotransduction.[17] In CAV3-mutant muscle, mechanical stimuli such as stretch or percussion evoke exaggerated, localized contractions that propagate as ripples, reflecting an abnormal coupling between mechanical perturbation and contractile machinery.[8][9][14][19] Yet, these contractions are <strong>electrically silent</strong>, indicating that excitation–contraction coupling is initiated via mechanical mechanisms rather than abnormal action potentials.[8][9][19]</p>
+<p>Disorganization of the T‑tubule network affects <strong>excitation–contraction coupling</strong>, potentially altering calcium handling and contraction dynamics.[17] Caveolin‑3 localized to T‑tubules interacts with L‑type calcium channels and other components; its absence may impair proper clustering or function of these channels, contributing to abnormal contractile responses.[1][17] Muscle biopsies from caveolinopathy patients often show sarcolemmal irregularities, caveolae loss on electron microscopy, and mild to moderate dystrophic features such as fiber size variation and increased endomysial connective tissue.[9][13][17] These morphological changes reflect ongoing cellular processes of degeneration and regeneration.</p>
+<p>Cell death pathways, including necrosis and apoptosis, may be activated in severe caveolinopathy phenotypes, particularly in cardiomyopathy, where chronic stress and ERK hyperactivation can drive maladaptive remodeling.[20] In skeletal muscle, chronic membrane fragility and dysregulated signaling could lead to focal necrosis and replacement fibrosis, though caveolinopathy tends to be milder than dystrophinopathies.[17] Autophagy and vesicular trafficking processes may also be altered, given caveolae’s roles in endocytosis and trafficking, but direct evidence is limited and largely inferred from caveolin biology.[17]</p>
+<h3>Protein dysfunction: misfolding, mislocalization, and dominant-negative effects</h3>
+<p>Pathogenic CAV3 variants cause <strong>protein dysfunction</strong> through several mechanisms. Many missense mutations affect residues important for caveolin‑3 oligomerization, folding, or trafficking. Gazzerro et al. note that most CAV3 mutations cause severe loss of Cav‑3 protein by immunohistochemistry and immunoblot, implying that mutant proteins are unstable or mislocalized.[17] Some mutants may be retained in the Golgi apparatus or endoplasmic reticulum, failing to reach the sarcolemma and T‑tubules; others may form aberrant oligomers that exert dominant-negative effects on wild-type caveolin‑3.[17] For example, mutations like A46T and R26Q in the N‑terminal domain likely disrupt proper oligomer formation or interaction with chaperones, leading to reduced caveolae density.[9][14][17]</p>
+<p>The caveolin scaffolding domain (CSD) mediates binding to signaling molecules; mutations within or near this domain can reduce binding affinity or specificity, altering signaling complexes even if caveolin‑3 reaches the membrane.[17] Some mutants may generate <strong>stable but dysfunctional proteins</strong>, as Gazzerro et al. speculate, which could mislocalize binding partners, perturb microdomain composition, or alter mechanosensing.[17] Loss-of-function (LOF) is the predominant consequence, though dominant-negative effects whereby mutant caveolin‑3 interferes with wild-type function have been proposed based on oligomerization defects and heterozygous state of most patients.[17]</p>
+<p>Gene Ontology molecular function terms such as “molecular adaptor activity,” “transmembrane transporter binding,” “connexin binding,” and “nitric-oxide synthase binding” capture the roles of caveolin‑3; pathogenic variants impair these functions, leading to altered ion channel regulation, gap junction communication, and NO signaling.[1][4][6][17] These protein dysfunctions underpin the mechanistic chain from mutation to clinical phenotype.</p>
+<h3>Metabolic changes and biochemical abnormalities</h3>
+<p>Metabolic changes in caveolinopathy involve <strong>energy metabolism and nitric oxide signaling</strong>, though direct human metabolomics data are limited. Mouse Cav3 gene annotation notes that caveolin‑3 binds and regulates phosphofructokinase M, a key glycolytic enzyme, implicating CAV3 in glycolysis control.[2] Caveolin‑3’s interaction with nNOS affects NO production and downstream vasodilatory and metabolic pathways.[2][17] Caveolin‑3 knockout models show altered muscle glucose uptake and whole-body glucose homeostasis, suggesting that caveolin‑3 at caveolae contributes to insulin receptor signaling and metabolic regulation.[17] Gazzerro et al. remark that “Cav-3 knockout models and in vitro data indicate a role for Cav-3 in the regulation of muscle and whole body glucose homeostasis,” and that these observations could represent the molecular rationale for some muscular and systemic signs and symptoms observed in patients.[17]</p>
+<p>Biochemical abnormalities in caveolinopathy include <strong>elevated serum CK</strong> due to increased sarcolemmal leak, even when clinical weakness is absent.[10][12][13][17] Partial or complete caveolin‑3 deficiency destabilizes the sarcolemma, increasing CK efflux into the bloodstream. Studies of hyperCKemia patients with CAV3 mutations show reduced caveolin‑3 expression and persistent CK elevation without overt necrosis, highlighting a subtle biochemical leak state.[12][13] Other serum markers such as lactate dehydrogenase or AST may be mildly elevated, but CK is the primary biomarker. Disturbances in nitric oxide signaling and glucose homeostasis are more subtle and not routinely assayed clinically, though future metabolomics and lipidomics profiling could reveal signatures.</p>
+<h3>Immune involvement and inflammation</h3>
+<p>Immune system involvement in <strong>CAV3-related caveolinopathy</strong> appears secondary rather than primary. In muscle biopsies from caveolinopathy patients, mild inflammatory infiltrates may be present, particularly in cases with more advanced dystrophic changes, but there is no evidence of autoimmune targeting of caveolin‑3 as the primary driver.[9][17] Caveolin‑3 knockout hearts show cellular infiltrates and progressive interstitial/peri-vascular fibrosis, indicating chronic inflammation and remodeling in cardiomyopathy.[20] These changes likely reflect secondary tissue responses to chronic stress and degeneration, rather than an initial immune etiology.</p>
+<p>The broader RMD spectrum includes <strong>immune-mediated RMD (iRMD)</strong>, in which caveolae-associated protein 1 (CAVIN1/PTRF) and other components may be targeted by immune mechanisms or mutated in autosomal recessive fashion.[8] However, iRMD represents a distinct etiologic class and is not directly due to CAV3 mutations; thus, its immune mechanisms, while relevant to caveola biology, should be distinguished from CAV3-related caveolinopathy in ontology modeling.[8] Overall, immune involvement in CAV3 caveolinopathy is secondary, associated with fibrosis and chronic degeneration.</p>
+<h3>Tissue-level damage and fibrosis</h3>
+<p>Tissue damage in caveolinopathy reflects <strong>sarcolemmal fragility, mechanical stress, and maladaptive remodeling</strong>. In skeletal muscle, caveolin‑3 deficiency leads to structural changes including fiber size variability, focal necrosis, increased endomysial connective tissue, and reduced or absent caveolae on electron microscopy.[9][13][17] These features correspond to mild to moderate dystrophic pathology. In RMD, the myopathy is often benign and nonprogressive, with minimal fibrosis and preserved function; in LGMD and distal myopathy phenotypes, fibrosis and fatty replacement can be more pronounced, contributing to weakness and disability.[17]</p>
+<p>In cardiac tissue, Cav3 knockout mice show pronounced <strong>cardiac myocyte hypertrophy, interstitial and peri‑vascular fibrosis</strong>, and dilation, accompanied by reduced fractional shortening and hypertrophy.[20] These histological changes are consistent with hypertrophic cardiomyopathy transitioning to dilated cardiomyopathy. Fibrosis contributes to diastolic dysfunction, arrhythmogenesis, and progression to heart failure. Loss of caveolae and caveolin‑3 may also impair cardiomyocytes’ ability to withstand mechanical strain, exacerbating injury under pressure overload or ischemia.[17][20]</p>
+<p>GO biological process terms such as “response to mechanical stimulus,” “regulation of cardiac muscle hypertrophy,” “fibrosis,” and “muscle cell apoptosis” are relevant to these tissue-level mechanisms. CL terms for affected cell types include “skeletal muscle fiber” (<a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" rel="noopener noreferrer">CL:0000188</a>) and “cardiac muscle cell” (<a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a>). These annotations connect cell-level damage to organ-level phenotypes.</p>
+<h3>Molecular profiling and advanced technologies</h3>
+<p>Large-scale molecular profiling (transcriptomics, proteomics, metabolomics) in human caveolinopathy is limited, largely due to the disorder’s rarity. However, Cav3 knockout mice and in vitro models have provided insights into transcriptional and signaling changes. Cav3 knockout hearts show hyperactivated ERK1/2 signaling, as measured by increased phosphorylated p42/44 MAPK.[20] Cav3-deficient skeletal muscle in mice displays altered expression of genes involved in glucose transport, insulin signaling, and structural proteins.[17] Proteomic analyses in muscle biopsies have identified reduced caveolin‑3 levels and changes in associated signaling proteins.[17] Single-cell analysis and spatial transcriptomics have not yet been reported for caveolinopathy, but given the localized caveolae defects, such technologies could reveal microdomain-specific changes.</p>
+<p>Functional genomics screens (CRISPR, RNAi) targeting caveola components have shown that caveolin‑3 is essential for caveola formation in muscle cells, and its loss disrupts endocytosis and mechanosensing.[17] These findings align with in vivo phenotypes in caveolinopathy.</p>
+<p>In summary, caveolinopathy pathophysiology can be modeled as a chain from CAV3 mutations to caveolin‑3 deficiency, caveola and sarcolemmal disruption, signaling dysregulation (nNOS, PFKM, ERK1/2), and tissue-level damage producing RMD, myopathy, hyperCKemia, and cardiomyopathy. Upstream mechanisms involve gene and protein defects; intermediate mechanisms are cellular and signaling; downstream mechanisms are tissue remodeling and organ dysfunction.</p>
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ-level involvement</h3>
+<p>Caveolinopathy primarily affects <strong>skeletal muscle</strong> and <strong>cardiac muscle</strong>, corresponding to UBERON terms “skeletal muscle organ” (<a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a>) and “heart” (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>). Skeletal muscle involvement manifests in limb-girdle regions (pelvic and shoulder girdle muscles), distal muscles of the hands and feet, and sometimes axial muscles, producing weakness, stiffness, and rippling phenomena.[8][9][15][17][18][19] Distal myopathy Tateyama type specifically affects “small muscles in the hands and feet,” as noted by MedGen.[15] Rippling muscle disease can be observed in various limb muscles upon mechanical stimulation.[8][9][14][19]</p>
+<p>Cardiac involvement appears as hypertrophic cardiomyopathy, with ventricular hypertrophy, dilation, and reduced fractional shortening, as seen in Cav3 knockout mice.[20] Human CAV3 mutation carriers may develop thickened ventricular walls, diastolic dysfunction, and arrhythmias.[10][17] Thus, the cardiovascular system (<a href="http://purl.obolibrary.org/obo/UBERON_0001009" target="_blank" rel="noopener noreferrer">UBERON:0001009</a>) and the muscular system (<a href="http://purl.obolibrary.org/obo/UBERON_0001434" target="_blank" rel="noopener noreferrer">UBERON:0001434</a>) are the primary body systems involved. Secondary organ involvement is limited, though metabolic regulation by caveolin‑3 suggests potential subtle effects on liver and adipose tissue in knockout models.[17]</p>
+<h3>Tissue and cell-level targets</h3>
+<p>At the tissue level, caveolinopathy affects <strong>striated muscle tissue</strong>, specifically skeletal and cardiac muscle fibers, which are specialized contractile tissues derived from mesoderm. UBERON terms “skeletal muscle tissue” (<a href="http://purl.obolibrary.org/obo/UBERON_0014892" target="_blank" rel="noopener noreferrer">UBERON:0014892</a>) and “cardiac muscle tissue” (<a href="http://purl.obolibrary.org/obo/UBERON_0001133" target="_blank" rel="noopener noreferrer">UBERON:0001133</a>) are appropriate. The affected cell populations include <strong>skeletal muscle fibers (myocytes)</strong> and <strong>cardiomyocytes</strong>, with CL ontology terms “skeletal muscle fiber” (<a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" rel="noopener noreferrer">CL:0000188</a>) and “cardiac muscle cell” (<a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a>).[17][20]</p>
+<p>Within skeletal muscle, caveolin‑3 localizes predominantly to <strong>type II fast-twitch fibers</strong>, which may be preferentially affected in RMD, given their mechanical properties and roles in rapid contractions.[17] However, detailed fiber-type specificity is not fully elaborated. In distal myopathy, small intrinsic muscles of the hands and feet, composed of mixed fiber types, show atrophy and weakness.[15][17] Satellite cells and regenerating myofibers may be indirectly involved as they respond to damage, but caveolin‑3’s expression is focused in mature fibers.</p>
+<p>In cardiac tissue, ventricular myocytes are the primary target; caveolin‑3 localizes to sarcolemmal caveolae and T‑tubules in these cells, regulating ion channels and mechanotransduction.[17][20] Fibroblasts and endothelial cells may also show secondary changes due to fibrosis and vascular remodeling.</p>
+<h3>Subcellular compartments</h3>
+<p>Subcellular compartments implicated in caveolinopathy correspond to GO cellular component terms. The most critical is the <strong>caveola</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005901" target="_blank" rel="noopener noreferrer">GO:0005901</a>), flask-shaped invaginations of the plasma membrane enriched in caveolin‑3.[1][4][6][17] Caveolin‑3 also localizes to the <strong>sarcolemma</strong> (<a href="http://purl.obolibrary.org/obo/GO_0042383" target="_blank" rel="noopener noreferrer">GO:0042383</a>), the specialized plasma membrane of striated muscle cells, and to the <strong>T‑tubule network</strong> (<a href="http://purl.obolibrary.org/obo/GO_0030315" target="_blank" rel="noopener noreferrer">GO:0030315</a>), invaginations of the sarcolemma that conduct action potentials into the fiber interior.[17] Pathogenic CAV3 variants disrupt these compartments, reducing caveola number and altering T‑tubule organization.[9][13][17]</p>
+<p>Within the secretory pathway, <strong>endoplasmic reticulum (ER)</strong> and <strong>Golgi apparatus</strong> are involved in caveolin‑3 synthesis and trafficking; misfolded or mutant caveolin‑3 may be retained here, leading to ER stress or degradation.[17] Cytoplasmic lipid rafts and microdomains within the plasma membrane also depend on caveolin‑3, as caveolae are specialized lipid rafts. In cardiac cells, subcellular regions where caveolin‑3 interacts with ion channels (e.g., L‑type calcium channels) and signaling molecules (e.g., ERK1/2) are key.</p>
+<h3>Localization and lateralization</h3>
+<p>Anatomical localization of caveolinopathy manifestations is generally <strong>bilateral and symmetric</strong>, particularly for limb-girdle weakness and distal myopathy, though rippling phenomena may be evaluated on specific muscles.[8][9][15][17][19] For example, distal myopathy Tateyama type produces symmetric wasting of hand and foot muscles.[15] Rippling muscle disease can be observed bilaterally in limb muscles upon stimulation, though localized mounding may be more prominent in certain muscles.[8][9][14][19] Hypertrophic cardiomyopathy affects both ventricles, often with asymmetric septal hypertrophy but overall bilateral involvement of the heart.[10][20]</p>
+<p>At the tissue level, caveolinopathy may show segmental involvement, with some muscles more affected than others, but there is no clear lateralized pattern such as left vs right dominance. For ontology, lateralization can be annotated as “bilateral” (<a href="http://purl.obolibrary.org/obo/HP_0007482" target="_blank" rel="noopener noreferrer">HP:0007482</a>) for most muscular phenotypes and cardiac involvement.</p>
+<h2>8. Temporal Development</h2>
+<h3>Onset: age and pattern</h3>
+<p>Caveolinopathy typically has <strong>congenital or early-life genetic origin</strong>, as CAV3 mutations are germline, but clinical onset of symptoms and laboratory abnormalities varies. Rippling muscle disease often presents in childhood or adolescence, though subtle signs may be discovered in infancy or adulthood depending on the timing of clinical evaluation.[8][9][14][19] Hedberg et al. studied a family with A46T mutation and reported affected members aged 1 to 67 years, indicating that bedside examination can identify PIMM and PIRC across ages and that onset of rippling phenomena can be early but may go unnoticed.[9] Sporadic de novo RMD (Arg26Gln case) presented in a 24‑year‑old, reflecting adult-onset detection.[14] Thus, RMD age of onset spans childhood to early adulthood, with an <strong>insidious pattern</strong> where symptoms are mild and may only be elicited by specific maneuvers.</p>
+<p>Limb-girdle muscular dystrophy and distal myopathy phenotypes tend to appear in <strong>adolescence or adulthood</strong>, often with slowly progressive proximal or distal weakness that patients initially attribute to deconditioning.[15][16][17] Distal myopathy Tateyama type is noted by MedGen to become noticeable in adulthood, as hand and foot muscle atrophy emerges.[15] Isolated hyperCKemia may be discovered incidentally at any age, including childhood and adolescence, when CK testing is performed for nonspecific complaints or family screening.[12][13] Hypertrophic cardiomyopathy due to CAV3 mutations likely presents from adolescence to middle age, paralleling other HCM forms.[10][17][20] Overall, onset is chronic and insidious, with no acute fulminant presentations reported in caveolinopathy.</p>
+<h3>Progression: rate, course, and stages</h3>
+<p>Disease progression in caveolinopathy is <strong>variable</strong> and phenotype-dependent. Hereditary RMD associated with A46T mutation appears benign and nonprogressive; Hedberg et al. concluded that “the phenotype in these 23 cases of RMD with this mutation appears to be homogenous, benign, and nonprogressive.”[9] Many RMD patients maintain stable symptoms over decades, with ripple phenomena persistently elicitable but not worsening significantly.[8][9][19] Thus, RMD can be modeled as a chronic, stable condition in many cases, although some individuals develop overlapping weakness.</p>
+<p>Limb-girdle and distal myopathy phenotypes show <strong>slow progression</strong>, with gradual worsening of weakness and muscle atrophy over years to decades.[15][17] Early stage may involve mild weakness and hyperCKemia; intermediate stage may bring noticeable functional impairments (e.g., difficulty climbing stairs or manipulating small objects); and advanced stage may result in significant disability, though caveolinopathy typically remains milder than Duchenne muscular dystrophy or other severe dystrophies.[17] HyperCKemia alone may or may not progress to overt myopathy; some individuals remain in an early biochemical stage without functional decline.[10][12][13][17]</p>
+<p>Cardiomyopathy due to caveolin‑3 deficiency is <strong>progressive</strong>, as evidenced by Cav3 knockout mice that develop hypertrophy, dilation, and reduced fractional shortening by 4 months of age, with worsening fibrosis and functional impairment over time.[20] Human cardiomyopathy likely follows a similar pattern, with progression from asymptomatic hypertrophy to symptomatic heart failure and arrhythmias. Disease course is chronic and lifelong, with no spontaneous remission.</p>
+<h3>Patterns of remission and critical periods</h3>
+<p>Spontaneous remission of caveolinopathy phenotypes has not been reported; once present, rippling phenomena, hyperCKemia, and myopathic changes tend to persist. Treatment-induced remission is also not described, as there are no disease-modifying therapies targeting CAV3 defects.[8][9][10][17][19] However, symptom fluctuations occur, with mechanical triggers producing transient ripples or stiffness; these episodes resolve, but underlying susceptibility remains.[8][9][19]</p>
+<p>Critical periods in caveolinopathy include developmental windows when muscle and heart growth and differentiation occur. Caveolin‑3 expression rises during muscle maturation, and its deficiency at these times may influence T‑tubule organization and caveola formation in ways that shape long-term phenotypes.[17] In cardiomyopathy, adolescence and early adulthood may represent periods of vulnerability when hypertrophic remodeling accelerates, similar to other inherited cardiomyopathies.[20] For preventive interventions, early identification of CAV3 mutation carriers allows monitoring and avoidance of extreme mechanical or cardiovascular stress during these critical periods.</p>
+<h2>9. Inheritance and Population</h2>
+<h3>Inheritance pattern, penetrance, and expressivity</h3>
+<p>Caveolinopathy due to CAV3 mutations is predominantly <strong>autosomal dominant</strong>, as reflected in OMIM, MedGen, and multiple family reports.[9][12][14][15][16][18][19] OMIM #606072 for RMD2 explicitly lists inheritance as autosomal dominant and notes evidence that heterozygous mutation in CAV3 causes hereditary rippling muscle disease.[16] MedGen’s RMD2 concept describes hereditary RMD as an autosomal dominant disorder characterized by mechanically triggered muscle contractions.[18][19] Distal myopathy Tateyama type is similarly annotated with autosomal dominant inheritance in MedGen, with CAV3 as the associated gene.[15] Family studies of A46T and V57M mutations show autosomal dominant segregation, with affected individuals in multiple generations.[9][12]</p>
+<p>Penetrance of CAV3 mutations appears <strong>incomplete</strong>, particularly for benign or subclinical phenotypes such as isolated hyperCKemia. MedlinePlus notes that isolated hyperCKemia is part of the caveolinopathy spectrum and that CAV3 mutations can cause a range of conditions, implying that not all carriers develop overt RMD or myopathy.[10] Studies of hyperCKemia families show some mutation carriers with elevated CK but no weakness, while others develop mild muscle symptoms.[12][13] Rashed and Milone emphasize that CAV3-RMD phenotypes range from asymptomatic CK elevation to severe muscle weakness, reflecting variable expressivity.[8] The Swedish A46T family shows high penetrance for RMD signs (PIMM, PIRC) among mutation carriers, but absence of hyperCKemia and rippling does not exclude the diagnosis, suggesting phenotypic heterogeneity even within this family.[9]</p>
+<p>Expressivity is clearly <strong>variable</strong>, with phenotypes including RMD, LGMD-like weakness, distal myopathy, hyperCKemia, and cardiomyopathy.[8][9][10][12][13][15][16][17][18][19][20] Some individuals display multiple phenotypes (e.g., RMD plus proximal weakness), while others remain asymptomatic carriers. Genetic anticipation has not been reported; CAV3 mutations are simple sequence variants, not repeat expansions, and there is no evidence that severity increases across generations.[16][17]</p>
+<p>De novo mutations represent a minority of cases. Klinge et al. reported a de novo Arg26Gln mutation in a sporadic RMD patient, demonstrating that CAV3 mutations can arise in the germline without family history.[14] Germline mosaicism has not been documented but is theoretically possible. Recessive caveolinopathy due to CAV3 is rare; most recessive caveola-related disease involves CAVIN1/PTRF.[8]</p>
+<h3>Epidemiology: prevalence and incidence</h3>
+<p>Caveolinopathy is <strong>rare</strong>, with no precise prevalence or incidence values established. Orphanet’s classification of LGMD1C as a rare disease that has been moved to RMD reflects its rarity.[11][16][18] MedGen labels RMD and distal myopathy Tateyama type as rare conditions and links them to OMIM entries associated with small numbers of families.[15][18][19] The caveolinopathy review by Gazzerro et al. mentions “caveolinopathy—new mutations and additional symptoms” and notes that caveolin‑3 defects have been identified only in a limited number of patients, underscoring rarity.[17]</p>
+<p>Regional case series, such as the Swedish A46T family and Japanese distal myopathy kindreds, suggest that founder mutations can produce local clusters, but global prevalence remains extremely low.[9][15][17] Given the limited number of reported families and sporadic cases, caveolinopathy likely falls well below 1 per 100,000 individuals. Population-based registries like GBD or SEER do not provide specific data for caveolinopathy, as cases are subsumed under broader myopathy or cardiomyopathy categories.</p>
+<h3>Population demographics and geographic distribution</h3>
+<p>Population demographics for caveolinopathy indicate <strong>no strong sex bias</strong>, as autosomal dominant inheritance affects males and females approximately equally.[9][12][14][15][16][18][19] Age distribution of affected individuals spans childhood to late adulthood, depending on phenotype and detection timing.[8][9][14][15][17][19] Ethnically, reported families come from diverse backgrounds, including Swedish (A46T), Japanese (distal myopathy Tateyama type), European and North American cohorts, reflecting that CAV3 mutations can arise in multiple populations.[9][15][17]</p>
+<p>Geographic distribution is <strong>scattered</strong>, with no clear endemic areas, though particular founder mutations may be concentrated in specific regions. For example, distal myopathy Tateyama type is named after the Japanese region where it was first described, suggesting a local cluster.[15][17] The A46T family is Swedish, indicating a Nordic founder effect for that mutation.[9] There is no evidence that CAV3 mutations are more prevalent in any major continental population, based on limited gnomAD data and case reports.[12][13][17]</p>
+<p>Carrier frequency in the general population is extremely low, reflecting the rarity of caveolinopathy and the deleterious effects of pathogenic CAV3 variants. Most carriers are detected through family studies or incidental genetic testing.</p>
+<h2>10. Diagnostics</h2>
+<h3>Clinical tests: laboratory, imaging, electrophysiology, and biopsy</h3>
+<p>Diagnostic evaluation of caveolinopathy integrates <strong>clinical examination</strong>, <strong>laboratory tests</strong>, <strong>electrophysiology</strong>, <strong>muscle biopsy</strong>, and <strong>genetic testing</strong>. Laboratory assessment centers on <strong>serum creatine kinase (CK)</strong>, which is elevated in many caveolinopathy patients, particularly those with hyperCKemia, LGMD-like weakness, or RMD.[10][12][13][17] MedlinePlus notes that isolated hyperCKemia is defined by persistently elevated CK without weakness, and that CAV3 mutations underlie this biochemical marker.[10] CK measurement corresponds to LOINC code 2157-6 (Creatine kinase [Enzymatic activity/volume] in Serum or Plasma), though this is inferred from general lab ontology rather than caveolinopathy-specific sources.</p>
+<p>Electrophysiological studies, especially <strong>electromyography (EMG)</strong>, are crucial in distinguishing RMD from neuromyotonia or myotonia. In RMD, ripples and PIMM are <strong>electrically silent</strong> on EMG, as Hedberg et al. found in the Swedish A46T family.[9] They reported that “the electromyogram showed absence of electrical activity in ripples and PIMM,” highlighting a diagnostic hallmark.[9] Nerve conduction studies are usually normal, reinforcing that caveolinopathy is a muscle, not nerve, disorder.[8][9][19] Cardiac caveolinopathy may involve ECG changes such as arrhythmias or conduction abnormalities, though these are not extensively detailed in the provided sources.</p>
+<p>Muscle biopsy is a key diagnostic tool. Histopathology often shows mild dystrophic changes, and <strong>immunohistochemistry for caveolin‑3</strong> reveals reduced or absent sarcolemmal staining.[7][9][13][17][19] Oestergaard et al. described partial deficiency of caveolin‑3 on immunohistochemistry in their RMD patient.[7] Hedberg et al. found caveolin‑3 deficiency and absence of caveolae in muscle biopsy specimens from A46T mutation carriers.[9] Studies of hyperCKemia patients with CAV3 mutations observed reduced caveolin‑3 expression in muscle fibers by immunohistochemistry and quantitative immunoblot.[13] Electron microscopy can demonstrate loss of caveolae and sarcolemmal membrane irregularities.[9][17] The MedGen RMD concept references immunofluorescence-based analysis of caveolin‑3 as part of diagnostic management of neuromuscular diseases.[19]</p>
+<p>Cardiac imaging, such as <strong>echocardiography</strong> and <strong>cardiac MRI</strong>, identifies hypertrophy, dilation, and reduced fractional shortening in cardiomyopathy due to Cav3 deficiency.[20] In Cav3 knockout mice, gated cardiac MRI and transthoracic echocardiography revealed significant hypertrophy and dilation by 4 months.[20] Human CAV3 mutation carriers may undergo similar imaging to detect hypertrophic cardiomyopathy, though specific data are limited.[10][17]</p>
+<h3>Genetic testing strategies</h3>
+<p>Genetic testing is central to caveolinopathy diagnosis, as CAV3 mutations define the disease. <strong>Single-gene testing</strong> of CAV3 is appropriate when clinical suspicion is high based on RMD, distal myopathy Tateyama type, LGMD-like weakness, hyperCKemia, or family history.[9][12][13][14][15][16][18][19] MedGen and OMIM entries link these phenotypes explicitly to CAV3, supporting targeted sequencing.[15][16][18][19] Sanger sequencing or next-generation sequencing (NGS) can detect missense, nonsense, and small indel variants.</p>
+<p><strong>Gene panels</strong> for limb-girdle muscular dystrophy, distal myopathy, or inherited cardiomyopathy often include CAV3 among multiple genes, enabling detection in broader differential diagnosis contexts.[16][17][19] Whole exome sequencing (WES) or whole genome sequencing (WGS) can identify CAV3 mutations incidentally or in undiagnosed myopathy patients. Given the small size of CAV3, coverage is usually adequate, but careful analysis of exons and splice sites is necessary.</p>
+<p>Chromosomal microarray (CMA), karyotyping, and FISH are not particularly useful, as caveolinopathy is not driven by large structural variants.[1][3][16][17] Mitochondrial DNA testing and repeat expansion assays are also irrelevant, given the nuclear, non-repeat nature of CAV3 mutations.</p>
+<h3>Clinical criteria and differential diagnosis</h3>
+<p>Standardized diagnostic criteria for caveolinopathy are evolving, but clinical patterns combined with genetic and histopathologic findings guide diagnosis. For RMD, Rashed and Milone’s spectrum review and Hedberg et al.’s bedside diagnosis work effectively outline criteria: mechanically triggered ripples, PIMM, PIRC, electrically silent EMG in ripples, and caveolin‑3 deficiency on muscle biopsy, together with CAV3 pathogenic variants.[8][9][19] Bedside PIMM and PIRC appear diagnostic at all ages in A46T carriers, while absence of hyperCKemia and rippling does not exclude RMD, emphasizing the heterogeneity.[9]</p>
+<p>Differential diagnosis includes <strong>neuromyotonia</strong>, <strong>myotonia</strong>, <strong>channelopathies</strong>, <strong>other limb-girdle muscular dystrophies</strong>, <strong>distal myopathies</strong>, and <strong>idiopathic hyperCKemia</strong>. Distinguishing features are electrically silent ripples in RMD, caveolin‑3 deficiency on biopsy, and CAV3 mutations, whereas neuromyotonia and myotonia show electrical activity and are linked to ion channel mutations.[8][9][13][17][19] Idiopathic hyperCKemia without caveolin‑3 deficiency or CAV3 mutations should be distinguished, as partial caveolin‑3 deficiency indicates caveolinopathy.[13] Other LGMD subtypes (e.g., sarcoglycanopathies, calpainopathy) show different protein deficiencies and inheritance patterns. For cardiomyopathy, caveolinopathy must be distinguished from sarcomeric HCM and other genetic cardiomyopathies using gene panels and clinical imaging.[17][20]</p>
+<h3>Screening and cascade testing</h3>
+<p>Routine population screening for caveolinopathy is not established, given its rarity. However, <strong>cascade testing</strong> of at-risk relatives is recommended once a CAV3 pathogenic variant is identified, due to autosomal dominant inheritance and variable expressivity.[9][12][13][15][16][18][19] Family members may undergo CK testing, muscle examination, and genetic testing to identify carriers and enable early monitoring. Newborn screening is not currently implemented for CAV3 mutations.</p>
+<p>For individuals with unexplained hyperCKemia, RMD, distal myopathy, or LGMD-like weakness, genetic testing including CAV3 should be considered, especially when muscle biopsy reveals caveolin‑3 deficiency. The Genetic Testing Registry lists caveolinopathy-related tests under “Caveolinopathy,” reflecting that multiple laboratories offer CAV3 sequencing.[10]</p>
+<h2>11. Outcome and Prognosis</h2>
+<h3>Survival and mortality</h3>
+<p>Overall survival in caveolinopathy is generally <strong>favorable</strong>, particularly for skeletal muscle phenotypes such as RMD, LGMD1C, distal myopathy, and isolated hyperCKemia. Hereditary RMD is described as a benign myopathy; OMIM notes that RMD is benign with minimal impact on life expectancy.[16] MedGen’s RMD concept similarly describes a benign course.[19] Hedberg et al. observed a nonprogressive phenotype in A46T carriers, with no mention of early mortality.[9] Distal myopathy Tateyama type, while disabling, is not typically associated with life-threatening complications.[15][17]</p>
+<p>Cardiac involvement, however, can impact mortality. Cav3 knockout mice develop progressive cardiomyopathy with hypertrophy, dilation, reduced fractional shortening, and fibrosis, changes that would be associated with increased mortality in humans if similar severity occurred.[20] Human CAV3 mutation carriers with hypertrophic cardiomyopathy may face risks of heart failure and arrhythmias, though specific mortality statistics are not well documented.[10][17] Nonetheless, caveolinopathy overall remains rare, and the contribution of CAV3 cardiomyopathy to population-level mortality is minimal.</p>
+<h3>Morbidity, disability, and quality of life</h3>
+<p>Morbidity in caveolinopathy varies widely across phenotypes. RMD often produces <strong>muscle stiffness, rippling, and discomfort</strong>, but many patients maintain full ambulation and independence.[8][9][19] Hedberg et al. reported a benign phenotype with preserved function in A46T carriers.[9] Distal myopathy and LGMD-like caveolinopathy can cause <strong>disability</strong>, including difficulty with walking, stair climbing, object manipulation, and occupational tasks.[15][17] Muscle weakness and atrophy may necessitate adaptive devices and physical therapy. HyperCKemia alone incurs minimal morbidity, though psychological stress from a genetic diagnosis may exist.[10][12][13][17]</p>
+<p>Cardiomyopathy contributes to morbidity through heart failure symptoms (fatigue, dyspnea, edema) and potential arrhythmias.[10][17][20] Quality of life measures have not been systematically reported, but extrapolation from muscular dystrophy and cardiomyopathy literature suggests that mobility, self-care, usual activities, and mental health domains are impacted in moderate to severe cases.</p>
+<h3>Disease course and complications</h3>
+<p>Disease course in caveolinopathy is <strong>chronic and lifelong</strong>, with progression depending on phenotype. RMD tends to be stable and benign; LGMD-like and distal myopathy phenotypes progress slowly; cardiomyopathy can progress more rapidly.[8][9][15][16][17][19][20] Complications include falls and injuries due to weakness, contractures or joint limitations in advanced muscle involvement, and in cardiomyopathy, heart failure and arrhythmia-related complications.[17][20] In some patients, pain and stiffness may lead to reduced physical activity and secondary deconditioning.</p>
+<p>Recovery potential is limited, as caveolinopathy stems from structural protein defects not amenable to spontaneous correction. Symptomatic improvements can be achieved with supportive therapies (physical therapy, cardiac medications), but underlying muscle and heart pathology persists.[17][20] There are no prognostic biomarkers specific to caveolinopathy beyond CAV3 genotype, CK levels, and cardiac imaging parameters, though ERK1/2 activation could theoretically serve as a molecular prognostic marker in cardiomyopathy.[20]</p>
+<h2>12. Treatment</h2>
+<h3>Pharmacotherapy and symptomatic management</h3>
+<p>Currently, there are <strong>no disease-modifying pharmacologic treatments</strong> that directly correct caveolin‑3 deficiency or restore caveolae in caveolinopathy. Management focuses on symptomatic and supportive care. For skeletal muscle phenotypes, analgesics may be used for painful stiffness; muscle relaxants are generally not indicated given the mechanical, electrically silent nature of rippling.[8][9][19] Physical therapy and exercise programs tailored to avoid excessive eccentric loading can help maintain strength and flexibility and reduce functional decline.[17]</p>
+<p>For cardiac involvement, standard <strong>heart failure therapies</strong> are employed, including beta-blockers, ACE inhibitors or angiotensin receptor blockers, and diuretics, as appropriate for hypertrophic or dilated cardiomyopathy.[20] Anticoagulation may be considered for atrial fibrillation or other arrhythmias. These interventions correspond to NCIT terms such as “Beta-adrenergic receptor antagonist therapy” and “Angiotensin-converting enzyme inhibitor therapy.” Targeted anti-arrhythmic drugs may also be used.</p>
+<h3>Advanced therapeutics: gene, cell, and RNA-based approaches</h3>
+<p>Advanced therapeutics for caveolinopathy remain largely <strong>experimental</strong> and preclinical. Given the monogenic nature of CAV3 defects, <strong>gene therapy</strong> is conceptually attractive: viral vectors delivering a functional CAV3 gene to skeletal and cardiac muscle could theoretically restore caveolin‑3 expression and caveolae. However, no clinical gene therapy trials for CAV3 caveolinopathy are registered, and technical challenges include achieving sufficient transduction in all affected muscles and hearts, avoiding immune responses, and ensuring regulated expression.[17] Lessons from gene therapy in other monogenic myopathies (e.g., Duchenne, LGMD) may inform future CAV3 strategies.</p>
+<p>Cell therapy (e.g., stem cell transplantation) has not been specifically developed for caveolinopathy. RNA-based therapies, such as antisense oligonucleotides or siRNA, could theoretically modulate expression of dominant-negative mutant CAV3 or adjust pathway components (e.g., ERK1/2) but are not currently in clinical use.[17][20] Targeted therapies directed at downstream pathways, such as ERK inhibitors in cardiomyopathy, might mitigate hypertrophic signaling, as Cav3 knockout mice show ERK hyperactivation.[20] However, clinical translation would require careful evaluation of safety and efficacy.</p>
+<h3>Surgical and interventional treatments</h3>
+<p>Surgical interventions are limited to <strong>cardiac procedures</strong> for severe cardiomyopathy, such as implantable cardioverter-defibrillators (ICDs) for arrhythmia risk or, in rare cases, cardiac transplantation for end-stage heart failure. These interventions follow standard cardiomyopathy guidelines and are not caveolinopathy-specific.[20] Orthopedic surgeries, such as tendon releases or joint stabilization, may be considered in advanced muscle weakness with contractures, but such cases are uncommon.</p>
+<h3>Supportive and rehabilitative care</h3>
+<p>Supportive and rehabilitative care plays a central role. <strong>Physical therapy</strong> helps maintain mobility, strength, and range of motion, with programs designed to avoid excessive eccentric mechanical stress that might provoke rippling or damage.[17] Occupational therapy addresses fine motor challenges in distal myopathy, teaching adaptive techniques and providing assistive devices. For RMD, patient education on avoiding mechanical triggers that cause discomfort can improve quality of life.[8][9][19]</p>
+<p>Cardiac rehabilitation supports patients with cardiomyopathy by optimizing exercise tolerance and cardiovascular health. Psychological support may be beneficial for coping with chronic rare disease and genetic risk.</p>
+<h3>Treatment outcomes and personalized medicine</h3>
+<p>Treatment outcomes in caveolinopathy are generally favorable for symptomatic management, with many patients maintaining functional status and quality of life, particularly in benign RMD and hyperCKemia phenotypes.[9][10][12][13][17][19] In more severe myopathy and cardiomyopathy, outcomes depend on the efficacy of supportive therapies and progression of structural disease. Personalized medicine approaches currently focus on <strong>genotype-guided diagnosis</strong> rather than treatment, as specific drugs targeting particular CAV3 variants are not available. However, understanding the molecular mechanisms (e.g., ERK hyperactivation) may eventually enable personalized targeting of downstream pathways.</p>
+<p>NCIT clinical-intervention terms applicable to caveolinopathy include “Physical therapy,” “Occupational therapy,” “Cardiac rehabilitation,” “Beta-adrenergic blocking agent,” “Angiotensin-converting enzyme inhibitor,” and “Implantable cardioverter-defibrillator implantation,” among others.</p>
+<h2>13. Prevention</h2>
+<h3>Primary prevention</h3>
+<p>Primary prevention of caveolinopathy, in the strict sense of preventing disease occurrence, is challenging due to its <strong>genetic origin</strong>. However, <strong>genetic counseling</strong> for families with known CAV3 mutations can inform reproductive decisions, including preimplantation genetic diagnosis (PGD) or prenatal testing to avoid transmitting pathogenic variants.[9][12][13][15][16][18][19] Such interventions correspond to NCIT terms like “Genetic counseling” and “Preimplantation genetic diagnosis procedure.” Carrier testing in at-risk adults can guide decisions.</p>
+<p>For individuals without known CAV3 mutations, primary prevention is not applicable. General measures such as maintaining muscle and cardiovascular health are beneficial but do not prevent mutation-based caveolinopathy.</p>
+<h3>Secondary prevention: early detection and screening</h3>
+<p>Secondary prevention focuses on <strong>early detection</strong> of disease in mutation carriers to allow timely monitoring and management. Cascade genetic testing of relatives identifies carriers, enabling CK measurement, muscle examination, and cardiac imaging to detect early phenotypes.[9][12][13][15][16][18][19] Early diagnosis allows proactive management of cardiomyopathy, reducing morbidity and mortality through standard heart failure therapies and arrhythmia monitoring.[20] For skeletal muscle disease, early physical therapy can preserve function and prevent complications such as contractures.</p>
+<p>Population-based newborn screening is not currently implemented for CAV3 mutations, given rarity and lack of disease-modifying therapies. However, targeted screening in families with known caveolinopathy is recommended.</p>
+<h3>Tertiary prevention: preventing complications</h3>
+<p>Tertiary prevention aims to <strong>prevent complications</strong> in individuals with established caveolinopathy. For RMD and myopathy, strategies include adaptive physical therapy to maintain mobility and avoid falls, orthopedic interventions for contracture prevention, and pain management.[8][9][15][17][19] For cardiomyopathy, tertiary prevention involves aggressive management of heart failure, arrhythmia prophylaxis (e.g., ICD placement), and lifestyle modifications (e.g., avoiding intense competitive sports in HCM patients) to reduce sudden cardiac death risk.[20]</p>
+<p>Behavioral interventions such as avoiding extreme mechanical muscle stress may reduce symptom provocation in RMD, and cardiovascular risk factor control (blood pressure, cholesterol, diabetes) is important for cardiomyopathy.[17][20] Genetic counseling continues to play a role in planning family structure and informing future generations.</p>
+<p>Public health interventions specifically targeting caveolinopathy are not warranted due to its rarity; instead, caveolinopathy is included within broader neuromuscular and cardiomyopathy health strategies.</p>
+<h2>14. Other Species and Natural Disease</h2>
+<h3>Orthologous genes in other species</h3>
+<p>Orthologs of CAV3 are present in multiple vertebrate species, reflecting evolutionary conservation of caveolae biology. Mouse Cav3 (GeneID 12391) encodes caveolin‑3 with similar properties to human CAV3: it is muscle-specific, forms homooligomers in muscle cells, binds and regulates phosphofructokinase M and nNOS, and associates with dystrophin.[2] NCBI Gene entries identify CAV3 orthologs in <strong>Kuhl’s pipistrelle (Pipistrellus kuhlii)</strong>, with GeneID 118715173, and in <strong>Orycteropus afer afer (aardvark)</strong>, with GeneID 103201207, both annotated as caveolin‑3 or CAV3 and modeled proteins.[4][6] Additional orthologs exist in avian species such as <strong>Merops nubicus (carmine bee-eater)</strong>, with GeneID 103769035, indicating broad conservation across mammals and birds.[5]</p>
+<p>Gene Ontology annotations for these orthologs mirror human CAV3, including <strong>caveola assembly</strong>, <strong>molecular adaptor activity</strong>, <strong>connexin binding</strong>, and <strong>transmembrane transporter binding</strong>, highlighting conserved functions.[4][6] NCBI Taxonomy IDs for these species allow mapping of caveolinopathy across species in comparative biology frameworks.</p>
+<h3>Natural disease in animals</h3>
+<p>Natural CAV3-related disease in companion animals (e.g., dogs, cats) has not been prominently reported, and OMIA (Online Mendelian Inheritance in Animals) does not list caveolinopathy as a common veterinary disorder. However, <strong>Cav3 knockout mice</strong> represent a powerful experimental model of natural disease induced by genetic manipulation.[20] In these mice, the phenotype includes progressive cardiomyopathy with hypertrophy, dilation, reduced fractional shortening, and fibrosis.[20] Skeletal muscle phenotypes in Cav3 knockout mice include mild myopathy and altered glucose homeostasis.[17] These models demonstrate that caveolin‑3 deficiency can produce comparable pathophysiological processes in other species.</p>
+<p>Veterinary relevance of CAV3 mutations is currently limited, but as exome sequencing expands in veterinary medicine, spontaneous caveolinopathy cases may be discovered. For now, caveolinopathy should be modeled as primarily a human disease with experimental model organism evidence.</p>
+<h3>Comparative pathology and evolutionary conservation</h3>
+<p>Comparative pathology highlights <strong>similarities and differences</strong> between human caveolinopathy and Cav3 knockout mice. Both show cardiomyopathy with hypertrophy and fibrosis when caveolin‑3 is absent.[17][20] Skeletal muscle involvement is milder in knockout mice, but caveolae loss and metabolic changes are present.[17] These similarities underscore evolutionary conservation of caveolin‑3’s role in striated muscle.</p>
+<p>Differences include the severity and timing of cardiomyopathy, which may be accelerated in mice due to species-specific heart rates and metabolic demands. Furthermore, mice lack the complex environmental and lifestyle factors present in humans. Nonetheless, Cav3 knockout mice provide strong evidence that caveolin‑3 loss is sufficient to cause cardiomyopathy, supporting causality in human disease.</p>
+<p>Transmission of caveolinopathy across species is not relevant; it is not a zoonotic disease and does not involve infectious agents. However, cross-species susceptibility to caveola disruption (e.g., via caveolae-targeting toxins) could have comparative biology implications.</p>
+<h2>15. Model Organisms</h2>
+<h3>Cav3 knockout mice and genetic models</h3>
+<p>The primary <strong>model organism</strong> for caveolinopathy is the <strong>Cav3 knockout mouse</strong>, which provides a detailed characterization of cardiac and skeletal muscle phenotypes. The study “Caveolin-3 knock-out mice develop a progressive cardiomyopathy and show hyperactivation of the p42/44 MAPK cascade” describes the cardiac phenotype: at four months, Cav3 knockout hearts show significant hypertrophy, dilation, and reduced fractional shortening, with marked cardiac myocyte hypertrophy, cellular infiltrates, and progressive interstitial/peri-vascular fibrosis.[20] ERK1/2 is hyperactivated, establishing a mechanistic link between caveolin‑3 deficiency and hypertrophic signaling.[20] These mice thus recapitulate human hypertrophic/dilated cardiomyopathy phenotypes, making them valuable for studying caveolinopathy’s cardiac mechanisms.</p>
+<p>In skeletal muscle, Cav3 knockout mice exhibit caveolae loss, sarcolemmal irregularities, disorganized T‑tubules, and metabolic changes including altered glucose homeostasis.[17] Muscle weakness is relatively mild compared to dystrophin-deficient models, but rippling phenomena may be present under specific mechanical conditions. Cav3 knockout models have been used to study caveolin‑3’s role in muscle integrity and metabolism.[17] They represent a <strong>constitutive knockout</strong> genetic model.</p>
+<p>Other models include <strong>transgenic mice</strong> overexpressing mutant CAV3 variants, which may show dominant-negative effects, and cell culture models expressing mutant caveolin‑3 to study trafficking and oligomerization.[17] Conditional knockout models targeting skeletal vs cardiac muscle could elucidate tissue-specific roles, though specific details are beyond the provided sources.</p>
+<h3>Phenotype recapitulation and limitations</h3>
+<p>Cav3 knockout mice <strong>recapitulate key aspects of human caveolinopathy</strong>, particularly cardiomyopathy and muscle caveolae defects. The ERK hyperactivation observed in knockout hearts aligns with human hypertrophic cardiomyopathy pathways, and histological hypertrophy and fibrosis mirror human pathology.[20] Skeletal muscle caveolae loss and sarcolemmal fragility reflect human RMD and myopathy mechanisms.[9][13][17]</p>
+<p>However, limitations include differences in phenotype severity and expression. Mice may develop more pronounced cardiomyopathy than many human CAV3 mutation carriers, possibly due to complete gene knockout vs heterozygous missense variants and species-specific physiology.[17][20] RMD’s distinctive rippling phenomena, triggered by mechanical stimuli and electrically silent contractions, are less well documented in mice, making human clinical observation essential for this aspect.[8][9][19] Additionally, mouse models may not capture nuanced phenotypic variability seen in human caveolinopathy, such as isolated hyperCKemia or distal myopathy.</p>
+<p>In vitro models (e.g., myotubes expressing mutant caveolin‑3) are useful for studying protein trafficking, oligomerization, and interaction with partners like nNOS and PFKM.[2][17] These models allow manipulation of expression levels and rescue experiments. Nonetheless, they lack tissue-level context and mechanical environmental complexity present in vivo.</p>
+<h3>Research applications</h3>
+<p>Model organisms are employed to study <strong>pathogenic mechanisms</strong>, test potential therapies, and explore downstream pathways. Cav3 knockout mice are used to investigate ERK1/2 signaling, cardiomyocyte hypertrophy, fibrosis, and responses to pharmacologic interventions targeting these pathways.[20] Skeletal muscle models allow exploration of caveolae function, mechanotransduction, and glucose homeostasis.[17] These applications provide mechanistic insight that informs human caveolinopathy models and potential therapeutic targets.</p>
+<p>Model organism databases (e.g., MGI) catalog Cav3 knockout and transgenic lines, enabling researchers to access phenotype data and genetic constructs. Integration of model organism information into human disease ontologies enhances understanding of conserved mechanisms and supports translational research.</p>
+<h2>Conclusion</h2>
+<p>Caveolinopathy, defined here as the spectrum of <strong>CAV3-related disorders</strong> (<a href="http://purl.obolibrary.org/obo/MONDO_0016146" target="_blank" rel="noopener noreferrer">MONDO:0016146</a>), exemplifies how a single gene encoding a membrane scaffolding protein can give rise to diverse clinical phenotypes across skeletal and cardiac muscle. The causal gene <strong>CAV3</strong> at 3p25.3 encodes caveolin‑3, a muscle-specific component of caveolae, and pathogenic germline variants disrupt caveola assembly, sarcolemmal integrity, T‑tubule organization, and multiple signaling pathways.[1][3][10][17] Clinically, caveolinopathy manifests as hereditary rippling muscle disease (RMD2), limb-girdle muscular dystrophy-like weakness, distal myopathy Tateyama type, isolated hyperCKemia, and hypertrophic cardiomyopathy, often with overlapping phenotypes and variable expressivity.[8][10][15][16][17][18][19][20] RMD’s electrically silent, mechanically triggered ripples and muscle mounding provide a distinctive diagnostic signature, while hyperCKemia and mild myopathy illustrate benign ends of the spectrum.[8][9][10][12][13][19]</p>
+<p>Mechanistically, caveolinopathy follows a causal chain from CAV3 mutations to caveolin‑3 deficiency, caveolae loss, disordered mechanotransduction, and dysregulated signaling, including nNOS, PFKM, and ERK1/2.[2][17][20] Cav3 knockout mice conclusively demonstrate that loss of caveolin‑3 is sufficient to induce progressive cardiomyopathy with ERK hyperactivation, reinforcing the role of caveolin‑3 in cardiac hypertrophy control.[20] Skeletal muscle caveolinopathy models emphasize sarcolemmal fragility, T‑tubule disorganization, and mild dystrophic changes.[9][13][17] These upstream molecular and cellular mechanisms translate into downstream tissue-level damage and organ dysfunction, producing the observed phenotypes.</p>
+<p>From a genetic standpoint, caveolinopathy is predominantly <strong>autosomal dominant</strong> with incomplete penetrance and variable expressivity, driven by missense CAV3 variants that cause loss-of-function and likely dominant-negative effects.[9][12][13][14][16][17][18][19] De novo mutations occur, and recessive caveola-related diseases due to CAVIN1/PTRF represent a parallel etiologic class.[8][14] Environmental factors, particularly mechanical stimuli, modulate symptom expression, but do not cause the disease.[8][9][10][17][19] Epidemiologically, caveolinopathy is rare, with scattered families and sporadic cases worldwide, and no substantial sex or ethnic bias.[9][12][15][16][17][18][19]</p>
+<p>Diagnostics rely on careful clinical examination for rippling phenomena, CK testing, EMG demonstrating electrically silent ripples, muscle biopsy showing caveolin‑3 deficiency and caveola loss, and genetic testing for CAV3 variants.[7][9][10][12][13][16][17][18][19] Cardiac imaging identifies hypertrophic cardiomyopathy in some patients.[10][17][20] Treatment remains supportive, focusing on physical therapy, symptomatic management, and standard cardiomyopathy therapy, as no gene- or protein-targeted therapies are currently available.[17][20] Preventive strategies center on genetic counseling, cascade testing, and early monitoring of muscle and cardiac health in mutation carriers.[9][12][13][15][16][18][19]</p>
+<p>For knowledge-base integration, caveolinopathy can be represented using ontologies such as MONDO (<a href="http://purl.obolibrary.org/obo/MONDO_0016146" target="_blank" rel="noopener noreferrer">MONDO:0016146</a>), GO (caveola assembly, molecular adaptor activity, ERK signaling), HPO (rippling muscle, distal weakness, elevated CK, hypertrophic cardiomyopathy), CL (skeletal muscle fiber, cardiac muscle cell), and UBERON (skeletal muscle organ, heart). The disease’s pathophysiology highlights caveolae as critical microdomains in mechanotransduction and signaling, and caveolin‑3 as a central structural and functional node. Future research directions include deeper molecular profiling of human caveolinopathy, exploration of modifier genes and environmental interactions, and development of experimental therapies targeting caveolin‑3 or its downstream pathways.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>6</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>9</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0016146</code> (6 mentions) - the report calls it "CAV3-related disorders"; MONDO calls it <strong>caveolinopathy</strong></li>
+<li><code>HP:0006200</code> (1 mention) - the report calls it "rippling muscle"; HP calls it <strong>Widened distal phalanges</strong></li>
+<li><code>HP:0003745</code> (1 mention) - the report calls it "percussion-induced muscle contractions"; HP calls it <strong>Sporadic</strong></li>
+<li><code>HP:0003738</code> (1 mention) - the report calls it "muscle mounding"; HP calls it <strong>Exercise-induced myalgia</strong></li>
+<li><code>HP:0003553</code> (2 mentions) - the report calls it "Distal muscle weakness"; HP calls it <strong>obsolete Cellulitis due to immunodeficiency</strong></li>
+<li><code>HP:0003470</code> (2 mentions) - the report calls it "Muscle atrophy of the hands and feet", "Atrophy of hand muscles"; HP calls it <strong>Paralysis</strong></li>
+<li><code>HP:0003581</code> (1 mention) - the report calls it "Benign course"; HP calls it <strong>Adult onset</strong></li>
+<li><code>HP:0003828</code> (1 mention) - the report calls it "Asymptomatic"; HP calls it <strong>Variable expressivity</strong></li>
+<li><code>HP:0002540</code> (1 mention) - the report calls it "Impaired mobility"; HP calls it <strong>Inability to walk</strong></li>
+<li><code>HP:0007482</code> (1 mention) - the report calls it "bilateral"; HP calls it <strong>Generalized papillary lesions</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>HP:0003746</code> (1 mention), reported as "Muscle weakness of the pelvic girdle" - HP does not contain this term</li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>HP:0003553</code> (obsolete Cellulitis due to immunodeficiency) (2 mentions) - replaced by <code>HP:0100658</code></li>
+<li><code>HP:0002355</code> (obsolete Difficulty walking) (1 mention) - replaced by <code>HP:0001288</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>MONDO:0019947</code> (2 mentions) - the report calls it "hereditary rippling muscle disease"; MONDO calls it <strong>rippling muscle disease 2</strong>, and lists "CAV3 rippling muscle disease" among its other names</li>
+<li><code>HP:0008994</code> (1 mention) - the report calls it "Muscle weakness of the proximal lower limbs"; HP calls it <strong>Proximal lower limb muscle weakness</strong>, and lists "Muscle weakness, proximal, lower limbs" among its other names</li>
+<li><code>HP:0002355</code> (1 mention) - the report calls it "Difficulty walking"; HP calls it <strong>obsolete Difficulty walking</strong></li>
+<li><code>HP:0001645</code> (1 mention) - the report calls it "Cardiac arrhythmia"; HP calls it <strong>Sudden cardiac death</strong></li>
+<li><code>GO:0005901</code> (3 mentions) - the report calls it "caveola assembly", "caveola"; GO calls it <strong>caveola</strong>, and lists "caveolae" among its other names</li>
+<li><code>GO:0030315</code> (2 mentions) - the report calls it "T-tubule", "T‑tubule network"; GO calls it <strong>T-tubule</strong></li>
+<li><code>CL:0000188</code> (2 mentions) - the report calls it "skeletal muscle fiber"; CL calls it <strong>cell of skeletal muscle</strong>, and lists "skeletal muscle cell" among its other names</li>
+<li><code>UBERON:0001134</code> (1 mention) - the report calls it "skeletal muscle organ"; UBERON calls it <strong>skeletal muscle tissue</strong>, and lists "skeletal muscle" among its other names</li>
+<li><code>UBERON:0014892</code> (1 mention) - the report calls it "skeletal muscle tissue"; UBERON calls it <strong>skeletal muscle organ, vertebrate</strong>, and lists "skeletal muscle" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>HP:0003470</code> - called "Muscle atrophy of the hands and feet", "Atrophy of hand muscles"</li>
+<li><code>GO:0005901</code> - called "caveola assembly", "caveola"</li>
+<li><code>GO:0030315</code> - called "T-tubule", "T‑tubule network"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Cauda_Equina_Syndrome-claude_code.html">← Cauda Equina Syndrome (Claude Code)</a>
+                
+                
+                <a href="CBX1-related_Neurodevelopmental_Disorder-claude_code.html">CBX1-related neurodevelopmental disorder (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Caveolinopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Caveolinopathy-deep-research-perplexity.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-perplexity" aria-current="page">Perplexity</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
