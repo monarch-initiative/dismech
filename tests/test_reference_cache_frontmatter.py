@@ -290,6 +290,47 @@ def test_pmid_cache_agency_guideline_monograph_is_accepted(tmp_path: Path):
     assert check_cache_file(good) is None
 
 
+def test_vetted_monograph_in_the_current_fetcher_format_is_accepted(tmp_path: Path):
+    """The current fetcher writes PMID:31909928 with a title and abstract only:
+    no publisher line, no collection line, no authors, no journal. It is on the
+    vetted list, so a forced re-fetch does not turn it into a false positive."""
+    good = tmp_path / "PMID_31909928.md"
+    good.write_text(
+        "---\n"
+        "reference_id: PMID:31909928\n"
+        "extractor_version: 1\n"
+        "title: Cannabis-based medicinal products\n"
+        "year: '2021'\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "# Cannabis-based medicinal products\n\n"
+        "## Content\n\n"
+        "UNLABELLED: This guideline covers prescribing of cannabis-based "
+        "medicinal products.\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
+
+
+def test_unvetted_record_in_the_same_format_still_fails(tmp_path: Path):
+    """The vetted list names records; it does not exempt the format."""
+    bad = tmp_path / "PMID_99999999.md"
+    bad.write_text(
+        "---\n"
+        "reference_id: PMID:99999999\n"
+        "extractor_version: 1\n"
+        "title: Some guideline\n"
+        "year: '2021'\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "# Some guideline\n\n## Content\n\nText.\n",
+        encoding="utf-8",
+    )
+    finding = check_cache_file(bad)
+    assert finding is not None
+    assert any("fabrication fingerprint" in r for r in finding.reasons)
+
+
 def test_pmid_cache_with_only_journal_is_accepted(tmp_path: Path):
     """Pre-abstract-era and brief PubMed records often carry ``journal`` and
     ``year`` but no ``authors``. They are legitimate and must pass."""

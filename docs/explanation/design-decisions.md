@@ -2635,3 +2635,36 @@ syndrome of menopause, sibling to `MONDO:0001410`, and a class for genitourinary
 syndrome of menopause as a parent of `MONDO:0001410` and a sibling of the lower urinary
 tract classes. And whether the free-text status strings above should move to a bound
 vocabulary (§12).
+
+## 20. Computable phenotypes live on the disorder, and their codes are transcribed, not bound (2026-11-22)
+
+**Decision.** A computable phenotype (an EHR case-finding algorithm from PheKB, the HDR
+UK Phenotype Library, OHDSI or a paper) is a `definitions[]` entry on the disorder it
+identifies, with `definition_type: PHENOTYPE_ALGORITHM`. It is not a separate knowledge
+base. Its codes go in `CriteriaItem.code_lists` as `CodeList` objects, its counts and
+time windows go in `minimum_occurrences` / `minimum_interval_days`, and the way its
+criteria sets combine goes in `Definition.criteria_set_logic`. The library record it was
+transcribed from is cited as a structured-source reference (`HDRUK:`, `PHEKB:`) through
+`source_reference`. See [`docs/computable-phenotypes.md`](../computable-phenotypes.md).
+
+**Why the codes are not ontology bindings.** The codes come from ICD-9-CM, WHO ICD-10,
+SNOMED CT, Read v2/CTV3 and OPCS-4, and none of these is in the §4 ontology set. SNOMED
+CT in particular stays "never bound", for the reasons §13 gives. A code in a `CodeList`
+does not say what a dismech node or phenotype *is*. It records a code that a cited
+algorithm uses, together with the label that algorithm gives it, in the same way that a
+snippet records a sentence. So `codes` is an unbound `Term` list, and
+`just check-codelists` checks it against the cited record instead of against a
+vocabulary. That check confirms the code was copied from the source; it does not show
+that the vocabulary still contains the code. For ICD-10-CM codes, the label is also
+compared with the committed term cache.
+
+**Licensing.** HDR UK records are CC BY-SA 4.0 for non-commercial use, or they carry
+their own notice in the definition text (OpenSAFELY codelists drawn from NHS Digital
+refsets are under the Open Government Licence). The cached records keep that text.
+PheKB states no licence, so its cache transcribes only the phenotype page and PDF
+algorithm documents, not journal articles.
+
+**Still open.** Whether SNOMED CT identifiers drawn from UK refsets can be
+redistributed this way at the scale of a bulk import. The pilot entries carry 109
+SNOMED codes. Also open: a vocabulary check for the code systems that have no adapter.
+WHO ICD-10 and SNOMED builds exist outside `conf/oak_config.yaml`.
