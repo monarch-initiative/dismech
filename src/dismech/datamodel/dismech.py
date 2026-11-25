@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-11-10T02:21:53
+# Generation date: 2026-11-22T20:14:40
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -70,6 +70,7 @@ CL = CurieNamespace('CL', 'http://purl.obolibrary.org/obo/CL_')
 ECTO = CurieNamespace('ECTO', 'http://purl.obolibrary.org/obo/ECTO_')
 ENVO = CurieNamespace('ENVO', 'http://purl.obolibrary.org/obo/ENVO_')
 EXO = CurieNamespace('ExO', 'http://purl.obolibrary.org/obo/ExO_')
+FB = CurieNamespace('FB', 'http://identifiers.org/fb/')
 FOODON = CurieNamespace('FOODON', 'http://purl.obolibrary.org/obo/FOODON_')
 GENO = CurieNamespace('GENO', 'http://purl.obolibrary.org/obo/GENO_')
 GO = CurieNamespace('GO', 'http://purl.obolibrary.org/obo/GO_')
@@ -79,17 +80,25 @@ HP = CurieNamespace('HP', 'http://purl.obolibrary.org/obo/HP_')
 ICD10CM = CurieNamespace('ICD10CM', 'http://purl.obolibrary.org/obo/ICD10CM_')
 ICTRP = CurieNamespace('ICTRP', 'https://trialsearch.who.int/Trial2.aspx?TrialID=')
 LOINC = CurieNamespace('LOINC', 'https://loinc.org/')
+MGI = CurieNamespace('MGI', 'http://identifiers.org/mgi/')
 MONDO = CurieNamespace('MONDO', 'http://purl.obolibrary.org/obo/MONDO_')
 MRO = CurieNamespace('MRO', 'http://purl.obolibrary.org/obo/MRO_')
+NCBIGENE = CurieNamespace('NCBIGene', 'http://identifiers.org/ncbigene/')
 NCBITAXON = CurieNamespace('NCBITaxon', 'http://purl.obolibrary.org/obo/NCBITaxon_')
 NCIT = CurieNamespace('NCIT', 'http://purl.obolibrary.org/obo/NCIT_')
 OBI = CurieNamespace('OBI', 'http://purl.obolibrary.org/obo/OBI_')
+OMIMPS = CurieNamespace('OMIMPS', 'https://omim.org/phenotypicSeries/PS')
 OPL = CurieNamespace('OPL', 'http://purl.obolibrary.org/obo/OPL_')
 PATO = CurieNamespace('PATO', 'http://purl.obolibrary.org/obo/PATO_')
 PMID = CurieNamespace('PMID', 'http://www.ncbi.nlm.nih.gov/pubmed/')
+RGD = CurieNamespace('RGD', 'http://identifiers.org/rgd/')
+SGD = CurieNamespace('SGD', 'http://identifiers.org/sgd/')
 SO = CurieNamespace('SO', 'http://purl.obolibrary.org/obo/SO_')
 UBERON = CurieNamespace('UBERON', 'http://purl.obolibrary.org/obo/UBERON_')
+WB = CurieNamespace('WB', 'http://identifiers.org/wb/')
 XCO = CurieNamespace('XCO', 'http://purl.obolibrary.org/obo/XCO_')
+XENBASE = CurieNamespace('Xenbase', 'http://identifiers.org/xenbase/')
+ZFIN = CurieNamespace('ZFIN', 'http://identifiers.org/zfin/')
 ARRAYEXPRESS = CurieNamespace('arrayexpress', 'https://www.ebi.ac.uk/biostudies/arrayexpress/studies/')
 BIGG = CurieNamespace('bigg', 'https://bigg.ucsd.edu/models/')
 BIOMODELS = CurieNamespace('biomodels', 'https://www.ebi.ac.uk/biomodels/')
@@ -150,6 +159,10 @@ class TermId(URIorCURIE):
 
 
 class LoincCodeId(TermId):
+    pass
+
+
+class OMIMPSCodeId(TermId):
     pass
 
 
@@ -325,6 +338,10 @@ class CriteriaSetName(extended_str):
     pass
 
 
+class CodeListName(extended_str):
+    pass
+
+
 class ComorbidityAssociationName(extended_str):
     pass
 
@@ -427,6 +444,30 @@ class LoincCode(Term):
             self.MissingRequiredField("id")
         if not isinstance(self.id, LoincCodeId):
             self.id = LoincCodeId(self.id)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class OMIMPSCode(Term):
+    """
+    An OMIM phenotypic-series identifier, distinct from an individual OMIM phenotype or gene record even when their
+    six-digit numbers coincide.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["OMIMPSCode"]
+    class_class_curie: ClassVar[str] = "dismech:OMIMPSCode"
+    class_name: ClassVar[str] = "OMIMPSCode"
+    class_model_uri: ClassVar[URIRef] = DISMECH.OMIMPSCode
+
+    id: Union[str, OMIMPSCodeId] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.id):
+            self.MissingRequiredField("id")
+        if not isinstance(self.id, OMIMPSCodeId):
+            self.id = OMIMPSCodeId(self.id)
 
         super().__post_init__(**kwargs)
 
@@ -653,6 +694,30 @@ class ChemicalEntityDescriptor(Descriptor):
     class_class_curie: ClassVar[str] = "dismech:ChemicalEntityDescriptor"
     class_name: ClassVar[str] = "ChemicalEntityDescriptor"
     class_model_uri: ClassVar[URIRef] = DISMECH.ChemicalEntityDescriptor
+
+    preferred_term: str = None
+    term: Optional[Union[dict, Term]] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self.term is not None and not isinstance(self.term, Term):
+            self.term = Term(**as_dict(self.term))
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class GeneOrProductDescriptor(Descriptor):
+    """
+    A descriptor for a gene or gene product in a model system or dataset, bindable to HGNC for a human gene, to the
+    species' Alliance MOD (MGI, RGD, ZFIN, Xenbase, FB, WB, SGD) for a model-organism gene, or to NCBI Gene for a
+    species with no MOD.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["GeneOrProductDescriptor"]
+    class_class_curie: ClassVar[str] = "dismech:GeneOrProductDescriptor"
+    class_name: ClassVar[str] = "GeneOrProductDescriptor"
+    class_model_uri: ClassVar[URIRef] = DISMECH.GeneOrProductDescriptor
 
     preferred_term: str = None
     term: Optional[Union[dict, Term]] = None
@@ -1580,7 +1645,7 @@ class Dataset(YAMLRoot):
     sample_count: Optional[int] = None
     conditions: Optional[Union[str, list[str]]] = empty_list()
     exposures: Optional[Union[Union[dict, ExposureDescriptor], list[Union[dict, ExposureDescriptor]]]] = empty_list()
-    genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
+    genes: Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]] = empty_list()
     platform: Optional[str] = None
     publication: Optional[str] = None
     findings: Optional[Union[Union[dict, "Finding"], list[Union[dict, "Finding"]]]] = empty_list()
@@ -1616,7 +1681,7 @@ class Dataset(YAMLRoot):
 
         self._normalize_inlined_as_list(slot_name="exposures", slot_type=ExposureDescriptor, key_name="preferred_term", keyed=False)
 
-        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneDescriptor, key_name="preferred_term", keyed=False)
+        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneOrProductDescriptor, key_name="preferred_term", keyed=False)
 
         if self.platform is not None and not isinstance(self.platform, str):
             self.platform = str(self.platform)
@@ -1658,6 +1723,7 @@ class ExperimentalModel(YAMLRoot):
     organism: Optional[Union[dict, OrganismDescriptor]] = None
     tissue_term: Optional[Union[dict, AnatomicalEntityDescriptor]] = None
     cell_types: Optional[Union[Union[dict, CellTypeDescriptor], list[Union[dict, CellTypeDescriptor]]]] = empty_list()
+    genes: Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]] = empty_list()
     conditions: Optional[Union[str, list[str]]] = empty_list()
     cell_source: Optional[str] = None
     culture_system: Optional[str] = None
@@ -1689,6 +1755,8 @@ class ExperimentalModel(YAMLRoot):
             self.tissue_term = AnatomicalEntityDescriptor(**as_dict(self.tissue_term))
 
         self._normalize_inlined_as_list(slot_name="cell_types", slot_type=CellTypeDescriptor, key_name="preferred_term", keyed=False)
+
+        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneOrProductDescriptor, key_name="preferred_term", keyed=False)
 
         if not isinstance(self.conditions, list):
             self.conditions = [self.conditions] if self.conditions is not None else []
@@ -3647,6 +3715,10 @@ class GeneDiseaseValidityAssertion(YAMLRoot):
 
 @dataclass(repr=False)
 class ProgressionInfo(YAMLRoot):
+    """
+    One phase of a disease's natural history: what happens during it, how long it lasts, and the age or incubation
+    interval at which it occurs.
+    """
     _inherited_slots: ClassVar[list[str]] = []
 
     class_class_uri: ClassVar[URIRef] = DISMECH["ProgressionInfo"]
@@ -3655,6 +3727,7 @@ class ProgressionInfo(YAMLRoot):
     class_model_uri: ClassVar[URIRef] = DISMECH.ProgressionInfo
 
     phase: Optional[Union[str, "PhaseTerm"]] = None
+    description: Optional[str] = None
     subtype: Optional[str] = None
     age_range: Optional[str] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
@@ -3666,6 +3739,9 @@ class ProgressionInfo(YAMLRoot):
     duration: Optional[str] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
         if self.subtype is not None and not isinstance(self.subtype, str):
             self.subtype = str(self.subtype)
 
@@ -4753,7 +4829,7 @@ class AnimalModel(YAMLRoot):
     species: Optional[str] = None
     genotype: Optional[str] = None
     background: Optional[str] = None
-    genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
+    genes: Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]] = empty_list()
     category: Optional[str] = None
     alleles: Optional[Union[str, list[str]]] = empty_list()
     description: Optional[str] = None
@@ -4774,7 +4850,7 @@ class AnimalModel(YAMLRoot):
         if self.background is not None and not isinstance(self.background, str):
             self.background = str(self.background)
 
-        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneDescriptor, key_name="preferred_term", keyed=False)
+        self._normalize_inlined_as_list(slot_name="genes", slot_type=GeneOrProductDescriptor, key_name="preferred_term", keyed=False)
 
         if self.category is not None and not isinstance(self.category, str):
             self.category = str(self.category)
@@ -6162,6 +6238,8 @@ class Definition(YAMLRoot):
     description: Optional[str] = None
     scope: Optional[str] = None
     attaches_to: Optional[Union[str, list[str]]] = empty_list()
+    source_reference: Optional[Union[str, URIorCURIE]] = None
+    criteria_set_logic: Optional[Union[str, "CriteriaSetLogicEnum"]] = None
     criteria_sets: Optional[Union[dict[Union[str, CriteriaSetName], Union[dict, "CriteriaSet"]], list[Union[dict, "CriteriaSet"]]]] = empty_dict()
     inclusion_criteria: Optional[Union[Union[dict, "CriteriaItem"], list[Union[dict, "CriteriaItem"]]]] = empty_list()
     exclusion_criteria: Optional[Union[Union[dict, "CriteriaItem"], list[Union[dict, "CriteriaItem"]]]] = empty_list()
@@ -6194,6 +6272,12 @@ class Definition(YAMLRoot):
         if not isinstance(self.attaches_to, list):
             self.attaches_to = [self.attaches_to] if self.attaches_to is not None else []
         self.attaches_to = [v if isinstance(v, str) else str(v) for v in self.attaches_to]
+
+        if self.source_reference is not None and not isinstance(self.source_reference, URIorCURIE):
+            self.source_reference = URIorCURIE(self.source_reference)
+
+        if self.criteria_set_logic is not None and not isinstance(self.criteria_set_logic, CriteriaSetLogicEnum):
+            self.criteria_set_logic = CriteriaSetLogicEnum(self.criteria_set_logic)
 
         self._normalize_inlined_as_list(slot_name="criteria_sets", slot_type=CriteriaSet, key_name="name", keyed=True)
 
@@ -6320,6 +6404,64 @@ class CriteriaItem(Descriptor):
     class_model_uri: ClassVar[URIRef] = DISMECH.CriteriaItem
 
     preferred_term: str = None
+    code_lists: Optional[Union[dict[Union[str, CodeListName], Union[dict, "CodeList"]], list[Union[dict, "CodeList"]]]] = empty_dict()
+    minimum_occurrences: Optional[int] = None
+    minimum_interval_days: Optional[int] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        self._normalize_inlined_as_list(slot_name="code_lists", slot_type=CodeList, key_name="name", keyed=True)
+
+        if self.minimum_occurrences is not None and not isinstance(self.minimum_occurrences, int):
+            self.minimum_occurrences = int(self.minimum_occurrences)
+
+        if self.minimum_interval_days is not None and not isinstance(self.minimum_interval_days, int):
+            self.minimum_interval_days = int(self.minimum_interval_days)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class CodeList(YAMLRoot):
+    """
+    A set of clinical codes from one code system, any one of which satisfies the criterion carrying the list. This is
+    how a computable phenotype's codelist (an HDR UK concept, a PheKB code table, an OHDSI concept set) is recorded:
+    each code is copied with the label its source gives it, so a list transcribed from a phenotype library can be
+    checked row by row against that library's cached record (`just check-codelists`).
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["CodeList"]
+    class_class_curie: ClassVar[str] = "dismech:CodeList"
+    class_name: ClassVar[str] = "CodeList"
+    class_model_uri: ClassVar[URIRef] = DISMECH.CodeList
+
+    name: Union[str, CodeListName] = None
+    code_system: Union[str, "CodeSystemEnum"] = None
+    code_system_version: Optional[str] = None
+    source_reference: Optional[Union[str, URIorCURIE]] = None
+    codes: Optional[Union[dict[Union[str, TermId], Union[dict, Term]], list[Union[dict, Term]]]] = empty_dict()
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, CodeListName):
+            self.name = CodeListName(self.name)
+
+        if self._is_empty(self.code_system):
+            self.MissingRequiredField("code_system")
+        if not isinstance(self.code_system, CodeSystemEnum):
+            self.code_system = CodeSystemEnum(self.code_system)
+
+        if self.code_system_version is not None and not isinstance(self.code_system_version, str):
+            self.code_system_version = str(self.code_system_version)
+
+        if self.source_reference is not None and not isinstance(self.source_reference, URIorCURIE):
+            self.source_reference = URIorCURIE(self.source_reference)
+
+        self._normalize_inlined_as_list(slot_name="codes", slot_type=Term, key_name="id", keyed=True)
+
+        super().__post_init__(**kwargs)
+
 
 @dataclass(repr=False)
 class TermMapping(YAMLRoot):
@@ -6465,6 +6607,36 @@ class NCITMapping(TermMapping):
 
 
 @dataclass(repr=False)
+class OMIMPSMapping(TermMapping):
+    """
+    Mapping to an OMIM phenotypic series, not an individual OMIM record
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["OMIMPSMapping"]
+    class_class_curie: ClassVar[str] = "dismech:OMIMPSMapping"
+    class_name: ClassVar[str] = "OMIMPSMapping"
+    class_model_uri: ClassVar[URIRef] = DISMECH.OMIMPSMapping
+
+    mapping_predicate: Union[str, URIorCURIE] = None
+    term: Union[dict, OMIMPSCode] = None
+    mapping_justification: str = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.term):
+            self.MissingRequiredField("term")
+        if not isinstance(self.term, OMIMPSCode):
+            self.term = OMIMPSCode(**as_dict(self.term))
+
+        if self._is_empty(self.mapping_justification):
+            self.MissingRequiredField("mapping_justification")
+        if not isinstance(self.mapping_justification, str):
+            self.mapping_justification = str(self.mapping_justification)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class MappingConsistency(YAMLRoot):
     """
     Consistency assertion for a mapping relative to another source
@@ -6512,6 +6684,7 @@ class DiseaseMappings(YAMLRoot):
     icd10cm_mappings: Optional[Union[Union[dict, ICD10CMMapping], list[Union[dict, ICD10CMMapping]]]] = empty_list()
     icd11f_mappings: Optional[Union[Union[dict, ICD11FMapping], list[Union[dict, ICD11FMapping]]]] = empty_list()
     mondo_mappings: Optional[Union[Union[dict, MondoMapping], list[Union[dict, MondoMapping]]]] = empty_list()
+    omimps_mappings: Optional[Union[Union[dict, OMIMPSMapping], list[Union[dict, OMIMPSMapping]]]] = empty_list()
     ncit_mappings: Optional[Union[Union[dict, NCITMapping], list[Union[dict, NCITMapping]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -6520,6 +6693,8 @@ class DiseaseMappings(YAMLRoot):
         self._normalize_inlined_as_list(slot_name="icd11f_mappings", slot_type=ICD11FMapping, key_name="mapping_predicate", keyed=False)
 
         self._normalize_inlined_as_list(slot_name="mondo_mappings", slot_type=MondoMapping, key_name="mapping_predicate", keyed=False)
+
+        self._normalize_inlined_as_list(slot_name="omimps_mappings", slot_type=OMIMPSMapping, key_name="mapping_predicate", keyed=False)
 
         self._normalize_inlined_as_list(slot_name="ncit_mappings", slot_type=NCITMapping, key_name="mapping_predicate", keyed=False)
 
@@ -7664,6 +7839,60 @@ class DefinitionTypeEnum(EnumDefinitionImpl):
         description="The type of definition or criteria set",
     )
 
+class CriteriaSetLogicEnum(EnumDefinitionImpl):
+    """
+    How the criteria sets of a definition combine.
+    """
+    ALL_OF = PermissibleValue(
+        text="ALL_OF",
+        description="A case must satisfy every criteria set (conjunction).")
+    ANY_OF = PermissibleValue(
+        text="ANY_OF",
+        description="Satisfying any one criteria set suffices (disjunction).")
+
+    _defn = EnumDefinition(
+        name="CriteriaSetLogicEnum",
+        description="How the criteria sets of a definition combine.",
+    )
+
+class CodeSystemEnum(EnumDefinitionImpl):
+    """
+    Clinical code systems a CodeList can draw from. The value is also the CURIE prefix of each code (`ICD10:D57.0`,
+    `SNOMEDCT:127040003`).
+    """
+    ICD9CM = PermissibleValue(
+        text="ICD9CM",
+        description="ICD-9-CM (US clinical modification of ICD-9)")
+    ICD10 = PermissibleValue(
+        text="ICD10",
+        description="""WHO ICD-10, as used in UK Hospital Episode Statistics. Not ICD-10-CM: the same code can carry a different label in each.""")
+    ICD10CM = PermissibleValue(
+        text="ICD10CM",
+        description="ICD-10-CM (US clinical modification of ICD-10)")
+    SNOMEDCT = PermissibleValue(
+        text="SNOMEDCT",
+        description="SNOMED CT concept identifiers")
+    READ2 = PermissibleValue(
+        text="READ2",
+        description="Read codes version 2 (UK primary care, 5-byte)")
+    CTV3 = PermissibleValue(
+        text="CTV3",
+        description="Read codes version 3 / Clinical Terms Version 3")
+    OPCS4 = PermissibleValue(
+        text="OPCS4",
+        description="OPCS-4 procedure codes (UK)")
+    LOINC = PermissibleValue(
+        text="LOINC",
+        description="LOINC observation codes")
+    RXNORM = PermissibleValue(
+        text="RXNORM",
+        description="RxNorm drug concepts")
+
+    _defn = EnumDefinition(
+        name="CodeSystemEnum",
+        description="""Clinical code systems a CodeList can draw from. The value is also the CURIE prefix of each code (`ICD10:D57.0`, `SNOMEDCT:127040003`).""",
+    )
+
 class DefinitionDerivationBasisEnum(EnumDefinitionImpl):
     """
     The epistemic grounding of a definition / phenotype algorithm, orthogonal to definition_type. Records where the
@@ -8237,7 +8466,11 @@ class GeneDiseaseRelationshipEnum(EnumDefinitionImpl):
     DISPUTED = PermissibleValue(
         text="DISPUTED",
         title="Disputed",
-        description="""Reported gene-disease association whose validity is contested (corresponds to ClinGen \"Disputed\" or \"Refuted\").""")
+        description="""A reported gene-disease relationship whose validity is contested: the evidence for and against it conflicts, or the original report has not been replicated, and the question is open (corresponds to ClinGen/GenCC \"Disputed\"). Use this, not a subtype row, for a locus whose claim to cause the disease is unsettled. When an external body has graded the pair, copy its tier into `gene_disease_validity` as well; `relationship_type` is the curator's reading, `gene_disease_validity` is the source's.""")
+    REFUTED = PermissibleValue(
+        text="REFUTED",
+        title="Refuted",
+        description="""A reported gene-disease relationship that the evidence now contradicts: the refuting evidence significantly outweighs the original report, so the gene is recorded to stop the claim being re-made, not because it contributes to the disease (corresponds to ClinGen/GenCC \"Refuted\"). Distinct from DISPUTED, where the question is still open. Requires `evidence` citing the refutation, not only the original claim.""")
     UNKNOWN = PermissibleValue(
         text="UNKNOWN",
         title="Unknown",
@@ -8881,6 +9114,19 @@ class TriggerTerm(EnumDefinitionImpl):
         description="A trigger",
     )
 
+class GeneOrProductTerm(EnumDefinitionImpl):
+    """
+    A gene or gene product in a model system or dataset, named in its own species. In priority order: HGNC for a human
+    gene; the species' Alliance of Genome Resources member database where one exists (MGI mouse, RGD rat, ZFIN
+    zebrafish, Xenbase Xenopus, FB Drosophila, WB C. elegans, SGD S. cerevisiae); otherwise NCBI Gene. No hierarchy
+    constraint. The schema does not restrict the prefix: where each prefix may appear, and the priority, are enforced
+    by scripts/check_gene_namespaces.py.
+    """
+    _defn = EnumDefinition(
+        name="GeneOrProductTerm",
+        description="""A gene or gene product in a model system or dataset, named in its own species. In priority order: HGNC for a human gene; the species' Alliance of Genome Resources member database where one exists (MGI mouse, RGD rat, ZFIN zebrafish, Xenbase Xenopus, FB Drosophila, WB C. elegans, SGD S. cerevisiae); otherwise NCBI Gene. No hierarchy constraint. The schema does not restrict the prefix: where each prefix may appear, and the priority, are enforced by scripts/check_gene_namespaces.py.""",
+    )
+
 class GeneTerm(EnumDefinitionImpl):
     """
     A gene term from HGNC
@@ -8888,6 +9134,16 @@ class GeneTerm(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="GeneTerm",
         description="A gene term from HGNC",
+    )
+
+class OMIMPSTerm(EnumDefinitionImpl):
+    """
+    An OMIM phenotypic series. Validates identifier existence and the canonical label through the OMIM OAK adapter,
+    without a disease-hierarchy constraint. A series may describe a Mendelian disease family or susceptibility loci.
+    """
+    _defn = EnumDefinition(
+        name="OMIMPSTerm",
+        description="""An OMIM phenotypic series. Validates identifier existence and the canonical label through the OMIM OAK adapter, without a disease-hierarchy constraint. A series may describe a Mendelian disease family or susceptibility loci.""",
     )
 
 class LoincTerm(EnumDefinitionImpl):
@@ -9366,6 +9622,14 @@ class OnsetEnum(EnumDefinitionImpl):
         text="PUERPERAL",
         description="Puerperal onset",
         meaning=HP["4000040"])
+    PERIMENOPAUSAL = PermissibleValue(
+        text="PERIMENOPAUSAL",
+        description="Perimenopausal onset",
+        meaning=HP["6000314"])
+    POSTMENOPAUSAL = PermissibleValue(
+        text="POSTMENOPAUSAL",
+        description="Postmenopausal onset",
+        meaning=HP["6000315"])
 
     _defn = EnumDefinition(
         name="OnsetEnum",
@@ -9636,9 +9900,10 @@ class ModelDivergenceTypeEnum(EnumDefinitionImpl):
     Typed kind of departure between a model and the mechanism node it is linked to. Values were fixed by reading all
     50 computational-model `limitations` strings in the KB and clustering them, with the animal and NAM sets probed to
     establish which kinds are shared -- see docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md. A single
-    link usually carries more than one, which is why `divergences` is multivalued. The set is deliberately
-    computational-model-first; extending it to animal models would add supraphysiological expression and incomplete
-    phenotype, each already evidenced in that set.
+    link usually carries more than one, which is why `divergences` is multivalued. The set was deliberately
+    computational-model-first; INCOMPLETE_PHENOTYPE was added when the animal set it was predicted from became the
+    dominant population (#11743). SUPRAPHYSIOLOGICAL_EXPRESSION remains the other predicted addition and has not been
+    added.
     """
     BOUNDARY_OMISSION = PermissibleValue(
         text="BOUNDARY_OMISSION",
@@ -9675,7 +9940,11 @@ class ModelDivergenceTypeEnum(EnumDefinitionImpl):
     SPECIES_MISMATCH = PermissibleValue(
         text="SPECIES_MISMATCH",
         title="Species mismatch",
-        description="""The model, or the data behind it, derives from a non-human system. Marginal among computational models and dominant among animal models, where it is the principal translational caveat.""")
+        description="""The model, or the data behind it, derives from a non-human system. Marginal among computational models and dominant among animal models, where it is the principal translational caveat. Use it when the organism structurally cannot express the node -- a mouse has no IgG4 subclass, Drosophila has no thalamus. Contrast INCOMPLETE_PHENOTYPE, where the organism could express it and the model does not.""")
+    INCOMPLETE_PHENOTYPE = PermissibleValue(
+        text="INCOMPLETE_PHENOTYPE",
+        title="Incomplete phenotype",
+        description="""The model reproduces part of the disease phenotype and not the rest, and nothing about the organism explains the missing part. A mouse can have seizures; a model that does not show them is incomplete rather than species-mismatched. It also covers a feature the model's reports are simply silent on, which is the commoner case: \"not shown\" and \"not looked for\" are rarely separable from a publication, and both leave the phenotype incomplete. The distinction from SPECIES_MISMATCH carries a consequence for a reader deciding what the model is worth: a species-structural gap will never close in that organism, while an incomplete phenotype may be a matter of background strain, age at assay, penetrance, or an assay nobody ran. Both can apply to one model for different features, which is why `divergences` is multivalued -- record each against the feature it concerns rather than choosing between them.""")
     POPULATION_MISMATCH = PermissibleValue(
         text="POPULATION_MISMATCH",
         title="Population mismatch",
@@ -9687,7 +9956,7 @@ class ModelDivergenceTypeEnum(EnumDefinitionImpl):
 
     _defn = EnumDefinition(
         name="ModelDivergenceTypeEnum",
-        description="""Typed kind of departure between a model and the mechanism node it is linked to. Values were fixed by reading all 50 computational-model `limitations` strings in the KB and clustering them, with the animal and NAM sets probed to establish which kinds are shared -- see docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md. A single link usually carries more than one, which is why `divergences` is multivalued. The set is deliberately computational-model-first; extending it to animal models would add supraphysiological expression and incomplete phenotype, each already evidenced in that set.""",
+        description="""Typed kind of departure between a model and the mechanism node it is linked to. Values were fixed by reading all 50 computational-model `limitations` strings in the KB and clustering them, with the animal and NAM sets probed to establish which kinds are shared -- see docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md. A single link usually carries more than one, which is why `divergences` is multivalued. The set was deliberately computational-model-first; INCOMPLETE_PHENOTYPE was added when the animal set it was predicted from became the dominant population (#11743). SUPRAPHYSIOLOGICAL_EXPRESSION remains the other predicted addition and has not been added.""",
     )
 
 class ModelDivergenceMaterialityEnum(EnumDefinitionImpl):
@@ -9775,14 +10044,26 @@ class CurationActionEnum(EnumDefinitionImpl):
 
 class ClinicalTrialPhaseEnum(EnumDefinitionImpl):
     """
-    Clinical trial phase categories per FDA/NIH standards
+    Clinical trial phase categories per FDA/NIH standards, plus the combined-phase designs ClinicalTrials.gov
+    registers in its own vocabulary. A combined-phase trial takes the combined value rather than either component:
+    rounding it to one phase makes a query for "phase III trials in X" include some phase 2/3 trials and silently
+    exclude others.
     """
+    EARLY_PHASE_I = PermissibleValue(
+        text="EARLY_PHASE_I",
+        description="""Early Phase I - exploratory first-in-human or pharmacodynamic study (ClinicalTrials.gov EARLY_PHASE1, formerly Phase 0)""")
     PHASE_I = PermissibleValue(
         text="PHASE_I",
         description="Phase I - Initial safety and dosage assessment in small group (20-100 participants)")
+    PHASE_I_II = PermissibleValue(
+        text="PHASE_I_II",
+        description="Combined Phase I/II design, registered by ClinicalTrials.gov as PHASE1|PHASE2")
     PHASE_II = PermissibleValue(
         text="PHASE_II",
         description="Phase II - Efficacy and side effects assessment in larger group (100-500 participants)")
+    PHASE_II_III = PermissibleValue(
+        text="PHASE_II_III",
+        description="Combined Phase II/III design, registered by ClinicalTrials.gov as PHASE2|PHASE3")
     PHASE_III = PermissibleValue(
         text="PHASE_III",
         description="Phase III - Efficacy confirmation and monitoring in large population (1000-5000 participants)")
@@ -9795,7 +10076,7 @@ class ClinicalTrialPhaseEnum(EnumDefinitionImpl):
 
     _defn = EnumDefinition(
         name="ClinicalTrialPhaseEnum",
-        description="Clinical trial phase categories per FDA/NIH standards",
+        description="""Clinical trial phase categories per FDA/NIH standards, plus the combined-phase designs ClinicalTrials.gov registers in its own vocabulary. A combined-phase trial takes the combined value rather than either component: rounding it to one phase makes a query for \"phase III trials in X\" include some phase 2/3 trials and silently exclude others.""",
     )
 
 class ClinicalTrialStatusEnum(EnumDefinitionImpl):
@@ -15661,6 +15942,9 @@ slots.icd11f_mappings = Slot(uri=DISMECH.icd11f_mappings, name="icd11f_mappings"
 slots.mondo_mappings = Slot(uri=DISMECH.mondo_mappings, name="mondo_mappings", curie=DISMECH.curie('mondo_mappings'),
                    model_uri=DISMECH.mondo_mappings, domain=None, range=Optional[Union[Union[dict, MondoMapping], list[Union[dict, MondoMapping]]]])
 
+slots.omimps_mappings = Slot(uri=DISMECH.omimps_mappings, name="omimps_mappings", curie=DISMECH.curie('omimps_mappings'),
+                   model_uri=DISMECH.omimps_mappings, domain=None, range=Optional[Union[Union[dict, OMIMPSMapping], list[Union[dict, OMIMPSMapping]]]])
+
 slots.ncit_mappings = Slot(uri=DISMECH.ncit_mappings, name="ncit_mappings", curie=DISMECH.curie('ncit_mappings'),
                    model_uri=DISMECH.ncit_mappings, domain=None, range=Optional[Union[Union[dict, NCITMapping], list[Union[dict, NCITMapping]]]])
 
@@ -15708,6 +15992,27 @@ slots.additional_requirements = Slot(uri=DISMECH.additional_requirements, name="
 
 slots.minimum_required = Slot(uri=DISMECH.minimum_required, name="minimum_required", curie=DISMECH.curie('minimum_required'),
                    model_uri=DISMECH.minimum_required, domain=None, range=Optional[int])
+
+slots.criteria_set_logic = Slot(uri=DISMECH.criteria_set_logic, name="criteria_set_logic", curie=DISMECH.curie('criteria_set_logic'),
+                   model_uri=DISMECH.criteria_set_logic, domain=None, range=Optional[Union[str, "CriteriaSetLogicEnum"]])
+
+slots.source_reference = Slot(uri=DISMECH.source_reference, name="source_reference", curie=DISMECH.curie('source_reference'),
+                   model_uri=DISMECH.source_reference, domain=None, range=Optional[Union[str, URIorCURIE]])
+
+slots.code_lists = Slot(uri=DISMECH.code_lists, name="code_lists", curie=DISMECH.curie('code_lists'),
+                   model_uri=DISMECH.code_lists, domain=None, range=Optional[Union[dict[Union[str, CodeListName], Union[dict, CodeList]], list[Union[dict, CodeList]]]])
+
+slots.codes = Slot(uri=DISMECH.codes, name="codes", curie=DISMECH.curie('codes'),
+                   model_uri=DISMECH.codes, domain=None, range=Optional[Union[dict[Union[str, TermId], Union[dict, Term]], list[Union[dict, Term]]]])
+
+slots.code_system_version = Slot(uri=DISMECH.code_system_version, name="code_system_version", curie=DISMECH.curie('code_system_version'),
+                   model_uri=DISMECH.code_system_version, domain=None, range=Optional[str])
+
+slots.minimum_occurrences = Slot(uri=DISMECH.minimum_occurrences, name="minimum_occurrences", curie=DISMECH.curie('minimum_occurrences'),
+                   model_uri=DISMECH.minimum_occurrences, domain=None, range=Optional[int])
+
+slots.minimum_interval_days = Slot(uri=DISMECH.minimum_interval_days, name="minimum_interval_days", curie=DISMECH.curie('minimum_interval_days'),
+                   model_uri=DISMECH.minimum_interval_days, domain=None, range=Optional[int])
 
 slots.consistency = Slot(uri=DISMECH.consistency, name="consistency", curie=DISMECH.curie('consistency'),
                    model_uri=DISMECH.consistency, domain=None, range=Optional[Union[Union[dict, MappingConsistency], list[Union[dict, MappingConsistency]]]])
@@ -16007,6 +16312,10 @@ slots.LoincCode_id = Slot(uri=DISMECH.id, name="LoincCode_id", curie=DISMECH.cur
                    model_uri=DISMECH.LoincCode_id, domain=LoincCode, range=Union[str, LoincCodeId],
                    pattern=re.compile(r'^LOINC:(LP|LG)?[0-9]+-[0-9]$'))
 
+slots.OMIMPSCode_id = Slot(uri=DISMECH.id, name="OMIMPSCode_id", curie=DISMECH.curie('id'),
+                   model_uri=DISMECH.OMIMPSCode_id, domain=OMIMPSCode, range=Union[str, OMIMPSCodeId],
+                   pattern=re.compile(r'^OMIMPS:[0-9]{6}$'))
+
 slots.Descriptor_description = Slot(uri=DISMECH.description, name="Descriptor_description", curie=DISMECH.curie('description'),
                    model_uri=DISMECH.Descriptor_description, domain=Descriptor, range=Optional[str])
 
@@ -16024,6 +16333,9 @@ slots.AnatomicalEntityDescriptor_term = Slot(uri=DISMECH.term, name="AnatomicalE
 
 slots.ChemicalEntityDescriptor_term = Slot(uri=DISMECH.term, name="ChemicalEntityDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.ChemicalEntityDescriptor_term, domain=ChemicalEntityDescriptor, range=Optional[Union[dict, Term]])
+
+slots.GeneOrProductDescriptor_term = Slot(uri=DISMECH.term, name="GeneOrProductDescriptor_term", curie=DISMECH.curie('term'),
+                   model_uri=DISMECH.GeneOrProductDescriptor_term, domain=GeneOrProductDescriptor, range=Optional[Union[dict, Term]])
 
 slots.GeneDescriptor_term = Slot(uri=DISMECH.term, name="GeneDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.GeneDescriptor_term, domain=GeneDescriptor, range=Optional[Union[dict, Term]])
@@ -16111,6 +16423,12 @@ slots.PhenotypeContext_evidence = Slot(uri=DISMECH.evidence, name="PhenotypeCont
 
 slots.Dataset_description = Slot(uri=DISMECH.description, name="Dataset_description", curie=DISMECH.curie('description'),
                    model_uri=DISMECH.Dataset_description, domain=Dataset, range=Optional[str])
+
+slots.Dataset_genes = Slot(uri=DISMECH.genes, name="Dataset_genes", curie=DISMECH.curie('genes'),
+                   model_uri=DISMECH.Dataset_genes, domain=Dataset, range=Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]])
+
+slots.ExperimentalModel_genes = Slot(uri=DISMECH.genes, name="ExperimentalModel_genes", curie=DISMECH.curie('genes'),
+                   model_uri=DISMECH.ExperimentalModel_genes, domain=ExperimentalModel, range=Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]])
 
 slots.Experiment_experiment_id = Slot(uri=DISMECH.experiment_id, name="Experiment_experiment_id", curie=DISMECH.curie('experiment_id'),
                    model_uri=DISMECH.Experiment_experiment_id, domain=Experiment, range=str)
@@ -16421,6 +16739,9 @@ slots.GeneDiseaseValidityAssertion_external_id = Slot(uri=DISMECH.external_id, n
 slots.GeneDiseaseValidityAssertion_subtype = Slot(uri=DISMECH.subtype, name="GeneDiseaseValidityAssertion_subtype", curie=DISMECH.curie('subtype'),
                    model_uri=DISMECH.GeneDiseaseValidityAssertion_subtype, domain=GeneDiseaseValidityAssertion, range=Optional[str])
 
+slots.ProgressionInfo_description = Slot(uri=DISMECH.description, name="ProgressionInfo_description", curie=DISMECH.curie('description'),
+                   model_uri=DISMECH.ProgressionInfo_description, domain=ProgressionInfo, range=Optional[str])
+
 slots.ClinicalBurden_burden_level = Slot(uri=DISMECH.burden_level, name="ClinicalBurden_burden_level", curie=DISMECH.curie('burden_level'),
                    model_uri=DISMECH.ClinicalBurden_burden_level, domain=ClinicalBurden, range=Union[str, "ClinicalBurdenLevelEnum"])
 
@@ -16488,6 +16809,9 @@ slots.AnimalModel_publication = Slot(uri=DISMECH.publication, name="AnimalModel_
 
 slots.AnimalModel_modeled_mechanisms = Slot(uri=DISMECH.modeled_mechanisms, name="AnimalModel_modeled_mechanisms", curie=DISMECH.curie('modeled_mechanisms'),
                    model_uri=DISMECH.AnimalModel_modeled_mechanisms, domain=AnimalModel, range=Optional[Union[Union[dict, ModelMechanismLink], list[Union[dict, ModelMechanismLink]]]])
+
+slots.AnimalModel_genes = Slot(uri=DISMECH.genes, name="AnimalModel_genes", curie=DISMECH.curie('genes'),
+                   model_uri=DISMECH.AnimalModel_genes, domain=AnimalModel, range=Optional[Union[Union[dict, GeneOrProductDescriptor], list[Union[dict, GeneOrProductDescriptor]]]])
 
 slots.TreatmentEffectModifier_effect_modifier_type = Slot(uri=DISMECH.effect_modifier_type, name="TreatmentEffectModifier_effect_modifier_type", curie=DISMECH.curie('effect_modifier_type'),
                    model_uri=DISMECH.TreatmentEffectModifier_effect_modifier_type, domain=TreatmentEffectModifier, range=Union[str, "EffectModifierTypeEnum"])
@@ -16591,6 +16915,9 @@ slots.Definition_name = Slot(uri=DISMECH.name, name="Definition_name", curie=DIS
 slots.Definition_definition_type = Slot(uri=DISMECH.definition_type, name="Definition_definition_type", curie=DISMECH.curie('definition_type'),
                    model_uri=DISMECH.Definition_definition_type, domain=Definition, range=Union[str, "DefinitionTypeEnum"])
 
+slots.Definition_source_reference = Slot(uri=DISMECH.source_reference, name="Definition_source_reference", curie=DISMECH.curie('source_reference'),
+                   model_uri=DISMECH.Definition_source_reference, domain=Definition, range=Optional[Union[str, URIorCURIE]])
+
 slots.Definition_attaches_to = Slot(uri=DISMECH.attaches_to, name="Definition_attaches_to", curie=DISMECH.curie('attaches_to'),
                    model_uri=DISMECH.Definition_attaches_to, domain=Definition, range=Optional[Union[str, list[str]]])
 
@@ -16602,6 +16929,15 @@ slots.AlgorithmValidationStatus_rationale = Slot(uri=DISMECH.rationale, name="Al
 
 slots.CriteriaSet_name = Slot(uri=DISMECH.name, name="CriteriaSet_name", curie=DISMECH.curie('name'),
                    model_uri=DISMECH.CriteriaSet_name, domain=CriteriaSet, range=Union[str, CriteriaSetName])
+
+slots.CodeList_code_system = Slot(uri=DISMECH.code_system, name="CodeList_code_system", curie=DISMECH.curie('code_system'),
+                   model_uri=DISMECH.CodeList_code_system, domain=CodeList, range=Union[str, "CodeSystemEnum"])
+
+slots.CodeList_code_system_version = Slot(uri=DISMECH.code_system_version, name="CodeList_code_system_version", curie=DISMECH.curie('code_system_version'),
+                   model_uri=DISMECH.CodeList_code_system_version, domain=CodeList, range=Optional[str])
+
+slots.CodeList_source_reference = Slot(uri=DISMECH.source_reference, name="CodeList_source_reference", curie=DISMECH.curie('source_reference'),
+                   model_uri=DISMECH.CodeList_source_reference, domain=CodeList, range=Optional[Union[str, URIorCURIE]])
 
 slots.TermMapping_term = Slot(uri=DISMECH.term, name="TermMapping_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.TermMapping_term, domain=TermMapping, range=Union[dict, Term])
@@ -16620,6 +16956,12 @@ slots.MondoMapping_term = Slot(uri=DISMECH.term, name="MondoMapping_term", curie
 
 slots.NCITMapping_term = Slot(uri=DISMECH.term, name="NCITMapping_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.NCITMapping_term, domain=NCITMapping, range=Union[dict, Term])
+
+slots.OMIMPSMapping_term = Slot(uri=DISMECH.term, name="OMIMPSMapping_term", curie=DISMECH.curie('term'),
+                   model_uri=DISMECH.OMIMPSMapping_term, domain=OMIMPSMapping, range=Union[dict, OMIMPSCode])
+
+slots.OMIMPSMapping_mapping_justification = Slot(uri=DISMECH.mapping_justification, name="OMIMPSMapping_mapping_justification", curie=DISMECH.curie('mapping_justification'),
+                   model_uri=DISMECH.OMIMPSMapping_mapping_justification, domain=OMIMPSMapping, range=str)
 
 slots.MappingConsistency_reference = Slot(uri=DISMECH.reference, name="MappingConsistency_reference", curie=DISMECH.curie('reference'),
                    model_uri=DISMECH.MappingConsistency_reference, domain=MappingConsistency, range=str)

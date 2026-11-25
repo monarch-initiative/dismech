@@ -86,6 +86,7 @@ import json
 import os
 import re
 import sys
+import unicodedata
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -517,6 +518,38 @@ def _bookaccession(record: dict) -> str:
     )
 
 
+#: Everything PubMed folds away inside a quoted phrase. The quote characters
+#: are kept, because they are what marks the phrase as having been searched as
+#: one unit rather than split into separate terms.
+_OUTSIDE_PHRASE = re.compile(r'[^a-z0-9\s"]')
+
+
+def _fold_query(text: str) -> str:
+    """PubMed's own folding of a query string: punctuation out, quotes kept."""
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    text = _OUTSIDE_PHRASE.sub(" ", text.lower())
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def phrase_searched_verbatim(phrase: str, translation: str) -> bool:
+    """Did PubMed search ``phrase`` as one quoted phrase?
+
+    PubMed drops punctuation inside a quoted phrase, so its translation of
+    ``"a, b"[TI]`` comes back as ``"a b"[Title]``. Comparing the two raw
+    strings therefore fails on the comma alone, and the search is thrown away
+    although it ran exactly as asked -- which silently removed every
+    comma-bearing MONDO label ("X, Y type", "X, autosomal recessive") from the
+    online check (#17228).
+
+    Folding both sides the same way accepts that while keeping the guard it
+    was written for: in a genuine rewrite the quotes are gone and the phrase
+    has been split into separate terms (#14213), so the quoted needle is still
+    absent.
+    """
+    return f'"{_fold_query(phrase)}"' in _fold_query(translation)
+
+
 class OnlineSearch:
     """Live ``"<name>"[TI] AND <source>[book]`` searches, for chapters newer than the snapshot.
 
@@ -629,8 +662,8 @@ class OnlineSearch:
                     )
                     continue
                 translation = result.get("querytranslation")
-                if translation is not None and f'"{phrase.lower()}"' not in (
-                    translation.lower()
+                if translation is not None and not phrase_searched_verbatim(
+                    phrase, translation
                 ):
                     print(
                         f"warning: PubMed rewrote {term!r} as {translation!r}; "
