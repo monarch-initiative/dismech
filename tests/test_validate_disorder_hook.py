@@ -273,3 +273,120 @@ def test_outside_git_the_environment_is_unchanged(tmp_path):
     checkout = _make_checkout(tmp_path / "dismech")
 
     assert hook.validation_env(checkout, environ={"PATH": "/bin"}) == {"PATH": "/bin"}
+
+
+# --- Rejected Write content is kept (dismech#16164) ---------------------------
+
+
+def _run_main(monkeypatch, payload: dict, passes: bool) -> int:
+    """Run the hook's main() on `payload` with validation stubbed out."""
+    import io
+    import json
+
+    monkeypatch.setattr(hook, "recipe_available", lambda root, recipe: True)
+    monkeypatch.setattr(
+        hook,
+        "validate_content",
+        lambda content, path, root: (passes, "" if passes else "ERROR: bad slot"),
+    )
+    monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
+    with pytest.raises(SystemExit) as exc:
+        hook.main()
+    return exc.value.code
+
+
+PROPOSED = "name: Asthma\nnot_a_slot: true\ndescription: \"naïve — unicode\"\n"
+
+
+def test_blocked_write_saves_the_proposed_content(tmp_path, monkeypatch, capsys):
+    checkout = _make_checkout(tmp_path / "dismech-asthma")
+    target = checkout / "kb" / "disorders" / "Asthma.yaml"
+
+    code = _run_main(
+        monkeypatch,
+        {"tool_name": "Write", "tool_input": {"file_path": str(target), "content": PROPOSED}},
+        passes=False,
+    )
+
+    saved = checkout / "tmp" / "rejected_edits" / "Asthma.yaml"
+    assert code == 2
+    assert saved.read_bytes() == PROPOSED.encode("utf-8")
+    assert not target.exists(), "the blocked Write must still not reach kb/"
+    err = capsys.readouterr().err
+    assert str(saved) in err
+    assert f"just {hook.VALIDATE_RECIPE} {saved}" in err
+    assert f"mv {saved} {target}" in err
+
+
+def test_a_second_rejection_overwrites_the_first(tmp_path, monkeypatch):
+    checkout = _make_checkout(tmp_path / "dismech-asthma")
+    target = checkout / "kb" / "disorders" / "Asthma.yaml"
+    for content in ("name: first\n", "name: second\n"):
+        _run_main(
+            monkeypatch,
+            {"tool_name": "Write", "tool_input": {"file_path": str(target), "content": content}},
+            passes=False,
+        )
+
+    saved_dir = checkout / "tmp" / "rejected_edits"
+    assert [p.name for p in saved_dir.iterdir()] == ["Asthma.yaml"]
+    assert (saved_dir / "Asthma.yaml").read_text() == "name: second\n"
+
+
+@pytest.mark.parametrize("tool_name", ["Write", "Edit"])
+def test_a_passing_edit_removes_a_stale_rejection(tmp_path, monkeypatch, tool_name):
+    """Any passing change to the real file supersedes the saved rejection."""
+    checkout = _make_checkout(tmp_path / "dismech-asthma")
+    target = checkout / "kb" / "disorders" / "Asthma.yaml"
+    target.write_text("name: Asthma\n")
+    saved = checkout / "tmp" / "rejected_edits" / "Asthma.yaml"
+    saved.parent.mkdir(parents=True)
+    saved.write_text("name: old rejection\n")
+    tool_input = {"file_path": str(target)}
+    if tool_name == "Write":
+        tool_input["content"] = "name: Asthma\n"
+    else:
+        tool_input.update(old_string="name: Asthma\n", new_string="name: Asthma \n")
+
+    code = _run_main(
+        monkeypatch, {"tool_name": tool_name, "tool_input": tool_input}, passes=True
+    )
+
+    assert code == 0
+    assert not saved.exists()
+
+
+@pytest.mark.parametrize("tool_name", ["Edit", "MultiEdit"])
+def test_blocked_edit_saves_nothing(tmp_path, monkeypatch, tool_name):
+    checkout = _make_checkout(tmp_path / "dismech-asthma")
+    target = checkout / "kb" / "disorders" / "Asthma.yaml"
+    target.write_text("name: Asthma\n")
+    edit = {"old_string": "name: Asthma\n", "new_string": PROPOSED}
+    tool_input = {"file_path": str(target), **edit}
+    if tool_name == "MultiEdit":
+        tool_input = {"file_path": str(target), "edits": [edit]}
+
+    code = _run_main(monkeypatch, {"tool_name": tool_name, "tool_input": tool_input}, passes=False)
+
+    assert code == 2
+    assert not (checkout / "tmp" / "rejected_edits").exists()
+    assert target.read_text() == "name: Asthma\n"
+
+
+def test_a_failed_save_still_blocks_without_crashing(tmp_path, monkeypatch, capsys):
+    """A full disk (#13119) must not turn an ordinary block into a traceback."""
+    checkout = _make_checkout(tmp_path / "dismech-asthma")
+    target = checkout / "kb" / "disorders" / "Asthma.yaml"
+    # A regular file where the directory should be makes mkdir raise OSError.
+    (checkout / "tmp").write_text("not a directory\n")
+
+    code = _run_main(
+        monkeypatch,
+        {"tool_name": "Write", "tool_input": {"file_path": str(target), "content": PROPOSED}},
+        passes=False,
+    )
+
+    assert code == 2
+    err = capsys.readouterr().err
+    assert "BLOCKING EDIT" in err
+    assert "Could not save the rejected content" in err
