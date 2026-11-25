@@ -5763,3 +5763,16 @@ Preview what the next sweep would do (read-only):
 ```bash
 just auto-merge-preview        # or: just auto-merge-preview 7  (age in days)
 ```
+
+### Proposed ontology changes
+
+Record precise edits requested of MONDO or another ontology in
+`ontology_changes/<id>.yaml`, validated against the standalone
+`src/dismech/schema/ontology_change.yaml`. See
+[`ontology_changes/README.md`](ontology_changes/README.md) for edit fields,
+source snapshots, curation confidence and request/adoption lifecycle rules.
+`just validate-ontology-changes` runs in QC and on every PR; `just
+ontology-changes list` queries pending requests and `export <id>` emits a
+reviewable Markdown request without publishing it. Link affected diseases,
+groupings and analyses through `affected_records`; use existing `tracked_issues`
+for filed tickets. Keep solver probabilities in the linked analysis artifacts.
