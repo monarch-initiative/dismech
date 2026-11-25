@@ -63,6 +63,19 @@ _NCBI_BOOKSHELF_RE = re.compile(r"\[Internet\]\.")
 # trips the contract. See issue #6607 (PMID:31909928, a NICE guideline, was a
 # false-positive fabrication flag).
 _AGENCY_GUIDELINE_RE = re.compile(r"(?m)^.{2,120}:[ \t]*Guidelines\.[ \t]*$")
+# Corporate-author monographs whose current fetcher output carries no marker at
+# all. linkml-reference-validator's newer body format writes only the title and
+# abstract, dropping the publisher and collection lines the two patterns above
+# match, and a corporate author is not written to ``authors:``. So a forced
+# re-fetch of one of these records turns it into a #1737 false positive that no
+# body pattern can recognise. Each entry was checked by hand against PubMed as a
+# real agency monograph with no personal authors; add one only after the same
+# check. A record cached in the older format still passes on its body marker.
+_VETTED_CORPORATE_MONOGRAPHS = frozenset(
+    {
+        "PMID:31909928",  # NICE NG144, Cannabis-based medicinal products (#6607)
+    }
+)
 
 
 class SupplementaryFileFrontmatter(BaseModel):
@@ -263,6 +276,8 @@ def check_cache_file(path: Path) -> Finding | None:
         )
     except OSError:
         is_monograph = False
+    if str(data.get("reference_id", "")).strip() in _VETTED_CORPORATE_MONOGRAPHS:
+        is_monograph = True
     reasons = _validate_contract(path, data, is_monograph=is_monograph)
     if not reasons:
         return None
