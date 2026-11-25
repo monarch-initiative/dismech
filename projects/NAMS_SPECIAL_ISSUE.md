@@ -1036,34 +1036,53 @@ own `ResourceTypeEnum.Report` says is not a report. And because the cell line is
 the records cannot yet carry a specific `model` id below the "mammalian neuronal cell
 model" level.
 
-**dismech disposition — two arms link, three do not:**
+**dismech disposition — three arms link, two do not:**
 
 | Arm | KE / endpoint | dismech disposition |
 |---|---|---|
 | mitochondrial membrane potential ↓ | mitochondrial dysfunction | `ModelMechanismLink` on `mitochondrial_dysfunction#Bioenergetic Decline and Oxidative Stress`, `PARTIALLY_RECAPITULATES`, `model_scale: CELLULAR`, `PROXY_QUANTITY` divergence |
 | proteasome activity ↓ | proteolytic dysfunction | `ModelMechanismLink` on `loss_of_proteostasis#Proteostasis Network Decline`, `PARTIALLY_RECAPITULATES`, `model_scale: CELLULAR`, `BOUNDARY_OMISSION` divergence |
-| autophagy activity ↑ | autophagic flux | **no link** — opposite direction to the only candidate module (see below) |
+| autophagy activity ↑ | autophagic flux | `ModelMechanismLink` on `stress_induced_autophagy#Stress-Induced Autophagy Induction`, `PARTIALLY_RECAPITULATES`, `model_scale: CELLULAR`, `BOUNDARY_OMISSION` divergence — the new increased-flux module built under dismech#18240 (see below) |
 | cell viability / benchmark dose | potency | registry only — an apical endpoint with no mechanism node to attach to |
 | combination index | synergy | inventory only — [open question 9](NAMS_SPECIAL_ISSUE/open-questions.md), dismech#16885 |
 
-Both model links observe only the cellular key event and carry `limitations` saying the
-cell model cannot observe the nervous-system adverse outcome the AOP targets. Neither
-anchor node is organism-level, so neither link needs a `SCALE_EXTRAPOLATION` divergence;
+All three model links observe only the cellular key event and carry `limitations` saying the
+cell model cannot observe the nervous-system adverse outcome the AOP targets. No
+anchor node is organism-level, so no link needs a `SCALE_EXTRAPOLATION` divergence;
 linking the cell model up to an organism-level outcome node (`Age-Related Tissue
 Dysfunction`, `Proteotoxic Cell Dysfunction and Neurodegeneration`) was rejected because
 the paper demonstrates the key events, not those downstream outcomes — that would be a
-claim overreach the scale caveat alone would not fix.
+claim overreach the scale caveat alone would not fix. Each anchor node now carries
+`biological_scale: CELLULAR`, so `just model-scale-audit` reports all three links
+`ALIGNED` rather than `UNDETERMINED` (dismech#18240 Item 1).
 
-**The autophagy arm survives neither candidate.** The issue floated
-`disabled_macroautophagy` for it. That module models autophagy being *disabled* — its
-chain is "machinery-decline → failed-clearance → accumulated-damage" and its nodes are
-`Autophagy Machinery Decline` and `Failure of Cytoplasmic Quality Control`. This paper's
-finding is an *increase* in autophagy activity, a stress-induced induction, which is the
-opposite claim; linking it would assert decline from a measurement of induction. So the
-autophagy key event has no module home here and is recorded as a gap rather than forced
-onto the wrong anchor. (`loss_of_proteostasis#Proteostasis Network Decline` does bind
-`GO:0016236 macroautophagy, DECREASED` as one arm, so it is excluded for the same
-direction reason; only its proteasome arm is used.)
+**The autophagy arm now has a direction-correct home (dismech#18240 Item 2).** The issue
+originally floated `disabled_macroautophagy` for it. That module models autophagy being
+*disabled* — its chain is "machinery-decline → failed-clearance → accumulated-damage" and
+its nodes are `Autophagy Machinery Decline` and `Failure of Cytoplasmic Quality Control`.
+This paper's finding is an *increase* in autophagy activity, a stress-induced induction,
+which is the opposite claim; linking it there would assert decline from a measurement of
+induction. (`loss_of_proteostasis#Proteostasis Network Decline` binds `GO:0016236
+macroautophagy, DECREASED` as one arm, so it is excluded for the same direction reason;
+only its proteasome arm is used.) Rather than leave the arm unlinked, dismech#18240 built
+`kb/modules/stress_induced_autophagy.yaml` — the INCREASED-autophagy complement of those
+decline-oriented modules, with the chain Cellular Stress Sensing → Stress-Induced Autophagy
+Induction (key conformance target) → Cytoprotective Clearance and Adaptation, plus a
+maladaptive Autophagy-Dependent Cell Death arm. The neuronal cell model carries its third
+link there, on the induction node, direction INCREASED.
+
+**Pesticide neurotoxicity remains without a disease/module home, and PMID:38040083 cannot
+supply one (dismech#18240 Item 2, second part).** The three agent classes act through
+distinct ion-channel targets — neonicotinoids on nicotinic acetylcholine receptors,
+pyrethroids on voltage-gated sodium channels, phenylpyrazoles on the GABA-A chloride
+channel — which do not form one clinical entity, so a single umbrella entry would fail the
+"every node true of every case" test. More to the point, this paper measures only the
+*downstream* organelle key events (mitochondrial membrane potential, proteasome activity,
+autophagy), none of them cholinergic or channel-level, so it carries no evidence for any of
+those primary mechanisms. A pesticide-neurotoxicity channel module or per-class poisoning
+entries would therefore need their own clinical/mechanistic evidence base and are a separate
+curation effort gated on a disease-level need, not a PMID:38040083 follow-up. The model stays
+attached to the three mechanism modules, as decided here.
 
 **The mitochondrial anchor is the general module, not the acute-poisoning one.**
 `xenobiotic_oxidative_phosphorylation_blockade` is scoped to acute histotoxic poisoning at
