@@ -5,6 +5,11 @@ Is dismech's curated structure logically consistent with MONDO's?
 For the investigation and reporting workflow, use the repo-local
 [mapping-analysis skill](../../.claude/skills/mapping-analysis/SKILL.md).
 
+[Five OMIM phenotypic-series pilots](omimps-pilots/README.md) compare pinned
+pre/post-curation records for BBS, lysosomal acid lipase deficiency, cblE/cblG/cblD-HC,
+MSUD and PNH. They preserve direct PS mapping predicates, subtype scope and
+separate-entry aliases, and audit member coverage independently of solver consistency.
+
 dismech grounds its entries in MONDO, and separately asserts its own hierarchy
 through `has_subtypes` and `kb/groupings/`. Those are independent claims, and
 they can disagree. Nothing in the validation stack checks that they don't:
