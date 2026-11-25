@@ -367003,6 +367003,107 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "RTTN-Related Microcephalic Primordial Dwarfism",
+    "disease_id": "MONDO:0018764",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-11-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive neurodevelopmental disorder caused by biallelic hypomorphic variants in RTTN (rotatin), a centriolar scaffold protein required for centriole elongation. The phenotype spans a spectrum from isolated bilateral polymicrogyria through microcephalic primordial dwarfism with complex cortical malformation to the most severe radial microbrain, with severity tracking the residual function of the protein. Core features are primary (congenital) microcephaly, pre- and postnatal growth restriction, intellectual disability with frequently absent speech, and a range of cortical malformations (polymicrogyria, lissencephaly/pachygyria, periventricular heterotopia, corpus-callosum and vermis hypoplasia), with seizures in a minority. OMIM 614833 (MSSP) and Orphanet ORPHA:468631 describe one RTTN-related spectrum. Because complete loss of rotatin is embryonic-lethal in the mouse, the human disorder reflects partial loss of function.",
+    "pathophysiology": [
+      "Reduced Rotatin Centriolar Function",
+      "Defective Centriole Assembly",
+      "Mitotic Spindle Dysfunction and Centrosome Amplification",
+      "Neural Progenitor Depletion",
+      "Ciliary Signalling Dysfunction",
+      "Defective Neuronal Migration"
+    ],
+    "cell_types": [
+      "fibroblast (patient)",
+      "neural progenitor cell",
+      "radial glial cell",
+      "migrating cortical neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0011020",
+      "CL:0000681",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "centriole elongation",
+      "centriole assembly",
+      "mitotic spindle organization",
+      "neural precursor cell proliferation",
+      "cilium assembly",
+      "neuron migration"
+    ],
+    "phenotypes": [
+      "Primary microcephaly",
+      "Primordial dwarfism / intrauterine growth restriction",
+      "Postnatal short stature",
+      "Lissencephaly and pachygyria",
+      "Polymicrogyria",
+      "Periventricular nodular heterotopia",
+      "Corpus callosum hypoplasia",
+      "Cerebellar vermis hypoplasia",
+      "Intellectual disability",
+      "Seizures",
+      "Brachydactyly",
+      "Global developmental delay",
+      "Absent speech"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Growth",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011451",
+      "HP:0001511",
+      "HP:0004322",
+      "HP:0001302",
+      "HP:0002126",
+      "HP:0032388",
+      "HP:0002079",
+      "HP:0001320",
+      "HP:0001249",
+      "HP:0001250",
+      "HP:0001156",
+      "HP:0001263",
+      "HP:0001344"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RTTN variants"
+    ],
+    "treatments": [
+      "Supportive and symptomatic care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "RTTN-Related_Microcephalic_Primordial_Dwarfism.yaml",
+    "page_url": "../pages/disorders/RTTN-Related_Microcephalic_Primordial_Dwarfism.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "RUNX1 Familial Platelet Disorder with Associated Myeloid Malignancy",
     "disease_id": "MONDO:0100083",
     "category": "Mendelian",
@@ -367463,7 +367564,7 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 0,
     "num_treatments": 7,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "9"
   },
   {
@@ -454008,19 +454109,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4174,
+  "total_disorder_pages": 4175,
   "total_subtypes": 5137,
-  "total_disorders_and_subtypes": 9311,
-  "total_unique_evidence_sources": 62345,
-  "total_unique_publications": 58219,
+  "total_disorders_and_subtypes": 9312,
+  "total_unique_evidence_sources": 62359,
+  "total_unique_publications": 58233,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4172,
-  "total_unique_pathological_events": 27565,
+  "total_pathographs": 4173,
+  "total_unique_pathological_events": 27570,
   "total_modules": 240,
-  "total_research_reports": 4276,
+  "total_research_reports": 4277,
   "total_classifications": 21,
   "total_comorbidities": 58,
-  "total_groupings": 148
+  "total_groupings": 149
 };
 window.dispatchEvent(new Event('searchDataReady'));
