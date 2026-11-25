@@ -126282,7 +126282,7 @@ window.searchData = [
     "creation_date": "2026-11-20T20:12:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Cribriform neuroepithelial tumour (CRINET) is a rare SMARCB1-deficient tumour in and around the ventricles of young children, defined by cribriform strands and ribbons without the rhabdoid cells of atypical teratoid/rhabdoid tumour (AT/RT). Whether it is a disease of its own or a pattern within AT/RT is open. In the largest cited series, of ten children and published in 2017, and the only cited study to compare the tumours' methylation with the AT/RT groups, all eight tumours with methylation data clustered inside the TYR group of AT/RT, all ten stained for tyrosinase as that group does, and, like that group, most had a large deletion of one SMARCB1 copy and a mutation of the other. But the children did far better: one of the ten died, a month after surgery, and the mean overall survival was 125 months against 53 months in 27 children with AT/RT of the TYR group. A summary of the WHO classification of paediatric tumours says it was introduced as a provisional entity, biologically distinct from AT/RT.",
+    "description": "Cribriform neuroepithelial tumour (CRINET) is a rare SMARCB1-deficient tumour in and around the ventricles of young children, defined by cribriform strands and ribbons without the rhabdoid cells of atypical teratoid/rhabdoid tumour (AT/RT). Whether it is a distinct entity or a variant of AT/RT is open. In the largest cited series, of ten children and published in 2017, and the only cited study to compare the tumours' methylation with the AT/RT groups, all eight tumours with methylation data clustered inside the TYR group of AT/RT, all ten stained for tyrosinase as that group does, and, like that group, most had a large deletion of one SMARCB1 copy and a mutation of the other. But the children did far better: one of the ten died, a month after surgery, and the mean overall survival was 125 months against 53 months in 27 children with AT/RT of the TYR group. A summary of the WHO classification of paediatric tumours says it was introduced as a provisional entity, biologically distinct from AT/RT.",
     "pathophysiology": [
       "Biallelic SMARCB1 Inactivation",
       "Non-Rhabdoid Cribriform Tumour Growth in the Ventricles"
@@ -340084,6 +340084,9 @@ window.searchData = [
       "Hypoesthesia",
       "Pain",
       "Mononeuropathy",
+      "Foot drop",
+      "Wrist drop",
+      "Reduced or absent reflexes",
       "Painless soft tissue mass"
     ],
     "phenotype_categories": [
@@ -340092,6 +340095,7 @@ window.searchData = [
     ],
     "phenotype_hpo_categories": [
       "Constitutional",
+      "Limbs",
       "Musculoskeletal",
       "Neoplasm",
       "Nervous System"
@@ -340102,11 +340106,15 @@ window.searchData = [
       "HP:0033748",
       "HP:0012531",
       "HP:0009831",
+      "HP:0009027",
+      "HP:0031189",
+      "HP:0001315",
       "HP:0031459"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
       "TRAF7",
@@ -340115,17 +340123,18 @@ window.searchData = [
     "treatments": [
       "Observation",
       "Tendon transfer",
-      "Surgical excision"
+      "Surgical excision",
+      "Nerve resection, with or without grafting"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Perineurioma.yaml",
     "page_url": "../pages/disorders/Perineurioma.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 9,
     "num_pathophysiology": 5,
     "num_genes": 2,
-    "num_treatments": 3,
-    "causal_graph_edges": "11",
+    "num_treatments": 4,
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "4"
   },
   {
@@ -371987,7 +371996,8 @@ window.searchData = [
       "Extrarenal Extracranial Rhabdoid Tumor",
       "Synchronous Multifocal Rhabdoid Tumors",
       "Schwannomatosis",
-      "Choroid Plexus Carcinoma"
+      "Choroid Plexus Carcinoma",
+      "Cribriform Neuroepithelial Tumor"
     ],
     "phenotype_categories": [
       "Neoplastic"
@@ -372002,7 +372012,8 @@ window.searchData = [
       "HP:0034402",
       "HP:0034557",
       "HP:0100008",
-      "HP:0030392"
+      "HP:0030392",
+      "HP:0030063"
     ],
     "frequencies": [
       "FREQUENT",
@@ -372020,11 +372031,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Rhabdoid_Tumor_Predisposition_Syndrome_1.yaml",
     "page_url": "../pages/disorders/Rhabdoid_Tumor_Predisposition_Syndrome_1.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 7,
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "6"
   },
   {
@@ -431847,6 +431858,9 @@ window.searchData = [
       "Granuloma Formation",
       "Neutrophil Activation and NETosis",
       "Tissue Damage",
+      "Systemic Inflammatory Cytokine Response",
+      "Tuberculous Pleuritis",
+      "Tuberculous Spondylitis",
       "Drug Resistance Mechanisms",
       "Rv0191 MFS-Mediated Pyrazinamide Efflux",
       "Immune Evasion"
@@ -431855,13 +431869,15 @@ window.searchData = [
       "Macrophage",
       "T Cell",
       "neutrophil",
-      "dendritic cell"
+      "dendritic cell",
+      "Monocyte"
     ],
     "cell_type_ids": [
       "CL:0000235",
       "CL:0000084",
       "CL:0000775",
-      "CL:0000451"
+      "CL:0000451",
+      "CL:0000576"
     ],
     "biological_processes": [
       "type I interferon signaling pathway",
@@ -431872,6 +431888,8 @@ window.searchData = [
       "inflammatory response",
       "neutrophil degranulation",
       "neutrophil extracellular trap formation",
+      "tumor necrosis factor production",
+      "interleukin-1 production",
       "xenobiotic transmembrane transport",
       "adaptive immune response"
     ],
@@ -431958,10 +431976,10 @@ window.searchData = [
     "source_file": "Tuberculosis.yaml",
     "page_url": "../pages/disorders/Tuberculosis.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 11,
     "num_genes": 8,
     "num_treatments": 18,
-    "causal_graph_edges": "15",
+    "causal_graph_edges": "25",
     "causal_graph_longest_path": "4"
   },
   {
@@ -453316,14 +453334,14 @@ window.searchMetrics = {
   "total_disorder_pages": 4169,
   "total_subtypes": 5124,
   "total_disorders_and_subtypes": 9293,
-  "total_unique_evidence_sources": 62257,
-  "total_unique_publications": 58141,
+  "total_unique_evidence_sources": 62267,
+  "total_unique_publications": 58151,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4167,
-  "total_unique_pathological_events": 27531,
+  "total_unique_pathological_events": 27534,
   "total_modules": 239,
-  "total_research_reports": 4270,
+  "total_research_reports": 4271,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 147
