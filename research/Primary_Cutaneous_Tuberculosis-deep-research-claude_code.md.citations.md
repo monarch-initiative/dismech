@@ -7,7 +7,7 @@
 - **MONDO ID:** MONDO:0957464 (if available)
 - **Causal gene(s):** not recorded
 - **OMIM:** not recorded
-- **Synonyms:** not recorded
+- **Synonyms:** Tuberculous chancre; Primary inoculation tuberculosis; Primary tuberculous complex of the skin
 - **Category:** 
 
 Many disease names are serial numbers ("... autosomal dominant 64", "... 26") that
@@ -467,28 +467,26 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** claude_code
-**Generated:** 2026-11-25T22:39:16.768705
+**Generated:** 2026-11-25T23:25:10.784089
 
-1. https://pmc.ncbi.nlm.nih.gov/articles/PMC2923933
-2. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9073256/
-3. https://mdpi.com/2076-0817/12/7/920
-4. https://ncbi.nlm.nih.gov/books/NBK482220
-5. https://gesund.bund.de/en/icd-code-suche/a18-4
-6. https://findacode.com/icd-11/code-625292625.html
-7. https://meshb.nlm.nih.gov/record/ui?ui=D014382
-8. https://en.wikipedia.org/wiki/Primary_inoculation_tuberculosis
-9. https://katalog.lib.cas.cz/KNAV/EdsRecord/cmedm,16334632
-10. https://doaj.org/article/b893819535d24abaadfb83812fe4387b
-11. https://pmc.ncbi.nlm.nih.gov/articles/PMC4104692
-12. https://pmc.ncbi.nlm.nih.gov/articles/PMC7275902
-13. https://www.em-consulte.com/article/1629517/resume/cutaneous-tuberculosis-part-i-pathogenesis-classif
-14. https://doaj.org/article/d55a3fb3df644c488964f13a0590a49c
-15. https://doaj.org/article/d371dc0f9b3447e8b01cfe14ef901986
-16. https://scilit.com/publications/5de059afd18b98ea16e171d88098c8e5
-17. https://scholars.duke.edu/publication/1645823
-18. https://pmc.ncbi.nlm.nih.gov/articles/pmid/24770496
-19. https://pmc.ncbi.nlm.nih.gov/articles/PMC10315778
-20. https://pmc.ncbi.nlm.nih.gov/articles/PMC500826
-21. https://pmc.ncbi.nlm.nih.gov/articles/PMC6077618
-22. https://pmc.ncbi.nlm.nih.gov/articles/PMC3073244/figure/F2
-23. https://pmc.ncbi.nlm.nih.gov/articles/PMC108103
+1. https://www.cismef.org/page/detail/en/ICD11_MD_1431244630
+2. https://www.doi.org/10.2165/00128071-200203050-00004
+3. https://ncbi.nlm.nih.gov/books/NBK482220
+4. https://pmc.ncbi.nlm.nih.gov/articles/PMC2923933
+5. https://www.aapc.com/codes/icd-10-codes/A18.4
+6. https://autoicdapi.com/icd11/1B12.8
+7. https://terminologie.nictiz.nl/terminology/snomed/viewConcept/63808004
+8. https://e-century.us/files/ijcem/11/4/ijcem0062165.pdf
+9. https://acta-apa.org/journals/acta-dermatovenerol-apa/papers/10.15570/actaapa.2021.19/actaapa.2021.19.pdf
+10. https://wwwnc.cdc.gov/eid/article/14/4/07-0408_article
+11. https://pmc.ncbi.nlm.nih.gov/articles/PMC9453483
+12. https://pmc.ncbi.nlm.nih.gov/articles/PMC4357480
+13. https://pmc.ncbi.nlm.nih.gov/articles/PMC7275902
+14. https://pro.dermnetnz.org/topics/cutaneous-tuberculosis-pathology
+15. https://pmc.ncbi.nlm.nih.gov/articles/PMC6077618/table/tab3
+16. https://pmc.ncbi.nlm.nih.gov/articles/PMC7838242/table/t0010
+17. https://search.bvsalud.org/gim/resource/en/wpr-154280
+18. https://dermnetnz.org/topics/cutaneous-tuberculosis
+19. https://pmc.ncbi.nlm.nih.gov/articles/PMC4542998
+20. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12547945/
+21. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9941491/
