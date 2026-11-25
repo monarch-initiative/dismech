@@ -107,6 +107,170 @@ def pathograph_thumbnail_command(
     )
 
 
+@app.command("hdruk-definition")
+def hdruk_definition_command(
+    phenotype_ids: list[str] = typer.Argument(
+        ..., help="HDR UK phenotype ids, e.g. PH304 or HDRUK:PH304."
+    ),
+    detail_json: Path | None = typer.Option(
+        None,
+        "--detail-json",
+        exists=True,
+        dir_okay=False,
+        help="Offline: a saved detail payload (one id only).",
+    ),
+    codes_json: Path | None = typer.Option(
+        None,
+        "--codes-json",
+        exists=True,
+        dir_okay=False,
+        help="Offline: a saved codes-export payload (one id only).",
+    ),
+    write_cache: bool = typer.Option(
+        True,
+        "--write-cache/--no-write-cache",
+        help="Also write references_cache/HDRUK_<id>.md.",
+    ),
+    exclude_code_system: list[str] = typer.Option(
+        [],
+        "--exclude-code-system",
+        help=(
+            "Leave out every code of this CodeSystemEnum value (e.g. SNOMEDCT), "
+            "from both the definition and the cache file; repeatable. The "
+            "omission is recorded in each."
+        ),
+    ),
+    disorder: Path | None = typer.Option(
+        None,
+        "--disorder",
+        exists=True,
+        dir_okay=False,
+        help=(
+            "Append the definitions to this KB entry instead of printing them. "
+            "A record already cited there is skipped, as is one whose MONDO tag "
+            "names a different disease or that has no transcribable codes."
+        ),
+    ),
+) -> None:
+    """Draft dismech `definitions:` for HDR UK phenotype(s).
+
+    Fetches each record from the HDR UK Phenotype Library API (or reads the
+    saved payloads), writes its HDRUK: reference cache file so the evidence and
+    code lists verify, and prints the fragment as YAML, or with --disorder
+    appends it to that entry.
+    """
+    import json
+
+    import yaml
+
+    from dismech.computable_phenotypes import (
+        append_definitions,
+        cited_references,
+        definition_from_hdruk,
+        mondo_tag_conflict,
+        transcribable_codes,
+    )
+    from dismech.repo_root import repo_root
+    from dismech.structured_sources.hdruk import (
+        HDRUKSource,
+        entry_for,
+        omit_code_systems,
+        parse_record,
+    )
+    from dismech.yaml_io import safe_load_path
+
+    if (detail_json is None) != (codes_json is None):
+        raise typer.BadParameter("--detail-json and --codes-json go together.")
+    if detail_json is not None and len(phenotype_ids) != 1:
+        raise typer.BadParameter("Saved payloads describe one phenotype; give one id.")
+    cache_dir = repo_root() / "references_cache"
+    source = HDRUKSource(repo_root() / "data" / "hdruk", cache_dir=cache_dir)
+    definitions = []
+    for phenotype_id in phenotype_ids:
+        if detail_json is not None and codes_json is not None:
+            record = parse_record(
+                json.loads(detail_json.read_text(encoding="utf-8")),
+                json.loads(codes_json.read_text(encoding="utf-8")),
+            )
+        else:
+            record = source.fetch(phenotype_id)
+        record = omit_code_systems(record, set(exclude_code_system))
+        if not transcribable_codes(record):
+            typer.echo(f"SKIP {record.phenotype_id}: no transcribable codes", err=True)
+            continue
+        if disorder is not None:
+            entry_doc = safe_load_path(disorder)
+            if f"HDRUK:{record.phenotype_id}" in cited_references(entry_doc):
+                typer.echo(f"SKIP {record.phenotype_id}: already cited", err=True)
+                continue
+            conflict = mondo_tag_conflict(record, entry_doc)
+            if conflict:
+                typer.echo(f"SKIP {record.phenotype_id}: {conflict}", err=True)
+                continue
+        if write_cache:
+            entry = entry_for(record)
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            (cache_dir / entry.filename()).write_text(entry.render(), encoding="utf-8")
+        definitions.append(definition_from_hdruk(record))
+    if disorder is not None:
+        added = append_definitions(disorder, definitions)
+        typer.echo(f"{disorder}: added {len(added)} definition(s)", err=True)
+        return
+    typer.echo(
+        yaml.safe_dump(
+            {"definitions": definitions}, sort_keys=False, allow_unicode=True, width=100
+        ),
+        nl=False,
+    )
+
+
+@app.command("check-codelists")
+def check_codelists_command(
+    paths: list[Path] | None = typer.Argument(
+        None, help="KB files to check; default: every file under kb/."
+    ),
+) -> None:
+    """Check every CodeList in the KB against its code system and cached source.
+
+    Fails (exit 1) when a code's prefix is not its list's code_system, a code
+    is malformed for its system, a code or its label is absent from the cited
+    source_reference, or that source is not cached.
+    """
+    from dismech import kb_cache
+    from dismech.computable_phenotypes import check_document, iter_code_lists
+    from dismech.repo_root import repo_root
+
+    root = repo_root()
+    if paths:
+        files = list(paths)
+    else:
+        kb_cache.default_off()
+        # Only a file that spells the slot can hold a code list; skipping the
+        # rest avoids parsing the whole corpus (~25 s -> ~1 s).
+        files = [
+            p
+            for p in sorted((root / "kb").rglob("*.yaml"))
+            if "code_lists:" in p.read_text(encoding="utf-8")
+        ]
+    findings = []
+    lists = 0
+    for path in files:
+        doc = kb_cache.load_document(path)
+        file_findings = check_document(
+            doc, path, root / "references_cache", root / "cache"
+        )
+        findings.extend(file_findings)
+        lists += sum(1 for _ in iter_code_lists(doc))
+    for finding in findings:
+        typer.echo(finding.format())
+    typer.echo(
+        f"{len(files)} files scanned, {lists} code lists, {len(findings)} findings",
+        err=True,
+    )
+    if findings:
+        raise typer.Exit(code=1)
+
+
 def main() -> None:
     app()
 
