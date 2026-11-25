@@ -10,6 +10,9 @@ description: >-
 tags: [FRAMEWORK_ALIGNMENT, EVIDENCE, EXTERNAL_COLLABORATION, ENVIRONMENTAL_EXPOSURE, SCHEMA_EVOLUTION]
 diseases:
   - Lead_Poisoning
+  - Arsenic_Poisoning
+  - Cadmium_Poisoning
+  - Manganism
   - Liver_Cirrhosis
   - Idiopathic_Pulmonary_Fibrosis
   - Skeletal_Fluorosis
@@ -847,9 +850,154 @@ possibly reading out KE2 biology instead, and dismech's own curated IL-8 content
 to bear on that question. That is the first case here running from dismech *toward* an AOP
 rather than the other way round, and it needs more room than a section.
 
+## The metal mixture use case
+
+This fourth pilot is the one where an AOP and a dismech entry already describe the same
+chemicals. What neither can express is that the chemicals were tested together.
+
+Every observation below is from the **11-25-2026** AOP-Wiki snapshot, read through
+`aop-wiki-cli`, and is therefore a different snapshot from the 2026-08-06 export the
+counts under [Weight of Evidence](#weight-of-evidence) come from.
+
+### A risk-assessment review that became AOP-Wiki content
+
+A 2015 review (PMID:26096925) applied the then-current OECD guidance to prenatal and early
+life exposure to lead, arsenic, cadmium and manganese, and proposed an AOP: MEK-ERK1/2
+activation in astrocytes as the molecular initiating event, then raised intracellular
+calcium, reactive oxygen species, apoptosis in astrocytes, disrupted neurotransmitter
+release, and learning and cognitive deficits as the adverse outcome. It graded each key
+event on biological plausibility, on essentiality, and separately on whether there was
+evidence of *interaction* between the metals — and concluded that the evidence was
+"strongest for downstream key events with little evidence for initiating events".
+
+That proposal is now in AOP-Wiki as two AOPs, neither carrying an OECD status:
+
+- **AOP 499**, *Activation of MEK-ERK1/2 leads to deficits in learning and cognition via
+  disrupted neurotransmitter release*
+- **AOP 500**, *... via ROS and apoptosis*
+
+They are the review's two arms. Both share its molecular initiating event, KE2146
+*Activation of mitogen-activated protein kinase kinase, extracellular signal-regulated
+kinase 1/2*, and its first relationship, KER2942 to KE1339 *Increase, intracellular
+calcium* — and KER2942's own `description` and `empirical-support-linkage` are the
+arsenic-cadmium-lead astrocyte experiments the review was built on, citing the same Rai et
+al. papers. KE2146 is upstream in exactly one KER across the whole export.
+
+The grades, read from each AOP's own relationship listing:
+
+| KER | Relationship | AOP | Grade |
+|---|---|---|---|
+| 2942 | MEK/ERK1/2 activation (2146) → increase, intracellular calcium (1339) | 499, 500 | Moderate |
+| 2954 | increase, intracellular calcium (1339) → disruption, neurotransmitter release (2151) | 499 | Moderate |
+| 2955 | disruption, neurotransmitter release (2151) → impairment, learning and memory (341) | 499 | Moderate |
+| 3140 | increase, intracellular calcium (1339) → mitochondrial dysfunction (177) | 500 | Moderate |
+| 3141 | mitochondrial dysfunction (177) → increased, reactive oxygen species (1115) | 500 | High |
+| 2966 | increased, reactive oxygen species (1115) → apoptosis (1262) | 500 | High |
+| 2967 | apoptosis (1262) → neurodegeneration (352) | 500 | High |
+| 1069 | neurodegeneration (352) → impairment, learning and memory (341) | 500 | High |
+| 2968 | increase, intracellular calcium (1339) → apoptosis (1262) | 500 (non-adjacent) | High |
+
+**Every relationship at or above the calcium event is Moderate and everything below it is
+High.** That is the review's own conclusion — strongest downstream, weakest at the
+initiating event — reproduced by the graders of the AOPs that descend from it, a decade
+later. The agreement is worth recording because it is the clearest evidence on this page
+that the ordinal grade tracks something real, against the caveat under
+[Weight of Evidence](#weight-of-evidence) that grade and supporting prose are stored apart.
+
+### The mixture is everywhere in the text and nowhere in the structure
+
+Four observations, each checkable against the snapshot:
+
+**A mixture can be a stressor, but only as a label.** AOP 499 and AOP 500 each list five
+stressors: *Lead*, *Arsenic*, *Cadmium*, *Manganese*, and *Heavy metals (cadmium, lead,
+copper, iron, nickel)*. The fifth is a combination written into one stressor's name, so
+nothing can decompose it, relate it to the four single-metal stressors sitting beside it,
+or compare it with the combination the evidence actually used — which was arsenic, cadmium
+and lead, a different set from the one that label names. All five carry
+`<evidence>Not Specified</evidence>`.
+
+**The grade's justification names the mixture; the grade does not carry it.** KER2942 and
+KER2954 are both Moderate, with the same sentence of rationale in the AOP-level narrative:
+"The evidence collection strategy for this AOP focused mainly on metal and metal mixture
+exposures, of which, there were many that showed dependent change in both these events
+following exposure." So the grade *is* conditioned on a mixture-heavy evidence base, and
+the conditioning lives in prose.
+
+**The KER's structured conditioning is biological, not chemical.** KER2942 carries
+taxonomy (*Rattus norvegicus*, *Mus musculus*), life stage (birth to < 1 month, 1 to < 3
+months, pregnancy) and sex (female, mixed) as structured terms. There is no field for the
+stressor set, and none for the direction of an interaction — which matters, because the
+review reports antagonism as well as synergy, including an inhibitory effect between
+cadmium and lead. A combination is not a stressor, and "greater than additive" is a
+property of the pair rather than of either member.
+
+**Quantitative understanding is empty in both AOPs** — the only empty free-text field in
+either, each otherwise 95.24% complete on the CLI's completion score. That agrees with the
+review, which states that data were "not sufficient at this time to develop quantitative
+estimates of relationships between key events". But an empty field cannot distinguish
+*nobody graded this* from *this was examined and cannot be graded*, and ~57% of
+quantitative-understanding grades in the corpus are Not Specified.
+
+One further detail bears on how consequential the missing qualifier is rather than on
+whether it is missing: KER2942's empirical support runs the metal-mixture astrocyte work
+together with mouse sperm experiments in which ERK1/2 raises intracellular calcium ahead of
+the acrosome reaction. Assembling support for a relationship across stressors and systems
+is what makes a KER reusable, and it is exactly why which stressor produced which
+observation has to be recoverable from the record.
+
+### Where dismech stands
+
+dismech cannot express it either, and its gap is in a different place — not a grade without
+a stressor, but no grade at all:
+
+| Attaches to | Slot | Values |
+|---|---|---|
+| pathophysiology node | `mechanism_confidence` | `ESTABLISHED`, `HYPOTHETICAL`, `PROVISIONAL`; absent means established |
+| causal edge | — | nothing. `causal_link_type` is `DIRECT`/`INDIRECT`, and evidence carries `supports`, `directness` and `quote_role`, but no confidence grade and no split between plausibility and demonstrated support |
+| exposure → disease | `causal_role` | `NECESSARY`, `SUFFICIENT`, `COMPONENT_CAUSE`, `RISK_FACTOR`, `MODIFIER`, `ASSOCIATED_ONLY` |
+| model → mechanism link | `fidelity`, `limitations`, `model_scale`, `divergences` with `divergence_type` and `materiality` | the only place in the schema with typed uncertainty |
+
+The one place an interaction between two exposures can be written today is an
+`environmental[]` entry whose `influences_mechanisms` link carries
+`environmental_effect: EXACERBATES`, and the single worked instance is not a second
+chemical: *Iron Deficiency as Risk Modifier* in `Cadmium_Poisoning`
+(`kb/disorders/Cadmium_Poisoning.yaml:1920`). It records a direction and nothing else — no
+pairing with a named co-exposure, no statement that the joint effect exceeds the sum, no
+magnitude.
+
+### What has been registered, and what it does not reach
+
+The dose side is handled in a companion change. Each of `Lead_Poisoning`,
+`Arsenic_Poisoning`, `Cadmium_Poisoning` and `Manganism` gains the published dosimetry
+model for its metal as a `computational_models` record linked to its own absorption and
+distribution nodes — the IEUBK model, a human arsenic PBPK model, the ATSDR tool kit's
+cadmium model, and the manganese PBPK model family, under issue
+[#18932](https://github.com/monarch-initiative/dismech/issues/18932). Every one of those
+models is single-compound, and that is recorded as a typed `BOUNDARY_OMISSION` divergence
+on each link, with the review cited for the interaction that makes the omission material.
+
+What those records express is "the interaction lies outside this model's boundary". What
+they do not express is "the interaction exists, in this direction, between these two
+exposures, at these levels" — which is the claim the review actually makes, and which has
+no home on either side. Recorded as
+[question 7](#7-should-an-interaction-between-two-exposures-be-representable),
+[question 8](#8-should-a-confidence-grade-or-an-evidence-item-record-the-exposure-level-it-holds-at)
+and [question 9](#9-should-cannot-be-quantified-be-distinguishable-from-not-graded).
+
+One correction this case makes to the neurodevelopmental tabulation above. KE2146 is listed
+there as a miss — "MAPK nodes exist but all are proliferation- or fibrosis-framed" — and
+that stands. What can be added is why it is unlikely to be closed by a lead entry: the MIE
+is ERK1/2 activation **in astrocytes**, where AOP 12's arm of the same corpus runs through
+*reduced* GluN2B/αCaMKII-dependent ERK1/2 activation in glutamatergic neurons, which
+`nmda_receptor_hypofunction` already models and `Lead_Poisoning` already conforms to at
+three nodes. Same kinase, opposite direction, different cell type, same adverse outcome.
+The sign-inversion problem recorded for the glutamate module is therefore not confined to
+calcium; it reaches the MEK/ERK arm as well, and a module that held both would have to be
+written as two arms rather than one chain.
+
 ## Open schema questions
 
-Six things this project has surfaced that dismech's schema currently cannot express.
+Nine things this project has surfaced that dismech's schema currently cannot express.
 They are recorded here as questions, with the observation that raises each one, and
 deliberately without a proposed answer. Working them is tracked at
 [#10272](https://github.com/monarch-initiative/dismech/issues/10272); an answer belongs
@@ -857,9 +1005,9 @@ on this page, next to the question it resolves. The list is a first pass at nami
 is missing, so a question may be reworded, split, merged, or dropped as the project
 develops.
 
-Three come from the liver fibrosis NAM use case above and three restate rows already in
-the divergence table as dismech-side questions rather than as descriptions of how the two
-frameworks differ.
+Three come from the liver fibrosis NAM use case above, three restate rows already in the
+divergence table as dismech-side questions rather than as descriptions of how the two
+frameworks differ, and three come from the metal mixture use case.
 
 ### 1. Should a pathophysiology node be able to carry a Key Event cross-reference?
 
@@ -1024,6 +1172,65 @@ none is about the ontology's content:
 
 Tracked against PBPKO's own evaluation in
 [#8641](https://github.com/monarch-initiative/dismech/issues/8641).
+
+### 7. Should an interaction between two exposures be representable?
+
+The claim is that two exposures together produce an effect the sum of their separate
+effects does not predict. Nothing in the schema holds it. `causal_role` grades one
+exposure's contribution to the disease; `environmental_effect` gives one exposure's
+direction on one node; neither names a second exposure, and no slot carries a joint
+effect or its sign.
+
+Three parts are separable and only the first is clearly schema work. Whether a
+co-exposure can be *named* from an `environmental[]` entry is a slot question. Whether
+the *direction* of the interaction is recordable — the review reports both synergy and
+antagonism between the same metals — is a vocabulary question, and `EnvironmentalEffectEnum`
+is about an exposure's effect on a mechanism rather than on another exposure. Whether a
+*magnitude* belongs here at all is the one to be most careful about: "greater than
+additive" is relative to a chosen null model, and recording the phrase without the null
+model it was assessed against would store a conclusion that cannot be checked.
+
+`Treatment.effect_modifiers` is the nearest existing shape, including
+`effect_modifier_type: CONCOMITANT_TREATMENT` and an `interaction_tested` flag, and it
+sits on treatments with no exposure counterpart. Whether exposures should reuse that
+design or get their own is part of the question.
+
+### 8. Should a confidence grade or an evidence item record the exposure level it holds at?
+
+The review anchors its effect levels against NHANES biomonitoring and places them near
+the 95th percentile of the US distribution, concluding that most of the population is not
+exposed at levels where the effects were observed. A mechanism documented only at the high
+end of observed human exposure and one documented at typical exposure are different
+claims, and dismech writes them identically.
+
+This is not the same as question 5. Species applicability asks which organisms a mechanism
+holds in; this asks at what dose it has been shown, in whichever organism. Both are
+applicability qualifiers on a mechanism rather than on a model, which is why neither is
+reachable through `divergences`.
+
+Note where it would *not* go. `ModelDivergenceTypeEnum` has no dose- or
+exposure-extrapolation value, and adding one would record that a model was exercised
+outside the range it was calibrated for — a related but narrower claim than the one above,
+which is about the evidence for the mechanism and holds whether or not any model is
+involved.
+
+### 9. Should "cannot be quantified" be distinguishable from "not graded"?
+
+Both AOPs here leave `quantitative-understanding` empty, and the review says why: the data
+do not support quantitative estimates between key events. An absent value cannot carry that
+reason, so a field examined and found unanswerable reads exactly like one nobody reached.
+Across the corpus ~57% of quantitative-understanding grades are Not Specified, and the two
+cases are not separable within that count.
+
+dismech has solved this shape twice, which is the argument that it is solvable rather than
+a reason to think it is already handled. `coarse_binding_basis` exists so that a phenotype
+bound to a coarse HPO term states *why* the coarse term is the right one, with
+`NO_HPO_TERM` distinguishing an ontology gap from an unexamined binding. The
+`Left deliberately uncited.` waiver in `environmental[]` does the same for an exposure with
+no citable source, and carries a 20-word floor so the sentence has to record what was
+searched. Either pattern would transfer. The question is whether an explicit
+"examined, not quantifiable" state belongs on a confidence field at all, or whether it is
+always a note attached to one.
 
 ---
 
