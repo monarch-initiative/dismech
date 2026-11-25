@@ -9,6 +9,8 @@ import json
 import os
 import re
 import subprocess
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -26,10 +28,88 @@ ISSUE_WORKFLOWS = {
     "claude-issue-summarize.yml": "Summarize issue",
     "claude-dedupe-issues.yml": "Dedupe issue",
 }
+# An active run that cannot be tied to a PR may be a review about to start on
+# any PR, so it holds retries back. One with no activity for this long is
+# treated as abandoned: GitHub's default job limit is 6 hours, while runs that
+# never leave the queue have been seen sitting there for weeks (#18787).
+STALE_ACTIVE_HOURS = 24
+# One failed PR's check lookup is a warning; this many failures, and more than
+# half of the PRs inspected, look like an outage and fail the job (#18766).
+OUTAGE_MIN_ERRORS = 3
+LOOKUP_RETRY_SECONDS = 5
+# Retries shared across one sweep's PR lookups. In an outage every lookup
+# fails; unbounded, the pauses alone could outlast the job's 20 minutes.
+LOOKUP_RETRY_BUDGET = 20
+STDERR_LIMIT = 200
+LOOKUP_ERRORS = (subprocess.SubprocessError, ValueError, KeyError, RuntimeError)
+ACTIVE = {"queued", "in_progress", "waiting", "pending", "requested"}
 
 
 def timestamp(value):
     return datetime.fromisoformat(value)
+
+
+def describe(exc):
+    """The exception class, plus a failed command's stderr, or the message of
+    a RuntimeError (raised by this script, e.g. naming an unidentified run).
+
+    The text goes into a summary row, which render_summary routes by substring
+    and links by `PR #N` / `run N`. Collapse it to one line and break up the
+    `: ` that every routing phrase contains, so stderr cannot reroute a row.
+    """
+    name = type(exc).__name__
+    if isinstance(exc, subprocess.CalledProcessError):
+        detail = exc.stderr
+    elif type(exc) is RuntimeError:
+        detail = str(exc)
+    else:
+        detail = None
+    if isinstance(detail, bytes):
+        detail = detail.decode(errors="replace")
+    detail = " ".join((detail or "").split()).replace("`", "").replace(": ", " - ")
+    if not detail:
+        return name
+    if len(detail) > STDERR_LIMIT:
+        # gh leads with the request URL and ends with the cause (HTTP 404,
+        # i/o timeout), so keep both ends and drop the middle.
+        head = STDERR_LIMIT // 3
+        tail = STDERR_LIMIT - head - 3
+        detail = f"{detail[:head].rstrip()} … {detail[-tail:].lstrip()}"
+    return f"{name}: {detail}"
+
+
+def last_activity(run):
+    """When this attempt last did anything; a rerun keeps its old created_at."""
+    return max(
+        timestamp(run[key])
+        for key in ("run_started_at", "updated_at", "created_at")
+        if run.get(key)
+    )
+
+
+def abandoned(run, now):
+    """An active run with no activity for STALE_ACTIVE_HOURS will not start."""
+    return now - last_activity(run) >= timedelta(hours=STALE_ACTIVE_HOURS)
+
+
+def blocks_all_retries(run, now):
+    """Whether an active run that cannot be tied to a PR must hold every retry.
+
+    A manual or comment run on main could be reviewing any PR. A pull_request
+    run is on its PR's own branch, so the per-PR branch query before each write
+    already sees it and holds back that PR alone. A run with no activity for
+    STALE_ACTIVE_HOURS is treated as abandoned.
+    """
+    return (
+        run["status"] != "completed"
+        and run["event"] != "pull_request"
+        and not abandoned(run, now)
+    )
+
+
+def lookup_outage(failed, inspected):
+    """Enough PR lookups failed that the cross-check itself cannot be trusted."""
+    return failed >= min(OUTAGE_MIN_ERRORS, inspected) and 2 * failed > inspected
 
 
 def gh(*args, write=False):
@@ -161,8 +241,8 @@ def resolve_run(run, repo):
     """Bounded, read-only metadata lookup; retain deterministic report order."""
     try:
         return run, run_pr(run, repo), None
-    except (subprocess.SubprocessError, ValueError, KeyError, RuntimeError) as exc:
-        return run, None, type(exc).__name__
+    except LOOKUP_ERRORS as exc:
+        return run, None, describe(exc)
 
 
 def current_review_runs(repo, specific_pr=None):
@@ -171,6 +251,12 @@ def current_review_runs(repo, specific_pr=None):
     A missing run in the status-filtered Actions census must not make a red
     review check invisible. Resolve its Actions URL back to trusted workflow
     metadata; a check's name alone is not sufficient to authorize a retry.
+
+    Returns the runs found, one warning row per PR whose checks could not be
+    read (after one retry of a failed `gh` call), and how many open PRs were
+    inspected. A warning does not stop retries for that PR: the fresh run,
+    PR and active-run reads just before each write are what guard against a
+    duplicate review, and they do not depend on this cross-check.
     """
     pulls = (
         [api(f"repos/{repo}/pulls/{specific_pr}")]
@@ -178,48 +264,71 @@ def current_review_runs(repo, specific_pr=None):
         else pages(f"repos/{repo}/pulls?state=open")
     )
 
+    def lookup(pr):
+        checks = pages(
+            f"repos/{repo}/commits/{pr['head']['sha']}/check-runs?filter=latest",
+            "check_runs",
+        )
+        ids = set()
+        for check in checks:
+            if check["name"] != "claude-review":
+                continue
+            match = re.fullmatch(
+                rf"https://github\.com/{re.escape(repo)}/actions/runs/(\d+)(?:/job/\d+)?",
+                check.get("details_url") or "",
+            )
+            if match:
+                ids.add(int(match[1]))
+        runs = []
+        for run_id in sorted(ids):
+            run = api(f"repos/{repo}/actions/runs/{run_id}")
+            if (
+                run.get("path") == f".github/workflows/{WORKFLOW}"
+                and run["event"] == "pull_request"
+                and run["head_sha"] == pr["head"]["sha"]
+                and run_pr(run, repo) == pr["number"]
+            ):
+                runs.append(run)
+        return runs
+
+    budget, lock = [LOOKUP_RETRY_BUDGET], threading.Lock()
+
+    def take_retry():
+        with lock:
+            if budget[0] <= 0:
+                return False
+            budget[0] -= 1
+            return True
+
     def inspect(pr):
         if pr["state"] != "open":
             return [], None
         try:
-            checks = pages(
-                f"repos/{repo}/commits/{pr['head']['sha']}/check-runs?filter=latest",
-                "check_runs",
+            try:
+                return lookup(pr), None
+            except subprocess.CalledProcessError:
+                # Once, for a transient 5xx or secondary rate limit, within a
+                # budget shared by the sweep. Not for TimeoutExpired: a second
+                # 120-second wait per PR in an outage would run the job out of
+                # time before it writes a summary.
+                if not take_retry():
+                    raise
+                time.sleep(LOOKUP_RETRY_SECONDS)
+                return lookup(pr), None
+        except LOOKUP_ERRORS as exc:
+            warning = (
+                f"PR #{pr['number']}: warning; could not read current review checks "
+                f"({describe(exc)})."
             )
-            ids = set()
-            for check in checks:
-                if check["name"] != "claude-review":
-                    continue
-                match = re.fullmatch(
-                    rf"https://github\.com/{re.escape(repo)}/actions/runs/(\d+)(?:/job/\d+)?",
-                    check.get("details_url") or "",
-                )
-                if match:
-                    ids.add(int(match[1]))
-            runs = []
-            for run_id in sorted(ids):
-                run = api(f"repos/{repo}/actions/runs/{run_id}")
-                if (
-                    run.get("path") == f".github/workflows/{WORKFLOW}"
-                    and run["event"] == "pull_request"
-                    and run["head_sha"] == pr["head"]["sha"]
-                    and run_pr(run, repo) == pr["number"]
-                ):
-                    runs.append(run)
-            return runs, None
-        except (subprocess.SubprocessError, ValueError, KeyError, RuntimeError) as exc:
-            return (
-                [],
-                f"PR #{pr['number']}: error ({type(exc).__name__}) checking current review checks.",
-            )
+            return [], warning
 
-    runs, errors = [], []
+    runs, warnings = [], []
     with ThreadPoolExecutor(max_workers=4) as pool:
-        for found, error in pool.map(inspect, pulls):
+        for found, warning in pool.map(inspect, pulls):
             runs.extend(found)
-            if error:
-                errors.append(error)
-    return runs, errors
+            if warning:
+                warnings.append(warning)
+    return runs, warnings, sum(pr["state"] == "open" for pr in pulls)
 
 
 def skip_reason(run, pr, peers, reviews, now, minimum):
@@ -245,6 +354,10 @@ def skip_reason(run, pr, peers, reviews, now, minimum):
         if peer["id"] == run["id"] or peer.get("conclusion") == "skipped":
             continue
         if peer["status"] != "completed":
+            # A run stuck in the queue for a day holds nothing back, here as
+            # in blocks_all_retries; otherwise it would hold its PR for good.
+            if abandoned(peer, now):
+                continue
             return "another review is queued or running"
         if peer["event"] == "pull_request" and peer["head_sha"] != pr["head"]["sha"]:
             continue
@@ -288,8 +401,15 @@ def sweep(
         r["id"]: r for r in workflow_runs(repo, now - timedelta(days=lookback), now)
     }
     rows = [f"Actions discovery returned {len(runs)} distinct review runs."]
-    current, lookup_errors = current_review_runs(repo, specific_pr)
-    rows.extend(lookup_errors)
+    current, lookup_warnings, inspected = current_review_runs(repo, specific_pr)
+    rows.extend(lookup_warnings)
+    errors = 0
+    if lookup_outage(len(lookup_warnings), inspected):
+        errors = 1
+        rows.append(
+            f"Current review checks unreadable for {len(lookup_warnings)} of "
+            f"{inspected} open PRs; the cross-check is incomplete."
+        )
     for run in current:
         if run["id"] not in runs and run.get("conclusion") in RETRYABLE:
             rows.append(
@@ -298,7 +418,7 @@ def sweep(
             )
         runs[run["id"]] = run
     runs = [r for r in runs.values() if r.get("conclusion") != "skipped"]
-    errors, indexed, unknown_active = len(lookup_errors), {}, False
+    indexed, unattributed, blocking = {}, set(), []
     # Historic manual runs require separate jobs/log requests. Bound lookup
     # concurrency so the 30-day census fits the job lifetime. Writes stay serial.
     with ThreadPoolExecutor(max_workers=4) as pool:
@@ -309,13 +429,29 @@ def sweep(
         if number:
             indexed.setdefault(number, []).append(run)
         elif run["status"] != "completed":
-            unknown_active = True
+            unattributed.add(run["id"])
+            age = (now - last_activity(run)).total_seconds() / 3600
+            state = (
+                f"Run {run['id']}: active ({run['status']}, {run['event']}, "
+                f"branch {run.get('head_branch') or 'unknown'}, last activity "
+                f"{age:.1f} hours ago) with no PR association"
+            )
+            if blocks_all_retries(run, now):
+                blocking.append(run["id"])
+                rows.append(f"{state}; holds every retry this sweep.")
+            elif run["event"] == "pull_request":
+                rows.append(f"{state}; holds only PRs on that branch.")
+            else:
+                rows.append(
+                    f"{state}; ignored, no activity for {STALE_ACTIVE_HOURS} hours."
+                )
         elif run.get("conclusion") in RETRYABLE:
             rows.append(f"Run {run['id']}: deferred; PR association unavailable.")
-    if unknown_active:
+    if blocking:
+        named = ", ".join(f"run {run_id}" for run_id in blocking)
         return [
             *rows,
-            "Retries deferred: an active legacy review cannot yet be associated with a PR.",
+            f"Retries deferred: active review runs cannot yet be associated with a PR ({named}).",
         ], errors
 
     def latest_runs(group):
@@ -367,7 +503,7 @@ def sweep(
             recent = workflow_runs(repo, now, datetime.now(UTC))
             # An old manual run can be rerun during discovery without changing
             # created_at. Include active attempts across the full rerun window.
-            for state in ("queued", "in_progress", "waiting", "pending", "requested"):
+            for state in sorted(ACTIVE):
                 recent += workflow_runs(
                     repo,
                     now - timedelta(days=RERUN_WINDOW_DAYS),
@@ -378,12 +514,18 @@ def sweep(
             for peer in recent:
                 if peer.get("conclusion") == "skipped":
                     continue
+                # Discovery already found no PR for this run and let it pass.
+                # Skip the lookup (old logs may have expired) unless it has
+                # since become one that holds every retry, e.g. it started.
+                if peer["id"] in unattributed and not blocks_all_retries(peer, now):
+                    continue
                 peer_number = run_pr(peer, repo)
                 if peer_number == number:
                     peers.append(peer)
-                elif peer_number is None and peer["status"] != "completed":
+                elif peer_number is None and blocks_all_retries(peer, now):
                     raise RuntimeError(
-                        "Cannot identify an active review started during discovery"
+                        f"Cannot identify active review run {peer['id']} started "
+                        "during discovery"
                     )
             current = api(f"repos/{repo}/actions/runs/{run['id']}")
             pr = api(f"repos/{repo}/pulls/{number}")
@@ -407,10 +549,10 @@ def sweep(
                 f"{prefix}: {'would retry' if dry_run else 'retried'} failed jobs "
                 f"(attempt {current.get('run_attempt', 1) + 1})."
             )
-        except (subprocess.SubprocessError, ValueError, KeyError, RuntimeError) as exc:
+        except LOOKUP_ERRORS as exc:
             errors += 1
             rows.append(
-                f"{prefix}: error ({type(exc).__name__}); no further action on this PR."
+                f"{prefix}: error ({describe(exc)}); no further action on this PR."
             )
     return rows or ["No failed review runs need recovery."], errors
 
@@ -540,10 +682,10 @@ def sweep_issues(
                 f"{prefix}: {'would retry' if dry_run else 'retried'} failed jobs "
                 f"(attempt {current.get('run_attempt', 1) + 1})."
             )
-        except (subprocess.SubprocessError, ValueError, KeyError, RuntimeError) as exc:
+        except LOOKUP_ERRORS as exc:
             errors += 1
             rows.append(
-                f"{prefix}: error ({type(exc).__name__}); no further action on this run."
+                f"{prefix}: error ({describe(exc)}); no further action on this run."
             )
     return rows, errors
 
@@ -553,6 +695,47 @@ def nonnegative(value):
     if number < 0:
         raise argparse.ArgumentTypeError("must be nonnegative")
     return number
+
+
+WARNINGS = "Warnings"
+
+
+def row_group(row, restarted_title, diagnostics):
+    """The summary section a row belongs in. Warnings are matched first, so
+    nothing quoted inside one (such as a command's stderr) can reroute it."""
+    # Only the row's own verb counts, never text quoted later in the row.
+    if row.partition(": ")[2].startswith("warning;") or row.startswith(
+        "Retries deferred"
+    ):
+        return WARNINGS
+    if ": retried failed jobs" in row:
+        return restarted_title
+    if ": would retry failed jobs" in row:
+        return "Would restart (dry run)"
+    if ": deferred; retry budget reached" in row:
+        return "Deferred at retry limit"
+    if ": recovered from an open PR's current review check" in row:
+        return "Recovered from PR checks"
+    if row.startswith("Run "):
+        return diagnostics
+    if ": skipped;" in row:
+        return "Skipped"
+    if ": error (" in row or row.startswith(
+        ("Discovery failed", "Current review checks unreadable")
+    ):
+        return "Errors"
+    return "Notices"
+
+
+def annotations(rows):
+    """GitHub workflow-command warnings, so a warning shows on the run page
+    even though it does not fail the job."""
+    escaped = (
+        row.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        for row in rows
+        if row_group(row, "", "") == WARNINGS
+    )
+    return [f"::warning title=retry-reviews::{row}" for row in escaped]
 
 
 def render_summary(
@@ -572,28 +755,14 @@ def render_summary(
         "Would restart (dry run)": [],
         "Deferred at retry limit": [],
         "Errors": [],
+        WARNINGS: [],
         "Notices": [],
         "Recovered from PR checks": [],
         "Skipped": [],
         diagnostics: [],
     }
     for row in rows:
-        if ": retried failed jobs" in row:
-            group = restarted_title
-        elif ": would retry failed jobs" in row:
-            group = "Would restart (dry run)"
-        elif ": deferred; retry budget reached" in row:
-            group = "Deferred at retry limit"
-        elif ": recovered from an open PR's current review check" in row:
-            group = "Recovered from PR checks"
-        elif row.startswith("Run "):
-            group = diagnostics
-        elif ": skipped;" in row:
-            group = "Skipped"
-        elif ": error (" in row or row.startswith("Discovery failed"):
-            group = "Errors"
-        else:
-            group = "Notices"
+        group = row_group(row, restarted_title, diagnostics)
         linked = re.sub(
             r"\bPR #(\d+)",
             lambda m: f"[{m[0]}](https://github.com/{repo}/pull/{m[1]})",
@@ -678,12 +847,13 @@ def main(argv=None):
             args.dry_run,
             args.specific_pr,
         )
-    except (subprocess.SubprocessError, ValueError, KeyError, RuntimeError) as exc:
+    except LOOKUP_ERRORS as exc:
         rows, errors = (
-            [f"Discovery failed ({type(exc).__name__}); no retries issued."],
+            [f"Discovery failed ({describe(exc)}); no retries issued."],
             1,
         )
     summary = render_summary(args.repo, rows, args.dry_run, args.max_retries)
+    warnings = annotations(rows)
     # A specific-PR request is about that PR; leave issue workflows alone.
     if args.specific_pr is None:
         issue_limit = (
@@ -700,12 +870,13 @@ def main(argv=None):
                 args.lookback_days,
                 args.dry_run,
             )
-        except (subprocess.SubprocessError, ValueError, KeyError, RuntimeError) as exc:
+        except LOOKUP_ERRORS as exc:
             issue_rows, issue_errors = (
-                [f"Discovery failed ({type(exc).__name__}); no retries issued."],
+                [f"Discovery failed ({describe(exc)}); no retries issued."],
                 1,
             )
         errors += issue_errors
+        warnings += annotations(issue_rows)
         summary += "\n" + render_summary(
             args.repo,
             issue_rows,
@@ -717,6 +888,8 @@ def main(argv=None):
             diagnostics="Issue lookup diagnostics",
         )
     print(summary)
+    for warning in warnings:
+        print(warning)
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as stream:
             stream.write(summary)
