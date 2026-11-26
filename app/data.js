@@ -32644,7 +32644,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "3"
   },
   {
@@ -83772,7 +83772,7 @@ window.searchData = [
     "num_pathophysiology": 16,
     "num_genes": 5,
     "num_treatments": 5,
-    "causal_graph_edges": "33",
+    "causal_graph_edges": "34",
     "causal_graph_longest_path": "8"
   },
   {
@@ -243207,8 +243207,12 @@ window.searchData = [
       "Defective Collagen Prolyl 3-Hydroxylation in Ocular Tissue",
       "Generalised Connective Tissue Laxity"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
     "biological_processes": [
       "extracellular matrix organization",
       "peptidyl-proline hydroxylation",
@@ -243224,7 +243228,9 @@ window.searchData = [
       "Short stature",
       "Scoliosis",
       "Thoracic deformity",
-      "Vertebral segmentation and sacralization defects",
+      "Cervical segmentation defect",
+      "Carpal bone hypoplasia",
+      "Lower lumbar sacralization",
       "Progressive hearing loss",
       "Abnormal facial shape",
       "Umbilical hernia",
@@ -243247,6 +243253,7 @@ window.searchData = [
       "Eye",
       "Growth",
       "Head and Neck",
+      "Limbs",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
@@ -243259,6 +243266,8 @@ window.searchData = [
       "HP:0004322",
       "HP:0002650",
       "HP:0000765",
+      "HP:0004632",
+      "HP:0001498",
       "HP:0000925",
       "HP:0000365",
       "HP:0001999",
@@ -243280,7 +243289,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Joint_Laxity_Short_Stature_and_Myopia.yaml",
     "page_url": "../pages/disorders/Joint_Laxity,_Short_Stature,_and_Myopia.html",
-    "num_phenotypes": 15,
+    "num_phenotypes": 17,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 1,
@@ -256320,7 +256329,7 @@ window.searchData = [
     "num_pathophysiology": 19,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "43",
+    "causal_graph_edges": "45",
     "causal_graph_longest_path": "6"
   },
   {
@@ -276072,7 +276081,7 @@ window.searchData = [
     "num_pathophysiology": 16,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "46",
+    "causal_graph_edges": "49",
     "causal_graph_longest_path": "10"
   },
   {
@@ -323681,6 +323690,8 @@ window.searchData = [
     "biological_processes": [
       "mitochondrial fatty-acid biosynthesis",
       "mitochondrial respiratory chain complex assembly",
+      "oxidative phosphorylation",
+      "mitochondrial ATP synthesis coupled electron transport",
       "cellular respiration"
     ],
     "phenotypes": [
@@ -323747,8 +323758,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Optic Atrophy 3",
@@ -454660,8 +454671,8 @@ window.searchMetrics = {
   "total_disorder_pages": 4181,
   "total_subtypes": 5137,
   "total_disorders_and_subtypes": 9318,
-  "total_unique_evidence_sources": 62409,
-  "total_unique_publications": 58279,
+  "total_unique_evidence_sources": 62415,
+  "total_unique_publications": 58284,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
   "total_pathographs": 4179,
@@ -454670,6 +454681,6 @@ window.searchMetrics = {
   "total_research_reports": 4282,
   "total_classifications": 21,
   "total_comorbidities": 58,
-  "total_groupings": 149
+  "total_groupings": 150
 };
 window.dispatchEvent(new Event('searchDataReady'));
