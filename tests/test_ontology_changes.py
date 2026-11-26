@@ -9,8 +9,10 @@ import yaml
 
 from dismech.ontology_changes import (
     load_registry,
+    load_registry_bundle,
     main,
     render_request,
+    validate_change_set,
     validate_record,
 )
 from dismech.repo_root import repo_root
@@ -194,6 +196,14 @@ def test_missing_affected_record_rejected(proposal, tmp_path):
     "kind,fields",
     [
         (
+            "MAPPING_CREATION",
+            {
+                "mapping_target": {"id": "X:1", "label": "External term"},
+                "mapping_representation": "RDF_PREDICATE",
+                "new_value": "skos:exactMatch",
+            },
+        ),
+        (
             "REMOVE_MAPPING",
             {
                 "mapping_target": {"id": "X:1", "label": "External term"},
@@ -228,8 +238,44 @@ def test_supported_change_shapes(proposal, tmp_path, kind, fields):
     proposal.update(change_type=kind, **fields)
     assert not validate_record(proposal, tmp_path)
     proposal["mapping_target"] = {"id": "X:2", "label": "Stray field"}
-    if kind != "REMOVE_MAPPING":
+    if kind not in {"REMOVE_MAPPING", "MAPPING_CREATION"}:
         assert validate_record(proposal, tmp_path)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "old_value",
+        "missing_target",
+        "missing_representation",
+        "missing_value",
+        "skos",
+        "not_curie",
+        "owner",
+    ],
+)
+def test_mapping_creation_requires_absent_old_value_and_native_qualifier(
+    proposal, tmp_path, mutation
+):
+    proposal["change_type"] = "MAPPING_CREATION"
+    del proposal["old_value"]
+    assert not validate_record(proposal, tmp_path)
+    if mutation == "old_value":
+        proposal["old_value"] = "MONDO:equivalentTo"
+    elif mutation.startswith("missing_"):
+        field = {
+            "missing_target": "mapping_target",
+            "missing_representation": "mapping_representation",
+            "missing_value": "new_value",
+        }[mutation]
+        del proposal[field]
+    elif mutation == "owner":
+        proposal["about_node"]["id"] = "DOID:1"
+    else:
+        proposal["new_value"] = (
+            "skos:exactMatch" if mutation == "skos" else "not a CURIE"
+        )
+    assert validate_record(proposal, tmp_path)
 
 
 def write_registry(proposal, tmp_path):
@@ -328,3 +374,187 @@ def test_proposal_only_changes_one_current_mondo_qualifier():
     assert f'source="{record["old_value"]}"' in target_line
     assert 'xref: icd11.foundation:1182282997 {source="MONDO:equivalentTo"}' in stanza
     assert record["new_value"] == "MONDO:mondoIsNarrowerThanSource"
+
+
+@pytest.fixture
+def mapping_move(proposal, tmp_path):
+    removal = copy.deepcopy(proposal)
+    removal.update(id="mondo-example-removal", change_type="REMOVE_MAPPING")
+    del removal["new_value"]
+    creation = copy.deepcopy(proposal)
+    creation.update(
+        id="mondo-example-creation",
+        change_type="MAPPING_CREATION",
+        about_node={"id": "MONDO:0000002", "label": "New subject"},
+        new_value=removal["old_value"],
+    )
+    del creation["old_value"]
+    change_set = {
+        "id": "mondo-example-move",
+        "title": "Move mapping to the matching subtype",
+        "change_set_type": "MAPPING_MOVE",
+        "removal": removal["id"],
+        "creation": creation["id"],
+    }
+    for record in (removal, creation):
+        assert not validate_record(record, tmp_path)
+    return change_set, {r["id"]: r for r in (removal, creation)}
+
+
+def write_move(mapping_move, tmp_path):
+    change_set, proposals = mapping_move
+    directory = tmp_path / "ontology_changes"
+    directory.mkdir(exist_ok=True)
+    sets = directory / "change_sets"
+    sets.mkdir(exist_ok=True)
+    for record in proposals.values():
+        (directory / f"{record['id']}.yaml").write_text(yaml.safe_dump(record))
+    path = sets / f"{change_set['id']}.yaml"
+    path.write_text(yaml.safe_dump(change_set))
+    return path
+
+
+@pytest.mark.parametrize("role", ["removal", "creation"])
+def test_change_set_requires_both_typed_references(mapping_move, role):
+    change_set, proposals = mapping_move
+    assert not validate_change_set(change_set, proposals)
+    member = change_set.pop(role)
+    assert validate_change_set(change_set, proposals)
+    change_set[role] = "missing-proposal"
+    assert any(
+        "unknown proposal" in e for e in validate_change_set(change_set, proposals)
+    )
+    change_set[role] = change_set["creation" if role == "removal" else "removal"]
+    assert any(
+        "must reference" in e for e in validate_change_set(change_set, proposals)
+    )
+    change_set[role] = member
+    assert not validate_change_set(change_set, proposals)
+
+
+@pytest.mark.parametrize(
+    "field,value,message",
+    [
+        ("ontology", "DOID", "retain ontology"),
+        ("mapping_representation", "RDF_PREDICATE", "retain mapping_representation"),
+        (
+            "mapping_target",
+            {"id": "X:2", "label": "Different target"},
+            "retain mapping_target",
+        ),
+        ("new_value", "MONDO:relatedTo", "retain predicate/qualifier"),
+        (
+            "about_node",
+            {"id": "MONDO:0019503", "label": "Same subject"},
+            "distinct old and new subjects",
+        ),
+    ],
+)
+def test_move_changes_only_the_subject(mapping_move, field, value, message):
+    change_set, proposals = mapping_move
+    proposals[change_set["creation"]][field] = value
+    assert any(message in e for e in validate_change_set(change_set, proposals))
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [("request_status", "ACCEPTED"), ("title", " "), ("change_set_type", "OTHER")],
+)
+def test_change_set_has_no_duplicate_lifecycle_or_freeform_kind(
+    mapping_move, field, value
+):
+    change_set, proposals = mapping_move
+    change_set[field] = value
+    assert validate_change_set(change_set, proposals)
+
+
+def test_registry_rejects_broken_sets_and_export_fails_closed(
+    mapping_move, tmp_path, capsys
+):
+    path = write_move(mapping_move, tmp_path)
+    change_set, _ = mapping_move
+    (tmp_path / "ontology_changes" / f"{change_set['creation']}.yaml").unlink()
+    assert any("unknown proposal" in e for e in load_registry(tmp_path)[1])
+    assert main(["--root", str(tmp_path), "export", change_set["removal"]]) == 1
+    assert not capsys.readouterr().out
+    path.unlink()
+    assert not load_registry(tmp_path)[1]  # Standalone removals remain valid.
+
+
+def test_member_cannot_belong_to_two_sets(mapping_move, tmp_path):
+    path = write_move(mapping_move, tmp_path)
+    change_set, _ = mapping_move
+    other = dict(change_set, id="mondo-second-move")
+    (path.parent / "mondo-second-move.yaml").write_text(yaml.safe_dump(other))
+    assert any("multiple change sets" in e for e in load_registry(tmp_path)[1])
+
+
+@pytest.mark.parametrize("defect", ["filename", "duplicate_key", "id_collision"])
+def test_change_set_registry_identity(mapping_move, tmp_path, defect):
+    path = write_move(mapping_move, tmp_path)
+    change_set, _ = mapping_move
+    if defect == "filename":
+        path.rename(path.with_name("wrong-name.yaml"))
+    elif defect == "duplicate_key":
+        path.write_text(path.read_text() + "title: Duplicate\n")
+    else:
+        change_set["id"] = change_set["removal"]
+        path.unlink()
+        write_move(mapping_move, tmp_path)
+    assert load_registry(tmp_path)[1]
+
+
+def test_move_queries_and_export_show_both_halves_with_partial_status(
+    mapping_move, tmp_path, capsys
+):
+    change_set, proposals = mapping_move
+    removal = proposals[change_set["removal"]]
+    removal.update(request_status="ACCEPTED", pull_request="https://example.org/pull/1")
+    write_move(mapping_move, tmp_path)
+    records, sets, errors = load_registry_bundle(tmp_path)
+    assert not errors
+    assert len(records) == 2 and sets == [change_set]
+    args = ["--root", str(tmp_path)]
+    assert main(args + ["list-change-sets"]) == 0
+    assert json.loads(capsys.readouterr().out) == [change_set]
+    assert main(args + ["list", "--change-set", change_set["id"]]) == 0
+    assert {r["id"] for r in json.loads(capsys.readouterr().out)} == set(proposals)
+    assert (
+        main(
+            args
+            + ["list", "--change-set", change_set["id"], "--request-status", "ACCEPTED"]
+        )
+        == 0
+    )
+    assert [r["id"] for r in json.loads(capsys.readouterr().out)] == [removal["id"]]
+    assert main(args + ["list", "--change-set", "missing-move"]) == 1
+    capsys.readouterr()
+    outputs = []
+    for key in (change_set["id"], change_set["removal"], change_set["creation"]):
+        assert main(args + ["export", key]) == 0
+        outputs.append(capsys.readouterr().out)
+    assert outputs[0] == outputs[1] == outputs[2]
+    for expected in (
+        "MONDO:0019503",
+        "MONDO:0000002",
+        "icd11.foundation:943599144",
+        "Mapping absent",
+        "request: ACCEPTED",
+        "request: NOT_FILED",
+    ):
+        assert expected in outputs[0]
+
+
+def test_committed_moves_preserve_atomic_records():
+    records, sets, errors = load_registry_bundle()
+    assert not errors
+    assert {s["id"] for s in sets} >= {
+        "mondo-gorlin-ptch1-mapping-move",
+        "mondo-praas1-mapping-move",
+    }
+    by_id = {r["id"]: r for r in records}
+    for change_set in sets:
+        removal, creation = (
+            by_id[change_set[role]] for role in ("removal", "creation")
+        )
+        assert "new_value" not in removal and "old_value" not in creation

@@ -527,3 +527,11 @@ repeated:
   Townes-Brocks syndrome for a Temple-Baraitser subtype, `AD` matched Alzheimer
   disease for anauxetic dysplasia. Never propose a retarget from a synonym-only
   match on a bare acronym without a second signal.
+
+## Structured ontology follow-ups
+
+The [ontology change registry](../../ontology_changes/README.md#boomer-pilot-follow-through)
+tracks the applied Gorlin and PRAAS mapping moves, the acknowledged but unapplied
+TPMT qualifier request, and the unfiled anterior-segment ICD-11 proposal.
+Records include current source checks and separate request/adoption states;
+historical solver artifacts retain their original inputs and probabilities.
