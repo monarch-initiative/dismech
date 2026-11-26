@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escherichia coli Discitis · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Escherichia coli Discitis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Escherichia coli Discitis</h1>
+                
+                <p class="report-subtitle">Escherichia coli discitis (MONDO:8000002): disease characteristics report</p>
+                
+                
+                <div class="report-date">2026-11-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_8000002" target="_blank" rel="noopener noreferrer">MONDO:8000002</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">31 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>Bash is blocked here, so I'm moving to web search to find sources.</p>
+<h1>Escherichia coli discitis (<a href="http://purl.obolibrary.org/obo/MONDO_8000002" target="_blank" rel="noopener noreferrer">MONDO:8000002</a>): disease characteristics report</h1>
+<p><strong>How I interpreted the request.</strong> <a href="http://purl.obolibrary.org/obo/MONDO_8000002" target="_blank" rel="noopener noreferrer">MONDO:8000002</a> is an infectious disease, so it has <strong>no causal human gene</strong>. The cause is the bacterium <em>Escherichia coli</em>. Specific <em>E. coli</em> literature is scarce: it is mostly case reports, one small literature review, and Gram-negative subgroups inside larger pyogenic spondylodiscitis cohorts. Where only that general evidence exists, I use it and say so.</p>
+<p><strong>How I retrieved sources.</strong> Shell access to PubMed's E-utilities was blocked in this session, so all sources came from web search. Many items are cited by PMC ID or DOI because I could not retrieve their PMIDs, and I did not invent any.</p>
+<p><strong>Ontology identifiers.</strong> Only the MONDO and GARD identifiers below were retrieved. HPO, GO, CL, UBERON, CHEBI and NCIT terms are given as <strong>labels only</strong>. Their IDs need to be looked up and checked before curation.</p>
+<hr />
+<h2>1. Disease information</h2>
+<p><strong>Overview.</strong> MONDO defines <em>E. coli</em> discitis as "discitis caused by infection with Escherichia coli" (<a href="https://conceptlibrary.saildatabank.com/api/v1/ontology/node/MONDO:8000002/">SAIL concept library, MONDO:8000002</a>).
+- It is an infection of the intervertebral disc space, which in practice almost always spreads to the neighbouring vertebral endplates. That combined form is called spondylodiscitis or vertebral osteomyelitis.
+- A 2019 review calls it "a relatively rare disease that usually has a urinary tract infection as its source," with symptoms "not distinguishable from vertebral osteomyelitis caused by other agents" (<a href="https://brieflands.com/articles/jjm-99694.html">Salehi et al., Jundishapur J Microbiol 2019;e99694</a>).</p>
+<p><strong>Identifiers</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_8000002" target="_blank" rel="noopener noreferrer">MONDO:8000002</a> "escherichia coli discitis"</td>
+</tr>
+<tr>
+<td>MONDO parents</td>
+<td>infectious discitis (<a href="http://purl.obolibrary.org/obo/MONDO_8000000" target="_blank" rel="noopener noreferrer">MONDO:8000000</a>); <em>E. coli</em> infection (<a href="http://purl.obolibrary.org/obo/MONDO_0020920" target="_blank" rel="noopener noreferrer">MONDO:0020920</a>); bacterial arthritis</td>
+</tr>
+<tr>
+<td>GARD</td>
+<td><a href="https://bioregistry.io/GARD:0028190" target="_blank" rel="noopener noreferrer">GARD:0028190</a></td>
+</tr>
+<tr>
+<td>OMIM / Orphanet</td>
+<td>None (not a Mendelian or rare-disease entity)</td>
+</tr>
+<tr>
+<td>ICD-10 / ICD-11 / MeSH</td>
+<td>No organism-specific code retrieved. Generic codes (infection of intervertebral disc, pyogenic; MeSH "Discitis") apply, but I did not verify them in this session.</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The MONDO parents and the GARD cross-reference are from the <a href="https://conceptlibrary.saildatabank.com/api/v1/ontology/node/MONDO:8000002/">SAIL concept library</a>.</p>
+<p><strong>Synonyms.</strong> None are recorded. Terms used in the literature are:
+- <em>E. coli</em> spondylodiscitis
+- <em>E. coli</em> vertebral osteomyelitis
+- urogenic spondylodiscitis (when the source is the urinary tract)
+- Gram-negative bacillary hematogenous pyogenic spondylodiscitis (GNB-HPS)</p>
+<p><strong>Nature of the evidence.</strong> All evidence comes from individual patients: case reports and retrospective hospital cohorts. There is no aggregated registry specific to this entity.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Causal factor.</strong> Infection with <em>E. coli</em>, almost always reaching the spine through the bloodstream (hematogenous spread).
+- Pediatric strains have been characterised as extraintestinal pathogenic <em>E. coli</em> (ExPEC). One example is an O1:K1, phylogroup B2 strain carrying "virulence factors typical of highly virulent ExPEC strains" (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5452335/">Gaschignard et al., BMC Infect Dis 2017, DOI 10.1186/s12879-017-2486-6; PMC5452335</a>).</p>
+<p><strong>Risk factors (all clinical, human evidence)</strong></p>
+<ul>
+<li><strong>Genitourinary or intra-abdominal infection is the main risk factor.</strong></li>
+<li>A four-hospital Korean cohort found Gram-negative organisms in 18.0% of pyogenic spondylitis cases. <em>E. coli</em> was the most common of them (35 cases, 10.2% of all cases).</li>
+<li>That cohort reported prior or concurrent genitourinary infection in 32.3% of Gram-negative cases versus 2.1% of Gram-positive cases.</li>
+<li>The authors concluded: "GNB should be considered as the etiologic organism when infectious spondylitis develops in a patient with preexisting or synchronous genitourinary tract and intra-abdominal infection" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4433234">Kang et al., PLoS ONE 2015; PMC4433234</a>).</li>
+<li><strong>Prior symptomatic urinary tract infection (UTI).</strong> In a comparison of 17 Gram-negative and 37 Gram-positive hematogenous cases, a previous symptomatic UTI was found in "41% vs. 3%, respectively; p = 0.03" (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5139091/">Lee et al., BMC Infect Dis 2016;16:735, DOI 10.1186/s12879-016-2071-4; PMC5139091</a>).</li>
+<li><strong>Older age and a history of cancer</strong> were more common in Gram-negative cases in the same study (PMC5139091).</li>
+<li><strong>Age and sex.</strong> Incidence of pyogenic spondylodiscitis is highest in elderly people (<a href="https://api-pubmed-ncbi.laibokeji.com/24296494">Kehrer et al., J Infect 2014; PMID 24296494</a>). <em>E. coli</em> cases are reported as more common in adults and in males. The 10-patient review had 6 males and 4 females, with a mean age of 52 and a range of 12–69 years (<a href="https://brieflands.com/articles/jjm-99694.html">Salehi 2019</a>).</li>
+<li><strong>Comorbidities seen in pyogenic vertebral osteomyelitis generally</strong> include diabetes, renal disease and heart failure (see §11).</li>
+<li><strong>Host immunosuppression.</strong> Authors recommend looking for it when <em>E. coli</em> is found, even though the pediatric index case had a normal immunological work-up (PMC5452335).</li>
+</ul>
+<p><strong>Genetic risk or protective factors.</strong> I found no human susceptibility loci, GWAS hits or protective variants.</p>
+<p><strong>Environmental protective factors.</strong> None specific are documented. Preventing and treating UTIs promptly is the logical protective measure, but this is inferred, not tested.</p>
+<p><strong>Gene–environment interactions.</strong> None documented.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Frequencies for <em>E. coli</em> specifically come only from the 10-patient series, so most are qualitative.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO label (ID to verify)</th>
+<th>Type</th>
+<th>Evidence and frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Back pain (lumbar, thoracic)</td>
+<td>Low back pain; Back pain</td>
+<td>Symptom</td>
+<td>Main presenting complaint in case reports (for example, L2–L3 disease with low back pain, Salehi 2019). In Gram-negative cases, spinal pain is <em>less often</em> the first complaint than constitutional symptoms (PMC5139091).</td>
+</tr>
+<tr>
+<td>Fever</td>
+<td>Fever</td>
+<td>Sign</td>
+<td>Common (Salehi 2019 case; persistent fever with recurrent bacteremia, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12707976/">PMC12707976</a>)</td>
+</tr>
+<tr>
+<td>Weight loss and constitutional symptoms</td>
+<td>Weight loss; Malaise</td>
+<td>Symptom</td>
+<td>"Constitutional symptoms were the primary reasons for initial physician visits in GNB-HPS patients" (PMC5139091)</td>
+</tr>
+<tr>
+<td>Bacteremia (<em>E. coli</em>)</td>
+<td>Bacteremia</td>
+<td>Laboratory</td>
+<td>Positive blood cultures in 7 of 10 reviewed patients (Salehi 2019); can be recurrent (PMC12707976)</td>
+</tr>
+<tr>
+<td>Concurrent UTI or bacteriuria</td>
+<td>Recurrent urinary tract infections; Bacteriuria</td>
+<td>Laboratory and history</td>
+<td>Positive urine culture in several cases; urinary tract is the origin in at least 50% of reviewed cases</td>
+</tr>
+<tr>
+<td>Raised ESR and CRP</td>
+<td>Elevated erythrocyte sedimentation rate; Elevated C-reactive protein level</td>
+<td>Laboratory</td>
+<td>Standard diagnostic markers (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3282859">PMC3282859</a>)</td>
+</tr>
+<tr>
+<td>Epidural abscess</td>
+<td>Spinal epidural abscess</td>
+<td>Complication</td>
+<td><em>Less</em> frequent in Gram-negative than Gram-positive cases (PMC5139091)</td>
+</tr>
+<tr>
+<td>Neurological deficit (motor weakness)</td>
+<td>Lower limb muscle weakness</td>
+<td>Complication</td>
+<td>Predicts poor outcome in pyogenic vertebral osteomyelitis generally (see §11)</td>
+</tr>
+<tr>
+<td>Fever of unknown origin</td>
+<td>Fever of unknown origin</td>
+<td>Presentation</td>
+<td>Multidrug-resistant ESBL <em>E. coli</em> case at T11–L1 (<a href="https://www.panafrican-med-journal.com//content/article/51/27/full">Pan Afr Med J 2025</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Onset:</strong> subacute or insidious. A delay of up to several months before diagnosis is typical because the presentation is nonspecific.</li>
+<li><strong>Severity:</strong> moderate to severe.</li>
+<li><strong>Course:</strong> progressive if untreated.</li>
+<li><strong>Quality of life:</strong> pain and immobility dominate. I retrieved no EQ-5D or SF-36 data specific to <em>E. coli</em>.</li>
+</ul>
+<hr />
+<h2>4. Genetic / molecular information</h2>
+<p><strong>Host side.</strong> Not applicable. There are no causal genes, pathogenic variants (ClinVar), modifier genes, epigenetic findings or chromosomal abnormalities for this infectious entity.</p>
+<p><strong>Pathogen side (<em>E. coli</em>)</strong></p>
+<ul>
+<li><strong>Phylogroups.</strong> B2 predominates in bone and joint <em>E. coli</em> isolates:</li>
+<li>53.9% of prosthetic-joint-infection isolates were B2, with ST131 and ST69 the most common sequence types (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12795266/">PMC12795266</a>).</li>
+<li>In diabetic-foot osteomyelitis, "the majority of the strains belonged to the virulent B2 and D phylogenetic groups (82%)" (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7918245/">PMC7918245</a>).</li>
+<li><strong>Virulence genes.</strong> Genes reported in bone-infection isolates include <em>fimH</em> (type 1 fimbrial adhesin), <em>papC</em>/<em>papG</em> (P fimbriae) and <em>iucC</em> (aerobactin siderophore). Some isolates were linked to lysis of osteoblasts in vitro (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4626605">PMC4626605</a>).</li>
+<li>No virulence signature specific to bone infection has been established. One study found no molecular signature separating these isolates from uropathogenic strains.</li>
+<li><strong>Resistance genes.</strong> Cases with ESBL-producing strains (for example CTX-M-9) are reported (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4676899">Kohlmann et al., BMC Infect Dis 2015; PMC4676899</a>).</li>
+</ul>
+<hr />
+<h2>5. Environmental information</h2>
+<ul>
+<li><strong>Infectious agent:</strong> <em>Escherichia coli</em>, usually from a urinary, and less often intra-abdominal, source. The NCBI Taxonomy ID was not retrieved in this session.</li>
+<li><strong>Hospital vs community:</strong> cases occur in both. A community-acquired case is reported in <a href="https://doaj.org/article/f7a1c59c39c740458c359673cf0d131c">Bull Emerg Trauma 2016</a>.</li>
+<li><strong>Lifestyle and toxin factors:</strong> none specific are documented.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / pathophysiology</h2>
+<p><strong>Causal chain.</strong> Steps marked <em>inferred</em> come from general osteomyelitis biology rather than <em>E. coli</em>-specific studies.</p>
+<ol>
+<li>A urinary tract (or intra-abdominal) infection with an ExPEC/uropathogenic <em>E. coli</em> strain <strong>leads to</strong> bacteria entering the bloodstream (bacteremia). This is documented in case series: positive blood cultures in 7 of 10 patients, urinary source in at least 50%.</li>
+<li>Bacteremia <strong>results in</strong> bacteria seeding the vertebral endplate. There are two proposed routes:</li>
+<li><strong>Arterial route:</strong> bacteria lodge in endplate end-arterioles. This is <em>inferred</em> from general reviews.</li>
+<li><strong>Venous route:</strong> retrograde flow through the valveless Batson vertebral venous plexus, which joins the pelvic veins to the internal vertebral venous plexus, especially when intra-abdominal pressure rises. This route is <em>speculative and contested</em>: one 2025 case report calls the mechanism "speculative," and an early experimental study concluded "our studies do not support the supposition that infection is likely to spread by this route" (<a href="https://boneandjoint.org.uk/Article/10.1302/0301-620X.41B4.796">Batson plexus summary; JBJS 41B:796</a>).</li>
+<li>Bacterial adhesins and iron-scavenging factors (such as fimbriae and aerobactin) <strong>lead to</strong> persistence in bone. Osteoblast lysis has been shown in vitro (PMC4626605). Whether this is the key step in humans is <em>inferred</em>.</li>
+<li>Innate immune recognition of lipopolysaccharide (LPS) <strong>results in</strong> neutrophil and macrophage influx and suppurative inflammation. The cytokine details are <em>inferred</em> (I retrieved no disease-specific study).</li>
+<li>Inflammation and enzymatic and ischemic damage <strong>lead to</strong> destruction of the endplate. The infection then spreads into the avascular disc, which is discitis proper.</li>
+<li>From there the process <strong>branches</strong>:</li>
+<li><strong>6a.</strong> Local pain and loss of spinal stability lead to back pain and immobility.</li>
+<li><strong>6b.</strong> Spread into the soft tissues leads to paravertebral, psoas or epidural abscess. Epidural abscess is less common with Gram-negative organisms (PMC5139091). It can compress the cord or nerve roots and cause neurological deficit.</li>
+<li><strong>6c.</strong> Systemic signs: persistent or recurrent bacteremia, fever and weight loss.</li>
+</ol>
+<p><strong>Suggested terms (labels only)</strong>
+- GO biological processes: neutrophil chemotaxis; inflammatory response; response to lipopolysaccharide; cell adhesion involved in biofilm formation; siderophore biosynthetic process (pathogen); bone resorption.
+- CL cell types: neutrophil; macrophage; osteoblast; osteoclast; chondrocyte (nucleus pulposus and annulus fibrosus cells).</p>
+<p><strong>Not available:</strong> transcriptomic, proteomic, metabolomic, single-cell or spatial studies specific to <em>E. coli</em> discitis.</p>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<ul>
+<li><strong>Primary site:</strong> intervertebral disc and adjacent vertebral bodies and endplates. Suggested UBERON labels: intervertebral disk; vertebral body; lumbar vertebra; thoracic vertebra.</li>
+<li><strong>Spinal level:</strong> lumbar disease is typical (L2–L3 in Salehi 2019). Thoracolumbar cases also occur (T11–T12 in PMC5452335; T11–L1 in Pan Afr Med J 2025). Cervical disease is reported with meningitis and retropharyngeal abscess (PMC4676899).</li>
+<li><strong>Secondary sites:</strong> epidural space; paravertebral and psoas muscles; meninges (rare); the urinary tract as the primary focus.</li>
+<li><strong>Tissues:</strong> bone, fibrocartilage and bone marrow.</li>
+<li><strong>Laterality:</strong> midline, so not lateralised. Usually one level is involved; several levels raise mortality (§11).</li>
+</ul>
+<hr />
+<h2>8. Temporal development</h2>
+<ul>
+<li><strong>Onset:</strong> mainly adults and the elderly, although pediatric cases exist (12-year-old, PMC5452335). Onset is subacute or insidious, with diagnostic delays of weeks to months.</li>
+<li><strong>Course without treatment:</strong> progressive destruction and abscess formation.</li>
+<li><strong>Remission:</strong> induced by treatment. Cure rates are about 90% at one year with 6 weeks of antibiotics (in pyogenic vertebral osteomyelitis overall, §12).</li>
+<li><strong>Critical window:</strong> early diagnosis before neurological compromise or abscess formation.</li>
+<li><strong>Relapse:</strong> recurrent bacteremia can occur if the source is not controlled (PMC12707976).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and population</h2>
+<p><strong>Inheritance.</strong> Not applicable (acquired infection). Penetrance, anticipation, founder effects and carrier frequency do not apply.</p>
+<p><strong>Epidemiology</strong>
+- In Funen, Denmark (adults), incidence of all pyogenic spondylodiscitis rose from <strong>2.2 to 5.8 per 100,000 person-years</strong> between 1995 and 2008. It was highest in older patients. The authors note it is unknown whether the rise "is real or is a result of improved diagnostic methods" (<a href="https://api-pubmed-ncbi.laibokeji.com/24296494">Kehrer 2014, PMID 24296494</a>).
+- Gram-negative organisms cause 15–39% of cases in various series. <em>E. coli</em> accounted for about 10% of pyogenic spondylitis in the Korean cohort (PMC4433234).
+- Urogenic spondylodiscitis is about 6.2% of pyogenic discitis cases (quoted in case-report reviews).
+- I retrieved no incidence figure specific to <em>E. coli</em>.</p>
+<p><strong>Demographics</strong>
+- Sex: male predominance in the small review (6 males, 4 females).
+- Age: incidence rises with age.
+- Gram-negative infection is suspected more often in women with a urinary source (reviews).
+- No geographic or ethnic clustering is reported.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Microbiology</strong>
+- <strong>Blood cultures</strong> are the key test; 7 of 10 were positive (Salehi 2019).
+- <strong>Urine culture</strong> looks for the source.
+- <strong>Image-guided or open biopsy</strong> when blood cultures are negative. In an Australian cohort, open biopsy yielded 70%, fine-needle aspirate 41% and core biopsy 30% (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5846292/">PMC5846292</a>).
+- <strong>Antibiotic susceptibility testing</strong>, including for ESBL production.</p>
+<p><strong>Laboratory and imaging</strong>
+- ESR and CRP are useful; white cell count is less so.
+- MRI with gadolinium "is considered the best choice for image diagnosis of spondylodiscitis because of its high sensitivity and specificity" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3282859">PMC3282859</a>).</p>
+<p><strong>Guidelines</strong>
+- The IDSA 2015 native vertebral osteomyelitis guideline says MRI is often needed, plain radiographs are insensitive early on, and empirical antibiotics should be withheld until a microbiological diagnosis unless the patient is septic or neurologically compromised (<a href="https://pubmed.ncbi.nlm.nih.gov/26229122/">Berbari et al., Clin Infect Dis 2015;61:e26–46, PMID 26229122</a>; executive summary <a href="https://pubmed.ncbi.nlm.nih.gov/26316526/">PMID 26316526</a>).
+- An EANM/ESNR/ESCMID consensus on diagnosing spine infection was published in 2019 (<a href="https://link.springer.com/10.1007/s00259-019-04393-6">DOI 10.1007/s00259-019-04393-6</a>).</p>
+<p><strong>Genetic testing.</strong> Not applicable for the host. Pathogen whole-genome sequencing and serotyping (for example O1:K1, phylogroup B2) are research tools.</p>
+<p><strong>Differential diagnosis</strong>
+- <em>S. aureus</em> and other pyogenic spondylodiscitis. Gram-negative cases present more with constitutional symptoms and have fewer epidural abscesses (PMC5139091).
+- Tuberculous (Pott) and <em>Brucella</em> spondylitis.
+- Erosive degenerative (Modic) changes.
+- Spinal metastasis.</p>
+<p><strong>Screening.</strong> No asymptomatic screening exists.</p>
+<hr />
+<h2>11. Outcome / prognosis</h2>
+<p><strong>Comparison with Gram-positive disease</strong>
+- Outcomes are similar. "The mortality rate and clinical outcomes are not significantly different between pyogenic spondylitis caused by GNB and GPC" (PMC4433234).
+- Outcomes with combined surgery and antibiotics were "not different" (PMC5139091).</p>
+<p><strong>Prognostic factors in pyogenic vertebral osteomyelitis generally</strong>
+- Adverse outcome occurred in 28% of one cohort. Independent predictors were <em>S. aureus</em> infection, motor weakness and a sinus tract (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6680037">PMC6680037</a>).
+- One-year mortality rose with age (OR 1.07) and with the number of vertebral levels involved (OR 2.30).
+- In-hospital death was linked to renal disease (OR 1.85) and congestive heart failure (OR 1.52).
+- In 9,753 patients, diabetes with complications (OR 1.86) was associated with in-hospital death (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10381366/">PMC10381366</a>).</p>
+<p><strong>Mortality and cure</strong>
+- Death was the most common adverse event in the Bernard trial: 8% in the 6-week arm and 7% in the 12-week arm (<a href="https://pubmed.ncbi.nlm.nih.gov/25468170/">PMID 25468170</a>).
+- The <em>E. coli</em> case reports mostly resolved with medical therapy alone.</p>
+<p><strong>Complications.</strong> Epidural abscess, neurological deficit, spinal instability or deformity, recurrent bacteremia, and meningitis (rare).</p>
+<p><strong>Quality of life.</strong> No <em>E. coli</em>-specific data were retrieved.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Antibiotics</strong> (NCIT labels suggested: Antibiotic Therapy; Ceftriaxone; Ciprofloxacin; Meropenem)
+- <strong>Third-generation cephalosporins</strong> such as ceftriaxone. French guidance favours a third-generation cephalosporin combined with a fluoroquinolone for <em>E. coli</em> spondylodiscitis (PMC5452335).
+- <strong>Fluoroquinolones.</strong> Oral ciprofloxacin for a susceptible strain achieved cure after 8 weeks without surgery (Salehi 2019).
+- <strong>Carbapenems for ESBL strains.</strong> In a CTX-M-9 ESBL case, meningitis and osteomyelitis resolved "after surgery and meropenem therapy" (PMC4676899).</p>
+<p><strong>Duration</strong>
+- Six weeks was non-inferior to 12 weeks in pyogenic vertebral osteomyelitis: risk difference 0.05% (95% CI −6.2 to 6.3); about 90.9% vs 90.8% cured at one year (<a href="https://pubmed.ncbi.nlm.nih.gov/25468170/">Bernard et al., Lancet 2015;385:875–82, PMID 25468170</a>; NCT00764114).
+- Longer courses may be needed for drug-resistant organisms, extensive bone destruction or abscesses.</p>
+<p><strong>Route</strong>
+- Oral therapy was non-inferior to intravenous therapy in the first 6 weeks of bone and joint infection. Treatment failure was 13.2% oral vs 14.6% IV, and catheter complications were 1.0% vs 9.4% (OVIVA trial, <a href="https://pubmed.ncbi.nlm.nih.gov/30699315/">NEJM 2019;380:425–36, PMID 30699315</a>).
+- Highly bioavailable fluoroquinolones make an early switch to oral therapy practical for susceptible <em>E. coli</em>.</p>
+<p><strong>Surgery</strong> (NCIT labels: Debridement; Spinal Fusion; Decompression)
+- Indicated for neurological compromise, abscess, instability or failure of medical therapy. The 2025 EANS consensus describes surgery "to debride the infection, decompress neural structures, and stabilize the affected spinal segments."</p>
+<p><strong>Source control and supportive care</strong>
+- Treat the urinary or abdominal source.
+- Pain control, orthoses and mobilisation or rehabilitation.</p>
+<p><strong>Pharmacogenomics, gene therapy, cell therapy and other advanced therapeutics.</strong> Not applicable. No specific experimental trials were found.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary:</strong> prevent and treat UTIs and intra-abdominal infections promptly. No <em>E. coli</em> vaccine is licensed.</li>
+<li><strong>Secondary:</strong> consider spondylodiscitis in patients with <em>E. coli</em> bacteremia plus back pain, or with persistent bacteremia or fever. Get MRI early.</li>
+<li><strong>Tertiary:</strong> an adequate antibiotic course, source control, and monitoring for relapse.</li>
+<li><strong>Not applicable:</strong> genetic counselling and screening.</li>
+</ul>
+<hr />
+<h2>14. Other species</h2>
+<ul>
+<li><strong>Dogs.</strong> Canine discospondylitis is common in veterinary practice. Staphylococci dominate (23 of 38 positive blood cultures in 386 dogs; Cridge et al., JVIM 2023, <a href="https://pubmed.ncbi.nlm.nih.gov/37288966/">PMID 37288966</a>). Culture was positive in 42% of 120 dogs and was associated with higher bodyweight (<a href="https://livrepository.liverpool.ac.uk/3179460/">Liverpool repository</a>). I found no dog-specific <em>E. coli</em> counts.</li>
+<li><strong>Cats.</strong> <em>E. coli</em> was isolated (from urine) in a feline discospondylitis series (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11209358">PMC11209358</a>).</li>
+<li><strong>Zoonotic potential:</strong> none specific to this disease.</li>
+<li><strong>Orthologous genes and breeds:</strong> not applicable.</li>
+</ul>
+<hr />
+<h2>15. Model organisms</h2>
+<p>Existing models use <strong>S. aureus</strong>. I found <strong>no <em>E. coli</em> intradiscal model</strong>.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Description</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rat tail disc, bioluminescent <em>S. aureus</em></td>
+<td>In vivo tracking of infection intensity</td>
+<td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5459675">PMC5459675</a></td>
+</tr>
+<tr>
+<td>Rat lumbar <em>S. aureus</em> (ATCC 25923)</td>
+<td>Mimics primary pyogenic spondylitis; does not reproduce hematogenous spread</td>
+<td><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12488691/">PMC12488691</a></td>
+</tr>
+<tr>
+<td>Rat coccygeal disc with posterior fixation</td>
+<td>Studies infection control with instrumentation</td>
+<td><a href="https://link.springer.com/article/10.1007/s00586-025-08750-y">Eur Spine J 2025</a></td>
+</tr>
+<tr>
+<td>Rabbit lumbar disc, <em>S. aureus</em> vs <em>P. acnes</em></td>
+<td>MRI and histological changes</td>
+<td><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4746301">PMC4746301</a></td>
+</tr>
+<tr>
+<td>Review of models (mouse, rat, chicken, rabbit, dog, sheep)</td>
+<td>Notes <em>S. aureus</em> "followed by Escherichia coli" in human spine infection</td>
+<td><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8313152/">PMC8313152</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Main limitation:</strong> none of these models reproduces urinary-tract-to-spine spread of a Gram-negative organism. In vitro osteoblast infection with ExPEC is the only <em>E. coli</em>-specific experimental system I found (PMC4626605).</p>
+<hr />
+<h2>Evidence gaps</h2>
+<ul>
+<li>There are no prospective or <em>E. coli</em>-specific cohorts. Most specific data come from 10 or fewer case reports.</li>
+<li>There is no host-genetic data.</li>
+<li>The role of Batson's plexus in the mechanism is unresolved.</li>
+<li>No incidence figure specific to <em>E. coli</em> was retrieved.</li>
+<li>No <em>E. coli</em> animal model was found.</li>
+<li>PMIDs for several sources (Kang 2015, Lee 2016, Gaschignard 2017, Salehi 2019, Zimmerli NEJM 2010, DOI 10.1056/NEJMcp0910753) were not retrieved, so they are cited by PMC ID or DOI.</li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Quoted claims with nothing to check against</td>
+<td>2</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>29</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>2 of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMC:PMC5452335</code>: "virulence factors typical of highly virulent ExPEC strains"</li>
+<li>closest text in source: "The strain harboured serogroup O1:K1 and virulence factors common to highly virulent extra intestinal pathogenic E"</li>
+<li><code>PMC:PMC3282859</code> <em>(abstract only)</em>: "is considered the best choice for image diagnosis of spondylodiscitis because of its high sensitivity and specificity"</li>
+<li>closest text in source: "MRI with gadolinium enhancement is the choice for image diagnosis"</li>
+<li><code>PMC:PMC4676899</code> <em>(abstract only)</em>: "after surgery and meropenem therapy"</li>
+<li>closest text in source: "Meningitis and osteomyelitis resolved completely under surgical treatment and meropenem therapy"</li>
+</ul>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:37288966</code> (3 mentions) - Clinical features, comparative imaging findings, treatment, and outcome in dogs with discospondylitis: A multi-institutional retrospective study.</li>
+<li>shared terms: disease</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>coli</code>, <code>infection</code>, <code>pyogenic</code>, <code>vertebral</code>, <code>osteomyelitis</code>, <code>gram-negative</code>, <code>patient</code>, <code>urinary</code>, <code>spondylodiscitis</code>, <code>abscess</code>, <code>disease</code>, <code>salehi</code>, <code>cohort</code>, <code>found</code>, <code>tract</code>, <code>spinal</code>, <code>bacteremia</code>, <code>gene</code>, <code>pmc5139091</code>, <code>antibiotic</code>.</p>
+<h3>Quotes that could not be checked</h3>
+<p>There was no text to compare these against, so they are neither confirmed nor contradicted:</p>
+<ul>
+<li><code>DOI:10.1186/s12879-017-2486-6</code>: "virulence factors typical of highly virulent ExPEC strains"</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+<li><code>DOI:10.1186/s12879-016-2071-4</code>: "41% vs. 3%, respectively; p = 0.03"</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>GARD</code>.</p>
+<p>3 of 4 terms resolved to a current term; the rest could not be looked up either way.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Erythropoietic_Protoporphyria-claude_code.html">← Erythropoietic Protoporphyria (Claude Code)</a>
+                
+                
+                <a href="Escherichia_Coli_Meningitis-openscientist.html">Escherichia coli meningitis (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Escherichia_coli_Discitis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Escherichia_Coli_Discitis-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

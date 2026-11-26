@@ -5,6 +5,16 @@ Is dismech's curated structure logically consistent with MONDO's?
 For the investigation and reporting workflow, use the repo-local
 [mapping-analysis skill](../../.claude/skills/mapping-analysis/SKILL.md).
 
+[Five OMIM phenotypic-series pilots](omimps-pilots/README.md) compare pinned
+pre/post-curation records for BBS, lysosomal acid lipase deficiency, cblE/cblG/cblD-HC,
+MSUD and PNH. They preserve direct PS mapping predicates, subtype scope and
+separate-entry aliases, and audit member coverage independently of solver consistency.
+
+[Five further OMIMPS pilots](omimps-followup/README.md) test the Gorlin and PRAAS
+source corrections, the pending TPMT correction, explicitly qualified FOXE3
+grounding, and Waldenström susceptibility-series scope. They separate applied
+curation, corrected source mappings, and sensitivity experiments.
+
 dismech grounds its entries in MONDO, and separately asserts its own hierarchy
 through `has_subtypes` and `kb/groupings/`. Those are independent claims, and
 they can disagree. Nothing in the validation stack checks that they don't:
@@ -517,3 +527,11 @@ repeated:
   Townes-Brocks syndrome for a Temple-Baraitser subtype, `AD` matched Alzheimer
   disease for anauxetic dysplasia. Never propose a retarget from a synonym-only
   match on a bare acronym without a second signal.
+
+## Structured ontology follow-ups
+
+The [ontology change registry](../../ontology_changes/README.md#boomer-pilot-follow-through)
+tracks the applied Gorlin and PRAAS mapping moves, the acknowledged but unapplied
+TPMT qualifier request, and the unfiled anterior-segment ICD-11 proposal.
+Records include current source checks and separate request/adoption states;
+historical solver artifacts retain their original inputs and probabilities.
