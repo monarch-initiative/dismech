@@ -5776,3 +5776,7 @@ ontology-changes list` queries pending requests and `export <id>` emits a
 reviewable Markdown request without publishing it. Link affected diseases,
 groupings and analyses through `affected_records`; use existing `tracked_issues`
 for filed tickets. Keep solver probabilities in the linked analysis artifacts.
+For a mapping moved to a different subject, link the removal and creation IDs
+in `ontology_changes/change_sets/<id>.yaml` (`MAPPING_MOVE`). The validator checks
+both members and their shared target/qualifier; exporting either member shows
+the complete move. Per-edit lifecycles remain independent.

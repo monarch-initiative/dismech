@@ -2692,3 +2692,11 @@ The first population is the anterior segment dysgenesis ICD-11 qualifier
 correction. The registry supports validation, JSON queries and a reviewable
 Markdown export; KGCL execution and automatic ticket filing are not implemented.
 See the [registry guide](../../ontology_changes/README.md).
+
+Coordinated mapping moves are recorded in `ontology_changes/change_sets/`,
+referencing the atomic removal and creation IDs. Membership is stored once;
+reverse links and the before/after display are derived. A `MAPPING_MOVE`
+changes only the subject, preserving the target, source representation and
+qualifier. The two atomic lifecycles remain authoritative, so partial upstream
+application is visible instead of being hidden by an aggregate status. These
+sets group edits for review; they do not promise transactional execution.
