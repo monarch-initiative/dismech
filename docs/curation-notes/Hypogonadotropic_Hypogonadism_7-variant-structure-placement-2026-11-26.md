@@ -122,8 +122,9 @@ modelled in that structure. Polar partners are side-chain N, O or S atoms within
 - A companion review of GNRHR gene function in `ai4curation/ai-gene-review`
   (`genes/human/GNRHR/GNRHR-bioinformatics/`, branch `claude/gnrhr-hh7-coreview`)
   carries its own reproducible variant-on-structure analysis. The two were run
-  independently and agree on the variant classes and on the receptor-to-GnRH
-  distances to within 0.3 Å.
+  independently. Comparing them showed that both had counted hydrogen atoms in
+  9U4W; with hydrogens excluded on both sides the two give the same distances
+  and the same Gαq contact list.
 
 ## Script
 
