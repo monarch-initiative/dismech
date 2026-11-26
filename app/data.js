@@ -92403,6 +92403,90 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Cepacia Syndrome",
+    "disease_id": "MONDO:0958151",
+    "category": "Infectious Disease",
+    "parents": [
+      "Burkholderia infectious disease",
+      "Opportunistic bacterial infectious disease"
+    ],
+    "creation_date": "2026-11-26T15:45:36Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cepacia syndrome is an acute, often fatal clinical syndrome in which infection with the Burkholderia cepacia complex (BCC) progresses to a rapidly advancing necrotizing pneumonia with bacteremia, worsening respiratory failure, high fever and leukocytosis. It occurs chiefly in people with cystic fibrosis who are chronically colonized by BCC, typically years after acquisition, and is also reported in chronic granulomatous disease and, rarely, in previously well non-cystic-fibrosis hosts. Burkholderia cenocepacia, especially the epidemic ET12 (ST28) and ST32 lineages, is the species most often responsible, followed by Burkholderia multivorans. The organism is intrinsically resistant to many antibiotics, survives inside macrophages, and drives a lipopolysaccharide-mediated hyperinflammatory response; mortality is roughly half of reported cases. BCC infection is patient-to-patient transmissible, so segregation and infection-control measures are central to prevention, and B. cenocepacia infection is a relative or absolute contraindication to lung transplantation.",
+    "pathophysiology": [
+      "Chronic BCC Airway Colonization",
+      "Intrinsic Multidrug Resistance",
+      "Intramacrophage Survival and Replication",
+      "LPS-Driven TLR4 Hyperinflammation",
+      "Systemic Dissemination and Bacteremia",
+      "Necrotizing Pneumonia",
+      "Septic Shock and Multiorgan Dysfunction"
+    ],
+    "cell_types": [
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "response to antibiotic",
+      "biological process involved in interaction with host",
+      "symbiont entry into host cell",
+      "toll-like receptor 4 signaling pathway",
+      "positive regulation of tumor necrosis factor production",
+      "positive regulation of interleukin-6 production",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Respiratory failure",
+      "Pneumonia",
+      "Bacteremia",
+      "Sepsis",
+      "Increased total leukocyte count",
+      "Elevated erythrocyte sedimentation rate",
+      "Progressive pulmonary function impairment"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002878",
+      "HP:0002090",
+      "HP:0031864",
+      "HP:0100806",
+      "HP:0001974",
+      "HP:0003565",
+      "HP:0006520"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Combination intravenous and inhaled antimicrobial therapy",
+      "Adjunctive corticosteroids and immunosuppression",
+      "Lung transplantation"
+    ],
+    "environmental": [
+      "Cystic fibrosis",
+      "Chronic granulomatous disease"
+    ],
+    "biochemical": [],
+    "source_file": "Cepacia_Syndrome.yaml",
+    "page_url": "../pages/disorders/Cepacia_Syndrome.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Cerebellar Ataxia-Hypogonadism Syndrome",
     "disease_id": "MONDO:0008935",
     "category": "Mendelian",
@@ -170412,17 +170496,36 @@ window.searchData = [
     ],
     "phenotypes": [
       "Thoracic aortic aneurysm",
-      "Aortic dissection"
+      "Aortic dissection",
+      "Ascending aortic dissection (type A)",
+      "Descending aortic dissection (type B)",
+      "Ascending aortic aneurysm",
+      "Abdominal aortic aneurysm",
+      "Early-onset ischemic stroke",
+      "Livedo reticularis",
+      "Iris flocculi"
     ],
     "phenotype_categories": [
-      "Cardiovascular"
+      "Cardiovascular",
+      "Dermatological",
+      "Ophthalmological"
     ],
     "phenotype_hpo_categories": [
-      "Cardiovascular"
+      "Cardiovascular",
+      "Eye",
+      "Integument",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0004942",
-      "HP:0002647"
+      "HP:0002647",
+      "HP:0004933",
+      "HP:0012499",
+      "HP:0004970",
+      "HP:0005112",
+      "HP:0002140",
+      "HP:0033505",
+      "HP:0500007"
     ],
     "frequencies": [],
     "genes": [
@@ -170453,11 +170556,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Familial_Thoracic_Aortic_Aneurysm_and_Aortic_Dissection.yaml",
     "page_url": "../pages/disorders/Familial_Thoracic_Aortic_Aneurysm_and_Aortic_Dissection.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 9,
     "num_pathophysiology": 10,
     "num_genes": 16,
     "num_treatments": 4,
-    "causal_graph_edges": "29",
+    "causal_graph_edges": "32",
     "causal_graph_longest_path": "4"
   },
   {
@@ -192399,6 +192502,114 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Group B Streptococcal Infection",
+    "disease_id": "MONDO:0700218",
+    "category": "Infectious Disease",
+    "parents": [],
+    "creation_date": "2026-11-26T15:54:44Z",
+    "updated_date": null,
+    "subtypes": [
+      "Early-onset disease",
+      "Late-onset disease",
+      "Pregnancy-associated invasive disease",
+      "Non-pregnant adult invasive disease"
+    ],
+    "description": "Group B streptococcal infection is a bacterial infection caused by Streptococcus agalactiae (group B Streptococcus, GBS), a beta-haemolytic Gram-positive coccus that colonises the human intestinal and genital tract. GBS is a leading cause of neonatal sepsis, pneumonia and meningitis, acquired by vertical transmission from a colonised mother around the time of birth, and also causes invasive disease in pregnant women (bacteraemia, chorioamnionitis, preterm birth, stillbirth, endometritis) and in non-pregnant adults, mainly the elderly. Neonatal disease is divided clinically into early-onset disease (first 72 hours of life) and late-onset disease (72 hours to 3 months); intrapartum antibiotic prophylaxis has reduced early-onset but not late-onset disease.",
+    "pathophysiology": [
+      "Maternal rectovaginal colonisation",
+      "Sialylated capsular polysaccharide immune evasion",
+      "Beta-haemolysin/cytolysin-mediated barrier breach",
+      "Pilus- and HvgA-mediated adhesion and barrier crossing",
+      "Hypervirulent ST-17 clone",
+      "Low maternal anti-capsular antibody and neonatal immune immaturity",
+      "Ascending and intrapartum invasion of the amniotic compartment",
+      "Bloodstream invasion and bacteraemia",
+      "Blood-brain barrier crossing and meningitis"
+    ],
+    "cell_types": [
+      "neutrophil",
+      "brain microvascular endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000775",
+      "CL:2000044"
+    ],
+    "biological_processes": [
+      "symbiont-mediated evasion of host immune response",
+      "symbiont-mediated cytolysis of host cell",
+      "adhesion of symbiont to host",
+      "symbiont entry into host cell"
+    ],
+    "phenotypes": [
+      "Sepsis",
+      "Pneumonia",
+      "Meningitis",
+      "Neurodevelopmental impairment",
+      "Hearing impairment",
+      "Cerebral palsy",
+      "Fever",
+      "Apnea",
+      "Tachypnea",
+      "Hypotension",
+      "Bulging fontanelle",
+      "Chorioamnionitis",
+      "Premature birth",
+      "Bacteremia",
+      "Septic arthritis",
+      "Osteomyelitis",
+      "Cellulitis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0040187",
+      "HP:0002090",
+      "HP:0001287",
+      "HP:0012759",
+      "HP:0000365",
+      "HP:0100021",
+      "HP:0001945",
+      "HP:0002104",
+      "HP:0002789",
+      "HP:0002615",
+      "HP:6000647",
+      "HP:0001622",
+      "HP:0031864",
+      "HP:0003095",
+      "HP:0002754",
+      "HP:0100658"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Antibiotic therapy",
+      "Intrapartum antibiotic prophylaxis"
+    ],
+    "environmental": [
+      "Obesity",
+      "Diabetes mellitus and poor glycaemic control"
+    ],
+    "biochemical": [],
+    "source_file": "Group_B_Streptococcal_Infection.yaml",
+    "page_url": "../pages/disorders/Group_B_Streptococcal_Infection.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Growth Hormone Insensitivity Syndrome",
@@ -264513,6 +264724,136 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Louse-Borne Relapsing Fever",
+    "disease_id": "MONDO:0001620",
+    "category": "Infectious Disease",
+    "parents": [
+      "Relapsing Fever"
+    ],
+    "creation_date": "2026-11-26T18:24:10Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Louse-borne relapsing fever is an epidemic, human-to-human relapsing-fever borreliosis caused by Borrelia recurrentis and transmitted by the human body louse, in which variable major protein antigenic switching drives recurring spirochetemic febrile episodes and antibiotic-triggered spirochete lysis precipitates a severe Jarisch-Herxheimer reaction.",
+    "pathophysiology": [
+      "Body-Louse Borrelia recurrentis Acquisition",
+      "Complement and Innate Immune Evasion",
+      "Spirochetemic Dissemination",
+      "Vmp Antigenic Switching",
+      "Antibody-Mediated Clearance of Bacteremic Waves",
+      "Recurrent Spirochetemic Febrile Episodes",
+      "Jarisch-Herxheimer Reaction"
+    ],
+    "cell_types": [
+      "B-1b B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000821"
+    ],
+    "biological_processes": [
+      "complement activation",
+      "antigenic variation",
+      "humoral immune response",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Recurrent fever",
+      "Fever",
+      "Headache",
+      "Hepatosplenomegaly",
+      "Myalgia",
+      "Arthralgia",
+      "Petechiae",
+      "Epistaxis",
+      "Jaundice",
+      "Thrombocytopenia",
+      "Anemia",
+      "Chills",
+      "Abdominal pain",
+      "Hypotension",
+      "Myocarditis",
+      "Acute respiratory distress syndrome",
+      "Splenic rupture",
+      "Hepatic failure",
+      "Disseminated intravascular coagulation",
+      "Meningitis",
+      "Premature birth",
+      "Stillbirth and pregnancy loss",
+      "Jarisch-Herxheimer reaction"
+    ],
+    "phenotype_categories": [
+      "Systemic",
+      "Constitutional",
+      "Neurologic",
+      "Abdominal",
+      "Musculoskeletal",
+      "Mucocutaneous",
+      "Hematologic",
+      "Cardiovascular",
+      "Respiratory",
+      "Obstetric"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001954",
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0001433",
+      "HP:0003326",
+      "HP:0002829",
+      "HP:0000967",
+      "HP:0000421",
+      "HP:0000952",
+      "HP:0001873",
+      "HP:0001903",
+      "HP:0025143",
+      "HP:0002027",
+      "HP:0002615",
+      "HP:0012819",
+      "HP:0033677",
+      "HP:0012223",
+      "HP:0001399",
+      "HP:0005521",
+      "HP:0001287",
+      "HP:0001622"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Single-dose antibiotic therapy",
+      "Anti-TNF-alpha Fab pretreatment"
+    ],
+    "environmental": [
+      "Overcrowding and poor personal hygiene",
+      "Delousing and vector control",
+      "Forced migration and displacement"
+    ],
+    "biochemical": [],
+    "source_file": "Louse_Borne_Relapsing_Fever.yaml",
+    "page_url": "../pages/disorders/Louse-Borne_Relapsing_Fever.html",
+    "num_phenotypes": 23,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Lowe syndrome",
     "disease_id": "MONDO:0010645",
     "category": "Mendelian",
@@ -287863,6 +288204,201 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Miliary Tuberculosis",
+    "disease_id": "MONDO:0005848",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tuberculosis"
+    ],
+    "creation_date": "2026-11-26T15:45:36Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Miliary tuberculosis is the disseminated form of tuberculosis in which Mycobacterium tuberculosis spreads massively through the blood and lymphatics from a primary or reactivated focus, in a host whose cell-mediated immunity fails to contain it. Innumerable tubercles about 1-3 mm across, resembling millet seeds, form in the lungs, liver, spleen, bone marrow, choroid, meninges, kidneys and adrenals. It presents as a weeks-long febrile wasting illness with a miliary pattern on chest imaging, and can be complicated by tuberculous meningitis, acute respiratory distress syndrome, cytopenias, hyponatremia and adrenal insufficiency. It is fatal if untreated and still carries substantial mortality with standard antituberculous therapy.",
+    "pathophysiology": [
+      "Primary or Reactivated Tuberculous Focus",
+      "Inborn Errors of IL-12/IL-23-IFN-gamma Immunity",
+      "Impaired Cell-Mediated Immune Containment",
+      "Massive Lymphohematogenous Dissemination",
+      "Multiorgan Miliary Granuloma Formation",
+      "Poorly Formed Granulomas With Abundant Bacilli",
+      "Diffuse Pulmonary Miliary Lesions",
+      "Miliary Tuberculosis-Associated ARDS",
+      "Hepatosplenic Miliary Involvement",
+      "Bone Marrow Miliary Involvement",
+      "Immune-Mediated Marrow Suppression",
+      "Central Nervous System Seeding",
+      "Choroidal Tubercle Formation",
+      "Adrenal Miliary Involvement",
+      "Renal Miliary Involvement",
+      "Systemic Inflammatory Response"
+    ],
+    "cell_types": [
+      "T-helper 1 cell",
+      "macrophage",
+      "epithelioid macrophage",
+      "Langhans giant cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000545",
+      "CL:0000235",
+      "CL:0002150",
+      "CL:0000647"
+    ],
+    "biological_processes": [
+      "interleukin-12-mediated signaling pathway",
+      "interleukin-23-mediated signaling pathway",
+      "T-helper 1 type immune response",
+      "granuloma formation",
+      "inflammatory response",
+      "respiratory gaseous exchange by respiratory system"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Fever of unknown origin",
+      "Fatigue",
+      "Anorexia",
+      "Weight loss",
+      "Night sweats",
+      "Cough",
+      "Productive cough",
+      "Dyspnea",
+      "Tachypnea",
+      "Crackles",
+      "Nodular-random pattern on pulmonary HRCT",
+      "Pleuritis",
+      "Pneumothorax",
+      "Acute respiratory distress syndrome",
+      "Respiratory failure requiring assisted ventilation",
+      "Lymphadenopathy",
+      "Hepatomegaly",
+      "Splenomegaly",
+      "Hepatic granulomatosis",
+      "Bone marrow granuloma",
+      "Choroid tubercles",
+      "Meningitis",
+      "Brain parenchymal tuberculoma",
+      "Headache",
+      "Vomiting",
+      "Nuchal rigidity",
+      "Reduced consciousness",
+      "Anemia",
+      "Decreased total lymphocyte count",
+      "Pancytopenia",
+      "Decreased total leukocyte count",
+      "Increased total leukocyte count",
+      "Thrombocytopenia",
+      "Thrombocytosis",
+      "Increased total monocyte count",
+      "Hemophagocytosis",
+      "Elevated erythrocyte sedimentation rate",
+      "Hypoalbuminemia",
+      "Elevated circulating hepatic transaminase concentration",
+      "Elevated circulating alkaline phosphatase concentration",
+      "Hyponatremia",
+      "Adrenal insufficiency",
+      "Acute kidney injury",
+      "Decreased circulating vitamin D concentration"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0033399",
+      "HP:0012378",
+      "HP:0002039",
+      "HP:0001824",
+      "HP:0030166",
+      "HP:0012735",
+      "HP:0031245",
+      "HP:0002094",
+      "HP:0002789",
+      "HP:0030830",
+      "HP:0025400",
+      "HP:0002102",
+      "HP:0002107",
+      "HP:0033677",
+      "HP:0004887",
+      "HP:0002716",
+      "HP:0002240",
+      "HP:0001744",
+      "HP:0011955",
+      "HP:6000154",
+      "HP:0012123",
+      "HP:0001287",
+      "HP:6000585",
+      "HP:0002315",
+      "HP:0002013",
+      "HP:0031179",
+      "HP:0004372",
+      "HP:0001903",
+      "HP:0001888",
+      "HP:0001876",
+      "HP:0001882",
+      "HP:0001974",
+      "HP:0001873",
+      "HP:0001894",
+      "HP:0012311",
+      "HP:0012156",
+      "HP:0003565",
+      "HP:0003073",
+      "HP:0002910",
+      "HP:0003155",
+      "HP:0002902",
+      "HP:0000846",
+      "HP:0001919",
+      "HP:0100512"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "IL12RB1",
+      "IFNGR1",
+      "TYK2"
+    ],
+    "treatments": [
+      "Standard Four-Drug Antituberculous Therapy",
+      "Adjunctive Corticosteroids for Specific Complications",
+      "Intensive Care and Mechanical Ventilation",
+      "Antiretroviral Therapy in HIV Co-infection",
+      "TNF Antagonist Salvage for Refractory Paradoxical Reactions",
+      "Latent Tuberculosis Screening Before Anti-TNF Therapy",
+      "BCG Vaccination"
+    ],
+    "environmental": [
+      "HIV co-infection",
+      "Anti-TNF biologic therapy",
+      "Glucocorticoid, immunosuppressive and transplant-related immunosuppression",
+      "Malnutrition, diabetes and other predisposing conditions",
+      "Young age"
+    ],
+    "biochemical": [],
+    "source_file": "Miliary_Tuberculosis.yaml",
+    "page_url": "../pages/disorders/Miliary_Tuberculosis.html",
+    "num_phenotypes": 45,
+    "num_pathophysiology": 16,
+    "num_genes": 3,
+    "num_treatments": 7,
+    "causal_graph_edges": "75",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Miller-Dieker Lissencephaly Syndrome",
@@ -456374,19 +456910,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4197,
-  "total_subtypes": 5144,
-  "total_disorders_and_subtypes": 9341,
-  "total_unique_evidence_sources": 62715,
-  "total_unique_publications": 58578,
+  "total_disorder_pages": 4201,
+  "total_subtypes": 5148,
+  "total_disorders_and_subtypes": 9349,
+  "total_unique_evidence_sources": 62784,
+  "total_unique_publications": 58646,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 316,
-  "total_pathographs": 4195,
-  "total_unique_pathological_events": 27720,
+  "total_pathographs": 4199,
+  "total_unique_pathological_events": 27754,
   "total_modules": 242,
-  "total_research_reports": 4298,
+  "total_research_reports": 4302,
   "total_classifications": 21,
   "total_comorbidities": 58,
-  "total_groupings": 150
+  "total_groupings": 151
 };
 window.dispatchEvent(new Event('searchDataReady'));
