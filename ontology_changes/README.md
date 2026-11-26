@@ -61,6 +61,7 @@ just ontology-changes export mondo-0019503-icd11-anterior-segment-broad-match
 just ontology-changes list-change-sets
 just ontology-changes list --change-set mondo-gorlin-ptch1-mapping-move
 just ontology-changes export mondo-gorlin-ptch1-mapping-move
+just ontology-changes refresh-change-set-views
 ```
 
 `list` returns complete JSON records; `export` writes a Markdown request to
@@ -95,6 +96,24 @@ represent their combined intent, add a record under `change_sets/`:
 id: mondo-gorlin-ptch1-mapping-move
 title: Move the PTCH1-specific DO mapping from the Gorlin family to basal cell nevus syndrome 1
 change_set_type: MAPPING_MOVE
+ontology: MONDO
+mapping_representation: MONDO_XREF_QUALIFIER
+before:
+  subject:
+    id: MONDO:0007187
+    label: nevoid basal cell carcinoma syndrome
+  predicate: MONDO:equivalentTo
+  object:
+    id: DOID:0070365
+    label: nevoid basal cell carcinoma syndrome 1
+after:
+  subject:
+    id: MONDO:0958174
+    label: basal cell nevus syndrome 1
+  predicate: MONDO:equivalentTo
+  object:
+    id: DOID:0070365
+    label: nevoid basal cell carcinoma syndrome 1
 removal: mondo-0007187-gorlin-remove-subtype-doid
 creation: mondo-0958174-gorlin-add-subtype-doid
 ```
@@ -107,9 +126,24 @@ All IDs share a namespace, must match their filenames, and must resolve to the
 expected record kind. Missing or invalid members and duplicate YAML keys fail
 validation. Existing registries without change sets remain valid.
 
-Membership is stored once, in the change set; reverse membership and the
-before/after view are derived. The atomic records keep their IDs, source
-snapshots, request status and adoption status. A set has **no aggregate status**:
+The `before` and `after` blocks show the complete mapping being removed and
+added: subject, source-native predicate/qualifier and target, including labels.
+For `MONDO_XREF_QUALIFIER`, `predicate` is the xref qualifier, not an OWL edge.
+These blocks describe the edit, not its current application status.
+
+The owning `ontology`, `mapping_representation`, `before` and `after` are
+materialized from the atomic records so the YAML is readable on GitHub without
+opening another file. Validation requires exact agreement, including labels.
+After creating the two atomic records and the change-set ID/title/references,
+run `just ontology-changes refresh-change-set-views` to populate these fields.
+Run it again after updating a member. The command validates the full registry
+with regenerated views before writing any files; it cannot repair an invalid
+move or missing evidence. It changes only change-set files, never the atomic
+records. Normal validation and export reject missing or stale views.
+
+Membership is stored once, in the change set; reverse membership is derived.
+The atomic records keep their IDs, source snapshots, request status and adoption
+status. A set has **no aggregate status**:
 if the removal is accepted but the creation is only filed, the export displays
 that partial application explicitly. The set is a coordinated review unit,
 not an assertion that upstream applies both edits transactionally. A target or

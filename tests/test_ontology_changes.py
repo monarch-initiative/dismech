@@ -11,6 +11,7 @@ from dismech.ontology_changes import (
     load_registry,
     load_registry_bundle,
     main,
+    mapping_move_view,
     render_request,
     validate_change_set,
     validate_record,
@@ -395,6 +396,7 @@ def mapping_move(proposal, tmp_path):
         "change_set_type": "MAPPING_MOVE",
         "removal": removal["id"],
         "creation": creation["id"],
+        **mapping_move_view(removal, creation),
     }
     for record in (removal, creation):
         assert not validate_record(record, tmp_path)
@@ -422,7 +424,8 @@ def test_change_set_requires_both_typed_references(mapping_move, role):
     assert validate_change_set(change_set, proposals)
     change_set[role] = "missing-proposal"
     assert any(
-        "unknown proposal" in e for e in validate_change_set(change_set, proposals)
+        "unknown or invalid proposal" in e
+        for e in validate_change_set(change_set, proposals)
     )
     change_set[role] = change_set["creation" if role == "removal" else "removal"]
     assert any(
@@ -474,7 +477,7 @@ def test_registry_rejects_broken_sets_and_export_fails_closed(
     path = write_move(mapping_move, tmp_path)
     change_set, _ = mapping_move
     (tmp_path / "ontology_changes" / f"{change_set['creation']}.yaml").unlink()
-    assert any("unknown proposal" in e for e in load_registry(tmp_path)[1])
+    assert any("unknown or invalid proposal" in e for e in load_registry(tmp_path)[1])
     assert main(["--root", str(tmp_path), "export", change_set["removal"]]) == 1
     assert not capsys.readouterr().out
     path.unlink()
@@ -558,3 +561,96 @@ def test_committed_moves_preserve_atomic_records():
             by_id[change_set[role]] for role in ("removal", "creation")
         )
         assert "new_value" not in removal and "old_value" not in creation
+
+
+@pytest.mark.parametrize(
+    "field", ["ontology", "mapping_representation", "before", "after"]
+)
+def test_change_sets_require_readable_assertions(mapping_move, field):
+    change_set, proposals = mapping_move
+    del change_set[field]
+    assert validate_change_set(change_set, proposals)
+
+
+@pytest.mark.parametrize("side", ["before", "after"])
+@pytest.mark.parametrize(
+    "field", ["subject.id", "subject.label", "predicate", "object.id", "object.label"]
+)
+def test_change_set_view_must_match_members(mapping_move, side, field):
+    change_set, proposals = mapping_move
+    parts = field.split(".")
+    value = change_set[side]
+    for part in parts[:-1]:
+        value = value[part]
+    value[parts[-1]] = "WRONG:assertion"
+    assert any(
+        "disagrees with member" in e for e in validate_change_set(change_set, proposals)
+    )
+
+
+def test_refresh_populates_views_is_idempotent_and_preserves_members(
+    mapping_move, tmp_path, capsys
+):
+    change_set, _ = mapping_move
+    for field in ("ontology", "mapping_representation", "before", "after"):
+        del change_set[field]
+    path = write_move(mapping_move, tmp_path)
+    members = {p: p.read_bytes() for p in path.parent.parent.glob("*.yaml")}
+    args = ["--root", str(tmp_path)]
+    assert main(args + ["validate"]) == 1
+    capsys.readouterr()
+    assert main(args + ["refresh-change-set-views"]) == 0
+    assert "Updated 1" in capsys.readouterr().out
+    result = yaml.safe_load(path.read_text())
+    assert result["before"] == {
+        "subject": {"id": "MONDO:0019503", "label": "anterior segment dysgenesis"},
+        "predicate": "MONDO:equivalentTo",
+        "object": {"id": "icd11.foundation:943599144", "label": "Broader category"},
+    }
+    assert result["after"]["subject"] == {"id": "MONDO:0000002", "label": "New subject"}
+    assert result["after"]["predicate"] == "MONDO:equivalentTo"
+    assert result["after"]["object"] == result["before"]["object"]
+    assert all(p.read_bytes() == original for p, original in members.items())
+    original = path.read_bytes()
+    assert main(args + ["refresh-change-set-views"]) == 0
+    assert "Updated 0" in capsys.readouterr().out
+    assert path.read_bytes() == original
+    assert not load_registry(tmp_path)[1]
+
+
+def test_stale_view_blocks_export_until_refreshed(mapping_move, tmp_path, capsys):
+    path = write_move(mapping_move, tmp_path)
+    change_set, _ = mapping_move
+    change_set["after"]["subject"]["label"] = "Stale label"
+    path.write_text(yaml.safe_dump(change_set))
+    args = ["--root", str(tmp_path)]
+    assert main(args + ["export", change_set["id"]]) == 1
+    assert not capsys.readouterr().out
+    assert main(args + ["refresh-change-set-views"]) == 0
+    capsys.readouterr()
+    assert main(args + ["export", change_set["id"]]) == 0
+    assert "Stale label" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "defect", ["missing_member", "target_change", "duplicate_key", "extra_field"]
+)
+def test_refresh_refuses_invalid_registry_without_writes(
+    mapping_move, tmp_path, capsys, defect
+):
+    path = write_move(mapping_move, tmp_path)
+    change_set, proposals = mapping_move
+    creation_path = path.parent.parent / f"{change_set['creation']}.yaml"
+    if defect == "missing_member":
+        creation_path.unlink()
+    elif defect == "target_change":
+        proposals[change_set["creation"]]["mapping_target"]["id"] = "DOID:1"
+        creation_path.write_text(yaml.safe_dump(proposals[change_set["creation"]]))
+    elif defect == "duplicate_key":
+        path.write_text(path.read_text() + "title: Duplicate\n")
+    else:
+        path.write_text(path.read_text() + "request_status: ACCEPTED\n")
+    original = path.read_bytes()
+    assert main(["--root", str(tmp_path), "refresh-change-set-views"]) == 1
+    assert not capsys.readouterr().out
+    assert path.read_bytes() == original

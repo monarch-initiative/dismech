@@ -2695,8 +2695,12 @@ See the [registry guide](../../ontology_changes/README.md).
 
 Coordinated mapping moves are recorded in `ontology_changes/change_sets/`,
 referencing the atomic removal and creation IDs. Membership is stored once;
-reverse links and the before/after display are derived. A `MAPPING_MOVE`
-changes only the subject, preserving the target, source representation and
+reverse links are derived. Each change-set YAML materializes the complete
+`before` and `after` mapping assertions, with IDs and labels, so a GitHub reader
+can understand the move in one file. The atomic proposals remain authoritative:
+a deterministic refresh command populates the view and validation rejects any
+disagreement, including labels. Status and evidence are not duplicated.
+A `MAPPING_MOVE` changes only the subject, preserving the target, source representation and
 qualifier. The two atomic lifecycles remain authoritative, so partial upstream
 application is visible instead of being hidden by an aggregate status. These
 sets group edits for review; they do not promise transactional execution.
