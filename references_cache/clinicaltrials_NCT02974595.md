@@ -1,9 +1,7 @@
 ---
-reference_id: clinicaltrials:NCT02974595
-extractor_version: 1
+reference_id: "clinicaltrials:NCT02974595"
 title: "Studies of the Natural History, Pathogenesis, and Outcome of Autoinflammatory Diseases (NOMID/CAPS, DIRA, CANDLE, SAVI, NLRC4-MAS, Still'S-like Diseases, and Other Undifferentiated Autoinflammatory Diseases)"
 content_type: summary
-full_text_attempted: true
 ---
 
 # Studies of the Natural History, Pathogenesis, and Outcome of Autoinflammatory Diseases (NOMID/CAPS, DIRA, CANDLE, SAVI, NLRC4-MAS, Still'S-like Diseases, and Other Undifferentiated Autoinflammatory Diseases)
