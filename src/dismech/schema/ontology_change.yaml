@@ -1,0 +1,318 @@
+id: https://w3id.org/monarch-initiative/dismech/ontology-change
+name: ontology_change
+title: Ontology change proposals
+description: >-
+  Standalone, evidence-backed requests to change existing ontology records.
+  Adapted from ai-gene-review ProposedOntologyChange. Proposal lifecycle is
+  separate from both solver results and adoption in the DisMech knowledge base.
+license: BSD-3-Clause
+prefixes:
+  linkml: https://w3id.org/linkml/
+  proposal: https://w3id.org/monarch-initiative/dismech/ontology-change/
+  kgcl: http://w3id.org/kgcl/
+default_prefix: proposal
+default_range: string
+imports:
+  - linkml:types
+
+classes:
+  OntologyChangeProposal:
+    tree_root: true
+    description: >-
+      One independently reviewable edit. Stored at ontology_changes/<id>.yaml.
+      Type-specific and lifecycle constraints are additionally enforced by
+      dismech.ontology_changes; schema validation alone is not sufficient.
+    attributes:
+      id:
+        identifier: true
+        required: true
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)+$'
+        description: Stable registry identifier, equal to the filename stem.
+      title:
+        required: true
+      change_type:
+        range: OntologyChangeType
+        required: true
+      ontology:
+        required: true
+        description: Ontology responsible for the edit, such as MONDO.
+      about_node:
+        range: ProposalTerm
+        inlined: true
+        required: true
+      mapping_target:
+        range: ProposalTerm
+        inlined: true
+        description: >-
+          Required for mapping edits. Uses the identifier spelling in the source
+          being edited; e.g. icd11.foundation rather than OAK's icd11f alias.
+      mapping_representation:
+        range: MappingRepresentation
+        description: How the source represents mapping precision; required for mapping edits.
+      old_value:
+        description: Existing predicate, qualifier, label or definition, verbatim.
+      new_value:
+        description: Proposed predicate, qualifier, label or definition, verbatim.
+      edge_object:
+        range: ProposalTerm
+        inlined: true
+        description: Other end of an edge from about_node; required for edge edits.
+      predicate:
+        pattern: '^\S+:\S+$'
+        description: Relation from about_node to edge_object; required for edge edits.
+      origin:
+        range: OntologyChangeOrigin
+        required: true
+      stance:
+        range: OntologyChangeStance
+        description: Our position on an upstream-originated change, never on our own request.
+      justification:
+        required: true
+        description: >-
+          Self-contained scope or biological argument for the edit. A solver
+          score alone is insufficient. For upstream work, describe its rationale
+          and our position on it.
+      confidence:
+        range: CurationConfidence
+        description: Curator's assessment, required only for SELF_PROPOSED; never a solver probability.
+      request_status:
+        range: OntologyChangeRequestStatus
+        description: Progress of our outbound request; required only for SELF_PROPOSED.
+      adoption_status:
+        range: OntologyChangeAdoptionStatus
+        required: true
+      adoption_notes:
+        required: true
+        description: What local work remains or why no local migration is needed.
+      affected_records:
+        multivalued: true
+        description: >-
+          Repository-relative paths of diseases, groupings or analyses affected
+          by this decision. Paths must exist; they are backlinks into this registry.
+      ontology_state_verified:
+        range: date
+        required: true
+        description: Date the owning ontology's state was actually checked, not the filing date.
+      source_snapshots:
+        range: ProposalSourceSnapshot
+        multivalued: true
+        inlined_as_list: true
+        required: true
+        minimum_cardinality: 1
+      evidence:
+        range: ProposalEvidence
+        multivalued: true
+        inlined_as_list: true
+        required: true
+        minimum_cardinality: 1
+      analysis_artifacts:
+        range: ProposalArtifact
+        multivalued: true
+        inlined_as_list: true
+        description: >-
+          Saved solver inputs, reports or certificates. These support consistency
+          analysis, not clinical equivalence; curator confidence is separate.
+      upstream_tracker_issue:
+        range: uri
+        pattern: '^https://\S+$'
+      pull_request:
+        range: uri
+        pattern: '^https://\S+$'
+      see_also:
+        range: uri
+        pattern: '^https://\S+$'
+        multivalued: true
+
+  OntologyChangeSet:
+    description: >-
+      A named, coordinated change referencing atomic proposal IDs. Stored at
+      ontology_changes/change_sets/<id>.yaml. Membership is recorded here once;
+      reverse links are derived. The before/after mapping assertions are
+      materialized from the members for readers browsing this file and checked
+      for exact agreement, including labels. This is a review unit, not an
+      executable transaction or a separate lifecycle.
+    attributes:
+      id:
+        identifier: true
+        required: true
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)+$'
+      title:
+        required: true
+      change_set_type:
+        range: OntologyChangeSetType
+        required: true
+      ontology:
+        required: true
+        description: Owning ontology, copied from both member proposals.
+      mapping_representation:
+        range: MappingRepresentation
+        required: true
+      before:
+        range: MappingAssertion
+        inlined: true
+        required: true
+        description: Mapping withdrawn by the removal member, not the current upstream state.
+      after:
+        range: MappingAssertion
+        inlined: true
+        required: true
+        description: Mapping added by the creation member, not a claim that it has been applied.
+      removal:
+        required: true
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)+$'
+        description: ID of the REMOVE_MAPPING proposal at the old subject.
+      creation:
+        required: true
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)+$'
+        description: ID of the MAPPING_CREATION proposal at the new subject.
+
+  MappingAssertion:
+    description: >-
+      A complete mapping assertion for a readable before/after view. Predicate
+      is interpreted according to the change set's mapping_representation.
+    attributes:
+      subject:
+        range: ProposalTerm
+        inlined: true
+        required: true
+      predicate:
+        required: true
+        pattern: '^\S+:\S+$'
+        description: Source-native mapping predicate or xref qualifier.
+      object:
+        range: ProposalTerm
+        inlined: true
+        required: true
+
+  ProposalTerm:
+    attributes:
+      id:
+        required: true
+        pattern: '^\S+:\S+$'
+      label:
+        required: true
+
+  ProposalArtifact:
+    attributes:
+      path:
+        required: true
+        description: Repository-relative file path, checked for existence and checksum.
+      sha256:
+        required: true
+        pattern: '^[0-9a-f]{64}$'
+
+  ProposalSourceSnapshot:
+    attributes:
+      id:
+        required: true
+        description: Local key used by evidence.source; unique within the proposal.
+      resource:
+        required: true
+      version:
+        required: true
+        description: Release identifier or immutable commit, not a mutable branch name.
+      url:
+        range: uri
+        pattern: '^https://\S+$'
+        required: true
+      checked_at:
+        range: date
+        required: true
+      artifact:
+        range: ProposalArtifact
+        inlined: true
+        required: true
+
+  ProposalEvidence:
+    attributes:
+      source:
+        required: true
+        description: Key of a source_snapshots record.
+      locator:
+        required: true
+        description: Location within the saved artifact, such as a JSON pointer or term identifier.
+      observation:
+        required: true
+        description: Source-grounded observation; prose is not represented as an exact quotation.
+      supporting_text:
+        required: true
+        description: >-
+          Verbatim excerpt from the saved source. The validator matches it
+          against the artifact text or a decoded JSON string value. Structured
+          hierarchy claims additionally require review of the cited locator.
+
+enums:
+  OntologyChangeSetType:
+    permissible_values:
+      MAPPING_MOVE:
+        description: >-
+          Move a mapping between two distinct subjects in the same ontology,
+          retaining its target, representation and predicate/qualifier. Both
+          atomic edits must exist and belong to no other change set. Their
+          request and adoption statuses remain independent, allowing partial
+          application to be recorded without claiming the whole move is done.
+  OntologyChangeType:
+    description: >-
+      Supported subset of KGCL concepts. Extend with real cases and validation
+      rules; these meanings do not imply an executable KGCL exporter exists.
+    permissible_values:
+      MAPPING_PREDICATE_CHANGE:
+        meaning: kgcl:MappingPredicateChange
+      MAPPING_CREATION:
+        description: >-
+          Add a mapping from about_node to mapping_target with new_value as
+          its predicate or qualifier. No mapping to that target exists before
+          this edit; old_value is forbidden. This registry extension does not
+          claim an executable KGCL representation.
+      REMOVE_MAPPING:
+        meaning: kgcl:RemoveMapping
+      NODE_RENAME:
+        meaning: kgcl:NodeRename
+      NODE_TEXT_DEFINITION_CHANGE:
+        meaning: kgcl:NodeTextDefinitionChange
+      EDGE_CREATION:
+        meaning: kgcl:EdgeCreation
+      EDGE_DELETION:
+        meaning: kgcl:EdgeDeletion
+  MappingRepresentation:
+    permissible_values:
+      MONDO_XREF_QUALIFIER:
+        description: >-
+          Add, replace or remove a qualified xref in mondo-edit.obo. For a predicate
+          change, preserve the xref target and unrelated source annotations.
+          Values are MONDO qualifiers, not asserted OWL edges or SKOS predicates.
+      RDF_PREDICATE:
+        description: Mapping is directly represented by an RDF predicate.
+  OntologyChangeOrigin:
+    permissible_values:
+      SELF_PROPOSED:
+      UPSTREAM_PROPOSED:
+      UPSTREAM_APPLIED:
+  OntologyChangeStance:
+    permissible_values:
+      AGREE:
+      PARTIALLY_AGREE:
+      DISAGREE:
+      UNDECIDED:
+  CurationConfidence:
+    permissible_values:
+      HIGH:
+        description: Source definitions and scope directly support the precise edit.
+      MEDIUM:
+        description: Evidence favors the edit but a material scope question remains.
+      LOW:
+        description: Candidate for investigation; evidence does not yet establish the edit.
+  OntologyChangeRequestStatus:
+    permissible_values:
+      NOT_FILED:
+      FILED:
+      ACKNOWLEDGED:
+      ACCEPTED:
+        description: Upstream has made the change; this does not mean local adoption is complete.
+      DECLINED:
+  OntologyChangeAdoptionStatus:
+    permissible_values:
+      NOT_STARTED:
+      IN_PROGRESS:
+      COMPLETE:
+      NOT_APPLICABLE:

@@ -8,18 +8,27 @@ one gate failing must not stop the others running.
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNNER = ROOT / "scripts" / "run_ci_gates.sh"
+# Keep the selected interpreter when a test deliberately restricts the child
+# environment. On macOS /usr/bin:/bin selects Bash 3.2, even when the caller
+# selected a newer Bash needed by the runner's associative arrays.
+BASH = shutil.which("bash") or "bash"
 
 
 def _run(gates: str, *args: str, tmp_path: Path | None = None, env=None):
     return subprocess.run(
-        ["bash", str(RUNNER), *args],
-        input=gates, capture_output=True, text=True, check=False,
-        cwd=tmp_path or ROOT, env=env,
+        [BASH, str(RUNNER), *args],
+        input=gates,
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=tmp_path or ROOT,
+        env=env,
     )
 
 
@@ -42,8 +51,7 @@ def test_all_passing_gates_exit_zero_and_print_in_list_order():
 
 def test_a_failing_gate_fails_the_run_without_stopping_the_others(tmp_path):
     result = _run(
-        "Breaks :: echo broken-output; exit 3\n"
-        "Still runs :: touch ran-anyway\n",
+        "Breaks :: echo broken-output; exit 3\nStill runs :: touch ran-anyway\n",
         tmp_path=tmp_path,
     )
     assert result.returncode == 1
@@ -72,7 +80,7 @@ def test_concurrency_is_capped(tmp_path):
 
 def test_gates_see_the_step_environment():
     result = _run(
-        "Reads env :: test \"$BASE_REF\" = main\n",
+        'Reads env :: test "$BASE_REF" = main\n',
         env={"BASE_REF": "main", "PATH": "/usr/bin:/bin"},
     )
     assert result.returncode == 0, result.stdout + result.stderr
@@ -97,7 +105,9 @@ def test_malformed_lists_are_refused():
 
 
 def test_list_mode_prints_without_running(tmp_path):
-    result = _run("Would write :: touch should-not-exist\n", "--list", tmp_path=tmp_path)
+    result = _run(
+        "Would write :: touch should-not-exist\n", "--list", tmp_path=tmp_path
+    )
     assert result.returncode == 0
     assert result.stdout == "Would write\ttouch should-not-exist\n"
     assert not (tmp_path / "should-not-exist").exists()
@@ -130,7 +140,8 @@ def test_the_gates_step_has_a_timeout():
         (ROOT / ".github" / "workflows" / "main.yaml").read_text(encoding="utf-8")
     )
     step = next(
-        s for s in workflow["jobs"]["test"]["steps"]
+        s
+        for s in workflow["jobs"]["test"]["steps"]
         if s.get("name") == "Run whole-repo gates"
     )
     # Buffered output makes a hang silent; the timeout makes it short.

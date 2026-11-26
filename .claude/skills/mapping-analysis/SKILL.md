@@ -190,6 +190,13 @@ Validate changed code with the applicable `tests/test_boomer*.py` tests. Supply
 For content-only investigations, verify source identities, scores, artifact
 hashes, and the scope of the diff rather than adding tests for prose.
 
+Record concrete proposed ontology edits in `ontology_changes/<id>.yaml`,
+following the [registry guide](../../../ontology_changes/README.md). Include the
+exact mapping target, source representation, dated snapshots, justification,
+and separate request/adoption status. Use `just ontology-changes list` to check
+for duplicates and `just validate-ontology-changes` before exporting a request.
+Solver confidence stays in analysis artifacts, not the curation-confidence enum.
+
 Keep proposed corrections separate from applied changes. When upstream fixes
 are requested, start from a fresh upstream checkout, follow that repository's
 editing instructions, and make independent PRs for independent cases. A dismech
