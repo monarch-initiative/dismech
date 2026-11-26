@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tuberculosis-phenotype-wiring · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Tuberculosis-phenotype-wiring</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Tuberculosis-phenotype-wiring</h1>
+                
+                <p class="report-subtitle">Mechanism-to-phenotype wiring for tuberculosis (MONDO:0018076)</p>
+                
+                
+                <div class="report-date">2026-11-24</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">67 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) e4c8898a5d741502b1868031e5dbb9e7ad91d698 &#10;Resolve with: git log --find-object=e4c8898a5d741502b1868031e5dbb9e7ad91d698 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_phenotype_wiring_research.md" target="_blank" rel="noopener noreferrer">disease_phenotype_wiring_research.md</a>
+                        <code>e4c8898a5d74</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Mechanism-to-phenotype wiring for tuberculosis (<a href="http://purl.obolibrary.org/obo/MONDO_0018076" target="_blank" rel="noopener noreferrer">MONDO:0018076</a>)</h1>
+<h2>Summary</h2>
+<p>Eight of the nine phenotypes can be wired to the existing tuberculosis mechanism model, but only through <strong>16 proposed new intermediate nodes</strong> that the current model does not contain. The intermediates fall into three hubs. A <strong>systemic pro-inflammatory cytokine response</strong> (TNF-alpha, IL-1beta, IL-6, IFN-gamma) downstream of Granuloma Formation feeds Fever, Weight Loss and Fatigue. A <strong>cavity and airway hub</strong> downstream of Tissue Damage feeds Chronic Cough and Hemoptysis through two anatomically distinct vascular routes and an endobronchial route. A <strong>dissemination hub</strong>, absent from the model entirely, feeds Chest Pain, Lymphadenopathy and Back Pain.</p>
+<p>Only one chain is <strong>ESTABLISHED</strong>: Hemoptysis. The reason is specific. The intervention that tests it is anatomical rather than pharmacological. A catheter occludes the hypertrophied systemic artery, the bleeding stops, and when non-bronchial collaterals regrow the bleeding returns (odds ratio 10.11 for recurrence, <a href="https://pubmed.ncbi.nlm.nih.gov/42764468/">PMID: 42764468</a>). There is no ambiguity about what was manipulated. Weight Loss was graded ESTABLISHED at iteration 3 and downgraded to <strong>SUPPORTED</strong> at iteration 4, after re-reading the primary abstracts showed that the nitrogen-balance study underpinning the muscle-proteolysis intermediate (<a href="https://pubmed.ncbi.nlm.nih.gov/9264292/">PMID: 9264292</a>) enrolled 13 HIV patients without tuberculosis whose TNF-alpha was not raised at baseline, and that pentoxifylline inhibits TNF-alpha without reversing weight loss (<a href="https://pubmed.ncbi.nlm.nih.gov/9625384/">PMID: 9625384</a>). Six chains are SUPPORTED. <strong>Night Sweats is NOT_ESTABLISHED</strong>, with no mechanism node proposed, two competing hypotheses named, and a pharmacological discriminator available but never applied in tuberculosis.</p>
+<p>The single largest structural gap is that the curated model contains <strong>no step by which bacteria leave the lung</strong>. Back Pain, Lymphadenopathy and Chest Pain are unreachable from any of the eight existing nodes until a dissemination node is added. Human autopsy genomics across 2,693 post-mortem samples from 44 subjects shows that dissemination from the lungs to extrapulmonary sites is as frequent as between lung sites (<a href="https://pubmed.ncbi.nlm.nih.gov/27798613/">PMID: 27798613</a>), which places the dissemination node as the parent of all three extrapulmonary phenotypes rather than as a feature of spinal disease alone. A step-level audit of 32 causal steps found 69% rest on human data, but the gaps are not scattered at random. They cluster at two positions: the terminal step, where a measured lesion has to become a reported symptom (cough receptor activation, pleural nociception, the experience of fatigue), and the proximal step in chains that leave the lung, where bacterial transport is inferred from arrival rather than observed in transit. A second axis matters more than coverage: six of nine chains have no intervention acting on them at all.</p>
+<h2>Key findings</h2>
+<h3><i class="fa-solid fa-chart-column"></i> Human-evidence coverage and causal strength are independent axes</h3>
+<p>Two chains, Hemoptysis and Weight Loss, both score 1.00 on the fraction of steps with human evidence, and they differ completely in causal standing. The separating variable is the quality of the intervention acting on the proposed node, scored 0 to 3 (0 = none, 1 = time course only, 2 = randomised drug with an impure probe, 3 = anatomical occlusion of the node itself).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Human-evidence fraction</th>
+<th>Intervention score</th>
+<th>Chain grade</th>
+<th>What the intervention does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hemoptysis</td>
+<td>1.00</td>
+<td>3</td>
+<td><i class="fa-solid fa-circle-check"></i> ESTABLISHED</td>
+<td>Embolization and endobronchial valve occlude the node</td>
+</tr>
+<tr>
+<td>Weight Loss</td>
+<td>1.00</td>
+<td>2</td>
+<td>SUPPORTED</td>
+<td>Thalidomide RCT; pentoxifylline fails</td>
+</tr>
+<tr>
+<td>Back Pain</td>
+<td>0.75</td>
+<td>0</td>
+<td>SUPPORTED</td>
+<td>No intervention on the mechanism</td>
+</tr>
+<tr>
+<td>Chest Pain</td>
+<td>0.75</td>
+<td>0</td>
+<td>SUPPORTED</td>
+<td>No intervention on the mechanism</td>
+</tr>
+<tr>
+<td>Lymphadenopathy</td>
+<td>0.67</td>
+<td>0</td>
+<td>SUPPORTED</td>
+<td>No intervention on the mechanism</td>
+</tr>
+<tr>
+<td>Chronic Cough</td>
+<td>0.67</td>
+<td>0</td>
+<td>SUPPORTED</td>
+<td>TRP antagonists inconsistent, none in TB</td>
+</tr>
+<tr>
+<td>Fatigue</td>
+<td>0.60</td>
+<td>1</td>
+<td>SUPPORTED</td>
+<td>Iron tracer time course; IL-6 block cross-disease</td>
+</tr>
+<tr>
+<td>Fever</td>
+<td>0.25</td>
+<td>0</td>
+<td>SUPPORTED</td>
+<td>No antipyretic challenge in TB</td>
+</tr>
+<tr>
+<td>Night Sweats</td>
+<td>0.00</td>
+<td>0</td>
+<td><i class="fa-solid fa-circle-xmark"></i> NOT_ESTABLISHED</td>
+<td>No mechanism node</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>{{figure:plot_3.png|caption=Human-evidence coverage plotted against intervention strength for the nine chains. Hemoptysis and Weight Loss share full human coverage and separate on the intervention axis, which is why a per-chain percentage of human evidence is misleading on its own.}}</p>
+<p>The curation consequence: the knowledge model should carry an <strong>intervention-quality field separate from the evidence-coverage field</strong>. The proposed nodes that would most change the model if tested are those with high human coverage and no intervention, which are Back Pain (spondylodiscitis) and Chest Pain (tuberculous pleuritis). Both have well-documented human lesions and no experiment connecting lesion to symptom. Fever sits in the opposite corner, with a mechanism worked out in detail in rats and almost no human tuberculosis measurement, so the useful next step there is measurement rather than intervention.</p>
+<h3><i class="fa-solid fa-magnifying-glass"></i> The evidence gaps cluster at the two ends of each chain</h3>
+<p>Auditing every causal step written for the nine phenotypes gives 32 steps: 3 human interventional, 19 human clinical observational, 1 in vitro, 4 model organism, 1 computational, and 4 with no located evidence.</p>
+<p>{{figure:plot_1.png|caption=Step-level evidence audit across the nine tuberculosis phenotypes. Stacked bars give the source type of evidence behind each causal step; the right panel gives the fraction of steps resting on human data. Fever is worked out in detail but almost entirely in rodents and rabbits.}}</p>
+<p>The four steps with no located evidence are: endobronchial ulceration to airway cough receptor stimulation; pleural inflammation to parietal nociceptor activation; anaemia to fatigue measured in tuberculosis patients; and the entire night sweats mechanism. The four model-organism steps are all in the fever chain, plus the Batson plexus seeding step of back pain. The single computational step is lymphatic transport to draining nodes (<a href="https://pubmed.ncbi.nlm.nih.gov/40334195/">PMID: 40334195</a>, a multi-scale model calibrated to nonhuman primate data).</p>
+<p>This tells the model where to put uncertainty flags. A chain can be graded SUPPORTED on the strength of its middle while its final link to the patient-reported phenotype is an assumption. <strong>Record the source type per edge rather than per chain.</strong></p>
+<h3><i class="fa-solid fa-triangle-exclamation"></i> Two citation failures in two re-checks</h3>
+<p>Re-reading load-bearing citations changed two conclusions. <a href="https://pubmed.ncbi.nlm.nih.gov/9264292/">PMID: 9264292</a> was cited as a tuberculosis thalidomide trial supplying the nitrogen-balance mechanism for wasting. Its abstract reads: <em>"To examine the nature of this weight gain and its immunological correlates in patients with HIV infection, we studied a cohort of 13 patients with minimally symptomatic HIV disease."</em> Circulating TNF-alpha was not elevated at baseline. The proteolysis intermediate is cross-disease evidence imported into tuberculosis, and Weight Loss was downgraded accordingly.</p>
+<p>An iteration-1 working claim that endobronchial tuberculosis is present in over half of active pulmonary tuberculosis on prospective bronchoscopy did not reproduce on a second independent search and is withdrawn. A grep of the report confirmed it never reached the text, and the Chronic Cough chain is stated below without any prevalence figure. Of two citations re-checked, one survived intact and one evaporated. That is a 50% failure rate on a sample of two, which is the reason to treat the chains whose citations were not re-checked as provisional.</p>
+<h2>Mechanistic model</h2>
+<p>{{figure:plot_2.png|caption=Wiring diagram. Squares are existing curated mechanism nodes, circles are the proposed new intermediates, diamonds are the nine phenotypes. Edges are coloured by evidence grade. Night Sweats is drawn unconnected because no mechanism node is justified.}}</p>
+<pre><code class="language-dot">digraph tb_wiring {
+  rankdir=LR;
+  node [shape=box, fontsize=10];
+
+  &quot;Phagocytosis by\nalveolar macrophages&quot; -&gt; &quot;Lymphatic spread to\ndraining nodes&quot;;
+  &quot;Lymphatic spread to\ndraining nodes&quot; -&gt; &quot;Granulomatous\nlymphadenitis&quot;;
+  &quot;Granulomatous\nlymphadenitis&quot; -&gt; &quot;Lymphadenopathy&quot;;
+  &quot;Granulomatous\nlymphadenitis&quot; -&gt; &quot;Endobronchial\ngranulomatous inflammation&quot;;
+
+  &quot;Granuloma Formation&quot; -&gt; &quot;Systemic cytokine\nresponse&quot;;
+  &quot;Systemic cytokine\nresponse&quot; -&gt; &quot;Muscle proteolysis,\nnegative N balance&quot; -&gt; &quot;Weight Loss&quot;;
+  &quot;Systemic cytokine\nresponse&quot; -&gt; &quot;Peptide YY rise,\nappetite suppression&quot; -&gt; &quot;Weight Loss&quot;;
+  &quot;Systemic cytokine\nresponse&quot; -&gt; &quot;Hypothalamic PGE2,\nset point rise&quot; -&gt; &quot;Fever&quot;;
+  &quot;Systemic cytokine\nresponse&quot; -&gt; &quot;Hepcidin iron\nsequestration&quot; -&gt; &quot;Anaemia of\ninflammation&quot;;
+  &quot;Anaemia of\ninflammation&quot; -&gt; &quot;Fatigue&quot; [style=dashed];
+
+  &quot;Granuloma Formation&quot; -&gt; &quot;Haematogenous\ndissemination&quot;;
+  &quot;Haematogenous\ndissemination&quot; -&gt; &quot;Tuberculous\nspondylodiscitis&quot; -&gt; &quot;Back Pain&quot;;
+  &quot;Granuloma Formation&quot; -&gt; &quot;Pleural space\nseeding&quot; -&gt; &quot;Tuberculous\npleuritis&quot;;
+  &quot;Tuberculous\npleuritis&quot; -&gt; &quot;Chest Pain&quot; [style=dashed];
+
+  &quot;Tissue Damage\n(cavitation)&quot; -&gt; &quot;Pulmonary artery\nwall erosion&quot; -&gt; &quot;Hemoptysis&quot;;
+  &quot;Tissue Damage\n(cavitation)&quot; -&gt; &quot;Systemic arterial\nneovascularisation&quot; -&gt; &quot;Hemoptysis&quot;;
+  &quot;Tissue Damage\n(cavitation)&quot; -&gt; &quot;Endobronchial\ngranulomatous inflammation&quot;;
+  &quot;Endobronchial\ngranulomatous inflammation&quot; -&gt; &quot;Fibrotic airway\nremodelling&quot;;
+  &quot;Endobronchial\ngranulomatous inflammation&quot; -&gt; &quot;Cough reflex\nsensitisation&quot; [style=dashed];
+  &quot;Fibrotic airway\nremodelling&quot; -&gt; &quot;Cough reflex\nsensitisation&quot; [style=dashed];
+  &quot;Cough reflex\nsensitisation&quot; -&gt; &quot;Chronic Cough&quot;;
+
+  &quot;Night Sweats&quot; [shape=diamond];
+}
+</code></pre>
+<p>Dashed edges carry no human tuberculosis evidence. The three existing anchor nodes used are Phagocytosis by alveolar macrophages, Granuloma Formation and Tissue Damage. The model as drawn has 28 edges: 4 ESTABLISHED, 17 SUPPORTED and 7 with no located human evidence.</p>
+<hr />
+<h2>Chronic Cough</h2>
+<p><strong>Suggested ontology terms.</strong> <a href="http://purl.obolibrary.org/obo/HP_0031246" target="_blank" rel="noopener noreferrer">HP:0031246</a> (chronic cough). <a href="http://purl.obolibrary.org/obo/GO_0002432" target="_blank" rel="noopener noreferrer">GO:0002432</a> (granuloma formation), <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0050968" target="_blank" rel="noopener noreferrer">GO:0050968</a> (detection of chemical stimulus involved in sensory perception of pain). <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" rel="noopener noreferrer">CL:0002328</a> (bronchial epithelial cell), <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" rel="noopener noreferrer">CL:0000198</a> (nociceptor), <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a> (alveolar macrophage).</p>
+<p><strong>Causal chain.</strong></p>
+<ol>
+<li>Granuloma Formation (existing node), together with lymphatic spread to hilar and mediastinal nodes, <strong>leads to</strong> delivery of M. tuberculosis to the airway mucosa, either by rupture of an infected node through the bronchial wall or by lymphatic spread to the bronchial lining.</li>
+<li>Airway mucosal infection <strong>results in</strong> endobronchial mucosal granulomatous inflammation and ulceration (<strong>proposed new node</strong>).</li>
+<li>Endobronchial inflammation <strong>leads to</strong> post-inflammatory fibrotic airway remodelling with bronchostenosis (<strong>proposed new node</strong>), which runs on its own clock and can progress during anti-tuberculous treatment.</li>
+<li>Mucosal inflammation and structural remodelling <strong>lead to</strong> sensitisation of airway sensory afferents, with increased TRPV1 and ATP-P2X3 signalling and neurogenic inflammation (<strong>proposed new node</strong>).</li>
+<li>Cough reflex hypersensitivity <strong>results in</strong> Chronic Cough.</li>
+</ol>
+<p><strong>Evidence grade: SUPPORTED.</strong> Steps 1 to 3 are human clinical. Step 4 has no tuberculosis evidence and is imported from general airway neurobiology.</p>
+<p><strong>Evidence by step.</strong></p>
+<p>Step 1, route from nodal disease to airway. <a href="https://pubmed.ncbi.nlm.nih.gov/36742561/">PMID: 36742561</a>: <em>"rupture of an infected lymph node through bronchial wall or lymphatic spread to the lining of the bronchial tree"</em>. Human clinical review.</p>
+<p>Step 2, the lesion and its course. No verified prevalence figure for endobronchial tuberculosis among unselected active pulmonary tuberculosis patients was located in this work, and none is asserted here. What is documented is the lesion, its ability to obstruct, and its progression despite microbiological treatment. <a href="https://pubmed.ncbi.nlm.nih.gov/34898509/">PMID: 34898509</a>, a 7-year follow-up: <em>"A 22-year-old Caucasian woman presented with a history of chronic cough, initially treated as bronchial asthma for a year"</em>, with endoscopic and histopathological confirmation of endobronchial tuberculosis, and <em>"After 8 months a follow-up fiberoptic bronchoscopy showed the progression of endoscopic finding with 60-70% tracheal stenosis."</em> Human clinical, single case with long follow-up. <a href="https://pubmed.ncbi.nlm.nih.gov/42365784/">PMID: 42365784</a> documents the extreme of the same lesion in an infant: <em>"near-complete tracheobronchial obstruction due to endobronchial tuberculosis (EBTB)"</em>, presenting with cough and worsening wheezing. Two features matter for the model: chronic cough from endobronchial tuberculosis is misattributed to asthma, and the airway lesion can worsen after the bacteria are treated, which is what justifies the separate fibrotic remodelling node.</p>
+<p>Symptom frequency in active disease, <a href="https://pubmed.ncbi.nlm.nih.gov/40590271/">PMID: 40590271</a>: <em>"The most common pulmonary symptoms were chronic cough (65.5%) and dyspnoea (60.0%)"</em>.</p>
+<p>Step 4, the imported terminal edge. <a href="https://pubmed.ncbi.nlm.nih.gov/34934475/">PMID: 34934475</a>: <em>"Current evidence strongly suggests neurogenic inflammation induces a hypersensitive cough reflex"</em>. The internal grading of that mechanism is itself uneven, <a href="https://pubmed.ncbi.nlm.nih.gov/42214607/">PMID: 42214607</a>: <em>"TRPV1 has relatively strong support from mechanistic studies and human cough challenge work, whereas TRPA1 is biologically plausible but still has limited human evidence."</em> The therapeutic test fails as causal proof, from the same paper: <em>"To date, TRP-channel antagonists have produced limited and inconsistent reductions in spontaneous cough frequency."</em> ATP-P2X3 antagonism performs better in refractory chronic cough (<a href="https://pubmed.ncbi.nlm.nih.gov/32642186/">PMID: 32642186</a>), and none of this work was done in tuberculosis. Sensitisation of lung vagal afferents by a microbial cell wall component is shown in rats (<a href="https://pubmed.ncbi.nlm.nih.gov/32961891/">PMID: 32961891</a>).</p>
+<p>One human histological lead exists for the structural half of this step, and it is thin. <a href="https://pubmed.ncbi.nlm.nih.gov/42517191/">PMID: 42517191</a> reports a solitary bronchial mucosal neuroma in a 58-year-old with a history of pulmonary tuberculosis: <em>"disorganized nerve bundles beneath the mucosa, comprising S-100-positive Schwann cells and neurofilament-positive axons"</em>, which the authors read as <em>"a traumatic neuroma of autonomic origin, with chronic inflammation playing a contributory role"</em>. This is the only human airway tissue evidence located in this work that chronic airway inflammation in a tuberculosis patient remodels nerves, and it rests on a single case within a literature of four reported cases. It is graded PROPOSED and is recorded as a lead, not as support for the chain.</p>
+<p><strong>Non-causal alternatives.</strong> Cough in a tuberculosis patient can arise from gastroesophageal reflux, which operates through the same TRPV1 and neurogenic inflammation pathway (<a href="https://pubmed.ncbi.nlm.nih.gov/41871964/">PMID: 41871964</a>), from smoking-related airway disease, which is strongly over-represented in tuberculosis cohorts, and from treatment-era airway irritation. Ascertainment is a live problem: cough of two weeks or more is the entry criterion for most tuberculosis case-finding algorithms, so cohorts assembled this way guarantee the association.</p>
+<p><strong>What would settle the open step.</strong> A capsaicin or ATP cough challenge with objective cough frequency monitoring in active pulmonary tuberculosis, before and after 8 weeks of treatment, paired with bronchoscopic grading of endobronchial lesion burden. If reflex sensitivity tracks lesion burden and falls with healing, step 4 becomes human-demonstrated.</p>
+<hr />
+<h2>Fever</h2>
+<p><strong>Suggested ontology terms.</strong> <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> (fever). <a href="http://purl.obolibrary.org/obo/GO_0001660" target="_blank" rel="noopener noreferrer">GO:0001660</a> (fever generation), <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" rel="noopener noreferrer">GO:0019221</a> (cytokine-mediated signaling pathway), <a href="http://purl.obolibrary.org/obo/GO_0001516" target="_blank" rel="noopener noreferrer">GO:0001516</a> (prostaglandin biosynthetic process). <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a> (alveolar macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000449" target="_blank" rel="noopener noreferrer">CL:0000449</a> (brown adipocyte), brain endothelial cell.</p>
+<p><strong>Causal chain.</strong></p>
+<ol>
+<li>Granuloma Formation (existing node) <strong>leads to</strong> sustained macrophage release of IL-1beta, TNF-alpha and IL-6 into the circulation (<strong>proposed new node</strong>: systemic pro-inflammatory cytokine response).</li>
+<li>Circulating cytokines <strong>act on</strong> brain endothelium of the preoptic area and organum vasculosum laminae terminalis to induce COX-2 and PGE2.</li>
+<li>Hypothalamic PGE2 <strong>leads to</strong> elevation of the thermoregulatory set point via EP3 receptor-expressing preoptic neurons (<strong>proposed new node</strong>).</li>
+<li>Set point elevation <strong>results in</strong> brown adipose thermogenesis, cutaneous vasoconstriction and warmth-seeking behaviour, which <strong>results in</strong> Fever.</li>
+</ol>
+<p><strong>Evidence grade: SUPPORTED</strong>, with the caveat that every step distal to the circulating cytokine is rodent or rabbit work. Human-evidence fraction 0.25, the second lowest of the nine chains.</p>
+<p><strong>Evidence by step.</strong></p>
+<p>Step 1, human. <a href="https://pubmed.ncbi.nlm.nih.gov/30180300/">PMID: 30180300</a>, 35 hospitalised pulmonary tuberculosis patients and 35 controls: <em>"Patients who reported fever and those with positive culture for Mycobacterium tuberculosis had higher serum levels of IL-6."</em> This is the only direct human measurement found linking a specific cytokine to the fever symptom within tuberculosis patients, and no effect size is given. That the cytokine node exists in patients is confirmed by <a href="https://pubmed.ncbi.nlm.nih.gov/38916387/">PMID: 38916387</a>: <em>"The results showed that all four cytokine levels were higher (P ≤ 0.0001) than the control"</em>. In 200 participants, serum TNF-alpha, IL-6, IFN-gamma, sIL-2R and CRP were higher in COPD with tuberculosis than in all other groups, with the authors stating that causality cannot be inferred from the observational design (<a href="https://pubmed.ncbi.nlm.nih.gov/40607012/">PMID: 40607012</a>).</p>
+<p>Step 2, model organism. <a href="https://pubmed.ncbi.nlm.nih.gov/22143887/">PMID: 22143887</a>: <em>"Mice lacking the Tak1 gene in brain endothelial cells showed a blunted fever response and reduced lethargy upon intravenous injection of the endogenous pyrogen IL-1β."</em> This genetic result also links the same node to lethargy, which matters for the Fatigue chain.</p>
+<p>Step 3, model organism and interventional. <a href="https://pubmed.ncbi.nlm.nih.gov/19958757/">PMID: 19958757</a>: <em>"Pretreatment with an intracerebroventricular dose of IL-1ra significantly prevented the lipopolysaccharide or IL-1beta-induced overproduction of glutamate, hydroxyl radicals, and prostaglandin E(2) in OVLT of rabbit's brain."</em> Direct injection of TNF-alpha, IL-1beta or IL-6 into the rabbit lateral ventricle reproduces both the temperature rise and the hypothalamic PGE2 rise (<a href="https://pubmed.ncbi.nlm.nih.gov/18664365/">PMID: 18664365</a>).</p>
+<p>Step 4 has a COX-independent branch, so the chain should not be drawn as a single obligatory path. <a href="https://pubmed.ncbi.nlm.nih.gov/35429606/">PMID: 35429606</a>: <em>"pretreatment with indomethacin, a non-selective COX inhibitor, did not prevent BAT thermogenesis or cutaneous vasoconstriction (CVC) induced by intravenous IL-1β"</em>.</p>
+<p><strong>Non-causal alternatives.</strong> In HIV-tuberculosis co-infection, fever may arise from the co-infection or from immune reconstitution inflammatory syndrome rather than from the tuberculosis cytokine response. <a href="https://pubmed.ncbi.nlm.nih.gov/42893161/">PMID: 42893161</a> documents recurrent fever two weeks after antiretroviral initiation in a patient with cervical scrofula and miliary disease.</p>
+<p><strong>What would settle the open steps.</strong> Serial core temperature with paired IL-6, IL-1beta and PGE2 metabolite measurement in untreated active tuberculosis, and a controlled antipyretic or selective COX-2 challenge with temperature as the endpoint. No such study was located.</p>
+<hr />
+<h2>Night Sweats</h2>
+<p><strong>Suggested ontology terms.</strong> <a href="http://purl.obolibrary.org/obo/HP_0030166" target="_blank" rel="noopener noreferrer">HP:0030166</a> (night sweats). No GO process is assigned, because no mechanism is justified. Eccrine sweat gland cell terms would apply only under hypothesis B below.</p>
+<p><strong>Causal chain: none proposed.</strong></p>
+<p><strong>Evidence grade: <i class="fa-solid fa-circle-xmark"></i> NOT_ESTABLISHED.</strong> The association is well documented and diagnostically useful. No mechanistic chain has been demonstrated, and no mechanism node is justified.</p>
+<p><strong>What exists.</strong> Household and neighbour screening of 1,707 people around 187 index cases found night sweats independently associated with active tuberculosis, <a href="https://pubmed.ncbi.nlm.nih.gov/43031973/">PMID: 43031973</a>: <em>"Factors significantly associated with TB positivity included cough (adjusted odds ratio [AOR] 1.92, 95% confidence interval [CI]: 1.21-3.11, P = .006), age &gt;65 years (AOR 2.13, 95% CI: 1.34-3.39, P = .001), and night sweats (AOR 1.50, 95% CI: 1.12-2.00, P = .006)."</em> Mass screening of 652 men in a Brazilian prison found 4.7% active tuberculosis prevalence and associated night sweats with tuberculosis alongside weight loss and chest pain (<a href="https://pubmed.ncbi.nlm.nih.gov/42963813/">PMID: 42963813</a>).</p>
+<p><strong>What does not exist.</strong> No study of sudomotor physiology, thermoregulation or cytokine measurement against sweating in tuberculosis patients was located. The only mechanistic statement found is a hypothesis sentence inside a thalidomide trial, <a href="https://pubmed.ncbi.nlm.nih.gov/8521296/">PMID: 8521296</a>: <em>"Excess TNF alpha produced in pulmonary tuberculosis may cause fevers, weakness, night sweats, necrosis, and progressive weight loss."</em> That trial measured TNF-alpha production, delayed type hypersensitivity and weight. Sweating was not an endpoint. Citing it for a night-sweats mechanism would be citing a paper for a claim its data do not support.</p>
+<p><strong>Two competing hypotheses, both open.</strong></p>
+<p><em>Hypothesis A, thermoregulatory.</em> Night sweats are the defervescence limb of a cytokine-driven febrile cycle: PGE2-driven set-point elevation followed by nocturnal set-point resetting, triggering heat loss by sweating. Predicts sweating episodes follow temperature peaks, warm skin during the episode, and abolition by antipyretics.</p>
+<p><em>Hypothesis B, sudomotor.</em> Cholinergic sympathetic drive to eccrine glands is raised independently of the thermoregulatory set point. The sleep medicine literature supplies both the hypothesis and a discriminator, <a href="https://pubmed.ncbi.nlm.nih.gov/38163944/">PMID: 38163944</a>: <em>"Although the mechanism is unknown, some cases are secondary to hot flushes during the menopausal period, medical, mental and sleep disorders, and medication, while dysregulation of thermoregulation during sleep is suspected in primary cases."</em> In a woman with 23 years of nightly severe primary sleep hyperhidrosis, <em>"An ammoniacal odor in the sweat and a sensation of coldness on awakening during sweating episodes suggest that the mechanism of her night sweating was not an exacerbation of thermoregulation during the night but shares the mechanical properties of emotional/psychological sweating"</em>, and the condition resolved after brief treatment with oxybutynin. Even for the best-studied form of night sweats the mechanism is open, <a href="https://pubmed.ncbi.nlm.nih.gov/16083502/">PMID: 16083502</a>: <em>"The pathogenesis of hot flushes has not yet been fully elucidated"</em>.</p>
+<p><strong>Non-causal alternatives are stronger here than for any other phenotype.</strong> The symptom is non-specific across unrelated conditions: Kikuchi-Fujimoto disease, <a href="https://pubmed.ncbi.nlm.nih.gov/43017321/">PMID: 43017321</a>: <em>"Kikuchi-Fujimoto disease is a benign, self-limiting condition primarily presenting with cervical lymphadenopathy, often accompanied by mild fever and night sweats."</em> Visceral leishmaniasis (<a href="https://pubmed.ncbi.nlm.nih.gov/43001309/">PMID: 43001309</a>), leprosy (<a href="https://pubmed.ncbi.nlm.nih.gov/42926821/">PMID: 42926821</a>) and malignancy (<a href="https://pubmed.ncbi.nlm.nih.gov/36333017/">PMID: 36333017</a>) occupy the same clinical slot. Tuberculosis screening studies select patients on the symptom itself, which inflates the apparent association.</p>
+<hr />
+<h2>Weight Loss</h2>
+<p><strong>Suggested ontology terms.</strong> <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" rel="noopener noreferrer">HP:0001824</a> (weight loss). <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" rel="noopener noreferrer">GO:0006508</a> (proteolysis), <a href="http://purl.obolibrary.org/obo/GO_0014889" target="_blank" rel="noopener noreferrer">GO:0014889</a> (muscle atrophy), <a href="http://purl.obolibrary.org/obo/GO_0006953" target="_blank" rel="noopener noreferrer">GO:0006953</a> (acute-phase response). <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" rel="noopener noreferrer">CL:0008002</a> (skeletal muscle fiber), <a href="http://purl.obolibrary.org/obo/CL_0002275" target="_blank" rel="noopener noreferrer">CL:0002275</a> (enteroendocrine L cell).</p>
+<p><strong>Causal chain, two branches from one parent.</strong></p>
+<ol>
+<li>Granuloma Formation <strong>leads to</strong> systemic pro-inflammatory cytokine response (<strong>proposed new node</strong>).
+2a. The cytokine response <strong>leads to</strong> skeletal muscle protein catabolism and negative nitrogen balance (<strong>proposed new node</strong>), which <strong>results in</strong> Weight Loss.
+2b. The cytokine response <strong>leads to</strong> elevated gut peptide YY with central appetite suppression (<strong>proposed new node</strong>), which <strong>leads to</strong> reduced food intake and Weight Loss.</li>
+</ol>
+<p><strong>Evidence grade: SUPPORTED</strong>, downgraded from ESTABLISHED at iteration 4.</p>
+<p><strong>Evidence by step, with the two edges separated.</strong></p>
+<p>The edge <em>"thalidomide treatment leads to weight gain in tuberculosis patients"</em> is ESTABLISHED: randomised, placebo-controlled, replicated. <a href="https://pubmed.ncbi.nlm.nih.gov/8521296/">PMID: 8521296</a>, a two-part placebo-controlled pilot in men with active tuberculosis: <em>"TNF alpha production was significantly reduced during thalidomide treatment while interferon-gamma (IFN gamma) production was enhanced. Daily administration of thalidomide resulted in a significant enhancement of weight gain."</em> <a href="https://pubmed.ncbi.nlm.nih.gov/8603261/">PMID: 8603261</a>, randomised double-blind, 32 completing 21 days: <em>"patients receiving thalidomide treatment (n=16) showed a significant weight gain (mean +/- SEM: 6.5 +/- 1.2%; p&lt;0.02) relative to placebo-treated patients (n=16)"</em>. That trial contains an internal specificity control: <em>"In patients with concomitant HIV-1 and tuberculosis infections, thalidomide therapy was associated with a reduction in both plasma TNF-alpha levels and HIV-1 levels. No significant reduction in either TNF-alpha or HIV- 1 levels was observed in patients with HIV-1 infection only."</em></p>
+<p>The edge <em>"TNF-alpha leads to weight loss"</em> is weaker, for three reasons. Thalidomide is not a clean TNF probe: it raised IFN-gamma in the same trial, and in the HIV cohort it moved total lymphocyte counts, CD8+ counts and soluble IL-2 receptor at the same time. The nitrogen-balance result that locates the intermediate is cross-disease, <a href="https://pubmed.ncbi.nlm.nih.gov/9264292/">PMID: 9264292</a>: <em>"Weight gain was associated with a reduction in mean daily urinary nitrogen excretion of 1.81 g (p = 0.017). Resting energy expenditure was unaffected by thalidomide."</em> And a second TNF inhibitor fails the test, <a href="https://pubmed.ncbi.nlm.nih.gov/9625384/">PMID: 9625384</a>: <em>"Preliminary studies with pentoxyfylline have not shown efficacy in reversing weight loss, despite evidence of TNF-alpha inhibition."</em> A mediator that can be inhibited without the phenotype changing is not demonstrated as the mediator.</p>
+<p>The nitrogen-balance finding still carries a modelling consequence that survives the downgrade. The proximal lesion is in protein catabolism, not in resting energy expenditure, so hypermetabolism is not the required intermediate.</p>
+<p>Branch 2b, peptide YY, is measured in tuberculosis patients. <a href="https://pubmed.ncbi.nlm.nih.gov/23358528/">PMID: 23358528</a>, 41 newly diagnosed cases and 82 controls with measurements at days 0, 30 and 60: <em>"PYY, ghrelin, and resistin were significantly elevated in cases and fell during treatment. Leptin was lower in cases and rose with treatment."</em> And: <em>"PYY was the strongest independent predictor of appetite in cases across all time points."</em> Graded SUPPORTED: association, dose-response with outcome and treatment-reversal time course are all in tuberculosis patients, with no intervention on PYY itself.</p>
+<p><strong><i class="fa-solid fa-circle-xmark"></i> The leptin sub-hypothesis is refuted in its causal form.</strong> A naive reading of cachexia biology would place leptin as the anorexigenic mediator. The human tuberculosis data point the opposite way. <a href="https://pubmed.ncbi.nlm.nih.gov/11836317/">PMID: 11836317</a>: <em>"Plasma leptin concentrations were lower in patients than in controls (615 vs. 2,550 ng/liter; P &lt; 0.001)"</em>, and in the authors' own words, <em>"Our results do not support the concept that weight loss in tuberculosis is caused by enhanced production of leptin."</em> One smaller discordant study exists and is recorded so the inconsistency is visible, <a href="https://pubmed.ncbi.nlm.nih.gov/14535627/">PMID: 14535627</a>: <em>"Pretreatment leptin levels (3.49 +/- 3.34 microg/L) were significantly higher in patients with tuberculosis than in the control group (2.33 +/- 1.10 microg/L)."</em> The two larger studies agree on direction and on the post-treatment rise, so low leptin is placed downstream of fat loss. <strong>Do not wire leptin as an upstream driver of weight loss.</strong></p>
+<p><strong>Non-causal alternatives.</strong> HIV co-infection produces wasting by its own route and was not treated as a separate stratum. Food insecurity in the populations where these cohorts were assembled is a confounder that none of the cited studies controlled.</p>
+<hr />
+<h2>Hemoptysis</h2>
+<p><strong>Suggested ontology terms.</strong> <a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" rel="noopener noreferrer">HP:0002105</a> (hemoptysis). <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" rel="noopener noreferrer">GO:0001525</a> (angiogenesis), <a href="http://purl.obolibrary.org/obo/GO_0002432" target="_blank" rel="noopener noreferrer">GO:0002432</a> (granuloma formation). <a href="http://purl.obolibrary.org/obo/CL_0000359" target="_blank" rel="noopener noreferrer">CL:0000359</a> (vascular associated smooth muscle cell), vascular endothelial cell.</p>
+<p><strong>Causal chain, two anatomically distinct routes that must stay separate.</strong></p>
+<p>Route 1, low-pressure pulmonary circulation:
+1. Tissue Damage with cavitation (existing node) <strong>leads to</strong> chronic inflammation within the cavity wall.
+2. Cavity wall inflammation <strong>leads to</strong> erosion of an adjacent pulmonary artery branch with pseudoaneurysm formation, the Rasmussen aneurysm (<strong>proposed new node</strong>).
+3. Pseudoaneurysm rupture <strong>results in</strong> Hemoptysis.</p>
+<p>Route 2, high-pressure systemic circulation:
+1. Tissue Damage and chronic pleuroparenchymal inflammation <strong>lead to</strong> hypertrophy and neovascularisation of bronchial and non-bronchial systemic arteries with systemic-to-pulmonary shunting (<strong>proposed new node</strong>).
+2. Rupture of these fragile high-pressure vessels <strong>results in</strong> Hemoptysis.</p>
+<p><strong>Evidence grade: <i class="fa-solid fa-circle-check"></i> ESTABLISHED.</strong> Every step has human backing, and an intervention acting on the node itself abolishes the endpoint.</p>
+<p><strong>Evidence by step.</strong></p>
+<p>Route 1 mechanism, stated directly, <a href="https://pubmed.ncbi.nlm.nih.gov/42631029/">PMID: 42631029</a>: <em>"It represents a pseudoaneurysm of a pulmonary arterial branch caused by erosion of the arterial wall secondary to chronic inflammation within a tuberculosis cavity."</em> Anatomical coupling on imaging, same paper: <em>"Computed tomography angiography demonstrated a 10-mm pseudoaneurysm arising from the apical branch of the left pulmonary artery protruding into a cavitary lesion in the left upper lobe"</em>. Bilateral involvement is documented (<a href="https://pubmed.ncbi.nlm.nih.gov/42411357/">PMID: 42411357</a>). Reported mortality of pulmonary artery pseudoaneurysm reaches 50% (<a href="https://pubmed.ncbi.nlm.nih.gov/42525594/">PMID: 42525594</a>).</p>
+<p>Route 2 quantification in a tuberculosis cohort, <a href="https://pubmed.ncbi.nlm.nih.gov/42626526/">PMID: 42626526</a>, 91 patients with massive hemoptysis undergoing bronchial artery embolization: <em>"A total of 130 hemorrhagic lung lobes were involved in 91 patients (bilateral upper lobes accounting for 85.4%), with 281 responsible blood vessels, including 131 NBSAs. The main NBSAs were the posterior intercostal artery (41.98%), internal thoracic artery (35.11%), and lateral thoracic artery (9.16%)."</em> Modifiers with effect sizes, same paper: <em>"Aspergillus infection (OR = 87.909, P = 0.006) and pleural thickness ≥ 2 mm (OR = 8.532, P = 0.048) were independent risk factors for NBSA occurrence."</em></p>
+<p>The interventional closure, <a href="https://pubmed.ncbi.nlm.nih.gov/42764468/">PMID: 42764468</a>: <em>"Multivariate analysis identified NBSAs (odds ratio (OR) = 10.11, 95% confidence interval (CI) = 1.50-68.02; P = 0.017), pulmonary-bronchial arterial anastomoses (OR = 4.43, 95% CI = 1.53-12.85; P = 0.006), and tuberculosis etiology (OR = 6.81, 95% CI = 2.20-21.05; P &lt; 0.001) as independent predictors."</em> The vessel that regrows predicts the phenotype's return. A second occlusive modality supports the same inference (<a href="https://pubmed.ncbi.nlm.nih.gov/42830033/">PMID: 42830033</a>, endobronchial valve placement).</p>
+<p>Epidemiological weight, <a href="https://pubmed.ncbi.nlm.nih.gov/42377159/">PMID: 42377159</a>: <em>"Aetiologies vary geographically: pulmonary tuberculosis accounts for up to 40% of cases in low- and middle-income countries"</em>.</p>
+<p><strong>Non-causal alternatives and modifiers.</strong> Chronic pulmonary aspergillosis in a healed cavity is a major modifier rather than part of the primary tuberculosis chain, and the odds ratio of 87.9 for non-bronchial systemic artery recruitment shows how large that modification is. Route 2 explains why hemoptysis persists in post-tuberculosis lung disease long after bacteriological cure, which is why the two routes must not be collapsed: they differ in pressure, imaging, treatment and lethality.</p>
+<hr />
+<h2>Chest Pain</h2>
+<p><strong>Suggested ontology terms.</strong> <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" rel="noopener noreferrer">HP:0100749</a> (chest pain). <a href="http://purl.obolibrary.org/obo/GO_0019233" target="_blank" rel="noopener noreferrer">GO:0019233</a> (sensory perception of pain), <a href="http://purl.obolibrary.org/obo/GO_0002432" target="_blank" rel="noopener noreferrer">GO:0002432</a> (granuloma formation), <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response). <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" rel="noopener noreferrer">CL:0000198</a> (nociceptor), <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a> (T cell) for the lymphocytic exudate.</p>
+<p><strong>Causal chain.</strong></p>
+<ol>
+<li>Granuloma Formation and Tissue Damage <strong>lead to</strong> extension of M. tuberculosis and its antigens into the pleural space (<strong>proposed new node</strong>: pleural space seeding).</li>
+<li>Pleural seeding <strong>results in</strong> tuberculous pleuritis with granulomatous and lymphocytic inflammation of the parietal pleura and exudate formation (<strong>proposed new node</strong>).</li>
+<li>Parietal pleural inflammation <strong>leads to</strong> activation of somatic nociceptive afferents in the parietal pleura, which is innervated by intercostal and phrenic nerves, unlike the insensate visceral pleura.</li>
+<li>Nociceptor activation <strong>results in</strong> sharp respirophasic Chest Pain.</li>
+</ol>
+<p><strong>Evidence grade: SUPPORTED.</strong> Steps 1 and 2 are demonstrated in human biopsy series. Step 3 has no human measurement in tuberculosis. Step 4 follows from classical anatomy rather than from a tuberculosis result.</p>
+<p><strong>Evidence by step.</strong></p>
+<p>Epidemiological weight, <a href="https://pubmed.ncbi.nlm.nih.gov/42100439/">PMID: 42100439</a>: <em>"Tuberculous pleural effusion is the second most common form of extrapulmonary tuberculosis after tuberculous lymphadenitis."</em></p>
+<p>Step 1, the revised pathogenesis that justifies a separate seeding node, <a href="https://pubmed.ncbi.nlm.nih.gov/26150911/">PMID: 26150911</a>: <em>"what was once thought to be an effusion as a result of a pure delayed hypersensitivity reaction is now believed to be the consequence of direct infection of the pleural space with a cascade of events including an immunological response"</em>.</p>
+<p>Step 2, human histology. <a href="https://pubmed.ncbi.nlm.nih.gov/34221154/">PMID: 34221154</a>, 82 patients with undiagnosed exudative effusions undergoing needle biopsy: <em>"Histopathology showed epitheloid granuloma with caseation necrosis in 50 (60.9%) patients and non-specific chronic inflammation in 14 (17.1%) subjects."</em> Direct visual-histological coupling, <a href="https://pubmed.ncbi.nlm.nih.gov/35968962/">PMID: 35968962</a> among 259 patients: <em>"Presence of pleural pustule had a sensitivity, specificity, positive predictive value, and negative predictive value of 17.4%, 100%, 100% and 68.7%, respectively, for diagnosing TPE. Histopathology of pleural pustule demonstrated necrotizing granulomas in all."</em> In 125 thoracoscopy patients with granulomatous inflammation on pleural biopsy, 44.8% were positive for GeneXpert or culture, rising to 65.6% in complicated loculated effusions (<a href="https://pubmed.ncbi.nlm.nih.gov/33077054/">PMID: 33077054</a>).</p>
+<p><strong>Non-causal alternatives, all live.</strong> Chest wall extension gives a separate route that must be kept distinct from the pleuritis chain, <a href="https://pubmed.ncbi.nlm.nih.gov/43023121/">PMID: 43023121</a>: <em>"Empyema necessitans is a rare complication of pleural infection in which infected pleural fluid extends through the parietal pleura into the surrounding soft tissues."</em> Musculoskeletal strain from prolonged cough and pericardial involvement are further routes. Granulomatous pleuritis is not tuberculosis-specific: identical lymphocytic exudates with raised adenosine deaminase occur in rheumatoid pleurisy and sarcoidosis, so histology alone does not establish tuberculosis causation in an individual.</p>
+<p><strong>What would settle the open step.</strong> Pain scores against thoracoscopically graded parietal pleural inflammation in the same patients, or abolition of pain by intrapleural local anaesthesia in tuberculous pleuritis.</p>
+<hr />
+<h2>Fatigue</h2>
+<p><strong>Suggested ontology terms.</strong> <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a> (fatigue). <a href="http://purl.obolibrary.org/obo/GO_0006879" target="_blank" rel="noopener noreferrer">GO:0006879</a> (intracellular iron ion homeostasis), <a href="http://purl.obolibrary.org/obo/GO_0019221" target="_blank" rel="noopener noreferrer">GO:0019221</a> (cytokine-mediated signaling pathway), <a href="http://purl.obolibrary.org/obo/GO_0006953" target="_blank" rel="noopener noreferrer">GO:0006953</a> (acute-phase response). <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a> (hepatocyte), <a href="http://purl.obolibrary.org/obo/CL_0000764" target="_blank" rel="noopener noreferrer">CL:0000764</a> (erythroid lineage cell), <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage).</p>
+<p><strong>Causal chain.</strong></p>
+<ol>
+<li>Granuloma Formation <strong>leads to</strong> systemic IL-6 release (shared <strong>proposed node</strong>).</li>
+<li>IL-6 <strong>leads to</strong> hepatic hepcidin induction.</li>
+<li>Hepcidin <strong>leads to</strong> ferroportin internalisation, iron sequestration in macrophages and blockade of duodenal iron absorption, which <strong>results in</strong> iron-restricted erythropoiesis and anaemia of inflammation (<strong>proposed new node</strong>).</li>
+<li>Anaemia <strong>leads to</strong> reduced oxygen delivery, which <strong>results in</strong> Fatigue.</li>
+</ol>
+<p><strong>Evidence grade: SUPPORTED.</strong> Steps 1 to 3 approach ESTABLISHED on human time-course data. Step 4 is unsupported in tuberculosis and confounded.</p>
+<p><strong>Evidence by step.</strong></p>
+<p>Steps 2 and 3 carry the strongest evidence in the chain. <a href="https://pubmed.ncbi.nlm.nih.gov/33876222/">PMID: 33876222</a>, a prospective 26-week iron-kinetic study using oral and intravenous iron tracers in 18 Tanzanian adults with tuberculosis, with no iron supplements given: <em>"Before treatment, hepcidin and erythroferrone (ERFE) were greatly elevated, erythrocyte iron utilization was high (∼80%), and iron absorption was negligible (&lt;1%)."</em> During treatment: <em>"During treatment, hepcidin and interleukin-6 levels decreased ∼70% after only 2 weeks (P&lt; .001)"</em>. After completion: <em>"After treatment completion, iron absorption increased ∼20-fold (P&lt; .001), and Hb increased ∼25% (P&lt; .001)."</em> Because baseline absorption was below 1% and no iron was given, the haemoglobin recovery comes from released endogenous iron. That makes this a human sufficiency demonstration for the inflammation-to-anaemia edge rather than a correlation. This citation was independently re-verified and reproduced exactly.</p>
+<p>Dominance of this route over true iron deficiency, <a href="https://pubmed.ncbi.nlm.nih.gov/26792471/">PMID: 26792471</a>: <em>"Over 95% of anaemic HIV-associated TB patients had ACD, whereas the proportion with IDA using a range of seven different definitions was low overall (median &lt;3%, range 0-32.6) in both patient groups."</em></p>
+<p>Dose-response with disease severity, <a href="https://pubmed.ncbi.nlm.nih.gov/26136467/">PMID: 26136467</a>: <em>"Median hepcidin concentrations were 38.8 ng/mL among hospitalized patients, 19.1 ng/mL among ambulatory patients with tuberculosis, and 5.9 ng/mL among ambulatory patients without tuberculosis (P &lt; .001)."</em> Case-control confirmation in 102 cases and 98 matched controls gives anaemia of chronic disease in 59.8% versus 26.1%, median hepcidin 63.7 versus 14.2 ng/mL, with hepcidin associated with more severe symptom score (coefficient 0.8, 95% CI 0.5-1.2) (<a href="https://pubmed.ncbi.nlm.nih.gov/29677205/">PMID: 29677205</a>).</p>
+<p>The molecular steps named in human pulmonary tuberculosis, <a href="https://pubmed.ncbi.nlm.nih.gov/35125696/">PMID: 35125696</a>: <em>"Higher serum hepcidin with lower ferroportin expression and hence higher ferritin levels was seen in PTB compared to both household contacts and healthy controls due to IL-6 induced hepcidin production in TB."</em></p>
+<p>Step 4 is the weak link, and the reason is specific. <i class="fa-solid fa-triangle-exclamation"></i> Fatigue is the most common adverse drug reaction to first-line anti-tuberculous therapy. <a href="https://pubmed.ncbi.nlm.nih.gov/35909258/">PMID: 35909258</a>, a multicentre prospective cohort of 410 adults across five hospitals: <em>"Of 410 enrolled patients with TB (males, 62%; mean age, 52.1 ± 18.1 years [those aged ≥65 years, 26.6%]), 67.8% experienced any ADRs (≥ grade 2) to TB drugs."</em> and <em>"The most common ADR was fatigue (53.2%), followed by itching (42.7%) and anorexia (41.7%)."</em></p>
+<p>This has a direct consequence for study design. During treatment, fatigue moves under two opposing forces: the disease mechanism resolving, which lowers it, and drug toxicity accumulating, which raises it in half of patients. A before-and-after fatigue measurement during treatment therefore cannot test step 4. The design that would settle it is either a cross-sectional comparison of fatigue against haemoglobin at diagnosis before any drug exposure, or a randomised iron repletion trial within treated patients.</p>
+<p>The closest interventional support is cross-disease, <a href="https://pubmed.ncbi.nlm.nih.gov/31876844/">PMID: 31876844</a>: <em>"tocilizumab and sarilumab exhibit additional advantages in alleviating extra-articular symptoms, such as fatigue and morning stiffness, and have positive effect on anemia and glucose metabolism"</em>. Blocking IL-6 reduces fatigue and anaemia together in rheumatoid arthritis. This raises confidence in the general link without establishing it in tuberculosis.</p>
+<p><strong>A second route bypasses anaemia entirely.</strong> Direct central sickness behaviour has only model-organism support: brain-endothelial Tak1 knockout mice show reduced lethargy as well as blunted fever (<a href="https://pubmed.ncbi.nlm.nih.gov/22143887/">PMID: 22143887</a>).</p>
+<p><strong>Non-causal alternatives.</strong> Beyond drug toxicity, HIV co-infection, helminths and true iron deficiency all coexist, though iron deficiency accounts for under 3% of the anaemia in HIV-tuberculosis, which rules it out as the dominant route.</p>
+<hr />
+<h2>Back Pain (spinal tuberculosis, Pott disease)</h2>
+<p><strong>Suggested ontology terms.</strong> <a href="http://purl.obolibrary.org/obo/HP_0003418" target="_blank" rel="noopener noreferrer">HP:0003418</a> (back pain), <a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank" rel="noopener noreferrer">HP:0002754</a> (osteomyelitis) for the lesion. <a href="http://purl.obolibrary.org/obo/GO_0019233" target="_blank" rel="noopener noreferrer">GO:0019233</a> (sensory perception of pain), <a href="http://purl.obolibrary.org/obo/GO_0045453" target="_blank" rel="noopener noreferrer">GO:0045453</a> (bone resorption), <a href="http://purl.obolibrary.org/obo/GO_0002432" target="_blank" rel="noopener noreferrer">GO:0002432</a> (granuloma formation). <a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" rel="noopener noreferrer">CL:0000092</a> (osteoblast), <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000198" target="_blank" rel="noopener noreferrer">CL:0000198</a> (nociceptor).</p>
+<p><strong>Causal chain.</strong></p>
+<ol>
+<li>Granuloma Formation and Tissue Damage <strong>lead to</strong> haematogenous dissemination of M. tuberculosis, via the Batson valveless vertebral venous plexus and paravertebral arterial supply (<strong>proposed new node</strong>, and the parent of all extrapulmonary disease).</li>
+<li>Vertebral seeding <strong>results in</strong> tuberculous spondylodiscitis with vertebral body and intervertebral disc destruction, paravertebral and psoas abscess formation and spinal instability (<strong>proposed new node</strong>).</li>
+<li>Vertebral destruction and instability <strong>lead to</strong> mechanical and inflammatory nociception in the axial skeleton, which <strong>results in</strong> Back Pain.</li>
+<li>Progressive destruction <strong>leads to</strong> cord compression and neurological deficit, which follows the pain by months.</li>
+</ol>
+<p><strong>Evidence grade: SUPPORTED.</strong> Case-series level rather than cohort or interventional.</p>
+<p><strong>Evidence by step.</strong></p>
+<p>Step 1, the venous route, <a href="https://pubmed.ncbi.nlm.nih.gov/41970748/">PMID: 41970748</a>, three surgically treated patients aged 22 to 45 with multifocal non-contiguous spinal tuberculosis: <em>"The non-contiguous spread is attributed to the valveless nature of venous drainage to the spinal column. This unique vascularity enables the infection to spread randomly across different spinal regions."</em> The parent dissemination step is proved in humans by autopsy phylogeny, <a href="https://pubmed.ncbi.nlm.nih.gov/27798613/">PMID: 27798613</a>: <em>"Phylogenetic analysis indicated that dissemination from the lungs to extrapulmonary sites was as frequent as between lung sites, supporting the idea of similar migration routes within and between organs, at least in subjects with HIV."</em> That paper does not identify the venous route specifically, so the Batson step itself remains inference from lesion distribution.</p>
+<p>Step 2, the lesion on imaging. <a href="https://pubmed.ncbi.nlm.nih.gov/42638134/">PMID: 42638134</a>: <em>"Advanced imaging (computed tomography/magnetic resonance images) revealed destruction of the L1 and L2 vertebral bodies with a paravertebral abscess."</em> A 35-year-old with two months of progressive nocturnal low back pain showed vertebral destruction centred at L4 with psoas abscess (<a href="https://pubmed.ncbi.nlm.nih.gov/42005151/">PMID: 42005151</a>).</p>
+<p>Steps 3 and 4, the human temporal sequence. <a href="https://pubmed.ncbi.nlm.nih.gov/42666708/">PMID: 42666708</a>: <em>"a 22-year-old female who presented with a six-month history of severe back pain followed by the sudden onset of complete paraplegia with bowel and bladder incontinence"</em>, with vertebral body destruction and anterior dislocation. The consistent pattern of months of back pain preceding neurological deficit, and resolution of pain after debridement, stabilisation and antitubercular therapy, is the human evidence for causal direction.</p>
+<p><strong>Non-causal alternatives, strong in endemic settings.</strong> Radiology alone does not establish the causal chain in an individual. <a href="https://pubmed.ncbi.nlm.nih.gov/42079494/">PMID: 42079494</a>: <em>"This case highlights S. Typhi as a rare cause of spondylodiscitis in immunocompetent individuals that can mimic Pott's disease clinically and radiographically."</em> Vertebral alveolar echinococcosis reproduces the same picture and was treated as spinal tuberculosis for 12 months before sequencing corrected the diagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/42629577/">PMID: 42629577</a>).</p>
+<hr />
+<h2>Lymphadenopathy (tuberculous lymphadenitis)</h2>
+<p><strong>Suggested ontology terms.</strong> <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a> (lymphadenopathy). <a href="http://purl.obolibrary.org/obo/GO_0002432" target="_blank" rel="noopener noreferrer">GO:0002432</a> (granuloma formation), <a href="http://purl.obolibrary.org/obo/GO_0048535" target="_blank" rel="noopener noreferrer">GO:0048535</a> (lymph node development) for the architecture that is effaced. <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a> (alveolar macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a> (dendritic cell) for the carriage step, Langhans giant cell for the lesion.</p>
+<p><strong>Causal chain.</strong></p>
+<ol>
+<li>Phagocytosis of M. tuberculosis by alveolar macrophages (existing node) <strong>leads to</strong> carriage of infected myeloid cells through afferent lymphatics to the lung-draining hilar and mediastinal nodes (<strong>proposed new node</strong>: lymphatic spread to draining regional lymph nodes).</li>
+<li>Nodal arrival <strong>leads to</strong> granuloma formation within the node with caseous necrosis and progressive replacement of nodal architecture (<strong>proposed new node</strong>).</li>
+<li>Architectural effacement and nodal enlargement <strong>result in</strong> Lymphadenopathy.</li>
+</ol>
+<p><strong>Evidence grade: SUPPORTED</strong>, approaching ESTABLISHED for the nodal pathology step and weaker for the transport step.</p>
+<p><strong>Evidence by step.</strong></p>
+<p>Epidemiological weight: lymph nodes, particularly thoracic lymph nodes, are among the most common sites of extrapulmonary tuberculosis (<a href="https://pubmed.ncbi.nlm.nih.gov/32790739/">PMID: 32790739</a>), and pleural effusion is second after lymphadenitis (<a href="https://pubmed.ncbi.nlm.nih.gov/42100439/">PMID: 42100439</a>), which makes lymphadenitis first.</p>
+<p>Step 1 is the weakest link and is inferred. <a href="https://pubmed.ncbi.nlm.nih.gov/27798613/">PMID: 27798613</a> proves within-host dissemination in humans by genomic phylogeny but does not identify the lymphatic route. The cellular carriage mechanism comes from a multi-scale model calibrated to nonhuman primate data (<a href="https://pubmed.ncbi.nlm.nih.gov/40334195/">PMID: 40334195</a>), which is computational plus model-organism evidence.</p>
+<p>Step 2, the step that produces the phenotype, stated directly, <a href="https://pubmed.ncbi.nlm.nih.gov/32790739/">PMID: 32790739</a>: <em>"Mtb infection results in granuloma formation that disrupts and-if it becomes large enough-replaces the normal architecture of the lymph node that is vital to its function."</em> The same review establishes the node as a replicative site: <em>"Aside from being sites of initiation of the adaptive immune system, lymph nodes also serve as niches of Mtb growth and persistence."</em></p>
+<p>Human histological confirmation in enlarged nodes: in 49 patients with tuberculous adenitis (median age 31, 59% female), nodal biopsy was performed in 77% with granulomatous adenitis in 62%, and M. tuberculosis was isolated in 71% (<a href="https://pubmed.ncbi.nlm.nih.gov/39172563/">PMID: 39172563</a>). Cervical node biopsy demonstrated necrotizing granulomatous inflammation with acid-fast bacilli in a patient with miliary disease (<a href="https://pubmed.ncbi.nlm.nih.gov/42893161/">PMID: 42893161</a>).</p>
+<p>Anatomical distribution in 51 UK patients aged 19 to 70, <a href="https://pubmed.ncbi.nlm.nih.gov/29484929/">PMID: 29484929</a>: <em>"Posterior triangle neck nodes were most commonly involved (26/51)."</em></p>
+<p><strong><i class="fa-solid fa-lightbulb"></i> A structural decision follows from the same paper.</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/29484929/">PMID: 29484929</a>: <em>"The clinical presentation was most frequently without constitutional symptoms (39/51)."</em> Nodal disease is driven locally and runs largely independent of the systemic cytokine hub that produces fever, night sweats and weight loss. <strong>Lymphadenopathy should branch off before that hub, not downstream of it.</strong></p>
+<p><strong>Downstream coupling.</strong> Nodal disease feeds the cough chain: rupture of an infected lymph node through the bronchial wall is one of the two routes to endobronchial disease (<a href="https://pubmed.ncbi.nlm.nih.gov/36742561/">PMID: 36742561</a>).</p>
+<p><strong>Non-causal alternatives, the strongest of any phenotype here.</strong> Granulomatous lymphadenitis is morphologically non-specific. <a href="https://pubmed.ncbi.nlm.nih.gov/40522188/">PMID: 40522188</a>: <em>"Rhinosporidiosis can also cause lymphatic spread to regional lymphadenitis with features of granulomas in histopathology."</em> <a href="https://pubmed.ncbi.nlm.nih.gov/42469982/">PMID: 42469982</a>, on cat-scratch disease: <em>"Its clinical features can mimic malignancy or tuberculosis, especially in elderly patients, leading to potential misdiagnosis."</em> Kikuchi-Fujimoto disease, visceral leishmaniasis, leprosy, sarcoidosis and lymphoma occupy the same slot. Ascertainment inflates the association: in a series of 158 patients with cervical lymphadenopathy, only 16.5% were tuberculosis against 69.6% self-limiting causes and 12.0% malignancy (<a href="https://pubmed.ncbi.nlm.nih.gov/22207528/">PMID: 22207528</a>). BCG vaccine lymphadenitis is a separate causal path to the same phenotype that does not involve M. tuberculosis at all.</p>
+<hr />
+<h2>Proposed new mechanism nodes</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Suggested node name</th>
+<th>Upstream node</th>
+<th>Downstream phenotypes</th>
+<th>Strongest single citation for causal placement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Systemic pro-inflammatory cytokine response (TNF-alpha, IL-1beta, IL-6, IFN-gamma)</td>
+<td>Granuloma Formation</td>
+<td>Fever, Weight Loss, Fatigue</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8603261/">PMID: 8603261</a>, randomised thalidomide, weight gain 6.5 ± 1.2%, p&lt;0.02</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Cytokine-driven skeletal muscle proteolysis and negative nitrogen balance</td>
+<td>Node 1</td>
+<td>Weight Loss</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9264292/">PMID: 9264292</a>, urinary nitrogen down 1.81 g/day, REE unchanged (cross-disease)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Gut peptide YY elevation with central appetite suppression</td>
+<td>Node 1</td>
+<td>Weight Loss</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23358528/">PMID: 23358528</a>, PYY the strongest independent predictor of appetite</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Hypothalamic PGE2-mediated elevation of the thermoregulatory set point</td>
+<td>Node 1</td>
+<td>Fever</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19958757/">PMID: 19958757</a>, intracerebroventricular IL-1ra prevents the PGE2 rise and fever (rabbit)</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Hepcidin-mediated iron sequestration and anaemia of inflammation</td>
+<td>Node 1</td>
+<td>Fatigue</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33876222/">PMID: 33876222</a>, hepcidin and IL-6 down 70% at 2 weeks, Hb up 25%</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Pulmonary artery wall erosion with pseudoaneurysm formation (Rasmussen)</td>
+<td>Tissue Damage</td>
+<td>Hemoptysis</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42631029/">PMID: 42631029</a>, erosion secondary to chronic cavity inflammation</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Systemic arterial neovascularisation with systemic-to-pulmonary shunting</td>
+<td>Tissue Damage</td>
+<td>Hemoptysis</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42626526/">PMID: 42626526</a>, 131 non-bronchial systemic arteries in 91 patients</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Endobronchial mucosal granulomatous inflammation and ulceration</td>
+<td>Granuloma Formation, Node 12</td>
+<td>Chronic Cough</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36742561/">PMID: 36742561</a>, nodal rupture or lymphatic spread to the bronchial lining</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Post-inflammatory fibrotic airway remodelling and bronchostenosis</td>
+<td>Node 8</td>
+<td>Chronic Cough</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34898509/">PMID: 34898509</a>, progression to 60-70% tracheal stenosis at 8 months</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Airway sensory afferent sensitisation (TRPV1, P2X3, cough reflex hypersensitivity)</td>
+<td>Nodes 8 and 9</td>
+<td>Chronic Cough</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34934475/">PMID: 34934475</a>, neurogenic inflammation induces a hypersensitive cough reflex (not in TB)</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Lymphatic spread of M. tuberculosis to draining regional lymph nodes</td>
+<td>Phagocytosis by alveolar macrophages</td>
+<td>Lymphadenopathy, Chronic Cough</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32790739/">PMID: 32790739</a>, lymph nodes as niches of Mtb growth and persistence</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Granulomatous lymphadenitis with nodal caseation and architectural effacement</td>
+<td>Node 11</td>
+<td>Lymphadenopathy</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32790739/">PMID: 32790739</a>, granuloma replaces the normal nodal architecture</td>
+</tr>
+<tr>
+<td>13</td>
+<td>Haematogenous dissemination of M. tuberculosis (Batson plexus, arterial)</td>
+<td>Granuloma Formation, Tissue Damage</td>
+<td>Back Pain, Chest Pain, Lymphadenopathy</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27798613/">PMID: 27798613</a>, lung-to-extrapulmonary spread as frequent as lung-to-lung</td>
+</tr>
+<tr>
+<td>14</td>
+<td>Tuberculous spondylodiscitis with vertebral destruction and abscess</td>
+<td>Node 13</td>
+<td>Back Pain</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41970748/">PMID: 41970748</a>, valveless venous drainage explains non-contiguous spread</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Pleural space seeding of M. tuberculosis</td>
+<td>Granuloma Formation, Tissue Damage</td>
+<td>Chest Pain</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26150911/">PMID: 26150911</a>, effusion is the consequence of direct infection of the pleural space</td>
+</tr>
+<tr>
+<td>16</td>
+<td>Tuberculous pleuritis with parietal pleural granulomatous inflammation</td>
+<td>Node 15</td>
+<td>Chest Pain</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35968962/">PMID: 35968962</a>, pleural pustule 100% specific, necrotizing granulomas in all</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Structural recommendations for the knowledge model</h3>
+<ol>
+<li><strong>Add node 13 first.</strong> It is the parent of all extrapulmonary disease rather than a feature of spinal tuberculosis alone. Without it, three phenotypes are unreachable from any curated node.</li>
+<li><strong>Record evidence source type per edge, not per chain.</strong> The fever chain is graded SUPPORTED while three of its four edges are rabbit and rodent work, which a chain-level grade conceals.</li>
+<li><strong>Branch Lymphadenopathy upstream of the cytokine hub</strong>, because 39 of 51 patients with tuberculous lymphadenitis presented without constitutional symptoms (<a href="https://pubmed.ncbi.nlm.nih.gov/29484929/">PMID: 29484929</a>).</li>
+<li><strong>Keep nodes 6 and 7 separate.</strong> The pulmonary arterial pseudoaneurysm and the hypertrophied systemic arterial network differ in pressure, imaging, treatment and lethality.</li>
+<li><strong>Add an intervention-quality field</strong> separate from evidence coverage, scored on what was manipulated rather than on how many steps have human data.</li>
+</ol>
+<hr />
+<h2>Unwired phenotypes</h2>
+<p><strong><i class="fa-solid fa-circle-xmark"></i> Night Sweats (<a href="http://purl.obolibrary.org/obo/HP_0030166" target="_blank" rel="noopener noreferrer">HP:0030166</a>), NOT_ESTABLISHED.</strong> No mechanism node is justified. What would settle it: overnight polysomnography with continuous core and skin temperature, galvanic skin response and gravimetric sweat rate in untreated active tuberculosis, analysed event-locked to sweating episodes, which distinguishes a thermoregulatory defervescence mechanism (sweat follows a temperature peak, warm skin) from a sudomotor cholinergic mechanism (no preceding peak, cold sensation, oxybutynin-responsive).</p>
+<p>Four individual edges inside otherwise SUPPORTED chains carry no human tuberculosis evidence and should be flagged in the model even though their parent chains are wired:</p>
+<ul>
+<li>Chronic Cough step 4, endobronchial lesion to cough reflex sensitisation. A capsaicin or ATP cough challenge with objective cough counts, before and after 8 weeks of treatment, paired with bronchoscopic lesion grading.</li>
+<li>Chest Pain step 3, pleural inflammation to parietal nociceptor activation. Pain scores against thoracoscopically graded parietal pleural inflammation in the same patients, or abolition of pain by intrapleural local anaesthesia.</li>
+<li>Fatigue step 4, anaemia to fatigue. Fatigue scored against haemoglobin cross-sectionally at diagnosis before drug exposure, or a randomised iron repletion trial, because fatigue is also the most common adverse drug reaction to first-line therapy at 53.2% (<a href="https://pubmed.ncbi.nlm.nih.gov/35909258/">PMID: 35909258</a>) and so cannot be tested in a treatment-reversal design.</li>
+<li>Fever steps 2 to 4, the distal pyrogenic pathway. Serial core temperature with paired cytokine and PGE2 metabolite measurement in untreated tuberculosis, then a selective COX-2 or IL-1 blockade challenge.</li>
+</ul>
+<hr />
+<h2>Evidence base</h2>
+<p>The investigation reviewed 206 papers across five iterations. The citations carrying the most weight, grouped by what they establish:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Role in the model</th>
+<th>PMID</th>
+<th>What it supplies</th>
+<th>Source type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dissemination node</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27798613/">27798613</a></td>
+<td>2,693 post-mortem samples, 44 subjects; lung-to-extrapulmonary spread as frequent as lung-to-lung</td>
+<td>Human autopsy genomics</td>
+</tr>
+<tr>
+<td>Hemoptysis closure</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42764468/">42764468</a></td>
+<td>Recurrence predicted by non-bronchial collaterals, OR 10.11</td>
+<td>Human interventional follow-up</td>
+</tr>
+<tr>
+<td>Hemoptysis route 2</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42626526/">42626526</a></td>
+<td>281 culprit vessels, 131 non-bronchial, in 91 TB patients</td>
+<td>Human angiographic</td>
+</tr>
+<tr>
+<td>Weight loss intervention</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8603261/">8603261</a></td>
+<td>Randomised thalidomide, 6.5 ± 1.2% weight gain, p&lt;0.02</td>
+<td>Human interventional</td>
+</tr>
+<tr>
+<td>Weight loss negative control</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9625384/">9625384</a></td>
+<td>Pentoxifylline inhibits TNF-alpha without reversing weight loss</td>
+<td>Human interventional</td>
+</tr>
+<tr>
+<td>Leptin refutation</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11836317/">11836317</a></td>
+<td>Leptin 615 vs 2,550 ng/L; the authors reject the causal hypothesis</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>Appetite branch</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23358528/">23358528</a></td>
+<td>PYY the strongest independent predictor of appetite, 41 cases</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>Fatigue anchor</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33876222/">33876222</a></td>
+<td>18 adults, iron tracers, hepcidin and IL-6 down 70% at 2 weeks, Hb up 25%</td>
+<td>Human time course</td>
+</tr>
+<tr>
+<td>Fatigue confound</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35909258/">35909258</a></td>
+<td>Fatigue in 53.2% of 410 patients as a drug reaction</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>Pleuritis lesion</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35968962/">35968962</a></td>
+<td>Pleural pustule 100% specific, necrotizing granulomas in all, 259 patients</td>
+<td>Human thoracoscopic</td>
+</tr>
+<tr>
+<td>Pleural biopsy series</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34221154/">34221154</a></td>
+<td>Granuloma with caseation in 50 of 82 (60.9%)</td>
+<td>Human histology</td>
+</tr>
+<tr>
+<td>Nodal lesion</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32790739/">32790739</a></td>
+<td>Granuloma replaces nodal architecture; nodes as replicative niches</td>
+<td>Human review</td>
+</tr>
+<tr>
+<td>Nodal branching decision</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29484929/">29484929</a></td>
+<td>39 of 51 present without constitutional symptoms</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>Spinal venous route</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41970748/">41970748</a></td>
+<td>Valveless drainage explains non-contiguous vertebral lesions</td>
+<td>Human case series</td>
+</tr>
+<tr>
+<td>Fever, human link</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30180300/">30180300</a></td>
+<td>IL-6 higher in patients reporting fever, n=35</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>Fever, pathway</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22143887/">22143887</a></td>
+<td>Brain endothelial Tak1 deletion blunts fever and lethargy</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td>Cough terminal edge</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34934475/">34934475</a></td>
+<td>Neurogenic inflammation induces cough reflex hypersensitivity</td>
+<td>Cross-disease</td>
+</tr>
+<tr>
+<td>Cough edge, negative</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42214607/">42214607</a></td>
+<td>TRP antagonists give limited and inconsistent cough reduction</td>
+<td>Cross-disease interventional</td>
+</tr>
+<tr>
+<td>Airway remodelling clock</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34898509/">34898509</a></td>
+<td>Stenosis progresses to 60-70% during 8 months of treatment</td>
+<td>Human case, long follow-up</td>
+</tr>
+<tr>
+<td>Night sweats, mechanism absent</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38163944/">38163944</a></td>
+<td>Mechanism unknown; oxybutynin response names the sudomotor hypothesis</td>
+<td>Human case, sleep medicine</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Papers that challenge rather than support the model were given equal weight. <a href="https://pubmed.ncbi.nlm.nih.gov/9625384/">PMID: 9625384</a> and <a href="https://pubmed.ncbi.nlm.nih.gov/9264292/">PMID: 9264292</a> together forced the Weight Loss downgrade. <a href="https://pubmed.ncbi.nlm.nih.gov/11836317/">PMID: 11836317</a> removed a plausible leptin edge that a textbook cachexia model would have included. <a href="https://pubmed.ncbi.nlm.nih.gov/35429606/">PMID: 35429606</a> shows a COX-independent thermogenic branch, so the fever chain must not be drawn as a single obligatory path. <a href="https://pubmed.ncbi.nlm.nih.gov/42214607/">PMID: 42214607</a> reports that the pharmacological test of the cough mechanism fails even in the diseases where the mechanism was derived. <a href="https://pubmed.ncbi.nlm.nih.gov/22207528/">PMID: 22207528</a> quantifies the ascertainment problem for lymphadenopathy: only 16.5% of 158 patients with cervical lymphadenopathy had tuberculosis.</p>
+<hr />
+<h2>Limitations and knowledge gaps</h2>
+<ol>
+<li>The literature search used PubMed abstracts only. Full texts were not retrieved, so quantitative details beyond what abstracts state could not be verified, and some findings cited here may be qualified in their full papers.</li>
+<li>Search results skewed strongly toward 2024-2026 publications. Older foundational work, in particular the original Rasmussen aneurysm autopsy descriptions and mid-century spinal tuberculosis series, is under-represented relative to its evidential weight.</li>
+<li>Fever is the chain most exposed by the evidence-typing exercise. Its physiology is imported wholesale from rodent work. The same is true of the terminal cough edge.</li>
+<li><i class="fa-solid fa-triangle-exclamation"></i> Ontology identifiers are proposed from domain knowledge and were not resolved against current OLS releases. The HP identifiers for the nine phenotypes are standard, but GO and CL assignments for the proposed nodes should be verified by a curator before ingestion, in particular <a href="http://purl.obolibrary.org/obo/GO_0002432" target="_blank" rel="noopener noreferrer">GO:0002432</a> (granuloma formation) and the cell type terms for sensory afferents.</li>
+<li>The constitutional hub rests heavily on three thalidomide trials from the 1990s in cohorts of 13 to 39 patients. One of those three (<a href="https://pubmed.ncbi.nlm.nih.gov/9264292/">PMID: 9264292</a>) turns out to be an HIV study without tuberculosis, which was found only by re-reading the abstract in full, and which forced the Weight Loss downgrade described above. No modern biologic intervention study exists in tuberculosis, for the obvious reason that TNF blockade reactivates the disease, which is itself strong indirect evidence for the centrality of TNF but blocks the experiment that would confirm the symptom chain.</li>
+<li>HIV coinfection modifies several chains (dissemination frequency, lymphadenopathy presentation, wasting) and was not treated as a separate stratum.</li>
+<li>A final pass re-verified the two citations carrying the most weight. <a href="https://pubmed.ncbi.nlm.nih.gov/33876222/">PMID: 33876222</a>, the anchor of the fatigue chain, reproduced exactly on a second independent search, with the added detail that its sample is 18 Tanzanian adults, that no iron supplements were given, that baseline iron absorption was below 1%, and that erythroferrone and IL-6 were the opposing determinants of hepcidin. An early working claim that endobronchial tuberculosis is present in more than half of active pulmonary tuberculosis on prospective bronchoscopy did not reproduce on a second search and is withdrawn. It never entered this report, and the Chronic Cough chain is stated above without any prevalence figure. The general point stands: a citation recorded once and not re-read is not yet evidence.</li>
+</ol>
+<hr />
+<h2>Proposed follow-up experiments</h2>
+<p>Ranked by how much each would change the model, using the two-axis framework: the nodes with high human coverage and zero intervention are the ones worth testing.</p>
+<p><strong><i class="fa-solid fa-flask"></i> 1. Intrapleural anaesthesia challenge in tuberculous pleuritis.</strong> Measure pain on a validated scale before and after intrapleural local anaesthetic in patients with thoracoscopically confirmed tuberculous pleuritis, with thoracoscopic grading of parietal pleural inflammation in the same session. This converts the Chest Pain chain's only unsupported edge into an interventional result and tests whether pain intensity scales with inflammatory burden. The procedure is already performed for other indications, so the cost is low.</p>
+<p><strong><i class="fa-solid fa-flask"></i> 2. Cough challenge with lesion grading, before and after treatment.</strong> Capsaicin or ATP cough challenge with 24-hour objective cough frequency monitoring in active pulmonary tuberculosis at diagnosis and at 8 weeks, paired with bronchoscopic grading of endobronchial lesion burden. If reflex sensitivity tracks lesion burden and falls with healing, the terminal cough edge becomes human-demonstrated. The design also separates the two proposed airway nodes, because fibrotic stenosis progresses during treatment while mucosal inflammation resolves.</p>
+<p><strong><i class="fa-solid fa-heart-pulse"></i> 3. Overnight physiology in untreated tuberculosis, for night sweats.</strong> Continuous core and skin temperature, galvanic skin response and gravimetric sweat rate through the night, with serial IL-6, IL-1beta, TNF-alpha and cortisol, analysed event-locked to sweating episodes. This is the single study that would move a phenotype from NOT_ESTABLISHED to a graded chain. If sweating follows temperature downswings with warm skin, hypothesis A holds and the node attaches to the existing PGE2 node. If sweating occurs without a preceding peak and with a cold sensation, hypothesis B holds and a new sudomotor node is required. An oxybutynin arm would discriminate pharmacologically.</p>
+<p><strong><i class="fa-solid fa-chart-line"></i> 4. Cross-sectional fatigue against haemoglobin at diagnosis.</strong> Measure a validated fatigue instrument with haemoglobin, hepcidin and IL-6 in treatment-naive patients, before any drug exposure. This is the only design that can test the anaemia-to-fatigue edge, because the treatment-reversal design is invalidated by fatigue appearing as a drug reaction in 53.2% of patients. A randomised iron repletion arm within treated patients would be the interventional version.</p>
+<p><strong><i class="fa-solid fa-vial"></i> 5. Antipyretic challenge with temperature as the endpoint in tuberculosis.</strong> A selective COX-2 inhibitor or IL-1 receptor antagonist challenge with continuous core temperature and paired PGE2 metabolite measurement. This would be the first human tuberculosis test of three edges that are currently rabbit and rat work. The <a href="https://pubmed.ncbi.nlm.nih.gov/35429606/">PMID: 35429606</a> result predicts partial rather than complete abolition, which would itself be informative about the COX-independent branch.</p>
+<p><strong><i class="fa-solid fa-dna"></i> 6. Curation task: resolve the proposed ontology terms and ingest node 13 first.</strong> Before the other 15 nodes are added, the haematogenous dissemination node should be inserted as the parent of the three extrapulmonary phenotypes, with per-edge source-type and intervention-quality fields populated from the table above. Resolve all GO and CL assignments against the current OLS release.</p>
+<p><strong><i class="fa-solid fa-book-open"></i> 7. Re-verify the remaining citations.</strong> Two of two load-bearing citations checked in this work produced one pass and one withdrawal. Every PMID in the node table above should be re-read in full before ingestion, with particular attention to whether the study population is tuberculosis or a different disease. That check is what caught <a href="https://pubmed.ncbi.nlm.nih.gov/9264292/">PMID: 9264292</a>.</p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Tuberculosis-phenotype-wiring-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Tuberculosis-phenotype-wiring-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+<li><a href="../../research/Tuberculosis-phenotype-wiring-deep-research-openscientist_artifacts/provenance.json">OpenScientist provenance</a></li>
+<li><a href="../../research/Tuberculosis-phenotype-wiring-deep-research-openscientist_artifacts/provenance_plot_1.json">OpenScientist plot 1</a>
+<img alt="OpenScientist plot 1" src="../../research/Tuberculosis-phenotype-wiring-deep-research-openscientist_artifacts/provenance_plot_1.png" /></li>
+<li><a href="../../research/Tuberculosis-phenotype-wiring-deep-research-openscientist_artifacts/provenance_plot_2.json">OpenScientist plot 2</a>
+<img alt="OpenScientist plot 2" src="../../research/Tuberculosis-phenotype-wiring-deep-research-openscientist_artifacts/provenance_plot_2.png" /></li>
+<li><a href="../../research/Tuberculosis-phenotype-wiring-deep-research-openscientist_artifacts/provenance_plot_3.json">OpenScientist plot 3</a>
+<img alt="OpenScientist plot 3" src="../../research/Tuberculosis-phenotype-wiring-deep-research-openscientist_artifacts/provenance_plot_3.png" /></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>67</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>67</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>67</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:22143887</code> (6 mentions) - TAK1 in brain endothelial cells mediates fever and lethargy.</li>
+<li>shared terms: fever</li>
+<li><code>PMID:19958757</code> (5 mentions) - Interleukin-1 receptor antagonist inhibits the release of glutamate, hydroxyl radicals, and prostaglandin E(2) in the hypothalamus during pyrogen-induced fever in rabbits.</li>
+<li>shared terms: fever</li>
+<li><code>PMID:18664365</code> (3 mentions) - Curcumin inhibits the increase of glutamate, hydroxyl radicals and PGE2 in the hypothalamus and reduces fever during LPS-induced systemic inflammation in rabbits.</li>
+<li>shared terms: fever</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>tuberculosis</code>, <code>node</code>, <code>patient</code>, <code>chain</code>, <code>human</code>, <code>proposed</code>, <code>step</code>, <code>cough</code>, <code>causal</code>, <code>mechanism</code>, <code>disease</code>, <code>granuloma</code>, <code>supported</code>, <code>phenotype</code>, <code>fever</code>, <code>weight</code>, <code>formation</code>, <code>model</code>, <code>pain</code>, <code>grade</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>37</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0031246</code> (1 mention) - the report calls it "chronic cough"; HP calls it <strong>Nonproductive cough</strong>, and lists "Dry cough" among its other names</li>
+<li><code>CL:0002275</code> (1 mention) - the report calls it "enteroendocrine L cell"; CL calls it <strong>pancreatic PP cell</strong></li>
+<li><code>CL:0000092</code> (1 mention) - the report calls it "osteoblast"; CL calls it <strong>osteoclast</strong></li>
+</ul>
+<p>Every term resolved, and every label the report gave matched.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Tuberculosis-falcon.html">← Tuberculosis (Falcon)</a>
+                
+                
+                <a href="Tuberculous_Epididymitis-claude_code.html">Tuberculous Epididymitis (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Tuberculosis-phenotype-wiring-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
