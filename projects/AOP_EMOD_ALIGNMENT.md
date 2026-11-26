@@ -580,8 +580,10 @@ pump failure the module does not model.
 #### The neurodevelopmental side scores worse, and for a different reason
 
 Repeating the exercise on the **14 unique Key Events** in AOPs 12, 499, and 500, against
-`glutamate_excitotoxicity`, `synaptic_vesicle_cycle`, `mitochondrial_dysfunction`, and
-`excitatory_synapse_scaffold_disruption`:
+`glutamate_excitotoxicity`, `synaptic_vesicle_cycle`, `mitochondrial_dysfunction`,
+`excitatory_synapse_scaffold_disruption`, and `nmda_receptor_hypofunction` — the last of
+which did not exist when this exercise was first run and was built out of it, as the
+*Direction, and a gap this project closed* note below records:
 
 | KE | Event | Module node | Fit |
 |---|---|---|---|
@@ -592,29 +594,45 @@ Repeating the exercise on the **14 unique Key Events** in AOPs 12, 499, and 500,
 | 55 | Increase, Cell injury/death | Excitotoxic Neuronal Death | partial — module's death is excitotoxic specifically |
 | 1262 | Apoptosis | Excitotoxic Neuronal Death | partial — same |
 | 352 | N/A, Neurodegeneration *(AO)* | Excitotoxic Neuronal Death | partial — generic outcome against a specific one |
-| 341 | Impairment, Learning and memory *(AO)* | Neurodevelopmental Phenotypic Output | partial — from `excitatory_synapse_scaffold_disruption` |
-| 201 | Binding of antagonist, NMDA receptors *(MIE)* | — | none — sign-inverted, see below |
-| 195 | Inhibition, NMDARs | — | none — sign-inverted |
-| 52 | Decreased, Calcium influx | — | none — sign-inverted |
-| 381 | Reduced levels of BDNF | — | none — no module covers BDNF |
+| 341 | Impairment, Learning and memory *(AO)* | Learning and Memory Impairment | yes — from `nmda_receptor_hypofunction`; `excitatory_synapse_scaffold_disruption`'s Neurodevelopmental Phenotypic Output is the looser earlier match |
+| 201 | Binding of antagonist, NMDA receptors *(MIE)* | NMDA Receptor Antagonism or Receptor Loss | yes — from `nmda_receptor_hypofunction`; was a sign-inversion miss, see below |
+| 195 | Inhibition, NMDARs | NMDA Receptor Hypofunction | yes — same |
+| 52 | Decreased, Calcium influx | Reduced NMDA Receptor-Mediated Calcium Influx | yes — same, conformed by `Lead_Poisoning` |
+| 381 | Reduced levels of BDNF | Reduced BDNF Expression and Secretion | yes — same, conformed by `Lead_Poisoning` |
 | 188 | Neuroinflammation | — | none — appears only fused into organ-specific composite nodes |
-| 2146 | Activation of MEK/ERK1/2 *(MIE)* | — | none — MAPK nodes exist but all are proliferation- or fibrosis-framed |
+| 2146 | Activation of MEK/ERK1/2 *(MIE)* | — | none — a developmental ERK1/2 node exists but carries the opposite sign, see the [metal mixture use case](#the-metal-mixture-use-case) |
 
-**Four of 14 clean and four partial** — worse than the cardiac side, despite these being the
-well-documented AOPs. Documentation quality and module coverage turn out to be independent.
+**Nine of 14 clean, three partial, two missing.** As first run against the four modules
+listed above it was four clean and four partial — worse than the cardiac side, despite
+these being the well-documented AOPs, and the basis for the observation that documentation
+quality and module coverage are independent. Five of those rows have since been closed by
+one module, which is the subject of the next note.
 
-The reason is worth recording, because it is not the entry-point problem again. Three of the
-six misses fail together because **dismech's only glutamate module is the mirror image of
-lead's mechanism**. `glutamate_excitotoxicity` is built end to end on *over*activation —
-"Excessive Glutamatergic Stimulation and Impaired Glutamate Clearance", "Glutamate
-Receptor Overactivation and Calcium Overload" — while lead's neurodevelopmental MIE is NMDAR *antagonism*, giving decreased
-calcium influx. The sign is inverted at every node, so KE52 cannot conform to a node whose
-name asserts overload even though `modifier` could carry the direction.
+#### Direction, and a gap this project closed
+
+The reason the first run missed is worth recording, because it is not the entry-point
+problem again. Three of its six misses failed together because **the only glutamate module
+at the time was the mirror image of lead's mechanism**. `glutamate_excitotoxicity` is built
+end to end on *over*activation — "Excessive Glutamatergic Stimulation and Impaired
+Glutamate Clearance", "Glutamate Receptor Overactivation and Calcium Overload" — while
+lead's neurodevelopmental MIE is NMDAR *antagonism*, giving decreased calcium influx. The
+sign was inverted at every node, so KE52 could not conform to a node whose name asserts
+overload even though `modifier` could carry the direction.
+
+That gap is now closed, by this project's own work. `nmda_receptor_hypofunction` was
+factored out of the AOP-Wiki mapping in [#8309](https://github.com/monarch-initiative/dismech/issues/8309) and [#9976](https://github.com/monarch-initiative/dismech/issues/9976) for exactly these Events: its own
+description names KE201, KE195, KE52 "plus KE381 (reduced levels of BDNF) that no dismech
+module could accept, because glutamate_excitotoxicity is built end to end on the opposite
+sign", and says its node names are "deliberately direction-explicit for the same reason".
+`Lead_Poisoning` conforms at three of its nodes. So the directional finding stands as the
+reason the gap existed; what no longer stands is the gap. The one node of that module with
+no conformer anywhere in `kb/` is its ERK1/2 node, which the
+[metal mixture use case](#the-metal-mixture-use-case) returns to.
 
 This is the same directional split the OpenScientist report hit as its Finding 9 and
 handled by keeping KE52 out of the merge. Finding it independently on the dismech side
-establishes it as a real gap rather than an AOP-authoring artifact: the KB has no module for
-developmental hypo-activation of glutamatergic signalling. Note the split runs *inside* the
+established it as a real gap rather than an AOP-authoring artifact, and the module is what
+came of it. Note the split runs *inside* the
 neuro cluster — KE1339 (increase, from the MEK/ERK arm of AOPs 499 and 500) conforms cleanly
 while KE52 (decrease, from AOP 12) cannot, so no single calcium node holds both.
 
@@ -959,11 +977,21 @@ a stressor, but no grade at all:
 
 The one place an interaction between two exposures can be written today is an
 `environmental[]` entry whose `influences_mechanisms` link carries
-`environmental_effect: EXACERBATES`, and the single worked instance is not a second
-chemical: *Iron Deficiency as Risk Modifier* in `Cadmium_Poisoning`
-(`kb/disorders/Cadmium_Poisoning.yaml:1920`). It records a direction and nothing else — no
-pairing with a named co-exposure, no statement that the joint effect exceeds the sum, no
-magnitude.
+`environmental_effect: EXACERBATES`. That value is common — `grep -rn
+"environmental_effect: EXACERBATES" kb/` returns 216 links — but it says that an exposure
+aggravates a *mechanism*, which is a different claim from one exposure changing what
+another exposure does. The instance that comes nearest to the second reading is *Iron
+Deficiency as Risk Modifier* on `Cadmium_Poisoning`'s *Cadmium Absorption and Systemic
+Distribution* node, and the modifier there is a nutritional state rather than a second
+chemical. It records a direction and nothing else — no pairing with a named co-exposure, no
+statement that the joint effect exceeds the sum, no magnitude.
+
+How many of the other 215 are co-exposure links in disguise has not been counted. The name
+of an `environmental[]` entry is free text, so finding them means reading them, and no slot
+distinguishes "aggravates this mechanism" from "modifies that exposure" — which is the
+substance of
+[question 7](#7-should-an-interaction-between-two-exposures-be-representable) rather than a
+gap in the search.
 
 ### What has been registered, and what it does not reach
 
@@ -985,15 +1013,21 @@ no home on either side. Recorded as
 and [question 9](#9-should-cannot-be-quantified-be-distinguishable-from-not-graded).
 
 One correction this case makes to the neurodevelopmental tabulation above. KE2146 is listed
-there as a miss — "MAPK nodes exist but all are proliferation- or fibrosis-framed" — and
-that stands. What can be added is why it is unlikely to be closed by a lead entry: the MIE
-is ERK1/2 activation **in astrocytes**, where AOP 12's arm of the same corpus runs through
-*reduced* GluN2B/αCaMKII-dependent ERK1/2 activation in glutamatergic neurons, which
-`nmda_receptor_hypofunction` already models and `Lead_Poisoning` already conforms to at
-three nodes. Same kinase, opposite direction, different cell type, same adverse outcome.
-The sign-inversion problem recorded for the glutamate module is therefore not confined to
-calcium; it reaches the MEK/ERK arm as well, and a module that held both would have to be
-written as two arms rather than one chain.
+there as a miss, and the miss stands — but its original reason, that "MAPK nodes exist but
+all are proliferation- or fibrosis-framed", does not. `nmda_receptor_hypofunction` does carry
+a GluN2B/αCaMKII-dependent ERK1/2 node —
+`nmda_receptor_hypofunction#Reduced GluN2B/alphaCaMKII-Dependent ERK1/2 Activation` — so a MAPK node in the right
+developmental setting exists. It is the wrong sign: that node is ERK1/2 activation
+*reduced*, downstream of NMDA receptor hypofunction in glutamatergic neurons, where this
+AOP's MIE is ERK1/2 activation **increased, in astrocytes**. Same kinase, opposite
+direction, different cell type, same adverse outcome.
+
+Two things follow. The node is also the one node of that module nothing in `kb/` conforms
+to — `Lead_Poisoning`'s three conformances are the receptor-antagonism, calcium-influx and
+BDNF nodes, and a KB-wide grep for
+conformers of the ERK1/2 node returns none. And a module that held both arms could not be
+one chain: it would need an astrocytic activation arm beside the neuronal reduction arm,
+converging on the learning outcome.
 
 ## Open schema questions
 
