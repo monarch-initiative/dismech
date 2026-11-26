@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tick Paralysis · Perplexity · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Tick Paralysis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Tick Paralysis</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-11-24</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-perplexity">Perplexity</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005981" target="_blank" rel="noopener noreferrer">MONDO:0005981</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: sonar-deep-research</span>
+                    
+                    
+                    <span class="meta-chip">20 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<h3>Overview and Definition</h3>
+<p>Tick paralysis is a noninfectious neuromuscular syndrome resulting from inoculation of a neurotropic toxin produced in the salivary glands of certain ixodid ticks and delivered to the host during sustained blood feeding.[5][9][11][13][16][17] The National Library of Medicine’s MeSH descriptor defines tick paralysis succinctly as “paralysis caused by a neurotropic toxin secreted by the salivary glands of ticks,” classifying it under “Tick Toxicoses” within the broader tree of chemically induced disorders and bites/stings.[17] Clinically, it presents as acute or subacute ascending flaccid paralysis, often preceded by nonspecific symptoms such as malaise, fatigue, irritability, and paresthesias, progressing over hours to days from gait unsteadiness to limb weakness, cranial nerve dysfunction, and potentially respiratory muscle paralysis.[1][3][4][6][11][13][18][19][20] Unlike tick-borne infections such as Lyme disease or Rocky Mountain spotted fever, tick paralysis is not caused by bacteria or viruses; it is a pure toxin-mediated neurotoxic poisoning without systemic inflammatory or infectious features, and routine blood and cerebrospinal fluid investigations are usually normal.[6][11][13][18][19]</p>
+<p>The syndrome afflicts humans, companion animals such as dogs and cats, livestock, wildlife, and occasionally birds and reptiles, with species-specific differences in typical clinical course and severity.[5][9][15][16] In humans, women and children are most often affected in Australian and North American series, although elderly outdoor workers may also present with severe paralysis.[6][13][18][19] A key defining feature is the dramatic reversibility of neurological deficits following meticulous removal of the engorged tick; numerous case reports describe substantial improvement within minutes to hours and complete recovery within one to two days, although more severe or delayed presentations may require longer convalescence.[1][3][4][6][18][19][20] This reversibility underscores the importance of timely recognition and differentiates tick paralysis from many other causes of acute flaccid paralysis, which often require immunomodulatory or intensive supportive therapies and have more protracted recoveries.</p>
+<h3>Key Identifiers and Ontology Mapping</h3>
+<p>With respect to biomedical identifiers, tick paralysis has limited representation in classical genetic disease databases owing to its non-genetic etiology. The MONDO ontology assigns the identifier <a href="http://purl.obolibrary.org/obo/MONDO_0005981" target="_blank" rel="noopener noreferrer">MONDO:0005981</a> to “tick paralysis” as an injury-type disorder, situating it under tick toxicoses and bite-related poisonings rather than hereditary neuromuscular diseases. Although OMIM, Orphanet, and most Mendelian-focused repositories do not maintain primary entries for tick paralysis, its conceptual definition is captured in MeSH (Tick Paralysis; unique ID D013985, tree number C25.723.127.789.500.707), which locates it under “Tick Bites” and “Tick Toxicoses” within the hierarchy of bites and stings and chemically induced disorders.[17] In ICD-10 and ICD-11 coding practice, tick paralysis is usually coded as “T63.4 Toxic effect of venom of other arthropods” or more generically under toxic effects of contact with venomous animals, combined with codes indicating tick bite as an external cause, rather than as a specific named disease entity.</p>
+<p>In human phenotype ontologies, ascending flaccid paralysis and related features can be mapped to terms such as “Muscle weakness” (<a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" rel="noopener noreferrer">HP:0001324</a>), “Flaccid paralysis” (<a href="http://purl.obolibrary.org/obo/HP_0003471" target="_blank" rel="noopener noreferrer">HP:0003471</a>), “Ataxia” (<a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a>), “Ophthalmoplegia” (<a href="http://purl.obolibrary.org/obo/HP_0000602" target="_blank" rel="noopener noreferrer">HP:0000602</a>), “Bulbar palsy” (<a href="http://purl.obolibrary.org/obo/HP_0001285" target="_blank" rel="noopener noreferrer">HP:0001285</a>), and “Respiratory failure” (<a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" rel="noopener noreferrer">HP:0002878</a>).[18][20] Tick paralysis itself, as a disorder concept, is represented in MeSH and MONDO and could be further linked to SNOMED CT concepts for “paralysis due to tick bite” and “toxic effect of arthropod venom.” The MeSH scope note and tree mapping emphasize that tick paralysis is an injury due to a neurotoxic salivary secretion, not a communicable disease or genetic syndrome.[17]</p>
+<h3>Synonyms and Alternative Names</h3>
+<p>Several synonyms and alternative names are used in the literature. In veterinary and comparative neurology, the term <strong>tick toxicosis</strong> is widely employed, reflecting the toxin-mediated pathogenesis and emphasizing that the primary pathology is systemic intoxication rather than focal nerve injury.[5][15][16] The MSD Veterinary Manual notes that “tick paralysis (also known as tick toxicosis) is an acute, progressive, symmetrical, ascending motor paralysis due to salivary neurotoxins produced by certain species of ticks,” thus explicitly equating the two terms.[5] Other synonyms include “paralysis tick poisoning” in Australian contexts, particularly where <em>Ixodes holocyclus</em> is endemic and commonly called the “paralysis tick,” and “neurotoxic tick bite” or “tick-induced paralysis” in emergency medicine and toxicology case reports.[6][9][16][19] Pediatric neurology literature sometimes refers to “pediatric tick paralysis” to highlight its age distribution, whereas some meta-analytic and epidemiologic papers classify it under “tick-borne neurotoxidrome.”[6][7][19]</p>
+<p>From an ontology perspective, these synonyms can be cross-mapped so that tick paralysis (<a href="http://purl.obolibrary.org/obo/MONDO_0005981" target="_blank" rel="noopener noreferrer">MONDO:0005981</a>; MeSH D013985) is recognized as equivalent to tick toxicosis, paralysis tick poisoning, and tick-induced neurotoxic paralysis. Such mapping is important for comprehensive literature retrieval and for distinguishing this syndrome from tick-borne infections such as ehrlichiosis, babesiosis, or tick-borne encephalitis, which have overlapping exposure contexts but fundamentally different etiologies and clinical courses.[1][5][9][11][16]</p>
+<h3>Data Sources and Evidence Type</h3>
+<p>The information about tick paralysis in this report is derived almost entirely from aggregated disease-level resources rather than individual electronic health record databases. Foundational clinical descriptions come from case series and reviews in neurology and emergency medicine, such as the clinical and neurophysiological analysis of six Australian children with generalized tick paralysis by Grattan-Smith and colleagues (Brain, 1997, <a href="https://pubmed.ncbi.nlm.nih.gov/9397015/" target="_blank" rel="noopener noreferrer">PMID 9397015</a>).[18][20] This study concluded that “the typical presentation is a prodrome followed by the development of an unsteady gait, and then ascending, symmetrical, flaccid paralysis,” with characteristic electrophysiological findings.[18][20] A meta-analysis of 50 well-documented U.S. cases over 60 years by Diaz (J Med Toxicol, 2010, <a href="https://pubmed.ncbi.nlm.nih.gov/20237909/" target="_blank" rel="noopener noreferrer">PMID 20237909</a>) provided epidemiologic and misdiagnosis data, describing tick paralysis as “a predictable, preventable, and often misdiagnosed poisoning.”[7][19] Additional key reviews include Edlow’s 2010 article on tick paralysis in Current Treatment Options in Neurology (<a href="https://pubmed.ncbi.nlm.nih.gov/20842579/" target="_blank" rel="noopener noreferrer">PMID 20842579</a>) and Vedanarayanan’s 2004 review in Seminars in Neurology (<a href="https://pubmed.ncbi.nlm.nih.gov/15257515/" target="_blank" rel="noopener noreferrer">PMID 15257515</a>), both synthesizing clinical features, pathophysiology, and differential diagnosis.[11][13]</p>
+<p>Public health guidance from the British Columbia Centre for Disease Control (BCCDC), Purdue University Extension, MedlinePlus, Merck Manual, WebMD, and StatPearls adds contemporary practice-oriented descriptions and reinforces the rarity yet clinical urgency of the condition.[1][2][3][4][10][14] Mechanistic insights, particularly about holocyclotoxin from <em>Ixodes holocyclus</em>, derive from experimental work summarized in the comprehensive review “Tick paralysis in Australia caused by Ixodes holocyclus Neumann,” which emphasizes presynaptic inhibition of acetylcholine release at the neuromuscular junction.[9][16] Veterinary manuals and reviews extend understanding to animals and clarify species differences.[5][15][16]</p>
+<p>Thus, the evidence base is a mixture of human clinical case series, veterinary case reports, toxicology meta-analyses, and mechanistic in vivo and in vitro experiments in animals, all aggregated at the disease level rather than abstracted from large individual-level registries or EHR datasets.</p>
+<h2>2. Etiology</h2>
+<h3>Primary Causes and Mechanistic Category</h3>
+<p>The primary cause of tick paralysis is prolonged attachment and feeding of a salivary neurotoxin–secreting tick on a susceptible vertebrate host, leading to systemic intoxication and neuromuscular blockade.[5][9][11][13][16][17] The pathologic agent is a protein or peptide toxin produced in the salivary glands of certain adult female ticks, particularly during the rapid engorgement phase; during repeated salivary secretion and blood ingestion, this neurotoxin is injected into the host and disseminates to neuromuscular junctions.[5][8][9][16] The MSD Veterinary Manual emphasizes that “tick paralysis (tick toxicosis) is an acute, progressive, symmetrical, ascending motor paralysis due to salivary neurotoxins produced by certain species of ticks,” highlighting that the cause is a toxin rather than a pathogen.[5] Similarly, the Purdue Public Health and Medical Entomology resource clarifies that “the cause is now known to be an unidentified protein toxin (or toxins) in tick saliva, not a disease agent,” reinforcing its classification as a poisoning.[1]</p>
+<p>In humans in North America, the most frequently implicated species are <em>Dermacentor andersoni</em> (Rocky Mountain wood tick) and <em>Dermacentor variabilis</em> (American dog tick), while <em>Ixodes holocyclus</em> is the principal paralysis tick in eastern Australia and a key cause of severe paralysis in dogs, cats, and children.[5][6][9][16][18][19][20] The BCCDC notes that “the species causing the most cases of human tick paralysis in Canada are <em>Dermacentor andersoni</em> (the Rocky Mountain wood tick) and <em>Dermacentor variabilis</em> (the American dog tick),” with <em>D. andersoni</em> common throughout interior British Columbia.[3] MedlinePlus similarly lists <em>Dermacentor andersoni</em> as the species most often associated with tick paralysis in the Pacific Northwest and Rocky Mountain states, with <em>Dermacentor variabilis</em> and <em>Ixodes pacificus</em> also capable of causing paralysis.[10]</p>
+<p>Etiologically, tick paralysis occupies an unusual niche among neurotoxicoses: it is neither an exogenous chemical exposure nor a classic envenomation in the sense of acute injection of a bolus of venom; rather, it is due to “pulsed toxin flow associated with repeated tick feeding over a set period of time,” with systemic toxicosis arising particularly during periods of rapid engorgement.[5] The toxin is delivered through normal tick feeding behavior, and the risk of paralysis increases with the duration of attachment and degree of engorgement, explaining the typical 4–7 day latency between attachment and onset of neurologic symptoms.[3][6][9][13][16][18][19] No genetic or infectious etiologies have been convincingly demonstrated in human hosts; blood and CSF analyses are typically normal, and removal of the tick leads to rapid resolution without antimicrobial therapy.[6][11][18][19][20]</p>
+<p>From a disease ontology standpoint, tick paralysis is best categorized as a <strong>toxin-mediated injury</strong> secondary to an arthropod bite, aligning with MONDO’s “Injury” category, MeSH’s “Tick Toxicoses,” and ICD’s toxic effects of arthropod venom codes.[17] It is therefore distinct from hereditary neuromuscular disorders and from immune-mediated neuropathies such as Guillain–Barré syndrome, despite striking similarities in clinical presentation.</p>
+<h3>Genetic Risk Factors in the Host</h3>
+<p>For the human host, no causal variants, susceptibility loci, or modifier genes have been identified that confer a significantly increased risk of developing tick paralysis after exposure. The available case series, meta-analyses, and reviews show no evidence of familial clustering or hereditary predisposition; instead, risk appears to be driven primarily by environmental exposure and possibly age- and sex-related differences in behavior and physiology.[7][11][13][18][19] Vedanarayanan and colleagues explicitly describe tick paralysis as “a relatively uncommon neuromuscular disease with a higher prevalence among young girls, although older men who get exposed to ticks may also be affected,” without suggesting genetic causation.[13] Diaz’s meta-analysis of 50 U.S. cases over 60 years found seasonal and regional predictability but did not uncover genetic risk factors; rather, it emphasized demographic and environmental patterns.[7][19]</p>
+<p>Consequently, standard genetic databases such as ClinVar, ClinGen, GWAS Catalog, and OMIM do not list tick paralysis–related variants, and there are no validated host genetic markers of susceptibility. The penetrance concept is therefore not applicable in the classical sense, and tick paralysis should not be considered a Mendelian trait in humans.</p>
+<p>Interestingly, genetic variation exists in the ticks themselves regarding their ability to cause paralysis, implying that tick genes, rather than host genes, modulate risk. An experimental study by Wozniak et al. documented that the ability of <em>Dermacentor andersoni</em> to cause paralysis is heritable: crosses between virulent and avirulent strains showed that paralysis occurred with the virulent parental strain but not the avirulent strain, and virulence segregated within progeny.[8] The authors concluded that “these experiments further suggested that tick paralysis is a heritable trait, however, definitive proof is lacking,” indicating that tick salivary toxin production or composition is genetically determined within the vector.[8] From a comparative genomics perspective, those tick genes could be conceptualized as “causal genes” for the disease entity in MONDO, but their sequences and functional annotations are not yet integrated into human disease genetics resources.</p>
+<h3>Environmental and Behavioral Risk Factors</h3>
+<p>Environmental, behavioral, and occupational factors play a central role in determining risk of tick paralysis. The primary risk factor is exposure to habitats where paralysis-causing ticks are prevalent, combined with conditions that allow prolonged, unnoticed tick attachment. Diaz’s meta-analysis found that tick paralysis “occurred seasonally and sporadically in individuals and in clusters of children and adults of both sexes in urban and rural locations,” with cases concentrated in endemic regions of the Pacific Northwest and Rocky Mountain areas for <em>D. andersoni</em> and in the southeastern U.S. for <em>D. variabilis</em>.[7][19] The BCCDC reports only 0–2 human consultations for tick paralysis per year in British Columbia, highlighting its rarity but also its tight geographical coupling to <em>D. andersoni</em> habitats.[3] In Australia, holocyclotoxin-mediated paralysis is a significant veterinary and human health issue along the eastern seaboard, particularly in coastal and rainforest fringes where <em>Ixodes holocyclus</em> is abundant.[9][16]</p>
+<p>Age is a notable risk factor. Pediatric case series suggest that young children, especially girls, are disproportionately affected, likely because ticks preferentially attach to the scalp in children, are hidden by hair, and may remain undetected for days.[7][13][18][19] Grattan-Smith et al. described six Australian children with generalized tick paralysis, all of whom had mature female <em>Ixodes holocyclus</em> ticks attached to the scalp, reinforcing the interplay between age-related scalp exposure and paralysis risk.[18][20] An 83-year-old man described in a CMAJ case report developed severe ataxia, diplopia, four-limb weakness, and dysarthria after working at his rural cabin, illustrating that older adults with high environmental exposures are also at risk.[6] Behavioral factors such as hiking, camping, forestry work, and pet ownership (particularly dogs that roam in tick-infested areas) increase the likelihood of contact with paralysis ticks and of ticks being transported into domestic environments.[2][3][10]</p>
+<p>Sex differences have been noted but are likely behavioral rather than biologically determined. Several series report a predominance of female patients in pediatric and adult cohorts, but this has been attributed to hair length, clothing, and exposure patterns rather than genetic or hormonal susceptibility.[7][13][19] Nonetheless, from an epidemiologic perspective, female sex appears as a weak risk marker, which may be useful for clinical suspicion in endemic settings.</p>
+<p>The single most critical environmental risk factor is the duration of tick attachment and degree of engorgement. Multiple sources indicate that symptoms typically begin only after the tick has fed for 4–7 days, suggesting a threshold exposure to salivary toxin.[3][6][9][13][16][18] The BCCDC notes that “symptoms begin after a female tick attaches to the skin and has fed for 5–7 days,” while MedlinePlus describes onset of leg weakness “usually 2 to 7 days after a tick bite,” underscoring this latency.[3][10] Purdue Extension similarly emphasizes that paralysis is associated with feeding by an engorging female tick often attached along the spinal cord or scalp.[1] Therefore, individuals who fail to perform regular tick checks, who sleep outdoors without protection, or who have reduced ability to sense or remove ticks (e.g., due to cognitive or mobility impairments) are at higher risk.</p>
+<h3>Protective Factors and Prevention-Oriented Etiology</h3>
+<p>Protective factors derive primarily from measures that prevent tick attachment or that ensure early tick removal before sufficient toxin is delivered. Use of tick repellents containing DEET or permethrin on clothing, wearing long sleeves and pants, tucking pants into socks, avoiding dense vegetation and leaf litter, and performing daily full-body tick checks substantially reduce risk of tick bites and prolonged attachment, and thus reduce risk of tick paralysis.[2][3][10] Pet-level tick control—such as regular acaricide treatment, tick collars, and limiting dogs’ roaming in high-risk habitats—lowers the risk of ticks being carried into homes and onto humans.[2][3][10] The BCCDC and Purdue resources emphasize meticulous examination of the scalp, neck, and intertriginous areas when tick paralysis is suspected; this same approach, applied as a preventive habit after outdoor exposure, functions as a protective factor by enabling early removal.[1][3]</p>
+<p>No specific dietary, lifestyle, or pharmacologic factors have been identified that alter susceptibility to the neurotoxin itself. There is no evidence that host genetic polymorphisms in neuromuscular junction proteins (e.g., presynaptic calcium channels or acetylcholine release machinery) confer resistance or vulnerability. However, general health status and respiratory reserve may modulate clinical severity and outcome: patients with pre-existing neuromuscular disease, lung disease, or frailty may have less capacity to withstand respiratory muscle weakness and may progress more quickly to respiratory failure.[5][9][13][19] Conversely, robust healthy hosts, particularly older children and adults, may tolerate some degree of weakness and recover fully with minimal supportive care once the tick is removed.</p>
+<h3>Gene–Environment Interactions</h3>
+<p>In the strict human genetic sense, gene–environment interactions have not been characterized for tick paralysis. This reflects both the rarity of the condition and the fact that its incidence is overwhelmingly determined by tick exposure rather than intrinsic host genetics. Nonetheless, at a broader eco-genetic level, interesting interactions do occur between tick genetics and environmental conditions, influencing toxin production and disease risk.</p>
+<p>The heritability of paralysis-inducing capacity in <em>Dermacentor andersoni</em> suggests that specific tick genotypes encode salivary gland toxins capable of causing paralysis, while others do not.[8] Environmental conditions, such as temperature and season, may modulate expression or activity of these toxin genes; experimental work in <em>Ixodes holocyclus</em> has indicated temperature-dependent inhibition of evoked acetylcholine release by holocyclotoxin, implying that toxin potency is influenced by environmental factors experienced by the tick.[16] One early study cited by Stone and colleagues reported “temperature-dependent inhibition of evoked acetylcholine release in tick paralysis,” suggesting that toxin action is modulated by ambient or physiological temperature.[16] Thus, at the vector level, gene–environment interactions shape the risk that any given tick bite will result in paralysis, although these interactions are not yet mapped in molecular detail.</p>
+<p>Within hosts, immunologic factors could theoretically modify susceptibility to tick salivary toxins. Repeated tick exposures might induce partial immunity, reducing clinical severity over time; conversely, allergic sensitization might exacerbate local and systemic responses. Veterinary observations in dogs have suggested variability in clinical severity that could reflect such host factors, but definitive mechanistic studies are lacking.[5][15][16] Therefore, while gene–environment interactions likely exist in both ticks and hosts, current knowledge does not permit precise enumeration or integration into a formal risk prediction model.</p>
+<h2>3. Phenotypes</h2>
+<h3>Core Clinical Phenotypes and Symptom Types</h3>
+<p>Tick paralysis manifests a characteristic constellation of neuromuscular phenotypes, dominated by symmetric ascending motor weakness, gait unsteadiness, areflexia, and often cranial nerve and bulbar involvement, with relatively preserved sensation and cognition.[1][3][4][6][11][13][18][19][20] Grattan-Smith et al.’s seminal Brain 1997 paper on six Australian children with generalized tick paralysis described the typical presentation as “a prodrome followed by the development of an unsteady gait, and then ascending, symmetrical, flaccid paralysis,” emphasizing both the sequential evolution and the symmetry of motor involvement.[18][20] The children exhibited early cranial nerve involvement, particularly internal and external ophthalmoplegia, along with facial weakness and dysarthria, suggesting preferential vulnerability of certain cranial motor nuclei or their neuromuscular junctions.[18][20]</p>
+<p>Common symptoms include muscle weakness, beginning in the legs and progressing proximally; difficulty walking or ataxia; fatigue and lethargy; irritability; paresthesias or numbness; and in some cases restlessness and muscle pains.[1][2][3][6][11][13][18][19] The BCCDC lists numbness and tingling in the face and limbs, fatigue, weakness, irritability, restlessness or muscle pains as early features, followed over hours or days by unsteady balance and then complete or partial paralysis starting in the legs and moving upwards.[3] WebMD similarly notes that tick paralysis “usually starts with numbness or tingling in your legs,” with accompanying muscle pain, tiredness, and irritability.[2] MedlinePlus emphasizes that tick paralysis “starts with weakness in the legs, usually 2 to 7 days after a tick bite,” progressing to more generalized paralysis that may impair breathing.[10]</p>
+<p>Cranial nerve dysfunction manifests as diplopia, double or blurred vision, photophobia, facial weakness, dysarthria, dysphagia, difficulty swallowing and speaking, and sometimes impaired gag reflex.[3][6][9][13][18][20] The CMAJ case report of an 83-year-old man highlighted diplopia, marked dysarthria, dysmetria, and reduced vibration sense and proprioception, though sensation is usually relatively preserved.[6] In Australian holocyclotoxin-mediated paralysis, early cranial nerve involvement is particularly prominent; Grattan-Smith et al. reported “both internal and external ophthalmoplegia” as a hallmark feature, with dilated pupils and impaired eye movements.[18][20] These cranial features can be mapped to HPO terms such as “Ophthalmoplegia” (<a href="http://purl.obolibrary.org/obo/HP_0000602" target="_blank" rel="noopener noreferrer">HP:0000602</a>), “Diplopia” (<a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" rel="noopener noreferrer">HP:0000651</a>), “Facial weakness” (<a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" rel="noopener noreferrer">HP:0002353</a>), “Dysarthria” (<a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" rel="noopener noreferrer">HP:0001260</a>), and “Dysphagia” (<a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" rel="noopener noreferrer">HP:0002360</a>).</p>
+<p>Respiratory involvement represents the most serious phenotype, with weakness of diaphragmatic and intercostal muscles leading to hypoventilation, dyspnea, and potential respiratory failure requiring mechanical ventilation.[1][3][4][5][9][10][11][13][19] Emergency medicine resources emphasize that while tick paralysis is rarely fatal, “it’s an emergency if it weakens your diaphragm and makes it hard to breathe,” and the Merck Manual warns that “bulbar or respiratory paralysis may develop” and that tick paralysis “can be fatal” but is reversible if ticks are promptly removed.[2][4] Respiratory failure corresponds to the HPO term <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" rel="noopener noreferrer">HP:0002878</a>, and diaphragmatic weakness to <a href="http://purl.obolibrary.org/obo/HP_0002243" target="_blank" rel="noopener noreferrer">HP:0002243</a> (“Diaphragmatic paralysis”), although specific coding may vary in individual ontologies.</p>
+<h3>Age of Onset, Severity, and Progression Patterns</h3>
+<p>Tick paralysis is not congenital and does not have a fixed age of onset; rather, onset is determined entirely by timing of tick exposure and duration of attachment. In human series, most cases occur in children and younger adults, but elderly individuals with high exposure are also represented.[6][7][13][18][19] The meta-analysis by Diaz reported that tick paralysis “primarily afflicts young girls in endemic regions,” though adults of both sexes can be affected.[7][19] Vedanarayanan’s Seminars in Neurology review similarly states that it “has a higher prevalence among young girls, although older men who get exposed to ticks may also be affected.”[13] In Australia, holocyclotoxin-mediated paralysis often presents in children and in dogs and cats of various ages.[9][16][18][20]</p>
+<p>Onset pattern is typically subacute but can appear abrupt from the patient’s perspective. After 4–7 days of silent tick feeding, a prodrome of malaise, fatigue, irritability, and paresthesias emerges, followed by gait unsteadiness and then rapid progression to ascending weakness over hours to a couple of days.[3][6][9][13][18][19][20] Diaz’s meta-analysis found that paralysis ensues after a mean of 1.4 days (range 1–10 days) following onset of neurologic symptoms, reflecting a rapid progression once toxin burden reaches a critical threshold.[6][19] Grattan-Smith et al. observed progression from prodrome to generalized flaccid paralysis within a relatively short time frame in their pediatric series.[18][20] The BCCDC notes that progression can occur over several hours or days, culminating in complete or partial paralysis, and warns that respiratory difficulties and death can rarely occur if the tick is not removed rapidly.[3]</p>
+<p>Symptom severity is variable but can be profound. Mild cases may exhibit only gait unsteadiness and proximal leg weakness, resolving quickly after tick removal. Moderate cases may manifest four-limb weakness, cranial nerve deficits, and mild respiratory compromise. Severe cases, particularly in Australian holocyclotoxin exposures and heavily infested animals, can present with generalized flaccid paralysis, dilated pupils, marked bulbar dysfunction, and life-threatening hypoventilation.[5][9][15][16][18][20] The MSD Veterinary Manual notes that dyspnea, crackles, wheezes, and high neuromuscular junction scores are poor prognostic signs in animals, indicating more severe toxicosis and respiratory distress.[5] Human mortality over 60 years in the U.S. literature was 6.0%, which, while low, underscores that fatal outcomes occur when diagnosis and tick removal are delayed.[7][19]</p>
+<p>Progression is typically monotonic until the tick is removed; the disease does not show relapsing-remitting patterns or spontaneous remission while the tick remains attached. Once the tick is removed, however, the course reverses dramatically, with rapid improvement over minutes to hours and complete recovery usually within one to several days.[1][3][4][6][18][19][20] Diaz’s meta-analysis reported that “full recovery usually occurs after 1.5 (range 1–2.5) days” following tick removal.[6][19] Still, some sources note that if paralysis has progressed far, complete recovery may take up to six months, though this likely reflects comorbidities or residual deconditioning rather than ongoing toxin effects.[1] In animals, recovery may be slower, particularly when respiratory complications or secondary infections have developed.[5][15][16]</p>
+<h3>Frequency and Phenotype Penetrance among Affected Individuals</h3>
+<p>Within documented cases, certain phenotypes appear nearly universal. Ascending symmetrical motor weakness and gait unsteadiness are present in virtually all human cases described in neurology series and meta-analyses.[6][7][11][13][18][19][20] Areflexia or markedly diminished deep tendon reflexes is also a consistent finding, paralleling the clinical picture of Guillain–Barré syndrome.[11][13][18][20] Paresthesias, fatigue, and irritability are common prodromal symptoms, though not present in every case.[2][3][6][13][18][19] Cranial nerve involvement, especially ophthalmoplegia, facial weakness, and dysarthria, appears more frequent and more prominent in Australian <em>Ixodes holocyclus</em>–mediated paralysis than in North American <em>Dermacentor</em> paralysis, suggesting toxin-specific phenotypic differences.[9][16][18][20] Grattan-Smith et al. considered early cranial nerve involvement, particularly internal and external ophthalmoplegia, as a hallmark of holocyclotoxin paralysis in children.[18][20]</p>
+<p>Respiratory compromise occurs in a subset—perhaps 10–30% of severe holocyclotoxin cases and a smaller fraction of North American Dermacentor paralysis—but exact frequencies are not well quantified due to sparse data.[5][9][13][19] Diaz’s meta-analysis noted that respiratory failure and death could occur but did not provide a detailed breakdown of respiratory involvement frequency; the overall case fatality rate was 6.0%.[7][19] In animals, respiratory signs such as dyspnea, crackles, and wheezes are recognized as poor prognostic signs, but again, precise frequencies depend on species, toxin, and timing of intervention.[5][15][16]</p>
+<p>Quality-of-life impact is intensely negative during the acute phase, given profound motor disability, risk of respiratory failure, and psychological distress, but this impact is transient because of the reversible nature of the syndrome once correctly diagnosed and managed. During paralysis, patients may be unable to walk, stand, or perform basic activities of daily living, and they may experience anxiety or fear related to breathing difficulties and possible misdiagnosis.[6][11][13][18][19] However, rapid recovery with minimal residual deficits means that long-term disability outcomes are rare in human tick paralysis, in contrast to many other neuromuscular diseases. If mapped to quality-of-life instruments such as the EQ-5D or SF-36, tick paralysis would show extreme impairments in mobility, self-care, and usual activities during the acute episode, with rapid return to baseline scores once the tick is removed and the toxin cleared.</p>
+<h3>Suggested HPO Terms for Major Phenotypes</h3>
+<p>The primary phenotypes of tick paralysis can be associated with Human Phenotype Ontology terms to support structured knowledge representation. Ascending flaccid paralysis corresponds to “Flaccid paralysis” (<a href="http://purl.obolibrary.org/obo/HP_0003471" target="_blank" rel="noopener noreferrer">HP:0003471</a>) and “Muscle weakness” (<a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" rel="noopener noreferrer">HP:0001324</a>), with the ascending pattern contributing to a more specific descriptor such as “Progressive motor impairment” (<a href="http://purl.obolibrary.org/obo/HP_0002340" target="_blank" rel="noopener noreferrer">HP:0002340</a>).[18][20] Ataxia and unsteady gait can be mapped to “Ataxia” (<a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a>) and “Gait instability” (<a href="http://purl.obolibrary.org/obo/HP_0002141" target="_blank" rel="noopener noreferrer">HP:0002141</a>).[18][20] Numbness and tingling are captured by “Paresthesia” (<a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" rel="noopener noreferrer">HP:0003401</a>).[3] Cranial nerve phenotypes include “Ophthalmoplegia” (<a href="http://purl.obolibrary.org/obo/HP_0000602" target="_blank" rel="noopener noreferrer">HP:0000602</a>), “Diplopia” (<a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" rel="noopener noreferrer">HP:0000651</a>), “Facial weakness” (<a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" rel="noopener noreferrer">HP:0002353</a>), “Dysarthria” (<a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" rel="noopener noreferrer">HP:0001260</a>), “Dysphagia” (<a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" rel="noopener noreferrer">HP:0002360</a>), and “Bulbar palsy” (<a href="http://purl.obolibrary.org/obo/HP_0001285" target="_blank" rel="noopener noreferrer">HP:0001285</a>).[3][6][9][18][20] Respiratory involvement can be coded as “Respiratory failure” (<a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" rel="noopener noreferrer">HP:0002878</a>) and “Dyspnea” (<a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a>).[1][3][4][5][10]</p>
+<p>Prodromal fatigue and lethargy can be assigned to “Fatigue” (<a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a>) and “Lethargy” (<a href="http://purl.obolibrary.org/obo/HP_0001254" target="_blank" rel="noopener noreferrer">HP:0001254</a>).[3][13] Areflexia aligns with “Absent reflexes” (<a href="http://purl.obolibrary.org/obo/HP_0001284" target="_blank" rel="noopener noreferrer">HP:0001284</a>).[6][18][20] Irritability and restlessness could be noted as “Irritability” (<a href="http://purl.obolibrary.org/obo/HP_0000737" target="_blank" rel="noopener noreferrer">HP:0000737</a>), though psychiatric mapping is less central in this toxidrome. Importantly, sensory modalities are largely preserved, so absence of sensory loss is a phenotypic clue to differentiate tick paralysis from some neuropathies; this can be recorded as the absence of “Sensory neuropathy” (<a href="http://purl.obolibrary.org/obo/HP_0003474" target="_blank" rel="noopener noreferrer">HP:0003474</a>).</p>
+<p>By coupling these HPO terms to <a href="http://purl.obolibrary.org/obo/MONDO_0005981" target="_blank" rel="noopener noreferrer">MONDO:0005981</a>, the disease knowledge base can capture the core clinical signature of tick paralysis in a machine-readable format.</p>
+<h2>4. Genetic and Molecular Information</h2>
+<h3>Absence of Human Causal Genes and Variants</h3>
+<p>Tick paralysis is an archetypal non-genetic disorder in the human host, and no human causal genes or pathogenic variants have been associated with its occurrence. As noted in multiple reviews, the disease results from inoculation of a toxin from tick salivary glands during a blood meal, not from mutations in human neuromuscular genes.[5][9][11][13][16][17] Vedanarayanan et al. clearly state that “tick paralysis results from inoculation of a toxin from tick salivary glands during a blood meal,” emphasizing its exogenous nature.[13] The MeSH descriptor for tick paralysis similarly frames it as “paralysis caused by a neurotropic toxin secreted by the salivary glands of ticks,” underscoring that the physiologic insult originates in the vector.[17]</p>
+<p>Consequently, comprehensive searches of OMIM, ClinVar, HGMD, Ensembl, and NCBI Gene do not yield entries linking specific human gene mutations to tick paralysis. There is no recognized pattern of autosomal dominant, autosomal recessive, X-linked, mitochondrial, or multifactorial inheritance for this condition, and family history is not a known risk factor.[11][13][19] Population allele frequency databases such as gnomAD and 1000 Genomes have no relevance to tick paralysis risk, and somatic mutations or structural genomic variants have not been implicated.</p>
+<h3>Tick Genetic Determinants of Toxin Production</h3>
+<p>At the vector level, however, genetic determinants exist. The capacity of certain tick strains to cause paralysis is heritable, indicating that tick genes encode and regulate salivary neurotoxins that are responsible for disease. Wozniak and colleagues examined the heritability of the ability to cause paralysis in <em>Dermacentor andersoni</em> by crossing virulent and avirulent strains and assessing virulence in hamsters.[8] Their abstract notes that “paralysis was caused by the virulent parental strain but not by the avirulent parental strain,” and that experiments suggested heritability of the trait.[8] Although the exact genes were not identified, this work implies that specific loci in the tick genome regulate expression or structure of salivary toxins, thus functionally serving as “causal genes” for tick paralysis from an eco-parasitologic standpoint.</p>
+<p>In <em>Ixodes holocyclus</em>, the toxin holocyclotoxin is produced in the salivary glands of feeding female ticks and transferred to the host via saliva; its production is presumably controlled by tick gene networks analogous to those governing other arthropod toxins, but individual genes have not yet been fully characterized.[9][16] Stone’s review emphasizes that the toxin results in a presynaptic decrease in acetylcholine release at the neuromuscular junction, indicating specific molecular targeting, but does not identify the tick genes encoding holocyclotoxin.[9][16] These tick toxin genes are not, in the strict sense, part of the human genome, but they could be recorded in comparative disease databases with NCBI Gene IDs once identified, enabling integration of tick genomics into the tick paralysis knowledge graph.</p>
+<h3>Modifier Genes and Epigenetic Information</h3>
+<p>Given the absence of host genetic causation, no modifier genes have been described that alter disease severity or expression in humans. There is no evidence that polymorphisms in presynaptic calcium channels (e.g., P/Q-type channels), SNARE complex proteins, or acetylcholine transporters modulate susceptibility to tick salivary neurotoxins. Epigenetic modifications such as DNA methylation or histone changes have not been studied in the context of tick paralysis, and given the acute, transient nature of the exposure, epigenetic regulation is unlikely to play a major causal role in human hosts.</p>
+<p>In ticks, epigenetic regulation might influence salivary gland gene expression, including toxin production, but direct evidence is absent from the current literature. As tick genomics and epigenomics advance, one might eventually catalogue tick salivary gland expression profiles and connect them to paralysis phenotypes, but this remains prospective.</p>
+<h3>Chromosomal Abnormalities and Structural Genomics</h3>
+<p>No chromosomal abnormalities, aneuploidies, translocations, or inversions in the human host have been linked to tick paralysis. Patients described in neurology and toxicology case series do not share structural genomic features beyond general health status. Chromosomal microarray, karyotyping, and FISH are irrelevant in clinical workup of tick paralysis, which is diagnosed by clinical and exposure history, physical examination with tick detection, and sometimes neurophysiologic testing.[4][6][11][13][18][19][20]</p>
+<p>In the tick, chromosomal location of toxin genes remains uncharacterized. Future mapping of tick genomes might identify structural features or gene clusters associated with toxin production, but current disease-level databases do not include these.</p>
+<p>In summary, for human disease representation, tick paralysis should be annotated explicitly as <strong>non-genetic</strong>, with no host causal or modifier genes, while recognizing that tick genetic determinants of salivary toxin production exist and could be captured in vector-focused databases.</p>
+<h2>5. Environmental Information</h2>
+<h3>Environmental Exposures and Ecologic Context</h3>
+<p>Tick paralysis is deeply rooted in environmental and ecological contexts, as its occurrence depends on specific tick species, their geographic distributions, seasonal activity, and local habitat characteristics. <em>Dermacentor andersoni</em>, the Rocky Mountain wood tick, is found in the Rocky Mountain and Pacific Northwest regions of North America, favoring grasslands, shrublands, and open forests at elevations where deer, rodents, and other hosts are common.[3][5][10][19] <em>Dermacentor variabilis</em>, the American dog tick, is widespread in the eastern and southeastern United States, inhabiting meadows, roadsides, and edges of forests.[5][10][19] The BCCDC specifically notes that <em>D. andersoni</em> is found throughout British Columbia and is most common in interior BC, aligning tick paralysis risk with those regions.[3] In Australia, <em>Ixodes holocyclus</em> occupies coastal and inland rainforest fringes along the eastern seaboard, especially in New South Wales and Queensland, where humidity and vegetation support its life cycle.[9][16][18]</p>
+<p>Seasonal factors are crucial. Diaz’s meta-analysis showed that tick paralysis cases clustered in late spring and early summer, corresponding to peak activity of adult female ticks seeking hosts.[7][19] Public health advisories often stress that during tick season, individuals presenting with acute flaccid paralysis should be carefully examined for ticks.[3][6] Climatic changes that alter tick distributions, such as warming temperatures and changes in rainfall patterns, may influence future tick paralysis risk regions, but detailed climate–incidence models are not yet available.</p>
+<p>Environmental risk factors also include microhabitat features such as leaf litter, tall grasses, and animal burrows, which provide questing sites for ticks. Human behaviors that increase contact with these microhabitats—such as hiking off-trail, camping on forest floors, or lying in grass—raise exposure risk. Dogs and other pets that roam through such environments and return to human dwellings serve as bridging hosts, increasing the chance that ticks will attach to humans in domestic settings.[2][3][10][15]</p>
+<h3>Lifestyle and Occupational Factors</h3>
+<p>Lifestyle factors that influence risk include outdoor recreational activities, occupational exposures, and pet ownership. Individuals who hike, camp, hunt, or engage in nature tourism in endemic areas are at higher risk of tick bites, and by extension tick paralysis, especially if they do not employ protective clothing or repellents.[2][3][10] Forestry workers, farmers, ranchers, park rangers, and cabin owners, such as the 83-year-old Canadian man who developed severe paralysis after working at his cabin in the Thompson–Nicola region of British Columbia, face occupational exposures.[6] Children who play outdoors in tick-infested environments, particularly in rural or peri-urban settings, may be bitten on the scalp or behind the ears and be unaware of the tick’s presence.[3][13][18]</p>
+<p>Pet ownership, especially of dogs, is a significant lifestyle risk factor. Dogs can host paralysis ticks such as <em>Ixodes holocyclus</em> or <em>Dermacentor</em> species, and ticks can transfer from dogs to humans in close-contact settings.[2][3][10][15][16] WebMD notes that “dogs can bring ticks into your home, which then attach to you,” emphasizing this indirect exposure pathway.[2] Lack of regular tick prevention for pets—such as acaricidal collars, spot-on treatments, or environmental insecticide use—thus increases risk for both animals and humans.</p>
+<p>Alcohol consumption, smoking, diet, and exercise do not appear to modify tick paralysis risk directly, although high levels of intoxication or sedation might reduce awareness of tick bites and delay removal. In general, lifestyle factors that increase outdoor exposure without appropriate protective measures serve as risk enhancers.</p>
+<h3>Infectious Agents and Co-exposures</h3>
+<p>Tick paralysis itself is noninfectious, but ticks capable of causing paralysis can also transmit infectious agents, including <em>Rickettsia rickettsii</em> (Rocky Mountain spotted fever), <em>Borrelia burgdorferi</em> (Lyme disease, transmitted by <em>Ixodes scapularis</em> and other species), and various Ehrlichia and Anaplasma species.[1][5][10][11][16] The Purdue Extension webpage discussing tick paralysis also references human monocytic ehrlichiosis as another tick-borne disease, highlighting that tick paralysis can occur alongside, or be confused with, infectious tick-borne illnesses.[1] However, clinical features of tick paralysis differ from these infections: fever, rash, systemic inflammatory signs, and abnormal serologies are absent, and neurological deficits reverse rapidly with tick removal even in the absence of antimicrobial therapy.[6][11][13][18][19]</p>
+<p>The possibility of co-exposure to tick-borne pathogens exists, especially in regions where paralysis ticks share habitats with infected ticks carrying other pathogens. Clinicians must therefore remain aware that a patient with tick paralysis might also have concomitant or subsequent tick-borne infections, requiring separate diagnostic and therapeutic considerations. Nonetheless, infectious agents are not causally involved in tick paralysis itself, and they should not be recorded as etiologic agents for <a href="http://purl.obolibrary.org/obo/MONDO_0005981" target="_blank" rel="noopener noreferrer">MONDO:0005981</a>.</p>
+<h2>6. Mechanism and Pathophysiology</h2>
+<h3>Ordered Causal Chain from Exposure to Clinical Manifestation</h3>
+<p>(1) Prolonged attachment and feeding of a toxin-secreting adult female ixodid tick on a human or animal host leads to repeated secretion of saliva containing neurotoxic proteins into the host’s skin and circulation.[1][3][5][8][9][16][17]</p>
+<p>(2) Accumulation of tick salivary neurotoxins in the host’s systemic circulation leads to distribution of toxin molecules to peripheral neuromuscular junctions, particularly those of skeletal muscles in the limbs and cranial musculature.[5][9][16][18][20]</p>
+<p>(3) Binding of tick neurotoxins to presynaptic terminals at the neuromuscular junction leads to inhibition of evoked acetylcholine release, via interference with voltage-gated calcium channels or neurotransmitter release machinery, resulting in impaired synaptic transmission.[9][16][18][20]</p>
+<p>(4) Reduced acetylcholine release at neuromuscular junctions leads to decreased end-plate potentials and failure to trigger muscle fiber depolarization, resulting in flaccid paralysis of affected muscles, beginning in distal limb muscles and progressing proximally.[5][9][16][18][20]</p>
+<p>(5) As toxin burden increases or persists, neuromuscular blockade spreads to cranial nerves and respiratory muscles, leading to ophthalmoplegia, facial weakness, bulbar palsy, and potentially diaphragmatic and intercostal muscle paralysis, which leads to hypoventilation and respiratory failure in severe cases.[3][4][5][6][9][10][13][18][19][20]</p>
+<p>(6) Removal of the attached tick leads to cessation of further toxin delivery, allowing gradual clearance of neurotoxin from the circulation and neuromuscular junctions, which leads to restoration of acetylcholine release, recovery of neuromuscular transmission, and rapid clinical improvement.[1][3][4][6][9][16][18][19][20]</p>
+<p>(7) In survivors, absence of structural nerve damage leads to complete functional recovery without long-term neuromuscular deficits, although prolonged severe cases may result in temporary deconditioning or secondary complications that lead to a longer convalescent period.[1][5][9][15][18][19]</p>
+<h3>Molecular Pathways and Synaptic Mechanisms</h3>
+<p>The primary molecular pathway implicated in tick paralysis is presynaptic inhibition of acetylcholine release at the neuromuscular junction. Holocyclotoxin from <em>Ixodes holocyclus</em> has been studied most extensively; experimental work indicates that this toxin results in “a presynaptic decrease in acetylcholine release at the neuromuscular junction,” effectively blocking neuromuscular transmission.[9][16] Cooper and Spence demonstrated temperature-dependent inhibition of evoked acetylcholine release in tick paralysis, suggesting that holocyclotoxin acts on presynaptic mechanisms sensitive to temperature.[16] This mechanism broadly parallels that of certain presynaptic neurotoxins in snake venoms and botulinum neurotoxins, though the precise molecular target—whether a specific voltage-gated calcium channel, SNARE protein, or other release regulator—remains incompletely defined.</p>
+<p>In molecular terms, holocyclotoxin’s action can be mapped to Gene Ontology processes such as “regulation of neurotransmitter secretion” (<a href="http://purl.obolibrary.org/obo/GO_0007269" target="_blank" rel="noopener noreferrer">GO:0007269</a>), “negative regulation of synaptic transmission, cholinergic” (<a href="http://purl.obolibrary.org/obo/GO_0032226" target="_blank" rel="noopener noreferrer">GO:0032226</a>), and “neuromuscular junction development and function” (<a href="http://purl.obolibrary.org/obo/GO_0007528" target="_blank" rel="noopener noreferrer">GO:0007528</a>). By inhibiting acetylcholine release, the toxin disrupts “cholinergic synaptic transmission” (<a href="http://purl.obolibrary.org/obo/GO_0007271" target="_blank" rel="noopener noreferrer">GO:0007271</a>) in motor endplates, causing failure of muscle activation.</p>
+<p>For <em>Dermacentor</em> toxins, mechanistic data are less detailed but suggest similar neuromuscular interference. The MSD Veterinary Manual notes that tick salivary toxins have “a direct effect on cellular potassium channels and thus on intracellular calcium levels,” implying alteration of presynaptic electrophysiology and calcium signaling.[5] This could be conceptualized under GO terms such as “regulation of membrane potential” (<a href="http://purl.obolibrary.org/obo/GO_0042391" target="_blank" rel="noopener noreferrer">GO:0042391</a>), “regulation of calcium ion concentration” (<a href="http://purl.obolibrary.org/obo/GO_0051924" target="_blank" rel="noopener noreferrer">GO:0051924</a>), and “voltage-gated ion channel activity” (<a href="http://purl.obolibrary.org/obo/GO_0005249" target="_blank" rel="noopener noreferrer">GO:0005249</a>). Inhibition of voltage-gated calcium channels would reduce calcium-dependent synaptic vesicle fusion and acetylcholine release, mirroring holocyclotoxin’s effect.</p>
+<p>No evidence suggests that tick neurotoxins directly target postsynaptic acetylcholine receptors or muscle fiber excitability; electrophysiologic studies show normal motor conduction velocities and normal sensory nerves, with reduced compound muscle action potential (CMAP) amplitudes.[18][20] Grattan-Smith et al. found low-amplitude CMAPs with normal motor conduction velocities, normal sensory studies, and normal response to repetitive stimulation, indicating a presynaptic or neuromuscular junction disorder rather than demyelinating neuropathy or primary muscle disease.[18][20]</p>
+<h3>Cellular Processes and Tissue-Level Pathophysiology</h3>
+<p>At the cellular level, tick paralysis involves functional rather than structural disruption of peripheral motor neurons and neuromuscular junctions. Tick salivary neurotoxins bind to presynaptic nerve terminals, altering ion channel function and vesicle release machinery without causing immediate cell death or axonal degeneration.[5][9][16][18][20] This leads to a state of reversible neuromuscular blockade, analogous to pharmacologic neuromuscular blockers used in anesthesia, but arising from endogenous tick venom. Cell types involved include motor neurons (<a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" rel="noopener noreferrer">CL:0000100</a>), skeletal muscle fibers (<a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a>), and Schwann cells at motor nerve terminals, though Schwann cells themselves are not directly damaged.</p>
+<p>Apoptosis, necrosis, autophagy, and inflammatory cell infiltration are not prominent features; histopathologic examination in animal models and clinical observations suggest that the central nervous system cortex remains unaffected, and patients remain alert and conscious with preserved sensation.[9][16] Stone’s review emphasizes that “the cortex of the central nervous system seems generally unaffected, since the cases remain alert and conscious and sensations are retained,” underscoring that the pathophysiology is peripheral and functional.[9][16] This corresponds to GO processes such as “neuromuscular process controlling balance” (<a href="http://purl.obolibrary.org/obo/GO_0050907" target="_blank" rel="noopener noreferrer">GO:0050907</a>) and “skeletal muscle contraction” (<a href="http://purl.obolibrary.org/obo/GO_0003009" target="_blank" rel="noopener noreferrer">GO:0003009</a>), which are temporarily impaired.</p>
+<p>In severe cases, primary hypoventilation due to diaphragmatic and intercostal muscle paralysis is the main cause of death.[5][9][15][16] The MSD Veterinary Manual notes that “primary hypoventilation is the main cause of death in most severe cases, in which alveolar disease may also be present,” suggesting that secondary pulmonary complications such as atelectasis or infection may develop in prolonged paralysis.[5] Thus, respiratory muscle failure leads to global hypoxia, hypercapnia, and systemic organ stress, but again without intrinsic inflammatory or immune-mediated pathology.</p>
+<h3>Metabolic Changes and Biochemical Abnormalities</h3>
+<p>Metabolic changes in tick paralysis are largely secondary to reduced muscle activity and hypoventilation. There is no evidence of primary metabolic derangements such as mitochondrial dysfunction, lipid metabolism defects, or amino acid metabolism abnormalities. Laboratory tests in human cases typically show normal blood chemistries and cerebrospinal fluid, distinguishing tick paralysis from conditions like metabolic myopathies or inflammatory neuropathies.[6][11][13][18][19] Diaz’s meta-analysis and Edlow’s review both emphasize normal CSF in tick paralysis, contrasting it with Guillain–Barré syndrome, where albuminocytologic dissociation is common.[11][19]</p>
+<p>Biochemical abnormalities at the synaptic level include reduced acetylcholine release and altered calcium dynamics in presynaptic terminals. Holocyclotoxin and related tick salivary toxins are proteinaceous, likely belonging to CHEBI categories of neurotoxins (e.g., <a href="http://purl.obolibrary.org/obo/CHEBI_50910" target="_blank" rel="noopener noreferrer">CHEBI:50910</a>) and peptide toxins. Their interaction with presynaptic machinery leads to decreased neurotransmitter release, which is the central biochemical lesion.</p>
+<h3>Immune System Involvement</h3>
+<p>The immune system does not play a primary causal role in tick paralysis. There is no evidence of autoimmune attack against neuromuscular junction components, and tick paralysis is not associated with autoantibodies such as anti–acetylcholine receptor antibodies or anti–VGCC antibodies that characterize myasthenia gravis or Lambert–Eaton myasthenic syndrome.[11][13][18][19] Cytokine elevation, inflammatory infiltrates, and immune-mediated demyelination are absent, and the rapid reversibility of symptoms after tick removal argues against immunologic mechanisms, which typically persist longer and require immunomodulatory treatment.</p>
+<p>However, mild immune responses occur at the tick bite site, including local inflammation and formation of a red bump due to host reaction to tick saliva.[2][3][10] WebMD notes that “if the tick has already fallen off, look for a red bump, which is your body’s reaction to the saliva,” reflecting localized innate immune activation.[2] Allergic reactions to tick bites, such as localized swelling or anaphylaxis, are distinct phenomena that can co-occur but are not central to the paralysis mechanism.</p>
+<h3>Epigenetic and Molecular Profiling Data</h3>
+<p>No transcriptomics, proteomics, metabolomics, lipidomics, or epigenomics datasets specific to tick paralysis in human hosts are available in public repositories such as GEO or PRIDE, reflecting the rarity and acute nature of the condition. In tick biology research, salivary gland transcriptomes of various species have been studied, including <em>Ixodes</em> and <em>Dermacentor</em>, but these data are not yet curated specifically under tick paralysis phenotypes.</p>
+<p>Thus, advanced omics-level profiling and single-cell analyses are currently unavailable for this disease, and mechanistic understanding relies on classical physiology and toxin pharmacology rather than multi-omics integration.</p>
+<h3>Upstream vs Downstream Mechanisms and Cell-Type Involvement</h3>
+<p>Upstream mechanisms in tick paralysis include tick salivary gland toxin gene expression, tick feeding behavior, and toxin secretion into the host circulation. These occur in tick cells, particularly salivary acinar cells, which synthesize and secrete holocyclotoxin and other neurotoxins.[8][9][16] Downstream mechanisms occur in host neuromuscular junctions, where toxins act on presynaptic terminals of alpha motor neurons (<a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" rel="noopener noreferrer">CL:0000100</a>) innervating skeletal muscle fibers (<a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a>).[18][20] The primary biological process affected is synaptic transmission at the neuromuscular junction, leading to failure of muscle contraction (<a href="http://purl.obolibrary.org/obo/GO_0007528" target="_blank" rel="noopener noreferrer">GO:0007528</a>, <a href="http://purl.obolibrary.org/obo/GO_0003009" target="_blank" rel="noopener noreferrer">GO:0003009</a>).</p>
+<p>Respiratory failure arises when neuromuscular blockade extends to motor neurons innervating the diaphragm (<a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a>) and intercostal muscles (<a href="http://purl.obolibrary.org/obo/UBERON_0001132" target="_blank" rel="noopener noreferrer">UBERON:0001132</a>). Bulbar palsy and cranial nerve dysfunction reflect toxin effects on motor neurons of cranial nerve nuclei in the brainstem (<a href="http://purl.obolibrary.org/obo/UBERON_0001898" target="_blank" rel="noopener noreferrer">UBERON:0001898</a>), though central nervous system cortical neurons (<a href="http://purl.obolibrary.org/obo/CL_0002604" target="_blank" rel="noopener noreferrer">CL:0002604</a>) remain unaffected, preserving consciousness and sensation.[9][16][18][20]</p>
+<p>Overall, tick paralysis illustrates a clean causal chain: environmental exposure to an arthropod vector leads to toxin delivery; toxin acts on peripheral neuromuscular junctions; neuromuscular transmission fails; muscles become flaccid; and clinical paralysis results, with resolution upon removal of the toxin source.</p>
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ-Level and System-Level Involvement</h3>
+<p>The primary organ system involved in tick paralysis is the peripheral nervous system, specifically the motor division, and the skeletal muscular system. Motor neurons in the spinal cord anterior horn (<a href="http://purl.obolibrary.org/obo/UBERON_0002185" target="_blank" rel="noopener noreferrer">UBERON:0002185</a>) project to skeletal muscles of the limbs (<a href="http://purl.obolibrary.org/obo/UBERON_0002101" target="_blank" rel="noopener noreferrer">UBERON:0002101</a>), trunk, and cranial musculature, forming neuromuscular junctions that are the site of toxin action.[18][20] The respiratory system is secondarily affected, as diaphragmatic and intercostal muscle paralysis leads to ventilatory compromise and potential respiratory failure.[3][4][5][10][13][19]</p>
+<p>Cardiovascular, digestive, endocrine, and other systems are largely spared, though severe hypoxia in respiratory failure can secondarily stress organs. The central nervous system cortex (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>) remains generally unaffected, and patients stay alert and conscious, distinguishing tick paralysis from encephalitic processes.[9][16] The brainstem (<a href="http://purl.obolibrary.org/obo/UBERON_0001898" target="_blank" rel="noopener noreferrer">UBERON:0001898</a>) indirectly participates through cranial nerve motor nuclei, whose axons form neuromuscular junctions in cranial musculature affected by toxins, leading to ophthalmoplegia, facial weakness, and bulbar palsy.[3][6][9][18][20]</p>
+<h3>Tissue and Cell-Level Targets</h3>
+<p>At the tissue level, the primary target is neuromuscular junction tissue, comprising presynaptic motor nerve terminals, postsynaptic muscle endplates, and associated Schwann cells and fibroblasts. Skeletal muscle tissue (<a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a> for diaphragm, <a href="http://purl.obolibrary.org/obo/UBERON_0002101" target="_blank" rel="noopener noreferrer">UBERON:0002101</a> for limb muscles) experiences functional paralysis as neurotransmission fails, even though muscle fibers themselves remain structurally intact.[18][20] Peripheral nerve tissue (<a href="http://purl.obolibrary.org/obo/UBERON_0001021" target="_blank" rel="noopener noreferrer">UBERON:0001021</a>) containing lower motor axons is functionally compromised at the terminal region; however, motor conduction velocities remain normal, indicating that axons themselves retain structural integrity.[18][20]</p>
+<p>Key cell types include alpha motor neurons (<a href="http://purl.obolibrary.org/obo/CL_0000100" target="_blank" rel="noopener noreferrer">CL:0000100</a>), skeletal muscle cells (<a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a>), Schwann cells (<a href="http://purl.obolibrary.org/obo/CL_0000219" target="_blank" rel="noopener noreferrer">CL:0000219</a>), and synaptic terminal glial cells. Tick salivary gland cells synthesize and secrete neurotoxins; these can be mapped to insect salivary gland epithelial cells, though their specific cell ontology terms are less standardized. The lack of sensory involvement suggests that sensory neurons (<a href="http://purl.obolibrary.org/obo/CL_0000101" target="_blank" rel="noopener noreferrer">CL:0000101</a>) and dorsal root ganglion cells are relatively spared, reinforcing the selective targeting of motor neuromuscular junctions.</p>
+<h3>Subcellular Compartments</h3>
+<p>Subcellular compartments involved include presynaptic active zones of motor nerve terminals, synaptic vesicles containing acetylcholine, voltage-gated calcium channels in presynaptic membranes, and components of the SNARE complex (e.g., synaptobrevin, syntaxin, SNAP-25), though direct targeting of these proteins by tick neurotoxins remains to be experimentally confirmed.[9][16][18][20] In GO Cellular Component terms, relevant compartments are “synapse” (<a href="http://purl.obolibrary.org/obo/GO_0045202" target="_blank" rel="noopener noreferrer">GO:0045202</a>), “neuromuscular junction” (<a href="http://purl.obolibrary.org/obo/GO_0031594" target="_blank" rel="noopener noreferrer">GO:0031594</a>), “synaptic vesicle” (<a href="http://purl.obolibrary.org/obo/GO_0008021" target="_blank" rel="noopener noreferrer">GO:0008021</a>), and “synaptic membrane” (<a href="http://purl.obolibrary.org/obo/GO_0097060" target="_blank" rel="noopener noreferrer">GO:0097060</a>). Holocyclotoxin’s presynaptic effect implies localization to “presynaptic active zone” (<a href="http://purl.obolibrary.org/obo/GO_0048786" target="_blank" rel="noopener noreferrer">GO:0048786</a>).</p>
+<p>Mitochondria, nucleus, endoplasmic reticulum, and lysosomes are not primary targets; toxins do not appear to cause mitochondrial dysfunction or nuclear DNA damage. Instead, neuromuscular blockade arises from disruption of ion fluxes and neurotransmitter release processes at the synaptic membrane.</p>
+<h3>Anatomical Localization and Lateralization</h3>
+<p>Anatomically, ticks commonly attach to the scalp, particularly at the hairline on the neck, behind the ears, or in occipital regions, in human cases, leading to toxin delivery near cervical spinal segments.[2][3][6][18] WebMD notes that “ticks can bite anywhere, but the most common spots are on your scalp, especially at the hairline on your neck,” and BCCDC advises special attention to the scalp, neck, ears, and spaces between fingers when searching for ticks.[2][3] In animals, ticks may attach around the head, neck, shoulders, or along the spine, often deeply embedded in fur.[5][9][15][16]</p>
+<p>Despite localized attachment, neuromuscular effects are bilateral and symmetric, reflecting systemic toxin distribution rather than regional nerve damage. Ascending paralysis affects both legs and arms symmetrically, and cranial nerve involvement is bilateral (e.g., bilateral ophthalmoplegia, facial weakness).[18][20] Thus, lateralization is generally absent or minimal; asymmetry would suggest alternative diagnoses such as stroke or focal neuropathy.</p>
+<p>The localization of respiratory muscle paralysis to the diaphragm and intercostals is critical. The diaphragm (<a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a>) is innervated bilaterally by phrenic nerves originating from cervical spinal segments C3–C5; neuromuscular blockade at these junctions produces global diaphragmatic weakness or paralysis. Intercostal muscles (<a href="http://purl.obolibrary.org/obo/UBERON_0001132" target="_blank" rel="noopener noreferrer">UBERON:0001132</a>) receive segmental innervation from thoracic spinal nerves; their paralysis further impairs chest wall movement. Together, these anatomical sites explain the respiratory phenotype in severe tick paralysis.</p>
+<h2>8. Temporal Development</h2>
+<h3>Onset and Latency</h3>
+<p>Temporal development in tick paralysis is driven by the kinetics of tick feeding and toxin delivery. As multiple sources emphasize, symptoms typically begin only after several days of attachment by a female tick that has been feeding continuously.[1][3][6][9][10][13][16][18][19] The BCCDC states that “symptoms begin after a female tick attaches to the skin and has fed for 5–7 days,” while MedlinePlus notes onset of leg weakness “usually 2 to 7 days after a tick bite.”[3][10] Diaz’s meta-analysis, summarizing 50 U.S. cases, found that paralysis ensues after a mean of 1.4 days (range 1–10 days) following the onset of neurologic symptoms, which themselves occur after several days of tick attachment.[6][19]</p>
+<p>Thus, the onset pattern is characterized by a silent incubation phase during which the tick feeds and toxin accumulates, followed by a prodrome and then rapid neurological decline. Clinicians must be aware that patients may not recall the bite itself; they may have been bitten days earlier and be unaware of the attached tick, particularly when it is hidden under hair or clothing.[2][3][6][18]</p>
+<h3>Disease Staging and Progression Rate</h3>
+<p>A conceptual staging of tick paralysis may be proposed for knowledge representation:</p>
+<p>Early stage (Prodrome): After sufficient toxin accumulation but before overt paralysis, patients experience nonspecific symptoms such as fatigue, irritability, malaise, restlessness, paresthesias, and muscle pains.[2][3][6][13][18][19] Gait may be modestly unsteady, but strength is largely preserved. This stage corresponds to mild neuromuscular junction blockade that has not yet significantly impaired functional motor output.</p>
+<p>Intermediate stage (Ascending motor weakness): Within hours to a day, patients develop progressive motor weakness, beginning in the legs and moving proximally, accompanied by ataxia and areflexia.[1][3][6][11][13][18][19][20] They may struggle to walk, climb stairs, or stand; upper limbs may become weak. Cranial nerve involvement, particularly ophthalmoplegia and facial weakness, may emerge, especially in holocyclotoxin-mediated cases.[9][16][18][20]</p>
+<p>Advanced stage (Generalized paralysis and respiratory involvement): In more severe cases, motor weakness progresses to near-complete flaccid paralysis of all four limbs, with marked bulbar dysfunction (dysarthria, dysphagia) and potential respiratory muscle paralysis.[3][4][5][6][9][10][13][18][19][20] Patients may develop dyspnea, hypoventilation, and require mechanical ventilation. The progression rate from intermediate to advanced stage can be rapid—sometimes within 24–48 hours—underscoring the need for urgent diagnosis and intervention.[1][4][10][13][19]</p>
+<p>End stage (Respiratory failure and death): Without tick removal and supportive care, continued toxin delivery and persistent neuromuscular blockade can culminate in fatal respiratory failure.[1][3][4][5][10][13][19] Diaz’s meta-analysis reports an overall case fatality rate of 6.0% over 60 years, signifying that a minority of cases progress to this stage.[7][19]</p>
+<p>The progression rate is therefore rapid once neurologic symptoms begin, typically moving from prodrome to significant motor weakness within hours to a day, and to life-threatening paralysis in severe cases over 1–2 days. This rapid, monotonic progression contrasts with slower, subacute courses of many neuropathies and justifies classification as an emergency condition in clinical practice.[2][4][10][11][13]</p>
+<h3>Disease Duration and Recovery Course</h3>
+<p>The duration of paralysis before tick removal varies with recognition and intervention. Some patients present early and have only mild to moderate weakness for a brief period; others, particularly misdiagnosed cases, may experience prolonged paralysis. Diaz’s meta-analysis reports that full neurologic recovery typically occurs in 1.5 days (range 1–2.5 days) after tick removal.[6][19] Grattan-Smith et al. observed that in their pediatric series, neurologic deficits resolved quickly after the paralysis tick was removed.[18][20] The CMAJ case report describes an 83-year-old man whose reflexes returned to normal and strength substantially improved within two hours of tick removal, with complete neurologic recovery occurring within 72 hours.[6]</p>
+<p>Purdue Extension notes that if paralysis has progressed far, complete recovery may take up to six months, though such extended courses are exceptional.[1] These longer recoveries may reflect secondary complications such as deconditioning, pulmonary sequelae, or unrecognized concurrent diseases rather than persistent toxin effects. In animals, especially dogs with severe holocyclotoxin poisoning, recovery can be slower, and supportive care may be needed for days to weeks.[5][15][16]</p>
+<p>Remission patterns are straightforward: removal of the tick initiates remission, and paralysis resolves without relapse, provided no new tick exposure occurs. There is no chronic transformation of tick paralysis into a long-term neuromuscular disorder; once toxin is cleared and neuromuscular transmission restored, the disease is essentially over.</p>
+<h3>Critical Windows for Intervention</h3>
+<p>Temporal analysis reveals critical windows for intervention. The most important period is the early symptomatic phase, when ascending motor weakness and cranial nerve involvement have begun, but before respiratory failure. During this window—often spanning the first 24–48 hours of neurologic symptoms—prompt recognition of tick paralysis and meticulous search for an attached tick can prevent progression to respiratory compromise.[3][4][6][11][13][18][19][20] Edlow’s review emphasizes that tick paralysis should be considered in North American patients with acute ascending flaccid paralysis, and that clinicians should systematically search the entire body for ticks and remove them.[4][11]</p>
+<p>Tick season itself constitutes a broader critical period. During late spring and early summer in endemic regions, clinicians should maintain heightened suspicion for tick paralysis in presentations resembling Guillain–Barré syndrome, particularly in children and individuals with outdoor exposures. Public health messaging during tick season can also emphasize daily tick checks as a preventive measure.[3][7][19]</p>
+<p>In sum, tick paralysis has an acute onset and rapid progression but also rapid reversal upon correct intervention, making time-sensitive recognition and tick removal the central determinants of outcome.</p>
+<h2>9. Inheritance and Population Characteristics</h2>
+<h3>Epidemiology: Incidence, Prevalence, and Mortality</h3>
+<p>Tick paralysis is rare but not negligible, with sporadic cases and occasional clusters reported in endemic regions over many decades. Diaz’s 60-year meta-analysis identified 50 well-documented human cases in the United States between 1946 and 2006, yielding an average of fewer than one published case per year, though many additional unreported or unpublished cases likely occurred.[7][19] The condition is therefore best characterized as very low-incidence, with regional hotspots.</p>
+<p>In British Columbia, the BCCDC Public Health Laboratory receives consultations on tick paralysis in 0–2 human cases per year, underscoring low incidence even in an endemic province.[3] In Australia, tick paralysis is more prevalent as a veterinary problem in dogs and cats than in humans; Stone’s review notes 20 human fatalities between 1914 and 1942 attributable to tick bite, all but three in children, suggesting more frequent severe pediatric cases in the early 20th century.[9][16] Contemporary human incidence in Australia is low, but the syndrome remains clinically important due to its severity potential.</p>
+<p>Exact prevalence data (cases per 100,000 population) are unavailable, and given the acute, transient nature of the condition, point prevalence in the general population is essentially zero. Incidence is highly seasonal and geographically heterogeneous.</p>
+<p>Mortality is low but significant. Diaz’s meta-analysis calculated a case fatality rate (CFR) of 6.0% over 60 years in U.S. cases.[7][19] Stone’s historical data from Australia indicate 20 deaths over 28 years, though denominators were not reported.[9][16] Modern intensive care and heightened awareness likely reduce CFR, but fatal outcomes continue to occur in misdiagnosed or delayed cases. As such, tick paralysis should be considered a low-incidence, low-prevalence, but potentially lethal condition with high short-term morbidity.</p>
+<h3>Inheritance Patterns and Genetic Concepts</h3>
+<p>Because tick paralysis is environmentally acquired and not due to host genetic mutations, classical inheritance concepts such as autosomal dominant, autosomal recessive, X-linked, mitochondrial, multifactorial, or polygenic inheritance do not apply. There is no evidence of vertical transmission or familial clustering beyond shared environmental exposures, and penetrance concepts are irrelevant in the human host.[11][13][19]</p>
+<p>The only meaningful inheritance pattern relates to tick genetics, where the ability of certain tick strains to cause paralysis is heritable, as shown in <em>Dermacentor andersoni</em> crosses.[8] This pattern, however, concerns the vector’s trait, not the host’s disease susceptibility. Founder effects, consanguinity, carrier frequency, and genetic anticipation are therefore not functional concepts in tick paralysis epidemiology.</p>
+<h3>Population Demographics and Geographic Distribution</h3>
+<p>Population demographics show that tick paralysis primarily affects children, particularly girls, and adults with high environmental exposure. Vedanarayanan’s 2004 review and their earlier pediatric series reported six children aged 3.3 to 5.5 years, five of whom were girls, ultimately diagnosed with tick paralysis among 26 children admitted with acute muscle weakness.[12][13] Diaz’s meta-analysis similarly found a predominance of young girls in endemic regions.[7][19] The CMAJ case report demonstrates that elderly individuals can also present with severe paralysis when exposed.[6]</p>
+<p>Geographically, tick paralysis clusters in regions inhabited by paralysis-capable ticks. In North America, this includes the Pacific Northwest, Rocky Mountain states, and parts of the southeastern U.S. for <em>Dermacentor andersoni</em> and <em>D. variabilis</em>.[3][5][10][19] The BCCDC’s mapping of <em>D. andersoni</em> in interior BC highlights western Canada as an endemic zone.[3] In Australia, eastern coastal and subcoastal regions where <em>Ixodes holocyclus</em> is abundant form the main risk areas.[9][16][18][20] Other regions with reported cases include South Africa and parts of Europe, where <em>Ixodes</em> and <em>Amblyomma</em> species can cause paralysis.[5][9][16]</p>
+<p>Sex ratio data suggest female predominance in pediatric series, but overall sex distribution in adult cases is more balanced, reflecting exposure patterns.[7][13][19] Age distribution is bimodal, with peaks in young children and outdoor-exposed adults, though comprehensive age histogram data are lacking.</p>
+<p>In summary, tick paralysis is an environmentally acquired neurotoxic injury concentrated in specific geographic regions and demographic groups, without host genetic inheritance, but with vector genetic determinants of toxin production.</p>
+<h2>10. Diagnostics</h2>
+<h3>Clinical Evaluation and Physical Examination</h3>
+<p>Diagnostic evaluation of tick paralysis hinges on careful clinical assessment and thorough physical examination for attached ticks. The syndrome should be considered in any patient, especially in endemic regions and during tick season, who presents with acute or subacute ascending flaccid paralysis, ataxia, cranial nerve dysfunction, and normal sensory function.[4][6][11][13][18][19][20] Edlow’s review in Current Treatment Options in Neurology underscores that “tick paralysis should be considered in North American patients with acute ascending flaccid paralysis or bulbar paralysis; ticks should be sought over the entire body surface and be removed,” framing tick search and removal as both diagnostic and therapeutic.[4][11]</p>
+<p>Physical examination must include meticulous inspection of the scalp, neck, ears, axillae, groin, intergluteal cleft, and between fingers and toes, regions where ticks often attach.[2][3][6][18] The BCCDC advises that “if this diagnosis is suspected, a meticulous examination should be done to look for a tick on the body, with special attention paid to the scalp, neck, ears, and the spaces between the fingers.”[3] WebMD similarly notes common attachment sites along the scalp hairline, armpits, and genitals, and stresses that if any part of the tick remains embedded, toxin release may continue.[2] Identification of an attached, engorged adult female tick—often <em>Dermacentor</em> or <em>Ixodes</em> species—strongly supports the diagnosis when accompanied by compatible neuromuscular signs.[1][3][5][6][9][16][19]</p>
+<p>Clinically, tick paralysis mimics Guillain–Barré syndrome: both present with progressive, ascending weakness, areflexia, and sometimes cranial nerve involvement.[11][12][13][18][19][20] However, tick paralysis typically lacks autonomic dysfunction, sensory loss, and CSF abnormalities, and it reverses rapidly after tick removal. Vedanarayanan’s pediatric series highlighted that initial diagnoses in three of six children were Guillain–Barré syndrome, and that “clinical and electrodiagnostic findings were indistinguishable from those of tick paralysis,” underscoring the diagnostic challenge.[12][13]</p>
+<h3>Laboratory Testing and Biomarkers</h3>
+<p>Routine laboratory tests (complete blood count, metabolic panel, inflammatory markers) and cerebrospinal fluid analysis are generally normal in tick paralysis.[6][11][13][18][19][20] The CMAJ case report noted normal blood and CSF analyses in an 83-year-old man with severe paralysis; CSF protein and cell counts were within reference ranges.[6] Diaz’s meta-analysis and Edlow’s review similarly emphasize normal CSF findings as a distinguishing feature compared with GBS, where CSF protein is often elevated with normal cell counts.[11][19] There are no disease-specific serum biomarkers currently recognized; neurotoxin concentration in blood or CSF is not routinely measured.</p>
+<p>Neurophysiologic testing, particularly nerve conduction studies and electromyography (EMG), can assist in differential diagnosis. Grattan-Smith et al. reported “low-amplitude compound muscle action potentials with normal motor conduction velocities, normal sensory studies and normal response to repetitive stimulation,” suggesting a presynaptic neuromuscular junction disorder rather than demyelinating neuropathy.[18][20] These findings overlap with those of botulism and Lambert–Eaton myasthenic syndrome but combined with clinical context and tick detection, they support tick paralysis.[11][13][18][20]</p>
+<p>Thus, electrophysiology can reveal reduced CMAP amplitudes (LOINC codes for nerve conduction velocity and EMG testing), but no specific pattern uniquely identifies tick paralysis; clinical correlation is essential.</p>
+<h3>Imaging and Histopathology</h3>
+<p>Neuroimaging (MRI, CT) is typically unnecessary and normal in tick paralysis, unless performed to exclude structural CNS lesions. Spinal cord and brain imaging do not show demyelination, inflammation, or compressive lesions associated with the syndrome.[6][11][13][18][19][20] Histopathology of peripheral nerves and muscles in animal experimental models shows minimal structural change, further corroborating the functional nature of neuromuscular blockade.[9][16]</p>
+<p>Therefore, imaging and biopsy do not provide primary diagnostic value; they serve only to rule out alternative diagnoses in ambiguous cases.</p>
+<h3>Diagnostic Criteria and Differential Diagnosis</h3>
+<p>Formal standardized diagnostic criteria for tick paralysis have not been codified by international societies, but key clinical features can be distilled:</p>
+<p>Acute or subacute onset of ascending flaccid paralysis, often with prodrome of malaise and paresthesias, and possible cranial nerve involvement, in a patient from an endemic region during tick season, with an attached, engorged adult female tick identified on examination, and normal CSF and neuroimaging, with rapid improvement upon tick removal.[1][3][4][6][11][13][18][19][20]</p>
+<p>Differential diagnoses include Guillain–Barré syndrome, botulism, myasthenia gravis, hypokalemic periodic paralysis, spinal cord tumor or compression, diphtheritic neuropathy, organophosphate poisoning, and other causes of acute flaccid paralysis.[4][6][11][13][19][20] The Merck Manual lists Guillain–Barré syndrome, botulism, myasthenia gravis, hypokalemia, and spinal cord tumor in the differential.[4] Diaz’s meta-analysis notes that misdiagnosis of tick paralysis as GBS increased in more recent series, with significantly greater proportions of misdiagnoses in 1992–2006 compared with 1946–1996 (χ² = 7.850, P = 0.005).[7][19]</p>
+<p>Distinguishing features include the presence of an attached tick, normal CSF, rapid reversibility after tick removal, lack of autonomic instability, and absence of systemic infection signs. Botulism shares presynaptic neuromuscular blockade but is usually associated with ingestion of contaminated food and lacks tick exposure.</p>
+<h3>Genetic Testing and Omics-Based Diagnostics</h3>
+<p>As tick paralysis is non-genetic in the host, genetic testing (WGS, WES, gene panels, single-gene testing, CMA, karyotyping, FISH, mitochondrial DNA testing, repeat expansion testing) has no role in diagnosis. No gene panels or genetic biomarkers relate to the condition, and genetic counseling is not indicated for affected individuals based solely on tick paralysis.</p>
+<p>Omics-based diagnostics, such as transcriptomics, proteomics, and metabolomics, similarly lack application in clinical diagnosis of tick paralysis. The condition is diagnosed clinically and treated by tick removal and supportive care; sophisticated molecular diagnostics would not alter management and are not cost-effective given its rarity and clear etiologic pathway.</p>
+<h3>Screening</h3>
+<p>Screening for tick paralysis in asymptomatic individuals is not practiced and would not be sensible given the disease’s acute, reversible nature and dependence on tick exposure. However, screening for tick bites—through daily tick checks after outdoor exposure—functions as preventive surveillance that can avert paralysis. In this sense, public health campaigns promoting tick checks in endemic regions during tick season serve as secondary prevention mechanisms.</p>
+<h2>11. Outcome and Prognosis</h2>
+<h3>Survival, Mortality, and Life Expectancy</h3>
+<p>When recognized promptly and treated by tick removal and supportive care, tick paralysis has an excellent prognosis, with near-complete recovery and minimal long-term sequelae.[1][3][4][6][9][11][13][18][19][20] Diaz’s meta-analysis over 60 years reported a case fatality rate of 6.0%, indicating that most patients survive, though occasional deaths occur in severe, misdiagnosed, or untreated cases.[7][19] In the CMAJ case report, the 83-year-old man recovered fully within 72 hours after tick removal, with no persistent deficits.[6] Grattan-Smith’s pediatric series likewise documented complete recovery after paralysis tick removal in all six children.[18][20]</p>
+<p>Life expectancy in individuals who experience tick paralysis and survive is essentially normal; the condition does not cause chronic neuromuscular disease or reduce long-term survival, aside from rare residual complications. Mortality, when it occurs, is disease-specific, resulting from respiratory failure due to respiratory muscle paralysis.[1][3][4][5][10][13][19]</p>
+<h3>Morbidity, Disability, and Quality-of-Life Impact</h3>
+<p>Short-term morbidity is high. During the acute phase, patients experience profound functional disability: inability to walk or stand, difficulty swallowing and speaking, and sometimes inability to breathe independently.[3][4][6][9][13][18][19][20] This can require intensive care admission, mechanical ventilation, and extensive nursing support. Anxiety, fear, and psychological distress can be substantial, particularly in misdiagnosed cases where prognosis is uncertain.</p>
+<p>However, because neuromuscular transmission recovers quickly once toxin exposure ceases, long-term disability is rare. Most survivors regain full motor function without residual weakness or neuropathy.[1][3][4][6][9][11][13][18][19][20] Deconditioning after a period of paralysis may lead to temporary fatigue and reduced endurance, but physical therapy can restore pre-illness function.</p>
+<p>Quality-of-life measures such as EQ-5D or SF-36 would show near-total impairment in mobility and self-care dimensions during paralysis, with severe pain/discomfort and anxiety/depression, but these scores would normalize rapidly post-recovery. There is no evidence of chronic pain syndromes or psychological sequelae uniquely attributable to tick paralysis, though individuals may develop heightened fear of tick exposure.</p>
+<h3>Complications and Recovery Potential</h3>
+<p>Complications arise primarily from respiratory failure and prolonged immobilization. In severe cases, hypoventilation can cause hypoxic brain injury, cardiac arrhythmias, or multi-organ dysfunction if not promptly corrected.[4][5][9][10][13][19] Secondary infections, such as aspiration pneumonia or catheter-related infections, may occur in ICU settings. In animals, alveolar disease and secondary respiratory pathology may complicate recovery, especially in holocyclotoxin poisoning.[5][15][16]</p>
+<p>Despite these risks, recovery potential is high when ticks are removed early and supportive care is provided. The BCCDC notes that “most patients with tick paralysis will recover or substantially improve within a few hours following tick removal,” reflecting the reversibility of the neuromuscular blockade.[3] Merck Manual states that paralysis “usually begins to resolve in a few hours after tick removal, but paralysis may progress for 24 to 48 hours after tick removal,” indicating that toxin clearance can lag slightly but leads to eventual recovery.[4]</p>
+<p>Prognostic factors include age, severity of paralysis at presentation, presence of respiratory compromise, and timing of tick removal. Dyspnea, crackles, wheezes, and high neuromuscular junction scores in animals are poor prognostic signs.[5] In humans, advanced age and comorbidities may reduce physiologic reserve, but even elderly patients can recover fully if managed appropriately, as illustrated by the 83-year-old Canadian case.[6]</p>
+<p>No molecular prognostic biomarkers have been identified; clinical severity and respiratory status remain the primary predictors. Overall, tick paralysis offers a paradoxical prognosis profile: profoundly dangerous if unrecognized, but almost uniquely reversible with a simple mechanical intervention when properly diagnosed.</p>
+<h2>12. Treatment</h2>
+<h3>Primary Treatment: Tick Removal</h3>
+<p>The cornerstone of tick paralysis treatment is prompt, complete removal of the attached tick. All major clinical and public health references emphasize this intervention as both diagnostic and therapeutic.[1][2][3][4][6][9][10][11][13][14][18][19][20] Purdue Extension states that “early recognition of the cause and prompt removal of the engorging female tick typically results in complete recovery,” and that if done soon enough, recovery may be complete within 48 hours.[1] The BCCDC notes that “the treatment for tick paralysis is tick removal,” and that “rapid improvement once an attached tick is properly removed is diagnostic.”[3] The Merck Manual underscores that “tick paralysis can be fatal, but the paralysis is reversible with rapid removal of the tick or ticks,” and that paralysis usually begins to resolve in a few hours after removal.[4]</p>
+<p>Proper removal technique involves grasping the tick as close to the skin as possible with fine-tipped tweezers and pulling upward with steady, gentle pressure, avoiding twisting or crushing, to ensure that the mouthparts and head are removed intact.[3][4][6][10][20] The CMAJ case report describes removal of an engorged tick adherent to the mid-back with forceps, leading to rapid recovery.[6] Stone’s review and other guidelines advise disinfecting the skin after removal and avoiding folk methods such as burning or smothering the tick, which may cause saliva and toxin to be regurgitated into the host.[9][16]</p>
+<p>This intervention can be annotated with NCIT clinical intervention terms such as “Surgical Removal” (NCIT:C51999) in a broad sense or more specifically “Foreign Body Removal” (NCIT:C17248), though in practice tick removal is a simple outpatient procedure rather than surgery.</p>
+<h3>Supportive Care and Respiratory Management</h3>
+<p>Supportive care is essential in moderate to severe cases, particularly when respiratory muscles or bulbar functions are compromised. The Merck Manual notes that “if breathing is impaired, oxygen therapy or respiratory assistance may be needed,” including mechanical ventilation in ICU settings.[4] WebMD states that if tick paralysis affects breathing, “your doctor may have you use a breathing machine until the symptoms ease,” and advises emergency evaluation for breathing difficulty.[2] BCCDC acknowledges that in rare cases, respiratory difficulties and death may occur due to respiratory muscle paralysis if the tick is not removed rapidly.[3]</p>
+<p>Supportive measures include supplemental oxygen, noninvasive ventilation, or endotracheal intubation with mechanical ventilation (NCIT:C15273 “Mechanical Ventilation”), along with monitoring of vital signs, fluid balance, and preventing aspiration. In veterinary care, dogs with trouble breathing may require oxygen and breathing assistance under anesthesia.[15] NCIT terms such as “Supportive Care” (NCIT:C16084) and “Respiratory Support Procedures” (NCIT:C21038) can categorize these interventions.</p>
+<p>Physical therapy and occupational therapy may assist recovery by addressing deconditioning and restoring strength and function, though the rapid resolution of neuromuscular blockade may limit the duration of rehabilitation required.</p>
+<h3>Pharmacotherapy and Antitoxin Therapies</h3>
+<p>No specific pharmacologic antidote for tick salivary neurotoxins is widely available for humans. Treatment is primarily mechanical and supportive; pharmacotherapy targets secondary issues such as pain, anxiety, or co-infections. There is no evidence that cholinesterase inhibitors or other neuromuscular agents (e.g., neostigmine) significantly alter toxin-induced presynaptic blockade.</p>
+<p>In veterinary medicine, however, canine tick hyperimmune serum, also called tick antiserum (TAS), is used as a specific treatment for holocyclotoxin-mediated paralysis in dogs.[15][16] The Merck Veterinary Manual notes that “canine tick hyperimmune serum, also called tick antiserum (TAS), is the specific treatment for the toxin that causes tick paralysis,” and that dogs with trouble breathing may require additional therapy.[15] Stone’s review describes antitoxin therapy for holocyclotoxin and notes that treatment involves removal of the tick, although removal may trigger further deterioration and respiratory support may be required in ICU settings.[9][16] TAS likely contains antibodies against holocyclotoxin and related salivary toxins, functioning as an immunotherapeutic neutralizing agent (NCIT:C15452 “Antitoxin”).</p>
+<p>Pharmacogenomics have not been studied in relation to TAS or other supportive drugs in tick paralysis. No gene–drug interactions or personalized medicine approaches have been described.</p>
+<h3>Advanced Therapeutics and Experimental Approaches</h3>
+<p>Advanced therapeutics such as gene therapy, cell therapy, RNA-based therapies, targeted molecular therapies, and immunotherapies are not applicable to tick paralysis. The disease is acute, non-genetic, and reversible with low-technology interventions; advanced therapeutics would not offer advantage and are unlikely to be pursued.</p>
+<p>Experimental treatments in animal models have focused on understanding toxin mechanisms rather than developing human therapies. Research into holocyclotoxin structure and function may one day yield synthetic antitoxins or small-molecule antagonists, but this remains theoretical.</p>
+<h3>Treatment Outcomes and Strategy</h3>
+<p>Treatment response is dramatic: removal of the tick typically leads to rapid improvement in neuromuscular function, sometimes within minutes or hours, with full recovery over one to several days.[1][3][4][6][18][19][20] Merck Manual notes that paralysis may continue to progress for 24–48 hours after removal but then resolves.[4] Diaz’s meta-analysis confirms rapid recovery after tick removal, with full recovery in 1.5 days on average.[6][19]</p>
+<p>Side effects and adverse events of tick removal are minimal, though improper removal techniques may leave mouthparts embedded, allowing continued toxin release, or may cause local skin trauma or infection. Antiserum therapy in dogs can carry risks of allergic reactions, but such data are beyond human disease scope.[15][16]</p>
+<p>A rational treatment algorithm begins with immediate consideration of tick paralysis in appropriate clinical contexts, urgent full-body examination for ticks, prompt removal using proper technique, assessment of respiratory status, and provision of supportive care including mechanical ventilation if needed. Differential diagnosis should be revisited after tick removal; if neurologic deficits do not improve rapidly, alternative diagnoses like GBS or botulism must be considered.</p>
+<p>Personalized medicine approaches are limited, as host genetics do not materially impact treatment decisions; therapy is standardized and driven by clinical severity and respiratory status rather than genotype.</p>
+<h2>13. Prevention</h2>
+<h3>Primary Prevention: Avoiding Tick Exposure</h3>
+<p>Primary prevention aims to avert tick bites and prolonged attachment, thereby preventing tick paralysis entirely. Public health agencies, including CDC-equivalent resources, emphasize environmental and behavioral interventions such as wearing protective clothing (long sleeves, long pants), using insect repellents containing DEET or permethrin on skin and clothing, avoiding dense vegetation and leaf litter, walking in the center of trails, and checking for ticks after outdoor activities.[2][3][10][15][16] These measures correspond to NCIT concepts like “Preventive Health Services” (NCIT:C15220) and “Vector Control Intervention” (NCIT:C17151).</p>
+<p>Pet-level prevention is critical: regular tick prevention in dogs and cats using acaricidal collars, spot-on treatments, and oral medications reduces the number of ticks in domestic environments and lowers the risk of human tick exposure.[15][16] Veterinary guidance in the Merck manuals underscores the importance of minimizing stress and using tick antiserum where indicated, but prevention through tick control remains foundational.[5][15][16]</p>
+<p>Environmental interventions, such as clearing brush, mowing lawns, using acaricides in high-risk areas, and managing wildlife hosts, align with public health vector control strategies.[3][15][16] These can be mapped to NCIT “Environmental Health Intervention” (NCIT:C19157).</p>
+<h3>Secondary Prevention: Early Detection and Intervention</h3>
+<p>Secondary prevention involves early detection of attached ticks and intervention before paralysis develops or while it is still mild. Daily tick checks after outdoor exposure, especially during tick season in endemic regions, allow identification and removal of ticks before they feed for several days.[2][3][10] Special attention should be paid to the scalp, neck, behind ears, axillae, groin, and between fingers and toes.[2][3] Educating parents to inspect children’s scalps and hairlines can prevent pediatric tick paralysis, where scalp-attached ticks often go unnoticed.[3][13][18]</p>
+<p>Clinical secondary prevention includes maintaining a high index of suspicion for tick paralysis in patients with acute ascending paralysis during tick season and promptly searching for ticks. Early tick removal prevents progression to respiratory failure and reduces morbidity.[3][4][6][11][13][18][19][20]</p>
+<p>Genetic screening is irrelevant to tick paralysis prevention, as no host genetic risk markers exist. However, risk stratification based on environmental exposure—identifying individuals at high risk due to occupation or recreational habits—can guide targeted behavioral interventions.</p>
+<h3>Tertiary Prevention: Preventing Complications</h3>
+<p>Tertiary prevention focuses on preventing complications and long-term sequelae in individuals already affected by tick paralysis. This includes early respiratory support to prevent hypoxic injury, careful nursing to prevent pressure ulcers and deep vein thrombosis during paralysis, and prompt treatment of secondary infections.[4][5][9][10][13][19] Rehabilitation in the recovery phase ensures restoration of muscle strength and function, preventing prolonged disability.</p>
+<p>Counseling patients about tick avoidance behaviors and pet tick control post-recovery can prevent future episodes. Genetic counseling is not needed.</p>
+<p>In public health terms, tick paralysis prevention overlaps substantially with prevention of other tick-borne diseases, and integrated vector control and health education programs can reduce the combined burden of tick-related illnesses.</p>
+<h3>Immunization and Prophylaxis</h3>
+<p>No vaccines exist against tick salivary toxins causing paralysis, and immunization strategies have not been developed. Research into anti-tick vaccines that target tick salivary proteins to prevent feeding and pathogen transmission has been ongoing in the broader tick research field, but these are not specific to tick paralysis and remain experimental.</p>
+<p>Prophylactic medications, such as antibiotics, are irrelevant to tick paralysis, as the condition is noninfectious. In animals, prophylactic tick control products serve as a form of pharmacologic vector prophylaxis, but humans primarily rely on repellents and clothing.</p>
+<p>Overall, prevention of tick paralysis is highly feasible through straightforward environmental and behavioral interventions, making it a model for preventable environmental neurotoxicosis.</p>
+<h2>14. Other Species and Natural Disease</h2>
+<h3>Species Affected and Veterinary Relevance</h3>
+<p>Tick paralysis affects a broad array of vertebrate species, making it a major veterinary concern in certain regions. Stone’s review notes that in Australia, <em>Ixodes holocyclus</em> can cause paralysis in humans, dogs, cats, sheep, cattle, goats, pigs, and horses, but predominantly infests dogs, cats, and humans.[9][16] A table in the review lists <em>Ixodes holocyclus</em> as affecting cats, pigs, cattle, horses, sheep, goats, and humans in Australia.[9][16] The MSD Veterinary Manual states that “humans (usually children) and a wide variety of other mammals, birds, and reptiles may be affected” by tick paralysis.[5]</p>
+<p>Dogs are the most frequently reported domestic species affected by tick paralysis, particularly in eastern Australia, where holocyclotoxin poisoning is a major cause of canine morbidity and mortality.[5][9][15][16] Clinical signs in dogs parallel those in humans: prodromal lethargy and ataxia, progressing to ascending paralysis, cranial nerve involvement, and respiratory failure in severe cases.[5][15][16] Cats, livestock (sheep, cattle, goats, horses), and sometimes wildlife (e.g., marsupials) also suffer paralysis from holocyclotoxin and other tick neurotoxins.[5][9][16]</p>
+<p>In North America, tick paralysis has been reported in cattle, sheep, and horses from <em>Dermacentor andersoni</em> and related species.[5][8] The Rocky Mountain wood tick is known to cause potentially fatal paralysis in cattle, sheep, and humans in certain parts of its range.[8] Birds and reptiles may also be affected, though reports are fewer.</p>
+<p>Veterinary relevance is substantial: tick paralysis in dogs and livestock can cause deaths, production losses, and welfare concerns, prompting development of tick antiserum (TAS) and intensive prevention efforts.[5][9][15][16]</p>
+<h3>Comparative Pathology and Mechanism Conservation</h3>
+<p>Comparative pathology reveals strong similarities across species. In all affected mammals, tick salivary neurotoxins target neuromuscular junctions, cause ascending motor paralysis, and may induce respiratory failure.[5][9][15][16] The action of holocyclotoxin on acetylcholine release is conserved, and neuromuscular blockade manifests similarly in dogs and humans.[9][16][18][20] Neurologic signs such as ataxia, cranial nerve dysfunction, and areflexia are common across species, though details vary with anatomy and behavior.</p>
+<p>Mechanistically, tick paralysis illustrates evolutionary conservation of neuromuscular junction physiology across vertebrates. Toxin targeting of presynaptic calcium channels and release machinery influences motor function in all species with cholinergic neuromuscular junctions. Experimental studies in hamsters and other laboratory animals reproduce paralysis phenotypes seen in natural disease, affirming model validity.[8][9][16]</p>
+<p>Differences arise from species-specific physiology and toxin susceptibility. For example, Australian holocyclotoxin tends to cause more severe neurological impairment than North American <em>Dermacentor</em> toxins, as noted by Stone and colleagues, who observed that holocyclotoxin “tends to cause more severe neurological impairment than that associated with <em>D. andersoni</em> or <em>D. variabilis</em> in North America.”[9][16] Dogs appear particularly sensitive to holocyclotoxin, with high mortality if untreated.[15][16]</p>
+<h3>Transmission and Zoonotic Considerations</h3>
+<p>Tick paralysis itself is not zoonotic in the sense of a transmissible infection; it is a vector-borne intoxication. However, ticks represent zoonotic vectors for infectious agents, and animals can serve as reservoirs or amplifiers of tick populations, increasing human exposure. Dogs and livestock carrying paralysis ticks into domestic environments raise human risk; thus, human tick paralysis risk is entwined with animal health and tick ecology.[2][3][10][15][16]</p>
+<p>From a disease knowledge base perspective, tick paralysis should be annotated as a multi-species toxic syndrome affecting NCBI Taxon entries such as Homo sapiens (taxon:9606), Canis lupus familiaris (taxon:9615), Felis catus (taxon:9685), Bos taurus (taxon:9913), Ovis aries (taxon:9940), Equus caballus (taxon:9796), and other vertebrates, with cross-species susceptibility mediated by shared neuromuscular junction physiology.</p>
+<h2>15. Model Organisms</h2>
+<h3>Experimental Models and Induced Paralysis</h3>
+<p>Experimental models have been used to study tick paralysis, primarily in small mammals such as hamsters and laboratory rodents. Wozniak’s study assessing heritability of paralysis-inducing capacity in <em>Dermacentor andersoni</em> used hamsters as bioassay hosts; virulent tick strains caused paralysis in hamsters, while avirulent strains did not.[8] This model allowed assessment of heritable virulence traits and provided a controlled system to observe clinical signs and progression.</p>
+<p>In Australia, experimental holocyclotoxin studies have been conducted in laboratory animals to elucidate toxin mechanisms. Cooper and colleagues performed temperature-dependent analyses of evoked acetylcholine release in tick paralysis, likely using animal neuromuscular preparations.[16] These models replicate neuromuscular blockade, enabling electrophysiologic recordings and pharmacologic manipulations.</p>
+<p>Model types in tick paralysis research thus include mammalian models (hamsters, rodents, dogs) and in vitro neuromuscular preparations. There are no genetic models in the sense of knockout or transgenic animals susceptible to tick paralysis; susceptibility is natural. However, one might conceptualize tick strains as “genetic models” of vector virulence, with virulent and avirulent strains representing experimental conditions.[8]</p>
+<h3>Phenotype Recapitulation and Limitations</h3>
+<p>Experimental models recapitulate key features of human and veterinary tick paralysis: ascending motor paralysis, cranial nerve involvement, and neuromuscular junction blockade. Electrophysiologic findings of low-amplitude CMAPs with normal conduction velocities in animal preparations mirror those in children with holocyclotoxin paralysis.[18][20] Respiratory failure in animals parallels that in dogs and severe human cases.[5][9][15][16]</p>
+<p>Limitations include species differences in toxin sensitivity, differences in tick–host interactions, and ethical constraints on inducing severe paralysis. Hamsters and rodents may respond differently to toxins compared with humans or dogs, making direct translational extrapolation cautious. Additionally, experimental ticks and holocyclotoxin preparations may not fully represent natural toxin variation.</p>
+<p>Nonetheless, models have provided crucial mechanistic insights and validated the neuromuscular blockade pathway, lending confidence to clinical pathophysiologic interpretations.</p>
+<h3>Research Applications</h3>
+<p>Model organisms are used to:</p>
+<p>Elucidate toxin mechanisms at neuromuscular junctions, including presynaptic effects on acetylcholine release and ion channel dynamics.[9][16][18][20]</p>
+<p>Assess tick strain virulence and heritability of paralysis-inducing traits.[8]</p>
+<p>Evaluate potential antitoxin therapies, such as TAS in dogs, in controlled settings.[15][16]</p>
+<p>Study tick salivary gland gene expression and toxin production, though this field remains emergent.</p>
+<p>These applications inform both human neuromuscular physiology and veterinary therapeutics, and they integrate tick genomics and salivary biology into broader toxin research.</p>
+<h2>Conclusion</h2>
+<p>Tick paralysis (<a href="http://purl.obolibrary.org/obo/MONDO_0005981" target="_blank" rel="noopener noreferrer">MONDO:0005981</a>) is a distinctive, toxin-mediated neuroparalytic syndrome resulting from prolonged feeding by certain female ixodid ticks that secrete neurotoxins in their saliva, with no identified human causal genes and a pathogenesis rooted in vector salivary gland genetics and neuromuscular pharmacology rather than host heredity.[5][8][9][16][17] Clinically, it presents as an acute or subacute ascending flaccid paralysis with prodromal malaise and paresthesias, often accompanied by cranial nerve involvement such as ophthalmoplegia and bulbar palsy, and may culminate in respiratory failure if the attached tick is not promptly removed.[1][3][4][6][9][11][13][18][19][20] Mechanistically, tick neurotoxins—most notably holocyclotoxin from <em>Ixodes holocyclus</em>—inhibit presynaptic acetylcholine release at neuromuscular junctions, producing reversible neuromuscular blockade without structural nerve damage, a process well captured by GO terms related to negative regulation of cholinergic synaptic transmission and neuromuscular junction function.[5][9][16][18][20] </p>
+<p>The disease affects humans, especially children and outdoor-exposed adults in endemic regions, but has its greatest burden in veterinary medicine, where dogs, cats, and livestock suffer holocyclotoxin-mediated paralysis in eastern Australia and <em>Dermacentor</em> toxin paralyses in North America.[5][8][9][15][16][18][19][20] Epidemiologically, it is rare but seasonally and regionally predictable, with a low incidence yet non-trivial case fatality rate of approximately 6.0% over 60 years in U.S. literature, and with female predominance in pediatric cohorts that likely reflects behavioral and exposure patterns rather than genetic susceptibility.[7][13][19] Crucially, tick paralysis occupies a unique niche in neurology and toxicology as a severe yet almost uniquely reversible cause of acute flaccid paralysis: once recognized and treated by complete tick removal, neuromuscular function typically recovers rapidly, often within hours to days, with minimal long-term sequelae.[1][3][4][6][18][19][20] </p>
+<p>Diagnostic challenges arise because tick paralysis closely mimics Guillain–Barré syndrome and other causes of acute flaccid paralysis, and misdiagnosis has increased over time, underscoring the need for systematic body examination for ticks in appropriate clinical contexts and seasons.[4][11][12][13][18][19][20] Laboratory and CSF findings are usually normal, neuroimaging is unremarkable, and electrophysiology shows reduced CMAP amplitudes with normal conduction velocities, consistent with presynaptic neuromuscular junction dysfunction rather than demyelinating neuropathy, making clinical context and tick detection paramount.[6][11][13][18][19][20] Treatment is straightforward yet time-critical: meticulous removal of the engorged tick using proper techniques halts toxin delivery and initiates recovery, while supportive care, including oxygen and mechanical ventilation, mitigates respiratory complications; in veterinary care, tick antiserum provides specific immunotherapy against holocyclotoxin.[1][3][4][5][9][10][11][13][15][16][18][19][20] Prevention—through tick avoidance behaviors, environmental vector control, and regular tick checks on humans and animals—can almost entirely prevent tick paralysis, making it a model of a predictable, preventable, and curable environmental neurotoxicosis.[2][3][7][10][15][16][19]</p>
+<p>From a disease knowledge base perspective, tick paralysis should be annotated as an injury-type, non-genetic disorder in humans (<a href="http://purl.obolibrary.org/obo/MONDO_0005981" target="_blank" rel="noopener noreferrer">MONDO:0005981</a>; MeSH D013985), with core phenotypes mapped to HPO terms for ascending flaccid paralysis, ataxia, cranial nerve palsies, and respiratory failure, anatomical targets mapped to neuromuscular junctions and respiratory musculature (UBERON, GO, CL), and treatments mapped to NCIT interventions for tick removal and respiratory support.[5][9][16][17][18][19][20] Vector-side genetic determinants of toxin production in ticks warrant incorporation into comparative genomics resources, as they represent “causal genes” in an eco-parasitologic sense and may inform future antitoxin development.[8][9][16] As climate change and habitat shifts potentially alter tick distributions, ongoing surveillance and public health education will be vital to maintain low incidence and mortality, while heightened clinical awareness can ensure that this dramatic but reversible neurotoxidrome remains a rare cause of tragedy and a frequently preventable poison.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>6</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:20237909</code> (1 mention) - Evaluation of degradation of antibiotic tetracycline in pig manure by electron beam irradiation.</li>
+<li>shared terms: animal</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>tick</code>, <code>paralysis</code>, <code>neuromuscular</code>, <code>toxin</code>, <code>human</code>, <code>disease</code>, <code>clinical</code>, <code>respiratory</code>, <code>host</code>, <code>nerve</code>, <code>removal</code>, <code>exposure</code>, <code>salivary</code>, <code>severe</code>, <code>junction</code>, <code>note</code>, <code>muscle</code>, <code>dogs</code>, <code>animal</code>, <code>include</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>57</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>55</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>7</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0001285</code> (2 mentions) - the report calls it "Bulbar palsy"; HP calls it <strong>Spastic tetraparesis</strong></li>
+<li><code>HP:0002353</code> (2 mentions) - the report calls it "Facial weakness"; HP calls it <strong>EEG abnormality</strong></li>
+<li><code>HP:0002360</code> (2 mentions) - the report calls it "Dysphagia"; HP calls it <strong>Sleep disturbance</strong></li>
+<li><code>HP:0002243</code> (1 mention) - the report calls it "Diaphragmatic paralysis"; HP calls it <strong>Protein-losing enteropathy</strong></li>
+<li><code>HP:0002340</code> (1 mention) - the report calls it "Progressive motor impairment"; HP calls it <strong>Caudate atrophy</strong></li>
+<li><code>HP:0002141</code> (1 mention) - the report calls it "Gait instability"; HP calls it <strong>Gait imbalance</strong></li>
+<li><code>GO:0050907</code> (1 mention) - the report calls it "neuromuscular process controlling balance"; GO calls it <strong>detection of chemical stimulus involved in sensory perception</strong></li>
+<li><code>NCIT:C51999</code> (1 mention) - the report calls it "Surgical Removal"; NCIT calls it <strong>Angioplasty</strong></li>
+<li><code>NCIT:C17248</code> (1 mention) - the report calls it "Foreign Body Removal"; NCIT calls it <strong>Genetic Variation</strong></li>
+<li><code>NCIT:C16084</code> (1 mention) - the report calls it "Supportive Care"; NCIT calls it <strong>Observational Study</strong></li>
+<li><code>NCIT:C21038</code> (1 mention) - the report calls it "Respiratory Support Procedures"; NCIT calls it <strong>Molecular Folding</strong></li>
+<li><code>NCIT:C15220</code> (1 mention) - the report calls it "Preventive Health Services"; NCIT calls it <strong>Diagnosis Assessment</strong></li>
+<li><code>NCIT:C17151</code> (1 mention) - the report calls it "Vector Control Intervention"; NCIT calls it <strong>South Africa</strong></li>
+<li><code>NCIT:C19157</code> (1 mention) - the report calls it "Environmental Health Intervention"; NCIT calls it <strong>Specimen</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>HP:0003471</code> (2 mentions), reported as "Flaccid paralysis" - HP does not contain this term</li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>NCIT:C21038</code> (Molecular Folding) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0001284</code> (1 mention) - the report calls it "Absent reflexes"; HP calls it <strong>Areflexia</strong>, and lists "Absent reflexes" among its other names</li>
+<li><code>HP:0003474</code> (1 mention) - the report calls it "Sensory neuropathy"; HP calls it <strong>Somatic sensory dysfunction</strong>, and lists "Sensory impairment" among its other names</li>
+<li><code>GO:0007269</code> (1 mention) - the report calls it "regulation of neurotransmitter secretion"; GO calls it <strong>neurotransmitter secretion</strong></li>
+<li><code>GO:0032226</code> (1 mention) - the report calls it "negative regulation of synaptic transmission, cholinergic"; GO calls it <strong>positive regulation of synaptic transmission, dopaminergic</strong></li>
+<li><code>GO:0007528</code> (2 mentions) - the report calls it "neuromuscular junction development and function"; GO calls it <strong>neuromuscular junction development</strong></li>
+<li><code>GO:0051924</code> (1 mention) - the report calls it "regulation of calcium ion concentration"; GO calls it <strong>regulation of calcium ion transport</strong></li>
+<li><code>GO:0005249</code> (1 mention) - the report calls it "voltage-gated ion channel activity"; GO calls it <strong>voltage-gated potassium channel activity</strong>, and lists "voltage-gated potassium ion channel activity" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Thyroid_Follicular_Carcinoma-falcon.html">← Thyroid Follicular Carcinoma (Falcon)</a>
+                
+                
+                <a href="TLR3_Deficiency-perplexity.html">TLR3 Deficiency (Perplexity) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Tick_Paralysis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Tick_Paralysis-deep-research-perplexity.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-perplexity" aria-current="page">Perplexity</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
