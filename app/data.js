@@ -46662,7 +46662,10 @@ window.searchData = [
     ],
     "phenotypes": [
       "Profound congenital sensorineural hearing impairment",
-      "Delayed speech and language development"
+      "Delayed speech and language development",
+      "Bilateral sensorineural hearing impairment",
+      "Prelingual sensorineural hearing impairment",
+      "Absent speech before cochlear implantation"
     ],
     "phenotype_categories": [
       "Auditory",
@@ -46674,7 +46677,10 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0011476",
-      "HP:0000750"
+      "HP:0000750",
+      "HP:0008619",
+      "HP:0000399",
+      "HP:0001344"
     ],
     "frequencies": [],
     "genes": [
@@ -46689,11 +46695,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_102.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_102.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 5,
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "5"
   },
   {
@@ -74164,16 +74170,31 @@ window.searchData = [
       "cell-cell adhesion"
     ],
     "phenotypes": [
-      "Pituitary adenoma"
+      "Pituitary adenoma",
+      "Prolactinoma",
+      "Hyperprolactinemia",
+      "Central hypothyroidism",
+      "Hypogonadotropic hypogonadism",
+      "Pituitary growth hormone cell adenoma",
+      "Non-functioning pituitary macroadenoma",
+      "Pituitary corticotropic cell adenoma"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Endocrine",
+      "Genitourinary",
       "Neoplasm",
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0002893"
+      "HP:0002893",
+      "HP:0006767",
+      "HP:0000870",
+      "HP:0011787",
+      "HP:0000044",
+      "HP:0011760",
+      "HP:0025693",
+      "HP:0008291"
     ],
     "frequencies": [],
     "genes": [
@@ -74184,12 +74205,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "CDH23-associated_pituitary_adenoma_5.yaml",
     "page_url": "../pages/disorders/CDH23-associated_pituitary_adenoma_5.html",
-    "num_phenotypes": 1,
+    "num_phenotypes": 8,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "CDK19-Related Disorder",
@@ -145490,7 +145511,7 @@ window.searchData = [
     "num_pathophysiology": 16,
     "num_genes": 0,
     "num_treatments": 5,
-    "causal_graph_edges": "32",
+    "causal_graph_edges": "35",
     "causal_graph_longest_path": "10"
   },
   {
@@ -149025,22 +149046,43 @@ window.searchData = [
     ],
     "phenotypes": [
       "Intermittent Jaundice",
-      "Conjugated Hyperbilirubinaemia"
+      "Conjugated Hyperbilirubinaemia",
+      "Black Liver with Melanin-Like Pigmentation",
+      "Neonatal Intrahepatic Cholestasis",
+      "Cholestasis Unmasked by Pregnancy or Estrogen",
+      "Acholic Stools in Infancy",
+      "Abnormal Urine Color",
+      "Hepatomegaly",
+      "Abdominal Pain",
+      "Fatigue"
     ],
     "phenotype_categories": [
       "Clinical",
-      "Laboratory"
+      "Laboratory",
+      "Pathologic"
     ],
     "phenotype_hpo_categories": [
+      "Constitutional",
       "Digestive",
+      "Genitourinary",
       "Integument",
       "Metabolism"
     ],
     "phenotype_ids": [
       "HP:0000952",
-      "HP:0002908"
+      "HP:0002908",
+      "HP:0034714",
+      "HP:0001406",
+      "HP:0011985",
+      "HP:0012086",
+      "HP:0002240",
+      "HP:0002027",
+      "HP:0012378"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [
       "ABCC2"
     ],
@@ -149054,11 +149096,11 @@ window.searchData = [
     ],
     "source_file": "Dubin-Johnson_Syndrome.yaml",
     "page_url": "../pages/disorders/Dubin-Johnson_Syndrome.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 10,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "4"
   },
   {
@@ -179768,7 +179810,10 @@ window.searchData = [
       "Sensory perception of sound"
     ],
     "phenotypes": [
-      "Congenital Sensorineural Hearing Loss"
+      "Congenital Sensorineural Hearing Loss",
+      "Severe-to-Profound Sensorineural Hearing Loss",
+      "Mild-to-Moderate Sensorineural Hearing Loss",
+      "Progressive Hearing Loss"
     ],
     "phenotype_categories": [
       "Clinical"
@@ -179777,7 +179822,10 @@ window.searchData = [
       "Ear"
     ],
     "phenotype_ids": [
-      "HP:0008527"
+      "HP:0008527",
+      "HP:0011476",
+      "HP:0008504",
+      "HP:0000408"
     ],
     "frequencies": [],
     "genes": [
@@ -179793,11 +179841,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss.yaml",
     "page_url": "../pages/disorders/GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss.html",
-    "num_phenotypes": 1,
+    "num_phenotypes": 4,
     "num_pathophysiology": 4,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "5"
   },
   {
@@ -193080,6 +193128,7 @@ window.searchData = [
       "Metabolism"
     ],
     "phenotype_ids": [
+      "HP:0031981",
       "HP:0003159"
     ],
     "frequencies": [],
@@ -193095,7 +193144,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "3",
+    "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
   },
   {
@@ -283132,7 +283181,7 @@ window.searchData = [
     "creation_date": "2026-08-27T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Mesomelia-synostoses syndrome is a rare autosomal dominant disorder combining mesomelic limb shortening with acral synostoses and multiple congenital malformations. It is a contiguous-gene microdeletion syndrome: every reported patient carries an interstitial 8q13 deletion of 582 to 738 kb that removes exactly two genes, SULF1 and SLCO5A1. SULF1 encodes heparan sulfate 6-O-endosulfatase 1, which edits the sulfation pattern of heparan sulfate and so tunes the availability of the growth factors that pattern the developing skeleton; it is most highly transcribed in human osteoblasts and cartilage, which is why it is the better candidate of the two. SLCO5A1 is an orphan organic anion transporter expressed in brain and heart with no known function. Because the two genes are always co-deleted, the contribution of each has not been separated.",
+    "description": "Mesomelia-synostoses syndrome is a rare autosomal dominant disorder combining mesomelic limb shortening with acral synostoses and multiple congenital malformations. It is a contiguous-gene microdeletion syndrome: nearly every reported patient carries an interstitial 8q13 deletion of 582 to 738 kb that removes exactly two genes, SULF1 and SLCO5A1. SULF1 encodes heparan sulfate 6-O-endosulfatase 1, which edits the sulfation pattern of heparan sulfate and so tunes the availability of the growth factors that pattern the developing skeleton; it is most highly transcribed in human osteoblasts and cartilage, which is why it is the better candidate of the two. SLCO5A1 is an orphan organic anion transporter expressed in brain and heart with no known function. The two genes are co-deleted in every patient with a deletion, so deletion cases cannot separate them. A balanced translocation truncating SLCO5A1 in a boy without MSS features argues against SLCO5A1 loss of function as the determinant, which leaves SULF1 haploinsufficiency or enhancer adoption by neighbouring genes (PMID:38992676).",
     "pathophysiology": [
       "8q13 Contiguous Deletion of SULF1 and SLCO5A1",
       "Loss of Heparan Sulfate 6-O-Endosulfatase Activity",
@@ -283152,18 +283201,35 @@ window.searchData = [
     ],
     "phenotypes": [
       "Mesomelic Limb Shortening",
-      "Acral Synostoses"
+      "Acral Synostoses",
+      "Ptosis",
+      "Hypertelorism",
+      "Palatal Abnormality",
+      "Congenital Heart Disease",
+      "Ureteral Anomalies"
     ],
     "phenotype_categories": [
-      "Skeletal"
+      "Skeletal",
+      "Craniofacial",
+      "Cardiovascular",
+      "Renal"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
       "Limbs",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0003027",
-      "HP:0005048"
+      "HP:0005048",
+      "HP:0000508",
+      "HP:0000316",
+      "HP:0000174",
+      "HP:0001627",
+      "HP:0000069"
     ],
     "frequencies": [
       "VERY_FREQUENT"
@@ -283177,7 +283243,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Mesomelia-Synostoses_Syndrome.yaml",
     "page_url": "../pages/disorders/Mesomelia-Synostoses_Syndrome.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 7,
     "num_pathophysiology": 3,
     "num_genes": 2,
     "num_treatments": 0,
@@ -289682,7 +289748,7 @@ window.searchData = [
     "creation_date": "2026-08-27T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Mitochondrial complex I deficiency nuclear type 24 (MC1DN24) is the complex I deficiency caused by variants in NDUFB9, an accessory subunit of the complex I membrane arm. It was defined by a single family found in a 152-patient mutation screen - one index case with an affected brother: NDUFB9 protein was reduced, both the amount and the activity of complex I were reduced, and expressing wild-type NDUFB9 in the patient's fibroblasts restored both.\nThe mechanism by which an accessory subunit loss destabilizes the whole enzyme is unusually well characterised for a disorder this rare, but not in human cells. NDUFB9 is LYRM3, a leucine-tyrosine-arginine motif protein whose job is to anchor a copy of mitochondrial acyl carrier protein to the membrane arm; work in the yeast Yarrowia lipolytica showed that this particular module is required for complex I assembly and stability, as distinct from the sister ACP-LYRM6 module required for activity. Structural work adds a second role, with NDUFB9 among the accessory subunits that mediate the oligomerization of complex I with complexes III and IV into the respirasome.\nWhat this entry cannot supply is the patient's clinical phenotype. The defining paper does report per-patient clinical data in its tables, but it is not open access, so no quotable passage exists in the reference cache and its abstract carries only the molecular and biochemical findings. No further NDUFB9 patient has been published in the fourteen years since. MC1DN24 is therefore a molecularly defined entity whose clinical description exists but is not citable here, and this entry curates only what can be quoted rather than importing the clinical spectrum of complex I deficiency as a class.",
+    "description": "Mitochondrial complex I deficiency nuclear type 24 (MC1DN24) is the complex I deficiency caused by variants in NDUFB9, an accessory subunit of the complex I membrane arm. It was defined by a single family found in a 152-patient mutation screen - one index case with an affected brother: NDUFB9 protein was reduced, both the amount and the activity of complex I were reduced, and expressing wild-type NDUFB9 in the patient's fibroblasts restored both.\nThe mechanism by which an accessory subunit loss destabilizes the whole enzyme is unusually well characterised for a disorder this rare, but not in human cells. NDUFB9 is LYRM3, a leucine-tyrosine-arginine motif protein whose job is to anchor a copy of mitochondrial acyl carrier protein to the membrane arm; work in the yeast Yarrowia lipolytica showed that this particular module is required for complex I assembly and stability, as distinct from the sister ACP-LYRM6 module required for activity. Structural work adds a second role, with NDUFB9 among the accessory subunits that mediate the oligomerization of complex I with complexes III and IV into the respirasome.\nOnly two clinical features are citable for the patient, lactic acidemia and muscular hypotonia at presentation, and only second-hand through a 2020 review. The defining paper does report per-patient clinical data in its tables, but it is not open access, so no quotable passage from it exists in the reference cache and its abstract carries only the molecular and biochemical findings. No further NDUFB9 patient has been published in the fourteen years since. This entry curates only what can be quoted rather than importing the clinical spectrum of complex I deficiency as a class.",
     "pathophysiology": [
       "NDUFB9 Variant",
       "Reduced NDUFB9 Protein",
@@ -289697,17 +289763,23 @@ window.searchData = [
       "mitochondrial electron transport, NADH to ubiquinone"
     ],
     "phenotypes": [
-      "Decreased Activity of Mitochondrial Complex I"
+      "Decreased Activity of Mitochondrial Complex I",
+      "Lactic acidosis",
+      "Muscular hypotonia"
     ],
     "phenotype_categories": [
-      "Metabolic"
+      "Metabolic",
+      "Neurological"
     ],
     "phenotype_hpo_categories": [
       "Cellular",
-      "Metabolism"
+      "Metabolism",
+      "Musculoskeletal"
     ],
     "phenotype_ids": [
-      "HP:0011923"
+      "HP:0011923",
+      "HP:0003128",
+      "HP:0001252"
     ],
     "frequencies": [],
     "genes": [
@@ -289720,7 +289792,7 @@ window.searchData = [
     ],
     "source_file": "Mitochondrial_Complex_I_Deficiency_Nuclear_Type_24.yaml",
     "page_url": "../pages/disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_24.html",
-    "num_phenotypes": 1,
+    "num_phenotypes": 3,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 0,
@@ -332022,7 +332094,7 @@ window.searchData = [
       "NPARM",
       "PARM"
     ],
-    "description": "Germline variants in PHOX2B predispose to tumours of the sympathetic nervous system: neuroblastoma, ganglioneuroblastoma and ganglioneuroma. PHOX2B was the first gene in which germline mutations were shown to predispose to neuroblastoma, reported in 2004 in a familial case and in a patient with the Hirschsprung disease and neuroblastoma association.\nWhat makes this predisposition unusual is how sharply the risk tracks the kind of variant. PHOX2B variants fall into two classes. Polyalanine repeat mutations, which expand a 20-alanine tract and account for most congenital central hypoventilation syndrome, carry a tumour risk of about 1 to 2 per cent. Non-polyalanine repeat mutations, which are missense, frameshift or truncating, carry a risk of about 45 per cent. The original series put it at 6 of 13 patients with a missense or frameshift variant against 2 of 161 with a polyalanine expansion. Within the polyalanine class, risk rises with the length of the expansion, and essentially all reported tumours occurred in carriers of the largest expansions.\nThe tumours that result are predominantly differentiated: in a series of thirteen, nine were differentiated, including five ganglioneuromas, three ganglioneuroblastomas and one differentiating neuroblastoma. That is not the whole picture, and the entry does not present it as such. Four were poorly differentiated, three patients had stage 4 and one stage 3 disease, and segmental chromosomal alterations were found in all six tumours tested by array comparative genomic hybridisation.\nPHOX2B predisposition almost always comes with other neurocristopathies, most often congenital central hypoventilation syndrome and Hirschsprung disease, which are curated separately. Surveillance is recommended for carriers, on the same schedule as for germline ALK.",
+    "description": "Germline variants in PHOX2B predispose to tumours of the sympathetic nervous system: neuroblastoma, ganglioneuroblastoma and ganglioneuroma. PHOX2B was the first gene in which germline mutations were shown to predispose to neuroblastoma, reported in 2004 in a familial case and in a patient with the Hirschsprung disease and neuroblastoma association.\nWhat makes this predisposition unusual is how sharply the risk tracks the kind of variant. PHOX2B variants fall into two classes. Polyalanine repeat mutations, which expand a 20-alanine tract and account for most congenital central hypoventilation syndrome, carry a tumour risk of about 1 to 2 per cent. Non-polyalanine repeat mutations, which are missense, frameshift or truncating, carry a risk of about 45 per cent. The original series put it at 6 of 13 patients with a missense or frameshift variant against 2 of 161 with a polyalanine expansion. Within the polyalanine class, risk rises with the length of the expansion, and essentially all reported tumours occurred in carriers of the largest expansions.\nThe tumours that result are often differentiated: in the 2015 series of thirteen, nine were differentiated, including five ganglioneuromas, three ganglioneuroblastomas and one differentiating neuroblastoma. That is not the whole picture, and the entry does not present it as such. Four were poorly differentiated, three patients had stage 4 and one stage 3 disease, and segmental chromosomal alterations were found in all six tumours tested by array comparative genomic hybridisation.\nThe earlier congenital central hypoventilation syndrome series points the other way: invasive neuroblastoma in 6 of 13 carriers of a missense or frameshift variant. The two series differ in how patients were ascertained, so the tumour mix attached to this predisposition is not settled.\nPHOX2B predisposition almost always comes with other neurocristopathies, most often congenital central hypoventilation syndrome and Hirschsprung disease, which are curated separately. Surveillance is recommended for carriers, on the same schedule as for germline ALK.",
     "pathophysiology": [
       "Germline PHOX2B Variant",
       "Disrupted Autonomic Neuroblast Differentiation"
@@ -332037,19 +332109,35 @@ window.searchData = [
       "noradrenergic neuron differentiation"
     ],
     "phenotypes": [
-      "Neuroblastic Tumor"
+      "Neuroblastic Tumor",
+      "Neuroblastoma",
+      "Ganglioneuroma",
+      "Ganglioneuroblastoma",
+      "Hirschsprung disease",
+      "Central hypoventilation"
     ],
     "phenotype_categories": [
-      "Neoplastic"
+      "Neoplastic",
+      "Digestive",
+      "Respiratory"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Neoplasm",
-      "Nervous System"
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
-      "HP:0004376"
+      "HP:0004376",
+      "HP:0003006",
+      "HP:0003005",
+      "HP:0006747",
+      "HP:0002251",
+      "HP:0007110"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "6/13 (46%) of carriers of a missense or frameshift variant (PMID:15657873)"
+    ],
     "genes": [
       "PHOX2B"
     ],
@@ -332060,11 +332148,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "PHOX2B-Related_Neuroblastic_Tumor_Susceptibility.yaml",
     "page_url": "../pages/disorders/PHOX2B-Related_Neuroblastic_Tumor_Susceptibility.html",
-    "num_phenotypes": 1,
+    "num_phenotypes": 6,
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "3",
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "3"
   },
   {
@@ -341604,7 +341692,7 @@ window.searchData = [
       "Sclerosing",
       "Malignant"
     ],
-    "description": "Perineurioma is a rare, benign tumour of the peripheral nerve sheath made of perineurial cells, the specialised lining cells of the nerve sheath; the tumour cells stain for epithelial membrane antigen and not, or only in a few tumours, for S-100 protein, though epithelial membrane antigen does not stain every tumour, the negative tumours in the sources cited here being in the gut. It has two main forms, which differ in site, in course and in the genetic lesions reported in each. Intraneural perineurioma grows within a peripheral nerve, most often the sciatic nerve or its branches, and causes a slowly progressive, motor-predominant mononeuropathy in children and young adults; a TRAF7 mutation was found in 10 of 16 tumours in one series and 2 of 9 in another. Soft tissue (extraneural) perineurioma is a usually painless mass in the soft tissue or skin of adults, or a small polyp in the gut, mostly the colon. It has reticular and sclerosing variants, the sclerosing one mostly in the fingers and palm, and NF2 is mutated in some of its tumours. Both forms behave benignly: a 2007 systematic review states that the intraneural form does not recur, and an 81-case series reports that soft tissue tumours rarely recur. Malignant perineurioma is rare, and whether it is a distinct tumour is disputed.",
+    "description": "Perineurioma is a rare, benign tumour of the peripheral nerve sheath made of perineurial cells, the specialised lining cells of the nerve sheath; the tumour cells stain for epithelial membrane antigen and not, or only in a few tumours, for S-100 protein, though epithelial membrane antigen does not stain every tumour; the negative tumours that the entry's sources locate were all in the gut. It has two main forms, which differ in site, in course and in the genetic lesions reported in each. Intraneural perineurioma grows within a peripheral nerve, most often the sciatic nerve or its branches, and causes a slowly progressive, motor-predominant mononeuropathy in children and young adults; a TRAF7 mutation was found in 10 of 16 tumours in one series and 2 of 9 in another. Soft tissue (extraneural) perineurioma is a usually painless mass in the soft tissue or skin of adults, or a small polyp in the gut, mostly the colon. It has reticular and sclerosing variants, the sclerosing one mostly in the fingers and palm, and NF2 is mutated in some of its tumours. Both forms behave benignly: a 2007 systematic review states that the intraneural form does not recur, and an 81-case series reports that soft tissue tumours rarely recur. Malignant perineurioma is rare, and whether it is a distinct tumour is disputed.",
     "pathophysiology": [
       "Somatic TRAF7 WD40-Domain Mutation",
       "Intraneural Perineurial Cell Proliferation",
@@ -420010,7 +420098,10 @@ window.searchData = [
     ],
     "phenotypes": [
       "Herpes simplex encephalitis",
-      "Acute respiratory distress syndrome"
+      "Acute respiratory distress syndrome",
+      "Severe influenza infection",
+      "Viral encephalitis due to enterovirus A71",
+      "Severe SARS-CoV-2 infection"
     ],
     "phenotype_categories": [
       "Infectious",
@@ -420023,7 +420114,10 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0012302",
-      "HP:0033677"
+      "HP:0033677",
+      "HP:0034249",
+      "HP:0033993",
+      "HP:0033141"
     ],
     "frequencies": [],
     "genes": [
@@ -420038,11 +420132,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "TLR3_Deficiency.yaml",
     "page_url": "../pages/disorders/TLR3_Deficiency.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 5,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "5"
   },
   {
@@ -434460,6 +434554,110 @@ window.searchData = [
     "num_treatments": 18,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Tuberculous Empyema",
+    "disease_id": "MONDO:0005999",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tuberculosis",
+      "Pleural tuberculosis",
+      "Pleural empyema"
+    ],
+    "creation_date": "2026-11-26T03:48:37Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Tuberculous empyema is a chronic, active Mycobacterium tuberculosis infection of the pleural space in which the pleural fluid is frank pus containing large numbers of tubercle bacilli. It is distinct from the common tuberculous pleural effusion (tuberculous pleuritis), which is a paucibacillary, lymphocytic, delayed-hypersensitivity reaction that usually resolves. Tuberculous empyema arises when an untreated effusion progresses, or when caseous material spills into the pleura from a subpleural or parenchymal focus or through a bronchopleural fistula, and historically after collapse therapy. The infection is walled off by a thick, often calcified pleural rind, can persist for years with few symptoms, and presents with purulent, neutrophilic, low-glucose, low-pH fluid that is usually smear positive for acid-fast bacilli. Complications include bronchopleural fistula with pyopneumothorax, empyema necessitans, fibrothorax with a trapped lung and restrictive ventilatory defect, acquired drug resistance from poor drug penetration through the rind, and, after decades, pyothorax-associated lymphoma. Treatment is antituberculous chemotherapy with drainage of the pleural space, and decortication when the lung is trapped.",
+    "pathophysiology": [
+      "Mycobacterium tuberculosis Entry into the Pleural Space",
+      "Pleural Delayed-Type Hypersensitivity Response",
+      "Multibacillary Purulent Pleural Infection",
+      "Superimposed Pyogenic Pleural Infection",
+      "Suppressed Pleural Fibrinolysis",
+      "Pleural Fibrocalcific Rind Formation",
+      "Impaired Antituberculous Drug Penetration into the Pleural Space",
+      "Acquired Antituberculous Drug Resistance",
+      "Bronchopleural Fistula Formation",
+      "Empyema Necessitans",
+      "Lung Entrapment and Fibrothorax",
+      "Chronic Pyothorax-Associated Lymphomagenesis"
+    ],
+    "cell_types": [
+      "T cell",
+      "neutrophil",
+      "B cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000775",
+      "CL:0000236"
+    ],
+    "biological_processes": [
+      "interferon-gamma production",
+      "negative regulation of fibrinolysis",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Pleural empyema",
+      "Pleural effusion",
+      "Pleural thickening",
+      "Pyopneumothorax",
+      "Chest wall abscess",
+      "Fever",
+      "Cough",
+      "Dyspnea",
+      "Hemoptysis",
+      "Increased total leukocyte count",
+      "Restrictive ventilatory defect",
+      "Pyothorax-associated lymphoma"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Immune",
+      "Metabolism",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0011919",
+      "HP:0002202",
+      "HP:0031944",
+      "HP:0002107",
+      "HP:0020116",
+      "HP:0001945",
+      "HP:0012735",
+      "HP:0002094",
+      "HP:0002105",
+      "HP:0001974",
+      "HP:0002091",
+      "HP:0012191"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Antituberculous Chemotherapy",
+      "High-End Dosing Guided by Therapeutic Drug Monitoring",
+      "Tube Thoracostomy Drainage",
+      "Decortication"
+    ],
+    "environmental": [
+      "HIV co-infection",
+      "Collapse therapy for pulmonary tuberculosis"
+    ],
+    "biochemical": [],
+    "source_file": "Tuberculous_Empyema.yaml",
+    "page_url": "../pages/disorders/Tuberculous_Empyema.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 12,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Tuberculous Epididymitis",
@@ -456079,17 +456277,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4195,
+  "total_disorder_pages": 4196,
   "total_subtypes": 5144,
-  "total_disorders_and_subtypes": 9339,
-  "total_unique_evidence_sources": 62644,
-  "total_unique_publications": 58508,
+  "total_disorders_and_subtypes": 9340,
+  "total_unique_evidence_sources": 62689,
+  "total_unique_publications": 58552,
   "total_unique_disease_categories": 60,
-  "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4193,
-  "total_unique_pathological_events": 27701,
+  "total_unique_phenotype_categories": 316,
+  "total_pathographs": 4194,
+  "total_unique_pathological_events": 27713,
   "total_modules": 242,
-  "total_research_reports": 4296,
+  "total_research_reports": 4297,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 150
