@@ -42,6 +42,13 @@ The mapping records identify the biological edits. Their linked upstream PRs
 also document associated subset/synonym provenance cleanup, which these edit
 types do not encode. They are not complete executable ontology patches.
 
+The accepted moves do not resolve every subtype annotation on the families.
+Current MONDO still cites DOID:0070365 on a Gorlin family inheritance edge and
+DOID:0050553 on a PRAAS family inheritance edge. The PRAAS family also retains
+the EXACT synonyms "JMP syndrome" and "Nakajo-Nishimura syndrome", with PRAAS1
+DOID provenance. These residual annotations need separate scope review; no
+synonym-scope or inheritance-edge correction is claimed by these records.
+
 ## Validate, query and export
 
 From the repository root:
