@@ -1,0 +1,13 @@
+---
+reference_id: clinicaltrials:NCT04564001
+extractor_version: 1
+title: "Multicentre, Randomized, Prospective Trial Evaluating the Efficacy and Safety of Infliximab to Tocilizumab in Refractory or Relapsing Takayasu Arteritis"
+content_type: summary
+full_text_attempted: true
+---
+
+# Multicentre, Randomized, Prospective Trial Evaluating the Efficacy and Safety of Infliximab to Tocilizumab in Refractory or Relapsing Takayasu Arteritis
+
+## Content
+
+Takayasu arteritis (TA) is a vasculitis of unknown origin, resulting in progressive thickening and stenosis of large and medium arteries (the aorta and its major branches, and the pulmonary arteries). First line therapy of TA consists of high dose corticosteroids (CS). Between 20 and 50% of cases respond to CS alone, with subsequent resolution of symptoms and stabilization of vascular abnormalities. Although second-line agents (methotrexate, azathioprine, mercaptopurine, mycophenolate mofetil) may result in initial remission, relapses remain common when prednisone is tapered. Thus, 50% of CS-resistant or relapsing TA patients may achieve sustained remission with the addition of methotrexate. During the last decade, biologics such as anti-tumor necrosis factor alpha (anti-TNFα) and anti-interleukin-6 (anti-IL-6) have been used as third-line treatment in refractory or relapsing TA. Almost 90% of CS-methotrexate resistant TA cases responded to infliximab, an anti-TNFα, and sustained remission was obtained in 37 to 76% of the cases. Tocilizumab, an anti-IL-6 has given similar results with 68% of sustained remission in refractory TA. Irrespective of classical cardiovascular risk factors, the systemic inflammation and CS use play a pivotal role in the occurrence of cardiovascular thrombotic events (CVEs). As CVEs overlap with TA complications it is primordial to drastically taper CS in that vasculitis. We therefore hypothesize that Infliximab or Tocilizumab can achieve a remission in more than 70% of refractory/relapsing TA cases to CS associated to a second-line agent. INTOReTAK, first randomized prospective study in TA, has an original design testing Infliximab and Tocilizumab propensity to achieve over 70% of sustained remission in refractory/relapsing TA and evaluating jointly the 2 arms. The primary objective of this study is to obtain, by arm, ≥ 70% of patients at 6 months after randomization with prednisone ≤ 0.1mg/kg per day and inactive disease (NIH score ≤ 1) during the last 3 months.
