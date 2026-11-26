@@ -176549,6 +176549,101 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Fournier Gangrene",
+    "disease_id": "MONDO:0043352",
+    "category": "Infectious Disease",
+    "parents": [
+      "Necrotizing Soft Tissue Infection"
+    ],
+    "creation_date": "2026-11-26T03:48:33Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Fournier gangrene is a rapidly progressive necrotizing fasciitis of the perineum, external genitalia, and perianal region. Mixed aerobic and anaerobic bacteria, usually entering from a urogenital, anorectal, or cutaneous source, act synergistically to cause obliterative endarteritis and thrombosis of the subcutaneous vessels, ischemic necrosis of the overlying skin and fascia, and spread along the Dartos, Colles, and Scarpa fasciae, while the testes are usually spared because of their separate blood supply. Sepsis and multiorgan failure drive mortality. Treatment is urgent radical debridement, broad-spectrum antibiotics, and intensive supportive care, with fecal or urinary diversion, wound therapy, and reconstruction as needed.",
+    "pathophysiology": [
+      "Polymicrobial Entry into Perineal Fascial Planes",
+      "Synergistic Aerobic-Anaerobic Polymicrobial Fascial Infection",
+      "Obliterative Endarteritis of Subcutaneous Arteries",
+      "Subcutaneous Vessel Thrombosis",
+      "Ischemic Necrosis of Perineogenital Skin and Fascia",
+      "Spread Along Dartos, Colles, and Scarpa Fasciae",
+      "Septic Multiorgan Failure"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "Blood coagulation"
+    ],
+    "phenotypes": [
+      "Scrotal pain",
+      "Erythema",
+      "Scrotal and perineal swelling",
+      "Subcutaneous emphysema",
+      "Gangrene",
+      "Cutaneous necrosis",
+      "Fever",
+      "Sepsis",
+      "Bowel incontinence",
+      "Male sexual dysfunction"
+    ],
+    "phenotype_categories": [
+      "Pain",
+      "Skin",
+      "Systemic",
+      "Gastrointestinal",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0030155",
+      "HP:0010783",
+      "HP:0031188",
+      "HP:6001021",
+      "HP:0100758",
+      "HP:0033126",
+      "HP:0001945",
+      "HP:0100806",
+      "HP:0002607",
+      "HP:0040307"
+    ],
+    "frequencies": [
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Urgent Radical Surgical Debridement",
+      "Empiric Broad-Spectrum Antibiotic Therapy",
+      "Intensive Supportive Care and Resuscitation",
+      "Fecal and Urinary Diversion",
+      "Negative Pressure Wound Therapy",
+      "Hyperbaric Oxygen Therapy",
+      "Reconstructive Surgery"
+    ],
+    "environmental": [
+      "Diabetes mellitus",
+      "Chronic alcohol misuse",
+      "Immunosuppression including HIV infection",
+      "Obesity",
+      "SGLT2 inhibitor therapy"
+    ],
+    "biochemical": [],
+    "source_file": "Fournier_Gangrene.yaml",
+    "page_url": "../pages/disorders/Fournier_Gangrene.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 7,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Fowler Syndrome",
     "disease_id": "MONDO:0009168",
     "category": "Mendelian",
@@ -248731,6 +248826,7 @@ window.searchData = [
       "Anemia",
       "Pain",
       "Joint Involvement",
+      "Limited Joint Range of Motion",
       "Bone Destruction",
       "Chronic Lymphedema"
     ],
@@ -248754,6 +248850,7 @@ window.searchData = [
       "HP:0001903",
       "HP:0012531",
       "HP:0003040",
+      "HP:0001376",
       "HP:0002797",
       "HP:0001004"
     ],
@@ -248774,11 +248871,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Kaposiform_Hemangioendothelioma.yaml",
     "page_url": "../pages/disorders/Kaposiform_Hemangioendothelioma.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 8,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "4"
   },
   {
@@ -255760,6 +255857,121 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "8",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Laryngeal Tuberculosis",
+    "disease_id": "MONDO:0005819",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tuberculosis",
+      "Extrapulmonary tuberculosis",
+      "Laryngitis"
+    ],
+    "creation_date": "2026-11-26T03:49:03Z",
+    "updated_date": null,
+    "subtypes": [
+      "Secondary",
+      "Primary"
+    ],
+    "description": "Laryngeal tuberculosis is tuberculosis of the larynx and the most common granulomatous disease of that organ. Mycobacterium tuberculosis reaches the laryngeal mucosa either in bacilli-laden sputum from active, often cavitary, pulmonary tuberculosis (secondary laryngeal tuberculosis) or by direct seeding of inhaled bacilli without lung disease (primary laryngeal tuberculosis). In the pre-chemotherapy era it was a late complication of advanced pulmonary disease that mainly affected the posterior larynx. Modern series describe patients with mainly laryngeal symptoms, frequent lesions of the true vocal folds and the anterior larynx, multi-site involvement, and a substantial share with no active lung disease. Caseating granulomatous inflammation produces inflammatory-infiltrative, ulcerative, exophytic or leukoplakic lesions that can mimic laryngeal carcinoma. Hoarseness is the main symptom, with odynophagia, dysphagia, cough and, with extensive disease, dyspnea, stridor and airway obstruction. Diagnosis rests on biopsy histopathology with mycobacterial staining, culture or nucleic acid testing, supported by chest imaging and sputum examination. The disease is highly contagious. Standard antituberculous chemotherapy cures nearly all patients; scarring, vocal fold fixation, persistent dysphonia and laryngeal stenosis are uncommon sequelae.",
+    "pathophysiology": [
+      "Active Pulmonary Tuberculosis with Bacilliferous Sputum",
+      "Sputum-Borne Seeding of the Laryngeal Mucosa",
+      "Direct Inhalational Seeding of the Larynx",
+      "Caseating Granulomatous Laryngitis",
+      "Vocal Fold Mucosal Infiltration and Impaired Vibration",
+      "Mucosal Ulceration with Caseous Necrosis",
+      "Exophytic Granulation and Pseudoepitheliomatous Hyperplasia",
+      "Laryngeal Luminal Narrowing",
+      "Shedding of Bacilli from Laryngeal Lesions",
+      "Laryngeal Fibrosis and Scarring"
+    ],
+    "cell_types": [
+      "epithelioid macrophage",
+      "Langhans giant cell",
+      "lymphocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002150",
+      "CL:0000647",
+      "CL:0000542"
+    ],
+    "biological_processes": [
+      "granuloma formation"
+    ],
+    "phenotypes": [
+      "Hoarse voice",
+      "Dysphonia",
+      "Odynophagia",
+      "Pharyngalgia",
+      "Dysphagia",
+      "Cough",
+      "Exertional dyspnea",
+      "Stridor",
+      "Upper airway obstruction",
+      "Laryngeal mass mimicking carcinoma",
+      "Laryngeal stenosis",
+      "Vocal cord paralysis",
+      "Weight loss",
+      "Fever",
+      "Night sweats",
+      "Caseating granulomatosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0001609",
+      "HP:0001618",
+      "HP:0032043",
+      "HP:0033050",
+      "HP:0002015",
+      "HP:0012735",
+      "HP:0002875",
+      "HP:0010307",
+      "HP:0002781",
+      "HP:0001600",
+      "HP:0001602",
+      "HP:0001605",
+      "HP:0001824",
+      "HP:0001945",
+      "HP:0030166",
+      "HP:5210339"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Antituberculous Chemotherapy",
+      "Tracheotomy for Airway Compromise",
+      "Voice Therapy"
+    ],
+    "environmental": [
+      "Tobacco smoking",
+      "Excessive alcohol consumption",
+      "HIV infection and other immunosuppression"
+    ],
+    "biochemical": [],
+    "source_file": "Laryngeal_Tuberculosis.yaml",
+    "page_url": "../pages/disorders/Laryngeal_Tuberculosis.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 10,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Laryngotracheoesophageal Cleft",
@@ -305183,7 +305395,9 @@ window.searchData = [
     ],
     "creation_date": "2026-09-29T18:37:01Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Fournier Gangrene"
+    ],
     "description": "Necrotizing soft tissue infection is a rapidly progressive bacterial infection of skin, fascia, subcutaneous tissue, or muscle in which fascial bacterial spread, exotoxin activity, and deep-tissue destruction make early clinical recognition, broad-spectrum antibiotics, and urgent surgical source control decisive for limb and survival outcomes.",
     "pathophysiology": [
       "Bacterial Proliferation Across Deep Soft Tissues",
@@ -331252,7 +331466,7 @@ window.searchData = [
     "creation_date": "2026-06-21T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "PET117-related COX deficiency (mitochondrial complex IV deficiency nuclear type 19, MC4DN19) is a rare autosomal recessive nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic loss-of-function variants in PET117. PET117 encodes a small mitochondrial protein predicted to act as a Complex IV assembly factor; loss of functional Pet117 produces an isolated Complex IV deficiency with reduced steady-state levels of individual COX subunits. The founding report described two sisters with a homozygous nonsense mutation who presented with neurodevelopmental regression and lesions of the medulla oblongata on brain MRI, a Leigh-like brainstem-predominant phenotype. Lentiviral re-expression of wild-type PET117 in patient fibroblasts restored Complex IV, confirming causality. An earlier proposed role of Pet117 in copper insertion into Complex IV could not be confirmed in patient cells. The disorder conforms to the conserved Complex IV assembly-deficiency mechanism, with the lesion localized to a defective nuclear-encoded COX assembly factor.\n",
+    "description": "PET117-related COX deficiency (mitochondrial complex IV deficiency nuclear type 19, MC4DN19) is a rare autosomal recessive nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic loss-of-function variants in PET117. PET117 encodes a small mitochondrial protein predicted to act as a Complex IV assembly factor; loss of functional Pet117 produces an isolated Complex IV deficiency with reduced steady-state levels of individual COX subunits. The founding report described two sisters with a homozygous nonsense mutation who presented with neurodevelopmental regression and lesions of the medulla oblongata on brain MRI. Both sisters also had pyramidal signs or a movement disorder, motor deterioration and raised lactate; one also had protein-losing enteropathy and hypogammaglobulinemia, which the authors could not confidently attribute to PET117. Lentiviral re-expression of wild-type PET117 in patient fibroblasts restored Complex IV, confirming causality. An earlier proposed role of Pet117 in copper insertion into Complex IV could not be confirmed in patient cells. The disorder conforms to the conserved Complex IV assembly-deficiency mechanism, with the lesion localized to a defective nuclear-encoded COX assembly factor.\n",
     "pathophysiology": [
       "PET117 Assembly-Factor Loss and Failed Complex IV Assembly",
       "Impaired Terminal Electron Transfer and ATP Synthesis",
@@ -331268,17 +331482,48 @@ window.searchData = [
     ],
     "phenotypes": [
       "Developmental regression",
-      "Medulla oblongata lesions"
+      "Medulla oblongata lesions",
+      "Pyramidal signs",
+      "Bradykinesia and hypokinesia",
+      "Motor delay",
+      "Motor deterioration",
+      "Memory impairment",
+      "Increased circulating lactate",
+      "Increased CSF lactate",
+      "Hyperalaninemia",
+      "Protein-losing enteropathy",
+      "Decreased circulating immunoglobulin concentration",
+      "Recurrent respiratory infections"
     ],
     "phenotype_categories": [
-      "Neurologic"
+      "Neurologic",
+      "Metabolic",
+      "Gastrointestinal",
+      "Immunologic"
     ],
     "phenotype_hpo_categories": [
-      "Nervous System"
+      "Blood",
+      "Cellular",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0002376",
-      "HP:0002363"
+      "HP:0011441",
+      "HP:0007256",
+      "HP:0002067",
+      "HP:0001270",
+      "HP:0002333",
+      "HP:0002354",
+      "HP:0002151",
+      "HP:0002490",
+      "HP:0003348",
+      "HP:0002243",
+      "HP:0004313",
+      "HP:0002205"
     ],
     "frequencies": [],
     "genes": [
@@ -331291,11 +331536,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "PET117-Related_COX_Deficiency.yaml",
     "page_url": "../pages/disorders/PET117-Related_COX_Deficiency.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 13,
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "4"
   },
   {
@@ -371156,6 +371401,126 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Renal Tuberculosis",
+    "disease_id": "MONDO:0005938",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tuberculosis",
+      "Urogenital tuberculosis"
+    ],
+    "creation_date": "2026-11-26T03:48:35Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Renal tuberculosis is tuberculosis of the kidney and the commonest form of genitourinary tuberculosis. Mycobacterium tuberculosis reaches both kidneys through the bloodstream from a primary pulmonary infection and forms small cortical granulomas that usually heal and stay latent, often for decades. When a focus reactivates, usually in one kidney, caseating granulomas erode the renal papillae and discharge bacilli into the urine. Papillary necrosis and caseous cavitation follow, and the infection descends the collecting system to the renal pelvis, ureter and bladder. Fibrosis causes ureteric strictures with hydronephrosis and a contracted, low-capacity bladder whose reflux can damage the other kidney. Untreated disease ends in a calcified, non-functioning kidney (\"putty kidney\" or autonephrectomy) and can cause chronic kidney disease. The disease is insidious. Sterile pyuria, hematuria and lower urinary tract symptoms are the usual clues, and diagnosis is often late. Urine mycobacterial culture and Xpert MTB/RIF confirm it, and CT urography shows its extent. Treatment is standard six-month antituberculous chemotherapy, with early ureteric stenting or nephrostomy for obstruction, reconstructive surgery for strictures and contracted bladder, and nephrectomy for a non-functioning kidney.",
+    "pathophysiology": [
+      "Primary Pulmonary Mycobacterium tuberculosis Infection",
+      "Hematogenous Seeding of the Renal Cortex",
+      "Reactivation of a Latent Renal Focus",
+      "Caseating Granulomatous Papillitis and Papillary Necrosis",
+      "Caseous Cavitation and Renal Parenchymal Destruction",
+      "Descending Spread to the Collecting System, Ureter and Bladder",
+      "Fibrotic Urinary Tract Stricture",
+      "Bladder Wall Fibrosis and Contraction",
+      "Obstructive and Reflux Loss of Renal Function"
+    ],
+    "cell_types": [
+      "macrophage",
+      "epithelioid histiocyte",
+      "Langhans giant cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0002150",
+      "CL:0000647"
+    ],
+    "biological_processes": [
+      "granuloma formation"
+    ],
+    "phenotypes": [
+      "Sterile pyuria",
+      "Hematuria",
+      "Macroscopic hematuria",
+      "Flank pain",
+      "Pollakisuria",
+      "Dysuria",
+      "Fever",
+      "Proteinuria",
+      "Hypertension",
+      "Weight loss",
+      "Night sweats",
+      "Renal papillary necrosis",
+      "Caseating granulomatosis",
+      "Nephrocalcinosis",
+      "Renal atrophy",
+      "Ureteral stenosis",
+      "Hydronephrosis",
+      "Contracted bladder",
+      "Secondary vesicoureteral reflux",
+      "Chronic kidney disease",
+      "Stage 5 chronic kidney disease"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0100586",
+      "HP:0000790",
+      "HP:0012587",
+      "HP:0030157",
+      "HP:0100515",
+      "HP:0100518",
+      "HP:0001945",
+      "HP:0000093",
+      "HP:0000822",
+      "HP:0001824",
+      "HP:0030166",
+      "HP:0032632",
+      "HP:5210339",
+      "HP:0000121",
+      "HP:0012585",
+      "HP:0000071",
+      "HP:0000126",
+      "HP:0000014",
+      "HP:0033739",
+      "HP:0012622",
+      "HP:0003774"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Antituberculous Chemotherapy",
+      "Early Ureteric Stenting",
+      "Percutaneous Nephrostomy",
+      "Ureteric and Bladder Reconstruction",
+      "Nephrectomy",
+      "Adjunctive Corticosteroids for Ureteric Stricture"
+    ],
+    "environmental": [
+      "HIV infection",
+      "Kidney transplantation and dialysis",
+      "Intravesical BCG immunotherapy for bladder cancer"
+    ],
+    "biochemical": [],
+    "source_file": "Renal_Tuberculosis.yaml",
+    "page_url": "../pages/disorders/Renal_Tuberculosis.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 6,
+    "causal_graph_edges": "41",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Renal Tubular Acidosis, Distal, 2, With Progressive Sensorineural Hearing Loss",
@@ -418794,7 +419159,8 @@ window.searchData = [
     ],
     "phenotypes": [
       "Non-obstructive azoospermia",
-      "Male infertility"
+      "Male infertility",
+      "Meiotic maturation arrest on testicular histology"
     ],
     "phenotype_categories": [
       "Reproductive"
@@ -418804,7 +419170,8 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0000027",
-      "HP:0003251"
+      "HP:0003251",
+      "HP:0031038"
     ],
     "frequencies": [],
     "genes": [
@@ -418818,12 +419185,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "TEX11-related_spermatogenic_failure.yaml",
     "page_url": "../pages/disorders/TEX11-related_spermatogenic_failure.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 3,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "TFRC-related Combined Immunodeficiency",
@@ -434188,6 +434555,108 @@ window.searchData = [
     "num_genes": 0,
     "num_treatments": 3,
     "causal_graph_edges": "25",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Tuberculous Salpingitis",
+    "disease_id": "MONDO:0000271",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tuberculosis",
+      "Extrapulmonary Tuberculosis",
+      "Salpingitis"
+    ],
+    "creation_date": "2026-11-26T03:48:19Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Tuberculous salpingitis is tuberculosis of the fallopian tubes. The tubes are the usual first and most frequently involved site of female genital tuberculosis and are affected, usually on both sides, in nearly every case. Mycobacterium tuberculosis reaches the tubes mainly through the bloodstream from a primary focus outside the genital tract, most often the lungs, and less often through lymphatics or by direct spread from abdominal or peritoneal tuberculosis. Granulomatous endosalpingitis with caseation damages the tubal mucosa and wall, which leads to tubal blockage, beading, hydrosalpinx or pyosalpinx, tubo-ovarian masses and pelvic adhesions. Infection commonly spreads from the tubes to the endometrium and less often to the ovaries. The disease is often silent and is usually found during investigation of infertility; pelvic pain, menstrual disturbance and ectopic pregnancy are the other main presentations. Diagnosis combines endometrial sampling for histopathology, acid-fast bacilli, culture and molecular tests with laparoscopy, hysteroscopy and hysterosalpingography. Treatment is standard six-month antituberculous chemotherapy. Fertility often stays poor after cure, and women with damaged tubes and a receptive endometrium are offered in-vitro fertilization.",
+    "pathophysiology": [
+      "Primary Pulmonary or Extragenital Tuberculous Focus",
+      "Hematogenous and Lymphatic Seeding of the Fallopian Tubes",
+      "Contiguous Spread from Abdominal or Peritoneal Tuberculosis",
+      "Caseating Granulomatous Endosalpingitis",
+      "Tubal Occlusion and Endosalpingeal Destruction",
+      "Tubo-ovarian and Peritubal Extension",
+      "Secondary Tuberculous Endometritis"
+    ],
+    "cell_types": [
+      "epithelioid macrophage",
+      "Langhans giant cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002150",
+      "CL:0000647"
+    ],
+    "biological_processes": [
+      "granuloma formation"
+    ],
+    "phenotypes": [
+      "Salpingitis",
+      "Female infertility",
+      "Tubal blockage",
+      "Hydrosalpinx",
+      "Tubo-ovarian abscess",
+      "Ectopic pregnancy",
+      "Pelvic pain",
+      "Menorrhagia",
+      "Oligomenorrhea",
+      "Amenorrhea",
+      "Endometritis",
+      "Uterine synechiae",
+      "Abdominal adhesions",
+      "Perihepatic adhesions",
+      "Oophoritis",
+      "Caseating granulomatosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Immune"
+    ],
+    "phenotype_ids": [
+      "HP:0034492",
+      "HP:0008222",
+      "HP:0011027",
+      "HP:6000146",
+      "HP:0034493",
+      "HP:0034267",
+      "HP:0000132",
+      "HP:0000876",
+      "HP:0000141",
+      "HP:0025636",
+      "HP:0030712",
+      "HP:0033134",
+      "HP:0034477",
+      "HP:0031259",
+      "HP:5210339"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Antituberculous Chemotherapy",
+      "In Vitro Fertilization and Embryo Transfer",
+      "Salpingectomy for Hydrosalpinx Before IVF",
+      "Surgical Drainage or Extirpative Surgery"
+    ],
+    "environmental": [
+      "HIV infection",
+      "Contact with smear-positive pulmonary tuberculosis"
+    ],
+    "biochemical": [],
+    "source_file": "Tuberculous_Salpingitis.yaml",
+    "page_url": "../pages/disorders/Tuberculous_Salpingitis.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "30",
     "causal_graph_longest_path": "5"
   },
   {
@@ -455610,17 +456079,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4191,
-  "total_subtypes": 5141,
-  "total_disorders_and_subtypes": 9332,
-  "total_unique_evidence_sources": 62554,
-  "total_unique_publications": 58419,
+  "total_disorder_pages": 4195,
+  "total_subtypes": 5144,
+  "total_disorders_and_subtypes": 9339,
+  "total_unique_evidence_sources": 62644,
+  "total_unique_publications": 58508,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4189,
-  "total_unique_pathological_events": 27669,
+  "total_pathographs": 4193,
+  "total_unique_pathological_events": 27701,
   "total_modules": 242,
-  "total_research_reports": 4292,
+  "total_research_reports": 4296,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 150
