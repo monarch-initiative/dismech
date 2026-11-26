@@ -120418,6 +120418,73 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Congenital Nongoitrous Hypothyroidism 3",
+    "disease_id": "MONDO:0012360",
+    "category": "Genetic",
+    "parents": [
+      "Congenital Hypothyroidism"
+    ],
+    "creation_date": "2026-11-20T22:11:06Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Congenital nongoitrous hypothyroidism 3 (CHNG3) is a dominant thyroid disorder caused by noncoding variants in a short tandem repeat between DET1 and MIR7-2 on chromosome 15q. It includes newborn-screen-detected congenital hypothyroidism and familial hyperthyrotropinemia; free thyroxine is commonly normal in both reported cohorts, although patients in the Japanese series usually required ongoing levothyroxine. Mutant repeat alleles alter thyroid-specific regulatory chromatin and increase MIR7-2/MIR1179 expression. The traditional thyrotropin-resistance interpretation and the downstream signaling model remain under investigation. Normal or small thyroid glands in childhood can progress to multinodular enlargement, so lifelong absence of goiter is not a defining requirement.",
+    "pathophysiology": [
+      "Intergenic Repeat Disruption",
+      "Thyroid Regulatory Chromatin Activation",
+      "MIR7-2 and MIR1179 Overexpression",
+      "Thyrocyte Signaling Imbalance",
+      "Resistance to Thyrotropin"
+    ],
+    "cell_types": [
+      "thyroid follicular cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002258"
+    ],
+    "biological_processes": [],
+    "phenotypes": [
+      "Congenital hypothyroidism",
+      "Elevated circulating TSH",
+      "Elevated circulating thyroglobulin",
+      "Thyroid hypoplasia",
+      "Multinodular goiter",
+      "Reduced radioactive iodine uptake"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000851",
+      "HP:0002925",
+      "HP:0025484",
+      "HP:0005990",
+      "HP:0005987",
+      "HP:0031219"
+    ],
+    "frequencies": [],
+    "genes": [
+      "Chromosome 15q regulatory short tandem repeat"
+    ],
+    "treatments": [
+      "Levothyroxine replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Nongoitrous_Hypothyroidism_3.yaml",
+    "page_url": "../pages/disorders/Congenital_Nongoitrous_Hypothyroidism_3.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Congenital Plasminogen Activator Inhibitor Type 1 Deficiency",
     "disease_id": "MONDO:0013227",
     "category": "Mendelian",
@@ -237335,7 +237402,7 @@ window.searchData = [
     "creation_date": "2026-09-28T17:30:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Intellectual disability, autosomal dominant 11 (MRD11) is a provisional gene-disease association resting on a single patient: a boy with severe nonsyndromic intellectual disability who carries a de novo heterozygous missense variant, p.Pro854Ser, in EPB41L1. EPB41L1 encodes protein 4.1N, a neuron-enriched FERM-domain adaptor that links membrane receptors to the spectrin-actin cytoskeleton and binds the AMPA receptor subunit GluA1 (GluR1) through its C-terminal domain. In cultured cells the variant halves 4.1N binding to GluA1 and lowers surface GluA1 in neurons, and acute 4.1N knockdown in mouse hippocampus impairs the maintenance of long-term potentiation without changing basal transmission. The rodent evidence is not consistent, however: 3-week-old mice with 4.1N reduced to about a fifth of normal (and no 4.1G) have normal glutamatergic transmission and long-term potentiation, and in rat dentate gyrus granule neurons the C-terminal domain carrying the patient's variant was dispensable for 4.1N's synaptic role, whereas the FERM domain was needed for synaptic AMPA receptors. No second patient has been published, so both the gene-disease link and the mechanism remain unconfirmed.",
+    "description": "Intellectual disability, autosomal dominant 11 (MRD11) is a provisional gene-disease association resting on two patients. The first is a boy with severe nonsyndromic intellectual disability who carries a de novo heterozygous missense variant, p.Pro854Ser, in EPB41L1. EPB41L1 encodes protein 4.1N, a neuron-enriched FERM-domain adaptor that links membrane receptors to the spectrin-actin cytoskeleton and binds the AMPA receptor subunit GluA1 (GluR1) through its C-terminal domain. In cultured cells the variant halves 4.1N binding to GluA1 and lowers surface GluA1 in neurons, and acute 4.1N knockdown in mouse hippocampus impairs the maintenance of long-term potentiation without changing basal transmission. The rodent evidence is not consistent, however: 3-week-old mice with 4.1N reduced to about a fifth of normal (and no 4.1G) have normal glutamatergic transmission and long-term potentiation, and in rat dentate gyrus granule neurons the C-terminal domain carrying the patient's variant was dispensable for 4.1N's synaptic role, whereas the FERM domain was needed for synaptic AMPA receptors. A second patient (de novo p.Glu619Asp) has moderate global developmental delay, microcephaly, failure to thrive and kidney findings, but no functional data, so both the gene-disease link and the mechanism remain unconfirmed.",
     "pathophysiology": [
       "De Novo EPB41L1 p.Pro854Ser Variant",
       "Reduced 4.1N Binding to GluA1",
@@ -237359,16 +237426,41 @@ window.searchData = [
       "long-term synaptic potentiation"
     ],
     "phenotypes": [
-      "Severe Intellectual Disability"
+      "Severe Intellectual Disability",
+      "Moderate Global Developmental Delay",
+      "Failure to Thrive",
+      "Microcephaly",
+      "Hyperechogenic Kidneys",
+      "Hypomagnesemia",
+      "Hypocalciuria",
+      "Metabolic Alkalosis",
+      "Non-albumin Proteinuria"
     ],
     "phenotype_categories": [
-      "Neurological"
+      "Neurological",
+      "Growth",
+      "Craniofacial",
+      "Renal",
+      "Laboratory"
     ],
     "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0010864"
+      "HP:0010864",
+      "HP:0011343",
+      "HP:0001508",
+      "HP:0000252",
+      "HP:0004719",
+      "HP:0002917",
+      "HP:0003127",
+      "HP:0200114",
+      "HP:0000093"
     ],
     "frequencies": [],
     "genes": [
@@ -237379,7 +237471,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Intellectual_Disability_Autosomal_Dominant_11.yaml",
     "page_url": "../pages/disorders/Intellectual_Disability,_Autosomal_Dominant_11.html",
-    "num_phenotypes": 1,
+    "num_phenotypes": 9,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 0,
@@ -264991,6 +265083,92 @@ window.searchData = [
     "num_treatments": 10,
     "causal_graph_edges": "16",
     "causal_graph_longest_path": "11"
+  },
+  {
+    "name": "Lupus Vulgaris",
+    "disease_id": "MONDO:0006838",
+    "category": "Infectious Disease",
+    "parents": [
+      "Cutaneous tuberculosis",
+      "Tuberculosis"
+    ],
+    "creation_date": "2026-11-26T02:02:16Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Lupus vulgaris is a chronic, progressive, paucibacillary form of cutaneous tuberculosis that arises in a host already sensitized to Mycobacterium tuberculosis and carrying a high degree of cell-mediated immunity against it. Bacilli usually reach the skin endogenously, by hematogenous or lymphatic spread or by contiguous extension from an underlying focus, and less often by exogenous inoculation, including at a BCG vaccination site. A Th1-driven delayed-type hypersensitivity response organizes dermal tuberculoid granulomas that contain the few bacilli present, so acid-fast bacilli are rarely seen and culture is often negative while the tuberculin test is strongly positive. Clinically, reddish-brown papules and nodules that show an apple-jelly colour on diascopy coalesce into plaques that extend at the periphery and atrophy and scar at the centre, most often on the head and neck. Untreated lesions persist for years to decades and can become destructive and disfiguring, and squamous cell carcinoma can arise in long-standing lesions. Standard multidrug antituberculous chemotherapy is curative, with excision for residual lesions or malignant change.",
+    "pathophysiology": [
+      "Mycobacterial Seeding of the Skin in a Sensitized Host",
+      "Th1 Delayed-Type Hypersensitivity Response",
+      "Dermal Tuberculoid Granuloma Formation",
+      "Paucibacillary Mycobacterial Persistence",
+      "Epidermal Hyperplasia or Atrophy Over Granulomas",
+      "Chronic Peripheral Extension with Central Scarring",
+      "Chronic Inflammation-Associated Squamous Carcinogenesis"
+    ],
+    "cell_types": [
+      "T-helper 1 cell",
+      "macrophage",
+      "epithelioid macrophage",
+      "Langhans giant cell",
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000545",
+      "CL:0000235",
+      "CL:0002150",
+      "CL:0000647",
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "type IV hypersensitivity",
+      "macrophage activation",
+      "granuloma formation",
+      "syncytium formation by cell-cell fusion",
+      "chronic inflammatory response"
+    ],
+    "phenotypes": [
+      "Apple-jelly papules and nodules",
+      "Skin plaque",
+      "Hyperkeratosis",
+      "Atrophic scars",
+      "Skin ulcer",
+      "Squamous cell carcinoma of the skin",
+      "Basal cell carcinoma"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Integument",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0200036",
+      "HP:0200035",
+      "HP:0000962",
+      "HP:0001075",
+      "HP:0200042",
+      "HP:0006739",
+      "HP:0002671"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Standard multidrug antituberculous chemotherapy",
+      "Susceptibility-guided antituberculous therapy",
+      "Surgical excision of residual lesions"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Lupus_Vulgaris.yaml",
+    "page_url": "../pages/disorders/Lupus_Vulgaris.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Luscan-Lumish Syndrome",
@@ -380944,7 +381122,8 @@ window.searchData = [
     ],
     "phenotypes": [
       "Hyperoxaluria",
-      "Calcium oxalate nephrolithiasis"
+      "Calcium oxalate nephrolithiasis",
+      "Hypocitraturia"
     ],
     "phenotype_categories": [
       "Biochemical",
@@ -380956,7 +381135,8 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0003159",
-      "HP:0008672"
+      "HP:0008672",
+      "HP:0012405"
     ],
     "frequencies": [],
     "genes": [
@@ -380967,11 +381147,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "SLC26A6-Related_Hyperoxaluria_and_Nephrolithiasis.yaml",
     "page_url": "../pages/disorders/SLC26A6-Related_Hyperoxaluria_and_Nephrolithiasis.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 3,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "7",
     "causal_graph_longest_path": "5"
   },
   {
@@ -455430,17 +455610,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4189,
+  "total_disorder_pages": 4191,
   "total_subtypes": 5141,
-  "total_disorders_and_subtypes": 9330,
-  "total_unique_evidence_sources": 62537,
-  "total_unique_publications": 58402,
+  "total_disorders_and_subtypes": 9332,
+  "total_unique_evidence_sources": 62554,
+  "total_unique_publications": 58419,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4187,
-  "total_unique_pathological_events": 27657,
+  "total_pathographs": 4189,
+  "total_unique_pathological_events": 27669,
   "total_modules": 242,
-  "total_research_reports": 4290,
+  "total_research_reports": 4292,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 150
