@@ -194,6 +194,14 @@ def test_missing_affected_record_rejected(proposal, tmp_path):
     "kind,fields",
     [
         (
+            "MAPPING_CREATION",
+            {
+                "mapping_target": {"id": "X:1", "label": "External term"},
+                "mapping_representation": "RDF_PREDICATE",
+                "new_value": "skos:exactMatch",
+            },
+        ),
+        (
             "REMOVE_MAPPING",
             {
                 "mapping_target": {"id": "X:1", "label": "External term"},
@@ -228,8 +236,44 @@ def test_supported_change_shapes(proposal, tmp_path, kind, fields):
     proposal.update(change_type=kind, **fields)
     assert not validate_record(proposal, tmp_path)
     proposal["mapping_target"] = {"id": "X:2", "label": "Stray field"}
-    if kind != "REMOVE_MAPPING":
+    if kind not in {"REMOVE_MAPPING", "MAPPING_CREATION"}:
         assert validate_record(proposal, tmp_path)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "old_value",
+        "missing_target",
+        "missing_representation",
+        "missing_value",
+        "skos",
+        "not_curie",
+        "owner",
+    ],
+)
+def test_mapping_creation_requires_absent_old_value_and_native_qualifier(
+    proposal, tmp_path, mutation
+):
+    proposal["change_type"] = "MAPPING_CREATION"
+    del proposal["old_value"]
+    assert not validate_record(proposal, tmp_path)
+    if mutation == "old_value":
+        proposal["old_value"] = "MONDO:equivalentTo"
+    elif mutation.startswith("missing_"):
+        field = {
+            "missing_target": "mapping_target",
+            "missing_representation": "mapping_representation",
+            "missing_value": "new_value",
+        }[mutation]
+        del proposal[field]
+    elif mutation == "owner":
+        proposal["about_node"]["id"] = "DOID:1"
+    else:
+        proposal["new_value"] = (
+            "skos:exactMatch" if mutation == "skos" else "not a CURIE"
+        )
+    assert validate_record(proposal, tmp_path)
 
 
 def write_registry(proposal, tmp_path):

@@ -12,6 +12,36 @@ its other provenance. It is **not filed upstream**. Current MONDO was checked
 on 2026-11-25; WHO scope evidence comes from the separately dated 2026-01
 Foundation snapshot captured on 2026-09-21 UTC.
 
+## Boomer pilot follow-through
+
+The registry now covers four investigated cases, with six atomic mapping edits.
+The Gorlin and PRAAS moves each need two records: remove the misplaced family
+xref and add it to the existing subtype. These are backfilled, applied requests,
+not newly discovered corrections. MONDO and DO source snapshots and the three
+upstream request states were checked on 2026-11-25 (America/Los_Angeles;
+2026-11-26 UTC). The snapshots retain both timestamps.
+
+| Case | Structured edits | Request state | Local adoption |
+|---|---|---|---|
+| Gorlin syndrome | [Remove PTCH1 subtype xref from family](mondo-0007187-gorlin-remove-subtype-doid.yaml); [add it to basal cell nevus syndrome 1](mondo-0958174-gorlin-add-subtype-doid.yaml) | ACCEPTED; [MONDO #10628](https://github.com/monarch-initiative/mondo/pull/10628) merged and verified in current source | No DisMech mapping migration needed |
+| PRAAS | [Remove PRAAS1 xref from family](mondo-0009726-praas-remove-subtype-doid.yaml); [add it to PRAAS1](mondo-0054698-praas-add-subtype-doid.yaml) | ACCEPTED; [MONDO #10629](https://github.com/monarch-initiative/mondo/pull/10629) merged and verified in current source | No DisMech mapping migration needed |
+| TPMT deficiency | [Qualify the poor-thiopurine-metabolism family as broader](mondo-0012503-thiopurine-family-broad-match.yaml) | ACKNOWLEDGED; [MONDO #10630](https://github.com/monarch-initiative/mondo/pull/10630) approved but still open, source unchanged | No DisMech mapping migration needed |
+| Anterior segment dysgenesis (FOXE3 investigation) | [Qualify the structural-anomaly ICD-11 category as broader](mondo-0019503-icd11-anterior-segment-broad-match.yaml) | NOT_FILED | No DisMech mapping migration needed |
+
+TPMT's review asks whether the DO family matches MONDO's thiopurine metabolic
+disease and whether obsolete NUDT15 deficiency should be reinstated. The current
+snapshot confirms that the NUDT15 term is still obsolete. Those questions remain
+open; approval does not establish that the qualifier edit has been applied.
+
+Waldenström remains a scope investigation, with no adjudicated ontology edit.
+Its sensitivity experiment is not promoted into a removal request. Historical
+Boomer inputs and scores remain frozen; later source captures must distinguish
+the applied Gorlin/PRAAS changes from the simulated TPMT/FOXE3 repairs.
+
+The mapping records identify the biological edits. Their linked upstream PRs
+also document associated subset/synonym provenance cleanup, which these edit
+types do not encode. They are not complete executable ontology patches.
+
 ## Validate, query and export
 
 From the repository root:
@@ -52,6 +82,7 @@ schema is required.
    | Change | Required edit fields |
    |---|---|
    | `MAPPING_PREDICATE_CHANGE` | `mapping_target`, `mapping_representation`, `old_value`, `new_value` |
+   | `MAPPING_CREATION` | `mapping_target`, `mapping_representation`, `new_value` |
    | `REMOVE_MAPPING` | `mapping_target`, `mapping_representation`, `old_value` |
    | `NODE_RENAME`, `NODE_TEXT_DEFINITION_CHANGE` | `old_value`, `new_value` |
    | `EDGE_CREATION`, `EDGE_DELETION` | `predicate`, `edge_object` |
@@ -62,6 +93,13 @@ schema is required.
    `MONDO:mondoIsNarrowerThanSource`. The latter corresponds to a broader target
    (`skos:broadMatch` from MONDO); it is not a request to insert an OWL subclass
    edge in mondo-edit.obo. `REMOVE_MAPPING` withdraws the xref/mapping entirely.
+   `MAPPING_CREATION` adds a previously absent mapping; verify its absence in
+   the before snapshot and omit `old_value`. If a mapping already exists but
+   has the wrong qualifier, use `MAPPING_PREDICATE_CHANGE`. A move to a different
+   subject is recorded as paired removal and creation records, sharing the
+   upstream request and naming each other in their justifications and links.
+   For an applied edit, preserve before and current snapshots rather than
+   pretending that the historical `old_value` still holds in the current source.
 4. Write a self-contained justification based on source scope or biological
    evidence. Each `evidence` item cites a snapshot key and a locator within its
    artifact. Include a verbatim `supporting_text` excerpt. Observations are
@@ -106,12 +144,14 @@ adapts ai-gene-review's
 [`ProposedOntologyChange` at b2696a6](https://github.com/ai4curation/ai-gene-review/blob/b2696a68614d4c57abbf5a663d82a681880c69b0/src/ai_gene_review/schema/gene_review.yaml#L804),
 including the separation of origin, request progress and local adoption.
 The mapping-target field closes the gap that schema documents for
-`MAPPING_PREDICATE_CHANGE`. This pilot supports six edit kinds; add new kinds
+`MAPPING_PREDICATE_CHANGE`. This pilot supports seven edit kinds; add new kinds
 with concrete cases and validation rules rather than parking them in OTHER.
 New-term requests, merges and obsoletions are not modeled yet.
 
 KGCL class meanings describe the kind of edit. They do not make this proposal
-envelope valid executable KGCL. A future exporter must translate the source
+envelope valid executable KGCL. `MAPPING_CREATION` is a registry extension with
+explicit endpoint/qualifier semantics, not an asserted KGCL class mapping.
+A future exporter must translate the source
 representation, check the old value as a precondition, preserve unrelated
 annotations, and be tested against the target ontology's tooling. The current
 export is for human review only.

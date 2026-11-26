@@ -39,6 +39,7 @@ TYPE_FIELDS = {
         "new_value",
     },
     "REMOVE_MAPPING": {"mapping_target", "mapping_representation", "old_value"},
+    "MAPPING_CREATION": {"mapping_target", "mapping_representation", "new_value"},
     "NODE_RENAME": {"old_value", "new_value"},
     "NODE_TEXT_DEFINITION_CHANGE": {"old_value", "new_value"},
     "EDGE_CREATION": {"edge_object", "predicate"},
@@ -127,7 +128,7 @@ def validate_record(record: dict, root: Path | None = None) -> list[str]:
         errors.append(f"{data['change_type']} does not use {field}")
     if "new_value" in data and data.get("old_value") == data["new_value"]:
         errors.append("old_value and new_value must differ")
-    if data["change_type"] in {"MAPPING_PREDICATE_CHANGE", "REMOVE_MAPPING"}:
+    if "mapping_target" in required:
         for field in ("old_value", "new_value"):
             if field in data and not CURIE.fullmatch(data[field]):
                 errors.append(f"{field} must be a predicate or qualifier CURIE")
