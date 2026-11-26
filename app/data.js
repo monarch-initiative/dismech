@@ -119207,21 +119207,25 @@ window.searchData = [
     "description": "Congenital myasthenic syndrome 15 (CMS15) is an autosomal recessive disorder of neuromuscular transmission caused by biallelic variants in ALG14. It belongs to the small group of congenital myasthenic syndromes that are also congenital disorders of glycosylation: the defective protein is not a component of the neuromuscular junction at all, but a subunit of the multiglycosyltransferase complex that, with ALG13 and DPAGT1, catalyses the first committed steps of asparagine-linked (N-linked) protein glycosylation in the endoplasmic reticulum.\nThe mechanism is therefore indirect, and that is the point of the entry. The acetylcholine receptor is structurally normal and its genes are intact; what fails is the post-translational modification the receptor subunits need in order to fold, assemble and reach the postsynaptic membrane in adequate numbers. Endplate acetylcholine receptor deficiency is the consequence of a housekeeping biosynthetic defect, not of a receptor lesion, which is why the disease can be a myasthenia at one end of its allelic spectrum and a multisystem neurodegenerative disorder at the other.\nThat spectrum is wide and worth stating explicitly. The founding cohort had an inherited limb-girdle pattern of fatigable weakness with no central nervous system involvement. Subsequent reports described a severe infantile form with congenital contractures, therapy-refractory epilepsy, progressive cerebral atrophy and death within the first year, described by its authors as a new congenital disorder of glycosylation rather than as a myasthenia. Both ends carry biallelic ALG14 variants and both sit under this MONDO term, so the entry curates the whole spectrum and marks which pole each phenotype and each piece of evidence comes from.",
     "pathophysiology": [
       "Biallelic ALG14 Loss of Function",
+      "Defective ER Dolichol-Linked Oligosaccharide Assembly",
       "Hypoglycosylation of Endplate Proteins",
       "Endplate Acetylcholine Receptor Deficiency",
       "Fatigable Skeletal Muscle Weakness",
       "Impaired Glycosylation in Neural Tissue"
     ],
     "cell_types": [
-      "Skeletal muscle fiber"
+      "skeletal muscle fiber",
+      "CNS neuron"
     ],
     "cell_type_ids": [
-      "CL:0008002"
+      "CL:0008002",
+      "CL:0000117"
     ],
     "biological_processes": [
-      "protein N-linked glycosylation",
       "dolichol-linked oligosaccharide biosynthetic process",
-      "neuromuscular synaptic transmission"
+      "protein N-linked glycosylation",
+      "neuromuscular synaptic transmission",
+      "skeletal muscle contraction"
     ],
     "phenotypes": [
       "Limb-girdle muscle weakness",
@@ -119266,11 +119270,11 @@ window.searchData = [
     "source_file": "Congenital_Myasthenic_Syndrome_15.yaml",
     "page_url": "../pages/disorders/Congenital_Myasthenic_Syndrome_15.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Congenital Myasthenic Syndrome 6",
@@ -200937,7 +200941,9 @@ window.searchData = [
       "CL:0000798"
     ],
     "biological_processes": [
-      "JAK-STAT signalling driven by activating STAT5B mutation"
+      "JAK-STAT signalling driven by activating STAT5B mutation",
+      "clonal gamma-delta T cell proliferation",
+      "systemic inflammatory response"
     ],
     "phenotypes": [
       "Splenomegaly",
@@ -206511,6 +206517,96 @@ window.searchData = [
     "num_genes": 0,
     "num_treatments": 3,
     "causal_graph_edges": "15",
+    "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Herpes Zoster Ophthalmicus",
+    "disease_id": "MONDO:0005883",
+    "category": "",
+    "parents": [],
+    "creation_date": "2026-11-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Herpes zoster ophthalmicus (HZO) is the reactivation of latent varicella-zoster virus (VZV) in the ophthalmic (V1) division of the trigeminal ganglion, with anterograde spread along V1 to the forehead/scalp/eyelid dermatome and, when the nasociliary branch is involved, to the eye. It accounts for roughly 10-20% of herpes zoster; about half of HZO patients develop ocular disease spanning conjunctivitis, epithelial and stromal keratitis, anterior uveitis with trabeculitis and raised intraocular pressure, neurotrophic keratopathy from corneal denervation, and - rarely - sight-threatening acute retinal necrosis. Neural and vascular sequelae include postherpetic neuralgia and an increased risk of stroke from VZV vasculopathy. It shares the conserved alphaherpesvirus reactivation-and-neural-spread mechanism with other zoster syndromes but is set apart by its sight-threatening ocular-surface and intraocular disease and its need for urgent ophthalmic care.",
+    "pathophysiology": [
+      "VZV Reactivation in the Ophthalmic Trigeminal Ganglion",
+      "Anterograde Spread Along the V1 Nerve to Skin and Eye",
+      "Corneal Viral and Immune Keratitis",
+      "Anterior Uveitis and Trabeculitis",
+      "Corneal Denervation and Neurotrophic Keratopathy",
+      "Necrotizing Retinitis",
+      "VZV Vasculopathy"
+    ],
+    "cell_types": [
+      "sensory neuron",
+      "corneal epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000101",
+      "CL:0000575"
+    ],
+    "biological_processes": [
+      "release from viral latency",
+      "anterograde axonal transport",
+      "viral life cycle",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Dermatomal vesicular rash",
+      "Keratitis",
+      "Conjunctivitis",
+      "Uveitis",
+      "Glaucoma",
+      "Corneal ulceration",
+      "Retinitis",
+      "Visual impairment",
+      "Postherpetic neuralgia",
+      "Stroke"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000988",
+      "HP:0000491",
+      "HP:0000509",
+      "HP:0000554",
+      "HP:0000501",
+      "HP:0012804",
+      "HP:0032118",
+      "HP:0000505",
+      "HP:0033345",
+      "HP:0001297"
+    ],
+    "frequencies": [
+      "47.6% of HZO patients (413/869)",
+      "21% of HZO patients"
+    ],
+    "genes": [],
+    "treatments": [
+      "Systemic antiviral therapy",
+      "Suppressive low-dose valaciclovir",
+      "Topical corticosteroids (adjunctive, with antiviral)",
+      "Recombinant zoster vaccination (prevention)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Herpes_Zoster_Ophthalmicus.yaml",
+    "page_url": "../pages/disorders/Herpes_Zoster_Ophthalmicus.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "4"
   },
   {
@@ -300991,7 +301087,8 @@ window.searchData = [
     "biological_processes": [
       "zinc ion import across plasma membrane",
       "TGF-beta receptor signaling pathway",
-      "collagen biosynthetic process"
+      "collagen biosynthetic process",
+      "extracellular matrix organization"
     ],
     "phenotypes": [
       "Increased Axial Length of the Globe",
@@ -338377,8 +338474,11 @@ window.searchData = [
     ],
     "creation_date": "2026-07-24T00:00:00Z",
     "updated_date": null,
-    "subtypes": [],
-    "description": "Paroxysmal nocturnal hemoglobinuria (PNH) is a rare, acquired clonal hematopoietic stem cell disorder caused by somatic loss-of-function mutations in the X-linked PIGA gene, which encodes an enzyme required for the first step of glycosylphosphatidylinositol (GPI) anchor biosynthesis. Loss of GPI-anchor assembly renders affected blood cells deficient in the GPI-anchored complement-regulatory proteins CD55 (decay-accelerating factor) and CD59 (membrane inhibitor of reactive lysis). Without these regulators, red cells are susceptible to complement-mediated intravascular hemolysis, producing chronic hemolytic anemia, hemoglobinuria, disabling fatigue, smooth-muscle dystonia (dysphagia, abdominal pain, erectile dysfunction) from nitric-oxide depletion by cell-free hemoglobin, and a markedly increased risk of thrombosis, which is the leading cause of death. PNH characteristically arises in the setting of bone marrow failure, and clonal expansion of the PIGA-mutant stem cell is required for clinically significant disease. Diagnosis is established by high-sensitivity flow cytometry demonstrating GPI-anchor-deficient blood cell populations, and terminal complement inhibitors (eculizumab, ravulizumab) and proximal complement inhibitors (pegcetacoplan, iptacopan, danicopan) have transformed prognosis.",
+    "subtypes": [
+      "PIGA-associated PNH1",
+      "PIGT-associated PNH2"
+    ],
+    "description": "Paroxysmal nocturnal hemoglobinuria (PNH) is a rare, acquired clonal hematopoietic stem cell disorder most commonly caused by somatic loss-of-function mutations in the X-linked PIGA gene, which encodes an enzyme required for the first step of glycosylphosphatidylinositol (GPI) anchor biosynthesis. Loss of GPI-anchor assembly renders affected blood cells deficient in the GPI-anchored complement-regulatory proteins CD55 (decay-accelerating factor) and CD59 (membrane inhibitor of reactive lysis). Without these regulators, red cells are susceptible to complement-mediated intravascular hemolysis, producing chronic hemolytic anemia, hemoglobinuria, disabling fatigue, smooth-muscle dystonia (dysphagia, abdominal pain, erectile dysfunction) from nitric-oxide depletion by cell-free hemoglobin, and a markedly increased risk of thrombosis, which is the leading cause of death. PIGA-PNH characteristically arises in the setting of bone marrow failure, with expansion of the affected stem-cell clone. Diagnosis is established by high-sensitivity flow cytometry demonstrating GPI-anchor-deficient blood cell populations, and terminal complement inhibitors (eculizumab, ravulizumab) and proximal complement inhibitors (pegcetacoplan, iptacopan, danicopan) have transformed prognosis. PIGT-associated PNH2 has a distinct germline-plus-somatic two-hit mechanism that blocks GPI attachment to proteins and permits free-GPI accumulation with additional autoinflammation; it is curated in a dedicated disease entry.",
     "pathophysiology": [
       "PIGA Mutation and GPI-Anchor Deficiency",
       "Loss of CD55 and CD59 Complement Regulation",
@@ -338469,6 +338569,91 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Paroxysmal Nocturnal Hemoglobinuria 2",
+    "disease_id": "MONDO:0014166",
+    "category": "Genetic",
+    "parents": [
+      "Paroxysmal Nocturnal Hemoglobinuria"
+    ],
+    "creation_date": "2026-11-20T22:11:31Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Paroxysmal nocturnal hemoglobinuria 2 (PIGT-PNH) is an acquired clonal blood disorder caused by a constitutional PIGT variant together with somatic loss of the other allele, usually within a chromosome 20q deletion. PIGT deficiency blocks attachment of glycosylphosphatidylinositol (GPI) anchors to proteins. Loss of cell-surface complement inhibitors permits intravascular hemolysis, while accumulation of unattached GPI provides a distinct inflammatory mechanism with recurrent aseptic meningitis, urticaria and arthralgia. This germline-plus-somatic disease is distinct from biallelic germline PIGT-related developmental GPI-anchor deficiency.",
+    "pathophysiology": [
+      "Biallelic PIGT Inactivation in a Hematopoietic Clone",
+      "PIGT-Dependent GPI Transamidase Dysfunction",
+      "Failure of GPI Attachment to Proteins",
+      "Loss of Surface Complement Inhibitors",
+      "Complement-Mediated Intravascular Hemolysis",
+      "Free GPI Accumulation",
+      "Lectin Complement Pathway Activation",
+      "Membrane Attack Complex Formation",
+      "Enhanced IL-1 Beta Secretion",
+      "Loss of Co-deleted Myeloid Region Gene Expression",
+      "Proposed Clonal Growth Advantage"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "attachment of GPI anchor to protein",
+      "complement activation, lectin pathway",
+      "activation of membrane attack complex",
+      "interleukin-1 beta production"
+    ],
+    "phenotypes": [
+      "Hemolytic anemia",
+      "Recurrent aseptic meningitis",
+      "Urticaria",
+      "Arthralgia",
+      "Fever",
+      "Hemoglobinuria",
+      "Myelodysplasia in a reported case"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001878",
+      "HP:0006946",
+      "HP:0001025",
+      "HP:0002829",
+      "HP:0001945",
+      "HP:0003641",
+      "HP:0002863"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PIGT"
+    ],
+    "treatments": [
+      "Eculizumab",
+      "Allogeneic hematopoietic stem cell transplantation",
+      "IL-1 blockade with prednisolone"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Paroxysmal_Nocturnal_Hemoglobinuria_2.yaml",
+    "page_url": "../pages/disorders/Paroxysmal_Nocturnal_Hemoglobinuria_2.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Pars Planitis",
@@ -340813,7 +340998,9 @@ window.searchData = [
       "Observation",
       "Tendon transfer",
       "Surgical excision",
-      "Nerve resection, with or without grafting"
+      "Nerve resection, with or without grafting",
+      "Neurolysis",
+      "Nerve transfer"
     ],
     "environmental": [],
     "biochemical": [],
@@ -340822,7 +341009,7 @@ window.searchData = [
     "num_phenotypes": 11,
     "num_pathophysiology": 5,
     "num_genes": 2,
-    "num_treatments": 4,
+    "num_treatments": 6,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "4"
   },
@@ -355278,6 +355465,77 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "23",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Primary Cutaneous Tuberculosis",
+    "disease_id": "MONDO:0957464",
+    "category": "",
+    "parents": [],
+    "creation_date": "2026-11-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Primary cutaneous tuberculosis (the tuberculous chancre, or primary inoculation tuberculosis) is the exogenous form of cutaneous tuberculosis that arises when Mycobacterium tuberculosis is inoculated directly into the skin of a host who has never been infected or sensitized to the mycobacterium. In the absence of pre-existing cell-mediated immunity the bacilli multiply locally as a multibacillary lesion, producing a firm painless papule that ulcerates, and then spread through the draining lymphatics to the regional nodes - a skin chancre plus regional lymphadenopathy that is the cutaneous equivalent of the Ghon (primary pulmonary) complex. As delayed-type hypersensitivity develops, the lesion becomes a caseating epithelioid-cell granuloma. It is distinct from the reactivation/endogenous forms of cutaneous tuberculosis (lupus vulgaris, tuberculosis verrucosa cutis) which occur in already-sensitized hosts. M. bovis and BCG are rarer causes of the same inoculation picture.",
+    "pathophysiology": [
+      "Traumatic Inoculation into Non-Sensitized Skin",
+      "Unchecked Multibacillary Dermal Proliferation",
+      "Caseating Granulomatous Response",
+      "Lymphatic Spread Forming the Cutaneous Primary Complex",
+      "Caseous Necrosis and Cutaneous Ulceration"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "macrophage",
+      "neutrophil",
+      "epithelioid macrophage",
+      "T-helper 1 cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000235",
+      "CL:0000775",
+      "CL:0000545"
+    ],
+    "biological_processes": [
+      "phagocytosis",
+      "syncytium formation by cell-cell fusion",
+      "chronic inflammatory response"
+    ],
+    "phenotypes": [
+      "Cutaneous papule or nodule",
+      "Painless cutaneous ulcer",
+      "Regional lymphadenopathy",
+      "Cutaneous scarring"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Immune",
+      "Integument",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0200034",
+      "HP:0200042",
+      "HP:0002716",
+      "HP:0100699"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Antituberculous chemotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Primary_Cutaneous_Tuberculosis.yaml",
+    "page_url": "../pages/disorders/Primary_Cutaneous_Tuberculosis.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Primary Erythermalgia",
@@ -431610,6 +431868,77 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Trichodysplasia Spinulosa",
+    "disease_id": "MONDO:0016455",
+    "category": "",
+    "parents": [],
+    "creation_date": "2026-11-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Trichodysplasia spinulosa (TS) is a rare folliculocentric skin disease of immunosuppressed patients caused by productive infection with the trichodysplasia spinulosa-associated polyomavirus (TSPyV). When cell-mediated immune control of this near-ubiquitous virus is lost, TSPyV replicates to very high loads in the inner root sheath keratinocytes of hair follicles; its early tumour (T) antigens drive those cells through the cell cycle (large T antigen binds and inactivates the retinoblastoma protein; middle T antigen activates MEK/ERK via PP2A), producing a hyperproliferative, abnormally differentiating follicle that extrudes a keratin spicule instead of a normal hair shaft. The result is follicular papules with protruding keratin spines, centred on the face, with alopecia of the eyebrows and eyelashes, progressing to facial thickening and a leonine appearance if untreated. It is not a neoplasm; reducing immunosuppression or giving antivirals lowers viral load and resolves the lesions.",
+    "pathophysiology": [
+      "Loss of Immune Control of TSPyV",
+      "Productive TSPyV Infection of Inner Root Sheath Keratinocytes",
+      "Large T Antigen Inactivation of the Retinoblastoma Protein",
+      "Middle T Antigen MEK/ERK Hyperactivation",
+      "Inner Root Sheath Hyperproliferation",
+      "Dysplastic Follicle and Keratin Spicule Formation"
+    ],
+    "cell_types": [
+      "T cell",
+      "inner root sheath cell",
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0002560",
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "viral genome replication",
+      "G1/S transition of mitotic cell cycle",
+      "ERK1 and ERK2 cascade",
+      "positive regulation of cell population proliferation",
+      "keratinization"
+    ],
+    "phenotypes": [
+      "Follicular papules with keratin spicules",
+      "Alopecia of eyebrows and eyelashes",
+      "Leonine facies",
+      "Pruritus"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0007502",
+      "HP:0001596",
+      "HP:0000280",
+      "HP:0000989"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Reduction of immunosuppression",
+      "Topical cidofovir",
+      "Oral valganciclovir"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Trichodysplasia_Spinulosa.yaml",
+    "page_url": "../pages/disorders/Trichodysplasia_Spinulosa.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Trichohepatoenteric Syndrome",
     "disease_id": "MONDO:0009105",
     "category": "Mendelian",
@@ -454668,17 +454997,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4181,
-  "total_subtypes": 5137,
-  "total_disorders_and_subtypes": 9318,
-  "total_unique_evidence_sources": 62415,
-  "total_unique_publications": 58284,
+  "total_disorder_pages": 4185,
+  "total_subtypes": 5139,
+  "total_disorders_and_subtypes": 9324,
+  "total_unique_evidence_sources": 62456,
+  "total_unique_publications": 58324,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4179,
-  "total_unique_pathological_events": 27590,
-  "total_modules": 241,
-  "total_research_reports": 4282,
+  "total_pathographs": 4183,
+  "total_unique_pathological_events": 27619,
+  "total_modules": 242,
+  "total_research_reports": 4286,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 150
