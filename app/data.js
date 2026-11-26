@@ -85925,6 +85925,135 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Cardiac Tuberculosis",
+    "disease_id": "MONDO:0000813",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tuberculosis",
+      "Extrapulmonary tuberculosis"
+    ],
+    "creation_date": "2026-11-26T02:08:13Z",
+    "updated_date": null,
+    "subtypes": [
+      "Tuberculous pericarditis",
+      "Myocardial tuberculosis"
+    ],
+    "description": "Cardiac tuberculosis is Mycobacterium tuberculosis infection of the heart and its coverings. It is overwhelmingly tuberculous pericarditis: bacilli reach the pericardium by retrograde lymphatic spread from mediastinal nodes or by hematogenous dissemination, and a lymphocyte-dominated, interferon-gamma-rich response produces a fibrinous then exudative pericarditis with large serosanguineous effusions, cardiac tamponade, and in a minority progression through effusive-constrictive disease to fibrotic constrictive pericarditis. Myocardial tuberculosis is rare, often diagnosed post mortem, and presents with arrhythmia, heart failure and sudden cardiac death. HIV co-infection drives much of the current burden in sub-Saharan Africa and changes the presentation and natural history.",
+    "pathophysiology": [
+      "Mycobacterium tuberculosis Spread to the Heart",
+      "Multibacillary Pericardial Infection",
+      "Fibrinous Pericardial Inflammation",
+      "Pericardial Th1 Lymphocytic Response",
+      "Lymphocytic Exudative Pericardial Effusion",
+      "Cardiac Compression by Pericardial Fluid",
+      "Profibrotic Pericardial Fluid Milieu",
+      "Pericardial Fibrosis and Thickening",
+      "Pericardial Constriction of Diastolic Filling",
+      "Tuberculous Myocardial Infiltration"
+    ],
+    "cell_types": [
+      "macrophage",
+      "T cell",
+      "CD4-positive effector memory T cell",
+      "CD8-positive T cell",
+      "lymphocyte",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000084",
+      "CL:0000905",
+      "CL:0000625",
+      "CL:0000542",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "acute inflammatory response",
+      "granuloma formation",
+      "interferon-gamma production",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Pericardial effusion",
+      "Cardiac tamponade",
+      "Constrictive pericarditis",
+      "Chest pain",
+      "Pericardial friction rub",
+      "Congestive heart failure",
+      "Hypotension",
+      "Tachycardia",
+      "Anemia",
+      "Peripheral edema",
+      "Ascites",
+      "Pulsus paradoxus",
+      "Dyspnea",
+      "Fever",
+      "Night sweats",
+      "Weight loss",
+      "Raised serum globulin",
+      "Myocarditis",
+      "Ventricular fibrillation",
+      "Sudden cardiac death"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001698",
+      "HP:0033415",
+      "HP:0002563",
+      "HP:0100749",
+      "HP:0034788",
+      "HP:0001635",
+      "HP:0002615",
+      "HP:0001649",
+      "HP:0001903",
+      "HP:0012398",
+      "HP:0001541",
+      "HP:6000046",
+      "HP:0002094",
+      "HP:0001945",
+      "HP:0030166",
+      "HP:0001824",
+      "HP:0032311",
+      "HP:0012819",
+      "HP:0001663",
+      "HP:0001645"
+    ],
+    "frequencies": [
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Standard Four-Drug Antituberculous Therapy",
+      "Pericardiocentesis",
+      "Adjunctive Prednisolone",
+      "Mycobacterium indicus pranii Immunotherapy",
+      "Pericardiectomy"
+    ],
+    "environmental": [
+      "HIV co-infection"
+    ],
+    "biochemical": [],
+    "source_file": "Cardiac_Tuberculosis.yaml",
+    "page_url": "../pages/disorders/Cardiac_Tuberculosis.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 10,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "36",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "PLD1-Related Congenital Heart Disease",
     "disease_id": "MONDO:0008913",
     "category": "Mendelian",
@@ -142798,17 +142927,26 @@ window.searchData = [
     ],
     "phenotypes": [
       "Dilated Cardiomyopathy",
-      "Congestive Heart Failure"
+      "Congestive Heart Failure",
+      "Left Ventricular Dilatation",
+      "Sudden Cardiac Death",
+      "Atrial Fibrillation",
+      "Atrioventricular Block"
     ],
     "phenotype_categories": [
       "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
-      "Cardiovascular"
+      "Cardiovascular",
+      "Constitutional"
     ],
     "phenotype_ids": [
       "HP:0001644",
-      "HP:0001635"
+      "HP:0001635",
+      "HP:4000141",
+      "HP:0001645",
+      "HP:0005110",
+      "HP:0001678"
     ],
     "frequencies": [
       "OBLIGATE"
@@ -142824,11 +142962,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Dilated_Cardiomyopathy_1D.yaml",
     "page_url": "../pages/disorders/Dilated_Cardiomyopathy_1D.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 6,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "5"
   },
   {
@@ -143341,17 +143479,22 @@ window.searchData = [
     ],
     "phenotypes": [
       "Dilated Cardiomyopathy",
-      "Congestive Heart Failure"
+      "Congestive Heart Failure",
+      "Reduced Left Ventricular Ejection Fraction",
+      "Sudden Cardiac Death"
     ],
     "phenotype_categories": [
       "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
-      "Cardiovascular"
+      "Cardiovascular",
+      "Constitutional"
     ],
     "phenotype_ids": [
       "HP:0001644",
-      "HP:0001635"
+      "HP:0001635",
+      "HP:0012664",
+      "HP:0001645"
     ],
     "frequencies": [
       "OBLIGATE"
@@ -143367,11 +143510,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Dilated_Cardiomyopathy_1HH.yaml",
     "page_url": "../pages/disorders/Dilated_Cardiomyopathy_1HH.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 4,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "6"
   },
   {
@@ -144239,7 +144382,9 @@ window.searchData = [
     ],
     "phenotypes": [
       "Dilated Cardiomyopathy",
-      "Congestive Heart Failure"
+      "Congestive Heart Failure",
+      "Left Ventricular Systolic Dysfunction",
+      "Left Ventricular Noncompaction"
     ],
     "phenotype_categories": [
       "Cardiovascular"
@@ -144249,10 +144394,13 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0001644",
-      "HP:0001635"
+      "HP:0001635",
+      "HP:0025169",
+      "HP:0030682"
     ],
     "frequencies": [
-      "OBLIGATE"
+      "OBLIGATE",
+      "FREQUENT"
     ],
     "genes": [
       "MYH7"
@@ -144265,11 +144413,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Dilated_Cardiomyopathy_1S.yaml",
     "page_url": "../pages/disorders/Dilated_Cardiomyopathy_1S.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 4,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "9",
+    "causal_graph_edges": "10",
     "causal_graph_longest_path": "5"
   },
   {
@@ -160225,6 +160373,105 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "20",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Escherichia coli Discitis",
+    "disease_id": "MONDO:8000002",
+    "category": "Infectious Disease",
+    "parents": [
+      "Infectious discitis",
+      "Bacterial arthritis",
+      "Escherichia coli infection"
+    ],
+    "creation_date": "2026-11-26T02:20:18Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Escherichia coli discitis is a pyogenic Gram-negative infection of the intervertebral disc and adjacent vertebral endplates (spondylodiscitis) in which E. coli, usually from a urinary tract or other genitourinary or intra-abdominal source and often after urologic instrumentation, reaches the discovertebral unit through the bloodstream. It affects predominantly older adults and patients with malignancy, presents with back pain and often with constitutional or bacteremic features, can extend into the paravertebral, psoas and epidural spaces, and is increasingly caused by extended-spectrum beta-lactamase-producing strains that constrain antibiotic choice.",
+    "pathophysiology": [
+      "Genitourinary E. coli Source Infection",
+      "E. coli Bacteremia",
+      "Hematogenous Discovertebral Seeding",
+      "Disc-Endplate E. coli Expansion",
+      "Lipopolysaccharide-Driven Disc and Bone Inflammation",
+      "Vertebral Endplate and Disc Destruction",
+      "Paravertebral, Psoas and Epidural Extension",
+      "Spinal Cord or Root Compression",
+      "E. coli Peptidoglycan Cross-Linking (Beta-Lactam Target)",
+      "E. coli DNA Gyrase and Topoisomerase IV (Fluoroquinolone Target)",
+      "ESBL-Mediated Beta-Lactam Resistance"
+    ],
+    "cell_types": [
+      "nucleus pulposus cell",
+      "osteoclast"
+    ],
+    "cell_type_ids": [
+      "CL:0002564",
+      "CL:0000092"
+    ],
+    "biological_processes": [
+      "cellular response to lipopolysaccharide",
+      "toll-like receptor 4 signaling pathway",
+      "osteoclast differentiation",
+      "peptidoglycan-based cell wall biogenesis",
+      "DNA topological change",
+      "response to antibiotic"
+    ],
+    "phenotypes": [
+      "Back Pain",
+      "Fever",
+      "Bacteremia",
+      "Elevated C-reactive protein",
+      "Intervertebral Space Narrowing",
+      "Psoas or Paravertebral Abscess",
+      "Spinal Epidural Abscess",
+      "Lower Limb Weakness",
+      "Tetraparesis"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Systemic",
+      "Infectious",
+      "Laboratory",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Immune",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003418",
+      "HP:0001945",
+      "HP:0031864",
+      "HP:0011227",
+      "HP:0002945",
+      "HP:0025615",
+      "HP:0033181",
+      "HP:0007340",
+      "HP:0002273"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Pathogen-Directed Beta-Lactam Therapy",
+      "Oral Fluoroquinolone Therapy",
+      "Spinal Surgical Source Control"
+    ],
+    "environmental": [
+      "Urologic instrumentation breaching the urogenital mucosa"
+    ],
+    "biochemical": [],
+    "source_file": "Escherichia_Coli_Discitis.yaml",
+    "page_url": "../pages/disorders/Escherichia_coli_Discitis.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 11,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Escherichia coli meningitis",
@@ -266764,7 +267011,7 @@ window.searchData = [
     "creation_date": "2026-10-15T14:19:12Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Autosomal dominant, low-penetrance susceptibility to uveal melanoma conferred by a heterozygous germline loss-of-function variant in MBD4, the methyl-CpG-binding glycosylase that removes thymine from the G:T mispair left when 5-methylcytosine deaminates. Unlike the recessive MBD4-related tumor predisposition syndrome, a heterozygote's normal cells keep one working allele; the tumor follows a Knudson two-hit route in which the second hit is loss of chromosome 3 (monosomy 3 or isodisomy 3), which removes the wild-type MBD4 allele and, from the same chromosome, the wild-type BAP1 allele. Only then is the melanocyte MBD4-deficient, and the resulting uveal melanomas are monosomy-3, high-risk tumors carrying a CpG>TpG hypermutator phenotype, about 15-fold more exome variants than MBD4-proficient uveal melanoma in a cancer that otherwise has one of the lowest mutation burdens. Metastatic MBD4-deficient uveal melanoma responds to immune checkpoint blockade far more often than unselected metastatic uveal melanoma. Relative-risk estimates from consecutive Institut Curie series are 9.15 and 31.44, but a Finnish series of 440 patients found no loss-of-function carrier, and the absolute lifetime risk implied by the first estimate is under 0.1%, so most carriers never develop the tumor. Onset in carriers is in adulthood and was not earlier than in non-carriers in the first series (median 55.5 years); no uveal melanoma in a child or adolescent heterozygote was found in the sources cited here. Whether heterozygotes carry an excess risk of other cancers is not established.",
+    "description": "Autosomal dominant, low-penetrance susceptibility to uveal melanoma conferred by a heterozygous germline loss-of-function variant in MBD4, the methyl-CpG-binding glycosylase that removes thymine from the G:T mispair left when 5-methylcytosine deaminates. Unlike the recessive MBD4-related tumor predisposition syndrome, a heterozygote's normal cells keep one working allele; the tumor follows a Knudson two-hit route in which the second hit is loss of chromosome 3 (monosomy 3 or isodisomy 3), which removes the wild-type MBD4 allele and, from the same chromosome, the wild-type BAP1 allele. Only then is the melanocyte MBD4-deficient, and the resulting uveal melanomas are monosomy-3, high-risk tumors carrying a CpG>TpG hypermutator phenotype, about 15-fold more exome variants than MBD4-proficient uveal melanoma in a cancer that otherwise has one of the lowest mutation burdens. Metastatic MBD4-deficient uveal melanoma responds to immune checkpoint blockade far more often than unselected metastatic uveal melanoma. Relative-risk estimates from consecutive Institut Curie series are 9.15 and 31.44, but a Finnish series of 440 patients found no loss-of-function carrier, and the absolute lifetime risk implied by the first estimate is under 0.1%, so most carriers never develop the tumor. Onset in carriers is in adulthood and was not earlier than in non-carriers in the first series (median 55.5 years); no uveal melanoma in a child or adolescent heterozygote was found in the sources cited here. Whether heterozygotes carry an excess risk of other cancers is not established. In healthy carriers of one founder allele, blood shows a modest CpG>TpG mutational excess and clonal hematopoiesis, without a clinical consequence documented.",
     "pathophysiology": [
       "Heterozygous Germline MBD4 Loss of Function",
       "Somatic Loss of the Wild-Type MBD4 Allele by Chromosome 3 Loss",
@@ -266782,10 +267029,15 @@ window.searchData = [
       "base-excision repair initiated by removal of deaminated bases"
     ],
     "phenotypes": [
-      "Uveal Melanoma"
+      "Uveal Melanoma",
+      "Metastatic Uveal Melanoma",
+      "Increased CpG>TpG Mutagenesis in Carrier Blood",
+      "Clonal Hematopoiesis"
     ],
     "phenotype_categories": [
-      "Neoplastic"
+      "Neoplastic",
+      "Cellular",
+      "Hematologic"
     ],
     "phenotype_hpo_categories": [
       "Eye",
@@ -266806,12 +267058,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "MBD4-Related_Uveal_Melanoma_Predisposition.yaml",
     "page_url": "../pages/disorders/MBD4-Related_Uveal_Melanoma_Predisposition.html",
-    "num_phenotypes": 1,
+    "num_phenotypes": 4,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "MBD5 Haploinsufficiency Syndrome",
@@ -373372,6 +373624,7 @@ window.searchData = [
       "Neutrophil Extracellular Trap Formation",
       "B Cell and Plasma Cell Responses",
       "Mucosal Origins and Dysbiosis",
+      "Periodontal Neutrophil Hypercitrullination by Leukotoxin A",
       "Epigenetic Dysregulation of T Cell Function",
       "Synovial Cellular Heterogeneity",
       "Centrally Mediated Pain and Central Sensitization"
@@ -373386,6 +373639,7 @@ window.searchData = [
       "Neutrophil",
       "B cell",
       "Plasma cell",
+      "neutrophil",
       "CD4-positive helper T cell",
       "Synovial Fibroblast",
       "Synovial Macrophage",
@@ -373563,10 +373817,10 @@ window.searchData = [
     "source_file": "Rheumatoid_Arthritis.yaml",
     "page_url": "../pages/disorders/Rheumatoid_Arthritis.html",
     "num_phenotypes": 32,
-    "num_pathophysiology": 15,
+    "num_pathophysiology": 16,
     "num_genes": 23,
     "num_treatments": 6,
-    "causal_graph_edges": "32",
+    "causal_graph_edges": "35",
     "causal_graph_longest_path": "4"
   },
   {
@@ -380628,6 +380882,7 @@ window.searchData = [
     ],
     "phenotypes": [
       "Calcium oxalate nephrolithiasis",
+      "Acute kidney injury",
       "Nephrocalcinosis"
     ],
     "phenotype_categories": [
@@ -380638,6 +380893,7 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0008672",
+      "HP:0001919",
       "HP:0000121"
     ],
     "frequencies": [],
@@ -380649,12 +380905,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "SLC26A1-Related_Oxalate_Transporter_Deficiency.yaml",
     "page_url": "../pages/disorders/SLC26A1-Related_Oxalate_Transporter_Deficiency.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 3,
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "SLC26A6-Related Hyperoxaluria and Nephrolithiasis",
@@ -386967,6 +387223,87 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "26",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Salmonella Discitis",
+    "disease_id": "MONDO:8000004",
+    "category": "Infectious Disease",
+    "parents": [
+      "Infectious discitis",
+      "Salmonellosis"
+    ],
+    "creation_date": "2026-11-26T02:05:31Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Salmonella discitis is a rare focal infection of the intervertebral disc and adjacent vertebral endplates (spondylodiscitis) caused by Salmonella enterica, either nontyphoidal serovars or the enteric-fever serovars Typhi and Paratyphi. The disc is usually seeded during Salmonella bacteremia, sometimes weeks after an enteric illness, or by contiguous spread from an infected aortic aneurysm. It presents as subacute back pain, often with fever and elevated C-reactive protein but usually without gastrointestinal symptoms, and its clinical and radiological picture closely resembles tuberculous spondylitis, so diagnosis depends on blood or tissue culture.",
+    "pathophysiology": [
+      "Host Susceptibility to Invasive Salmonella",
+      "Enteric Salmonella Infection",
+      "Invasive Salmonella Bacteremia",
+      "Hematogenous Discovertebral Seeding",
+      "Infected Aortic Aneurysm Formation",
+      "Contiguous Aorto-Vertebral Spread",
+      "Salmonella Disc-Endplate Infection",
+      "Vertebral Body Destruction",
+      "Epidural and Paravertebral Extension",
+      "Salmonella Peptidoglycan Cross-Linking (Beta-Lactam Target)"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "peptidoglycan-based cell wall biogenesis"
+    ],
+    "phenotypes": [
+      "Back Pain",
+      "Fever",
+      "Elevated C-reactive protein",
+      "Diarrhea",
+      "Bacteremia",
+      "Spinal Epidural Abscess",
+      "Psoas Abscess",
+      "Vertebral Collapse",
+      "Paraplegia",
+      "Infected Aortic Aneurysm"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003418",
+      "HP:0001945",
+      "HP:0011227",
+      "HP:0002014",
+      "HP:0031864",
+      "HP:0033181",
+      "HP:0025615",
+      "HP:0002953",
+      "HP:0010550",
+      "HP:0004942"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Third-Generation Cephalosporin Therapy",
+      "Spinal Surgical Debridement and Stabilization",
+      "Infected Aortic Aneurysm Repair"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Salmonella_Discitis.yaml",
+    "page_url": "../pages/disorders/Salmonella_Discitis.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 10,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Salmonella Gastroenteritis",
@@ -433578,6 +433915,102 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Tuberculous Epididymitis",
+    "disease_id": "MONDO:0001537",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tuberculosis",
+      "Epididymitis",
+      "Male genital tuberculosis"
+    ],
+    "creation_date": "2026-11-26T02:05:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Tuberculous epididymitis is tuberculosis of the epididymis, the most frequently involved organ of the male genital tract. Mycobacterium tuberculosis reaches the epididymis by bloodstream seeding from a primary pulmonary infection, or by retrograde canalicular spread from tuberculosis of the kidney, urinary tract or prostate, and a latent focus can reactivate years later. Caseating granulomatous inflammation begins in the tail of the epididymis and presents as a chronic, often painless scrotal swelling. It can extend into the testis and scrotal wall, forming abscesses, hydroceles and draining scrotal sinuses. Fibrosis and luminal obstruction of the epididymis and vas deferens cause obstructive azoospermia and infertility, which can persist after cure. Treatment is standard antituberculous chemotherapy, with epididymectomy or epididymo-orchiectomy for advanced or complicated disease or when malignancy cannot be excluded.",
+    "pathophysiology": [
+      "Primary Pulmonary Mycobacterium tuberculosis Infection",
+      "Hematogenous Seeding of the Epididymis",
+      "Reactivation of a Latent Epididymal Focus",
+      "Urinary Tract and Prostatic Tuberculosis",
+      "Retrograde Canalicular Spread to the Epididymis",
+      "Caseating Granulomatous Epididymitis",
+      "Contiguous Extension to the Testis and Scrotal Wall",
+      "Epididymal and Vasal Obstruction and Fibrosis"
+    ],
+    "cell_types": [
+      "epithelioid macrophage",
+      "Langhans giant cell",
+      "lymphocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002150",
+      "CL:0000647",
+      "CL:0000542"
+    ],
+    "biological_processes": [
+      "granuloma formation"
+    ],
+    "phenotypes": [
+      "Epididymitis",
+      "Scrotal pain",
+      "Orchitis",
+      "Abscess",
+      "Draining sinus tract in skin",
+      "Hydrocele testis",
+      "Caseating granulomatosis",
+      "Obstructive azoospermia",
+      "Male infertility",
+      "Pyuria",
+      "Microscopic hematuria",
+      "Fever",
+      "Weight loss"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0000031",
+      "HP:0030155",
+      "HP:0100796",
+      "HP:0025615",
+      "HP:6000095",
+      "HP:0000034",
+      "HP:5210339",
+      "HP:0011962",
+      "HP:0003251",
+      "HP:0012085",
+      "HP:0002907",
+      "HP:0001945",
+      "HP:0001824"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Antituberculous Chemotherapy",
+      "Epididymectomy or Epididymo-orchiectomy",
+      "Assisted Reproduction"
+    ],
+    "environmental": [
+      "Intravesical BCG immunotherapy for bladder cancer"
+    ],
+    "biochemical": [],
+    "source_file": "Tuberculous_Epididymitis.yaml",
+    "page_url": "../pages/disorders/Tuberculous_Epididymitis.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Tuberous Sclerosis Complex",
     "disease_id": "MONDO:0001734",
     "category": "Mendelian",
@@ -454997,17 +455430,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4185,
-  "total_subtypes": 5139,
-  "total_disorders_and_subtypes": 9324,
-  "total_unique_evidence_sources": 62456,
-  "total_unique_publications": 58324,
+  "total_disorder_pages": 4189,
+  "total_subtypes": 5141,
+  "total_disorders_and_subtypes": 9330,
+  "total_unique_evidence_sources": 62537,
+  "total_unique_publications": 58402,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4183,
-  "total_unique_pathological_events": 27619,
+  "total_pathographs": 4187,
+  "total_unique_pathological_events": 27657,
   "total_modules": 242,
-  "total_research_reports": 4286,
+  "total_research_reports": 4290,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 150
