@@ -5782,4 +5782,7 @@ both members and their shared target/qualifier; exporting either member shows
 the complete move. The change-set YAML also contains complete `before`/`after`
 mapping assertions with labels, checked against the members. Populate or update
 these with `just ontology-changes refresh-change-set-views`; stale views fail
-validation. Per-edit lifecycles remain independent.
+validation. Include a curated `justification` explaining source scope, the analysis
+finding, the chosen correction and remaining limitations. Refresh preserves that
+prose and derives analysis/source links, upstream requests, affected paths and
+dated per-edit statuses. Per-edit lifecycles remain independent.

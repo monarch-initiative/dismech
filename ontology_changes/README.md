@@ -96,6 +96,14 @@ represent their combined intent, add a record under `change_sets/`:
 id: mondo-gorlin-ptch1-mapping-move
 title: Move the PTCH1-specific DO mapping from the Gorlin family to basal cell nevus syndrome 1
 change_set_type: MAPPING_MOVE
+justification: 'Gorlin syndrome is a family containing PTCH1-related and SUFU-related subtypes. DOID:0070365
+  is explicitly PTCH1-related and shares OMIM:109400 with MONDO:0958174; DOID:2512 covers the broader
+  family. The saved Boomer analysis has two equally weighted best solutions that exchange the family-to-subtype
+  and family-to-family DO mappings. That tie identifies a scope conflict; source definitions, rather than
+  the solver score, justify retaining the family mapping to DOID:2512 and moving DOID:0070365 to MONDO:0958174.
+  The pinned before/current MONDO stanzas document the move applied in MONDO PR #10628. This record covers
+  the mapping assertions, not all annotation cleanup: the checked family stanza still cites the subtype
+  DOID on an inheritance edge, which requires separate review.'
 ontology: MONDO
 mapping_representation: MONDO_XREF_QUALIFIER
 before:
@@ -114,6 +122,44 @@ after:
   object:
     id: DOID:0070365
     label: nevoid basal cell carcinoma syndrome 1
+analysis_links:
+- https://github.com/monarch-initiative/dismech/blob/main/analyses/boomer/remaining-low-confidence/Gorlin_Syndrome-alternatives.md
+source_links:
+- https://raw.githubusercontent.com/monarch-initiative/mondo/f1526eeae184f43741ca73ae0050d16f0061fd37/src/ontology/mondo-edit.obo
+- https://raw.githubusercontent.com/monarch-initiative/mondo/d3bdb9d318f3913c41068660eb30682a7b193e28/src/ontology/mondo-edit.obo
+- https://raw.githubusercontent.com/DiseaseOntology/HumanDiseaseOntology/fe7ad5dc278f47c9c133964892ca7ad80e5321b1/src/ontology/doid.obo
+- https://github.com/monarch-initiative/mondo/pull/10628
+upstream_requests:
+- https://github.com/monarch-initiative/mondo/pull/10628
+member_statuses:
+- proposal_id: mondo-0007187-gorlin-remove-subtype-doid
+  record_url: https://github.com/monarch-initiative/dismech/blob/main/ontology_changes/mondo-0007187-gorlin-remove-subtype-doid.yaml
+  origin: SELF_PROPOSED
+  confidence: HIGH
+  request_status: ACCEPTED
+  adoption_status: NOT_APPLICABLE
+  adoption_notes: The DisMech entry already uses the family MONDO term; no asserted DisMech mapping to
+    the misplaced DO subtype needs migration. The saved before/after Boomer experiment is a controlled
+    source intervention, not a live source refresh. Preserve historical inputs and use corrected upstream
+    mappings for future captures.
+  ontology_state_verified: '2026-11-25'
+- proposal_id: mondo-0958174-gorlin-add-subtype-doid
+  record_url: https://github.com/monarch-initiative/dismech/blob/main/ontology_changes/mondo-0958174-gorlin-add-subtype-doid.yaml
+  origin: SELF_PROPOSED
+  confidence: HIGH
+  request_status: ACCEPTED
+  adoption_status: NOT_APPLICABLE
+  adoption_notes: The DisMech entry already uses the family MONDO term; no asserted DisMech mapping to
+    the misplaced DO subtype needs migration. The saved before/after Boomer experiment is a controlled
+    source intervention, not a live source refresh. Preserve historical inputs and use corrected upstream
+    mappings for future captures.
+  ontology_state_verified: '2026-11-25'
+affected_records:
+- kb/disorders/Gorlin_Syndrome.yaml
+- analyses/boomer/remaining-low-confidence/Gorlin_Syndrome-alternatives.md
+- kb/disorders/PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome.yaml
+see_also:
+- https://github.com/monarch-initiative/dismech/pull/18681
 removal: mondo-0007187-gorlin-remove-subtype-doid
 creation: mondo-0958174-gorlin-add-subtype-doid
 ```
@@ -134,12 +180,31 @@ These blocks describe the edit, not its current application status.
 The owning `ontology`, `mapping_representation`, `before` and `after` are
 materialized from the atomic records so the YAML is readable on GitHub without
 opening another file. Validation requires exact agreement, including labels.
-After creating the two atomic records and the change-set ID/title/references,
+After creating the two atomic records and the change-set ID/title/references
+and writing its `justification`,
 run `just ontology-changes refresh-change-set-views` to populate these fields.
 Run it again after updating a member. The command validates the full registry
 with regenerated views before writing any files; it cannot repair an invalid
 move or missing evidence. It changes only change-set files, never the atomic
 records. Normal validation and export reject missing or stale views.
+
+For new curation, write a self-contained `justification` for the complete move:
+explain the source scope, what the analysis revealed, why the selected correction
+follows, which mappings remain, and any unresolved annotations. Do not substitute
+a solver score for a scope argument. This prose is curated and preserved by refresh;
+validation checks that it is nonblank, not that its interpretation is correct.
+
+Refresh also derives `analysis_links`, `source_links`, `upstream_requests`,
+`member_statuses`, `affected_records` and `see_also`. It removes duplicate links
+and links back to the change set itself. Analysis links browse the saved reports
+on GitHub; their paths and SHA-256 checksums remain in the authoritative atomic
+records. Source URLs preserve the versions captured by those records. Member statuses
+include verification dates and adoption notes; they describe the checked state,
+not a fresh upstream lookup. Every supplied context field must agree with its
+members. Partial context or stale statuses/links block validation and export.
+Legacy sets with no review context remain valid; adding `justification` and running
+refresh migrates them. Refresh never invents the justification or drops other
+schema-valid fields.
 
 Membership is stored once, in the change set; reverse membership is derived.
 The atomic records keep their IDs, source snapshots, request status and adoption
