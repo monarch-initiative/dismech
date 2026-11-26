@@ -399091,6 +399091,103 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Silicotuberculosis",
+    "disease_id": "MONDO:0021804",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tuberculosis",
+      "Silicosis",
+      "Pulmonary tuberculosis"
+    ],
+    "creation_date": "2026-11-26T15:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Silicotuberculosis is active tuberculosis, usually pulmonary, caused by Mycobacterium tuberculosis in a person with silicosis, the fibrotic pneumoconiosis caused by inhaling respirable crystalline silica. Silica dust is inhaled in hard-rock and gold mining, quarrying, tunnelling and caisson work, stone cutting and engineered-stone fabrication, sandblasting and foundry work. Silica particles phagocytosed by alveolar macrophages cannot be digested; they damage the phagolysosome, activate the NLRP3 inflammasome and drive the fibrotic silicotic nodule, and they also leave the macrophage less able to control M. tuberculosis, with a shift towards necrotic cell death and a type 2-skewed lung immune response in experimental models. Silicosis raises the risk of tuberculosis about fourfold, with a steep gradient by radiological severity and a further excess with progressive massive fibrosis, and silica exposure raises the risk even without radiological silicosis. HIV infection multiplies the risk, which is why South African gold miners carry some of the highest tuberculosis rates recorded. Tuberculosis is hard to recognise against the nodules and conglomerate masses of silicosis on imaging, and cavitation in a conglomerate mass is an important clue. Treatment is standard combination antituberculous chemotherapy, extended to at least 8 months on the evidence of a Hong Kong trial in which 6 months gave more relapses, although other cohorts found short-course therapy adequate. Tuberculosis preventive therapy for latent infection in people with silicosis roughly halves the risk, and dust control is the primary prevention.",
+    "pathophysiology": [
+      "Alveolar Macrophage Uptake of Respirable Silica",
+      "Silica-Induced Phagolysosomal Damage",
+      "NLRP3 Inflammasome Activation",
+      "Silicotic Nodule Fibrosis",
+      "Impaired Alveolar Macrophage Control of Mycobacterium tuberculosis",
+      "Necrotic Death of Silica-Exposed Infected Macrophages",
+      "Type 2-Skewed Antimycobacterial Immunity",
+      "Progression to Active Tuberculous Granulomatous Disease"
+    ],
+    "cell_types": [
+      "alveolar macrophage",
+      "myofibroblast",
+      "T-helper 2 cell",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000583",
+      "CL:0000186",
+      "CL:0000546",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "phagocytosis",
+      "NLRP3 inflammasome complex assembly",
+      "collagen biosynthetic process",
+      "extracellular matrix organization",
+      "defense response to bacterium",
+      "toll-like receptor 2 signaling pathway",
+      "type 2 immune response",
+      "cGAS/STING signaling pathway",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Pulmonary tuberculosis",
+      "Extrapulmonary tuberculosis",
+      "Hemoptysis",
+      "Productive cough",
+      "Weight loss",
+      "Pulmonary fibrosis",
+      "Pulmonary cavity",
+      "Accelerated decline of lung function"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Immune",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0032262",
+      "HP:0032271",
+      "HP:0002105",
+      "HP:0031245",
+      "HP:0001824",
+      "HP:0002206",
+      "HP:0033655",
+      "HP:0032342"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Antituberculous chemotherapy",
+      "Tuberculosis preventive therapy for latent infection",
+      "Silica dust control and removal from exposure"
+    ],
+    "environmental": [
+      "Occupational respirable crystalline silica exposure",
+      "HIV infection",
+      "Contact with infectious tuberculosis patients"
+    ],
+    "biochemical": [],
+    "source_file": "Silicotuberculosis.yaml",
+    "page_url": "../pages/disorders/Silicotuberculosis.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Silo Filler Disease",
     "disease_id": "MONDO:0006972",
     "category": "Environmental",
@@ -456277,17 +456374,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4196,
+  "total_disorder_pages": 4197,
   "total_subtypes": 5144,
-  "total_disorders_and_subtypes": 9340,
-  "total_unique_evidence_sources": 62689,
-  "total_unique_publications": 58552,
+  "total_disorders_and_subtypes": 9341,
+  "total_unique_evidence_sources": 62715,
+  "total_unique_publications": 58578,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 316,
-  "total_pathographs": 4194,
-  "total_unique_pathological_events": 27713,
+  "total_pathographs": 4195,
+  "total_unique_pathological_events": 27720,
   "total_modules": 242,
-  "total_research_reports": 4297,
+  "total_research_reports": 4298,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 150

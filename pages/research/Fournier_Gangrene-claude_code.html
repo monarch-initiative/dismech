@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fournier Gangrene · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Fournier Gangrene</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Fournier Gangrene</h1>
+                
+                <p class="report-subtitle">Fournier Gangrene (MONDO:0043352): Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-11-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0043352" target="_blank" rel="noopener noreferrer">MONDO:0043352</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">51 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Fournier Gangrene (<a href="http://purl.obolibrary.org/obo/MONDO_0043352" target="_blank" rel="noopener noreferrer">MONDO:0043352</a>): Disease Characteristics Report</h1>
+<p><strong>How this report was scoped:</strong> Fournier gangrene (FG) is an acquired infection. It has no causal gene and no OMIM entry, so the gene and inheritance sections say "not applicable" and do not name a gene. PubMed's API could not be queried directly in this session, so all evidence comes from web searches of PubMed, PMC, MeSH, FDA and journal pages. Some PMIDs were confirmed only through search snippets and are flagged where that is the case. Quotes are taken from the abstract or snippet text the searches returned.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong>
+- FG is a necrotizing fasciitis of the perineum, the external genitalia and the area around the anus.
+- MeSH defines it as "an acute necrotic infection of the scrotum, penis, or perineum… characterized by scrotum pain and redness with rapid progression to gangrene and sloughing of tissue" (<a href="https://meshb.nlm.nih.gov/record/ui?ui=D018934">MeSH D018934</a>).
+- A 2015 review describes it as "an obliterative endarteritis of the subcutaneous arteries resulting in gangrene of the overlying skin" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/4580094">PMC4580094</a>).
+- Jean-Alfred Fournier first described it in 1883 as a sudden, fulminant scrotal gangrene in previously healthy young men, with no identifiable cause (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4359426/">PMC4359426</a>).
+- Today a source of infection is found in most cases (colorectal, urogenital or skin).</p>
+<p><strong>Causal gene:</strong> none. This is an infectious, acquired disease.</p>
+<p><strong>Identifiers</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>ID</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0043352" target="_blank" rel="noopener noreferrer">MONDO:0043352</a></td>
+<td><a href="https://pharos.nih.gov/diseases/fournier%20gangrene">Pharos</a></td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>D018934 (tree numbers C01.150.252.377; C12.100.500.229; C12.200.294.229)</td>
+<td><a href="https://meshb.nlm.nih.gov/record/ui?ui=D018934">MeSH</a></td>
+</tr>
+<tr>
+<td>ICD-10-CM</td>
+<td>N49.3</td>
+<td><a href="https://www.aapc.com/codes/icd-10-codes/N49.3">AAPC</a></td>
+</tr>
+<tr>
+<td>ICD-10-GM (German modification)</td>
+<td>N49.80</td>
+<td><a href="https://gesund.bund.de/en/icd-code-search/n49-80">gesund.bund.de</a></td>
+</tr>
+<tr>
+<td>GARD</td>
+<td>0010912</td>
+<td><a href="https://pharos.nih.gov/diseases/fournier%20gangrene">Pharos</a></td>
+</tr>
+<tr>
+<td>MedGen</td>
+<td>65967</td>
+<td><a href="https://https.ncbi.nlm.nih.gov/medgen/65967">MedGen</a></td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>not applicable</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>not found in searches</td>
+<td>—</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>not retrieved</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms:</strong> Fournier's gangrene; necrotizing fasciitis of the perineum/genitalia; synergistic gangrene of the scrotum. Only the first was confirmed in retrieved sources.</p>
+<p><strong>Evidence base:</strong> The disease-level data are aggregated mainly from:
+- single-centre retrospective case series;
+- administrative and claims databases, such as the US Nationwide Inpatient Sample (<a href="https://pubmed.ncbi.nlm.nih.gov/19286224/">PMID 19286224</a>) and Medicare-based NIDDK claims analyses (<a href="https://www.niddk.nih.gov/-/media/Files/Strategic-Plans/urologic/2025/UDA-ADR-FG-2025_508.pdf">NIDDK UDA 2025</a>);
+- pharmacovigilance (FAERS) reports.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Causal factors (infectious).</strong>
+- FG is a synergistic infection by aerobic and anaerobic bacteria. It is polymicrobial in more than 80% of cases, with <em>E. coli</em>, <em>Klebsiella pneumoniae</em>, <em>Bacteroides fragilis</em> and <em>Staphylococcus aureus</em> as common pathogens (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9355918">PMC9355918</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5798415">PMC5798415</a>).
+- Typical portals of entry:
+  - lower urinary tract, about 40% (urethral stricture, indwelling catheters);
+  - colorectal or anorectal, about 30% (fistulas, perirectal abscess, hemorrhoids);
+  - skin of the penis or scrotum, about 30% (<a href="https://emergency.unboundmedicine.com/view/5-Minute_Emergency_Consult/307215/all/Fournier_Gangrene">5-Minute Emergency Consult</a>).
+- In infants, reported triggers include omphalitis, strangulated hernia, prematurity, diaper rash, varicella, circumcision and perineal abscess (<a href="https://tp.amegroups.org/article/view/141046/html">tp.amegroups</a>).</p>
+<p><strong>Risk factors (environmental and clinical).</strong>
+- <strong>Diabetes mellitus:</strong> present in 20–70% of cases, and the most common comorbidity (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10184784">PMC10184784</a>).
+- <strong>Other conditions:</strong> alcohol use disorder, obesity, immunosuppression, HIV, renal failure and heart disease (<a href="https://pubmed.ncbi.nlm.nih.gov/16927060/">PMID 16927060</a>; <a href="https://www.pubmed.gov/38625013/">PMID 38625013</a>).
+- <strong>Age and sex:</strong>
+  - Incidence peaks in men aged 50–79, at 3.3/100,000 (<a href="https://pubmed.ncbi.nlm.nih.gov/19286224/">PMID 19286224</a>).
+  - Men are affected far more often (1,641 men versus 39 women in the same cohort).
+- <strong>SGLT2 inhibitors (drug exposure):</strong>
+  - In August 2018 the FDA required a class-wide warning, after 12 cases that all needed hospitalization and surgery (<a href="https://www.fda.gov/Drugs/DrugSafety/ucm617360.htm">FDA</a>).
+  - Bersoff-Matcha et al. (<em>Ann Intern Med</em> 2019; <a href="https://pubmed.ncbi.nlm.nih.gov/31060053/" target="_blank" rel="noopener noreferrer">PMID 31060053</a>, PMID not directly verified) reported 55 cases up to January 2019, with onset 5 days to 49 months after starting the drug (<a href="https://pubmed.ncbi.nlm.nih.gov/31060053/">PubMed 31060053</a>).
+  - A FAERS analysis concluded that FG "may be a class effect of SGLT2 inhibitors" (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7368210/">PMC7368210</a>).</p>
+<p><strong>Genetic risk factors:</strong> none identified. No GWAS, ClinVar or ClinGen associations were found.</p>
+<p><strong>Protective factors:</strong> No genetic protective factors are known. Plausible environmental protective measures were not supported by direct primary data in the retrieved literature:
+- good glycemic control;
+- perineal hygiene;
+- prompt treatment of perianal and urethral disease.</p>
+<p><strong>Gene–environment interactions:</strong> none described.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Frequencies are qualitative unless a source gives a number. HPO IDs are suggestions and should be checked against the HPO release.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO (suggested)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scrotal or perineal pain, often out of proportion to visible findings</td>
+<td>Symptom</td>
+<td>Pelvic pain <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" rel="noopener noreferrer">HP:0034267</a>; scrotal pain (term to be confirmed)</td>
+<td>Characteristic early sign (MeSH definition)</td>
+</tr>
+<tr>
+<td>Erythema, edema, induration of scrotum or perineum</td>
+<td>Sign</td>
+<td>Erythema <a href="http://purl.obolibrary.org/obo/HP_0010783" target="_blank" rel="noopener noreferrer">HP:0010783</a>; Edema <a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" rel="noopener noreferrer">HP:0000969</a></td>
+<td>Nearly universal</td>
+</tr>
+<tr>
+<td>Crepitus or subcutaneous gas</td>
+<td>Sign / imaging</td>
+<td>Subcutaneous emphysema <a href="http://purl.obolibrary.org/obo/HP_0100756" target="_blank" rel="noopener noreferrer">HP:0100756</a></td>
+<td>"Hallmark" but not always present (<a href="https://pubmed.ncbi.nlm.nih.gov/18349455/">PMID 18349455</a>)</td>
+</tr>
+<tr>
+<td>Necrosis or gangrene of skin, foul discharge</td>
+<td>Sign</td>
+<td>Skin ulcer <a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" rel="noopener noreferrer">HP:0200042</a>; Gangrene <a href="http://purl.obolibrary.org/obo/HP_0100758" target="_blank" rel="noopener noreferrer">HP:0100758</a></td>
+<td>Late feature</td>
+</tr>
+<tr>
+<td>Fever, tachycardia, sepsis or septic shock</td>
+<td>Sign</td>
+<td>Fever <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a>; Sepsis <a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" rel="noopener noreferrer">HP:0100806</a></td>
+<td>Sepsis predicts mortality (<a href="https://www.pubmed.gov/38625013/">PMID 38625013</a>)</td>
+</tr>
+<tr>
+<td>Leukocytosis, high CRP, hyponatremia, hyperglycemia, raised creatinine, low bicarbonate, anemia</td>
+<td>Laboratory</td>
+<td>Leukocytosis <a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" rel="noopener noreferrer">HP:0001974</a>; Hyponatremia <a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" rel="noopener noreferrer">HP:0002902</a>; Elevated CRP <a href="http://purl.obolibrary.org/obo/HP_0011227" target="_blank" rel="noopener noreferrer">HP:0011227</a>; Hyperglycemia <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" rel="noopener noreferrer">HP:0003074</a>; Elevated serum creatinine <a href="http://purl.obolibrary.org/obo/HP_0003259" target="_blank" rel="noopener noreferrer">HP:0003259</a></td>
+<td>Components of the LRINEC and FGSI scores</td>
+</tr>
+<tr>
+<td>Spread to the anterior abdominal wall</td>
+<td>Sign</td>
+<td>—</td>
+<td>Spreads through Scarpa fascia (<a href="https://pmc.ncbi.nlm.nih.gov/articles/4580094">PMC4580094</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Onset and course:</strong> onset is usually in adulthood (most often 50–79 years), with rare cases in neonates and infants. Disease is acute and progresses rapidly, over hours to days.</p>
+<p><strong>Quality-of-life impact</strong> (after the acute illness):
+- 65% of survivors in a German cohort reported worse sexual function (<a href="https://www.ncbi.nlm.nih.gov/pubmed/24034257">PMID 24034257</a>, attribution inferred).
+- A multi-institutional study (Langston 2023) found significant drops in general and sexual functional domains (<a href="https://www.canjurol.com/html/subscriber/Spdf/V30I02/CJU_V30_I2_11_DrLangston.pdf">Can J Urol PDF</a>).
+- A 2026 systematic review reported fecal incontinence, sexual dysfunction, urinary symptoms and psychosocial impairment (<a href="https://boris-portal.unibe.ch/entities/publication/344e455b-a5ea-43a4-b4fa-3bd08579d60c">search result</a>).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p>These items are <strong>not applicable</strong>:
+- causal genes;
+- pathogenic variants (ACMG classification, allele frequencies, somatic versus germline origin);
+- modifier genes;
+- epigenetic changes;
+- chromosomal abnormalities.</p>
+<p>No human genetic association was found. Bacterial virulence factors (collagenase, heparinase) are covered in Section 6.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Infectious agents</strong> (NCBI Taxonomy IDs are given from standard taxonomy and should be verified):</li>
+<li><em>Escherichia coli</em> (562): 46.6% (<a href="https://pubmed.ncbi.nlm.nih.gov/25635243/">PMID 25635243</a>) and 72% (<a href="https://pubmed.ncbi.nlm.nih.gov/28257985/">PMID 28257985</a>) in two single-centre series.</li>
+<li><em>Bacteroides</em> spp. (<em>B. fragilis</em> 817): 24–43.9%.</li>
+<li><em>Streptococcus</em> spp.: 36.8%.</li>
+<li>Also reported: <em>Klebsiella pneumoniae</em> (573), <em>Staphylococcus aureus</em> (1280), <em>Prevotella</em>, <em>Enterococcus</em>, <em>Clostridium</em> and <em>Candida</em> (<a href="https://www.unboundmedicine.com/5minute/view/5-Minute-Clinical-Consult/1688603/2.5/Fournier_Gangrene">Unbound Medicine</a>).</li>
+<li>In the 2024 systematic review, fungal infection raised the risk of death (<a href="https://www.pubmed.gov/38625013/">PMID 38625013</a>).</li>
+<li><strong>Drugs:</strong> SGLT2 inhibitors, e.g. canagliflozin, dapagliflozin and empagliflozin (FDA class labeling).</li>
+<li><strong>Lifestyle:</strong> alcohol use disorder and obesity (<a href="https://pubmed.ncbi.nlm.nih.gov/16927060/">PMID 16927060</a>).</li>
+<li><strong>Iatrogenic or traumatic:</strong> urethral instrumentation, catheters, perianal surgery, circumcision.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Causal chain</strong>
+1. A breach of the perineal or genital skin, the anorectal mucosa or the urethral mucosa lets mixed aerobic and anaerobic flora into the superficial fascial planes.
+   - Typical breaches are fistula, abscess, stricture, catheter or minor trauma.
+2. Host factors (hyperglycemia, immunosuppression, alcohol use) impair neutrophil defense. This allows bacteria to multiply.
+   - The step is inferred from risk-factor associations. It was not shown mechanistically in the retrieved sources.
+3. Aerobes and anaerobes act in synergy:
+   - Anaerobes produce collagenase and heparinase, which promote clotting and break down fascia.
+   - <em>Bacteroides</em> inhibits phagocytosis of the aerobes (<a href="https://pmc.ncbi.nlm.nih.gov/articles/4580094">PMC4580094</a>).
+4. Inflammation and edema lead to <strong>obliterative endarteritis</strong> and thrombosis of the subcutaneous arteries.
+5. Ischemia and hypoxia of tissue result in necrosis of fascia and skin.
+   - Hypoxia favors anaerobic growth and gas production. This feedback loop is inferred.
+6. Infection spreads along the fascial planes:
+   - Colles fascia → Buck and Dartos fascia (penis and scrotum);
+   - Colles fascia → Scarpa fascia (anterior abdominal wall).
+   - Spread toward the posterior and lateral sides is limited by attachments to the pubic rami, fascia lata and urogenital diaphragm (<a href="https://pmc.ncbi.nlm.nih.gov/articles/4580094">PMC4580094</a>).
+   - The testes, corpora and urethra are usually spared because they have a separate blood supply.
+7. The process branches into two outcomes:
+   - <strong>Local:</strong> gangrene and sloughing, which leaves large soft-tissue defects.
+   - <strong>Systemic:</strong> toxins and bacteremia cause sepsis, septic shock and multi-organ failure, and this leads to death.
+8. In SGLT2-inhibitor users, glycosuria may encourage genital colonization and infection.
+   - This is a hypothesis; the retrieved sources did not show it directly.</p>
+<p><strong>Ontology suggestions</strong>
+- <strong>GO terms:</strong>
+  - inflammatory response <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>;
+  - neutrophil chemotaxis <a href="http://purl.obolibrary.org/obo/GO_0030593" target="_blank" rel="noopener noreferrer">GO:0030593</a>;
+  - phagocytosis <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" rel="noopener noreferrer">GO:0006909</a>;
+  - blood coagulation <a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" rel="noopener noreferrer">GO:0007596</a>;
+  - necrotic cell death <a href="http://purl.obolibrary.org/obo/GO_0070265" target="_blank" rel="noopener noreferrer">GO:0070265</a>;
+  - response to hypoxia <a href="http://purl.obolibrary.org/obo/GO_0001666" target="_blank" rel="noopener noreferrer">GO:0001666</a>;
+  - collagen catabolic process <a href="http://purl.obolibrary.org/obo/GO_0030574" target="_blank" rel="noopener noreferrer">GO:0030574</a> (bacterial).
+- <strong>CL terms:</strong>
+  - neutrophil <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>;
+  - macrophage <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>;
+  - fibroblast <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a>;
+  - endothelial cell <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>;
+  - keratinocyte <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a>.
+- <strong>No data found:</strong> molecular profiling of FG tissue (transcriptomic, proteomic, metabolomic, single-cell, spatial) or functional screens.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p>UBERON IDs are suggestions and should be verified.</p>
+<ul>
+<li><strong>Primary sites:</strong></li>
+<li>perineum (<a href="http://purl.obolibrary.org/obo/UBERON_0002356" target="_blank" rel="noopener noreferrer">UBERON:0002356</a>);</li>
+<li>scrotum (<a href="http://purl.obolibrary.org/obo/UBERON_0001300" target="_blank" rel="noopener noreferrer">UBERON:0001300</a>);</li>
+<li>penis (<a href="http://purl.obolibrary.org/obo/UBERON_0000989" target="_blank" rel="noopener noreferrer">UBERON:0000989</a>);</li>
+<li>vulva in women (<a href="http://purl.obolibrary.org/obo/UBERON_0000997" target="_blank" rel="noopener noreferrer">UBERON:0000997</a>);</li>
+<li>perianal region;</li>
+<li>superficial fascia, including Colles, Dartos, Buck and Scarpa fascia.</li>
+<li><strong>Secondary spread:</strong> anterior abdominal wall and thighs.</li>
+<li><strong>Systemic involvement:</strong> cardiovascular and renal systems, through sepsis.</li>
+<li><strong>Tissues:</strong> subcutaneous connective tissue (<a href="http://purl.obolibrary.org/obo/UBERON_0002384" target="_blank" rel="noopener noreferrer">UBERON:0002384</a>), fascia (<a href="http://purl.obolibrary.org/obo/UBERON_0008982" target="_blank" rel="noopener noreferrer">UBERON:0008982</a>) and skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>).</li>
+<li><strong>Usually spared:</strong> testes, corpora cavernosa and urethra (<a href="https://pmc.ncbi.nlm.nih.gov/articles/4580094">PMC4580094</a>).</li>
+<li><strong>Subcellular level:</strong> not applicable. Extracellular matrix (<a href="http://purl.obolibrary.org/obo/GO_0031012" target="_blank" rel="noopener noreferrer">GO:0031012</a>) is the main compartment degraded.</li>
+<li><strong>Laterality:</strong> the disease is often asymmetric. CT typically shows "asymmetric fascial thickening" (<a href="https://pubmed.ncbi.nlm.nih.gov/18349455/">PMID 18349455</a>).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> acute, in adults (peak age 50–79).</li>
+<li>In children, about 66% of pediatric cases occur in infants under 3 months (<a href="https://tp.amegroups.org/article/view/141046/html">tp.amegroups</a>).</li>
+<li><strong>Progression:</strong></li>
+<li>The disease progresses rapidly, over hours.</li>
+<li>Its usual course runs from cellulitis to fascial necrosis to gangrene and sepsis.</li>
+<li>No formal staging system exists. Severity is graded with scores (FGSI, Section 10).</li>
+<li><strong>Remission:</strong> happens only with treatment (debridement plus antibiotics). Spontaneous resolution is not described.</li>
+<li><strong>Critical window:</strong> debridement is recommended within 24 hours (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9388173/">PMC9388173</a>). A delay in treatment was linked to higher mortality (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9018989/">PMC9018989</a>).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology</strong>
+- US Nationwide Inpatient Sample:
+  - Incidence was 1.6/100,000 males.
+  - It peaked at 3.3/100,000 in men aged 50–79.
+  - The highest regional rate was in the South (1.9/100,000).
+  - Cases made up less than 0.02% of hospital admissions (<a href="https://pubmed.ncbi.nlm.nih.gov/19286224/">PMID 19286224</a>).
+- Medicare claims for people aged 65 and over showed 3–4/100,000 per year from 2016 to 2023 (<a href="https://www.niddk.nih.gov/-/media/Files/Strategic-Plans/urologic/2025/UDA-ADR-FG-2025_508.pdf">NIDDK 2025</a>).
+- Pediatric incidence is about 0.8 per 1 million (<a href="https://tp.amegroups.org/article/view/141046/html">tp.amegroups</a>).
+- <strong>Sex ratio:</strong> about 42:1 male to female (1,641 men vs 39 women) (<a href="https://pubmed.ncbi.nlm.nih.gov/19286224/">PMID 19286224</a>).
+- <strong>Genetic inheritance:</strong> not applicable. There is no inheritance pattern, penetrance, anticipation, founder effect or carrier frequency.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Clinical diagnosis:</strong> FG is a clinical diagnosis, confirmed during surgery by necrotic fascia.</li>
+<li><strong>Imaging:</strong></li>
+<li>CT shows "asymmetric fascial thickening, subcutaneous emphysema, fluid collections, and abscesses."</li>
+<li>CT offers "higher specificity… and superior evaluation of disease extent" than plain radiography or ultrasound (<a href="https://pubmed.ncbi.nlm.nih.gov/18349455/">PMID 18349455</a>).</li>
+<li>Gas is not always present.</li>
+<li>Mimics include necrotic tumors, gas from trauma or iatrogenic causes, and vaginitis emphysematosa (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7047600">PMC7047600</a>).</li>
+<li>Ultrasound can show gas in the scrotal wall. No sensitivity data were retrieved.</li>
+<li><strong>Laboratory tests and scores:</strong></li>
+<li><strong>LRINEC score</strong> (Wong 2004, <em>Crit Care Med</em> 32:1535):<ul>
+<li>built from CRP, white cell count, hemoglobin, sodium, creatinine and glucose;</li>
+<li>a score of 6 or more suggests necrotizing fasciitis;</li>
+<li>a score above 8 had a positive predictive value of 93.4% in the derivation cohort.</li>
+<li>Later validation was weaker: an AUROC of 0.696 in one prospective study, and false negatives with a score of 0 (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12925613/">PMC12925613</a>).</li>
+<li>No FG-specific validation was retrieved.</li>
+</ul>
+</li>
+<li><strong>FGSI</strong> (Laor 1995):<ul>
+<li>nine physiologic and laboratory parameters;</li>
+<li>in the original series, mortality was about 75% above a score of 9 versus about 22% below (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6732100">PMC6732100</a>).</li>
+<li>Corcoran 2008 (68 patients): a cutoff of 9 gave sensitivity 71.4% and specificity 90%, with mortality 46% versus 4% (<a href="https://scholarlyworks.lvhn.org/surgery/5851">LVHN</a>).</li>
+</ul>
+</li>
+<li><strong>Simplified and Uludag scores:</strong> the 2023 meta-analysis found higher admission scores in non-survivors. Mean differences were 5.53 for FGSI, 2.41 for the simplified FGSI and 5.47 for the Uludag FGSI (<a href="https://doaj.org/article/06a09b62d21f43d886fba069c19c2efd">J Pers Med 2023</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10532663/">PMC10532663</a>).</li>
+<li><strong>Cultures:</strong> wound and blood cultures guide de-escalation of antibiotics (<a href="https://pubmed.ncbi.nlm.nih.gov/24973422/">PMID 24973422</a>).</li>
+<li><strong>Histopathology:</strong> fascial necrosis with thrombosis of the subcutaneous vessels (endarteritis obliterans).</li>
+<li><strong>Genetic, omics-based and screening tests:</strong> not applicable.</li>
+<li><strong>Differential diagnosis:</strong></li>
+<li>cellulitis or erysipelas;</li>
+<li>scrotal abscess;</li>
+<li>epididymo-orchitis;</li>
+<li>testicular torsion;</li>
+<li>strangulated hernia;</li>
+<li>necrotic tumors;</li>
+<li>pyoderma gangrenosum;</li>
+<li>non-infectious gas in tissue (trauma or iatrogenic).</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Mortality</strong>
+- <strong>US population data:</strong>
+  - In-hospital case fatality was 7.5% in the NIS cohort.
+  - Referral-centre series report 20–40% (<a href="https://pubmed.ncbi.nlm.nih.gov/19286224/">PMID 19286224</a>).
+- <strong>2024 systematic review</strong> (57 studies, 3,646 patients):
+  - Pooled mortality was 20.41%.
+  - Mortality was highest in HIV-positive patients (54.17%).
+  - The authors concluded that female sex, comorbidities, anatomic extent, sepsis and fungal infection increase mortality (<a href="https://www.pubmed.gov/38625013/">PMID 38625013</a>).
+- <strong>2020 meta-analysis</strong> (38 studies): diabetes, heart disease and renal failure were linked to death (<a href="https://www.pubmed.gov/31962181/">PMID 31962181</a>).
+  - Its abstract gives a risk ratio for diabetes of 0.72, which contradicts the text. Check the full text before using it.
+- <strong>Women:</strong> their mortality is reported to be higher, possibly because of atypical signs and delayed presentation (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10184784">PMC10184784</a>).
+- <strong>Children:</strong> one series of 12 neonates and infants had no deaths (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4359426/">PMC4359426</a>).
+- <strong>Long-term:</strong> mortality ranged from 5% to 21% over follow-up of 60 days to 11 years (2026 systematic review).</p>
+<p><strong>Morbidity and complications</strong>
+- multiple debridements;
+- large tissue defects needing skin grafts or flaps;
+- fecal diversion;
+- sexual and urinary dysfunction, incontinence and psychological effects.</p>
+<p><strong>Prognostic factors</strong>
+- FGSI or Uludag score above threshold;
+- sepsis;
+- greater extent of disease;
+- delay to surgery;
+- older age;
+- comorbidity.</p>
+<hr />
+<h2>12. Treatment</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention</th>
+<th>NCIT (suggested)</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Emergency surgical debridement, repeated as needed</td>
+<td>Debridement (NCIT C51698, to be verified)</td>
+<td>Cornerstone; within 24 h (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9388173/">PMC9388173</a>)</td>
+</tr>
+<tr>
+<td>Broad-spectrum IV antibiotics (empiric)</td>
+<td>Antibiotic therapy</td>
+<td>IDSA 2014: vancomycin plus piperacillin-tazobactam or a carbapenem (strong recommendation, moderate evidence) (<a href="https://pubmed.ncbi.nlm.nih.gov/24973422/">PMID 24973422</a>)</td>
+</tr>
+<tr>
+<td>Clindamycin (toxin suppression)</td>
+<td>Clindamycin C376 (to be verified)</td>
+<td>Commonly added; dosing found only in a secondary source (<a href="https://ndsu.edu/fileadmin/centers/cap/documents/Skin_and_Soft_tissue_infection.pdf">NDSU</a>)</td>
+</tr>
+<tr>
+<td>Resuscitation and sepsis care</td>
+<td>Supportive care</td>
+<td>Standard practice</td>
+</tr>
+<tr>
+<td>Negative-pressure wound therapy</td>
+<td>Negative pressure wound therapy</td>
+<td>See notes below</td>
+</tr>
+<tr>
+<td>Hyperbaric oxygen (adjunct)</td>
+<td>Hyperbaric oxygenation</td>
+<td>See notes below</td>
+</tr>
+<tr>
+<td>Fecal diversion (colostomy), urinary diversion (suprapubic catheter)</td>
+<td>Colostomy</td>
+<td>Used for anorectal or urethral involvement</td>
+</tr>
+<tr>
+<td>Reconstruction (skin graft, flaps)</td>
+<td>Skin graft</td>
+<td>QoL scores above 70/100 in 4 of 5 domains in a small series (<a href="https://www.frontiersin.org/journals/surgery/articles/10.3389/fsurg.2022.994936/pdf">Frontiers 2022</a>)</td>
+</tr>
+<tr>
+<td>Stopping the SGLT2 inhibitor</td>
+<td>—</td>
+<td>FDA advice</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Negative-pressure wound therapy (NPWT)</strong>
+- It is recommended after full necrosectomy by the WSES and SIS-E guidelines (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9604683/">PMC9604683</a>).
+- In a 36-patient study it meant fewer operations and faster healing (<a href="https://pubmed.ncbi.nlm.nih.gov/36684293/">PMID 36684293</a>).
+- In a 2025 cohort it shortened hospital stay but did not change mortality (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12771018/">PMC12771018</a>).</p>
+<p><strong>Hyperbaric oxygen (HBOT)</strong>
+- A 2022 meta-analysis of observational studies linked it to lower mortality but did not confirm shorter stays or fewer debridements (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9388173/">PMC9388173</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9388185/">PMC9388185</a>).
+- A 23-patient series found no survival benefit (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9018989/">PMC9018989</a>).
+- Its benefit remains debated.</p>
+<p><strong>Not applicable:</strong> pharmacogenomics, gene therapy, cell therapy, RNA-based therapy, targeted therapy and immunotherapy.</p>
+<p><strong>Clinical trials:</strong> no FG-specific NCT trials were retrieved.</p>
+<p><strong>Treatment algorithm:</strong>
+1. Recognize the condition and resuscitate.
+2. Start empiric broad-spectrum antibiotics.
+3. Debride urgently, and re-look every 24–48 hours.
+4. Divert stool or urine as needed.
+5. Manage the wound with NPWT, with HBOT as an optional adjunct.
+6. Reconstruct.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary:</strong></li>
+<li>control diabetes;</li>
+<li>limit alcohol;</li>
+<li>treat perianal and urethral disease early;</li>
+<li>care for catheters properly;</li>
+<li>use SGLT2 inhibitors cautiously and counsel patients on genital symptoms (FDA).</li>
+<li>The effect of these measures on FG rates has not been quantified.</li>
+<li><strong>Secondary:</strong> early recognition (pain out of proportion to findings) and early CT. LRINEC, FGSI and Uludag scores help with triage.</li>
+<li><strong>Tertiary:</strong> prevent recurrence and complications through wound care, rehabilitation and psychosocial support (<a href="https://pesquisa.bvsalud.org/portal/resource/en/mdl-37074748">Urol Int 2025 / bvsalud</a>, attribution uncertain).</li>
+<li><strong>Not applicable:</strong> vaccines, genetic screening and genetic counseling.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Cattle:</strong> necrotizing fasciitis of the scrotum and perineum was reported in a Hereford bull (<em>Bos taurus</em>, NCBITaxon:9913). It was caused by <em>Arcanobacterium haemolyticum</em>, and the bull was euthanized (<em>NZ Vet J</em> 2010; <a href="https://pesquisa.bvsalud.org/portal/resource/en/mdl-20927177">bvsalud mdl-20927177</a>).</li>
+<li><strong>Dogs</strong> (<em>Canis familiaris</em>, NCBITaxon:9615): necrotizing fasciitis occurs, including polymicrobial cases (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8024095">PMC8024095</a>). Mortality is reported as 100% without timely debridement (<a href="https://todaysveterinarypractice.com/emergency-medicine-critical-care/necrotizing-fasciitis-in-dogs/">Today's Vet Practice</a>). No scrotal-specific canine cases were retrieved.</li>
+<li><strong>Not applicable:</strong> OMIA entry, orthologous genes and breed predisposition.</li>
+<li><strong>Zoonotic potential:</strong> none (the disease arises from the patient's own flora).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>No FG-specific model:</strong> no polymicrobial perineal FG model was found.</li>
+<li><strong>Related necrotizing soft-tissue infection models:</strong></li>
+<li>Mouse subcutaneous <em>Streptococcus pyogenes</em> necrotizing skin and fascial infection (<a href="https://www.jove.com/t/70159/a-mouse-model-of-streptococcus-pyogenes-necrotizing-skin-infection">JoVE</a>). It shows necrosis along the fascial planes at 24–48 hours.</li>
+<li>A mouse study found ibuprofen worsens <em>S. pyogenes</em> soft-tissue infection (<a href="https://pubmed.ncbi.nlm.nih.gov/21697021/">PMID 21697021</a>).</li>
+<li>A fecal-slurry wound model in immunosuppressed mice is the closest polymicrobial analogue. It is a chronic wound model rather than necrotizing fasciitis (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7359036">PMC7359036</a>).</li>
+<li>A 2025 review covers inoculation, trauma, immunosuppression, genetically engineered and imaging-based models (<a href="https://www.dovepress.com/advances-in-necrotizing-fasciitis-animal-models-current-trends-and-fut-peer-reviewed-fulltext-article-JIR">Dovepress JIR</a>).</li>
+<li><strong>Limitations of these models:</strong></li>
+<li>single-organism inoculum;</li>
+<li>sites other than the perineum;</li>
+<li>no diabetic or SGLT2-inhibitor background;</li>
+<li>differences between rodent and human fascial anatomy.</li>
+<li><strong>Not found:</strong> genetic models (MGI, IMPC).</li>
+</ul>
+<hr />
+<h2>Key Evidence Items</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID / ID</th>
+<th>Claim</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19286224/">19286224</a></td>
+<td>Incidence 1.6/100,000 males; case fatality 7.5%</td>
+</tr>
+<tr>
+<td><a href="https://www.pubmed.gov/38625013/">38625013</a></td>
+<td>Pooled mortality 20.41% (n=3,646)</td>
+</tr>
+<tr>
+<td><a href="https://www.pubmed.gov/31962181/">31962181</a></td>
+<td>Comorbidities raise mortality (17-year meta-analysis)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18349455/">18349455</a></td>
+<td>"Subcutaneous emphysema is the hallmark… but is not seen in all cases"</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24973422/">24973422</a></td>
+<td>IDSA empiric regimen for necrotizing infections</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25635243/">25635243</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/28257985/">28257985</a></td>
+<td>Microbiology: polymicrobial, <em>E. coli</em> dominant</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31060053/">31060053</a></td>
+<td>SGLT2 inhibitor–associated FG (PMID to be verified)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36684293/">36684293</a></td>
+<td>NPWT: fewer operations, faster healing</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16927060/">16927060</a></td>
+<td>Risk factors and management</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19040919/">19040919</a></td>
+<td>FG in infants</td>
+</tr>
+</tbody>
+</table></div></details>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>31</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMC:PMC7368210</code> <em>(abstract only)</em>: "may be a class effect of SGLT2 inhibitors"</li>
+<li>closest text in source: "Multiple statistical analysis methods were applied to evaluate the potential association between SGLT2 inhibitors and FG, thus providing reliable and professionalized medication usage recommendations for SGLT2 inhibitors in clinical practice"</li>
+</ul>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMC:PMC8024095</code> (3 mentions) - Polymicrobial Necrotizing Fasciitis in a Dog: The Involvement of Macrococcus caseolyticus, Proteus mirabilis, and Escherichia coli.</li>
+<li>shared terms: necrotizing</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>disease</code>, <code>found</code>, <code>infection</code>, <code>skin</code>, <code>mortality</code>, <code>subcutaneous</code>, <code>score</code>, <code>gene</code>, <code>genetic</code>, <code>sepsis</code>, <code>scrotum</code>, <code>gangrene</code>, <code>fascial</code>, <code>necrotizing</code>, <code>fgsi</code>, <code>patient</code>, <code>perineum</code>, <code>serie</code>, <code>tissue</code>, <code>fda</code>.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0043352</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>fournier gangrene</strong></li>
+<li><code>GO:0030574</code> (1 mention) - the report calls it "bacterial"; GO calls it <strong>collagen catabolic process</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0070265</code> (obsolete necrotic cell death) (1 mention)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>UBERON:0000997</code> (1 mention) - the report calls it "vulva in women"; UBERON calls it <strong>mammalian vulva</strong>, and lists "vulva" among its other names</li>
+<li><code>UBERON:0002384</code> (1 mention) - the report calls it "Tissues:<strong> subcutaneous connective tissue"; UBERON calls it </strong>connective tissue**</li>
+</ul>
+<h3>Terms the ontology service could not be reached for</h3>
+<p>6 term(s) could not be checked because the ontology service was unreachable (a timeout, 5xx, 408 or 429), not because anything looks wrong with them. Re-run when the service is reachable -- the label cache resumes, so only the unresolved terms are retried:</p>
+<ul>
+<li><code>HP:0034267</code> (1 mention)</li>
+<li><code>HP:0010783</code> (1 mention)</li>
+<li><code>HP:0000969</code> (1 mention)</li>
+<li><code>HP:0100756</code> (1 mention)</li>
+<li><code>HP:0100758</code> (1 mention)</li>
+<li><code>HP:0001974</code> (1 mention)</li>
+</ul>
+<h3>Terms whose obsolescence could not be checked</h3>
+<p>1 term(s) resolved, so they exist, but the ontology service was unreachable for the deprecation check -- treat their obsolescence as unknown rather than clean, and re-run to confirm:</p>
+<ul>
+<li><code>HP:0100806</code> (1 mention)</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Fountain_Syndrome-openscientist.html">← Fountain Syndrome (OpenScientist)</a>
+                
+                
+                <a href="FOXE3_Anterior_Segment_Dysgenesis-falcon.html">FOXE3-Related Anterior Segment Dysgenesis (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Fournier_Gangrene.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Fournier_Gangrene-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
