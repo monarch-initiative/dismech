@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ross River Fever · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Ross River Fever</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Ross River Fever</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-11-24</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0000344" target="_blank" rel="noopener noreferrer">MONDO:0000344</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-4-8, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">21 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Ross River fever is an acute, often self-limiting but frequently prolonged arthritogenic illness caused by Ross River virus, an RNA virus of the genus <em>Alphavirus</em> (family <em>Togaviridae</em>). The disease is characterized by polyarthralgia/polyarthritis, fever, fatigue, myalgia and a maculopapular rash, and is the most common and widespread mosquito-borne disease in Australia. It is endemic and enzootic in Australia, Papua New Guinea and the Solomon Islands (Yuen &amp; Bielefeldt-Ohmann 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>; Harley, Sleigh &amp; Ritchie 2001, <em>Clin Microbiol Rev</em> 14(4):909–932, DOI 10.1128/CMR.14.4.909-932.2001, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC89008">PMC89008</a>). The virus was first isolated in 1959 from <em>Aedes vigilax</em> mosquitoes trapped beside the Ross River in Townsville, North Queensland (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC89008">PMC89008</a>; <a href="https://www.cdc.gov/ross-river-virus/hcp/clinical-diagnosis-treatment/index.html">CDC</a>).</p>
+<p><strong>Key identifiers (retrieved):</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0000344" target="_blank" rel="noopener noreferrer">MONDO:0000344</a> (per template)
+- <strong>MeSH:</strong> The virus has descriptor <strong>D012398</strong> ("Ross River virus"); scope note: "A species of ALPHAVIRUS associated with epidemic EXANTHEMA and polyarthritis in Australia" (<a href="https://meshb.nlm.nih.gov/record/ui?ui=D012398">MeSH record</a>)
+- <strong>ICD-11:</strong> <strong>1D4D</strong> "Ross River disease" (synonyms: Ross River fever; RR fever; epidemic polyarthritis) (<a href="https://www.cismef.org/page/detail/en/ICD11_CA_1085418398">CISMeF/ICD-11</a>)
+- <strong>ICD-10:</strong> <strong>A92.8</strong> ("Other specified mosquito-borne viral fevers") — this is the conventional code but was <strong>not confirmed</strong> in a retrieved authoritative crosswalk; verify in the WHO ICD-10 browser.
+- <strong>OMIM / Orphanet:</strong> None found/not applicable (infectious disease; no OMIM entry retrieved; no Orphanet record appeared).</p>
+<p><strong>Synonyms / alternative names (retrieved):</strong> Ross River virus disease; Ross River virus infection; Ross River disease; <strong>epidemic polyarthritis</strong> (historical term). ⚠️ Mapping caveat: "epidemic polyarthritis" historically denotes disease caused by <strong>either RRV or Barmah Forest virus (BFV)</strong>, so term-based lookups may conflate the two (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC89008">PMC89008</a>).</p>
+<p><strong>Information source type.</strong> The knowledge base is derived from <strong>aggregated disease-level resources</strong> — national notifiable-disease surveillance (Australian NNDSS), published cohort/outbreak studies, cross-disciplinary reviews, mouse-model experimental studies, and in vitro work — rather than from individual EHR records.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause (infectious).</strong> The disease is caused by infection with <strong>Ross River virus</strong>, transmitted to humans through the bite of infected mosquitoes. RRV is maintained in nature in a <strong>mosquito–vertebrate–mosquito enzootic cycle</strong>, with native macropods (kangaroos, wallabies) regarded as the primary reservoir hosts (Yuen &amp; Bielefeldt-Ohmann 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC89008">PMC89008</a>). Humans are generally considered dead-end/spillover hosts, though human-to-mosquito-to-human transmission may contribute in urban outbreaks (notably the 1979–80 Pacific Islands epidemic).</p>
+<p><strong>Risk factors (environmental/behavioral):</strong>
+- <strong>Residence/exposure in endemic areas</strong>, particularly coastal saltmarsh and inland riverine/irrigation regions of Australia.
+- <strong>High rainfall and flooding / high tides</strong>, which expand mosquito breeding habitat. Reviews report "a 0 to 3 month lag period between increased rainfall and RRV infections" (Yuen &amp; Bielefeldt-Ohmann 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>).
+- <strong>Season:</strong> peak transmission in the Australian summer–autumn (notifications peak around March).
+- <strong>Age and sex:</strong> disease incidence is highest in <strong>adults aged ~30–64 years</strong>, and regional studies report <strong>higher rates in females</strong> (<a href="https://www1.health.gov.au/internet/main/Publishing.nsf/Content/cda-cdi2903i.htm">South Australia incidence study, CDI</a>). Symptomatic/chronic disease is uncommon in young children.
+- <strong>Outdoor occupational/recreational exposure</strong> to mosquitoes.
+- <strong>Blood transfusion</strong> is a rare transmission route (<a href="https://www.cdc.gov/ross-river-virus/hcp/clinical-diagnosis-treatment/index.html">CDC</a>).</p>
+<p><strong>Genetic (host) risk factors.</strong> No validated human Mendelian susceptibility gene is established. ⚠️ I did not retrieve robust human GWAS/HLA association data within this session; HLA associations have been proposed historically for alphaviral arthritides but I could not confirm a specific allele from retrieved sources, so this is reported as <strong>not established/unretrieved</strong>. The strongest mechanistic host-gene link is the entry mediator <strong>MXRA8</strong> (see §4, §6), demonstrated in mouse models rather than as a human susceptibility allele.</p>
+<p><strong>Protective factors.</strong> <strong>Prior natural infection confers immunity</strong> (RRV is antigenically stable; lifelong immunity after infection is generally assumed). No dietary or pharmacologic protective factor is established. Vector-avoidance behaviors (repellent, protective clothing, avoiding dusk/dawn exposure) reduce risk.</p>
+<p><strong>Gene–environment interactions.</strong> Not characterized in humans. In mouse models, host genetic background and immune-pathway genes (complement, <em>MXRA8</em>) modulate the severity of disease produced by the environmental agent (the virus) — effectively an experimental gene–"environment" (infection) interaction (Morrison et al. 2007, <a href="https://pubmed.ncbi.nlm.nih.gov/17314163/" target="_blank" rel="noopener noreferrer">PMID 17314163</a>; MXRA8 study, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10128017">PMC10128017</a>).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Frequencies below are from the cross-disciplinary review (Yuen &amp; Bielefeldt-Ohmann 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>) and Australian clinical guidance; they describe <strong>symptomatic</strong> patients (only ~25–45% of infected people are symptomatic).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency (symptomatic patients)</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Arthralgia / polyarthralgia</strong> (knee, ankle, wrist, small joints of hands/feet; often symmetrical)</td>
+<td>Symptom/sign</td>
+<td>~70–90%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" rel="noopener noreferrer">HP:0002829</a> (Arthralgia); <a href="http://purl.obolibrary.org/obo/HP_0005059" target="_blank" rel="noopener noreferrer">HP:0005059</a> (Polyarthritis)</td>
+</tr>
+<tr>
+<td><strong>Arthritis</strong> (joint swelling/effusion)</td>
+<td>Clinical sign</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001369" target="_blank" rel="noopener noreferrer">HP:0001369</a> (Arthritis)</td>
+</tr>
+<tr>
+<td><strong>Fatigue / lethargy</strong></td>
+<td>Symptom</td>
+<td>~70–90%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a> (Fatigue)</td>
+</tr>
+<tr>
+<td><strong>Joint stiffness</strong></td>
+<td>Symptom</td>
+<td>~70–90%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001387" target="_blank" rel="noopener noreferrer">HP:0001387</a> (Joint stiffness)</td>
+</tr>
+<tr>
+<td><strong>Myalgia</strong></td>
+<td>Symptom</td>
+<td>~50–70%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a> (Myalgia)</td>
+</tr>
+<tr>
+<td><strong>Maculopapular rash</strong> (trunk/limbs)</td>
+<td>Physical manifestation</td>
+<td>~50% (absent in ~⅓)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a> (Skin rash); <a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" rel="noopener noreferrer">HP:0000509</a> broad</td>
+</tr>
+<tr>
+<td><strong>Fever</strong></td>
+<td>Sign</td>
+<td>~50%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> (Fever)</td>
+</tr>
+<tr>
+<td><strong>Flu-like/constitutional illness, headache</strong></td>
+<td>Symptom</td>
+<td>~50%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a> (Headache)</td>
+</tr>
+<tr>
+<td><strong>Lymphadenopathy</strong> (incl. cervical)</td>
+<td>Sign</td>
+<td>Variable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a> (Lymphadenopathy)</td>
+</tr>
+<tr>
+<td><strong>Tenosynovitis / enthesitis</strong> (esp. Achilles tendon)</td>
+<td>Sign</td>
+<td>Variable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100504" target="_blank" rel="noopener noreferrer">HP:0100504</a> (Tenosynovitis)</td>
+</tr>
+<tr>
+<td><strong>Paraesthesia / tender palms and soles</strong></td>
+<td>Symptom</td>
+<td>Variable</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" rel="noopener noreferrer">HP:0003401</a> (Paresthesia)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Direct quotes (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>): "around 70–90% of patients experienced arthralgia (most commonly knee, ankle and wrist joints), lethargy or tiredness, and joint stiffness"; "50–70% had myalgia"; "~50% had skin rash, fever, and flu-like illness."</p>
+<p><strong>Phenotype characteristics:</strong>
+- <strong>Age of onset:</strong> acute, occurring days after mosquito bite; clinical disease predominantly in <strong>adults</strong> (rare/mild in children).
+- <strong>Severity:</strong> mild to moderate in most; <strong>severe/debilitating arthralgia</strong> in a subset; no fatal course documented.
+- <strong>Progression:</strong> typically <strong>episodic/fluctuating then slowly resolving</strong>; arthralgia can be migratory. Acute illness lasts "from a few weeks to a few months."
+- <strong>Rare sequelae:</strong> "uncommon sequelae, such as encephalitis, have been reported" (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>); glomerulonephritis and hematologic abnormalities are occasionally described.</p>
+<p><strong>Quality-of-life impact.</strong> The arthralgia/fatigue complex substantially impairs work capacity and daily functioning during the prolonged phase; the pentosan trial used <strong>hand-grip strength, RAPID3, and SF-36</strong> as QoL/functional endpoints, indicating meaningful functional impairment in RRV arthralgia (Krishnan et al. 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/33711991/" target="_blank" rel="noopener noreferrer">PMID 33711991</a>). Formal population EQ-5D/SF-36 norms specific to RRV were not retrieved beyond this trial.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Not applicable as a human heritable disorder.</strong> There are <strong>no human causal genes, pathogenic germline variants, inheritance pattern, penetrance, modifier genes, chromosomal abnormalities, or disease-specific epigenetic changes</strong> — RRV fever is an acquired viral infection.</p>
+<p><strong>Viral genetics (the etiologic agent):</strong> RRV has a positive-sense single-stranded RNA genome (~11.8 kb) encoding four non-structural proteins (nsP1–nsP4) and the structural polyprotein (capsid C; envelope glycoproteins <strong>E3, E2, 6K, E1</strong>) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC89008">PMC89008</a>; MeSH D012398). E2 mediates receptor binding and E1 mediates membrane fusion (alphavirus biology). ⚠️ One detailed query on RRV molecular virology was blocked by a safety classifier in this session, so some structural-biology specifics are reported at the level the reviews support rather than from a dedicated primary structural paper.</p>
+<p><strong>Host entry gene — <em>MXRA8</em> (HGNC: MXRA8).</strong> A genome-wide CRISPR screen identified <strong>Mxra8</strong> as an entry mediator for multiple arthritogenic alphaviruses including RRV, chikungunya (CHIKV), Mayaro and o'nyong-nyong; Mxra8 knockout reduced RRV infection in cells (Zhang et al. 2018, <em>Nature</em> 557:570–574, <a href="https://www.nature.com/articles/s41586-018-0121-3.pdf">s41586-018-0121-3</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5970976">PMC5970976</a>). In vivo, RRV-infected <strong>MXRA8-knockout mice showed reduced viral replication and less weight loss</strong>, with titers falling below detection by day 5, indicating MXRA8 contributes to RRV pathogenesis, not only cell entry (2023, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10128017">PMC10128017</a>). Note most direct binding mechanism was demonstrated for CHIKV.</p>
+<p><strong>Allele frequency / somatic-vs-germline / ACMG classification:</strong> Not applicable (no pathogenic human variants to classify).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Infectious agent:</strong> <strong>Ross River virus</strong>, genus <em>Alphavirus</em>, family <em>Togaviridae</em> (NCBI Taxonomy: <em>Ross River virus</em>; CHEBI not applicable). The sole necessary cause.</li>
+<li><strong>Vectors (&gt;40 competent mosquito species):</strong> Key vectors are the freshwater <strong><em>Culex annulirostris</em></strong> (inland, widespread across mainland Australia), and the saltmarsh <strong><em>Aedes vigilax</em></strong> (northern/coastal) and <strong><em>Aedes camptorhynchus</em></strong> (southern/coastal); <strong><em>Aedes notoscriptus</em></strong> in metropolitan areas (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC89008">PMC89008</a>).</li>
+<li><strong>Reservoir/amplifying hosts:</strong> Macropods (kangaroos, wallabies) are the believed primary reservoirs; brushtail possums, horses, flying foxes and humans may act as hosts in some settings; dogs and cats remained aviraemic (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>).</li>
+<li><strong>Environmental drivers:</strong> Rainfall, flooding, tidal inundation of saltmarsh, temperature, and irrigation — all modulating mosquito abundance. Seroprevalence in blood donors ranged <strong>22% (Townsville) to 4% (Sydney)</strong>, reflecting latitudinal/climatic gradient (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>).</li>
+<li><strong>Lifestyle factors:</strong> Outdoor exposure in endemic regions; no smoking/diet/alcohol association established.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Ordered causal chain (initiating infection → clinical manifestation).</strong> Evidence type noted per step; several steps are <strong>inferred primarily from mouse models and in vitro work</strong>.</p>
+<ol>
+<li>An infected mosquito inoculates <strong>RRV into skin/subcutaneous tissue</strong> during blood feeding. → <em>leads to</em> local infection of permissive cells. (Established.)</li>
+<li>RRV virions <strong>engage the entry mediator MXRA8</strong> (and other attachment factors) on target cells → <em>results in</em> receptor-mediated internalization and cytoplasmic RNA replication. (Mouse/cell evidence: Zhang 2018; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10128017">PMC10128017</a>.)</li>
+<li>Viral replication and viremia → <em>leads to</em> dissemination to <strong>musculoskeletal tissues (skeletal muscle, joints/synovium, bone)</strong>, the tropism underlying arthritis/myositis. (Mouse model; viremia detectable days 2–9 p.i. in mice — <a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>.)</li>
+<li>Infection of/trafficking to <strong>monocytes and macrophages</strong> → <em>results in</em> recruitment of inflammatory <strong>monocyte/macrophage infiltrates</strong> into muscle and joint tissue; these cells dominate the infiltrate. (Mouse; macrophage depletion by silica before infection "resulted in diminished acute disease" — <a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>.) ⚠️ Branch/caveat: human monocytes "could not be infected with RRV, except in the presence of subneutralising levels of antibody," raising the possibility of <strong>antibody-dependent enhancement</strong> as a contributor.</li>
+<li>Infected/activated cells <strong>upregulate proinflammatory mediators</strong> — e.g., MCP-1/CCL2 and IL-8 upregulated in human synovial fibroblasts in vitro (IL-8 up 8.2-fold in human fibroblasts) → <em>leads to</em> amplification of leukocyte recruitment and local inflammation. (In vitro + mouse; <a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>.)</li>
+<li><strong>Complement activation</strong> — specifically the <strong>mannose-binding lectin (MBL) pathway</strong>, triggered by viral envelope N-glycans on infected cells → <em>leads to</em> C3 activation and deposition in inflamed muscle. (Mouse; glycan→MBL→complement: <a href="https://pubmed.ncbi.nlm.nih.gov/29324290/">PubMed 29324290</a>.)</li>
+<li>Complement (via <strong>C3</strong>) acts in the <strong>effector phase</strong> → <em>results in</em> <strong>inflammatory destruction of skeletal muscle and joint tissue</strong>. C3-deficient mice develop "much less severe disease" and "far less severe destruction of skeletal muscle tissue" <strong>despite similar inflammatory infiltrates</strong>, placing complement downstream of cell recruitment in the causal chain (Morrison et al. 2007, <a href="https://pubmed.ncbi.nlm.nih.gov/17314163/" target="_blank" rel="noopener noreferrer">PMID 17314163</a>). Human corroboration: "complement activation was also detected in synovial fluid from RRV-infected patients" (<a href="https://pubmed.ncbi.nlm.nih.gov/17314163/" target="_blank" rel="noopener noreferrer">PMID 17314163</a>).</li>
+<li>Tissue inflammation/damage → <em>produces</em> the <strong>clinical polyarthritis, myalgia, and rash</strong>. (Human-clinical outcome.)</li>
+<li><strong>Resolution/repair branch:</strong> during recovery a CD11b^hi Ly6C^lo <strong>CX3CR1+ macrophage</strong> population appears in muscle and supports tissue repair (mouse, mBio), while <strong>persistently infected macrophages</strong> are proposed to drive chronic/relapsing symptoms — but persistent productive infection was shown "only ... in a murine macrophage cell line (RAW 264.7)," so chronicity mechanism is <strong>inferred, not demonstrated in humans</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>).</li>
+</ol>
+<p><strong>Upstream vs downstream:</strong> Viral entry (MXRA8) and replication are <strong>upstream</strong>; monocyte/macrophage recruitment and cytokine/chemokine induction are <strong>intermediate</strong>; <strong>complement (MBL→C3) effector activity and tissue destruction are downstream</strong>. Immune complexes are "probably not involved" (normal neutrophils and C3/C4 in that context) (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>).</p>
+<p><strong>Molecular pathways / processes &amp; ontology suggestions:</strong>
+- Complement cascade — Reactome R-HSA-166658 (Complement cascade); lectin pathway. <a href="http://purl.obolibrary.org/obo/GO_0006956" target="_blank" rel="noopener noreferrer">GO:0006956</a> (complement activation); <a href="http://purl.obolibrary.org/obo/GO_0001867" target="_blank" rel="noopener noreferrer">GO:0001867</a> (complement activation, lectin pathway).
+- Inflammatory response — <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>; chemokine signaling (CCL2/MCP-1) <a href="http://purl.obolibrary.org/obo/GO_0070098" target="_blank" rel="noopener noreferrer">GO:0070098</a>.
+- Type I interferon response (RIG-I/MAVS in monocytes — summary-level) <a href="http://purl.obolibrary.org/obo/GO_0060337" target="_blank" rel="noopener noreferrer">GO:0060337</a>; viral entry/receptor binding <a href="http://purl.obolibrary.org/obo/GO_0046718" target="_blank" rel="noopener noreferrer">GO:0046718</a> (viral entry into host cell).
+- <strong>Cell types (CL):</strong> monocyte <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a>; macrophage <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>; inflammatory monocyte <a href="http://purl.obolibrary.org/obo/CL_0002057" target="_blank" rel="noopener noreferrer">CL:0002057</a>; synovial fibroblast <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" rel="noopener noreferrer">CL:0000210</a>; skeletal muscle myocyte/cell <a href="http://purl.obolibrary.org/obo/CL_0000187" target="_blank" rel="noopener noreferrer">CL:0000187</a>/<a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" rel="noopener noreferrer">CL:0008002</a>.</p>
+<p><strong>Molecular profiling / omics / single-cell / CRISPR:</strong> A genome-wide <strong>CRISPR screen</strong> identified MXRA8 (functional genomics; Zhang 2018). Single-cell/flow characterization of muscle macrophage populations in mouse recovery is reported (mBio). Human multi-omic transcriptomic/proteomic disease signatures specific to RRV were not retrieved in depth; the pentosan trial reported <strong>circulating biomarkers</strong> (COMP, CTX-II, CCL1, CXCL12, CXCL16, CCL17) modulated by therapy (Krishnan 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/33711991/" target="_blank" rel="noopener noreferrer">PMID 33711991</a>).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ/system level:</strong>
+- <strong>Musculoskeletal system (primary):</strong> peripheral <strong>joints</strong> — knee, ankle, wrist, small joints of hands/feet (metacarpophalangeal, interphalangeal); <strong>skeletal muscle</strong> (myositis in models); tendons/entheses (Achilles tenosynovitis). UBERON: <a href="http://purl.obolibrary.org/obo/UBERON_0002544" target="_blank" rel="noopener noreferrer">UBERON:0002544</a> (joint)? → <a href="http://purl.obolibrary.org/obo/UBERON_0001474" target="_blank" rel="noopener noreferrer">UBERON:0001474</a> skeletal element; <a href="http://purl.obolibrary.org/obo/UBERON_0002385" target="_blank" rel="noopener noreferrer">UBERON:0002385</a> (muscle tissue); <a href="http://purl.obolibrary.org/obo/UBERON_0000211" target="_blank" rel="noopener noreferrer">UBERON:0000211</a> (ligament)/tendon <a href="http://purl.obolibrary.org/obo/UBERON_0000043" target="_blank" rel="noopener noreferrer">UBERON:0000043</a>.
+- <strong>Integumentary system:</strong> skin — maculopapular rash (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> skin of body).
+- <strong>Lymphatic:</strong> lymph nodes — lymphadenopathy (<a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" rel="noopener noreferrer">UBERON:0000029</a> lymph node).
+- <strong>Secondary/rare involvement:</strong> CNS (encephalitis, rare), kidney (glomerulonephritis, rare).</p>
+<p><strong>Tissue/cell level:</strong> synovium (synovial membrane, <a href="http://purl.obolibrary.org/obo/UBERON_0002018" target="_blank" rel="noopener noreferrer">UBERON:0002018</a>) and synovial fibroblasts (<a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" rel="noopener noreferrer">CL:0000210</a>); skeletal muscle myofibers (<a href="http://purl.obolibrary.org/obo/CL_0000187" target="_blank" rel="noopener noreferrer">CL:0000187</a>) with infiltrating monocytes/macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a>/<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>).</p>
+<p><strong>Subcellular level:</strong> RRV replicates in the <strong>cytoplasm</strong> on modified membranes (<a href="http://purl.obolibrary.org/obo/GO_0005737" target="_blank" rel="noopener noreferrer">GO:0005737</a> cytoplasm; <a href="http://purl.obolibrary.org/obo/GO_0016020" target="_blank" rel="noopener noreferrer">GO:0016020</a> membrane); envelope glycoproteins transit the <strong>ER/Golgi</strong> secretory pathway (<a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a> endoplasmic reticulum; <a href="http://purl.obolibrary.org/obo/GO_0005794" target="_blank" rel="noopener noreferrer">GO:0005794</a> Golgi).</p>
+<p><strong>Localization/laterality:</strong> Arthritis is characteristically <strong>polyarticular and often symmetrical/bilateral</strong>, affecting peripheral joints (<a href="https://www.cdc.gov/ross-river-virus/healthcareproviders/">CDC</a>); may be migratory.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> <strong>Acute</strong>, following an incubation period of <strong>3–21 days (usually 7–9 days)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>; WA/Vic guidance).</li>
+<li><strong>Acute phase:</strong> fever, rash, fatigue, and the abrupt onset of polyarthralgia/arthritis, lasting weeks.</li>
+<li><strong>Course:</strong> Often <strong>episodic/relapsing-remitting</strong> during convalescence; arthralgia may wax and wane and migrate.</li>
+<li><strong>Duration / chronicity:</strong> Acute illness resolves over "a few weeks to a few months." A substantial minority have <strong>prolonged disease</strong>: Australian guidance reports ~15–66% with ongoing arthralgia at 3 months, with resolution in the majority by <strong>5–7 months</strong>, and about <strong>one-quarter</strong> with rheumatic symptoms persisting ≥12 months (<a href="https://www.health.wa.gov.au/~/media/Files/Corporate/Reports%20and%20publications/PDF/RRVdiseasemanagementguideforGPs2010.pdf">WA GP guide</a>). The review states "more than 50% of patients continue to experience symptoms 12 months after initial presentation" (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>) — figures vary by cohort/definition.</li>
+<li><strong>Remission:</strong> Generally <strong>spontaneous</strong> over months; no documented progression to destructive chronic arthritis in most patients. Reinfection is unusual (immunity).</li>
+<li><strong>Critical window:</strong> No defined therapeutic window established; symptomatic management throughout.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Inheritance / genetics:</strong> <strong>Not applicable</strong> — infectious, not heritable. No inheritance pattern, penetrance, expressivity, anticipation, mosaicism, founder effect, consanguinity role, or carrier frequency.</p>
+<p><strong>Epidemiology:</strong>
+- RRV is the <strong>most common arboviral disease in Australia</strong>, with <strong>~5,000 cases notified annually</strong> on average; annual notifications ranged from <strong>5,653 (2010–11) to 10,074 (2014–15)</strong>, totaling 28,768 over 2010–15 (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>). National notification <strong>rate ~18.6–26.4 per 100,000/year</strong> in reported years (e.g., 22.6 per 100,000 in 2014; 18.6 in 2013) (<a href="https://www1.health.gov.au/internet/main/publishing.nsf/Content/cda-cdi3101a14.htm">Australian CDI NNDSS reports</a>).
+- <strong>Geographic distribution:</strong> Endemic/enzootic in <strong>all Australian states, Papua New Guinea and the Solomon Islands</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>); a major epidemic occurred in the Pacific (Fiji, Samoa, Cook Islands) in 1979–80. Rates highest in the <strong>Northern Territory</strong> (e.g., 124.4 per 100,000 in 2013) and northern/coastal Queensland and Western Australia (<a href="https://www1.health.gov.au/internet/main/Publishing.nsf/Content/cda-cdi3101a14.htm">CDI</a>).
+- <strong>Age/sex:</strong> Predominantly adults <strong>30–64 years</strong>; regional data show <strong>slight female predominance</strong>; rare in young children (<a href="https://www1.health.gov.au/internet/main/Publishing.nsf/Content/cda-cdi2903i.htm">SA incidence study</a>).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical/laboratory tests:</strong>
+- <strong>Serology (mainstay):</strong> RRV-specific <strong>IgM and IgG</strong>. Definitive recent infection requires <strong>IgG seroconversion or ≥4-fold rise in paired sera ~10–14 days apart</strong>, or detection of RRV-specific IgM in the presence of RRV IgG (<a href="https://health.vic.gov.au/infectious-diseases/ross-river-virus-disease">Victoria guidance</a>). ⚠️ <strong>IgM alone is unreliable</strong> — it can persist for months/years; "IgM serology cannot be relied upon to conclusively diagnose RRV disease" (<a href="https://www.health.wa.gov.au/~/media/Files/Corporate/Reports%20and%20publications/PDF/RRVdiseasemanagementguideforGPs2010.pdf">WA GP guide</a>). A single IgM+ within 7 days of onset gives a <strong>presumptive</strong> diagnosis to be confirmed (<a href="https://clik.dva.gov.au/book/export/html/75522">DVA guidance</a>).
+- <strong>Nucleic acid detection (RT-PCR):</strong> useful early (brief viremia) — LOINC-codable RRV RNA assays.
+- <strong>Virus isolation:</strong> possible but rarely used clinically.
+- <strong>Nonspecific labs:</strong> often normal; mild lymphocytosis/raised ESR/CRP variably; synovial fluid is inflammatory but non-purulent (complement activation detectable — <a href="https://pubmed.ncbi.nlm.nih.gov/17314163/" target="_blank" rel="noopener noreferrer">PMID 17314163</a>).</p>
+<p><strong>Genetic testing:</strong> <strong>Not applicable</strong> (no WGS/WES/panel/karyotype/repeat-expansion/mtDNA role).</p>
+<p><strong>Imaging/electrophysiology:</strong> No specific findings; imaging used mainly to exclude alternatives.</p>
+<p><strong>Clinical criteria / differential diagnosis:</strong> Diagnosis integrates compatible clinical syndrome + epidemiologic exposure + serology. <strong>Differentials:</strong> Barmah Forest virus disease (very similar — key reason term "epidemic polyarthritis" is ambiguous), chikungunya and other alphaviral arthritides, dengue, parvovirus B19, rubella, rheumatoid arthritis, reactive/seronegative arthritis, and other viral arthritides (<a href="https://www.cdc.gov/ross-river-virus/hcp/clinical-diagnosis-treatment/index.html">CDC</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC89008">PMC89008</a>).</p>
+<p><strong>Screening:</strong> No population or newborn screening (acquired infectious disease). Blood-donor relevance noted (rare transfusion transmission).</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Mortality:</strong> Essentially <strong>nil</strong> — "To date, there is no death reported that is directly attributed to RRV infection" (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>). No survival-rate metric applies.</li>
+<li><strong>Morbidity / disability:</strong> The dominant burden is <strong>prolonged arthralgia, fatigue and reduced function</strong> lasting months in a substantial minority (see §8). Most recover fully.</li>
+<li><strong>Recovery:</strong> High likelihood of complete recovery; majority resolve by 5–7 months, with ~25% experiencing symptoms ≥12 months.</li>
+<li><strong>Complications:</strong> Rare encephalitis, glomerulonephritis; chronic fatigue-like syndromes have been debated.</li>
+<li><strong>Prognostic factors:</strong> Older age and greater initial symptom severity are associated with more prolonged illness (clinical guidance); no validated molecular prognostic biomarker, though inflammatory/cartilage markers (COMP, CTX-II, chemokines) track disease activity in trial settings (<a href="https://pubmed.ncbi.nlm.nih.gov/33711991/" target="_blank" rel="noopener noreferrer">PMID 33711991</a>).</li>
+<li><strong>QoL measures used:</strong> SF-36, RAPID3, grip strength (<a href="https://pubmed.ncbi.nlm.nih.gov/33711991/" target="_blank" rel="noopener noreferrer">PMID 33711991</a>).</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>No approved antiviral or disease-specific therapy exists.</strong> Management is <strong>supportive/symptomatic</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>; <a href="https://www.cdc.gov/ross-river-virus/hcp/clinical-diagnosis-treatment/index.html">CDC</a>).</p>
+<p><strong>Pharmacotherapy (symptomatic):</strong>
+- <strong>NSAIDs</strong> (e.g., ibuprofen, naproxen) and simple analgesics (paracetamol/acetaminophen) for arthralgia/arthritis — mainstay (NCIT: Nonsteroidal Anti-inflammatory Agent, NCIT:C198; Acetaminophen NCIT:C198? use NCIT C561 Ibuprofen, C62649 Acetaminophen).
+- <strong>DMARDs/corticosteroids:</strong> not established; reviews note other treatments "such as disease-modifying antirheumatic drugs (DMARDs) ... have not been proven effective in RRV clinical trials" and can carry serious adverse effects (<a href="https://pubmed.ncbi.nlm.nih.gov/33711991/" target="_blank" rel="noopener noreferrer">PMID 33711991</a>).
+- <strong>Pharmacogenomics:</strong> Not applicable.</p>
+<p><strong>Experimental / investigational:</strong>
+- <strong>Pentosan polysulfate sodium (PPS):</strong> Phase 2a randomized, double-blind, placebo-controlled trial (PARA-004, <strong>ACTRN12617000893303</strong>; 20 subjects, 2 mg/kg SC twice weekly × 6 weeks). Reported <strong>improved grip strength (+6.99 kg, p=0.0189 at Day 15)</strong>, RAPID3 pain/total improvements (p=0.0197/0.0101), and near-remission of joint symptoms in <strong>61.5% (PPS) vs 14.3% (placebo)</strong>; main AE was injection-site reactions. Authors concluded the results "warrant further evaluation" — but the trial is small/exploratory (Krishnan et al. 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/33711991/" target="_blank" rel="noopener noreferrer">PMID 33711991</a>). NCIT: Pentosan Polysulfate Sodium (NCIT:C47707).
+- <strong>PG545 (pixatimod)</strong> and related heparan-sulfate mimetics: efficacy shown in <strong>mouse</strong> RRV/CHIKV disease (reduced infiltrates and proinflammatory factors) (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a> summary).
+- <strong>Complement/MBL-pathway inhibition</strong> is a mechanistically rational but not yet clinical target (Morrison 2007, <a href="https://pubmed.ncbi.nlm.nih.gov/17314163/" target="_blank" rel="noopener noreferrer">PMID 17314163</a>; glycan/MBL work, <a href="https://pubmed.ncbi.nlm.nih.gov/29324290/">PubMed 29324290</a>).</p>
+<p><strong>Advanced therapeutics (gene/cell/RNA/targeted/immunotherapy):</strong> None approved or in routine use for RRV.</p>
+<p><strong>Surgical/rehabilitative:</strong> No surgery; <strong>physiotherapy and graded exercise</strong> support recovery of joint function (supportive care).</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention = vector/bite avoidance</strong> (the mainstay): insect repellent (DEET/picaridin), protective clothing, avoiding peak mosquito activity, screening/netting, and <strong>mosquito control</strong> — larval source reduction, management of saltmarsh/wetland breeding sites, and public health education (<a href="https://www.health.nsw.gov.au/Infectious/controlguideline/Pages/ross_river.aspx">NSW control guideline</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>). Prevention "relies entirely" on bite prevention and breeding-site management.</li>
+<li><strong>Vaccine (investigational, none licensed):</strong> An <strong>inactivated, Vero cell-derived, alum-adjuvanted RRV vaccine</strong> completed a <strong>Phase 3 trial</strong> (2011–2012, 17 Australian sites, three 2.5 µg doses; 1,755 adults 16–59 y + 209 older adults), reported safe/well-tolerated and inducing "antibody titers associated with protection ... in the majority of individuals" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4340901">Phase 3, 2015, PMC4340901</a>; Phase 1/2, <a href="https://www.pubmed.gov/22001875/">PubMed 22001875</a>). As of the retrieved sources, <strong>no RRV vaccine is licensed/available</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>). NCIT: not applicable (investigational).</li>
+<li><strong>Secondary/tertiary prevention:</strong> Early symptomatic management; no screening program. Genetic counseling <strong>not applicable</strong>.</li>
+<li><strong>Public-health/environmental interventions:</strong> Integrated mosquito management, surveillance (sentinel chicken flocks/mosquito trapping), and climate/rainfall-based early-warning given the 0–3 month rainfall lag (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>).</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Natural disease — horses (<em>Equus caballus</em>, NCBI Taxon:9796):</strong> RRV causes naturally occurring, <strong>non-fatal</strong> arthritic/lethargic illness in horses; "most horses recovered several months after initial presentation"; equine signs include lethargy, muscle pain/stiffness, lameness, and submandibular lymphadenopathy; equine seroprevalence 21–91% (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>). Horses are proposed as both a possible reservoir/amplifier and a natural disease model. ⚠️ Experimental infection was mild (1/11 horses showed clinical signs; to be "interpreted cautiously" owing to use of the old T48 prototype strain).</li>
+<li><strong>Reservoir hosts:</strong> Macropods (kangaroos/wallabies) — subclinical amplifying hosts; possums, flying foxes possibly involved. Dogs/cats remain aviraemic.</li>
+<li><strong>Zoonotic/transmission:</strong> The disease is <strong>mosquito-borne arboviral zoonosis</strong>; transmission to humans is via mosquitoes amplified on vertebrate hosts, not direct animal-to-human contact.</li>
+<li><strong>Comparative biology:</strong> RRV belongs to the arthritogenic alphavirus group (with CHIKV, Mayaro, o'nyong-nyong, Sindbis/Barmah Forest) sharing <strong>MXRA8-mediated entry</strong> and complement/monocyte-driven arthritis — a conserved pathogenic theme across these viruses (Zhang 2018; Morrison 2007).</li>
+<li><strong>Breed (VBO):</strong> No breed-specific predisposition identified.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse (<em>Mus musculus</em>, NCBI Taxon:10090) — principal model.</strong> RRV infection of mice (notably using strain <strong>T48</strong>) reproduces <strong>myositis and arthritis</strong> with monocyte/macrophage-dominated infiltrates; viremia detectable days 2–9 p.i.; severe disease can include <strong>hindlimb paralysis and death</strong> — outcomes <strong>not seen in humans/horses</strong>, a key limitation (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>). The model established the roles of <strong>complement/C3</strong> (C3⁻/⁻ mice: much milder disease, less muscle destruction despite similar infiltrates — Morrison et al. 2007, <a href="https://pubmed.ncbi.nlm.nih.gov/17314163/" target="_blank" rel="noopener noreferrer">PMID 17314163</a>), the <strong>MBL lectin pathway</strong> and <strong>viral N-glycans</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29324290/">PubMed 29324290</a>), and <strong>MXRA8</strong> (MXRA8-KO mice: reduced replication/disease — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10128017">PMC10128017</a>).</li>
+<li><strong>Genetic models used:</strong> gene-knockout mice — <strong>C3⁻/⁻</strong>, MBL-deficient, classical/alternative-pathway-component-deficient (retained severe disease), <strong>MXRA8-knockout</strong>, and chemokine-receptor (CCR2) studies.</li>
+<li><strong>In vitro models:</strong> murine macrophage line <strong>RAW 264.7</strong> (persistent RRV infection), human synovial fibroblast lines (MCP-1/IL-8 induction), and CRISPR-screen cell lines (MXRA8 discovery).</li>
+<li><strong>Phenotype recapitulation:</strong> Good for <strong>acute arthritis/myositis and immunopathology</strong>; <strong>poor</strong> for (a) chronicity/relapse mechanisms in humans, (b) the lethal/paralytic outcomes that are mouse-specific, and (c) direct human monocyte infection (which requires sub-neutralizing antibody in vitro). The field's explicit caveat: human/equine immunopathogenesis "is mainly inferred from a murine model that only partially resembles clinical signs and pathology" (<a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID 33802851</a>).</li>
+<li><strong>Resources:</strong> MGI (mouse), ATCC (RAW 264.7, Cellosaurus CVCL_0493).</li>
+</ul>
+<hr />
+<h2>Key References (retrieved this session)</h2>
+<ol>
+<li><strong>Yuen KY, Bielefeldt-Ohmann H.</strong> Ross River Virus Infection: A Cross-Disciplinary Review with a Veterinary Perspective. <em>Pathogens.</em> 2021;10(3):357. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/33802851/" target="_blank" rel="noopener noreferrer">PMID: 33802851</a></strong>; DOI 10.3390/pathogens10030357. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8002670">PMC8002670</a></li>
+<li><strong>Harley D, Sleigh A, Ritchie S.</strong> Ross River virus transmission, infection, and disease: a cross-disciplinary review. <em>Clin Microbiol Rev.</em> 2001;14(4):909–932. DOI 10.1128/CMR.14.4.909-932.2001. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC89008">PMC89008</a> (PMID not independently verified this session)</li>
+<li><strong>Morrison TE, Fraser RJ, Smith PN, Mahalingam S, Heise MT.</strong> Complement Contributes to Inflammatory Tissue Destruction in a Mouse Model of Ross River Virus-Induced Disease. <em>J Virol.</em> 2007;81(10):5132–5143. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/17314163/" target="_blank" rel="noopener noreferrer">PMID: 17314163</a></strong>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1900244">PMC1900244</a></li>
+<li>RRV envelope glycans activate the host complement system. <a href="https://pubmed.ncbi.nlm.nih.gov/29324290/">PubMed 29324290</a></li>
+<li><strong>Zhang R, et al.</strong> Mxra8 is a receptor for multiple arthritogenic alphaviruses. <em>Nature.</em> 2018;557:570–574. <a href="https://www.nature.com/articles/s41586-018-0121-3.pdf">article</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5970976">PMC5970976</a></li>
+<li>Role of MXRA8 in Ross River Virus Disease Pathogenesis. 2023. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10128017">PMC10128017</a></li>
+<li><strong>Krishnan et al.</strong> Pentosan polysulfate sodium for Ross River virus-induced arthralgia: a phase 2a, randomized, double-blind, placebo-controlled study. <em>BMC Musculoskelet Disord.</em> 2021;22:271. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/33711991/" target="_blank" rel="noopener noreferrer">PMID: 33711991</a></strong>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7955617">PMC7955617</a></li>
+<li>Inactivated RRV vaccine Phase 3. 2015. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4340901">PMC4340901</a>; Phase 1/2 <a href="https://www.pubmed.gov/22001875/">PubMed 22001875</a></li>
+<li>Australian NNDSS notification data, <em>Communicable Diseases Intelligence</em>. <a href="https://www1.health.gov.au/internet/main/publishing.nsf/Content/cda-cdi3101a14.htm">CDI reports</a></li>
+<li>CDC Ross River virus clinical pages. <a href="https://www.cdc.gov/ross-river-virus/hcp/clinical-diagnosis-treatment/index.html">CDC HCP</a>; MeSH <a href="https://meshb.nlm.nih.gov/record/ui?ui=D012398">D012398</a>; ICD-11 <a href="https://www.cismef.org/page/detail/en/ICD11_CA_1085418398">1D4D</a></li>
+</ol>
+<hr />
+<h3>Caveats on completeness</h3>
+<ul>
+<li><strong>Genetics sections (4, 9) are "not applicable" by design</strong> — RRV fever is infectious, with no human causal gene; the template's "Causal gene(s): not recorded" is correct. The nearest host-gene story is <em>MXRA8</em> (mouse/cell evidence).</li>
+<li>One molecular-virology search was <strong>blocked by a safety classifier</strong>, so some structural-protein specifics are reported only at review level.</li>
+<li>Several PMC primary PDFs returned CAPTCHA/rate-limit blocks; where I could not retrieve a primary source I cited the retrieved review/abstract/registry and flagged unverified identifiers (e.g., Harley 2001 PMID; ICD-10 A92.8).</li>
+<li>Human GWAS/HLA susceptibility, detailed human omics signatures, and formal QoL population norms were <strong>not retrieved</strong> and are marked as not established/unretrieved rather than filled from memory.</li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>13</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<ul>
+<li><code>PMID:33802851</code>: "uncommon sequelae, such as encephalitis, have been reported"</li>
+<li>closest text in source: "However, it is worth noting that uncommon sequalae, such as encephalitis, have been reported [ 23 ]"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>42</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0100504</code> (1 mention) - the report calls it "Tenosynovitis"; HP calls it <strong>Decreased circulating vitamin B2 concentration</strong></li>
+<li><code>UBERON:0002544</code> (1 mention) - the report calls it "joint"; UBERON calls it <strong>digit</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0046718</code> (1 mention) - the report calls it "viral entry into host cell"; GO calls it <strong>symbiont entry into host cell</strong>, and lists "viral entry into host cell" among its other names</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>Taxon</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Rosai-Dorfman_Disease-claude_code.html">← Rosai-Dorfman Disease (Claude Code)</a>
+                
+                
+                <a href="Rothmund-Thomson_Syndrome-falcon.html">Rothmund-Thomson Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Ross_River_Fever.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Ross_River_Fever-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
