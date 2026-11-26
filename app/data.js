@@ -233639,6 +233639,119 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Infectious Mononucleosis",
+    "disease_id": "MONDO:0005810",
+    "category": "Infectious Disease",
+    "parents": [],
+    "creation_date": "2026-11-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "The clinical syndrome that follows symptomatic primary infection with Epstein-Barr virus (EBV, human gammaherpesvirus 4), a gamma-herpesvirus spread by saliva. EBV enters oropharyngeal B lymphocytes through the complement receptor CR2 (CD21), drives their proliferation, and establishes lifelong latency; the illness itself is largely immunopathology, produced by a massive oligoclonal expansion of EBV-specific CD8+ T cells (the atypical \"Downey\" lymphocytes) that infiltrate lymphoid tissue. The typical picture is sore throat, posterior cervical lymphadenopathy, fever, fatigue and splenomegaly in an adolescent or young adult, lasting several weeks and self-limited. Subclinical hepatitis is common; splenic rupture is the feared acute complication. Rare inborn errors of immunity (notably SH2D1A, causing X-linked lymphoproliferative disease) convert primary EBV infection into severe or fatal mononucleosis with hemophagocytosis. A history of infectious mononucleosis raises the later risk of Hodgkin lymphoma and multiple sclerosis.",
+    "pathophysiology": [
+      "Primary Oropharyngeal EBV Infection of B Lymphocytes",
+      "EBV-Driven B-Cell Proliferation and Latency",
+      "Massive CD8+ T-Cell Expansion",
+      "Lymphoreticular Infiltration and Systemic Immune Activation",
+      "EBV Hepatitis"
+    ],
+    "cell_types": [
+      "B cell",
+      "CD8-positive, alpha-beta T cell",
+      "natural killer cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:0000625",
+      "CL:0000623"
+    ],
+    "biological_processes": [
+      "viral entry into B lymphocytes",
+      "B cell proliferation",
+      "viral latency",
+      "CD8+ T cell proliferation",
+      "adaptive immune response"
+    ],
+    "phenotypes": [
+      "Pharyngitis",
+      "Fever",
+      "Fatigue",
+      "Post-infectious chronic fatigue",
+      "Cervical lymphadenopathy",
+      "Splenomegaly",
+      "Splenic rupture",
+      "Hepatomegaly",
+      "Elevated hepatic transaminases",
+      "Atypical lymphocytosis",
+      "Maculopapular exanthema",
+      "Headache",
+      "Myalgia",
+      "Decreased appetite",
+      "Hemophagocytic lymphohistiocytosis",
+      "Upper airway obstruction",
+      "Autoimmune hemolytic anemia",
+      "Thrombocytopenia"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Lymphatic",
+      "Abdominal",
+      "Laboratory",
+      "Dermatologic",
+      "Musculoskeletal",
+      "Hematologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0025439",
+      "HP:0001945",
+      "HP:0012378",
+      "HP:0025289",
+      "HP:0001744",
+      "HP:0012223",
+      "HP:0002240",
+      "HP:0002910",
+      "HP:0100827",
+      "HP:0040186",
+      "HP:0002315",
+      "HP:0003326",
+      "HP:0004396",
+      "HP:0012156",
+      "HP:0002781",
+      "HP:0001890",
+      "HP:0001873"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SH2D1A deficiency (X-linked lymphoproliferative disease type 1)"
+    ],
+    "treatments": [
+      "Supportive care",
+      "Acyclovir / valaciclovir",
+      "Corticosteroids for inflammatory complications"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Infectious_Mononucleosis.yaml",
+    "page_url": "../pages/disorders/Infectious_Mononucleosis.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Infective Endocarditis",
     "disease_id": "MONDO:0000565",
     "category": "Infectious",
@@ -429732,6 +429845,102 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Toxocariasis",
+    "disease_id": "MONDO:0005988",
+    "category": "Infectious Disease",
+    "parents": [],
+    "creation_date": "2026-11-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A zoonotic helminthiasis caused by infection with the larvae of the roundworms Toxocara canis (dog) and Toxocara cati (cat). Humans are accidental paratenic hosts infected by swallowing embryonated eggs from soil, hands or produce, or by eating larvae in raw paratenic-host tissue; the larvae hatch in the gut, penetrate the wall and migrate through the tissues but cannot mature to adult worms, so they persist and continuously shed excretory-secretory (TES) antigens. This drives a type 2, eosinophil-rich response and eosinophilic granulomatous inflammation around the migrating or dead larvae, giving the recognized clinical forms: visceral larva migrans (fever, hepatic lesions, eosinophilia), ocular toxocariasis (a retinochoroidal granuloma with tractional retinal detachment and vision loss), covert/common toxocariasis (wheeze, abdominal pain), and neurotoxocariasis (eosinophilic meningoencephalitis, with an epidemiological link to epilepsy). Most infection is asymptomatic; management is albendazole with corticosteroids.",
+    "pathophysiology": [
+      "Ingestion and Intestinal Larval Hatching",
+      "Arrested Somatic Migration and TES Antigen Release",
+      "Type 2 Eosinophilic Response",
+      "Eosinophilic Granulomatous Tissue Injury"
+    ],
+    "cell_types": [
+      "eosinophil",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000771",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "type 2 immune response",
+      "eosinophil activation",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Eosinophilia",
+      "Fever",
+      "Asthma",
+      "Retinal detachment",
+      "Seizure",
+      "Infectious encephalitis",
+      "Myelitis",
+      "Abdominal pain",
+      "Hepatomegaly",
+      "Cough",
+      "Wheezing",
+      "Visual loss",
+      "Strabismus",
+      "Leukocoria"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Constitutional",
+      "Respiratory",
+      "Ophthalmologic",
+      "Neurologic",
+      "Abdominal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001880",
+      "HP:0001945",
+      "HP:0002099",
+      "HP:0000541",
+      "HP:0001250",
+      "HP:0002383",
+      "HP:0012486",
+      "HP:0002027",
+      "HP:0002240",
+      "HP:0012735",
+      "HP:0030828",
+      "HP:0007663",
+      "HP:0000486",
+      "HP:0000555"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Anthelmintic therapy with corticosteroids"
+    ],
+    "environmental": [
+      "Soil contaminated with embryonated Toxocara eggs"
+    ],
+    "biochemical": [],
+    "source_file": "Toxocariasis.yaml",
+    "page_url": "../pages/disorders/Toxocariasis.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Toxoplasmosis",
     "disease_id": "MONDO:0005989",
     "category": "Infectious Disease",
@@ -431171,6 +431380,94 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "15",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Trichinellosis",
+    "disease_id": "MONDO:0019444",
+    "category": "Infectious Disease",
+    "parents": [],
+    "creation_date": "2026-11-25T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A foodborne zoonosis acquired by eating raw or undercooked meat containing encysted first-stage (L1) larvae of the nematode genus Trichinella, of which Trichinella spiralis in the domestic pig is the principal human pathogen. The disease runs in two phases: an enteral phase, in which gastric digestion frees the larvae and they invade the small-intestinal epithelium and mature into adults (diarrhoea), and a parenteral phase, in which adult females release newborn larvae that disseminate through the tissues and provoke a systemic type 2, eosinophil-rich allergic response (eosinophilia, facial/periorbital oedema, fever, headache) before entering striated muscle. There each larva forces its host myocyte to dedifferentiate and build a collagen-walled \"nurse cell\", producing myalgia and raised muscle enzymes. Most disease is self-limited; severe infection can cause eosinophilic myocarditis and central nervous system involvement, and deaths occur about 4-6 weeks after infection.",
+    "pathophysiology": [
+      "Enteral Larval Invasion",
+      "Systemic Larval Migration and Type 2 Eosinophilic Response",
+      "Muscle Invasion and Nurse Cell Formation"
+    ],
+    "cell_types": [
+      "enterocyte",
+      "eosinophil",
+      "skeletal muscle cell",
+      "skeletal muscle satellite cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000584",
+      "CL:0000771",
+      "CL:0000188",
+      "CL:0000594"
+    ],
+    "biological_processes": [
+      "larval entry into intestinal epithelium",
+      "type 2 immune response",
+      "eosinophil activation",
+      "negative regulation of cell cycle",
+      "skeletal muscle satellite cell differentiation"
+    ],
+    "phenotypes": [
+      "Myalgia",
+      "Diarrhea",
+      "Fever",
+      "Facial edema",
+      "Headache",
+      "Eosinophilia",
+      "Elevated muscle enzymes",
+      "Myocarditis"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Gastrointestinal",
+      "Constitutional",
+      "Craniofacial",
+      "Neurologic",
+      "Laboratory",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003326",
+      "HP:0002014",
+      "HP:0001945",
+      "HP:0000282",
+      "HP:0002315",
+      "HP:0001880",
+      "HP:0003236",
+      "HP:0012819"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Anthelmintic therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Trichinellosis.yaml",
+    "page_url": "../pages/disorders/Trichinellosis.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Tricho-dento-osseous Syndrome",
@@ -438872,6 +439169,77 @@ window.searchData = [
     "num_treatments": 11,
     "causal_graph_edges": "35",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "VPS13C-Related Parkinson Disease",
+    "disease_id": "MONDO:0014796",
+    "category": "Mendelian",
+    "parents": [
+      "Movement Disorder",
+      "Autosomal Recessive Early-Onset Parkinsonism"
+    ],
+    "creation_date": "2026-11-20T00:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "VPS13C-related Parkinson disease (PARK23; autosomal recessive early-onset Parkinson disease 23) is an autosomal-recessive, early-onset parkinsonism caused by biallelic truncating variants in VPS13C. VPS13C is a large lipid-transfer protein that bridges the endoplasmic reticulum to other organelles at membrane contact sites, principally to late endosomes/lysosomes. Its loss has two complementary consequences: a mitochondrial limb (lower mitochondrial membrane potential, mitochondrial fragmentation and exacerbated PINK1/parkin-dependent mitophagy) that places the disease alongside PRKN and PINK1 rather than on the presynaptic endocytic arm of SYNJ1 and DNAJC6, and an endolysosomal limb (lysosomes accumulating with an altered lipid profile and activation of the mtDNA-dependent cGAS-STING innate-immune pathway). The phenotype is distinctive \u2014 rapid and severe progression with early cognitive decline \u2014 and the neuropathology is diffuse Lewy body disease, making VPS13C disease a genetic alpha-synucleinopathy.",
+    "pathophysiology": [
+      "VPS13C Loss of Function",
+      "Mitochondrial Dysfunction",
+      "Exacerbated PINK1/Parkin-Dependent Mitophagy",
+      "Lysosomal Lipid Homeostasis Failure",
+      "mtDNA-Dependent cGAS-STING Innate Immune Activation",
+      "Nigrostriatal Dopaminergic Neurodegeneration",
+      "Striatal Dopamine Deficiency and Basal Ganglia Circuit Dysfunction"
+    ],
+    "cell_types": [
+      "substantia nigra dopaminergic neuron",
+      "dopaminergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:4042025",
+      "CL:0000700"
+    ],
+    "biological_processes": [
+      "mitochondrial fission",
+      "mitophagy",
+      "phospholipid homeostasis",
+      "cGAS/STING signaling pathway",
+      "neuron apoptotic process",
+      "dopamine secretion"
+    ],
+    "phenotypes": [
+      "Parkinsonism",
+      "Cognitive Decline"
+    ],
+    "phenotype_categories": [
+      "Motor",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001300",
+      "HP:0001268"
+    ],
+    "frequencies": [],
+    "genes": [
+      "VPS13C"
+    ],
+    "treatments": [
+      "Levodopa",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "VPS13C-Related_Parkinson_Disease.yaml",
+    "page_url": "../pages/disorders/VPS13C-Related_Parkinson_Disease.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "VPS35-Related Parkinson Disease",
@@ -454289,17 +454657,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4177,
+  "total_disorder_pages": 4181,
   "total_subtypes": 5137,
-  "total_disorders_and_subtypes": 9314,
-  "total_unique_evidence_sources": 62385,
-  "total_unique_publications": 58255,
+  "total_disorders_and_subtypes": 9318,
+  "total_unique_evidence_sources": 62409,
+  "total_unique_publications": 58279,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 315,
-  "total_pathographs": 4175,
-  "total_unique_pathological_events": 27574,
-  "total_modules": 240,
-  "total_research_reports": 4279,
+  "total_pathographs": 4179,
+  "total_unique_pathological_events": 27590,
+  "total_modules": 241,
+  "total_research_reports": 4282,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 149
