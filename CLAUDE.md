@@ -2270,6 +2270,30 @@ mode of inheritance, like a digenic one: an `inheritance` block bound to
 for the tiers, the cases that must not be bound (X-inactivation, parental
 mosaicism), and the `Somatic_Mosaic_Disorders` grouping.
 
+### Computable Phenotypes (PheKB, HDR UK)
+
+A computable phenotype is a `definitions[]` entry with `definition_type:
+PHENOTYPE_ALGORITHM`. Its codes go in `CriteriaItem.code_lists` (a `CodeList`
+with `code_system`, `codes` as `{id, label}` and `source_reference`), and counts
+and windows go in `minimum_occurrences` / `minimum_interval_days`. How the
+criteria sets combine goes in `Definition.criteria_set_logic` (`ALL_OF` /
+`ANY_OF`). The library record is cited as `HDRUK:PH<n>` or `PHEKB:<node>`
+(`just fetch-reference`), and `just hdruk-definition PH304` drafts a fragment.
+
+- **Copy each code and label from the cited record.** `just check-codelists`
+  (in `just qc`, ungated in CI) fails a code or label that is not in it, because
+  `codes` is not enum-bound and `validate-terms` never sees them.
+- **`ICD10` is WHO ICD-10 (UK records), not `ICD10CM`.**
+- **Bulk imports exclude SNOMED CT** (`--exclude-code-system SNOMEDCT`) until
+  design decision §20's redistribution question is settled; the omission is
+  recorded in each definition's `notes` and in its cached record.
+  `--disorder <file>` appends to an entry and is idempotent.
+- **A count, interval or set-logic value goes in its slot only when the source
+  states it.** A library record with no validation section gets no
+  `validation_status`.
+
+See [`docs/computable-phenotypes.md`](docs/computable-phenotypes.md).
+
 ### Hypothesis-Based Phenotype Algorithms
 
 A `definitions[]` entry with `definition_type: PHENOTYPE_ALGORITHM` may be a
@@ -4515,6 +4539,7 @@ just check-folded-hyphens
 just check-folded-yaml
 just check-snippet-length
 just check-title-snippets
+just check-snippet-grading kb/disorders/MyDisease.yaml
 just check-reference-titles
 just check-retired-support-prose
 just check-environmental-evidence
@@ -4538,26 +4563,11 @@ step also runs three that do not (`check-skill-files`, `check-case-collisions`,
 scripts, such as `compliance-connectivity`; the step itself is the
 authoritative list.
 
-**`just check-snippet-grading` is not in that list, because CI does not run it
-on a `kb/`-only PR.** It has no step of its own: it runs as
-`tests/test_snippet_grading.py` inside the `Run Python code/logic tests` step,
-which fires only when the `python` path filter matches (`src/`, `tests/`,
-workflows, the justfiles and a handful of named scripts, but no `kb/` path) or
-in the merge queue. A curation PR touches none of those paths, so
-a re-graded quote passes every check on the PR and is first caught when the
-merge queue runs the full suite and ejects it. This is the hazard described
-under *Why the entity-ref check is a CI step and not just a test* below. Run
-it yourself before pushing a curation PR, naming the files you touched:
-
-```bash
-just check-snippet-grading kb/disorders/MyDisease.yaml
-```
-
-The whole corpus is still indexed, because the cross-file half compares one
-sentence against every other entry and the file that is wrong may be one this
-change never opened. Only findings touching the named paths are reported and
-gated, so the output is the worklist for this PR rather than the KB-wide
-backlog. With no paths it scans everything, as CI does.
+`check-snippet-grading` takes file paths but still indexes the whole corpus,
+because its cross-file half compares one sentence against every other entry,
+and the file that is wrong may be one this change never opened. Only findings
+touching the named paths are reported and gated; with no paths it scans
+everything, as CI does.
 
 They catch folded-scalar word corruption, evidence items swallowed into a
 block scalar, non-propositional short snippets,
@@ -4570,14 +4580,14 @@ block scalars, enum values a schema change has retired, inconsistent
 references, broken bare-name pathograph targets, shared `disease_term`s that do
 not say how they are shared, genes landing on a node that names no molecular
 function, coarse HPO bindings with no stated basis, wrong qualifier ontology
-labels, and prose claims about
-defective sources that the cache contradicts. Nine of the gates in the list
+labels, one quoted sentence graded with two `evidence_source` values, and prose
+claims about defective sources that the cache contradicts. Ten of the gates in the list
 carry a committed baseline file grandfathering a pre-existing backlog:
 `check-snippet-length`, `check-title-snippets`, `check-reference-titles`,
 `check-retired-support-prose`, `check-block-scalar-comments` (shrink-only, see
 YAML Formatter Safety), `check-causal-targets`, `check-shared-disease-terms`,
-`check-gene-activity-grounding` and `check-coarse-phenotypes`.
-`check-snippet-grading` has one too.
+`check-gene-activity-grounding`, `check-coarse-phenotypes` and
+`check-snippet-grading`.
 Inspect `tests/*_baseline.txt` for the current set. Do not update a baseline
 to admit a defect introduced by the current change.
 
@@ -5753,3 +5763,23 @@ Preview what the next sweep would do (read-only):
 ```bash
 just auto-merge-preview        # or: just auto-merge-preview 7  (age in days)
 ```
+
+### Proposed ontology changes
+
+Record precise edits requested of MONDO or another ontology in
+`ontology_changes/<id>.yaml`, validated against the standalone
+`src/dismech/schema/ontology_change.yaml`. See
+[`ontology_changes/README.md`](ontology_changes/README.md) for edit fields,
+source snapshots, curation confidence and request/adoption lifecycle rules.
+`just validate-ontology-changes` runs in QC and on every PR; `just
+ontology-changes list` queries pending requests and `export <id>` emits a
+reviewable Markdown request without publishing it. Link affected diseases,
+groupings and analyses through `affected_records`; use existing `tracked_issues`
+for filed tickets. Keep solver probabilities in the linked analysis artifacts.
+For a mapping moved to a different subject, link the removal and creation IDs
+in `ontology_changes/change_sets/<id>.yaml` (`MAPPING_MOVE`). The validator checks
+both members and their shared target/qualifier; exporting either member shows
+the complete move. The change-set YAML also contains complete `before`/`after`
+mapping assertions with labels, checked against the members. Populate or update
+these with `just ontology-changes refresh-change-set-views`; stale views fail
+validation. Per-edit lifecycles remain independent.

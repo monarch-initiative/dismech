@@ -3698,6 +3698,62 @@ class DefinitionTypeEnum(str, Enum):
     """
 
 
+class CriteriaSetLogicEnum(str, Enum):
+    """
+    How the criteria sets of a definition combine.
+    """
+    ALL_OF = "ALL_OF"
+    """
+    A case must satisfy every criteria set (conjunction).
+    """
+    ANY_OF = "ANY_OF"
+    """
+    Satisfying any one criteria set suffices (disjunction).
+    """
+
+
+class CodeSystemEnum(str, Enum):
+    """
+    Clinical code systems a CodeList can draw from. The value is also the CURIE prefix of each code (`ICD10:D57.0`, `SNOMEDCT:127040003`).
+    """
+    ICD9CM = "ICD9CM"
+    """
+    ICD-9-CM (US clinical modification of ICD-9)
+    """
+    ICD10 = "ICD10"
+    """
+    WHO ICD-10, as used in UK Hospital Episode Statistics. Not ICD-10-CM: the same code can carry a different label in each.
+    """
+    ICD10CM = "ICD10CM"
+    """
+    ICD-10-CM (US clinical modification of ICD-10)
+    """
+    SNOMEDCT = "SNOMEDCT"
+    """
+    SNOMED CT concept identifiers
+    """
+    READ2 = "READ2"
+    """
+    Read codes version 2 (UK primary care, 5-byte)
+    """
+    CTV3 = "CTV3"
+    """
+    Read codes version 3 / Clinical Terms Version 3
+    """
+    OPCS4 = "OPCS4"
+    """
+    OPCS-4 procedure codes (UK)
+    """
+    LOINC = "LOINC"
+    """
+    LOINC observation codes
+    """
+    RXNORM = "RXNORM"
+    """
+    RxNorm drug concepts
+    """
+
+
 class DefinitionDerivationBasisEnum(str, Enum):
     """
     The epistemic grounding of a definition / phenotype algorithm, orthogonal to definition_type. Records where the definition comes from and how well established it is, so a mechanism-predicated case-finding query is not conflated with a consensus- or gold-standard-validated one. When the basis is a hypothesis, the definition should attaches_to the pathophysiology node(s)/edge(s) it is predicated on, so the basis can be cross-checked against those edges' hypothesis_groups.
@@ -5335,7 +5391,7 @@ class ModelFidelityEnum(str, Enum):
 
 class ModelDivergenceTypeEnum(str, Enum):
     """
-    Typed kind of departure between a model and the mechanism node it is linked to. Values were fixed by reading all 50 computational-model `limitations` strings in the KB and clustering them, with the animal and NAM sets probed to establish which kinds are shared -- see docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md. A single link usually carries more than one, which is why `divergences` is multivalued. The set is deliberately computational-model-first; extending it to animal models would add supraphysiological expression and incomplete phenotype, each already evidenced in that set.
+    Typed kind of departure between a model and the mechanism node it is linked to. Values were fixed by reading all 50 computational-model `limitations` strings in the KB and clustering them, with the animal and NAM sets probed to establish which kinds are shared -- see docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md. A single link usually carries more than one, which is why `divergences` is multivalued. The set was deliberately computational-model-first; INCOMPLETE_PHENOTYPE was added when the animal set it was predicted from became the dominant population (#11743). SUPRAPHYSIOLOGICAL_EXPRESSION remains the other predicted addition and has not been added.
     """
     Boundary_omission = "BOUNDARY_OMISSION"
     """
@@ -5371,7 +5427,11 @@ class ModelDivergenceTypeEnum(str, Enum):
     """
     Species_mismatch = "SPECIES_MISMATCH"
     """
-    The model, or the data behind it, derives from a non-human system. Marginal among computational models and dominant among animal models, where it is the principal translational caveat.
+    The model, or the data behind it, derives from a non-human system. Marginal among computational models and dominant among animal models, where it is the principal translational caveat. Use it when the organism structurally cannot express the node -- a mouse has no IgG4 subclass, Drosophila has no thalamus. Contrast INCOMPLETE_PHENOTYPE, where the organism could express it and the model does not.
+    """
+    Incomplete_phenotype = "INCOMPLETE_PHENOTYPE"
+    """
+    The model reproduces part of the disease phenotype and not the rest, and nothing about the organism explains the missing part. A mouse can have seizures; a model that does not show them is incomplete rather than species-mismatched. It also covers a feature the model's reports are simply silent on, which is the commoner case: "not shown" and "not looked for" are rarely separable from a publication, and both leave the phenotype incomplete. The distinction from SPECIES_MISMATCH carries a consequence for a reader deciding what the model is worth: a species-structural gap will never close in that organism, while an incomplete phenotype may be a matter of background strain, age at assay, penetrance, or an assay nobody ran. Both can apply to one model for different features, which is why `divergences` is multivalued -- record each against the feature it concerns rather than choosing between them.
     """
     Population_mismatch = "POPULATION_MISMATCH"
     """
@@ -5451,15 +5511,27 @@ class CurationActionEnum(str, Enum):
 
 class ClinicalTrialPhaseEnum(str, Enum):
     """
-    Clinical trial phase categories per FDA/NIH standards
+    Clinical trial phase categories per FDA/NIH standards, plus the combined-phase designs ClinicalTrials.gov registers in its own vocabulary. A combined-phase trial takes the combined value rather than either component: rounding it to one phase makes a query for "phase III trials in X" include some phase 2/3 trials and silently exclude others.
+    """
+    EARLY_PHASE_I = "EARLY_PHASE_I"
+    """
+    Early Phase I - exploratory first-in-human or pharmacodynamic study (ClinicalTrials.gov EARLY_PHASE1, formerly Phase 0)
     """
     PHASE_I = "PHASE_I"
     """
     Phase I - Initial safety and dosage assessment in small group (20-100 participants)
     """
+    PHASE_I_II = "PHASE_I_II"
+    """
+    Combined Phase I/II design, registered by ClinicalTrials.gov as PHASE1|PHASE2
+    """
     PHASE_II = "PHASE_II"
     """
     Phase II - Efficacy and side effects assessment in larger group (100-500 participants)
+    """
+    PHASE_II_III = "PHASE_II_III"
+    """
+    Combined Phase II/III design, registered by ClinicalTrials.gov as PHASE2|PHASE3
     """
     PHASE_III = "PHASE_III"
     """
@@ -6997,6 +7069,7 @@ class Descriptor(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -7115,6 +7188,7 @@ class DietaryModification(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -7193,6 +7267,7 @@ class CellTypeDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -7297,6 +7372,7 @@ class BiologicalProcessDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -7401,6 +7477,7 @@ class MolecularFunctionDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -7505,6 +7582,7 @@ class AnatomicalEntityDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -7609,6 +7687,7 @@ class ChemicalEntityDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -7714,6 +7793,7 @@ class GeneOrProductDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -7818,6 +7898,7 @@ class GeneDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -7922,6 +8003,7 @@ class CellularComponentDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -8026,6 +8108,7 @@ class ProteinComplexDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -8143,6 +8226,7 @@ class AssayDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -8246,6 +8330,7 @@ class TriggerDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -8349,6 +8434,7 @@ class DiseaseDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -8453,6 +8539,7 @@ class SubtypeDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -8556,6 +8643,7 @@ class BiomarkerDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -8661,6 +8749,7 @@ class MeasurementDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -8764,6 +8853,7 @@ class GeneProductDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -8876,6 +8966,7 @@ class HistopathologyFindingDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -8984,6 +9075,7 @@ class ImagingFindingDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -9103,6 +9195,7 @@ class LifeCycleStageDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -9210,6 +9303,7 @@ class PhenotypeDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -9314,6 +9408,7 @@ class InheritanceDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -9462,6 +9557,7 @@ class TreatmentDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -9565,6 +9661,7 @@ class RegimenDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -9669,6 +9766,7 @@ class AncestryDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -9772,6 +9870,7 @@ class MHCDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -9880,6 +9979,7 @@ class ExposureDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -9986,6 +10086,7 @@ class EnvironmentDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -10094,6 +10195,7 @@ class FoodDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -10197,6 +10299,7 @@ class OrganismDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -10306,6 +10409,7 @@ class HostDescriptor(OrganismDescriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -10414,6 +10518,7 @@ class AgentSubtypeDescriptor(OrganismDescriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -10514,6 +10619,7 @@ class SampleTypeDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -10622,6 +10728,7 @@ class GenomicRegion(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -10653,6 +10760,7 @@ class GenomicRegion(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -10772,6 +10880,7 @@ class GeneticContext(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -11220,6 +11329,7 @@ class Dataset(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -11485,6 +11595,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -11516,6 +11627,7 @@ class ExperimentalModel(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -11820,6 +11932,7 @@ class Experiment(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -11851,6 +11964,7 @@ class Experiment(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -12103,6 +12217,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -12134,6 +12249,7 @@ class ExperimentalPerturbation(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -12424,6 +12540,7 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -12455,6 +12572,7 @@ class ExperimentalReadout(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -12709,6 +12827,7 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -12740,6 +12859,7 @@ class ExperimentalControl(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -13012,6 +13132,7 @@ class ExecutableProtocol(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -13043,6 +13164,7 @@ class ExecutableProtocol(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -13251,10 +13373,16 @@ class ClinicalTrial(ConfiguredBaseModel):
                                  'identifier': False,
                                  'name': 'name'},
                         'phase': {'description': 'Trial phase. Enum-bound: use '
-                                                 'PHASE_I, PHASE_II, PHASE_III, '
-                                                 'PHASE_IV, or NOT_APPLICABLE, not the '
-                                                 'prose spellings ("Phase III").',
+                                                 'EARLY_PHASE_I, PHASE_I, PHASE_I_II, '
+                                                 'PHASE_II, PHASE_II_III, PHASE_III, '
+                                                 'PHASE_IV or NOT_APPLICABLE, not the '
+                                                 'prose spellings ("Phase III"). A '
+                                                 'trial the registry records as '
+                                                 'PHASE1|PHASE2 or PHASE2|PHASE3 takes '
+                                                 'the combined value, not either '
+                                                 'component.',
                                   'examples': [{'value': 'PHASE_III'},
+                                               {'value': 'PHASE_II_III'},
                                                {'value': 'NOT_APPLICABLE'}],
                                   'name': 'phase',
                                   'range': 'ClinicalTrialPhaseEnum',
@@ -13313,6 +13441,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -13344,6 +13473,7 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -13382,8 +13512,10 @@ class ClinicalTrial(ConfiguredBaseModel):
                        'ModuleCollection',
                        'ModuleCollectionMember'],
          'recommended': True} })
-    phase: Optional[ClinicalTrialPhaseEnum] = Field(default=None, description="""Trial phase. Enum-bound: use PHASE_I, PHASE_II, PHASE_III, PHASE_IV, or NOT_APPLICABLE, not the prose spellings (\"Phase III\").""", json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial', 'ProgressionInfo'],
-         'examples': [{'value': 'PHASE_III'}, {'value': 'NOT_APPLICABLE'}],
+    phase: Optional[ClinicalTrialPhaseEnum] = Field(default=None, description="""Trial phase. Enum-bound: use EARLY_PHASE_I, PHASE_I, PHASE_I_II, PHASE_II, PHASE_II_III, PHASE_III, PHASE_IV or NOT_APPLICABLE, not the prose spellings (\"Phase III\"). A trial the registry records as PHASE1|PHASE2 or PHASE2|PHASE3 takes the combined value, not either component.""", json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial', 'ProgressionInfo'],
+         'examples': [{'value': 'PHASE_III'},
+                      {'value': 'PHASE_II_III'},
+                      {'value': 'NOT_APPLICABLE'}],
          'recommended': True} })
     status: Optional[ClinicalTrialStatusEnum] = Field(default=None, description="""Recruitment or trial status. Enum-bound: use RECRUITING, NOT_RECRUITING, ACTIVE_NOT_RECRUITING, COMPLETED, ENROLLING_BY_INVITATION, SUSPENDED, TERMINATED, WITHDRAWN, or UNKNOWN, not the prose spellings (\"Completed\").""", json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial',
                        'AlgorithmValidationStatus',
@@ -13597,6 +13729,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -13628,6 +13761,7 @@ class ComputationalModel(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -13877,6 +14011,7 @@ class ModelVariable(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -13910,6 +14045,7 @@ class ModelVariable(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -14074,6 +14210,7 @@ class SeverityTier(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -14130,6 +14267,7 @@ class ModelVariableDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -14260,6 +14398,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -14291,6 +14430,7 @@ class DifferentialDiagnosis(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -14506,6 +14646,7 @@ class Subtype(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -14540,6 +14681,7 @@ class Subtype(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -14738,6 +14880,7 @@ class AgentSubtype(Subtype):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -14772,6 +14915,7 @@ class AgentSubtype(Subtype):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -15033,6 +15177,7 @@ class CausalEdge(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -15200,6 +15345,7 @@ class TreatmentMechanismTarget(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -15377,6 +15523,7 @@ class EnvironmentalMechanismTarget(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -15550,6 +15697,7 @@ class ModelDivergence(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -15771,6 +15919,7 @@ class ModelMechanismLink(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -16011,6 +16160,7 @@ class BiomarkerReadout(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -16206,6 +16356,7 @@ class PhenotypeReadout(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -16415,6 +16566,7 @@ class ReferenceRangeBand(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -16951,6 +17103,7 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -16982,6 +17135,7 @@ class SurrogateEndpointCollection(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -17235,6 +17389,7 @@ class GeneClassificationCollection(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -17266,6 +17421,7 @@ class GeneClassificationCollection(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -17427,6 +17583,7 @@ class ProteinStructure(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -17575,6 +17732,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -17610,6 +17768,7 @@ class ExternalAssertion(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -18452,10 +18611,96 @@ class GeneDiseaseValidityAssertion(ConfiguredBaseModel):
 
 
 class ProgressionInfo(ConfiguredBaseModel):
-    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
+    """
+    One phase of a disease's natural history: what happens during it, how long it lasts, and the age or incubation interval at which it occurs.
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'description': {'description': 'What happens during this '
+                                                       "phase. This is the phase's own "
+                                                       'account of the disease and '
+                                                       'belongs here rather than in '
+                                                       '`notes`, which is for the '
+                                                       'caveats and qualifications '
+                                                       'that account needs.',
+                                        'examples': [{'value': 'Fetal thrombocytopenia '
+                                                               'can begin in the '
+                                                               'second trimester and '
+                                                               'is detectable on '
+                                                               'cordocentesis before '
+                                                               'any clinical '
+                                                               'bleeding.'}],
+                                        'name': 'description'}}})
 
     phase: Optional[PhaseTerm] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['ClinicalTrial', 'ProgressionInfo'],
          'examples': [{'value': 'Active TB'}]} })
+    description: Optional[str] = Field(default=None, description="""What happens during this phase. This is the phase's own account of the disease and belongs here rather than in `notes`, which is for the caveats and qualifications that account needs.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
+                       'DietaryModification',
+                       'GenomicRegion',
+                       'GeneticContext',
+                       'Dataset',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'CausalEdge',
+                       'TreatmentMechanismTarget',
+                       'EnvironmentalMechanismTarget',
+                       'ModelDivergence',
+                       'ModelMechanismLink',
+                       'BiomarkerReadout',
+                       'PhenotypeReadout',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ProteinStructure',
+                       'ExternalAssertion',
+                       'ProgressionInfo',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycle',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'TreatmentEffectModifier',
+                       'DeliverySystem',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'VariantPopulationEffect',
+                       'FunctionalEffect',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'ConditionDescriptor',
+                       'GOEnrichment',
+                       'ComorbidityHypothesis',
+                       'UpstreamConditionHypothesis',
+                       'MechanisticHypothesis',
+                       'Grouping',
+                       'GroupingCriteria',
+                       'LogicalCriterion',
+                       'DifferentiatingMechanism',
+                       'ModuleCollection',
+                       'ModuleCollectionMember'],
+         'examples': [{'value': 'Fetal thrombocytopenia can begin in the second '
+                                'trimester and is detectable on cordocentesis before '
+                                'any clinical bleeding.'}]} })
     subtype: Optional[str] = Field(default=None, json_schema_extra = { "linkml_meta": {'domain_of': ['PhenotypeContext',
                        'Prevalence',
                        'GeneDiseaseValidityAssertion',
@@ -18822,6 +19067,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -18853,6 +19099,7 @@ class EpidemiologyInfo(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -19096,6 +19343,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -19127,6 +19375,7 @@ class Pathophysiology(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -19475,6 +19724,7 @@ class Phenotype(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -19521,6 +19771,7 @@ class Phenotype(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -19791,6 +20042,7 @@ class Biochemical(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -20072,6 +20324,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -20112,6 +20365,7 @@ class HistopathologyFinding(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -20392,6 +20646,7 @@ class ImagingFinding(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -20428,6 +20683,7 @@ class ImagingFinding(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -20683,6 +20939,7 @@ class Genetic(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -20944,6 +21201,7 @@ class Environmental(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -21107,6 +21365,7 @@ class Environmental(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -21265,6 +21524,7 @@ class Disease(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -21305,6 +21565,7 @@ class Disease(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -21561,6 +21822,7 @@ class Stage(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -21592,6 +21854,7 @@ class Stage(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -21830,6 +22093,7 @@ class AgentLifeCycle(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -22070,6 +22334,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -22102,6 +22367,7 @@ class AgentLifeCycleStage(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -22382,6 +22648,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -22606,6 +22873,7 @@ class AnimalModel(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -22655,6 +22923,7 @@ class Treatment(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -22686,6 +22955,7 @@ class Treatment(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -23010,6 +23280,7 @@ class TreatmentEffectModifier(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -23218,6 +23489,7 @@ class DeliverySystem(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -23436,6 +23708,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -23535,6 +23808,7 @@ class InfectiousAgent(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -23618,6 +23892,7 @@ class Transmission(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -23649,6 +23924,7 @@ class Transmission(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -23863,6 +24139,7 @@ class Assay(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -23894,6 +24171,7 @@ class Assay(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -24001,6 +24279,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -24188,6 +24467,7 @@ class Diagnosis(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -24270,6 +24550,7 @@ class Inheritance(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -24373,6 +24654,7 @@ class Inheritance(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -24458,6 +24740,7 @@ class Variant(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -24489,6 +24772,7 @@ class Variant(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -24711,6 +24995,7 @@ class VariantPopulationEffect(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -24914,6 +25199,7 @@ class FunctionalEffect(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -25002,6 +25288,7 @@ class Mechanism(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -25033,6 +25320,7 @@ class Mechanism(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -25115,6 +25403,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -25146,6 +25435,7 @@ class ModelingConsideration(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -28310,7 +28600,20 @@ class Definition(ConfiguredBaseModel):
                                         'name': 'attaches_to'},
                         'definition_type': {'name': 'definition_type',
                                             'required': True},
-                        'name': {'name': 'name', 'required': True}}})
+                        'name': {'name': 'name', 'required': True},
+                        'source_reference': {'description': 'The phenotype-library '
+                                                            'record this definition is '
+                                                            'transcribed from, as a '
+                                                            'citable reference CURIE '
+                                                            '(`PHEKB:615`, '
+                                                            '`HDRUK:PH304`). Fetch it '
+                                                            'with `just '
+                                                            'fetch-reference` so its '
+                                                            'cached body can be quoted '
+                                                            'as evidence. Leave absent '
+                                                            'for a definition composed '
+                                                            'from the literature.',
+                                             'name': 'source_reference'}}})
 
     name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'domain_of': ['GenomicRegion',
                        'ExperimentalModel',
@@ -28352,6 +28655,7 @@ class Definition(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -28386,6 +28690,7 @@ class Definition(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -28425,6 +28730,8 @@ class Definition(ConfiguredBaseModel):
                        'ModuleCollectionMember']} })
     scope: Optional[str] = Field(default=None, description="""Scope or population for which the definition applies (e.g., adults, pediatrics)""", json_schema_extra = { "linkml_meta": {'domain_of': ['Definition', 'CriteriaSet']} })
     attaches_to: Optional[list[str]] = Field(default=None, description="""For a hypothesis-based definition, the pathophysiology node(s)/edge(s) this algorithm is predicated on, using the `[<file>:]<kind>#<name>` hash-anchor grammar (e.g. `pathophysiology#Fever-triggered CaV1.2 activation`). Lets the hypothesis basis be inferred from those edges' `hypothesis_groups` rather than duplicated as a standalone id.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Definition', 'Discussion']} })
+    source_reference: Optional[str] = Field(default=None, description="""The phenotype-library record this definition is transcribed from, as a citable reference CURIE (`PHEKB:615`, `HDRUK:PH304`). Fetch it with `just fetch-reference` so its cached body can be quoted as evidence. Leave absent for a definition composed from the literature.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Definition', 'CodeList']} })
+    criteria_set_logic: Optional[CriteriaSetLogicEnum] = Field(default=None, description="""How a definition's criteria_sets combine: ALL_OF (a case must satisfy every set) or ANY_OF (one set suffices). Within a set, minimum_required already says how many items must hold. Omit when the source does not say; prose in `description` is then the only record.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Definition']} })
     criteria_sets: Optional[list[CriteriaSet]] = Field(default=None, description="""Named criteria groupings within a definition""", json_schema_extra = { "linkml_meta": {'domain_of': ['Definition']} })
     inclusion_criteria: Optional[list[CriteriaItem]] = Field(default=None, description="""Inclusion criteria for a definition or criteria set""", json_schema_extra = { "linkml_meta": {'domain_of': ['Definition', 'CriteriaSet']} })
     exclusion_criteria: Optional[list[CriteriaItem]] = Field(default=None, description="""Exclusion criteria for a definition or criteria set""", json_schema_extra = { "linkml_meta": {'domain_of': ['Definition', 'CriteriaSet']} })
@@ -28697,6 +29004,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -28728,6 +29036,7 @@ class CriteriaSet(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -28911,6 +29220,9 @@ class CriteriaItem(Descriptor):
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech'})
 
+    code_lists: Optional[list[CodeList]] = Field(default=None, description="""Code lists whose codes satisfy this criterion; a record matches if it carries any code from any list. The criterion's preferred_term names what the codes stand for.""", json_schema_extra = { "linkml_meta": {'domain_of': ['CriteriaItem']} })
+    minimum_occurrences: Optional[int] = Field(default=None, description="""Minimum number of distinct records (encounters, code instances, results) that must satisfy the criterion, e.g. 3 for \"3 or more counts of the SLE ICD-9 code\". Absent means one occurrence suffices.""", ge=1, json_schema_extra = { "linkml_meta": {'domain_of': ['CriteriaItem']} })
+    minimum_interval_days: Optional[int] = Field(default=None, description="""Minimum days between the first and last qualifying occurrence, e.g. 30 for \"two outpatient visits at least 30 days apart\". Only meaningful with minimum_occurrences of 2 or more.""", ge=0, json_schema_extra = { "linkml_meta": {'domain_of': ['CriteriaItem']} })
     preferred_term: str = Field(default=..., description="""The preferred human-readable term for this descriptor. This may be more specific or nuanced than the linked ontology term label when the ontology does not fully capture the desired granularity. Note that postcomposition using the modifier slot may be appropriate for capturing the semantics of the preferred term.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor', 'ConditionDescriptor']} })
     description: Optional[str] = Field(default=None, description="""A description of the descriptor. This may typically be redundant with the `term` object, but the description is more human-readable and may be used to communicate nuances not captured by the rigid standardization of the term object.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Descriptor',
                        'DietaryModification',
@@ -28939,6 +29251,7 @@ class CriteriaItem(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -28998,6 +29311,81 @@ class CriteriaItem(Descriptor):
     qualifiers: Optional[list[Qualifier]] = Field(default=None, description="""List of predicate-value pairs for formal post-composition. Allows OWL-like expressivity with controlled predicates (e.g., RO relations) and values.""", json_schema_extra = { "linkml_meta": {'deprecated': 'Prefer explicit slots like located_in and laterality instead '
                        'of generic qualifiers',
          'domain_of': ['Descriptor']} })
+
+
+class CodeList(ConfiguredBaseModel):
+    """
+    A set of clinical codes from one code system, any one of which satisfies the criterion carrying the list. This is how a computable phenotype's codelist (an HDR UK concept, a PheKB code table, an OHDSI concept set) is recorded: each code is copied with the label its source gives it, so a list transcribed from a phenotype library can be checked row by row against that library's cached record (`just check-codelists`).
+    """
+    linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://w3id.org/monarch-initiative/dismech',
+         'slot_usage': {'code_system': {'name': 'code_system',
+                                        'range': 'CodeSystemEnum',
+                                        'required': True},
+                        'code_system_version': {'description': 'The release or refset '
+                                                               'version the source '
+                                                               'names (e.g. '
+                                                               '`nhsd-primary-care-domain-refsets/sickle_cod/20250912`). '
+                                                               'Omit when the source '
+                                                               'names none.',
+                                                'name': 'code_system_version'},
+                        'source_reference': {'description': 'The reference CURIE the '
+                                                            'codes were copied from '
+                                                            '(`HDRUK:PH304`, '
+                                                            '`PHEKB:615`). Must be a '
+                                                            'cached reference; `just '
+                                                            'check-codelists` confirms '
+                                                            'each code appears in it.',
+                                             'name': 'source_reference'}}})
+
+    name: str = Field(default=..., json_schema_extra = { "linkml_meta": {'domain_of': ['GenomicRegion',
+                       'ExperimentalModel',
+                       'Experiment',
+                       'ExperimentalPerturbation',
+                       'ExperimentalReadout',
+                       'ExperimentalControl',
+                       'ExecutableProtocol',
+                       'ClinicalTrial',
+                       'ComputationalModel',
+                       'ModelVariable',
+                       'SeverityTier',
+                       'DifferentialDiagnosis',
+                       'Subtype',
+                       'ReferenceRangeBand',
+                       'SurrogateEndpointCollection',
+                       'GeneClassificationCollection',
+                       'ExternalAssertion',
+                       'EpidemiologyInfo',
+                       'Pathophysiology',
+                       'Phenotype',
+                       'Biochemical',
+                       'HistopathologyFinding',
+                       'ImagingFinding',
+                       'Genetic',
+                       'Environmental',
+                       'Disease',
+                       'Stage',
+                       'AgentLifeCycleStage',
+                       'AnimalModel',
+                       'Treatment',
+                       'InfectiousAgent',
+                       'Transmission',
+                       'Assay',
+                       'Diagnosis',
+                       'Inheritance',
+                       'Variant',
+                       'Mechanism',
+                       'ModelingConsideration',
+                       'Definition',
+                       'CriteriaSet',
+                       'CodeList',
+                       'ComorbidityAssociation',
+                       'Grouping',
+                       'ModuleCollection'],
+         'examples': [{'value': 'Adolescent Nephronophthisis'}]} })
+    code_system: CodeSystemEnum = Field(default=..., description="""Code system used for a condition reference (e.g., ICD-10, OMOP, MONDO)""", json_schema_extra = { "linkml_meta": {'domain_of': ['CodeList']} })
+    code_system_version: Optional[str] = Field(default=None, description="""The release or refset version the source names (e.g. `nhsd-primary-care-domain-refsets/sickle_cod/20250912`). Omit when the source names none.""", json_schema_extra = { "linkml_meta": {'domain_of': ['CodeList']} })
+    source_reference: Optional[str] = Field(default=None, description="""The reference CURIE the codes were copied from (`HDRUK:PH304`, `PHEKB:615`). Must be a cached reference; `just check-codelists` confirms each code appears in it.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Definition', 'CodeList']} })
+    codes: Optional[list[Term]] = Field(default=None, description="""The codes in a code list, each as a Term whose id is `<code_system>:<code>` and whose label is the source's own description.""", json_schema_extra = { "linkml_meta": {'domain_of': ['CodeList']} })
 
 
 class TermMapping(ConfiguredBaseModel):
@@ -29691,6 +30079,7 @@ class ConditionDescriptor(Descriptor):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -29814,6 +30203,7 @@ class ComorbidityAssociation(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -30362,6 +30752,7 @@ class GOEnrichment(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -30452,6 +30843,7 @@ class ComorbidityHypothesis(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -30592,6 +30984,7 @@ class UpstreamConditionHypothesis(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -30743,6 +31136,7 @@ class MechanisticHypothesis(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -31126,6 +31520,7 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -31157,6 +31552,7 @@ class FDASurrogateEndpointCollection(SurrogateEndpointCollection):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -31334,6 +31730,7 @@ class Grouping(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -31371,6 +31768,7 @@ class Grouping(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -31532,6 +31930,7 @@ class GroupingCriteria(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -31739,6 +32138,7 @@ class LogicalCriterion(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -31992,6 +32392,7 @@ class DifferentiatingMechanism(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -32244,6 +32645,7 @@ class ModuleCollection(ConfiguredBaseModel):
                        'ModelingConsideration',
                        'Definition',
                        'CriteriaSet',
+                       'CodeList',
                        'ComorbidityAssociation',
                        'Grouping',
                        'ModuleCollection'],
@@ -32281,6 +32683,7 @@ class ModuleCollection(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -32509,6 +32912,7 @@ class ModuleCollectionMember(ConfiguredBaseModel):
                        'GeneClassificationCollection',
                        'ProteinStructure',
                        'ExternalAssertion',
+                       'ProgressionInfo',
                        'EpidemiologyInfo',
                        'Pathophysiology',
                        'Phenotype',
@@ -32816,6 +33220,7 @@ Definition.model_rebuild()
 AlgorithmValidationStatus.model_rebuild()
 CriteriaSet.model_rebuild()
 CriteriaItem.model_rebuild()
+CodeList.model_rebuild()
 TermMapping.model_rebuild()
 ICD10CMMapping.model_rebuild()
 ICD11FMapping.model_rebuild()

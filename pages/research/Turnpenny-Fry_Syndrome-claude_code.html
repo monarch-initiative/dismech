@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turnpenny-Fry Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Turnpenny-Fry Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Turnpenny-Fry Syndrome</h1>
+                
+                <p class="report-subtitle">Turnpenny-Fry Syndrome (TPFS): Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-11-24</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0032707" target="_blank" rel="noopener noreferrer">MONDO:0032707</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">14 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Turnpenny-Fry Syndrome (TPFS): Disease Characteristics Report</h1>
+<p><strong>Scope.</strong> This report covers Turnpenny-Fry syndrome, <a href="http://purl.obolibrary.org/obo/MONDO_0032707" target="_blank" rel="noopener noreferrer">MONDO:0032707</a> / OMIM #618371. It is caused by heterozygous missense variants at residue Pro65 of <strong>PCGF2</strong> (polycomb group ring finger 2; <a href="https://bioregistry.io/HGNC:12929" target="_blank" rel="noopener noreferrer">HGNC:12929</a>; also called MEL-18; chromosome 17q12).</p>
+<p><strong>Sources and limits.</strong>
+- The evidence base is small. It is one case series of 13 patients (<a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>) and about four single-case reports from 2022 to 2025. The 2025 report counts its patient as the 16th known case (<a href="https://pubmed.ncbi.nlm.nih.gov/40502890/" target="_blank" rel="noopener noreferrer">PMID 40502890</a>).
+- PubMed and NCBI Gene pages could not be fetched directly. Facts were taken from PMC full texts, MedGen, the HGNC REST service, EBI OLS, and web search results.
+- Some quotes from non-preapproved pages were capped at about 125 characters. Where a quote is a fragment, it is marked as such.
+- Where a PMID could not be verified, the report says so.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> MedGen (paraphrasing OMIM) describes TPFS as follows. It is characterized by developmental delay, impaired intellectual development and impaired growth. Facial features include frontal bossing, sparse hair, malar hypoplasia, small palpebral fissures and oral stoma, and dysplastic "satyr" ears. Feeding problems, constipation, and brain, cardiac, vascular and skeletal malformations are also common (<a href="https://www.ncbi.nlm.nih.gov/medgen/1683283">MedGen 1683283</a>).</p>
+<p>The defining paper concludes that "heterozygous substitutions of the Pro65 residue of PCGF2 cause a recognizable syndrome" with distinctive craniofacial, neurological, cardiovascular and skeletal features. This is Turnpenny et al., <em>Am J Hum Genet</em> 2018;103(5):786–793, <a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>, DOI 10.1016/j.ajhg.2018.09.012 (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6218713/">PMC6218713</a>). A correction to the facial-features figure followed in <em>Am J Hum Genet</em> 2018;103(6):1054 (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6288271">PMC6288271</a>).</p>
+<p><strong>Identifiers</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>ID</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OMIM (disease)</td>
+<td>618371</td>
+<td>MedGen; Qi 2022</td>
+</tr>
+<tr>
+<td>OMIM (gene)</td>
+<td>600346 (PCGF2)</td>
+<td>HGNC REST</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0032707" target="_blank" rel="noopener noreferrer">MONDO:0032707</a></td>
+<td>MedGen; <a href="https://www.ebi.ac.uk/ols4/api/search?q=Turnpenny-Fry">EBI OLS</a></td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:688642" target="_blank" rel="noopener noreferrer">ORPHA:688642</a></td>
+<td>EBI OLS (ORDO IRI)</td>
+</tr>
+<tr>
+<td>UMLS / MedGen</td>
+<td>C5193060 / 1683283</td>
+<td>MedGen</td>
+</tr>
+<tr>
+<td>ICD-10 / ICD-11 / MeSH</td>
+<td>No specific code retrieved. It probably falls under generic "multiple congenital anomalies" codes, but this was not verified.</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms.</strong> TPFS; "Neurocardioskeletal syndrome" (<a href="https://www.ncbi.nlm.nih.gov/medgen/1683283">MedGen</a>); "PCGF2-related syndrome" (<a href="https://humandiseasegenes.nl/pcgf2">PhenomeGene/humandiseasegenes.nl</a>).</p>
+<p><strong>Type of data.</strong> All knowledge comes from aggregated case reports and series of individual patients. There are no registry or EHR cohorts.</p>
+<h2>2. Etiology</h2>
+<ul>
+<li><strong>Causal factor.</strong> The cause is genetic: a heterozygous germline missense variant at PCGF2 Pro65, usually de novo. In the series, "All the mutations affected the same highly conserved proline in PCGF2" (<a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>).</li>
+<li><strong>Genetic risk factors</strong></li>
+<li>Parental mosaicism is a recurrence risk. In the 2018 series, individual 11 inherited the variant from an asymptomatic mother who was mosaic (21% in blood) (<a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>).</li>
+<li>Qi et al. (2022) found the variant "inherited from a mosaic father" (about 10%) (<a href="https://pubmed.ncbi.nlm.nih.gov/36105049/" target="_blank" rel="noopener noreferrer">PMID 36105049</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9452349/">PMC9452349</a>).</li>
+<li><strong>Environmental risk factors, protective factors, gene–environment interactions.</strong> None are known, and none have been reported.</li>
+<li><strong>Modifiers.</strong> None are known.</li>
+</ul>
+<h2>3. Phenotypes</h2>
+<p>Frequencies come from Turnpenny 2018 (n=13, ages 2–21 years, 7 female and 6 male; <a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>) unless noted otherwise. Onset is congenital or in infancy for all features. Severity is variable, and the course is static and developmental.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Global developmental delay / intellectual disability (mild to severe)</td>
+<td>13/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a>, <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+</tr>
+<tr>
+<td>Absent speech</td>
+<td>3/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" rel="noopener noreferrer">HP:0001344</a></td>
+</tr>
+<tr>
+<td>Broad forehead / frontal bossing</td>
+<td>13/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000337" target="_blank" rel="noopener noreferrer">HP:0000337</a>, <a href="http://purl.obolibrary.org/obo/HP_0002007" target="_blank" rel="noopener noreferrer">HP:0002007</a></td>
+</tr>
+<tr>
+<td>Sparse, slow-growing scalp hair (frontal/temporal)</td>
+<td>12/12</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002209" target="_blank" rel="noopener noreferrer">HP:0002209</a></td>
+</tr>
+<tr>
+<td>Periorbital fullness</td>
+<td>12/12</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000629" target="_blank" rel="noopener noreferrer">HP:0000629</a></td>
+</tr>
+<tr>
+<td>Malar hypoplasia</td>
+<td>12/12</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000272" target="_blank" rel="noopener noreferrer">HP:0000272</a></td>
+</tr>
+<tr>
+<td>Dysplastic, small, low-set ears, often satyr configuration</td>
+<td>12/12</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000377" target="_blank" rel="noopener noreferrer">HP:0000377</a>, <a href="http://purl.obolibrary.org/obo/HP_0000369" target="_blank" rel="noopener noreferrer">HP:0000369</a>, <a href="http://purl.obolibrary.org/obo/HP_0011245" target="_blank" rel="noopener noreferrer">HP:0011245</a> (satyr ear; verify ID)</td>
+</tr>
+<tr>
+<td>Short/narrow palpebral fissures</td>
+<td>11/12</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012745" target="_blank" rel="noopener noreferrer">HP:0012745</a>, <a href="http://purl.obolibrary.org/obo/HP_0045025" target="_blank" rel="noopener noreferrer">HP:0045025</a></td>
+</tr>
+<tr>
+<td>Prominent nasal tip (older individuals)</td>
+<td>10/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005274" target="_blank" rel="noopener noreferrer">HP:0005274</a></td>
+</tr>
+<tr>
+<td>Small oral aperture</td>
+<td>7/12</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000160" target="_blank" rel="noopener noreferrer">HP:0000160</a></td>
+</tr>
+<tr>
+<td>Long face</td>
+<td>7/12</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000276" target="_blank" rel="noopener noreferrer">HP:0000276</a></td>
+</tr>
+<tr>
+<td>Mandibular prognathism</td>
+<td>7/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000303" target="_blank" rel="noopener noreferrer">HP:0000303</a></td>
+</tr>
+<tr>
+<td>Facial hypotonia, open mouth, drooling</td>
+<td>3/13 (drooling)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000297" target="_blank" rel="noopener noreferrer">HP:0000297</a>, <a href="http://purl.obolibrary.org/obo/HP_0002307" target="_blank" rel="noopener noreferrer">HP:0002307</a></td>
+</tr>
+<tr>
+<td>Muscular hypotonia</td>
+<td>9/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a></td>
+</tr>
+<tr>
+<td>Conductive hearing impairment</td>
+<td>7/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000405" target="_blank" rel="noopener noreferrer">HP:0000405</a></td>
+</tr>
+<tr>
+<td>Seizures</td>
+<td>2/13; one additional adult case (<a href="https://pubmed.ncbi.nlm.nih.gov/40502890/" target="_blank" rel="noopener noreferrer">PMID 40502890</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></td>
+</tr>
+<tr>
+<td>Birth weight below the mean for gestational age; IUGR in 3</td>
+<td>13/13 (low); 3/13 (IUGR)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001518" target="_blank" rel="noopener noreferrer">HP:0001518</a>, <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" rel="noopener noreferrer">HP:0001511</a></td>
+</tr>
+<tr>
+<td>Feeding difficulties</td>
+<td>9/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" rel="noopener noreferrer">HP:0011968</a></td>
+</tr>
+<tr>
+<td>Gastro-oesophageal reflux</td>
+<td>6/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" rel="noopener noreferrer">HP:0002020</a></td>
+</tr>
+<tr>
+<td>Constipation, sometimes severe</td>
+<td>8/12</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" rel="noopener noreferrer">HP:0002019</a></td>
+</tr>
+<tr>
+<td>Short stature (generally low height)</td>
+<td>most</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a></td>
+</tr>
+<tr>
+<td>Variable head size: relative macrocephaly in 3, OFC below −2 SD in 4</td>
+<td>3/13 and 4/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004482" target="_blank" rel="noopener noreferrer">HP:0004482</a>, <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" rel="noopener noreferrer">HP:0000252</a></td>
+</tr>
+<tr>
+<td>Patent ductus arteriosus</td>
+<td>5/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001643" target="_blank" rel="noopener noreferrer">HP:0001643</a></td>
+</tr>
+<tr>
+<td>Atrial septal defect</td>
+<td>3/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" rel="noopener noreferrer">HP:0001631</a></td>
+</tr>
+<tr>
+<td>Ascending aortic / aortic root dilatation (one case Z&gt;7 at 21 y)</td>
+<td>5/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005111" target="_blank" rel="noopener noreferrer">HP:0005111</a>, <a href="http://purl.obolibrary.org/obo/HP_0002616" target="_blank" rel="noopener noreferrer">HP:0002616</a></td>
+</tr>
+<tr>
+<td>Any cardiac abnormality</td>
+<td>11/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" rel="noopener noreferrer">HP:0001627</a></td>
+</tr>
+<tr>
+<td>Tortuosity / ectasia of intracranial and extracranial vessels on MRA</td>
+<td>3 of the 3 imaged</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005116" target="_blank" rel="noopener noreferrer">HP:0005116</a> (arterial tortuosity)</td>
+</tr>
+<tr>
+<td>Polymicrogyria (bilateral or perisylvian)</td>
+<td>4 of the 8 MRIs reviewed</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002126" target="_blank" rel="noopener noreferrer">HP:0002126</a></td>
+</tr>
+<tr>
+<td>White-matter signal changes</td>
+<td>8/8 MRIs</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" rel="noopener noreferrer">HP:0002500</a></td>
+</tr>
+<tr>
+<td>Mild lateral ventriculomegaly</td>
+<td>"common"</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006956" target="_blank" rel="noopener noreferrer">HP:0006956</a></td>
+</tr>
+<tr>
+<td>Thin corpus callosum; cerebellar vermis hypoplasia</td>
+<td>1 each</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" rel="noopener noreferrer">HP:0033725</a>, <a href="http://purl.obolibrary.org/obo/HP_0001320" target="_blank" rel="noopener noreferrer">HP:0001320</a></td>
+</tr>
+<tr>
+<td>Kyphosis / scoliosis</td>
+<td>6/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002808" target="_blank" rel="noopener noreferrer">HP:0002808</a>, <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" rel="noopener noreferrer">HP:0002650</a></td>
+</tr>
+<tr>
+<td>Pectus deformity</td>
+<td>3/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000766" target="_blank" rel="noopener noreferrer">HP:0000766</a></td>
+</tr>
+<tr>
+<td>Vertebral anomalies (L1 hypoplasia, small T3, truncated sacrum)</td>
+<td>3 individuals</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003468" target="_blank" rel="noopener noreferrer">HP:0003468</a></td>
+</tr>
+<tr>
+<td>Morgagni-type diaphragmatic hernia</td>
+<td>2/13; one additional case (<a href="https://pubmed.ncbi.nlm.nih.gov/38283775/" target="_blank" rel="noopener noreferrer">PMID 38283775</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000776" target="_blank" rel="noopener noreferrer">HP:0000776</a></td>
+</tr>
+<tr>
+<td>Minor digital anomalies</td>
+<td>4/13</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001155" target="_blank" rel="noopener noreferrer">HP:0001155</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Other HPO-annotated features</strong> listed in MedGen include dental crowding or malocclusion, high palate, joint hypermobility, numerous nevi, obstructive sleep apnea, ADHD and autistic behavior, recurrent respiratory infections, and polyhydramnios (<a href="https://www.ncbi.nlm.nih.gov/medgen/1683283">MedGen</a>). PhenomeGene notes haemangiomas in 2 individuals and orchidopexy in 2 males (<a href="https://humandiseasegenes.nl/pcgf2/professionals/clinical-characteristics">PhenomeGene</a>).</p>
+<p><strong>Quality of life.</strong> No EQ-5D, SF-36 or other quality-of-life instrument data exist. The burden is driven mainly by intellectual disability (some patients are non-verbal into adulthood), feeding problems, and cardiovascular surveillance needs.</p>
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Gene.</strong> PCGF2, <a href="https://bioregistry.io/HGNC:12929" target="_blank" rel="noopener noreferrer">HGNC:12929</a>, "polycomb group ring finger 2".
+- Previous symbols: ZNF144, RNF110. Alias: MEL-18.
+- Entrez 7703; Ensembl ENSG00000277258; UniProt P35227; OMIM 600346.
+- MANE Select transcript: NM_007144.3 / ENST00000620225.5 (<a href="https://rest.genenames.org/fetch/symbol/PCGF2">HGNC REST</a>).</p>
+<p><strong>Pathogenic variants.</strong> All are germline.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant (NM_007144.2)</th>
+<th>Type</th>
+<th>Cases</th>
+<th>ClinVar</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>c.194C&gt;T p.(Pro65Leu)</td>
+<td>missense, recurrent</td>
+<td>11 unrelated in 2018 series; Qi 2022; Rodrigues 2024</td>
+<td>Variation 619193: Pathogenic / Likely pathogenic (<a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/619193">ClinVar</a>)</td>
+</tr>
+<tr>
+<td>c.193C&gt;T p.(Pro65Ser)</td>
+<td>missense</td>
+<td>monozygotic twins (2018)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Population frequency and constraint</strong>
+- "No variants have been reported at this position in the gnomAD database" (<a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>).
+- ExAC pLI is 0.55. Several truncating variants appear in gnomAD, no truncating variants were seen in patients, and DECIPHER lists no interstitial deletions of PCGF2. Together these argue against haploinsufficiency (<a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>).</p>
+<p><strong>Functional consequence.</strong> This has not been demonstrated experimentally.
+- Turnpenny et al. propose a dominant-negative effect: "Mutant PCGF2 may have dominant-negative effects, sequestering PRC1 components into complexes" that bind histones poorly (abstract fragment, <a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>).
+- Qi et al. ran molecular dynamics and reported "a deleterious effect on the intramolecular structural flexibility and stability of PCGF2 protein" (<a href="https://pubmed.ncbi.nlm.nih.gov/36105049/" target="_blank" rel="noopener noreferrer">PMID 36105049</a>). This is computational evidence.</p>
+<p><strong>Somatic or cancer relevance.</strong> One child with TPFS developed T-cell ALL at age 5, with a somatic 5q32~33 deletion and TRA/D (14q11) rearrangement in the leukemic cells. Whether TPFS raises cancer risk is unknown (<a href="https://pubmed.ncbi.nlm.nih.gov/38283775/" target="_blank" rel="noopener noreferrer">PMID 38283775</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10822196/">PMC10822196</a>).</p>
+<p><strong>Modifier genes, chromosomal abnormalities, epigenetic signature.</strong>
+- No modifier genes have been reported.
+- No causal chromosomal abnormalities are known.
+- No DNA-methylation episignature for TPFS was retrieved.</p>
+<h2>5. Environmental Information</h2>
+<p>No environmental, lifestyle or infectious contributors are known. These categories do not apply to this disease.</p>
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Causal chain</strong> (mostly inferred, from modelling and knowledge of PcG biology):</p>
+<ol>
+<li>A de novo, or mosaic-parent-transmitted, heterozygous missense variant at PCGF2 Pro65 (P65L or P65S) is present in the germline. <em>(Demonstrated; <a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>.)</em></li>
+<li>The substitution <strong>leads to</strong> destabilization of the N-terminal RING-adjacent loop. Pro65 sits at a loop-to-α-helix junction. FoldX ΔΔG is +8.6 kcal/mol for P65L and +3.9 kcal/mol for P65S. <em>(Computational, modelled on BMI1–RING1B structures 2h0d and 4r8p; <a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>. MD simulation also supports it; <a href="https://pubmed.ncbi.nlm.nih.gov/36105049/" target="_blank" rel="noopener noreferrer">PMID 36105049</a>.)</em></li>
+<li>The altered loop <strong>results in</strong> perturbed contact between the basic patch at Lys62/Arg64 and the acidic patch of histones H3/H4 on the nucleosome. <em>(Inferred.)</em> The paper states: "Computer structural modeling suggests the substitutions alter an N-terminal loop of PCGF2 critical for histone biding [sic]" (<a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>).</li>
+<li>Mutant PCGF2 probably still assembles into canonical PRC1 with RING1A/B, CBX and PHC. This <strong>leads to</strong> a dominant-negative sequestration of PRC1 components into complexes that engage chromatin poorly. <em>(Hypothesis; <a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>.)</em></li>
+<li>Impaired cPRC1.2 function <strong>results in</strong> misregulated Polycomb-target developmental genes. The evidence for this step is indirect:</li>
+<li>Canonical PRC1 is recruited via CBX recognition of H3K27me3 and represses targets (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7585675">review, PMC7585675</a>).</li>
+<li>In mouse ESCs, Pcgf2 loss, "though not affecting the global level of H2AK119ub1, disrupts these cPRC1.2 loops in ESCs and impairs the transcriptional induction of crucial target genes necessary for neuronal differentiation" (Hanafiah et al., bioRxiv 2024, <a href="https://pubmed.ncbi.nlm.nih.gov/39605346/" target="_blank" rel="noopener noreferrer">PMID 39605346</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11601310/">PMC11601310</a>; later published in <em>EMBO Rep</em>).</li>
+<li>This step is <em>inferred</em> for the missense variants.</li>
+<li>The defect branches into several downstream effects:</li>
+<li><strong>6a. Hox / axial patterning</strong>: vertebral anomalies, kyphoscoliosis, and sternal or pectus defects. Mel18-null mice show posterior homeotic transformations with ectopic Hox expression (Akasaka et al., <em>Development</em> 1996;122:1513–1522; PMID not verified).</li>
+<li><strong>6b. Neural development</strong>: ID, polymicrogyria and white-matter changes. The authors speculatively invoke disturbed PI3K–AKT signalling and PCGF2–CCND2 regulation (<a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>).</li>
+<li><strong>6c. Cardiac mesoderm and vascular development</strong>: PDA, ASD, aortic dilatation and vessel tortuosity. PCGF2 regulates cardiac mesoderm differentiation, but the link is <em>inferred</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>).</li>
+<li><strong>6d. Growth</strong>: pre- and postnatal growth impairment. Mel18-null mice show "strong growth retardation" (Akasaka 1996).</li>
+<li>Together these <strong>result in</strong> the clinical syndrome, with variable expressivity.</li>
+</ol>
+<p><strong>Checklist</strong>
+- <strong>Pathways.</strong> Polycomb-mediated repression, H3K27me3 reading, and H2AK119 monoubiquitination (Reactome "PRC1/PRC2 Polycomb" pathways); a speculative PI3K-AKT link.
+- <strong>Immune involvement.</strong> Mel18- and Bmi1-deficient mice show severe combined immunodeficiency from lymphoid cell death and impaired IL-7 responsiveness (Akasaka et al., <em>Development</em> 2001;128:1587; PMID not verified). This has not been reported in patients.
+- <strong>Metabolic changes and omics.</strong> No metabolomic, proteomic or patient-derived transcriptomic data exist.</p>
+<p><strong>Suggested GO terms</strong>
+- <a href="http://purl.obolibrary.org/obo/GO_0031519" target="_blank" rel="noopener noreferrer">GO:0031519</a> PcG protein complex
+- <a href="http://purl.obolibrary.org/obo/GO_0035102" target="_blank" rel="noopener noreferrer">GO:0035102</a> PRC1 complex
+- <a href="http://purl.obolibrary.org/obo/GO_0045814" target="_blank" rel="noopener noreferrer">GO:0045814</a> negative regulation of gene expression, epigenetic
+- <a href="http://purl.obolibrary.org/obo/GO_0009952" target="_blank" rel="noopener noreferrer">GO:0009952</a> anterior/posterior pattern specification
+- <a href="http://purl.obolibrary.org/obo/GO_0048704" target="_blank" rel="noopener noreferrer">GO:0048704</a> embryonic skeletal system morphogenesis
+- <a href="http://purl.obolibrary.org/obo/GO_0007420" target="_blank" rel="noopener noreferrer">GO:0007420</a> brain development
+- <a href="http://purl.obolibrary.org/obo/GO_0007507" target="_blank" rel="noopener noreferrer">GO:0007507</a> heart development
+- <a href="http://purl.obolibrary.org/obo/GO_0031491" target="_blank" rel="noopener noreferrer">GO:0031491</a> nucleosome binding</p>
+<p><strong>Suggested CL terms</strong>
+- <a href="http://purl.obolibrary.org/obo/CL_0002322" target="_blank" rel="noopener noreferrer">CL:0002322</a> embryonic stem cell
+- <a href="http://purl.obolibrary.org/obo/CL_0000047" target="_blank" rel="noopener noreferrer">CL:0000047</a> neuronal stem cell
+- <a href="http://purl.obolibrary.org/obo/CL_0000134" target="_blank" rel="noopener noreferrer">CL:0000134</a> mesenchymal stem cell (paraxial mesoderm derivatives)
+- <a href="http://purl.obolibrary.org/obo/CL_0000513" target="_blank" rel="noopener noreferrer">CL:0000513</a> cardiac muscle myoblast</p>
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary systems</strong>: central nervous system, craniofacial, cardiovascular, skeletal, gastrointestinal (feeding, reflux, constipation) and auditory.</li>
+<li><strong>UBERON terms</strong>: brain <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>, cerebral cortex <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" rel="noopener noreferrer">UBERON:0000956</a>, cerebral white matter <a href="http://purl.obolibrary.org/obo/UBERON_0002437" target="_blank" rel="noopener noreferrer">UBERON:0002437</a>, face <a href="http://purl.obolibrary.org/obo/UBERON_0001456" target="_blank" rel="noopener noreferrer">UBERON:0001456</a>, external ear <a href="http://purl.obolibrary.org/obo/UBERON_0001691" target="_blank" rel="noopener noreferrer">UBERON:0001691</a>, ductus arteriosus <a href="http://purl.obolibrary.org/obo/UBERON_0003129" target="_blank" rel="noopener noreferrer">UBERON:0003129</a>, atrial septum <a href="http://purl.obolibrary.org/obo/UBERON_0002085" target="_blank" rel="noopener noreferrer">UBERON:0002085</a>, ascending aorta <a href="http://purl.obolibrary.org/obo/UBERON_0001496" target="_blank" rel="noopener noreferrer">UBERON:0001496</a>, vertebral column <a href="http://purl.obolibrary.org/obo/UBERON_0001130" target="_blank" rel="noopener noreferrer">UBERON:0001130</a>, diaphragm <a href="http://purl.obolibrary.org/obo/UBERON_0001103" target="_blank" rel="noopener noreferrer">UBERON:0001103</a>, scalp hair <a href="http://purl.obolibrary.org/obo/UBERON_0010166" target="_blank" rel="noopener noreferrer">UBERON:0010166</a>.</li>
+<li><strong>Secondary effects</strong>: aortic root dilatation progressing into adulthood, and conductive hearing loss.</li>
+<li><strong>Subcellular</strong>: nucleus <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> and chromatin <a href="http://purl.obolibrary.org/obo/GO_0000785" target="_blank" rel="noopener noreferrer">GO:0000785</a>.</li>
+<li><strong>Laterality</strong>: polymicrogyria was bilateral (perisylvian or extensive).</li>
+</ul>
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset</strong>: congenital, with prenatal low growth, IUGR in some, and polyhydramnios in one (<a href="https://pubmed.ncbi.nlm.nih.gov/38283775/" target="_blank" rel="noopener noreferrer">PMID 38283775</a>). The disorder presents in infancy as hypotonia, feeding difficulties and developmental delay.</li>
+<li><strong>Course</strong>: a lifelong static neurodevelopmental disorder. The facial gestalt evolves with age, with prominent nasal tip and prognathism appearing in older individuals. Aortic dilatation may progress: one patient had a 4.7 cm aortic root at 21 years.</li>
+<li><strong>Adult follow-up</strong>: one 35-year-old woman with severe ID had epilepsy from age 5. She became seizure-free on valproate plus lamotrigine (<a href="https://pubmed.ncbi.nlm.nih.gov/40502890/" target="_blank" rel="noopener noreferrer">PMID 40502890</a>).</li>
+<li><strong>Remission</strong>: none.</li>
+<li><strong>Critical periods</strong>: early developmental intervention, and cardiac surveillance throughout life.</li>
+</ul>
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance</strong>: autosomal dominant. Nearly all cases are de novo, and parental somatic/germline mosaicism is documented twice (PMIDs 30343942, 36105049).</li>
+<li><strong>Penetrance</strong>: appears complete for constitutional heterozygotes. Mosaic parents were asymptomatic, or their status was not described.</li>
+<li><strong>Expressivity</strong>: variable. ID ranges from mild to severe, and head size ranges from microcephaly to relative macrocephaly.</li>
+<li><strong>Anticipation, founder effects, consanguinity, carrier frequency</strong>: none apply or have been reported.</li>
+<li><strong>Prevalence</strong>: unknown. Only about 16 cases have been reported worldwide (<a href="https://pubmed.ncbi.nlm.nih.gov/40502890/" target="_blank" rel="noopener noreferrer">PMID 40502890</a>).</li>
+<li><strong>Geography</strong>: cases have been reported from the UK/Europe (DDD and others), Australia, Turkey (Ercoskun et al., <em>Am J Med Genet A</em> 2022;188:688–691, <a href="https://pubmed.ncbi.nlm.nih.gov/34750959/" target="_blank" rel="noopener noreferrer">PMID 34750959</a>), China (<a href="https://pubmed.ncbi.nlm.nih.gov/36105049/" target="_blank" rel="noopener noreferrer">PMID 36105049</a>), Portugal (<a href="https://pubmed.ncbi.nlm.nih.gov/38283775/" target="_blank" rel="noopener noreferrer">PMID 38283775</a>) and Venezuela/USA (<a href="https://pubmed.ncbi.nlm.nih.gov/40502890/" target="_blank" rel="noopener noreferrer">PMID 40502890</a>).</li>
+<li><strong>Sex ratio</strong>: 7 female to 6 male in the original series.</li>
+</ul>
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Genetic testing is the diagnostic method.</strong> No biochemical test exists.</li>
+<li>Exome or genome sequencing identified most cases: DDD trio exomes, clinical exome (<a href="https://pubmed.ncbi.nlm.nih.gov/38283775/" target="_blank" rel="noopener noreferrer">PMID 38283775</a>), and WES (PMIDs 34750959, 36105049, 40502890).</li>
+<li>Targeted Sanger sequencing of PCGF2 exon/codon 65 was used once after clinical recognition (<a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>). It is also useful for testing parents, and the mosaicism cases mean deep or sensitive methods are worthwhile.</li>
+<li><strong>CMA and karyotype</strong>: not diagnostic, because no deletions cause the syndrome.</li>
+<li><strong>Imaging</strong></li>
+<li>Brain MRI: polymicrogyria, white-matter changes, ventriculomegaly.</li>
+<li>MRA: vascular tortuosity and ectasia.</li>
+<li>Echocardiography: PDA, ASD, aortic dilatation. The authors recommend periodic echocardiographic surveillance for all patients (<a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>).</li>
+<li>Spinal radiographs.</li>
+<li>Audiology.</li>
+<li>EEG if seizures occur.</li>
+<li><strong>Clinical criteria</strong>: no formal criteria exist. The diagnosis is suggested by the gestalt of frontal bossing, sparse hair, periorbital fullness, malar hypoplasia and satyr ears.</li>
+<li><strong>Differential diagnosis</strong>: this was not systematically addressed in the retrieved sources. Reasonable considerations include other chromatin-regulator syndromes, connective-tissue aortopathies (because of aortic dilatation and tortuosity) and polymicrogyria syndromes, but these are not source-verified.</li>
+<li><strong>Screening</strong>: no newborn or carrier screening exists. Prenatal or preimplantation testing can be offered to families with a known variant or mosaic parent (<a href="https://pubmed.ncbi.nlm.nih.gov/36105049/" target="_blank" rel="noopener noreferrer">PMID 36105049</a>).</li>
+</ul>
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival</strong>: no mortality data are available. Patients aged 21 and 35 years have been reported, so survival into adulthood occurs (PMIDs 30343942, 40502890).</li>
+<li><strong>Morbidity</strong>: lifelong ID, with some patients non-verbal; feeding problems; conductive hearing loss; aortic dilatation; occasional epilepsy; possible malignancy (one case of T-ALL).</li>
+<li><strong>T-ALL outcome</strong>: the child received Alltogether-1 chemotherapy and was in maintenance with a favorable response at 18 months (<a href="https://pubmed.ncbi.nlm.nih.gov/38283775/" target="_blank" rel="noopener noreferrer">PMID 38283775</a>).</li>
+<li><strong>Prognostic factors and biomarkers</strong>: none are known. The main serious risk under surveillance is aortic root dilatation, although no aneurysms or dissections have been reported.</li>
+</ul>
+<h2>12. Treatment</h2>
+<p>There is no disease-specific therapy. No clinical trials were found, and there are no gene, RNA or cell therapies.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention</th>
+<th>Evidence</th>
+<th>Suggested NCIT term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Multidisciplinary developmental therapy (physical, occupational, speech)</td>
+<td>standard care, implied in reports</td>
+<td>Physical Therapy C16996 (verify), Speech Therapy C17069 (verify)</td>
+</tr>
+<tr>
+<td>Feeding support and reflux/constipation management</td>
+<td>case series</td>
+<td>Nutritional Support (verify ID)</td>
+</tr>
+<tr>
+<td>Echocardiographic surveillance; cardiology management of aortic dilatation; PDA/ASD repair when indicated</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a></td>
+<td>Echocardiography C16525 (verify)</td>
+</tr>
+<tr>
+<td>Antiseizure medication (valproic acid, lamotrigine)</td>
+<td>single case, seizure-free (<a href="https://pubmed.ncbi.nlm.nih.gov/40502890/" target="_blank" rel="noopener noreferrer">PMID 40502890</a>)</td>
+<td>Valproic Acid C914; Lamotrigine C47585 (verify)</td>
+</tr>
+<tr>
+<td>Hearing aids for conductive loss</td>
+<td>inferred</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Orchidopexy; diaphragmatic hernia repair</td>
+<td>PhenomeGene; case reports</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Chemotherapy for intercurrent T-ALL (Alltogether-1)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38283775/" target="_blank" rel="noopener noreferrer">PMID 38283775</a></td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Pharmacogenomics is not applicable.</p>
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention</strong>: not possible for de novo events. Genetic counselling should include the recurrence risk from parental mosaicism, testing parents (ideally with sensitive methods), and offering prenatal or preimplantation diagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/36105049/" target="_blank" rel="noopener noreferrer">PMID 36105049</a>).</li>
+<li><strong>Tertiary prevention</strong>: cardiac and aortic surveillance (<a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>), audiology, spinal monitoring, and oncology vigilance (<a href="https://pubmed.ncbi.nlm.nih.gov/38283775/" target="_blank" rel="noopener noreferrer">PMID 38283775</a> urges "comorbidity surveillance").</li>
+<li><strong>Vaccination, public-health or environmental measures</strong>: not applicable.</li>
+</ul>
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Natural disease</strong>: no naturally occurring animal disease was found in OMIA, based on searches only.</li>
+<li><strong>Orthologs</strong>: mouse <em>Pcgf2</em> (<a href="https://bioregistry.io/MGI:99161" target="_blank" rel="noopener noreferrer">MGI:99161</a>, synonyms Mel18 and Zfp144; <a href="https://www.mousephenotype.org/data/genes/MGI:99161">IMPC</a>). The Drosophila Polycomb-group homolog Posterior sex combs (Psc), whose loss causes homeotic misexpression, was cited in the 2018 paper.</li>
+<li><strong>Conservation</strong>: Pro65 is highly conserved across PCGF paralogs and species (<a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>).</li>
+<li><strong>Zoonotic potential</strong>: not applicable.</li>
+</ul>
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mel18 (Pcgf2) knockout mouse</strong> (Akasaka et al., <em>Development</em> 1996;122(5):1513–1522; PMID not verified)</li>
+<li>The mice survive to birth, show strong growth retardation, and die around 4 weeks of age.</li>
+<li>They show posterior transformations of the axial skeleton tied to ectopic Hox expression in paraxial mesoderm.</li>
+<li>Heterozygotes are normal, and homozygotes lack craniofacial or neurological abnormalities (as summarized in <a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID 30343942</a>).</li>
+<li><strong>Recapitulation</strong>: partial. The model reproduces growth failure and axial-skeletal patterning defects. It does not reproduce the facial gestalt, ID, polymicrogyria or cardiac defects. This fits the view that a null allele does not model a dominant-negative missense allele.</li>
+<li><strong>Mel18/Bmi1 double knockout</strong> (Akasaka et al., <em>Development</em> 2001;128:1587; PMID not verified): shows synergistic, dose-dependent Hox repression and severe combined immunodeficiency.</li>
+<li><strong>IMPC Pcgf2 knockout</strong>: significant phenotypes in mortality/aging, reproductive, skeleton and endocrine/exocrine systems, with 6 significant phenotypes. The individual terms could not be retrieved.</li>
+<li><strong>Cellular model</strong>: CRISPR Pcgf2-knockout mouse ESCs show loss of cPRC1.2-mediated chromatin loops and impaired neuronal-differentiation gene induction (<a href="https://pubmed.ncbi.nlm.nih.gov/39605346/" target="_blank" rel="noopener noreferrer">PMID 39605346</a>).</li>
+<li><strong>Gaps</strong>: no P65L or P65S knock-in mouse, zebrafish or patient-iPSC model was found. Such a model is the key missing experiment for testing the dominant-negative hypothesis.</li>
+<li><strong>Resources</strong>: MGI, IMPC, MMRRC/IMSR.</li>
+</ul>
+<hr />
+<h2>Key Evidence Summary</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Type</th>
+<th>Key point</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>30343942</td>
+<td>Human case series (n=13) plus structural modelling</td>
+<td>Defines TPFS; Pro65 de novo missense variants; dominant-negative hypothesis</td>
+</tr>
+<tr>
+<td>34750959</td>
+<td>Case report (Turkey)</td>
+<td>14th case, diagnosed by WES (<a href="https://www.pubmed.gov/34750959/">PubMed</a>); abstract not retrieved</td>
+</tr>
+<tr>
+<td>36105049</td>
+<td>Case report plus MD simulation (China)</td>
+<td>P65L inherited from a mosaic father (about 10%)</td>
+</tr>
+<tr>
+<td>38283775</td>
+<td>Case report (Portugal)</td>
+<td>First TPFS patient with malignancy (T-ALL)</td>
+</tr>
+<tr>
+<td>40502890</td>
+<td>Case report (USA/Venezuela)</td>
+<td>Adult with epilepsy; good response to valproate plus lamotrigine</td>
+</tr>
+<tr>
+<td>39605346</td>
+<td>In vitro (mouse ESC)</td>
+<td>Pcgf2 loss disrupts cPRC1.2 loops and impairs neuronal gene induction</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Main uncertainties</strong>
+- The mechanism has not been tested in a wet lab.
+- Prevalence, natural history beyond about 35 years, and cancer risk are unknown.
+- The PMIDs for the Akasaka 1996 and 2001 mouse papers, and the ICD and MeSH codes, could not be verified in this session.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>13</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:30343942</code> <em>(abstract only)</em>: "No variants have been reported at this position in the gnomAD database"</li>
+<li>Text part not found as substring: 'No variants have been reported at this position in the gnomAD database' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/30343942/" target="_blank" rel="noopener noreferrer">PMID:30343942</a>, full text may contain this excerpt)</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>76</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>72</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>8</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0032707</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>turnpenny-fry syndrome</strong></li>
+<li><code>HP:0001250</code> (1 mention) - the report calls it "2/13; one additional adult case (<a href="https://pubmed.ncbi.nlm.nih.gov/40502890/" target="_blank" rel="noopener noreferrer">PMID 40502890</a>)"; HP calls it <strong>Seizure</strong></li>
+<li><code>HP:0004322</code> (1 mention) - the report calls it "most"; HP calls it <strong>Short stature</strong></li>
+<li><code>HP:0002126</code> (1 mention) - the report calls it "4 of the 8 MRIs reviewed"; HP calls it <strong>Polymicrogyria</strong></li>
+<li><code>HP:0002500</code> (1 mention) - the report calls it "8/8 MRIs"; HP calls it <strong>Abnormal cerebral white matter morphology</strong></li>
+<li><code>HP:0006956</code> (1 mention) - the report calls it "common"; HP calls it <strong>Lateral ventricle dilatation</strong></li>
+<li><code>HP:0003468</code> (1 mention) - the report calls it "3 individuals"; HP calls it <strong>Abnormal vertebral morphology</strong></li>
+<li><code>HP:0000776</code> (1 mention) - the report calls it "2/13; one additional case (<a href="https://pubmed.ncbi.nlm.nih.gov/38283775/" target="_blank" rel="noopener noreferrer">PMID 38283775</a>)"; HP calls it <strong>Congenital diaphragmatic hernia</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>HP:0005111</code> (obsolete Dilatation of the ascending aorta) (1 mention) - replaced by <code>HP:0004970</code></li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>, <code>MGI</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="TULP1-Related_Retinopathy-claude_code.html">← TULP1-Related Retinopathy (Claude Code)</a>
+                
+                
+                <a href="Twin_to_Twin_Transfusion_Syndrome-falcon.html">Twin to Twin Transfusion Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Turnpenny-Fry_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Turnpenny-Fry_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
