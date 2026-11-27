@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Silicotuberculosis · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Silicotuberculosis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Silicotuberculosis</h1>
+                
+                <p class="report-subtitle">Silicotuberculosis (MONDO:0021804): research report for a disease knowledge base</p>
+                
+                
+                <div class="report-date">2026-11-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0021804" target="_blank" rel="noopener noreferrer">MONDO:0021804</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-4-8, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">22 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>I'm still collecting sources; next I'll look up PMIDs, guidelines, clinical features and burden.</p>
+<h1>Silicotuberculosis (<a href="http://purl.obolibrary.org/obo/MONDO_0021804" target="_blank" rel="noopener noreferrer">MONDO:0021804</a>): research report for a disease knowledge base</h1>
+<p><strong>How I read the request.</strong> Silicotuberculosis is not a genetic disease. It is active tuberculosis (TB) in a person who also has silicosis, the lung scarring caused by inhaling crystalline silica dust. <strong>There is no causal gene</strong> ("not recorded" in the template is correct). The causes are an exposure (respirable crystalline silica) and an infection (<em>Mycobacterium tuberculosis</em>, sometimes non-tuberculous mycobacteria). The genetic sections below cover only candidate susceptibility genes.</p>
+<p><strong>Limits on what I could check.</strong> My research tools were limited to web search. I could not query PubMed, HPO, GO, Cell Ontology or UBERON directly.
+- <strong>PMIDs:</strong> I give a PMID only where one appeared in the retrieved search results. Where none did, I say so.
+- <strong>Ontology terms:</strong> I give term <em>labels</em> only. Their IDs were not retrieved in this session and must be checked before entry.
+- <strong>Quotes:</strong> Text in quotation marks is abstract or summary wording as returned by the search tool. It may be slightly paraphrased, so check against PubMed before using it as an exact abstract quote.</p>
+<hr />
+<h2>1. Disease information</h2>
+<p><strong>Overview.</strong> The most recent critical review describes silicotuberculosis as "the combination of silicosis and pulmonary tuberculosis (TB)" that "remains a substantial clinical and public health problem in high TB burden countries with silica-exposed workforces." It calls the link between silica and TB "firmly established" and says TB accelerates "impairment and mortality" in people with silicosis (Ehrlich, Murray, Said-Hartley &amp; Rees, <em>Eur Respir Rev</em> 2024;33:240168, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/39694587/" target="_blank" rel="noopener noreferrer">PMID 39694587</a></strong>, <a href="https://pubmed.ncbi.nlm.nih.gov/39694587/" target="_blank" rel="noopener noreferrer">https://pubmed.ncbi.nlm.nih.gov/39694587/</a>).
+- That review proposes widening the definition to include post-tuberculous lung disease (damage left after TB is cured).
+- Another review describes a spectrum. At one end are "retained silica particles in the lung and TB infection without active disease." At the other is "dual disease, referred to as silicotuberculosis" (Konečný et al., <em>Front Immunol</em> 2019;9:3069, PMC6334662, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6334662/" target="_blank" rel="noopener noreferrer">https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6334662/</a>).</p>
+<p><strong>Identifiers</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>Identifier</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0021804" target="_blank" rel="noopener noreferrer">MONDO:0021804</a></td>
+<td>given in the template</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td><strong>D012830</strong> "Silicotuberculosis", introduced 1966. Tree numbers include C01.748.939.669, C08.381.922.669, C08.730.939.669 and C24.800.834.752. Scope note: TB or non-tuberculous mycobacterial infection in a person with silicosis.</td>
+<td><a href="https://meshb.nlm.nih.gov/record/ui?ui=D012830" target="_blank" rel="noopener noreferrer">https://meshb.nlm.nih.gov/record/ui?ui=D012830</a></td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td><strong>J65</strong> "Pneumoconiosis associated with tuberculosis". Silicotuberculosis is an inclusion term. Use with a TB code from A15.- (A15 = respiratory TB).</td>
+<td><a href="https://www.aapc.com/codes/icd-10-codes/J65" target="_blank" rel="noopener noreferrer">https://www.aapc.com/codes/icd-10-codes/J65</a> ; <a href="https://gesund.bund.de/en/icd-code-suche/j65" target="_blank" rel="noopener noreferrer">https://gesund.bund.de/en/icd-code-suche/j65</a></td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>Not retrieved. Check icd.who.int.</td>
+<td>—</td>
+</tr>
+<tr>
+<td>OMIM / Orphanet</td>
+<td>None. This is not a Mendelian or rare-disease entry.</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms:</strong> silico-tuberculosis, silicotuberculoses, silicosis with tuberculosis, and (as a broader term) pneumoconiosis associated with tuberculosis.</p>
+<p><strong>Type of evidence:</strong> The information comes from aggregated, disease-level sources: occupational cohorts, case-control studies, meta-analyses and randomized trials, plus some case reports. It does not come from EHR data on individual patients.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Causes.</strong> Two things are needed:
+1. Inhaled respirable crystalline silica (CHEBI label: "silicon dioxide" / quartz) causes silicosis.
+2. Infection with <em>M. tuberculosis</em> complex. Non-tuberculous mycobacteria are included by the MeSH scope note.</p>
+<p><strong>Environmental and occupational risk factors</strong>
+- <strong>Silicosis and TB risk.</strong> A meta-analysis of 8 studies gave a pooled relative risk of TB of <strong>4.01 (95% CI 2.88–5.58)</strong> with silicosis. The authors had high confidence in this, with "strong exposure-response gradients" and a "low severity threshold" (Ehrlich et al., <em>BMC Public Health</em> 2021, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/34016067/" target="_blank" rel="noopener noreferrer">PMID 34016067</a></strong>, PMC8136154).
+- <strong>Silica exposure without radiological silicosis.</strong> Five studies gave a pooled RR of <strong>1.92 (1.36–2.73)</strong>, but the authors rated confidence as low (same source).
+- <strong>Hong Kong silicosis cohort.</strong> TB incidence after silicosis diagnosis was about <strong>9 times</strong> that of the age- and sex-matched local population. Independent risk factors were:
+  - no anti-TB treatment before diagnosis (RR 4.51)
+  - progressive massive fibrosis (RR 3.78)
+  - small opacities larger than 1.5 mm (RR 2.17)
+  - caisson work (RR 1.56)</p>
+<p>(Chang, Leung &amp; Tam, <em>Int J Tuberc Lung Dis</em> 2001;5:177-84, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/11258512/" target="_blank" rel="noopener noreferrer">PMID 11258512</a></strong>)
+- <strong>HIV.</strong> In South African gold miners, HIV and silicosis combined <em>multiplicatively</em> in raising TB risk. TB incidence was 4.9 per 100 person-years in HIV-positive miners versus 1.1 in HIV-negative miners (Corbett et al., <em>AIDS</em> 2000;14:2759-68; PMID not retrieved; summarized in <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2078150" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC2078150</a>).
+- <strong>Higher silicosis grade and underground exposure</strong> raised TB incidence in gold miners (Cowie, <em>Am J Respir Crit Care Med</em> 1994;150:1460-2, doi 10.1164/ajrccm.150.5.7952577; PMID not retrieved).
+- <strong>Zhejiang, China (1,659 silicosis patients).</strong> Age, being underweight, and prior contact with a TB patient were associated with active TB. Contact gave an OR of 4.33 (95% CI 1.99–9.43) (Yang et al., <em>Microbiol Spectr</em> 2022, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/36453892/" target="_blank" rel="noopener noreferrer">PMID 36453892</a></strong>, PMC9784764).
+- <strong>High-risk settings:</strong>
+  - gold mining
+  - artisanal and small-scale mining (systematic review, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/37733799/" target="_blank" rel="noopener noreferrer">PMID 37733799</a></strong>)
+  - gemstone mining (Harris et al., <em>Cureus</em> 2025, PMC11793831)
+  - engineered-stone fabrication, where latent TB has been found in affected workers (CDC MMWR, <a href="https://stacks.cdc.gov/view/cdc/231365" target="_blank" rel="noopener noreferrer">https://stacks.cdc.gov/view/cdc/231365</a>)</p>
+<p><strong>Genetic risk and protective factors (candidate-gene studies only; none replicated)</strong>
+- <strong>FAM13A</strong> rs2609255. The TG genotype was protective against TB in Brazilian silicosis patients: OR 0.46 (0.22–0.98), p=0.040, n=143 (Castro et al., <em>J Bras Pneumol</em> 2025;51:e20240327, PMC12401099). Variants in ACE, FAS, FASLG, IL1RN, NOS2, TGFB1 and TNF were also tested.
+- <strong>SLC11A1 (NRAMP1)</strong> INT4 C allele. A Chinese study of silica-exposed workers (61 cases with pulmonary TB, 122 controls) found about 2.7-fold higher risk. The D543N variant showed no association (<a href="https://www.jstage.jst.go.jp/article/joh/50/6/50_L8006/_article/-char/en" target="_blank" rel="noopener noreferrer">https://www.jstage.jst.go.jp/article/joh/50/6/50_L8006/_article/-char/en</a>).
+- <strong>TNF, TGFB1, IL10, IFNG</strong> variants showed no association in Chinese iron miners (same search results; PMID not retrieved).</p>
+<p><strong>Protective factors</strong>
+- <strong>BCG vaccination</strong> independently lowered the risk of latent TB infection in silicosis patients: OR 0.612 (0.468–0.801) (<a href="https://pubmed.ncbi.nlm.nih.gov/36453892/" target="_blank" rel="noopener noreferrer">PMID 36453892</a>).
+- <strong>TB preventive therapy:</strong> see Sections 12–13.
+- <strong>Lower dust exposure:</strong> the exposure-response gradient implies this protects.</p>
+<p><strong>Gene–environment interaction:</strong> No formal studies were found. The Brazilian and Chinese candidate-gene studies were done <em>within</em> silica-exposed groups, which conditions on the exposure but does not test interaction.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The table combines features of both diseases. Where I found no source for a feature, the table says so. HPO labels are suggestions and their IDs were not retrieved.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Suggested HPO label</th>
+<th>Evidence / frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cough, haemoptysis, dyspnoea, night sweats, fatigue</td>
+<td>Symptoms</td>
+<td>Cough; Hemoptysis; Dyspnea; Night sweats; Fatigue</td>
+<td>Case report: 2 months of haemoptysis, dyspnoea, night sweats and fatigue (PMC11793831)</td>
+</tr>
+<tr>
+<td>Weight loss / underweight</td>
+<td>Sign</td>
+<td>Weight loss</td>
+<td>Underweight was associated with active TB in Zhejiang (<a href="https://pubmed.ncbi.nlm.nih.gov/36453892/" target="_blank" rel="noopener noreferrer">PMID 36453892</a>)</td>
+</tr>
+<tr>
+<td>Bilateral nodules; conglomerate masses / progressive massive fibrosis</td>
+<td>Imaging</td>
+<td>Pulmonary nodules; Pulmonary fibrosis</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11258512/" target="_blank" rel="noopener noreferrer">PMID 11258512</a>; PMC2929613</td>
+</tr>
+<tr>
+<td>Cavitation within a conglomerate mass</td>
+<td>Imaging</td>
+<td>Pulmonary cavitation</td>
+<td>8 of 44 silicosis patients with conglomerate masses had cavitation on HRCT; 6 of those 8 had TB. Cavitation can also come from ischaemic necrosis (PMC2929613)</td>
+</tr>
+<tr>
+<td>Hypermetabolic nodules on PET/CT</td>
+<td>Imaging</td>
+<td>—</td>
+<td>Can mimic cancer or sarcoidosis (D'Sa et al., <em>Diagnostics</em> 2023, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/37685266/" target="_blank" rel="noopener noreferrer">PMID 37685266</a></strong>)</td>
+</tr>
+<tr>
+<td>Positive sputum culture or Xpert for <em>M. tuberculosis</em></td>
+<td>Lab</td>
+<td>—</td>
+<td>Sputum smear and BAL can be negative (PMC2929613)</td>
+</tr>
+<tr>
+<td>Positive IGRA or TST</td>
+<td>Lab</td>
+<td>—</td>
+<td>Among silicosis patients without active TB: QFT positive in 40.5% (lower with more severe silicosis), TST positive in 57.2% (<a href="https://pubmed.ncbi.nlm.nih.gov/36453892/" target="_blank" rel="noopener noreferrer">PMID 36453892</a>)</td>
+</tr>
+<tr>
+<td>Impaired lung function</td>
+<td>Functional</td>
+<td>Abnormal pulmonary function / restrictive or obstructive ventilatory defect</td>
+<td>TB accelerates impairment (<a href="https://pubmed.ncbi.nlm.nih.gov/39694587/" target="_blank" rel="noopener noreferrer">PMID 39694587</a>). Specific frequencies not retrieved</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Onset:</strong> adult, after years of exposure. The disease is chronic and progressive.</li>
+<li><strong>Quality of life:</strong> No disease-specific EQ-5D or SF-36 data were retrieved. A study of Lesotho ex-miners describes "a considerable disability and care burden on families" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8546409" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC8546409</a>).</li>
+</ul>
+<hr />
+<h2>4. Genetic and molecular information</h2>
+<ul>
+<li><strong>Causal genes:</strong> none. There are no known pathogenic variants, so ClinVar, ACMG classification and gnomAD data do not apply. Germline versus somatic origin does not apply. No chromosomal abnormalities are known.</li>
+<li><strong>Susceptibility and modifier genes:</strong> FAM13A and SLC11A1 (see Section 2). The HGNC IDs were not retrieved.</li>
+<li><strong>Epigenetics:</strong> no studies were found that are specific to silicotuberculosis.</li>
+</ul>
+<hr />
+<h2>5. Environmental information</h2>
+<ul>
+<li><strong>Toxicant:</strong> respirable crystalline silica (quartz). Exposure comes from mining, quarrying, stone and engineered-stone work, pottery, caisson work and foundries (<a href="https://pubmed.ncbi.nlm.nih.gov/11258512/" target="_blank" rel="noopener noreferrer">PMID 11258512</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7156992" target="_blank" rel="noopener noreferrer">https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7156992</a> covers mine and pottery cohorts).</li>
+<li><strong>Infectious agent:</strong> <em>Mycobacterium tuberculosis</em> complex. The NCBI Taxon ID was not retrieved. Non-tuberculous mycobacteria are included by MeSH.</li>
+<li><strong>Co-factors:</strong> HIV infection, undernutrition, crowded mine hostels, and migrant labour patterns. In Lesotho ex-gold miners (n=2,678), prevalences were (PMC8546409):</li>
+<li>silicosis 42.5%</li>
+<li>HIV 30.7%</li>
+<li>silicotuberculosis 25.7%</li>
+<li>active TB 6.8%</li>
+<li><strong>Smoking:</strong> studied together with silica for mortality in Chinese cohorts (PMC7156992). No silicotuberculosis-specific estimate was retrieved.</li>
+</ul>
+<hr />
+<h2>6. Mechanism and pathophysiology</h2>
+<p><strong>Causal chain (evidence type in brackets)</strong></p>
+<ol>
+<li>Crystalline silica is inhaled and taken up (phagocytosed) by <strong>alveolar macrophages</strong>. [established; reviewed in <a href="https://pubmed.ncbi.nlm.nih.gov/33598569/" target="_blank" rel="noopener noreferrer">PMID 33598569</a> and PMC6334662]</li>
+<li>Silica damages the macrophages. This <strong>leads to</strong> less TLR2 expression, lower anti-apoptotic Bcl-2 and Mcl-1, and higher JNK1 and ASK1. These changes prime the cells for necrotic rather than apoptotic death. [in vitro, THP-1 cells; Chávez-Galán et al., <em>PLoS One</em> 2013, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/24278357/" target="_blank" rel="noopener noreferrer">PMID 24278357</a></strong>]</li>
+<li>Once infected with <em>M. tuberculosis</em>, silica-exposed macrophages die by <strong>necrosis instead of apoptosis</strong>. This <strong>results in</strong> poorer control of the bacteria, more TNF-α, IL-1β and caspase-9, and release of bacteria. [in vitro, <a href="https://pubmed.ncbi.nlm.nih.gov/24278357/" target="_blank" rel="noopener noreferrer">PMID 24278357</a>. Lanzafame &amp; Vento 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/33598569/" target="_blank" rel="noopener noreferrer">PMID 33598569</a>: silica "increase[s] intracellular replication of <em>M. tuberculosis</em> and release from macrophages"]</li>
+<li>In parallel, silica injury releases the cell's own <strong>DNA into the extracellular space</strong>. This activates the **cGAS–</li>
+</ol>
+<p>Understood. I'll continue the report in a clinical/public-health register, finishing the remaining sections.</p>
+<h2>6. Mechanism and pathophysiology (continued)</h2>
+<p><strong>Causal chain, at a high level</strong> (evidence type in brackets):</p>
+<ol>
+<li>Inhaled silica is taken up by alveolar macrophages, which it injures. This impairs the lung's first line of antimicrobial defence. [established; reviews <a href="https://pubmed.ncbi.nlm.nih.gov/33598569/" target="_blank" rel="noopener noreferrer">PMID 33598569</a>; PMC6334662]</li>
+<li>Impaired macrophages handle <em>M. tuberculosis</em> less well, so the bacteria persist more readily in the lung. [in vitro, <a href="https://pubmed.ncbi.nlm.nih.gov/24278357/" target="_blank" rel="noopener noreferrer">PMID 24278357</a>; mouse work below]</li>
+<li>Silica also causes sterile tissue injury and a type-2–skewed immune environment (more Th2 and M2 macrophage responses, less type-1 immunity), which is less effective against mycobacteria. This involves the cGAS–STING / type-I-interferon axis responding to released self-DNA. [mouse model, Benmerzoug et al., <em>Cell Reports</em> 2019;27:2649-2664, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/31141689/" target="_blank" rel="noopener noreferrer">PMID 31141689</a></strong>]</li>
+<li>Ongoing silicotic fibrosis plus TB inflammation produces progressive scarring, conglomerate masses and progressive massive fibrosis, driving loss of lung function and higher mortality. [clinical/review, <a href="https://pubmed.ncbi.nlm.nih.gov/39694587/" target="_blank" rel="noopener noreferrer">PMID 39694587</a>]</li>
+</ol>
+<p><strong>Supporting evidence by level</strong>
+- <strong>Reduced TLR2</strong> after silica exposure may partly explain higher TB susceptibility (Konečný et al., PMC6334662; consistent with <a href="https://pubmed.ncbi.nlm.nih.gov/24278357/" target="_blank" rel="noopener noreferrer">PMID 24278357</a>).
+- <strong>Mouse models:</strong> airway delivery of silica "increases susceptibility to mycobacterial infection," with a role for repopulating macrophages (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/19454707/" target="_blank" rel="noopener noreferrer">PMID 19454707</a></strong>). Transfer of alveolar macrophages from silica-exposed mice made recipient mice more susceptible, i.e. silica can convert mycobacteria-resistant mice into susceptible ones.
+- <strong>STING pathway:</strong> cGAS-, STING- and IFNAR-deficient mice were resistant to silica-induced worsening of <em>M. tuberculosis</em> infection, implicating this pathway and suggesting it as a possible therapeutic target (<a href="https://pubmed.ncbi.nlm.nih.gov/31141689/" target="_blank" rel="noopener noreferrer">PMID 31141689</a>).
+- <strong>Rat model:</strong> tuberculosis burden and lung-lesion severity correlated positively with silicosis (PMC12431572).</p>
+<p><strong>Upstream vs downstream.</strong> Upstream: silica uptake and macrophage dysfunction, loss of TLR2-mediated recognition, sterile inflammation. Downstream: failure to contain <em>M. tuberculosis</em>, granulomatous and fibrotic lung damage, cavitation, progressive massive fibrosis.</p>
+<p><strong>Cells and processes involved (ontology labels suggested; IDs not retrieved):</strong>
+- Cell Ontology labels: alveolar macrophage, macrophage, dendritic cell, T-helper-2 cell.
+- GO biological-process labels: response to inflammation, phagocytosis, macrophage apoptotic process, necrotic cell death, type I interferon signaling pathway, cellular response to silica.
+- Pathway resources to confirm: cGAS-STING signaling; TLR signaling. KEGG/Reactome IDs not retrieved.</p>
+<p>Omics, single-cell, spatial and CRISPR-screen data specific to silicotuberculosis: none retrieved.</p>
+<hr />
+<h2>7. Anatomical structures affected</h2>
+<ul>
+<li><strong>Primary organ:</strong> lung (UBERON label "lung"). Both diseases are centred here.</li>
+<li><strong>Body system:</strong> respiratory system.</li>
+<li><strong>Secondary involvement:</strong> hilar and mediastinal lymph nodes; pleura. The case literature also notes neck (cervical) nodes in some presentations (Radiopaedia case 66090). Systemic effects include wasting/cachexia (ICD-10 allows E88.A as an added code).</li>
+<li><strong>Tissue level:</strong> alveolar and interstitial lung tissue; fibrotic (connective) tissue in silicotic nodules and conglomerate masses.</li>
+<li><strong>Cell populations:</strong> alveolar macrophages are the key targeted cells (<a href="https://pubmed.ncbi.nlm.nih.gov/24278357/" target="_blank" rel="noopener noreferrer">PMID 24278357</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/19454707/" target="_blank" rel="noopener noreferrer">PMID 19454707</a>).</li>
+<li><strong>Subcellular (GO cellular-component labels):</strong> phagosome/phagolysosome; cytosol (site of DNA-sensing); mitochondria (implicated in the apoptosis/necrosis balance). IDs not retrieved.</li>
+<li><strong>Localization / lateralization:</strong> usually bilateral, upper-zone-predominant disease; conglomerate masses are often bilateral but can be asymmetric (PMC2929613; case reports).</li>
+</ul>
+<hr />
+<h2>8. Temporal development</h2>
+<ul>
+<li><strong>Onset:</strong> adult, typically after years of cumulative silica exposure. TB can be the event that brings silicosis to light.</li>
+<li><strong>Pattern:</strong> chronic and insidious, with episodes of active TB superimposed. TB may recur; relapse is a specific concern (Section 12).</li>
+<li><strong>Stages/progression:</strong> silicosis is graded radiologically (simple nodular → progressive massive fibrosis). TB risk rises with grade (<a href="https://pubmed.ncbi.nlm.nih.gov/11258512/" target="_blank" rel="noopener noreferrer">PMID 11258512</a>; Cowie 1994). TB "accelerates impairment and mortality" (<a href="https://pubmed.ncbi.nlm.nih.gov/39694587/" target="_blank" rel="noopener noreferrer">PMID 39694587</a>).</li>
+<li><strong>Critical window:</strong> the period around silicosis diagnosis is an intervention opportunity. Lack of prior anti-TB treatment was the strongest risk factor in the Hong Kong cohort (RR 4.51, <a href="https://pubmed.ncbi.nlm.nih.gov/11258512/" target="_blank" rel="noopener noreferrer">PMID 11258512</a>), which is the rationale for preventive therapy.</li>
+<li><strong>Duration:</strong> silicosis is lifelong and irreversible; TB is curable but may leave post-tuberculous lung disease (<a href="https://pubmed.ncbi.nlm.nih.gov/39694587/" target="_blank" rel="noopener noreferrer">PMID 39694587</a>).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and population</h2>
+<ul>
+<li><strong>Inheritance:</strong> not applicable (non-genetic). Penetrance, expressivity, anticipation, mosaicism, founder effects, consanguinity and carrier frequency do not apply.</li>
+<li><strong>Epidemiology:</strong></li>
+<li>Silicosis raises TB risk ~4-fold (<a href="https://pubmed.ncbi.nlm.nih.gov/34016067/" target="_blank" rel="noopener noreferrer">PMID 34016067</a>).</li>
+<li>East African estimate: silicotuberculosis prevalence 3–7% in mining communities and 0.3–2.3% in the general population (PMC11793831).</li>
+<li>Lesotho ex-gold miners: silicotuberculosis 25.7% (PMC8546409).</li>
+<li>Chinese hematite-miner cohort: of silicosis cases, 42% were classified as silicotuberculosis (<em>Scand J Work Environ Health</em> 1989;15:319-322, <a href="https://www.sjweh.fi/article/1844" target="_blank" rel="noopener noreferrer">https://www.sjweh.fi/article/1844</a>).</li>
+<li>South African gold miners' TB incidence reported at ~3,000/100,000 versus ~344/100,000 in the general population (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1128836" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC1128836</a>).</li>
+<li><strong>Geography:</strong> concentrated in high-TB-burden countries with silica-exposed workforces, especially southern Africa and parts of Asia; rising again with engineered-stone work in higher-income countries (<a href="https://pubmed.ncbi.nlm.nih.gov/39694587/" target="_blank" rel="noopener noreferrer">PMID 39694587</a>; CDC MMWR).</li>
+<li><strong>Sex:</strong> overwhelmingly male in the mining cohorts (trials and cohorts were in men), reflecting the workforce rather than biology (e.g. <a href="https://pubmed.ncbi.nlm.nih.gov/11258512/" target="_blank" rel="noopener noreferrer">PMID 11258512</a>; the 1991 and 1992 Hong Kong trials enrolled Chinese men).</li>
+<li><strong>Age:</strong> working-age and older adults.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Microbiology:</strong> sputum smear, culture and Xpert MTB/RIF for <em>M. tuberculosis</em>. Caveat: smear and BAL can be negative in silicotuberculosis, so a negative smear does not exclude it (PMC2929613). No pooled Xpert sensitivity specific to silicotuberculosis was retrieved.</li>
+<li><strong>Immunological tests:</strong> IGRA (QuantiFERON-TB Gold) and TST detect infection but may <em>underestimate</em> latent infection in silicosis; QFT positivity fell with more severe silicosis (40.5% QFT vs 57.2% TST among non-active-TB patients, <a href="https://pubmed.ncbi.nlm.nih.gov/36453892/" target="_blank" rel="noopener noreferrer">PMID 36453892</a>).</li>
+<li><strong>Imaging:</strong> chest X-ray and HRCT. Features that raise suspicion of TB on a background of silicosis: new or rapidly changing opacities, cavitation within a conglomerate mass, and asymmetric change. Cavitation is suggestive but not specific, as it also occurs from ischaemic necrosis (PMC2929613). PET/CT shows hypermetabolic nodules that can mimic malignancy (<a href="https://pubmed.ncbi.nlm.nih.gov/37685266/" target="_blank" rel="noopener noreferrer">PMID 37685266</a>).</li>
+<li><strong>Histology:</strong> sometimes needed when imaging is ambiguous; diagnosis in one engineered-case required histology and molecular testing of a resected mass (<a href="https://pubmed.ncbi.nlm.nih.gov/37685266/" target="_blank" rel="noopener noreferrer">PMID 37685266</a>).</li>
+<li><strong>Key clinical principle:</strong> the two diseases overlap closely in appearance, which "continues to pose a challenge to imaging, diagnosis and pathological description" (<a href="https://pubmed.ncbi.nlm.nih.gov/39694587/" target="_blank" rel="noopener noreferrer">PMID 39694587</a>). A high index of suspicion and attention to occupational history are essential (see also <a href="https://pubmed.ncbi.nlm.nih.gov/41497771/" target="_blank" rel="noopener noreferrer">PMID 41497771</a> on occupational history).</li>
+<li><strong>Differential diagnosis:</strong> silicosis alone, sarcoidosis ("silicosarcoidosis" overlap, <a href="https://pubmed.ncbi.nlm.nih.gov/41691440/" target="_blank" rel="noopener noreferrer">PMID 41691440</a>), lung cancer, metastasis, and non-tuberculous mycobacterial disease.</li>
+<li><strong>Genetic/omics diagnostics:</strong> not applicable.</li>
+<li><strong>Screening:</strong> systematic TB testing of people with silicosis is recommended (Section 13).</li>
+</ul>
+<p>Suggested coding terms: SNOMED CT and LOINC concepts apply to the component tests (sputum culture, Xpert, IGRA); specific IDs not retrieved.</p>
+<hr />
+<h2>11. Outcome and prognosis</h2>
+<ul>
+<li><strong>Mortality:</strong> silicotuberculosis is a major cause of death in silica-exposed cohorts. In the Chinese hematite-miner cohort, of underground miners who died, 42% died of silicosis/silicotuberculosis, and the silicotuberculosis standardized mortality ratio was markedly elevated (SMRN reported as 1000; <em>Scand J Work Environ Health</em> 1989, sjweh.fi/article/1844).</li>
+<li>TB "accelerates impairment and mortality" in silicosis (<a href="https://pubmed.ncbi.nlm.nih.gov/39694587/" target="_blank" rel="noopener noreferrer">PMID 39694587</a>).</li>
+<li><strong>Relapse:</strong> a specific prognostic concern. With a 6-month regimen, bacteriological relapse over 3 years was 22%, versus 7% with 8 months (Hong Kong Chest Service/BMRC, <em>Am Rev Respir Dis</em> 1991;143:262-7, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/1990938/" target="_blank" rel="noopener noreferrer">PMID 1990938</a></strong>). This is why longer treatment is advised.</li>
+<li><strong>Morbidity:</strong> progressive massive fibrosis, respiratory failure, and post-tuberculous lung disease; high disability and care burden (PMC8546409).</li>
+<li><strong>Prognostic factors:</strong> severity/grade of silicosis, HIV co-infection, presence of progressive massive fibrosis, and whether TB preventive/curative treatment was given (<a href="https://pubmed.ncbi.nlm.nih.gov/11258512/" target="_blank" rel="noopener noreferrer">PMID 11258512</a>; Corbett 2000).</li>
+<li><strong>Direct survival curves</strong> comparing silicotuberculosis vs silicosis alone were not retrieved.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Active TB treatment</strong>
+- Standard multidrug anti-TB therapy is the backbone. A specific caveat in silicosis is a higher relapse rate with standard-duration therapy.
+- The Hong Kong Chest Service/BMRC trial (240 men with silicosis + pulmonary TB) compared 6 vs 8 months of thrice-weekly streptomycin + isoniazid + rifampicin + pyrazinamide. Relapse was 22% (6 months) vs 7% (8 months), p&lt;0.025, favouring the longer course (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/1990938/" target="_blank" rel="noopener noreferrer">PMID 1990938</a></strong>). Note: retrieved copies of the abstract disagree on whether the stated conclusion is "at least 6" or "at least 8" months; the relapse data support the longer course. This should be verified against the primary source.
+- NCIT clinical-intervention labels: "Isoniazid", "Rifampicin", "Pyrazinamide", "Streptomycin" (IDs not retrieved).</p>
+<p><strong>TB preventive therapy (latent infection / silicosis without active TB)</strong>
+- Randomized placebo-controlled trial in 679 Chinese men with silicosis compared rifampicin 3 months, isoniazid+rifampicin 3 months, isoniazid 6 months, or placebo. Preventive therapy roughly <strong>halved</strong> the proportion developing TB (placebo worse at every follow-up; combined active regimens vs placebo p&lt;0.01), though residual risk remained substantial. The three active regimens did not differ significantly; no selection of drug-resistant bacilli was seen (Girling &amp; Chan, Hong Kong Chest Service/Tuberculosis Research Centre Madras/BMRC, <em>Am Rev Respir Dis</em> 1992;145:36-41, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/1731596/" target="_blank" rel="noopener noreferrer">PMID 1731596</a></strong>).
+- <strong>Community-level caution:</strong> mass isoniazid preventive therapy in South African gold miners (Thibela TB, 78,744 miners) reduced TB <em>while individuals took it</em> but did not improve TB control at the population level (Churchyard et al., <em>NEJM</em> 2014;370:301-310, doi 10.1056/NEJMoa1214289; PMID not retrieved).</p>
+<p><strong>Experimental / mechanism-based (preclinical only)</strong>
+- Targeting the cGAS-STING/nucleic-acid axis is proposed as a future therapeutic direction (<a href="https://pubmed.ncbi.nlm.nih.gov/31141689/" target="_blank" rel="noopener noreferrer">PMID 31141689</a>).
+- Diosgenin reduced mycobacterial growth and improved lung function in a rat silica model using <em>M. smegmatis</em> as a surrogate (PMC12431572). Resveratrol has been studied for silica-induced lung oxidative stress/inflammation in rats (<a href="https://pubmed.ncbi.nlm.nih.gov/36941929/" target="_blank" rel="noopener noreferrer">PMID 36941929</a>). Both are early-stage.</p>
+<p><strong>Supportive/other:</strong> management of HIV co-infection, smoking cessation, pulmonary rehabilitation, and removal from further silica exposure. Advanced silicosis may ultimately require lung transplantation (reported in engineered-stone cohorts; CDC/ESSI sources). No gene, cell or RNA therapies exist for this condition. Pharmacogenomics specific to silicotuberculosis: none retrieved.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention (most important):</strong> eliminate or control silica dust exposure through engineering controls, dust suppression, respiratory protection, substitution and regulation. The South African industry's 2003 commitment aimed for no new silicosis cases by 2013 among newly unexposed miners; prevalence had not significantly declined by 2004–2009 (<a href="https://link.springer.com/10.1186/s12889-015-2566-8" target="_blank" rel="noopener noreferrer">https://link.springer.com/10.1186/s12889-015-2566-8</a>), showing how hard primary prevention is in practice.</li>
+<li><strong>Secondary prevention:</strong> systematic TB testing and treatment in people with silicosis. WHO lists silicosis among the groups that "should be systematically tested and treated for LTBI" (WHO consolidated guidelines on TB, Module 1: prevention, <a href="https://tbksp.who.int/en/node/1027" target="_blank" rel="noopener noreferrer">https://tbksp.who.int/en/node/1027</a>; updated 2nd edition <a href="https://www.who.int/publications/i/item/9789240096196" target="_blank" rel="noopener noreferrer">https://www.who.int/publications/i/item/9789240096196</a>). TB preventive therapy is effective (<a href="https://pubmed.ncbi.nlm.nih.gov/1731596/" target="_blank" rel="noopener noreferrer">PMID 1731596</a>).</li>
+<li><strong>Immunization:</strong> BCG was associated with lower latent-infection risk in silicosis patients (OR 0.612, <a href="https://pubmed.ncbi.nlm.nih.gov/36453892/" target="_blank" rel="noopener noreferrer">PMID 36453892</a>), though BCG is not a silicosis-specific intervention.</li>
+<li><strong>Tertiary prevention:</strong> early detection and full-duration treatment of active TB to prevent relapse and progressive massive fibrosis (<a href="https://pubmed.ncbi.nlm.nih.gov/1990938/" target="_blank" rel="noopener noreferrer">PMID 1990938</a>); HIV testing and antiretroviral therapy.</li>
+<li><strong>Screening/surveillance:</strong> medical surveillance programmes for silica-exposed workers (e.g. Australian engineered-stone programmes) detect early disease (CDC/insightplus sources). Genetic screening and counselling do not apply.</li>
+</ul>
+<hr />
+<h2>14. Other species and natural disease</h2>
+<ul>
+<li><strong>Experimental species affected:</strong> mouse (silica + <em>M. tuberculosis</em>: <a href="https://pubmed.ncbi.nlm.nih.gov/31141689/" target="_blank" rel="noopener noreferrer">PMID 31141689</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/19454707/" target="_blank" rel="noopener noreferrer">PMID 19454707</a>) and rat (silica + mycobacteria: PMC12431572). NCBI Taxon IDs not retrieved.</li>
+<li><strong>Naturally occurring disease / breeds / OMIA entry:</strong> none retrieved. Silicosis has been described in horses and dogs from environmental silica, but no silicotuberculosis veterinary entity was found in this session.</li>
+<li><strong>Zoonotic potential / cross-species transmission:</strong> not a defining feature of this condition (it is an exposure-plus-infection syndrome). <em>M. tuberculosis</em> itself can occasionally infect animals, but that is outside what was retrieved here.</li>
+<li><strong>Comparative biology / evolutionary conservation:</strong> the macrophage-based mechanisms are conserved enough that mouse and rat models reproduce key features (increased mycobacterial susceptibility after silica), supporting their translational use (<a href="https://pubmed.ncbi.nlm.nih.gov/31141689/" target="_blank" rel="noopener noreferrer">PMID 31141689</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/19454707/" target="_blank" rel="noopener noreferrer">PMID 19454707</a>; PMC12431572).</li>
+</ul>
+<hr />
+<h2>15. Model organisms</h2>
+<ul>
+<li><strong>Mouse (induced, not genetic):</strong> silica given intratracheally or intranasally before <em>M. tuberculosis</em> (e.g. H37Rv) infection.</li>
+<li>Benmerzoug et al. gave silica 7 days before infection and analysed at day 28; showed increased Th2/M2 responses, reduced type-1 immunity, and a cGAS-STING/self-DNA mechanism. Knockout mice (cGAS−/−, STING−/−, IFNAR−/−) were protected (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/31141689/" target="_blank" rel="noopener noreferrer">PMID 31141689</a></strong>).</li>
+<li>Airway silica increased mycobacterial susceptibility, implicating repopulating macrophages; alveolar-macrophage transfer conferred susceptibility (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/19454707/" target="_blank" rel="noopener noreferrer">PMID 19454707</a></strong>).</li>
+<li><strong>Rat (induced):</strong> intratracheal crystalline silica followed by mycobacterial challenge; used to test candidate drugs (diosgenin, PMC12431572; resveratrol for silica lung injury, <a href="https://pubmed.ncbi.nlm.nih.gov/36941929/" target="_blank" rel="noopener noreferrer">PMID 36941929</a>). <em>M. smegmatis</em> is used as a lower-biosafety surrogate for <em>M. tuberculosis</em>.</li>
+<li><strong>In vitro:</strong> human THP-1 macrophages pre-exposed to crystalline silica then infected, showing impaired control of bacterial growth and altered cell-death balance (<strong><a href="https://pubmed.ncbi.nlm.nih.gov/24278357/" target="_blank" rel="noopener noreferrer">PMID 24278357</a></strong>).</li>
+<li><strong>Genetic models (knockout):</strong> cGAS, STING (Tmem173) and Ifnar knockout mice used to dissect mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/31141689/" target="_blank" rel="noopener noreferrer">PMID 31141689</a>).</li>
+<li><strong>Phenotype recapitulation:</strong> models reproduce the core human feature (silica worsens mycobacterial infection/clearance) and silicotic lung pathology. <strong>Limitations:</strong> dose, route, timing and mycobacterial strain vary across studies; surrogate organisms (<em>M. smegmatis</em>) and short timeframes do not capture chronic human silicotuberculosis, progressive massive fibrosis over years, HIV co-infection, or human treatment relapse. No single standardized model exists.</li>
+<li><strong>Resources:</strong> MGI for mouse alleles (not queried here).</li>
+</ul>
+<hr />
+<h2>Key references (as retrieved this session)</h2>
+<ul>
+<li>Ehrlich R, Murray J, Said-Hartley Q, Rees D. Silicotuberculosis: a critical narrative review. <em>Eur Respir Rev</em> 2024;33:240168. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/39694587/" target="_blank" rel="noopener noreferrer">PMID 39694587</a></strong>. <a href="https://pubmed.ncbi.nlm.nih.gov/39694587/" target="_blank" rel="noopener noreferrer">https://pubmed.ncbi.nlm.nih.gov/39694587/</a></li>
+<li>Ehrlich R, Akugizibwe P, Siegfried N, Rees D. The association between silica exposure, silicosis and tuberculosis: a systematic review and meta-analysis. <em>BMC Public Health</em> 2021. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/34016067/" target="_blank" rel="noopener noreferrer">PMID 34016067</a></strong>. <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8136154/" target="_blank" rel="noopener noreferrer">https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8136154/</a></li>
+<li>Konečný P, Ehrlich R, Gulumian M, Jacobs M. Immunity to the Dual Threat of Silica Exposure and <em>Mycobacterium tuberculosis</em>. <em>Front Immunol</em> 2019;9:3069. <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6334662/" target="_blank" rel="noopener noreferrer">https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6334662/</a></li>
+<li>Lanzafame M, Vento S. Mini-review: silico-tuberculosis. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/33598569/" target="_blank" rel="noopener noreferrer">PMID 33598569</a></strong>. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7868994" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC7868994</a></li>
+<li>Chang KC, Leung CC, Tam CM. Tuberculosis risk factors in a silicotic cohort in Hong Kong. <em>Int J Tuberc Lung Dis</em> 2001;5:177-84. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/11258512/" target="_blank" rel="noopener noreferrer">PMID 11258512</a></strong>. <a href="https://pubmed.ncbi.nlm.nih.gov/11258512" target="_blank" rel="noopener noreferrer">https://pubmed.ncbi.nlm.nih.gov/11258512</a></li>
+<li>Corbett EL et al. HIV infection and silicosis. <em>AIDS</em> 2000;14:2759-68. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2078150" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC2078150</a> (PMID not retrieved)</li>
+<li>Cowie RL. Epidemiology of tuberculosis in gold miners with silicosis. <em>Am J Respir Crit Care Med</em> 1994;150:1460-2. (PMID not retrieved)</li>
+<li>Hong Kong Chest Service/BMRC. A controlled trial of 6 and 8 months of anti-TB chemotherapy in silicotuberculosis. <em>Am Rev Respir Dis</em> 1991;143:262-7. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/1990938/" target="_blank" rel="noopener noreferrer">PMID 1990938</a></strong>.</li>
+<li>Girling DJ, Chan SL (Hong Kong Chest Service/TRC/BMRC). Preventive chemotherapy trial in silicosis. <em>Am Rev Respir Dis</em> 1992;145:36-41. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/1731596/" target="_blank" rel="noopener noreferrer">PMID 1731596</a></strong>.</li>
+<li>Churchyard GJ et al. (Thibela TB). Mass isoniazid preventive therapy. <em>NEJM</em> 2014;370:301-310. (PMID not retrieved)</li>
+<li>Benmerzoug S et al. Sterile lung inflammation induced by silica exacerbates <em>M. tuberculosis</em> infection. <em>Cell Reports</em> 2019;27:2649-2664. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/31141689/" target="_blank" rel="noopener noreferrer">PMID 31141689</a></strong>.</li>
+<li>Chávez-Galán L et al. Pre-exposure of <em>M. tuberculosis</em>-infected macrophages to crystalline silica. <em>PLoS One</em> 2013. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/24278357/" target="_blank" rel="noopener noreferrer">PMID 24278357</a></strong>. <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3838437/" target="_blank" rel="noopener noreferrer">https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3838437/</a></li>
+<li>Airway delivery of silica increases susceptibility to mycobacterial infection in mice. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/19454707/" target="_blank" rel="noopener noreferrer">PMID 19454707</a></strong>.</li>
+<li>Yang et al. <em>M. tuberculosis</em> infection among 1,659 silicosis patients in Zhejiang. <em>Microbiol Spectr</em> 2022. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/36453892/" target="_blank" rel="noopener noreferrer">PMID 36453892</a></strong>. <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9784764/" target="_blank" rel="noopener noreferrer">https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9784764/</a></li>
+<li>Castro et al. FAM13A polymorphism and TB protection in Brazilian silica-exposed patients. <em>J Bras Pneumol</em> 2025;51:e20240327. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12401099" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC12401099</a></li>
+<li>Harris et al. Diagnosis and management of silicotuberculosis in resource-limited East Africa. <em>Cureus</em> 2025. <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11793831/" target="_blank" rel="noopener noreferrer">https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11793831/</a></li>
+<li>D'Sa et al. Silicotuberculosis case report. <em>Diagnostics</em> 2023. <strong><a href="https://pubmed.ncbi.nlm.nih.gov/37685266/" target="_blank" rel="noopener noreferrer">PMID 37685266</a></strong>.</li>
+<li>Lesotho ex-gold-miner occupational health study. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8546409" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC8546409</a></li>
+<li>MeSH D012830. <a href="https://meshb.nlm.nih.gov/record/ui?ui=D012830" target="_blank" rel="noopener noreferrer">https://meshb.nlm.nih.gov/record/ui?ui=D012830</a></li>
+<li>WHO consolidated guidelines on TB, Module 1: prevention. <a href="https://tbksp.who.int/en/node/1027" target="_blank" rel="noopener noreferrer">https://tbksp.who.int/en/node/1027</a></li>
+</ul>
+<hr />
+<p><strong>Caveats for the knowledge-base curator.</strong> (1) This is a non-genetic, exposure-plus-infection disease. No causal gene, no OMIM/Orphanet entry, no inheritance pattern. (2) All ontology IDs (HPO, GO, CL, UBERON, CHEBI, NCIT, NCBI Taxon, HGNC) need to be looked up and verified; only labels are suggested here. (3) PMIDs are given only where retrieved; several papers (Corbett 2000, Cowie 1994, Thibela TB) are cited without a confirmed PMID. (4) Candidate-gene associations (FAM13A, SLC11A1) are small and unreplicated. (5) The <a href="https://pubmed.ncbi.nlm.nih.gov/1990938/" target="_blank" rel="noopener noreferrer">PMID 1990938</a> abstract's stated conclusion appears inconsistent across mirrors and should be checked against the primary source.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>5</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>30</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>3 of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMC:PMC6334662</code> <em>(abstract only)</em>: "dual disease, referred to as silicotuberculosis"</li>
+<li>closest text in source: "In this review, we focus on the host's immunological response to both silica and Mycobacterium tuberculosis, on agents of innate and adaptive immunity, and particularly on silica-induced immunological modifications in co-exposure that influence disease pathogenesis"</li>
+<li><code>PMID:34016067</code>: "low severity threshold"</li>
+<li>Text part not found as substring: 'low severity threshold'</li>
+<li><code>PMC:PMC8136154</code>: "low severity threshold"</li>
+<li>Text part not found as substring: 'low severity threshold'</li>
+<li><code>PMC:PMC8546409</code> <em>(abstract only)</em>: "a considerable disability and care burden on families"</li>
+<li>closest text in source: "BACKGROUND: A legacy of the South African gold mining industry, now in decline, is a large burden of silicosis and tuberculosis among former migrant miners from rural South Africa and surrounding countries, particularly Lesotho and Mozambique"</li>
+<li><code>PMID:39694587</code> <em>(abstract only)</em>: "accelerates impairment and mortality"</li>
+<li>Text part not found as substring: 'accelerates impairment and mortality' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/39694587/" target="_blank" rel="noopener noreferrer">PMID:39694587</a>, full text may contain this excerpt)</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0021804</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>silicotuberculosis</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Silicosis-claude_code.html">← Silicosis (Claude Code)</a>
+                
+                
+                <a href="Silo_Filler_Disease-falcon.html">Silo Filler Disease (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Silicotuberculosis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Silicotuberculosis-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

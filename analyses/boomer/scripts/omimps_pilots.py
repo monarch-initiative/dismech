@@ -400,13 +400,50 @@ def compile_snapshot(projection, phase):
         if not any(p["fact"] == fact for p in hypotheses):
             hypotheses.append({"fact": fact, "prob": prior})
 
+    grounding_qualifiers = {}
+    for path, record in records.items():
+        data = record["data"]
+        entries = [(node_id(path), data)] + [
+            (
+                aliases.get(
+                    node_id(path) + "#" + s["name"], node_id(path) + "#" + s["name"]
+                ),
+                s,
+            )
+            for s in data.get("has_subtypes", [])
+        ]
+        for node, entry in entries:
+            if node not in nodes:
+                continue
+            predicates = {
+                m["mapping_predicate"]
+                for m in (entry.get("mappings") or {}).get("mondo_mappings", [])
+                if term_id(m) == nodes[node]["term"] and m.get("mapping_predicate")
+            }
+            if len(predicates) > 1:
+                raise ValueError(
+                    f"Conflicting grounding predicates for {node}: {sorted(predicates)}"
+                )
+            if predicates:
+                predicate = next(iter(predicates))
+                if (
+                    node in grounding_qualifiers
+                    and grounding_qualifiers[node] != predicate
+                ):
+                    raise ValueError(
+                        f"Conflicting alias grounding predicates for {node}"
+                    )
+                grounding_qualifiers[node] = predicate
     for node, data in nodes.items():
         if data["term"]:
+            predicate = grounding_qualifiers.get(node, "skos:exactMatch")
             mapping(
                 node,
                 data["term"],
-                "skos:exactMatch",
-                "primary/subtype grounding assumption",
+                predicate,
+                "primary/subtype grounding assumption"
+                if predicate == "skos:exactMatch"
+                else "explicit primary/subtype grounding qualifier",
                 0.9,
             )
     for path, record in records.items():
@@ -436,7 +473,16 @@ def compile_snapshot(projection, phase):
                             "mapping": m,
                         },
                     )
+    for assertion in snapshot.get("source_mappings", []):
+        mapping(
+            assertion["subject"],
+            assertion["target"],
+            assertion["predicate"],
+            assertion["source"],
+        )
     terms = {d["term"] for d in nodes.values() if d["term"]}
+    terms.update(projection.get("context_terms", []))
+    terms.update(a["subject"] for a in snapshot.get("source_mappings", []))
     terms.update(projection["series_mondo_exact_matches"])
     terms.update(a["target"] for a in annotations)
     for term in sorted(terms.copy()):
@@ -475,7 +521,7 @@ def compile_snapshot(projection, phase):
     # Namespace assumptions are non-equivalence, not biological disjointness.
     for term in sorted(terms):
         namespace = term.split(":")[0]
-        if namespace in {"MONDO", "OMIM", "OMIMPS"}:
+        if namespace in {"MONDO", "OMIM", "OMIMPS", "DOID"}:
             facts.append(
                 {"fact_type": "MemberOfDisjointGroup", "sub": term, "group": namespace}
             )
@@ -486,7 +532,7 @@ def compile_snapshot(projection, phase):
                     {"fact_type": "DisjointWith", "sub": child, "sibling": target}
                 )
     labels = {n: d["name"] for n, d in nodes.items()}
-    labels.update({t: context.get(t, {}).get("label") or t for t in terms})
+    labels.update({t: context.get(t, {}).get("label") or t for t in sorted(terms)})
     kb = {
         "name": projection["series"] + " " + phase,
         "facts": facts,
@@ -678,7 +724,7 @@ def certify_worker(folder, source):
     write_json(folder / "certificate.json", result)
 
 
-def verify_all(out, source, timeout):
+def verify_all(out, source, timeout, max_hypotheses=15):
     source = source.resolve()
     commit = subprocess.check_output(
         ["git", "-C", str(source.parent), "rev-parse", "HEAD"], text=True
@@ -722,9 +768,14 @@ def verify_all(out, source, timeout):
                 write_json(
                     certificate, {**metadata, "status": "CERTIFICATION_TIMED_OUT"}
                 )
-            if len(kb["pfacts"]) > 15:
+            if len(kb["pfacts"]) > max_hypotheses:
                 write_json(
-                    path, {**metadata, "status": "NOT_SMALL", "hypothesis_limit": 15}
+                    path,
+                    {
+                        **metadata,
+                        "status": "NOT_SMALL",
+                        "hypothesis_limit": max_hypotheses,
+                    },
                 )
                 continue
             try:
@@ -825,7 +876,8 @@ def report(out):
             "mapping marginal or proof of biological equivalence. Timeout values are provisional.",
             "A separate MAP certificate proves the optimal all-true assignment and a distinct",
             "runner-up when its sufficient conditions hold; it does not compute marginals or",
-            "whole-assignment posteriors. Both complete assignments are recorded in that file.",
+            "whole-assignment posteriors. Successful certificates record both assignments;",
+            "other statuses state which sufficient condition failed.",
             "",
             "### Exhaustive enumeration (complete probabilities)",
             "",
