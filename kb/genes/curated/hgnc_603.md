@@ -36,10 +36,13 @@ receptor binding that clears it from circulation.
 
 ## Causative records
 
-The entries that type APOB as causative are
-<span class="result" data-compare="names" data-code="g.disorders('causative')">Familial Defective Apolipoprotein B-100; Hypobetalipoproteinemia<span class="method"></span></span>,
-and the germline-origin causative entries are
-<span class="result" data-compare="names" data-code="g.disorders('causative', 'germline')">Familial Defective Apolipoprotein B-100; Hypobetalipoproteinemia<span class="method"></span></span>.
+The entries that type APOB as causative include
+<span class="result" data-compare="names" data-code="g.includes('Familial Defective Apolipoprotein B-100', 'Hypobetalipoproteinemia', 'Familial Hypercholesterolemia', 'Hyperlipidemia', relationship='causative')">Familial Defective Apolipoprotein B-100; Hypobetalipoproteinemia; Familial Hypercholesterolemia; and Hyperlipidemia<span class="method"></span></span>.
+The two gene-specific entries carry opposite lesion classes: a receptor-binding
+missense in Familial Defective Apolipoprotein B-100, recorded with a
+<span class="result" data-code="g.functional_impact('Familial Defective Apolipoprotein B-100')">partial loss of function<span class="method"></span></span>
+impact, and truncating alleles in Hypobetalipoproteinemia, recorded as
+<span class="result" data-code="g.functional_impact('Hypobetalipoproteinemia')">loss of function<span class="method"></span></span>.
 ClinGen rates the gene
 <span class="result" data-code="g.clingen('Familial Defective Apolipoprotein B-100')">definitive<span class="method"></span></span>
 for familial defective apolipoprotein B-100 and
@@ -59,10 +62,15 @@ The KB's mechanism annotations for APOB name the processes
 
 ## Other entries
 
-MEND Syndrome records APOB as
-<span class="result" data-code="g.relationship('MEND Syndrome')">modifier<span class="method"></span></span>.
-The entries with a genetic record for APOB that carries no relationship type are
-<span class="result" data-compare="names" data-code="g.untyped()">Familial Hypercholesterolemia; Hyperlipidemia<span class="method"></span></span>.
+In the umbrella Familial Hypercholesterolemia entry APOB sits on
+<span class="result" data-code="g.node('Familial Hypercholesterolemia', 'APOB-LDLR Binding Defect')">APOB-LDLR Binding Defect<span class="method"></span></span>,
+which binds apoB-100's LDL particle receptor binding as decreased, the same
+call as the gene-specific FDB entry. MEND Syndrome types APOB as
+<span class="result" data-code="g.relationship('MEND Syndrome')">unknown<span class="method"></span></span>,
+a candidate modifier from a single-family variant-burden analysis that has not been
+replicated.
+No entry carries APOB without a relationship type
+(<span class="result" data-code="len(g.untyped())">0<span class="method"></span></span>).
 
 ## Where the layers agree
 
