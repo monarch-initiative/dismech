@@ -3,6 +3,7 @@
 This folder contains the LinkML schema yaml files.
 
 - `dismech.yaml`: Main disorder mechanisms knowledge base schema.
+- `ontology_change.yaml`: Structured upstream change proposals (`ontology_changes/`).
 - `history.yaml`: Append-only curation/review history records (`history/`).
 - `research_synthesis.yaml`: Cross-provider deep-research synthesis artifacts.
 - `hypothesis_assessment.yaml`: Assessments of provider hypothesis-exploration reports.
