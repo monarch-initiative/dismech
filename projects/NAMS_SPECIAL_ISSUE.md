@@ -11,6 +11,7 @@ modules:
   - drug_induced_phospholipidosis
 diseases:
   - Fetal_Valproate_Syndrome
+  - Aromatase_Deficiency
 ---
 
 # Toxicology NAMs Special Issue: Screening Log
@@ -145,34 +146,34 @@ This is the sharpest instance of the general problem #16882 raises, and the firs
 case in this batch where a paper kept by the screen yields a registry entry and no
 dismech link.
 
-The registry record is drafted as **two** `NAMRecord`s, because the two assays are
+The paper yields **two** `NAMRecord`s, because the two assays are
 different model systems rather than one system run two ways — the acute assay
 records a matured network at DIV13 or 15, the network formation assay records one
 as it is being built:
 
-| Proposed record id | Assay |
+| Record id | Assay |
 |---|---|
 | `cortex-mea-acute-network-primary-cell-rat` | AcN |
 | `cortex-mea-network-formation-primary-cell-rat` | NFA |
 
 Both are typed `TwoDCellCulture`, `biological_organization_level:
 CELLULAR_NEIGHBORHOOD`, `species: NCBITaxon:10116`, with each assay's applications
-and limitations carrying the paper's own sentences. They were first drafted in
-[nams-registry#57](https://github.com/monarch-initiative/nams-registry/pull/57),
-closed unmerged, and are being redone; the records are not in the registry yet.
+and limitations carrying the paper's own sentences. They live under `nams/` in
+[monarch-initiative/nams-registry](https://github.com/monarch-initiative/nams-registry),
+and each carries a `dismech_status` with `present_in_dismech: false` — the registry's
+way of recording that a NAM came through dismech curation and deliberately got no
+`kb/` entry.
 
-That first draft ran into a question that was general rather than specific to this
+Drafting them raised a question that was general rather than specific to this
 paper, and it has since been settled. `source_resources` is required and is defined
 as "A registry resource a NAM was found in", but a NAM found in a primary research
 paper had nothing to name: the registry's own `ResourceTypeEnum.Report` says "A
 primary research paper is not a report", while `test_nam_source_resources_exist`
-requires every value in that slot to name a file in `resources/`. The draft used
-ToxCast as a marked placeholder.
+requires every value in that slot to name a file in `resources/`.
 [nams-registry#63](https://github.com/monarch-initiative/nams-registry/issues/63)
 answered it with a `scientific-literature` resource that carries the paper's DOI in
-`source_urls`, so no placeholder is needed now; the same round added `compared_with`
-for NAMs a study compared head to head, which is how these two assays should name
-each other.
+`source_urls`; the same round added `compared_with` for NAMs a study compared head
+to head, which is how these two assays name each other.
 
 `references_cache/PMID_38788893.md` is committed and is cited only from this page,
 not from any `kb/` entry. It is kept deliberately, so the quoted sentences above
@@ -468,6 +469,326 @@ confound and the endpoint-dissociated recovery.
 not from any `kb/` entry. It is kept deliberately, so the abstract stays
 checkable — do not read its absence from `kb/` as uncited and prune it.
 
+### PMID:38029955 — particulate matter on three co-culture architectures: registry only, no dismech anchor
+
+Guerra-Flórez et al. 2023, *Toxicology* 500:153685
+([#16872](https://github.com/monarch-initiative/dismech/issues/16872)).
+Fine and coarse particulate matter captured over Medellín, Colombia, applied to
+monolayers of A549 (lung), HEK001 (skin) and SIRC (cornea), and to three two-layer
+co-cultures built on Transwell inserts over a BALB/3T3 fibroblast feeder, in
+in-contact and non-contact configurations.
+
+**No dismech record.** The full text was not retrievable in the curation
+environment — the paper is `cc by-nc-nd` but sits behind Elsevier, is not in PMC or
+Europe PMC, and the publisher's text-mining API is outside the session's allowed
+hosts — so every statement below is quoted from the abstract. The disposition does
+not depend on the full text, and the issue itself expected it: the paper carries no
+mechanism for a `modeled_mechanisms` link to attach to.
+
+The only cellular endpoint is apical death. The abstract measures the co-culture
+constructs with one assay — "Monolayer and co-culture models were exposed to coarse
+and fine PM (1, 2, and 5 mg/mL) and the cell viability was evaluated at 24 h using
+an MTT assay." The SEM-EDS and GC/LC-MS work characterises the particles (morphology,
+elemental composition, polycyclic aromatic hydrocarbon content), not the cells. MTT
+viability is an apical toxicity label, not a directional mechanism node, so it is the
+same obstacle the MEA assays (PMID:38788893) hit: the method is real but asserts no
+mechanism. The paper is explicit that its mechanistic content is a proposal rather
+than a measurement — its stated aim is to "propose the possible cellular interactions
+that lead the cytotoxic response", and the abstract reports no assay of those
+interactions.
+
+Its three findings are properties of the test systems, not of a disease:
+
+- a particle-size effect — "models exposed to fine PM exhibited a significant
+  reduction in cell viability compared to those exposed to coarse PM";
+- architecture as a determinant of resistance — "multilayer models are more resistant
+  to PM exposure than monolayer models";
+- a seeding-configuration effect — "the non-contact model showed higher resistance to
+  PM exposure than in-contact for SIRC and HEK001, but A549 monolayers showed the
+  highest viability response".
+
+None of these has a dismech expression. The in-contact-versus-non-contact difference
+is a property of how the construct is assembled; it is registry content, and the open
+question it raises is already filed.
+
+The anchor end is empty as well. There is no ambient-PM or air-pollution exposure
+entry in `kb/` — as with Bisphenol A in the PMID:38211720 section above, PM appears
+only inside disease entries (`Asthma`, `Chronic_Obstructive_Pulmonary_Disease`, the
+pneumoconioses, and others such as `Contact_Dermatitis`, `Parkinsons_Disease` and
+`Cystic_Fibrosis`) that are not this cytotoxicity screen. The airway-irritant module gap this paper's lung arm
+contributed to ([#16877](https://github.com/monarch-initiative/dismech/issues/16877))
+is now closed — `inhaled_irritant_airway_injury` exists — but a module existing does
+not create a link: the module models oxidative and electrophilic epithelial injury,
+and MTT death at 24 h measures none of its nodes. Linking A549 cytotoxicity to it
+would assert a mechanism the paper never read out.
+
+The registry disposition is per-construct rows recording each layer's species
+composition and the configuration effect, as the issue asks. That is
+[nams-registry](https://github.com/monarch-initiative/nams-registry) work, not
+dismech, and it is where the mixed-species construct lives: A549 and HEK001 are human,
+SIRC is a rabbit corneal line and BALB/3T3 a mouse feeder, so the ocular arm is not a
+human model and every arm's feeder is non-human. A single `fidelity` tier and
+`model_scale` cannot say which layer diverges, which is
+[#16889](https://github.com/monarch-initiative/dismech/issues/16889) — a registry
+concern here, since no dismech link is being written for it to apply to.
+
+`references_cache/PMID_38029955.md` is committed and is cited only from this page,
+not from any `kb/` entry. It is kept deliberately, so the quoted sentences above stay
+checkable — do not read its absence from `kb/` as uncited and prune it.
+
+#### Proposed registry records
+
+Six [nams-registry](https://github.com/monarch-initiative/nams-registry) records,
+one per construct: the three monolayers as `CellLineModel`, the three two-layer
+co-cultures as `CoCulture`. Drafted against the registry's `nam_records.yaml` at
+`38f8129` and NAMO at `fe36451` (the ref `pyproject.toml` pins), **not yet LinkML-
+validated** — treat the block as a proposal, as the MEA and ReproTracker drafts above
+are.
+
+Three things have changed in the registry since those earlier drafts, and the first
+removes the blocker every one of them hit:
+
+- **`source_resources` is no longer blocked.** The registry now has a
+  `scientific-literature` resource, so a NAM found in a primary paper names it with
+  the DOI in `source_urls` and the full citation in the model's `references` — no
+  ToxCast placeholder. The MEA and ReproTracker drafts above should be updated to
+  this form too.
+- **`species` is a top-level slot on the record**, not inside the model, and it is
+  where the mixed-species construct (#16889) is recorded: each co-culture lists both
+  its epithelial layer's species and the mouse feeder's.
+- **`dismech_status` replaces a free-text note.** It states the NAM came through
+  DisMech curation (`processed_through_dismech: true`) and is absent from the graph
+  (`present_in_dismech: false`), keyed to a DisMech commit — the one below is this
+  branch's head and should become the merge commit when the records are created.
+
+The paper's head-to-head NAM comparison is monolayer versus its own-tissue co-culture
+("multilayer models are more resistant than monolayer models"), so each monolayer is
+`compared_with` its co-culture and vice versa. Fine-versus-coarse is a substance
+contrast, not a model one, and the in-contact/non-contact result is a seeding effect
+*within* each co-culture — `CocultureConfigurationEnum` is single-valued, so the
+records carry `TRANSWELL` (the shared platform) and state both seedings and the
+resistance ordering in prose, since one enum value cannot hold a construct run two
+ways.
+
+The CL cell-type terms were resolved against OLS; SIRC is bound to corneal epithelial
+cell with a caveat, because its lineage (epithelial versus fibroblastic) is debated in
+the literature.
+
+```yaml
+# 1 — lung monolayer
+model:
+  id: lung-monolayer-a549-cell-line
+  type: CellLineModel
+  name: A549 human lung adenocarcinoma monolayer
+  biological_organization_level: CELLULAR
+  cell_types:
+  - {id: CL:0000082, name: epithelial cell of lung}
+  cell_source: A549 immortalised human lung adenocarcinoma cell line
+  references:
+  - id: doi:10.1016/j.tox.2023.153685
+    title: >-
+      In vitro toxicity of fine and coarse particulate matter on the skin, ocular
+      and lung microphysiological cell-culture systems.
+    year: 2023
+species:
+- {id: NCBITaxon:9606, name: Homo sapiens}
+applications:
+- description: >-
+    MTT cytotoxicity screen of fine and coarse particulate matter (1, 2, 5 mg/mL,
+    24 h); the abstract reports A549 monolayers as showing the highest viability
+    response of the models tested.
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+limitations:
+- description: >-
+    The only endpoint is MTT viability at 24 h, an apical death readout that
+    identifies no mechanism.
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+source_resources:
+- resource: scientific-literature
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+  accessed_on: '2026-11-14'
+compared_with:
+- {nam: lung-coculture-a549-balb-3t3-transwell, reference: doi:10.1016/j.tox.2023.153685}
+dismech_status:
+  processed_through_dismech: true
+  present_in_dismech: false
+  dismech_commit: e06e41130277b6b766aa430a1537db22429aa2d7
+  assessed_on: '2026-11-14'
+creation_date: '2026-11-14'
+last_modified_date: '2026-11-14'
+---
+# 2 — skin monolayer
+model:
+  id: skin-monolayer-hek001-cell-line
+  type: CellLineModel
+  name: HEK001 human keratinocyte monolayer
+  biological_organization_level: CELLULAR
+  cell_types:
+  - {id: CL:0000312, name: keratinocyte}
+  cell_source: HEK001 immortalised human keratinocyte cell line
+  references:
+  - {id: doi:10.1016/j.tox.2023.153685, title: 'In vitro toxicity of fine and coarse particulate matter on the skin, ocular and lung microphysiological cell-culture systems.', year: 2023}
+species:
+- {id: NCBITaxon:9606, name: Homo sapiens}
+applications:
+- description: MTT cytotoxicity screen of fine and coarse PM (1, 2, 5 mg/mL, 24 h).
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+limitations:
+- description: Only endpoint is MTT viability at 24 h; identifies no mechanism.
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+source_resources:
+- {resource: scientific-literature, source_urls: [https://doi.org/10.1016/j.tox.2023.153685], accessed_on: '2026-11-14'}
+compared_with:
+- {nam: skin-coculture-hek001-balb-3t3-transwell, reference: doi:10.1016/j.tox.2023.153685}
+dismech_status: {processed_through_dismech: true, present_in_dismech: false, dismech_commit: e06e41130277b6b766aa430a1537db22429aa2d7, assessed_on: '2026-11-14'}
+creation_date: '2026-11-14'
+last_modified_date: '2026-11-14'
+---
+# 3 — cornea monolayer
+model:
+  id: cornea-monolayer-sirc-cell-line
+  type: CellLineModel
+  name: SIRC rabbit corneal monolayer
+  description: >-
+    SIRC (Statens Seruminstitut Rabbit Cornea) line. Corneal in origin; its
+    epithelial-versus-fibroblastic identity is debated, so the cell-type binding is
+    provisional.
+  biological_organization_level: CELLULAR
+  cell_types:
+  - {id: CL:0000575, name: corneal epithelial cell}
+  cell_source: SIRC immortalised rabbit corneal cell line
+  references:
+  - {id: doi:10.1016/j.tox.2023.153685, title: 'In vitro toxicity of fine and coarse particulate matter on the skin, ocular and lung microphysiological cell-culture systems.', year: 2023}
+species:
+- {id: NCBITaxon:9986, name: Oryctolagus cuniculus}
+applications:
+- description: MTT cytotoxicity screen of fine and coarse PM (1, 2, 5 mg/mL, 24 h).
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+limitations:
+- description: Only endpoint is MTT viability at 24 h; identifies no mechanism.
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+source_resources:
+- {resource: scientific-literature, source_urls: [https://doi.org/10.1016/j.tox.2023.153685], accessed_on: '2026-11-14'}
+compared_with:
+- {nam: cornea-coculture-sirc-balb-3t3-transwell, reference: doi:10.1016/j.tox.2023.153685}
+dismech_status: {processed_through_dismech: true, present_in_dismech: false, dismech_commit: e06e41130277b6b766aa430a1537db22429aa2d7, assessed_on: '2026-11-14'}
+creation_date: '2026-11-14'
+last_modified_date: '2026-11-14'
+---
+# 4 — lung co-culture
+model:
+  id: lung-coculture-a549-balb-3t3-transwell
+  type: CoCulture
+  name: A549 / BALB-3T3 two-layer lung co-culture on Transwell
+  description: >-
+    A549 epithelium over a BALB/3T3 mouse fibroblast feeder on a porous Transwell
+    insert, run in both in-contact and non-contact seedings. The abstract reports
+    the non-contact-versus-in-contact seeding effect only for the SIRC and HEK001
+    constructs, not for A549.
+  biological_organization_level: CELLULAR_NEIGHBORHOOD
+  coculture_configuration: TRANSWELL
+  cell_types:
+  - {id: CL:0000082, name: epithelial cell of lung}
+  - {id: CL:0000057, name: fibroblast}
+  cell_source: A549 human lung adenocarcinoma line over a BALB/3T3 mouse embryonic fibroblast feeder
+  references:
+  - {id: doi:10.1016/j.tox.2023.153685, title: 'In vitro toxicity of fine and coarse particulate matter on the skin, ocular and lung microphysiological cell-culture systems.', year: 2023}
+species:
+- {id: NCBITaxon:9606, name: Homo sapiens}
+- {id: NCBITaxon:10090, name: Mus musculus}
+applications:
+- description: >-
+    MTT cytotoxicity screen of fine and coarse PM. The paper reports multilayer
+    models as more PM-resistant than monolayers across the models tested; the
+    A549-specific monolayer-versus-co-culture comparison is not resolvable from the
+    abstract, since the A549 monolayer showed the highest viability of all models.
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+limitations:
+- description: >-
+    Only endpoint is MTT viability at 24 h; identifies no mechanism. Feeder layer is
+    mouse, so the construct is mixed-species (dismech #16889).
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+source_resources:
+- {resource: scientific-literature, source_urls: [https://doi.org/10.1016/j.tox.2023.153685], accessed_on: '2026-11-14'}
+compared_with:
+- {nam: lung-monolayer-a549-cell-line, reference: doi:10.1016/j.tox.2023.153685}
+dismech_status: {processed_through_dismech: true, present_in_dismech: false, dismech_commit: e06e41130277b6b766aa430a1537db22429aa2d7, assessed_on: '2026-11-14'}
+creation_date: '2026-11-14'
+last_modified_date: '2026-11-14'
+---
+# 5 — skin co-culture
+model:
+  id: skin-coculture-hek001-balb-3t3-transwell
+  type: CoCulture
+  name: HEK001 / BALB-3T3 two-layer skin co-culture on Transwell
+  description: >-
+    HEK001 keratinocytes over a BALB/3T3 mouse fibroblast feeder on Transwell,
+    in-contact and non-contact. Non-contact seeding was more PM-resistant than
+    in-contact.
+  biological_organization_level: CELLULAR_NEIGHBORHOOD
+  coculture_configuration: TRANSWELL
+  cell_types:
+  - {id: CL:0000312, name: keratinocyte}
+  - {id: CL:0000057, name: fibroblast}
+  cell_source: HEK001 human keratinocyte line over a BALB/3T3 mouse embryonic fibroblast feeder
+  references:
+  - {id: doi:10.1016/j.tox.2023.153685, title: 'In vitro toxicity of fine and coarse particulate matter on the skin, ocular and lung microphysiological cell-culture systems.', year: 2023}
+species:
+- {id: NCBITaxon:9606, name: Homo sapiens}
+- {id: NCBITaxon:10090, name: Mus musculus}
+applications:
+- description: MTT cytotoxicity screen of fine and coarse PM; the paper reports multilayer models as more PM-resistant than monolayers across the models tested, and non-contact seeding as more PM-resistant than in-contact for this construct.
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+limitations:
+- description: Only endpoint is MTT viability at 24 h; identifies no mechanism. Mouse feeder makes the construct mixed-species (dismech #16889).
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+source_resources:
+- {resource: scientific-literature, source_urls: [https://doi.org/10.1016/j.tox.2023.153685], accessed_on: '2026-11-14'}
+compared_with:
+- {nam: skin-monolayer-hek001-cell-line, reference: doi:10.1016/j.tox.2023.153685}
+dismech_status: {processed_through_dismech: true, present_in_dismech: false, dismech_commit: e06e41130277b6b766aa430a1537db22429aa2d7, assessed_on: '2026-11-14'}
+creation_date: '2026-11-14'
+last_modified_date: '2026-11-14'
+---
+# 6 — cornea co-culture
+model:
+  id: cornea-coculture-sirc-balb-3t3-transwell
+  type: CoCulture
+  name: SIRC / BALB-3T3 two-layer corneal co-culture on Transwell
+  description: >-
+    SIRC rabbit corneal cells over a BALB/3T3 mouse fibroblast feeder on Transwell,
+    in-contact and non-contact. Non-contact was more PM-resistant than in-contact.
+    Mixed-species in two ways — rabbit epithelium, mouse feeder — which is the
+    sharpest case for dismech #16889.
+  biological_organization_level: CELLULAR_NEIGHBORHOOD
+  coculture_configuration: TRANSWELL
+  cell_types:
+  - {id: CL:0000575, name: corneal epithelial cell}
+  - {id: CL:0000057, name: fibroblast}
+  cell_source: SIRC rabbit corneal line over a BALB/3T3 mouse embryonic fibroblast feeder
+  references:
+  - {id: doi:10.1016/j.tox.2023.153685, title: 'In vitro toxicity of fine and coarse particulate matter on the skin, ocular and lung microphysiological cell-culture systems.', year: 2023}
+species:
+- {id: NCBITaxon:9986, name: Oryctolagus cuniculus}
+- {id: NCBITaxon:10090, name: Mus musculus}
+applications:
+- description: MTT cytotoxicity screen of fine and coarse PM; the paper reports multilayer models as more PM-resistant than monolayers across the models tested, and non-contact seeding as more PM-resistant than in-contact for this construct.
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+limitations:
+- description: Only endpoint is MTT viability at 24 h; identifies no mechanism. Rabbit epithelium plus mouse feeder makes the construct doubly mixed-species (dismech #16889).
+  source_urls: [https://doi.org/10.1016/j.tox.2023.153685]
+source_resources:
+- {resource: scientific-literature, source_urls: [https://doi.org/10.1016/j.tox.2023.153685], accessed_on: '2026-11-14'}
+compared_with:
+- {nam: cornea-monolayer-sirc-cell-line, reference: doi:10.1016/j.tox.2023.153685}
+dismech_status: {processed_through_dismech: true, present_in_dismech: false, dismech_commit: e06e41130277b6b766aa430a1537db22429aa2d7, assessed_on: '2026-11-14'}
+creation_date: '2026-11-14'
+last_modified_date: '2026-11-14'
+```
+
+The `---` lines separate the six records for readability here; in the registry each
+is its own file in `nams/`, named after its model id.
+
 ### PMID:38580097 — the PFOS thyroid–DNT AOP network: registry only, no dismech edges
 
 Wiklund, Pípal, Weiss and Beronius 2024, *Toxicology* 504:153794
@@ -676,6 +997,113 @@ excludes.
 sentences above are quoted) are committed and are cited only from this page, not from any
 `kb/` entry. Both are kept deliberately so the quoted sentences stay checkable — do not
 read their absence from `kb/` as uncited and prune them.
+### PMID:38040083 — AOP key-event assays, two dismech links, synergy to the inventory
+
+Hirano T, Ikenaka Y, Nomiyama K, Honda M, Suzuki N, Hoshi N, Tabuchi Y, *Toxicology*
+500:153687 ([#16864](https://github.com/monarch-initiative/dismech/issues/16864)). A
+mammalian neuronal cell model exposed to 10 current-use pesticides (4 neonicotinoids,
+4 pyrethroids, 2 phenylpyrazoles), singly and in pairs, read out against adverse-outcome-
+pathway key events for neurotoxicity. The paper is organised around AOP key events rather
+than apical endpoints, so the assay-to-key-event pairing is explicit in its own design.
+
+**The record is abstract-only.** The full text was not retrievable in the curation
+environment — the publisher host and Europe PMC were both outside the session's network
+allowlist, and the reference fetcher's open-access providers were blocked by the proxy —
+so `references_cache/PMID_38040083.md` is `abstract_only`, every snippet quotes the
+abstract, and **the abstract does not name the cell line or species.** The system is
+therefore recorded at the "mammalian neuronal cell model" level the abstract itself uses.
+Everything below was checked against the cached abstract, not the full text.
+
+**Registry rows, one per key-event assay.** There is one model system (the neuronal cell
+model); the registry rows catalogue its AOP key-event assays as methods. Each shares the
+one system, so each proposed record carries the model as `TwoDCellCulture` and differs in
+the endpoint it reads:
+
+| Proposed record id | Assay | Measures |
+|---|---|---|
+| `neuronal-mitochondrial-membrane-potential-two-d-culture-pesticide` | mitochondrial membrane potential | KE: mitochondrial dysfunction (depolarisation) |
+| `neuronal-proteasome-activity-two-d-culture-pesticide` | proteasome activity | KE: proteolytic dysfunction |
+| `neuronal-autophagy-activity-two-d-culture-pesticide` | autophagy activity | KE: autophagic flux (an *increase* here) |
+| `neuronal-viability-benchmark-dose-two-d-culture-pesticide` | cell viability with benchmark-dose modelling | potency / apical cell death |
+| `neuronal-combination-index-two-d-culture-pesticide` | combination index | synergy between two exposures |
+
+**This typing has not been validated against the registry's schema** — no nams-registry
+pull request has been opened for it, and the ids and `TwoDCellCulture` class were read off
+NAMO and `nam_records.yaml` rather than checked by a LinkML run. Treat the table as a
+proposal. It hits the same `source_resources` blocker the MEA and ReproTracker drafts hit,
+for the same reason: the NAM was found in a primary research paper, which the registry's
+own `ResourceTypeEnum.Report` says is not a report. And because the cell line is unnamed,
+the records cannot yet carry a specific `model` id below the "mammalian neuronal cell
+model" level.
+
+**dismech disposition — three arms link, two do not:**
+
+| Arm | KE / endpoint | dismech disposition |
+|---|---|---|
+| mitochondrial membrane potential ↓ | mitochondrial dysfunction | `ModelMechanismLink` on `mitochondrial_dysfunction#Bioenergetic Decline and Oxidative Stress`, `PARTIALLY_RECAPITULATES`, `model_scale: CELLULAR`, `PROXY_QUANTITY` divergence |
+| proteasome activity ↓ | proteolytic dysfunction | `ModelMechanismLink` on `loss_of_proteostasis#Proteostasis Network Decline`, `PARTIALLY_RECAPITULATES`, `model_scale: CELLULAR`, `BOUNDARY_OMISSION` divergence |
+| autophagy activity ↑ | autophagic flux | `ModelMechanismLink` on `stress_induced_autophagy#Stress-Induced Autophagy Induction`, `PARTIALLY_RECAPITULATES`, `model_scale: CELLULAR`, `BOUNDARY_OMISSION` divergence — the new increased-flux module built under dismech#18240 (see below) |
+| cell viability / benchmark dose | potency | registry only — an apical endpoint with no mechanism node to attach to |
+| combination index | synergy | inventory only — [open question 9](NAMS_SPECIAL_ISSUE/open-questions.md), dismech#16885 |
+
+All three model links observe only the cellular key event and carry `limitations` saying the
+cell model cannot observe the nervous-system adverse outcome the AOP targets. No
+anchor node is organism-level, so no link needs a `SCALE_EXTRAPOLATION` divergence;
+linking the cell model up to an organism-level outcome node (`Age-Related Tissue
+Dysfunction`, `Proteotoxic Cell Dysfunction and Neurodegeneration`) was rejected because
+the paper demonstrates the key events, not those downstream outcomes — that would be a
+claim overreach the scale caveat alone would not fix. Each anchor node now carries
+`biological_scale: CELLULAR`, so `just model-scale-audit` reports all three links
+`ALIGNED` rather than `UNDETERMINED` (dismech#18240 Item 1).
+
+**The autophagy arm now has a direction-correct home (dismech#18240 Item 2).** The issue
+originally floated `disabled_macroautophagy` for it. That module models autophagy being
+*disabled* — its chain is "machinery-decline → failed-clearance → accumulated-damage" and
+its nodes are `Autophagy Machinery Decline` and `Failure of Cytoplasmic Quality Control`.
+This paper's finding is an *increase* in autophagy activity, a stress-induced induction,
+which is the opposite claim; linking it there would assert decline from a measurement of
+induction. (`loss_of_proteostasis#Proteostasis Network Decline` binds `GO:0016236
+macroautophagy, DECREASED` as one arm, so it is excluded for the same direction reason;
+only its proteasome arm is used.) Rather than leave the arm unlinked, dismech#18240 built
+`kb/modules/stress_induced_autophagy.yaml` — the INCREASED-autophagy complement of those
+decline-oriented modules, with the chain Cellular Stress Sensing → Stress-Induced Autophagy
+Induction (key conformance target) → Cytoprotective Clearance and Adaptation, plus a
+maladaptive Autophagy-Dependent Cell Death arm. The neuronal cell model carries its third
+link there, on the induction node, direction INCREASED.
+
+**Pesticide neurotoxicity remains without a disease/module home, and PMID:38040083 cannot
+supply one (dismech#18240 Item 2, second part).** The three agent classes act through
+distinct ion-channel targets — neonicotinoids on nicotinic acetylcholine receptors,
+pyrethroids on voltage-gated sodium channels, phenylpyrazoles on the GABA-A chloride
+channel — which do not form one clinical entity, so a single umbrella entry would fail the
+"every node true of every case" test. More to the point, this paper measures only the
+*downstream* organelle key events (mitochondrial membrane potential, proteasome activity,
+autophagy), none of them cholinergic or channel-level, so it carries no evidence for any of
+those primary mechanisms. A pesticide-neurotoxicity channel module or per-class poisoning
+entries would therefore need their own clinical/mechanistic evidence base and are a separate
+curation effort gated on a disease-level need, not a PMID:38040083 follow-up. The model stays
+attached to the three mechanism modules, as decided here.
+
+**The mitochondrial anchor is the general module, not the acute-poisoning one.**
+`xenobiotic_oxidative_phosphorylation_blockade` is scoped to acute histotoxic poisoning at
+a specific respiratory-chain step (cyanide/CO at cytochrome c oxidase, complex-II
+inhibition, mitochondrial-translation arrest). Pyrethroids and fipronil are not shown to
+block a specific oxidative-phosphorylation step; they produce a general decrease in
+mitochondrial membrane potential, a secondary mitochondrial injury that
+`mitochondrial_dysfunction#Bioenergetic Decline and Oxidative Stress` (the conserved
+effector node, which conformers reach via secondary injury) is the right anchor for. This
+is the inverse of the trifluralin precedent ([#15582](https://github.com/monarch-initiative/dismech/issues/15582)),
+where the mitochondrial effect *was* oxidative-phosphorylation blockade.
+
+**No home for pesticide neurotoxicity as an entry.** Nothing in `kb/` is clearly the
+right disease or module home; `acetylcholinesterase_inhibition` exists but is a different,
+cholinergic mechanism, and none of these three key events is cholinergic. The model
+therefore attaches to the two mechanism modules directly (as the liver spheroid in
+PMID:38740170 did), with no disease entry created.
+
+`references_cache/PMID_38040083.md` is committed and **is** cited from `kb/` — from the
+two `experimental_models` links above — so, unlike the registry-only papers on this page,
+its home is the modules, not this log.
 
 ### PMID:38432407 — ochratoxin A target discovery (OGFOD1 prediction) goes to the registry only
 
@@ -759,8 +1187,253 @@ molecular-simulation convention #16883, already in the gaps table below — this
 paper is its hardest instance, recorded here rather than duplicated there.
 
 `references_cache/PMID_38432407.md` is committed and is cited only from this page,
+
+### PMID:38036094 — zearalenone inhibition of aromatase goes to the registry only
+
+Perugino et al. 2024, *Toxicology* 501:153686 ([#16874](https://github.com/monarch-initiative/dismech/issues/16874)).
+A purely in silico study: 3D molecular modelling of human aromatase (CYP19A1)
+screening whether any of 434 reported single nucleotide variants changes the
+inhibitory potential of zearalenone (ZEN), repeated for α-zearalenol, ZEN's most
+estrogenically potent phase I metabolite. No biological system; no wet
+confirmation.
+
+| Model / method | Measures |
+|---|---|
+| 3D molecular modelling of human aromatase | inhibitory potential of ZEN against the enzyme |
+| Screen across 434 reported CYP19A1 SNVs | which variants differ in predicted susceptibility to inhibition |
+| Same for α-zearalenol | predicted metabolite potency against the prioritised variants |
+
+**The modelling pipeline belongs in the registry. Nothing is being added to a
+dismech entry** — not a `computational_models:` link and not an `environmental:`
+evidence edge. Three reasons, and the first settles open question 2
+([#16883](https://github.com/monarch-initiative/dismech/issues/16883)) for this
+paper.
+
+- **Below the model-link floor.** A `computational_models:` `ModelMechanismLink`
+  asserts the model *recapitulates*, *perturbs*, or *measures* the mechanism node
+  it points at. A structure-based docking prediction with no wet confirmation does
+  none of those: it predicts a binding interaction. That is a hypothesis *about*
+  the node, not an observation *of* it, and sits below the floor a model link
+  asserts. The `divergences` taxonomy (`PROXY_QUANTITY`: a predicted pose standing
+  in for measured enzyme activity) could caveat such a link, but caveating does not
+  raise an unconfirmed prediction across the floor — it only labels how far below it
+  sits. So: not a model link. This is the molecular-simulation case of #16883, and
+  it reads the same way the OGFOD1 docking case (PMID:38432407) does.
+
+- **Evidence would attach to the wrong entity.** The only dismech node it could
+  cite is the `CYP19A1 Loss-of-Function and Aromatase Deficiency` molecular node in
+  `Aromatase_Deficiency` (`aromatase activity` `DECREASED`, `hgnc:2594`). But that
+  node is the *Mendelian* disease — biallelic CYP19A1 loss of function — and this
+  paper is about a *toxicant phenocopy modulated by common SNVs* in the general
+  population. An `environmental: … influences_mechanisms` edge marked `MODULATES`
+  there would assert that ZEN contributes to the aromatase-deficiency mechanism,
+  which overstates in both directions: in biallelic loss of function there is
+  little residual activity left for a competitive inhibitor to reduce, and the
+  paper studies common variants, not the disease. Citing it on that node would
+  misrepresent the paper and the entry at once.
+
+- **The paper's actual contribution has no dismech home.** Its novel claim is
+  *variant-dependent* toxicant susceptibility — T310S predicted more susceptible
+  to inhibition, D309G and S478F possibly inactive variants — which is exactly the
+  schema gap [#16884](https://github.com/monarch-initiative/dismech/issues/16884).
+  dismech cannot represent that today: `population_effects` covers a variant
+  differing across populations and `effect_modifiers` with `GENOTYPE` covers a
+  *treatment* differing by genotype, and neither covers a *toxicant* whose potency
+  depends on host genotype. A dismech record would therefore capture only the
+  uncontroversial generic "ZEN inhibits aromatase" and silently drop the whole
+  point of the paper — the under-representation
+  [#16882](https://github.com/monarch-initiative/dismech/issues/16882) warns about.
+  And the variant effects are computationally predicted, so even once a slot
+  exists, the source stays a simulation, not an observed cohort difference.
+
+One record is proposed for the registry, the modelling pipeline as a single
+structure-based in silico method, and it would be the registry's first in-silico
+`NAMRecord`:
+
+| Proposed record id | Method | NAMO class |
+|---|---|---|
+| `aromatase-cyp19a1-snv-inhibition-in-silico-human` | 3D molecular modelling of ZEN/α-zearalenol inhibition across 434 CYP19A1 SNVs | `MolecularModel` (proposed; see below) |
+
+Human (`NCBITaxon:9606`). **The typing needs a NAMO class that does not exist yet.**
+NAMO's `InSilicoModel` subclasses are `QSARModel`, `PBPKModel`, `DigitalTwin`,
+`MLModel` and `MetabolicModel`; none covers a structure-based model built from a
+3D molecular structure (homology modelling, docking, molecular dynamics), which is
+a different method from QSAR's descriptor-based activity regression. A
+`MolecularModel` class was added to NAMO for this
+([monarch-initiative/namo#48](https://github.com/monarch-initiative/namo/pull/48));
+the record above is written and validated once the registry bumps its NAMO pin to a
+commit carrying that class, so this is a two-repository change, not a single registry
+PR, tracked at
+[nams-registry#89](https://github.com/monarch-initiative/nams-registry/issues/89).
+The `source_resources` question the earlier drafts hit is **already settled** — the
+record names the `scientific-literature` resource with the paper's DOI in
+`source_urls` ([nams-registry#63](https://github.com/monarch-initiative/nams-registry/issues/63)),
+so no placeholder is needed.
+
+`references_cache/PMID_38036094.md` is committed and is cited only from this page,
 not from any `kb/` entry. It is kept deliberately, so the quoted abstract stays
 checkable — do not read its absence from `kb/` as uncited and prune it.
+
+### PMID:38369009 — the 3D tetraculture bronchial model links into the chemical respiratory allergy module
+
+da Silva et al. 2024, *Toxicology* 503:153756 ([#16866](https://github.com/monarch-initiative/dismech/issues/16866)),
+with its companion monoculture study ([#16865](https://github.com/monarch-initiative/dismech/issues/16865), PMID:38360295).
+A reconstructed three-dimensional bronchial tissue from four cell lines — bronchial
+epithelial, lung fibroblast, endothelial and monocytic — challenged with maleic
+anhydride aerosol.
+
+**dismech disposition: two model-to-mechanism links on
+[`chemical_respiratory_allergy`](../kb/modules/chemical_respiratory_allergy.yaml).**
+The module built in #16912 already cites both papers as node evidence; this adds the
+model-side half as an `experimental_models:` entry. The tetraculture is the
+tissue-scale anchor the issue called for: it links to *Airway Epithelial Danger
+Signal Release* as `RECAPITULATES` (IL-8/IL-6, ROS and epithelial apoptosis
+readouts) and to *Dendritic Cell Activation and Th2-Polarizing Antigen Presentation*
+as `PARTIALLY_RECAPITULATES` (monocytic IL-8 as an indirect dendritic-cell-activation
+surrogate). Both carry `model_scale: TISSUE`; against the module's cellular nodes that
+is a model-above-target scale, so it contains the node and needs no scale caveat. The
+dendritic-cell link carries two typed divergences: a `BOUNDARY_OMISSION` (the
+co-culture has no T lymphocyte compartment, so it reaches dendritic cell activation
+but not sensitization proper) and a `PROXY_QUANTITY` (the node's quantity is dendritic
+cell maturation on `CL:0000451`, while the model's is monocytic-line IL-8 reported as
+correlating with DC activation, with no maturation marker read out). The companion monoculture paper (#16865) is the cellular-scale counterpart and
+is left to its own issue.
+
+**Registry disposition: the method also belongs in the external
+[nams-registry](https://github.com/monarch-initiative/nams-registry)** as a catalogued
+NAM — a reconstructed four-cell airway tissue with a respiratory-sensitization
+application. That row is not created here; this page records the dismech links only.
+
+### PMID:37863466 — 1,3-dichloropropene nasal ALI epithelium links into the inhaled-irritant module
+
+Paudel, Barutcu and Samuel 2023, *Toxicology* 499:153642
+([#16858](https://github.com/monarch-initiative/dismech/issues/16858)). A reconstituted
+differentiated primary human nasal epithelium (MucilAir) exposed to 1,3-dichloropropene
+(1,3-DCP) vapor at the air-liquid interface, read by histology, transcriptomics and a
+glutathione-depletion assay, in an acute six-concentration exposure and a separate 5-day
+repeated exposure.
+
+**This one links into dismech**, unlike the registry-only decisions above, and the
+reason is the same as for the liver spheroid (PMID:38740170): the paper names the
+pathology each readout stands for, and a module now exists for it. When #16858 was
+filed, the inhaled-irritant airway module did not exist, so the triage weighed
+`keap1_nrf2_are_signaling`, `epithelial_barrier_dysfunction` and `ciliopathy_dysfunction`
+and flagged the scope problems with each. Those are the wrong anchors, and the right one
+arrived after: `inhaled_irritant_airway_injury` (created for #16877), whose own
+description names 1,3-dichloropropene as an example agent and whose node chain is exactly
+this paper's abstract-verified findings.
+
+Two `RECAPITULATES` `modeled_mechanisms` links are added on the module, each bounded to
+the abstract:
+
+| Module node | Readout | Abstract support |
+|---|---|---|
+| `Epithelial Thiol Depletion and Electrophilic Stress` | glutathione depletion (`DECREASED`), `model_scale: CELLULAR` | "depletion of GSH" at sub-cytotoxic concentrations |
+| `Loss of Mucociliary Differentiation` | squamous metaplasia (`ALTERED`) and ciliated-cell loss (`DECREASED`), `model_scale: TISSUE` | "pseudostratified columnar epithelium to squamous epithelium"; "a decrease in ciliated bodies" |
+
+Three decisions bound the links to what the abstract licenses:
+
+- **The thiol link stops at glutathione depletion.** The abstract reports GSH depletion
+  but names no NRF2, KEAP1 or ARE transcriptional output, so the link rests on the thiol
+  readout and does not reach the antioxidant-response arm `keap1_nrf2_are_signaling`
+  would need. That arm is in the paper's transcriptomics, which was not retrievable.
+- **The junctional-barrier node — the module's rate-limiting conformance target — is not
+  linked.** The abstract reports no transepithelial-resistance or barrier readout, so the
+  model does not inform that node even though the module funnels through it.
+- **`ciliopathy_dysfunction` is not used**, as the triage warned: chemical loss of
+  ciliated cells is a different claim from inherited axonemal defects, and the
+  mucociliary-differentiation node carries the toxicant reading correctly.
+
+Two of the three inventory gaps #16858 raised are now **closed by the module**, which did
+not exist when the issue was written: squamous metaplasia of respiratory epithelium has a
+home (`Loss of Mucociliary Differentiation`), and acute inhaled-irritant upper-airway
+injury is the whole module. The third — **IVIVE as a dosimetry bridge** — remains the
+same undecided question the PFOS and ReproTracker papers raised (#16887); the paper's
+in-vitro-to-in-vivo extrapolation step carries the regulatory weight but has no mechanism
+node to attach to, and is left for that convention.
+
+**Registry handoff.** The MucilAir nasal ALI NAM is also a registry record (one
+`TwoDCellCulture`/primary-cell ALI mono-culture, human, exposed to a reactive VOC), to be
+created in [nams-registry](https://github.com/monarch-initiative/nams-registry) the way
+the PM co-culture NAMs were in
+[nams-registry#105](https://github.com/monarch-initiative/nams-registry/pull/105), but
+with `dismech_status.present_in_dismech: true` — unlike those registry-only records, this
+one *is* wired into the graph, so the registry record and the graph link must stay
+consistent.
+
+`references_cache/PMID_37863466.md` is committed. Unlike the registry-only papers above it
+is now cited from a `kb/` entry (the module), so it is an ordinary evidence cache, not a
+page-only one.
+### PMID:38360295 — the compartment-resolved airway monocultures link into the chemical respiratory allergy module
+
+Garcia da Silva et al. 2024, *Toxicology* 503:153750 ([#16865](https://github.com/monarch-initiative/dismech/issues/16865)),
+the companion monoculture study to the 3D tetraculture ([#16866](https://github.com/monarch-initiative/dismech/issues/16866),
+PMID:38369009). Three human respiratory-tract cell lines exposed separately —
+bronchial epithelial (BEAS-2B), lung fibroblast (MRC-5), endothelial (EA.hy926) —
+plus a cell-free toxicant–mucin binding assay.
+
+**dismech disposition: one model-to-mechanism link on
+[`chemical_respiratory_allergy`](../kb/modules/chemical_respiratory_allergy.yaml).**
+The module built in #16912 already cites this paper as node evidence; this adds the
+model-side half as a cellular-scale `experimental_models:` entry. The monoculture
+panel links to *Airway Epithelial Danger Signal Release* as `RECAPITULATES`
+(`model_scale: CELLULAR`) — increased IL-8/IL-6/IL-1β across all three compartments,
+decreased MUC1 in the bronchial epithelium, and increased endothelial ICAM-1. Its
+scale equals the node's cellular scale exactly, so no upward-extrapolation caveat is
+needed; it carries instead a `BOUNDARY_OMISSION` divergence, because the cells are
+cultured in isolation and the model omits the multicellular tissue context and mucus
+barrier that the companion tetraculture (#16866, `model_scale: TISSUE`) adds. The two
+papers are the cellular- and tissue-scale readouts of the same node.
+
+**The negative mucin result is recorded as a knowledge gap, not a pathograph edge.**
+The paper's cell-free assay found that some sensitizers bind secreted mucin but that
+toxicant–mucin complex formation is not a common feature across chemical classes. That
+is a chemical binding a secreted extracellular protein upstream of any cell, which
+dismech has no node shape for, so it is captured as a `KNOWLEDGE_GAP` discussion on the
+module (`gap_mucin_toxicodynamic_target_cra`) carrying both the positive and the
+negative halves of the finding.
+
+**Registry disposition: the three monocultures and the cell-free mucin assay belong in
+the external [nams-registry](https://github.com/monarch-initiative/nams-registry)** as
+catalogued methods — including the negative mucin-binding result, which the registry
+row records as a method property. Those rows are drafted in a separate nams-registry PR,
+not here; this page records the dismech links only.
+
+### PMID:38013136 — the Calu-3 air-liquid-interface lung model links into the inhaled-irritant airway-injury module
+
+Effah et al. 2023, *Toxicology* 500:153683 ([#16859](https://github.com/monarch-initiative/dismech/issues/16859)).
+The Calu-3 human bronchial epithelial line cultured at an air-liquid interface for
+28 days, validated against seven differentiation genes, MUC5AC staining and TEER,
+then exposed apically to the aerosols of three flavoured e-cigarette e-liquids, a
+PG/VG vehicle and a 3R4F reference cigarette.
+
+**dismech disposition: one model-to-mechanism link on
+[`inhaled_irritant_airway_injury`](../kb/modules/inhaled_irritant_airway_injury.yaml).**
+The module built after this batch began already cites this paper as node evidence on
+*Airway Epithelial Junctional Barrier Failure*; this adds the model-side half as a
+cellular-scale `experimental_models:` entry. The ALI-cultured Calu-3 model links to
+that node as `RECAPITULATES` (`model_scale: CELLULAR`) — the barrier-failure readout
+the module's own description names, where an inhaled aerosol deposited on the
+bronchial epithelium drops TEER and raises LDH. Its scale equals the node's cellular
+scale exactly, so no upward-extrapolation caveat is needed; it carries instead a
+`BOUNDARY_OMISSION` divergence, because the barrier is measured in a monoculture that
+omits the immune, endothelial and fibroblast compartments of the airway wall. This is
+the issue's proposed `epithelial_barrier_dysfunction` anchor resolved differently:
+that module is scoped to the allergic/type-2 barrier hypothesis, so a chemical aerosol
+insult does not conform to it honestly, whereas `inhaled_irritant_airway_injury` — the
+non-immune inhaled-chemical module that did not yet exist when the issue was written —
+is the exact fit, and names ALI/TEER as its readout.
+
+**Two arms stay out of dismech and go to the registry.** The 28-day
+differentiation-marker validation arm reads out a *normal* mucociliary developmental
+trajectory, which dismech models no pathology node for (and which the exposure did not
+disrupt), so it is the model's credibility claim rather than a mechanism link. The
+flavour-, vehicle- and particle-size-dependent differences between exposures — including
+that the PG/VG vehicle alone and two of three flavours matched the reference cigarette
+while vanilla tobacco was inert — are comparisons between exposures with no dismech
+shape. Both belong in the external
+[nams-registry](https://github.com/monarch-initiative/nams-registry) as catalogued
+method properties, drafted in a separate PR in that repo, not here.
 
 ## Gaps and questions the screen raised
 
@@ -780,6 +1453,7 @@ per-paper issue:
 | Schema gap | Toxicant susceptibility varying by host genotype | [#16884](https://github.com/monarch-initiative/dismech/issues/16884) |
 | Schema gap | Synergy between two exposures | [#16885](https://github.com/monarch-initiative/dismech/issues/16885) |
 | Schema gap | Reversibility of a toxic injury; PMID:38211720 shows recovery can be endpoint-dissociated, so it has to be per-endpoint | [#16886](https://github.com/monarch-initiative/dismech/issues/16886) |
+| Schema gap | Per-layer species scale in a multi-tissue co-culture | [#16889](https://github.com/monarch-initiative/dismech/issues/16889) |
 | Convention | AOP-derived edges are qualitative; a mechanism-based call needs quantitative AOP information the qualitative framework does not provide (raised by PMID:38580097) — [open-questions §10](NAMS_SPECIAL_ISSUE/open-questions.md) | Not filed |
 | Module gap | Bisphenol, or endocrine-disruptor, neurotoxicity (blocks every dismech record for PMID:38211720; a module would need a mechanism chain that paper does not supply) | Not filed |
 | Schema gap | An immortalised tumour line standing in for a primary cell type: `ModelDivergenceTypeEnum` has no value for a cell-identity substitution (raised by PMID:38211720) | Not filed |

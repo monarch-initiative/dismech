@@ -36,11 +36,14 @@ from dismech.structured_sources.clingen_yaml_audit import (
     format_summary,
     format_tsv,
 )
+from dismech.structured_sources.hdruk import HDRUKSource
 from dismech.structured_sources.icees import ICEESSource
 from dismech.structured_sources.ictrp import ICTRPSource
 from dismech.structured_sources.mygeneset import MyGenesetSource
+from dismech.structured_sources.oecd_tg import OECDTestGuidelineSource
 from dismech.structured_sources.ontology_edges import OntologyEdgeSource
 from dismech.structured_sources.orphanet import OrphanetSource
+from dismech.structured_sources.phekb import PheKBSource
 from dismech.structured_sources.strchive import StrchiveSource
 
 app = typer.Typer(help="dismech structured-database source utilities.")
@@ -92,6 +95,10 @@ _MANIFEST_DIRS: dict[str, str] = {
     "strchive": "strchive",
     "str": "strchive",
     "strchive-loci": "strchive",
+    "oecd": "oecd_tg",
+    "oecd-tg": "oecd_tg",
+    "oecd_tg": "oecd_tg",
+    "oecdtg": "oecd_tg",
     "ncit": "ncit-edges",
     "ncit-edges": "ncit-edges",
     "ncit_edges": "ncit-edges",
@@ -135,6 +142,11 @@ def _get_source(name: str) -> StructuredSource:
         if manifest.exists():
             MyGenesetSource.load_manifest(manifest)
         return MyGenesetSource(data_dir / "genesets")
+    if name in {"oecd", "oecd-tg", "oecd_tg", "oecdtg"}:
+        manifest = data_dir / "oecd_tg" / "MANIFEST.yaml"
+        if manifest.exists():
+            OECDTestGuidelineSource.load_manifest(manifest)
+        return OECDTestGuidelineSource(data_dir / "oecd_tg")
     if name in {"icees", "icees-kg", "icees_kg"}:
         manifest = data_dir / "icees-kg" / "MANIFEST.yaml"
         if manifest.exists():
@@ -149,6 +161,12 @@ def _get_source(name: str) -> StructuredSource:
         # No bulk file: ICTRP records are fetched per identifier on demand, so
         # the cache directory *is* the index of what this source knows about.
         return ICTRPSource(data_dir / "ictrp", cache_dir=_cache_dir())
+    if name in {"hdruk", "hdr-uk", "hdruk-phenotypes"}:
+        # No bulk file: phenotypes are fetched per identifier from the API.
+        return HDRUKSource(data_dir / "hdruk", cache_dir=_cache_dir())
+    if name in {"phekb"}:
+        # No bulk file or API: phenotype pages are fetched per identifier.
+        return PheKBSource(data_dir / "phekb", cache_dir=_cache_dir())
     if name in {"ncit", "ncit-edges", "ncit_edges"}:
         manifest = data_dir / "ncit-edges" / "MANIFEST.yaml"
         if not manifest.exists():

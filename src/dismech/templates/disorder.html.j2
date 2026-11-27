@@ -4293,6 +4293,19 @@
                 {% if item.description %}
                 <span class="criteria-detail">{{ item.description }}</span>
                 {% endif %}
+                {% if item.minimum_occurrences %}
+                <span class="criteria-detail">At least {{ item.minimum_occurrences }} occurrence{{ 's' if item.minimum_occurrences > 1 }}{% if item.minimum_interval_days is not none %}, {{ item.minimum_interval_days }}+ days apart{% endif %}</span>
+                {% endif %}
+                {% for code_list in item.code_lists or [] %}
+                <details class="criteria-detail">
+                    <summary>{{ code_list.code_system }} code list{% if code_list.name %}: {{ code_list.name }}{% endif %} ({{ (code_list.codes or []) | length }} code{{ 's' if (code_list.codes or []) | length != 1 }}){% if code_list.source_reference %}, from {{ code_list.source_reference }}{% endif %}</summary>
+                    <ul>
+                        {% for code in code_list.codes or [] %}
+                        <li><code>{{ code.id }}</code> {{ code.label }}</li>
+                        {% endfor %}
+                    </ul>
+                </details>
+                {% endfor %}
             </li>
             {% endfor %}
         </ul>
@@ -4760,6 +4773,14 @@
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
                 <h2 class="card-title">Mappings</h2>
             </div>
+            {% if disorder.mappings.omimps_mappings %}
+            <div class="mapping-section">
+                <h3>OMIM phenotypic series</h3>
+                {% with omimps_mappings = disorder.mappings.omimps_mappings %}
+                {% include "_omimps_mappings.html.j2" %}
+                {% endwith %}
+            </div>
+            {% endif %}
             {% if disorder.mappings.mondo_mappings %}
             <div class="mapping-section">
                 <div class="classification-category">MONDO</div>
@@ -5002,6 +5023,12 @@
                     {% if definition.scope %}
                     <span class="tag tag-parent">{{ definition.scope }}</span>
                     {% endif %}
+                    {% if definition.criteria_set_logic %}
+                    <span class="tag tag-classification">Criteria sets: {{ definition.criteria_set_logic }}</span>
+                    {% endif %}
+                    {% if definition.source_reference %}
+                    <span class="tag tag-parent">Source: {{ definition.source_reference }}</span>
+                    {% endif %}
                 </div>
                 {{ render_criteria_list('Core clinical characteristics', definition.core_clinical_characteristics) }}
                 {{ render_criteria_list('Inclusion criteria', definition.inclusion_criteria) }}
@@ -5101,6 +5128,14 @@
                 {% set subtype_mondo_mappings = subtype.mappings.mondo_mappings if subtype.mappings and subtype.mappings.mondo_mappings else [] %}
                 {% set subtype_ncit_mappings = subtype.mappings.ncit_mappings if subtype.mappings and subtype.mappings.ncit_mappings else [] %}
                 <div class="item-box subtype-box anchor-target"{% if subtype._anchor_id %} id="{{ subtype._anchor_id }}"{% endif %}>
+                    {% if subtype.mappings and subtype.mappings.omimps_mappings %}
+                    <div class="mapping-section">
+                        <h4>OMIM phenotypic series</h4>
+                        {% with omimps_mappings = subtype.mappings.omimps_mappings %}
+                        {% include "_omimps_mappings.html.j2" %}
+                        {% endwith %}
+                    </div>
+                    {% endif %}
                     {% set subtype_display = subtype.display_name or subtype.name %}
                     <div class="item-name">
                         {{ subtype_display }}
@@ -6512,6 +6547,9 @@
             {% for phase in disorder.progression %}
             <div class="item-box anchor-target"{% if phase._anchor_id %} id="{{ phase._anchor_id }}"{% endif %}>
                 <div class="item-name">{{ phase.phase }}</div>
+                {% if phase.description %}
+                <div class="item-desc">{{ phase.description }}</div>
+                {% endif %}
                 <div class="item-meta">
                     {% if phase.subtype %}
                     <span class="tag tag-subtype">{{ phase.subtype }}</span>
