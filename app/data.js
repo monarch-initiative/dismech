@@ -4914,7 +4914,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "29",
+    "causal_graph_edges": "38",
     "causal_graph_longest_path": "5"
   },
   {
@@ -41795,7 +41795,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "25",
     "causal_graph_longest_path": "6"
   },
   {
@@ -116088,8 +116088,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Congenital Diaphragmatic Hernia",
@@ -193370,6 +193370,7 @@ window.searchData = [
     "subtypes": [],
     "description": "Griscelli syndrome type 2 (GS2) is a rare autosomal recessive disorder of intracellular vesicle transport caused by biallelic loss-of-function variants in RAB27A. It combines silvery-grey hair with partial albinism and a life-threatening immune defect. RAB27A is a small GTPase resident on two different lysosome-related organelles, and the disease is the sum of losing both roles. On the melanosome it anchors the tripartite RAB27A-melanophilin-myosin Va complex that tethers melanosomes to the actin cytoskeleton at the melanocyte periphery; without that tether melanosomes are not captured peripherally and are not transferred to keratinocytes, so melanocytes accumulate melanin while surrounding keratinocytes are left devoid of it - the mechanistic inverse of albinism, in which pigment is never made. On the cytotoxic granule of T lymphocytes and NK cells RAB27A is required for regulated exocytosis, so its loss also removes lymphocyte cytotoxic function and patients present with haemophagocytic lymphohistiocytosis, a paediatric emergency that is usually recognized before the pigmentary clue. GS2 is the most common of the three Griscelli forms; the MYO5A (GS1) and MLPH (GS3) disorders share the pigmentary phenotype through loss of other members of the same melanosome-transport complex but are separate entities and are not curated here.",
     "pathophysiology": [
+      "Biallelic RAB27A Loss-of-Function Variants",
       "Loss of a Component of the RAB27A-Melanophilin-Myosin Va Complex",
       "Failure of Peripheral Melanosome Capture and Transfer to Keratinocytes",
       "Silvery Hair and Partial Cutaneous Albinism",
@@ -193430,8 +193431,8 @@ window.searchData = [
       "HP:0002719"
     ],
     "frequencies": [
-      "Very frequent",
-      "Frequent"
+      "VERY_FREQUENT",
+      "FREQUENT"
     ],
     "genes": [
       "RAB27A"
@@ -193446,11 +193447,11 @@ window.searchData = [
     "source_file": "Griscelli_Syndrome_Type_2.yaml",
     "page_url": "../pages/disorders/Griscelli_Syndrome_Type_2.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Griscelli Syndrome Type 3",
@@ -217567,6 +217568,130 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "20",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Hypogonadotropic Hypogonadism 7 With or Without Anosmia",
+    "disease_id": "MONDO:0007794",
+    "category": "Mendelian",
+    "parents": [
+      "Hypogonadotropic hypogonadism"
+    ],
+    "creation_date": "2026-11-26T21:23:57Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal recessive form of congenital hypogonadotropic hypogonadism caused by biallelic loss-of-function variants in GNRHR. The gene encodes the gonadotropin-releasing hormone (GnRH) receptor, a G protein-coupled receptor on pituitary gonadotropes that couples through Gq/11 to phospholipase C and drives synthesis and release of LH and FSH. The hypothalamus and its GnRH neurons are intact; the pituitary cannot read their signal, so the defect is GnRH resistance, not GnRH deficiency, and the sense of smell is normal.\nDisease alleles reduce receptor function in three ways that often combine: the receptor misfolds and is held in the endoplasmic reticulum, it reaches the surface but binds GnRH poorly, or it binds GnRH but does not activate Gq/11. The amount of function left sets the clinical picture. Two complete loss-of-function alleles give absent puberty, with micropenis and cryptorchidism in boys and primary amenorrhea in girls, and no response to pulsatile GnRH. Partial loss-of-function alleles, of which Gln106Arg and Arg262Gln are by far the most common, give a wide range from partial puberty to a mild form with normal testicular volume, and some of these patients recover gonadotropin secretion after treatment is stopped.\nSex steroids induce and maintain secondary sex characteristics. Fertility is obtained with gonadotropins, which act downstream of the receptor; pulsatile GnRH works only in patients with residual receptor function and then at higher doses than usual.",
+    "pathophysiology": [
+      "Biallelic GNRHR Loss-of-Function Variants",
+      "GnRH Receptor Misfolding and Endoplasmic Reticulum Retention",
+      "Dominant-Negative Retention of Wild-Type Receptor",
+      "Reduced GnRH Binding Affinity",
+      "Impaired Receptor Coupling to Gq/11",
+      "Reduced Cell-Surface GnRH Receptor",
+      "Gonadotrope Resistance to GnRH",
+      "Deficient LH and FSH Secretion",
+      "Deficient Testicular Testosterone Production",
+      "Impaired Spermatogenesis",
+      "Deficient Ovarian Follicle Maturation and Estradiol Production"
+    ],
+    "cell_types": [
+      "pituitary gonadotrope",
+      "Leydig cell",
+      "Sertoli cell",
+      "granulosa cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000437",
+      "CL:0000178",
+      "CL:0000216",
+      "CL:0000501"
+    ],
+    "biological_processes": [
+      "protein folding",
+      "protein localization to plasma membrane",
+      "GnRH receptor signalling through Gq/11 and phospholipase C",
+      "luteinizing hormone secretion",
+      "follicle-stimulating hormone secretion",
+      "testosterone biosynthetic process",
+      "spermatogenesis",
+      "ovarian follicle development",
+      "estrogen biosynthetic process"
+    ],
+    "phenotypes": [
+      "Hypogonadotropic Hypogonadism",
+      "Delayed Puberty",
+      "Decreased Circulating LH",
+      "Decreased Circulating FSH",
+      "Decreased Serum Testosterone",
+      "Decreased Serum Estradiol",
+      "Primary Amenorrhea",
+      "Micropenis",
+      "Cryptorchidism",
+      "Decreased Testicular Size",
+      "Azoospermia",
+      "Male Infertility",
+      "Female Infertility",
+      "Breast Hypoplasia",
+      "Hypoplasia of the Uterus",
+      "Delayed Skeletal Maturation",
+      "Reduced Bone Mineral Density"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Breast",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0000044",
+      "HP:0000823",
+      "HP:0030344",
+      "HP:0030341",
+      "HP:0040171",
+      "HP:0008214",
+      "HP:0000786",
+      "HP:0000054",
+      "HP:0000028",
+      "HP:0008734",
+      "HP:0000027",
+      "HP:0003251",
+      "HP:0008222",
+      "HP:0003187",
+      "HP:0000013",
+      "HP:0002750",
+      "HP:0004349"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "GNRHR"
+    ],
+    "treatments": [
+      "Testosterone Replacement",
+      "Estrogen and Progestin Replacement",
+      "Gonadotropin Therapy",
+      "High-Dose Pulsatile GnRH",
+      "Pharmacoperone Rescue of Misfolded Receptor"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypogonadotropic_Hypogonadism_7_With_Or_Without_Anosmia.yaml",
+    "page_url": "../pages/disorders/Hypogonadotropic_Hypogonadism_7_With_or_Without_Anosmia.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "63",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Hypokalemic Periodic Paralysis",
@@ -250640,7 +250765,11 @@ window.searchData = [
       "Sirolimus",
       "Corticosteroids",
       "Vincristine",
-      "Surgical resection"
+      "Surgical resection",
+      "Antiplatelet agents",
+      "Interferon alfa",
+      "Propranolol",
+      "Transarterial embolisation"
     ],
     "environmental": [],
     "biochemical": [],
@@ -250649,8 +250778,8 @@ window.searchData = [
     "num_phenotypes": 8,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "15",
+    "num_treatments": 8,
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "4"
   },
   {
@@ -279214,10 +279343,12 @@ window.searchData = [
       "Type IA",
       "Type IB",
       "Type II",
-      "Type III"
+      "Type III",
+      "PPM1K-Related Mild Variant"
     ],
     "description": "Maple syrup urine disease is an autosomal recessive disorder of branched-chain amino acid catabolism caused by deficiency of the mitochondrial branched-chain alpha-ketoacid dehydrogenase complex (encoded by BCKDHA, BCKDHB, DBT, and DLD). The enzymatic block causes systemic accumulation of the branched-chain amino acids leucine, isoleucine, and valine and their corresponding ketoacids, with leucine and its ketoacid being particularly neurotoxic. The accumulated metabolites are responsible for the characteristic maple-syrup odor of the urine and drive cerebral edema and encephalopathy; classic neonatal-onset disease presents with poor feeding, lethargy, seizures, and coma, and untreated patients develop intellectual disability or die during metabolic crises.",
     "pathophysiology": [
+      "PPM1K-Dependent BCKDH Activation Defect",
       "Branched-Chain Alpha-Ketoacid Dehydrogenase Complex Deficiency",
       "Systemic BCAA and BCKA Accumulation",
       "Blood-Brain Barrier Transport Competition",
@@ -279350,11 +279481,11 @@ window.searchData = [
     "source_file": "Maple_Syrup_Urine_Disease.yaml",
     "page_url": "../pages/disorders/Maple_Syrup_Urine_Disease.html",
     "num_phenotypes": 17,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 6,
     "num_treatments": 10,
-    "causal_graph_edges": "56",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "58",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Marburg Virus Disease",
@@ -288631,8 +288762,14 @@ window.searchData = [
       "Persistent DNA Entanglements in Mitosis",
       "Chromosome Segregation Errors and Genome Instability"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "fibroblast",
+      "lymphocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000542"
+    ],
     "biological_processes": [
       "double-strand break repair via homologous recombination",
       "mitotic recombination",
@@ -288711,7 +288848,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "5"
   },
   {
@@ -293159,7 +293296,16 @@ window.searchData = [
       "Failure to Thrive",
       "Dysmorphic Features"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Respiratory",
+      "Cardiovascular",
+      "Metabolic",
+      "Genitourinary",
+      "Neurological",
+      "Growth",
+      "Craniofacial"
+    ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Genitourinary",
@@ -293201,7 +293347,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "6"
   },
   {
@@ -341178,7 +341324,10 @@ window.searchData = [
     "name": "Parkinson Disease, Mitochondrial",
     "disease_id": "MONDO:0010796",
     "category": "Mendelian",
-    "parents": [],
+    "parents": [
+      "Parkinsonism",
+      "Mitochondrial Disease"
+    ],
     "creation_date": "2026-08-14T00:00:00Z",
     "updated_date": null,
     "subtypes": [
@@ -341208,26 +341357,20 @@ window.searchData = [
     "phenotypes": [
       "Parkinsonism",
       "Sensorineural Hearing Impairment",
-      "Peripheral Neuropathy",
-      "Bradykinesia",
-      "Resting Tremor",
-      "Rigidity"
+      "Peripheral Neuropathy"
     ],
     "phenotype_categories": [
-      "Clinical"
+      "Nervous System",
+      "Ear"
     ],
     "phenotype_hpo_categories": [
       "Ear",
-      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0001300",
       "HP:0000407",
-      "HP:0009830",
-      "HP:0002067",
-      "HP:0002322",
-      "HP:0002063"
+      "HP:0009830"
     ],
     "frequencies": [],
     "genes": [
@@ -341235,7 +341378,6 @@ window.searchData = [
     ],
     "treatments": [
       "Levodopa",
-      "Deep Brain Stimulation",
       "Genetic Counseling",
       "Supportive Care and Aminoglycoside Avoidance"
     ],
@@ -341245,11 +341387,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Parkinson_Disease_Mitochondrial.yaml",
     "page_url": "../pages/disorders/Parkinson_Disease,_Mitochondrial.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 3,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "11",
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "4"
   },
   {
@@ -378857,7 +378999,6 @@ window.searchData = [
       "CL:0000008"
     ],
     "biological_processes": [
-      "endocytic recycling",
       "endosome to plasma membrane protein transport",
       "receptor recycling",
       "receptor-mediated endocytosis"
@@ -378942,7 +379083,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 6,
     "num_treatments": 4,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "5"
   },
   {
@@ -395336,10 +395477,12 @@ window.searchData = [
       "Reparative remodeling and thrombotic narrowing"
     ],
     "cell_types": [
+      "vascular associated smooth muscle cell",
       "smooth muscle cell",
       "fibroblast"
     ],
     "cell_type_ids": [
+      "CL:0000359",
       "CL:0000192",
       "CL:0000057"
     ],
@@ -395366,7 +395509,7 @@ window.searchData = [
       "Cardiovascular",
       "Gastrointestinal",
       "Musculoskeletal",
-      "Neurological"
+      "Nervous System"
     ],
     "phenotype_hpo_categories": [
       "Blood",
@@ -395384,6 +395527,7 @@ window.searchData = [
       "HP:0003418",
       "HP:0011029",
       "HP:0031273",
+      "HP:0033401",
       "HP:0001297",
       "HP:0000822"
     ],
@@ -395393,7 +395537,8 @@ window.searchData = [
       "Conservative medical management and surveillance imaging",
       "Endovascular embolization",
       "Vascular stenting",
-      "Open vascular surgery or organ surgery"
+      "Open vascular surgery or organ surgery",
+      "Corticosteroids (not recommended)"
     ],
     "environmental": [],
     "biochemical": [],
@@ -395402,9 +395547,9 @@ window.searchData = [
     "num_phenotypes": 10,
     "num_pathophysiology": 3,
     "num_genes": 0,
-    "num_treatments": 4,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "2"
+    "num_treatments": 5,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Seizures-scoliosis-macrocephaly syndrome",
@@ -423848,7 +423993,8 @@ window.searchData = [
     ],
     "biological_processes": [
       "miRNA-mediated post-transcriptional gene silencing",
-      "miRNA-mediated gene silencing by mRNA destabilization"
+      "miRNA-mediated gene silencing by mRNA destabilization",
+      "brain development"
     ],
     "phenotypes": [
       "Global developmental delay",
@@ -429213,7 +429359,12 @@ window.searchData = [
     ],
     "cell_types": [],
     "cell_type_ids": [],
-    "biological_processes": [],
+    "biological_processes": [
+      "chromatin organization",
+      "nucleosome assembly",
+      "embryo development",
+      "nervous system development"
+    ],
     "phenotypes": [
       "Intellectual Disability",
       "Global Developmental Delay",
@@ -429284,7 +429435,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "5"
   },
   {
@@ -459345,19 +459496,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4219,
-  "total_subtypes": 5181,
-  "total_disorders_and_subtypes": 9400,
-  "total_unique_evidence_sources": 63307,
-  "total_unique_publications": 59131,
+  "total_disorder_pages": 4220,
+  "total_subtypes": 5182,
+  "total_disorders_and_subtypes": 9402,
+  "total_unique_evidence_sources": 63349,
+  "total_unique_publications": 59173,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 316,
-  "total_pathographs": 4217,
-  "total_unique_pathological_events": 27927,
+  "total_pathographs": 4218,
+  "total_unique_pathological_events": 27939,
   "total_modules": 242,
-  "total_research_reports": 4323,
+  "total_research_reports": 4324,
   "total_classifications": 21,
   "total_comorbidities": 58,
-  "total_groupings": 151
+  "total_groupings": 156
 };
 window.dispatchEvent(new Event('searchDataReady'));
