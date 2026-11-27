@@ -87896,6 +87896,127 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Cardiovascular Syphilis",
+    "disease_id": "MONDO:0004911",
+    "category": "Infectious Disease",
+    "parents": [
+      "Syphilis",
+      "Tertiary syphilis"
+    ],
+    "creation_date": "2026-11-26T15:45:10Z",
+    "updated_date": null,
+    "subtypes": [
+      "Syphilitic aortitis",
+      "Syphilitic myocarditis and endocarditis"
+    ],
+    "description": "Cardiovascular syphilis is the cardiovascular form of tertiary syphilis. Years to decades after an untreated or inadequately treated infection, Treponema pallidum subsp. pallidum involves the adventitia and vasa vasorum of the ascending aorta. A lymphoplasmacytic periaortitis and obliterative endarteritis of the vasa vasorum make the outer aortic media ischemic, and the media scars, losing its elastic lamellae, while the intima thickens into the wrinkled \"tree-bark\" surface. The weakened tubular ascending aorta dilates into a saccular or fusiform aneurysm; root dilation makes the aortic valve incompetent; and intimal and wall thickening at the root narrows the coronary ostia. Rupture, heart failure from aortic regurgitation, and ostial ischemia are the causes of death. Syphilitic aortitis is the lesion underlying nearly all cases. Syphilitic myocarditis and endocarditis are rare. The disease became uncommon after penicillin reduced progression of early syphilis to late disease, but it is still reported, including in people with HIV, and many patients recall no primary infection.",
+    "pathophysiology": [
+      "Persistent Treponemal Infection",
+      "Treponemal Invasion of the Aortic Adventitia and Vasa Vasorum",
+      "Lymphoplasmacytic Periaortitis",
+      "Obliterative Endarteritis of the Vasa Vasorum",
+      "Medial Ischemic Necrosis and Elastic Lamellae Destruction",
+      "Intimal and Wall Fibrous Thickening",
+      "Aortic Wall Weakening and Dilation",
+      "Treponemal Invasion of the Myocardium and Heart Valves"
+    ],
+    "cell_types": [
+      "plasma cell",
+      "lymphocyte",
+      "blood vessel endothelial cell",
+      "vascular associated smooth muscle cell",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000786",
+      "CL:0000542",
+      "CL:0000071",
+      "CL:0000359",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "extracellular matrix disassembly"
+    ],
+    "phenotypes": [
+      "Aortitis",
+      "Aortic aneurysm",
+      "Ascending tubular aorta aneurysm",
+      "Aortic regurgitation",
+      "Aortic root aneurysm",
+      "Coronary artery stenosis",
+      "Angina pectoris",
+      "Myocardial infarction",
+      "Aortic rupture",
+      "Cardiac tamponade",
+      "Sudden death",
+      "Congestive heart failure",
+      "Aortic dissection",
+      "Thoracic aorta calcification",
+      "Dyspnea",
+      "Syncope",
+      "Myocarditis",
+      "Mitral regurgitation"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:6001461",
+      "HP:0004942",
+      "HP:0004970",
+      "HP:0001659",
+      "HP:0002616",
+      "HP:0005145",
+      "HP:0001681",
+      "HP:0001658",
+      "HP:0031649",
+      "HP:0033415",
+      "HP:0001699",
+      "HP:0001635",
+      "HP:0004933",
+      "HP:0004962",
+      "HP:0002094",
+      "HP:0001279",
+      "HP:0012819",
+      "HP:0001653"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Benzathine penicillin G, three weekly doses",
+      "Intravenous aqueous penicillin G (neurosyphilis regimen)",
+      "Anticipatory counselling for the Jarisch-Herxheimer reaction",
+      "Surgical repair of the ascending aortic aneurysm",
+      "Aortic valve replacement",
+      "Coronary artery bypass grafting for ostial stenosis",
+      "Percutaneous coronary intervention for ostial stenosis"
+    ],
+    "environmental": [
+      "HIV coinfection",
+      "Untreated or inadequately treated early syphilis"
+    ],
+    "biochemical": [],
+    "source_file": "Cardiovascular_Syphilis.yaml",
+    "page_url": "../pages/disorders/Cardiovascular_Syphilis.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 7,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Carney-Stratakis syndrome",
     "disease_id": "MONDO:0011740",
     "category": "Genetic",
@@ -121802,6 +121923,187 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "33",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Congenital Syphilis",
+    "disease_id": "MONDO:0005714",
+    "category": "Infectious Disease",
+    "parents": [
+      "Syphilis",
+      "Congenital infection"
+    ],
+    "creation_date": "2026-11-26T18:22:44Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Congenital syphilis is infection of the fetus or newborn with Treponema pallidum subsp. pallidum acquired from an infected mother, almost always across the placenta during maternal spirochetemia. Transmission can happen at any stage of maternal infection and in any trimester, and its risk is highest when the mother has primary or secondary syphilis. Untreated maternal syphilis causes early fetal loss, stillbirth, hydrops, preterm birth, and neonatal death. Live-born infants are often asymptomatic at birth. Early congenital syphilis (presenting before age 2 years) resembles disseminated secondary syphilis, with rash, rhinitis (snuffles), hepatosplenomegaly with hepatitis and cholestasis, anemia and thrombocytopenia, and osteochondritis and periostitis of the long bones that cause pseudoparalysis. Late congenital syphilis (age 2 years or older) comprises interstitial keratitis, eighth nerve deafness, and Hutchinson teeth (the Hutchinson triad), together with stigmata of disturbed development such as saddle nose, saber shins, and palatal perforation. The disease is prevented by syphilis screening early in pregnancy, repeated in the third trimester and at delivery where risk is high, and by treating the mother with a stage-appropriate benzathine penicillin G regimen at least 30 days before delivery. Infected or at-risk newborns are classified by the CDC risk scenarios and treated with a 10-day course of aqueous crystalline or procaine penicillin G, or a single dose of benzathine penicillin G when infection is less likely.",
+    "pathophysiology": [
+      "Maternal Treponemal Spirochetemia",
+      "Transplacental Treponemal Invasion",
+      "Placental and Umbilical Cord Inflammation",
+      "Fetal Hematogenous Dissemination",
+      "Syphilitic Hepatitis",
+      "Osteochondritis and Periostitis of Long Bones",
+      "Mucocutaneous Treponemal Infection",
+      "Fetal Anemia",
+      "Central Nervous System Invasion",
+      "Developmental Disruption of Bone and Dentition",
+      "Gummatous Tissue Necrosis",
+      "Late Immune-Mediated Inflammation",
+      "Treponemal Peptidoglycan Cross-Linking (Beta-Lactam Target)"
+    ],
+    "cell_types": [
+      "endothelial cell",
+      "trophoblast cell",
+      "Hofbauer cell",
+      "plasma cell",
+      "hepatocyte",
+      "chondrocyte",
+      "osteoblast",
+      "erythroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0000351",
+      "CL:3000001",
+      "CL:0000786",
+      "CL:0000182",
+      "CL:0000138",
+      "CL:0000062",
+      "CL:0000765"
+    ],
+    "biological_processes": [
+      "adhesion of symbiont to host cell",
+      "inflammatory response",
+      "endochondral ossification",
+      "peptidoglycan-based cell wall biogenesis"
+    ],
+    "phenotypes": [
+      "Stillbirth",
+      "Miscarriage",
+      "Premature birth",
+      "Large placenta",
+      "Nonimmune hydrops fetalis",
+      "Neonatal death",
+      "Maculopapular exanthema",
+      "Abnormal blistering of the skin",
+      "Rhinitis",
+      "Hepatomegaly",
+      "Splenomegaly",
+      "Hepatosplenomegaly",
+      "Cholestasis",
+      "Jaundice",
+      "Elevated circulating hepatic transaminase concentration",
+      "Anemia",
+      "Thrombocytopenia",
+      "Increased total leukocyte count",
+      "Fever",
+      "Postnatal growth retardation",
+      "Respiratory distress",
+      "Periostitis",
+      "Pseudoparalysis of an extremity",
+      "Microcephaly",
+      "Global developmental delay",
+      "Keratitis",
+      "Sensorineural hearing impairment",
+      "Semilunar tooth",
+      "Concave nasal ridge",
+      "Anterior tibial bowing",
+      "Abnormal hard palate morphology",
+      "Knee joint effusion"
+    ],
+    "phenotype_categories": [
+      "Pregnancy",
+      "Neonatal",
+      "Dermatological",
+      "Otolaryngological",
+      "Hepatic",
+      "Hematological",
+      "Constitutional",
+      "Growth",
+      "Respiratory",
+      "Skeletal",
+      "Neurological",
+      "Ophthalmological",
+      "Audiological",
+      "Dental",
+      "Craniofacial",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001622",
+      "HP:0006267",
+      "HP:0001790",
+      "HP:0040186",
+      "HP:0008066",
+      "HP:0012384",
+      "HP:0002240",
+      "HP:0001744",
+      "HP:0001433",
+      "HP:0001396",
+      "HP:0000952",
+      "HP:0002910",
+      "HP:0001903",
+      "HP:0001873",
+      "HP:0001974",
+      "HP:0001945",
+      "HP:0008897",
+      "HP:0002098",
+      "HP:0040165",
+      "HP:0000252",
+      "HP:0001263",
+      "HP:0000491",
+      "HP:0000407",
+      "HP:0033782",
+      "HP:0011120",
+      "HP:0006390",
+      "HP:0100737",
+      "HP:6001020"
+    ],
+    "frequencies": [
+      "OCCASIONAL",
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Aqueous crystalline penicillin G, 10-day neonatal course",
+      "Procaine penicillin G, 10-day neonatal course",
+      "Single-dose benzathine penicillin G for the neonate",
+      "Maternal benzathine penicillin G treatment in pregnancy",
+      "Penicillin desensitization",
+      "Ceftriaxone during penicillin shortage"
+    ],
+    "environmental": [
+      "Absent or late prenatal care",
+      "Maternal methamphetamine or heroin use",
+      "Maternal sexual exposure risk, incarceration, or unstable housing"
+    ],
+    "biochemical": [],
+    "source_file": "Congenital_Syphilis.yaml",
+    "page_url": "../pages/disorders/Congenital_Syphilis.html",
+    "num_phenotypes": 32,
+    "num_pathophysiology": 13,
+    "num_genes": 0,
+    "num_treatments": 6,
+    "causal_graph_edges": "52",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Congenital Thrombotic Thrombocytopenic Purpura",
@@ -200797,6 +201099,165 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "14",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Hepatic Tuberculosis",
+    "disease_id": "MONDO:0005787",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tuberculosis",
+      "Extrapulmonary Tuberculosis",
+      "Abdominal Tuberculosis"
+    ],
+    "creation_date": "2026-11-26T18:22:29Z",
+    "updated_date": null,
+    "subtypes": [
+      "Miliary",
+      "Local",
+      "Tubular"
+    ],
+    "description": "Hepatic tuberculosis is infection of the liver by Mycobacterium tuberculosis. It takes two main forms. In the miliary form, about four in five reported cases, bacilli from a pulmonary focus reach the liver through the hepatic artery during disseminated disease and seed it diffusely with small tubercles. In the local form, bacilli reach the liver mainly through the portal vein from a gastrointestinal focus and produce larger nodules near the portal triads, which can coalesce into tuberculomas (pseudotumours) or liquefy into tuberculous liver abscesses. A tubular or biliary form, in which granulomas or enlarged porta hepatis lymph nodes involve the bile ducts, causes strictures and obstructive jaundice. In every form the liver responds with epithelioid granulomas, typically caseating. Presentation is nonspecific: hepatomegaly, fever, abdominal pain, weight loss and an infiltrative liver test pattern with a disproportionately raised alkaline phosphatase. Jaundice suggests biliary or nodal involvement. Imaging (ultrasound, and contrast-enhanced CT as the most sensitive test) shows micronodules, hepatomegaly, solitary or few low-density nodules with calcification, abscesses or hilar strictures, and local disease is often mistaken for a liver tumour. Diagnosis rests on liver biopsy with histology, acid-fast staining, mycobacterial culture and PCR. Treatment is standard multidrug antituberculous chemotherapy, with drainage or resection for some abscesses and tuberculomas and biliary decompression for obstructive jaundice. Isoniazid, rifampicin and pyrazinamide are themselves hepatotoxic, so drug-induced liver injury must be watched for in a liver already involved by disease.",
+    "pathophysiology": [
+      "Primary Pulmonary or Gastrointestinal Tuberculous Focus",
+      "Hepatic Arterial Hematogenous Seeding in Disseminated Tuberculosis",
+      "Portal Venous Seeding from a Gastrointestinal Focus",
+      "Kupffer Cell and Macrophage Uptake of Mycobacterium tuberculosis",
+      "Hepatic Epithelioid Granuloma Formation",
+      "Caseous Necrosis and Coalescence into Tuberculomas",
+      "Liquefaction into Tuberculous Liver Abscess",
+      "Tuberculous Cholangitis and Bile Duct Stricture",
+      "Porta Hepatis Tuberculous Lymphadenitis",
+      "Massive Miliary Hepatic Infiltration",
+      "Antituberculosis Drug-Induced Liver Injury"
+    ],
+    "cell_types": [
+      "Kupffer cell",
+      "macrophage",
+      "Foxp3-positive regulatory T cell",
+      "epithelioid macrophage",
+      "Langhans giant cell",
+      "lymphocyte",
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000091",
+      "CL:0000235",
+      "CL:0000815",
+      "CL:0002150",
+      "CL:0000647",
+      "CL:0000542",
+      "CL:0000182"
+    ],
+    "biological_processes": [
+      "chronic inflammatory response",
+      "granuloma formation"
+    ],
+    "phenotypes": [
+      "Hepatomegaly",
+      "Fever",
+      "Respiratory symptoms",
+      "Abdominal pain",
+      "Weight loss",
+      "Anorexia",
+      "Jaundice",
+      "Splenomegaly",
+      "Ascites",
+      "Abdominal distension",
+      "Anemia",
+      "Generalized lymphadenopathy",
+      "Elevated serum alkaline phosphatase",
+      "Elevated gamma-glutamyltransferase",
+      "Elevated hepatic transaminases",
+      "Hypoalbuminemia",
+      "Hyperbilirubinemia",
+      "Hepatic granulomas",
+      "Caseating hepatic granulomas",
+      "Hepatic calcification",
+      "Liver abscess",
+      "Biliary tract obstruction",
+      "Intrahepatic bile duct dilatation",
+      "Hepatolithiasis",
+      "Portal hypertension",
+      "Esophageal varices",
+      "Acute hepatic failure"
+    ],
+    "phenotype_categories": [
+      "Hepatic",
+      "Constitutional",
+      "Respiratory",
+      "Gastrointestinal",
+      "Hematologic",
+      "Lymphatic",
+      "Laboratory",
+      "Histopathology",
+      "Imaging"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002240",
+      "HP:0001945",
+      "HP:0012735",
+      "HP:0002027",
+      "HP:0001824",
+      "HP:0002039",
+      "HP:0000952",
+      "HP:0001744",
+      "HP:0001541",
+      "HP:0003270",
+      "HP:0001903",
+      "HP:0008940",
+      "HP:0003155",
+      "HP:0030948",
+      "HP:0002910",
+      "HP:0003073",
+      "HP:0002904",
+      "HP:0011955",
+      "HP:5210339",
+      "HP:0006559",
+      "HP:0100523",
+      "HP:0005230",
+      "HP:0033149",
+      "HP:6000063",
+      "HP:0001409",
+      "HP:0002040",
+      "HP:0006554"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Standard multidrug antituberculous chemotherapy",
+      "Percutaneous drainage of tuberculous liver abscess",
+      "Hepatic resection for tuberculoma",
+      "Biliary decompression"
+    ],
+    "environmental": [
+      "HIV infection",
+      "Immunosuppression other than HIV"
+    ],
+    "biochemical": [],
+    "source_file": "Hepatic_Tuberculosis.yaml",
+    "page_url": "../pages/disorders/Hepatic_Tuberculosis.html",
+    "num_phenotypes": 27,
+    "num_pathophysiology": 11,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Hepatic veno-occlusive disease-immunodeficiency syndrome",
@@ -418246,7 +418707,9 @@ window.searchData = [
     ],
     "creation_date": "2026-08-08T05:00:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Congenital Syphilis"
+    ],
     "description": "Syphilis is a chronic, multistage systemic infection caused by the spirochete Treponema pallidum subspecies pallidum, transmitted sexually or vertically from mother to fetus. Untreated it evolves through primary (chancre), secondary (disseminated mucocutaneous), latent, and tertiary (gummatous and cardiovascular) stages over years to decades, and can involve virtually any organ system - the basis of its historical epithet \"the great imitator\". Neurological, ocular, and otic involvement can occur at any stage, not only late disease. The central pathophysiological theme is stealth: the organism presents an outer membrane almost devoid of surface-exposed pathogen-associated molecular patterns and lacking lipopolysaccharide, and varies the few surface epitopes it does display by TprK gene conversion, so that intense local immune infiltration never achieves sterilizing clearance. It is the venereal member of the treponematoses, alongside the endemic non-venereal diseases yaws, bejel, and pinta, which are caused by distinct T. pallidum subspecies and are separate disease entities.",
     "pathophysiology": [
       "Treponemal Mucosal Inoculation and Local Replication",
@@ -435386,6 +435849,113 @@ window.searchData = [
     "num_genes": 0,
     "num_treatments": 3,
     "causal_graph_edges": "25",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Tuberculous Peritonitis",
+    "disease_id": "MONDO:0006000",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tuberculosis",
+      "Abdominal Tuberculosis",
+      "Peritonitis"
+    ],
+    "creation_date": "2026-11-26T18:22:29Z",
+    "updated_date": null,
+    "subtypes": [
+      "Wet-ascitic type",
+      "Fibrotic-fixed type",
+      "Dry plastic type"
+    ],
+    "description": "Tuberculous peritonitis is infection of the peritoneum by Mycobacterium tuberculosis, and one of the commonest forms of abdominal tuberculosis. It usually follows reactivation of a latent peritoneal focus that was seeded through the blood or lymphatics from a primary pulmonary infection; less often bacilli reach the peritoneum from infected bowel, mesenteric lymph nodes or fallopian tubes, or, with Mycobacterium bovis, from unpasteurized milk. Caseating granulomatous inflammation studs the parietal and visceral peritoneum, omentum and mesentery with tubercles and produces a lymphocyte-predominant, protein-rich exudate with a low serum-ascites albumin gradient. Three overlapping clinical patterns are described: the wet-ascitic type (tuberculous ascites), the fibrotic-fixed type with matted bowel and omentum, and the dry plastic type with dense fibrous adhesions. Patients present over weeks to months with abdominal distension, abdominal pain, fever, weight loss and ascites, and women with ascites, a pelvic mass and raised CA-125 are often first thought to have ovarian carcinoma. Risk is highest with cirrhosis, peritoneal dialysis for end-stage kidney disease, HIV infection, diabetes and immunosuppressive drugs. Ascitic adenosine deaminase is a sensitive and specific rapid test, smear and culture of ascitic fluid are insensitive, and laparoscopy with peritoneal biopsy is the reference standard. Standard six-month antituberculous chemotherapy is effective; mortality is high when treatment is delayed, and adjunctive corticosteroids to prevent adhesions remain unproven.",
+    "pathophysiology": [
+      "Primary Pulmonary Tuberculous Infection",
+      "Hematogenous and Lymphatic Seeding of the Peritoneum",
+      "Reactivation of Latent Peritoneal Tuberculous Focus",
+      "Caseating Granulomatous Peritoneal Inflammation",
+      "Lymphocytic Exudative Ascites Formation",
+      "Peritoneal Fibrosis and Adhesion Formation"
+    ],
+    "cell_types": [
+      "macrophage",
+      "epithelioid macrophage",
+      "multinucleated giant cell",
+      "lymphocyte",
+      "T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0002150",
+      "CL:0000647",
+      "CL:0000542",
+      "CL:0000084"
+    ],
+    "biological_processes": [
+      "granuloma formation",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Ascites",
+      "Loculated ascites",
+      "Abdominal distention",
+      "Abdominal pain",
+      "Fever",
+      "Weight loss",
+      "Abdominal mass",
+      "Elevated circulating mucin 16 concentration",
+      "Abdominal adhesions",
+      "Intestinal obstruction",
+      "Lymphadenopathy"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0001541",
+      "HP:0025673",
+      "HP:0003270",
+      "HP:0002027",
+      "HP:0001945",
+      "HP:0001824",
+      "HP:0031500",
+      "HP:0031030",
+      "HP:0033134",
+      "HP:0005214",
+      "HP:0002716"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Antituberculous Chemotherapy",
+      "Adjunctive Corticosteroids",
+      "Surgery for Complications",
+      "Peritoneal Dialysis Catheter Management"
+    ],
+    "environmental": [
+      "Liver cirrhosis",
+      "Peritoneal dialysis for end-stage kidney disease",
+      "HIV infection",
+      "Diabetes mellitus",
+      "Immunosuppressive therapy (TNF inhibitors and corticosteroids)"
+    ],
+    "biochemical": [],
+    "source_file": "Tuberculous_Peritonitis.yaml",
+    "page_url": "../pages/disorders/Tuberculous_Peritonitis.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "5"
   },
   {
@@ -456910,17 +457480,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4201,
-  "total_subtypes": 5148,
-  "total_disorders_and_subtypes": 9349,
-  "total_unique_evidence_sources": 62784,
-  "total_unique_publications": 58646,
+  "total_disorder_pages": 4205,
+  "total_subtypes": 5157,
+  "total_disorders_and_subtypes": 9362,
+  "total_unique_evidence_sources": 62879,
+  "total_unique_publications": 58732,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 316,
-  "total_pathographs": 4199,
-  "total_unique_pathological_events": 27754,
+  "total_pathographs": 4203,
+  "total_unique_pathological_events": 27790,
   "total_modules": 242,
-  "total_research_reports": 4302,
+  "total_research_reports": 4306,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 151
