@@ -2426,6 +2426,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../computable-phenotypes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Computable Phenotypes (PheKB, HDR UK)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../last-pass-report/" class="md-nav__link">
         
   
@@ -6093,6 +6121,34 @@
     
   
     Weekly activity report: design note
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/plans/2026-11-20-prevalence-incidence-remediation-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Prevalence versus incidence: analysis and staged remediation plan
   
 
     
@@ -26615,9 +26671,13 @@ It also checks the review checks attached to open PRs' current head commits.
 If a failed run is absent from the Actions census, that second lookup recovers
 it after verifying the workflow, PR association, and head commit. Recovered
 runs pass the same retry guards and budget; the summary lists them separately
-and reports how many distinct runs the Actions census returned. Errors reading
-current checks are reported and make the job fail rather than silently claiming
-a complete sweep. A specific-PR request limits this cross-check to that PR.
+and reports how many distinct runs the Actions census returned. A failed read of
+one PR's checks is retried once, then reported under <strong>Warnings</strong> with the
+<code>gh</code> error text; it does not fail the job, and that PR can still be retried,
+because the reads just before each rerun are what rule out a duplicate review.
+When at least three PRs, and more than half of those inspected, cannot be read,
+the cross-check is treated as an API outage and the job fails. A specific-PR
+request limits this cross-check to that PR, so its one failed read fails the job.
 It never creates a replacement dispatch, changes a branch, or alters a review.
 Cancelled and intentionally skipped runs, missing reviews with no existing run,
 and successful workflows that forgot to post a verdict are separate recovery
@@ -26642,8 +26702,14 @@ The retry cap and backoff bound repeated usage-limit failures; this does not
 automatically repair credentials or detect an account-wide quota reset.</p>
 <p>Review run names include the PR number. Older manual runs without that metadata
 are resolved from the existing guard/environment log output. Unresolvable
-failed runs are reported and deferred; an unresolvable active run defers the
-sweep to avoid duplicating a review already underway. Every retry/defer/skip
+failed runs are reported and deferred. An unresolvable active run is listed by
+run id, event, branch and age, and what it holds back depends on what it could
+be: a manual or comment-triggered run could be reviewing any PR, so it defers the
+whole sweep, under <strong>Warnings</strong> and as a run annotation; a <code>pull_request</code> run
+holds back only PRs on its own branch; and a run with no activity for 24 hours
+is treated as abandoned and holds back nothing, since runs that never leave the
+queue have been seen sitting there for weeks (#18787). The same 24-hour rule
+applies to an active run that does belong to the PR being retried. Every retry/defer/skip
 appears in the Actions summary, without PR comment spam. API errors do not
 authorize retries. Discovery subdivides time ranges above the Actions API's
 1000-result limit rather than silently dropping older failures.</p>
