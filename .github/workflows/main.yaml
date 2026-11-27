@@ -59,20 +59,45 @@ jobs:
         with:
           persist-credentials: false
 
-      # Fetch the base-branch tip so the snippet-length ratchet can grandfather
-      # against the short snippets already on the base branch (origin/<base>)
-      # instead of a committed snapshot file that parallel merges clobber --
-      # keeping the base branch green by construction. Shallow: only the base
-      # tip tree is needed. `--force` is required: refs/remotes/origin/<base>
-      # already exists in the shallow checkout, so a non-forced update is
-      # rejected as non-fast-forward and would silently leave a stale ref. If
-      # the fetch fails anyway (fork/private context), resolve_baseline() falls
-      # back to the committed baseline, so the gate degrades to prior behavior.
+      # Fetch the base commit into refs/remotes/origin/<base> so the ratchet
+      # gates (snippet length, title snippets, snippet grading, retired prose,
+      # reference titles, gene activity grounding) can grandfather against
+      # what is already on the base branch instead of a committed snapshot
+      # file that parallel merges clobber. Shallow: only the base tree is
+      # needed. `--force` is required: refs/remotes/origin/<base> already
+      # exists in the shallow checkout, so a non-forced update is rejected as
+      # non-fast-forward and would silently leave a stale ref. If the fetch
+      # fails anyway (fork/private context), resolve_baseline() falls back to
+      # the committed baseline, so the gate degrades to prior behavior.
+      #
+      # For pull_request and merge_group builds the baseline is the first
+      # parent of the commit under test -- the base GitHub actually merged the
+      # PR onto -- not the base-branch tip at the time this step runs. The
+      # tip moves while a run is in flight: when a PR that *fixes* an entry
+      # merges in that window, the tested tree still holds the old version
+      # of the entry, the tip does not, and every ratchet blames the
+      # in-flight PR for findings in files it never touched (one PR merging
+      # turned several others red on 2026-11-27). On push the commit under
+      # test is the tip itself, so the tip is still what is fetched.
       - name: Fetch base branch for snippet ratchet
         continue-on-error: true
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
-        run: git fetch --no-tags --force --depth=1 origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          base_sha=""
+          if [ "$EVENT_NAME" = pull_request ] || [ "$EVENT_NAME" = merge_group ]; then
+            # A depth-1 checkout keeps the commit object, parents included,
+            # even though the parent commits themselves are not fetched.
+            base_sha=$(git cat-file -p HEAD | awk '/^parent /{print $2; exit}')
+          fi
+          if [ -n "$base_sha" ]; then
+            echo "Ratchet baseline: first parent of HEAD ($base_sha)"
+            git fetch --no-tags --force --depth=1 origin "$base_sha:refs/remotes/origin/$BASE_REF"
+          else
+            echo "Ratchet baseline: tip of $BASE_REF"
+            git fetch --no-tags --force --depth=1 origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
+          fi
 
       # Also runs on merge_group (merge-queue integration builds, #10168):
       # paths-filter supports that event since v4.0.1 -- `base`/`ref` default
