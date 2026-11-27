@@ -67,8 +67,10 @@ just fetch-reference PHEKB:615       # references_cache/PHEKB_615.md
 - **PheKB** (`PHEKB:<node>`) is read from the phenotype page, because PheKB
   has no API. The cache holds the page's metadata and description, and the
   extracted text of each PDF attachment that is an algorithm document. A PDF
-  whose first page carries a DOI is a published article: it is listed but not
-  transcribed, and is cited by its PMID instead. Word, SQL and spreadsheet
+  whose first page carries a DOI or an "Abstract" heading is an article or
+  author manuscript: it is listed but not transcribed, and is cited by its
+  PMID instead. An attachment that restricts its own distribution ("not for
+  distribution outside eMERGE") is listed with that note and not transcribed. Word, SQL and spreadsheet
   attachments are listed only. PheKB states no licence for its content.
 
 ## Converting an HDR UK record
@@ -80,9 +82,17 @@ just hdruk-definition PH304 PH3021    # prints a definitions: fragment, caches t
 The converter writes the fragment below. It is a draft for a curator to
 finish, not finished content.
 
-- One criteria set, "Qualifying codes", with one item per library concept.
-  Each item has a code list copied code by code from the resolved export.
-- One evidence item quoting the first sentence of the library's definition.
+- One criteria set, "Library concept code lists", with one item per library
+  concept. Each item has a code list copied code by code from the resolved
+  export. The description says that the library's own definition, not this
+  set, states how the concepts combine: many records need a code *and* a
+  prescription, or a count within a window.
+- A concept the record names as excluded codes ("Excluded codes - codes not
+  indicating epilepsy", "(Exclusion Codes)") is not transcribed and is named
+  in `notes`. The authors kept it to document what they rejected.
+- One evidence item quoting the record's `Ontology` row, the library's own
+  MONDO tag. A record with no MONDO tag gets the first sentence of at least
+  six words from its definition instead.
 - `notes` with the record URL, the library's ontology tag, any dropped coding
   systems, and whether the record has a validation section.
 
@@ -90,6 +100,36 @@ Before committing, read the library's definition. Where it combines concepts
 in some other way than "any code qualifies", restructure the fragment. Check
 that the library's MONDO tag matches the entry's `disease_term`. Then run
 `just validate` on the entry.
+
+To write into an entry instead of printing:
+
+```bash
+just hdruk-definition PH304 --disorder kb/disorders/Sickle_Cell_Disease.yaml \
+  --exclude-code-system SNOMEDCT
+```
+
+- `--disorder` appends to the entry's `definitions:` block, or adds one at
+  the end of the file. Nothing else in the file changes, and the command
+  refuses to write if the result would parse differently anywhere else. A
+  record the entry already cites (by `source_reference`) is not added again,
+  so a re-run is a no-op.
+- A record is skipped, with a `SKIP` line on stderr, when its own MONDO tag
+  names a disease other than the entry's `disease_term`, a `has_subtypes`
+  term or an `exactMatch` MONDO mapping, when the entry already cites it
+  (the cache file is then left alone too), or when none of
+  its codes has a dismech code system (for example, every code is a CPRD
+  medcode or an omitted SNOMED CT code). A record with no MONDO tag is not
+  refused; matching it is the curator's call.
+- A "Read codes v2" concept whose codes are all digits is a CPRD medcode or
+  product-code list the library has mislabelled. Its codes are cached under a
+  system name with no dismech prefix, and not transcribed.
+- `--exclude-code-system` leaves every code of that system out of both the
+  definition and the cached record, and both say how many were left out.
+  SNOMED CT codes are excluded from bulk imports until the redistribution
+  question in design decision §20 is settled. The codes remain in the library
+  record, so they can be added later by re-running without the option.
+- Re-fetching an omitted record with `just fetch-reference HDRUK:<id>` writes
+  the full code list back into the cache, because that path omits nothing.
 
 ## Checking code lists
 
