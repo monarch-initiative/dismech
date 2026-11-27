@@ -5779,4 +5779,10 @@ for filed tickets. Keep solver probabilities in the linked analysis artifacts.
 For a mapping moved to a different subject, link the removal and creation IDs
 in `ontology_changes/change_sets/<id>.yaml` (`MAPPING_MOVE`). The validator checks
 both members and their shared target/qualifier; exporting either member shows
-the complete move. Per-edit lifecycles remain independent.
+the complete move. The change-set YAML also contains complete `before`/`after`
+mapping assertions with labels, checked against the members. Populate or update
+these with `just ontology-changes refresh-change-set-views`; stale views fail
+validation. Include a curated `justification` explaining source scope, the analysis
+finding, the chosen correction and remaining limitations. Refresh preserves that
+prose and derives analysis/source links, upstream requests, affected paths and
+dated per-edit statuses. Per-edit lifecycles remain independent.

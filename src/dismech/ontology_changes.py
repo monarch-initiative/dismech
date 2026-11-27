@@ -7,6 +7,7 @@ before exporting a reviewable request. All checks are offline.
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import re
@@ -14,6 +15,7 @@ import sys
 from datetime import date, datetime
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import quote
 
 import yaml
 from jsonschema import Draft7Validator, FormatChecker
@@ -46,6 +48,15 @@ TYPE_FIELDS = {
     "EDGE_DELETION": {"edge_object", "predicate"},
 }
 EDIT_FIELDS = set().union(*TYPE_FIELDS.values())
+REVIEW_FIELDS = {
+    "analysis_links",
+    "source_links",
+    "upstream_requests",
+    "member_statuses",
+    "affected_records",
+    "see_also",
+}
+REPO_BLOB = "https://github.com/monarch-initiative/dismech/blob/main/"
 
 
 def _json_default(value):
@@ -210,8 +221,114 @@ def validate_record(record: dict, root: Path | None = None) -> list[str]:
     return errors
 
 
+def mapping_move_view(
+    removal: dict, creation: dict, *, review_context=False, change_set_id=None
+) -> dict:
+    """Materialize the full assertions; atomic proposals remain authoritative."""
+    view = copy.deepcopy(
+        {
+            "ontology": removal["ontology"],
+            "mapping_representation": removal["mapping_representation"],
+            "before": {
+                "subject": removal["about_node"],
+                "predicate": removal["old_value"],
+                "object": removal["mapping_target"],
+            },
+            "after": {
+                "subject": creation["about_node"],
+                "predicate": creation["new_value"],
+                "object": creation["mapping_target"],
+            },
+        }
+    )
+    if review_context:
+        members = (removal, creation)
+        self_url = REPO_BLOB + f"ontology_changes/change_sets/{change_set_id}.yaml"
+
+        def unique(values):
+            return list(dict.fromkeys(values))
+
+        view.update(
+            analysis_links=unique(
+                REPO_BLOB + quote(a["path"], safe="/")
+                for member in members
+                for a in member.get("analysis_artifacts", [])
+            ),
+            source_links=unique(
+                s["url"] for member in members for s in member["source_snapshots"]
+            ),
+            upstream_requests=unique(
+                member[key]
+                for member in members
+                for key in ("upstream_tracker_issue", "pull_request")
+                if key in member
+            ),
+            member_statuses=[
+                {
+                    "proposal_id": member["id"],
+                    "record_url": REPO_BLOB + f"ontology_changes/{member['id']}.yaml",
+                    **{
+                        key: member[key]
+                        for key in (
+                            "origin",
+                            "confidence",
+                            "stance",
+                            "request_status",
+                            "adoption_status",
+                            "adoption_notes",
+                            "ontology_state_verified",
+                        )
+                        if key in member
+                    },
+                }
+                for member in members
+            ],
+            affected_records=unique(
+                path
+                for member in members
+                for path in member.get("affected_records", [])
+            ),
+            see_also=unique(
+                url
+                for member in members
+                for url in member.get("see_also", [])
+                if url != self_url
+            ),
+        )
+    return json.loads(json.dumps(view, default=_json_default))
+
+
+def _has_review_context(record):
+    return bool((REVIEW_FIELDS | {"justification"}) & record.keys())
+
+
+def _refresh_move_view(record, proposals):
+    """Replace only derived fields, leaving other defects for normal validation."""
+    if not isinstance(record, dict):
+        return record
+    removal = proposals.get(record.get("removal"))
+    creation = proposals.get(record.get("creation"))
+    if (
+        removal is None
+        or removal["change_type"] != "REMOVE_MAPPING"
+        or creation is None
+        or creation["change_type"] != "MAPPING_CREATION"
+    ):
+        return record
+    return {
+        **record,
+        **mapping_move_view(
+            removal,
+            creation,
+            review_context=_has_review_context(record),
+            change_set_id=record.get("id"),
+        ),
+    }
+
+
 def validate_change_set(record: dict, proposals: dict[str, dict]) -> list[str]:
     """Validate the references and semantics of a coordinated mapping move."""
+    record = json.loads(json.dumps(record, default=_json_default))
     errors = [
         f"{'/'.join(map(str, e.path))}: {e.message}"
         for e in schema_validator("OntologyChangeSet").iter_errors(record)
@@ -222,7 +339,7 @@ def validate_change_set(record: dict, proposals: dict[str, dict]) -> list[str]:
     for role, kind in (("removal", "REMOVE_MAPPING"), ("creation", "MAPPING_CREATION")):
         member = proposals.get(record[role])
         if member is None:
-            errors.append(f"{role}: unknown proposal {record[role]}")
+            errors.append(f"{role}: unknown or invalid proposal {record[role]}")
         elif member["change_type"] != kind:
             errors.append(f"{role} must reference a {kind} proposal")
     if errors:
@@ -237,10 +354,22 @@ def validate_change_set(record: dict, proposals: dict[str, dict]) -> list[str]:
         errors.append("MAPPING_MOVE must retain predicate/qualifier")
     if removal["about_node"]["id"] == creation["about_node"]["id"]:
         errors.append("MAPPING_MOVE requires distinct old and new subjects")
+    review_context = _has_review_context(record)
+    if review_context and not record.get("justification"):
+        errors.append(
+            "review context requires a curated justification; refresh cannot invent one"
+        )
+    for field, expected in mapping_move_view(
+        removal, creation, review_context=review_context, change_set_id=record["id"]
+    ).items():
+        if field not in record or record[field] != expected:
+            errors.append(
+                f"{field} disagrees with member proposals; run refresh-change-set-views"
+            )
     return errors
 
 
-def _read_records(paths, validate, seen):
+def _read_records(paths, validate, seen, transform=None):
     records, errors = [], []
     for path in paths:
         try:
@@ -250,6 +379,8 @@ def _read_records(paths, validate, seen):
                 errors.append(f"{path.name}: duplicate YAML keys: {duplicates}")
                 continue
             record = safe_load(text)
+            if transform is not None:
+                record = transform(record)
             problems = validate(record)
             if problems:
                 errors.extend(f"{path.name}: {error}" for error in problems)
@@ -268,6 +399,8 @@ def _read_records(paths, validate, seen):
 
 def load_registry_bundle(
     root: Path | None = None,
+    *,
+    refresh_views: bool = False,
 ) -> tuple[list[dict], list[dict], list[str]]:
     """Load proposals and optional change sets, checking all cross-record links."""
     root = root if root is not None else repo_root()
@@ -281,6 +414,7 @@ def load_registry_bundle(
         sorted((root / REGISTRY / "change_sets").glob("*.yaml")),
         lambda r: validate_change_set(r, by_id),
         seen,
+        transform=(lambda r: _refresh_move_view(r, by_id)) if refresh_views else None,
     )
     errors.extend(set_errors)
     memberships = {}
@@ -328,6 +462,11 @@ def render_change_set(change_set: dict, proposals: dict[str, dict]) -> str:
     lines = [
         f"# {change_set['title']}",
         "",
+        *(
+            [change_set["justification"].strip(), ""]
+            if "justification" in change_set
+            else []
+        ),
         "Review both edits together. Member statuses below are independent; this is not an executable transaction.",
         "",
         "| Mapping | Before | After |",
@@ -373,19 +512,61 @@ def main(argv=None) -> int:
     listing.add_argument("--affected-record")
     listing.add_argument("--change-set", help="Select the members of a change set")
     sub.add_parser("list-change-sets")
+    sub.add_parser(
+        "refresh-change-set-views",
+        help="Regenerate the readable before/after fields from validated member proposals",
+    )
     export = sub.add_parser("export")
     export.add_argument("id")
     args = parser.parse_args(argv)
-    records, change_sets, errors = load_registry_bundle(args.root)
+    records, change_sets, errors = load_registry_bundle(
+        args.root, refresh_views=args.command == "refresh-change-set-views"
+    )
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1
-    if args.command == "validate":
+    if args.command == "refresh-change-set-views":
+        root = args.root if args.root is not None else repo_root()
+        fields = (
+            "id",
+            "title",
+            "change_set_type",
+            "justification",
+            "ontology",
+            "mapping_representation",
+            "before",
+            "after",
+            "analysis_links",
+            "source_links",
+            "upstream_requests",
+            "member_statuses",
+            "affected_records",
+            "see_also",
+            "removal",
+            "creation",
+        )
+        updated = 0
+        for change_set in change_sets:
+            path = root / REGISTRY / "change_sets" / f"{change_set['id']}.yaml"
+            text = yaml.safe_dump(
+                {
+                    **{key: change_set[key] for key in fields if key in change_set},
+                    **change_set,
+                },
+                sort_keys=False,
+                allow_unicode=True,
+                width=100,
+            )
+            if path.read_text() != text:
+                path.write_text(text)
+                updated += 1
+        print(f"Updated {updated} change-set view(s)")
+    elif args.command == "validate":
         print(
             f"Validated {len(records)} ontology change proposal(s) and {len(change_sets)} change set(s)"
         )
     elif args.command == "list-change-sets":
-        print(json.dumps(change_sets, indent=2))
+        print(json.dumps(change_sets, indent=2, default=_json_default))
     elif args.command == "list":
         members = None
         if args.change_set:
