@@ -499,6 +499,9 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
         run: |
           scripts/run_ci_gates.sh -j 4 <<'GATES'
+          # Also gates proposal-only PRs, which do not trigger Python tests.
+          Validate ontology change proposals :: just validate-ontology-changes
+
           # Runs on every PR (not gated by path filters) so kb-only changes are
           # still checked. The full pytest guard only runs when src/tests change,
           # which would otherwise let folded-scalar hyphen splits into kb/ files.
@@ -530,6 +533,13 @@ jobs:
           # src/tests path filter would catch. Same live grandfathering against the
           # base branch, so only what this PR adds can fail (issue #8374).
           Check for new title-quoting evidence snippets :: uv run python scripts/check_title_snippets.py --against-ref "origin/$BASE_REF"
+
+          # Ungated for the same reason (#18326): a quote re-graded with a
+          # second `evidence_source` arrives in a kb/-only curation PR. As a
+          # pytest-only check it first ran in the merge queue, where each
+          # failure restarted every build queued behind it (#18238, #18757).
+          # Same live grandfathering against the base branch. ~2.5 min, offline.
+          Check for new snippet-grading divergences :: uv run python scripts/check_snippet_grading.py --against-ref "origin/$BASE_REF"
 
           # Ungated for the same reason: prose arguing for the retired
           # `supports: PARTIAL` grade arrives in kb/-only curation PRs, usually as
