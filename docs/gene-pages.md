@@ -183,9 +183,9 @@ Rules for writing a summary:
   node is renamed or no longer carries the gene.
 - **Headings and connecting prose make claims too.** A heading "Germline
   disease" over a checked list of causative entries asserts something no span
-  checks. KRAS's causative records include Evans syndrome and melorheostosis,
-  both recorded `SOMATIC`, so that heading over them would be false while every
-  span passed. Name sections after what
+  checks. GNAQ's causative records include Sturge-Weber syndrome and nevus of
+  Ota, both recorded `SOMATIC`, so that heading over them would be false while
+  every span passed. Name sections after what
   the KB records ("Causative records"), and state an origin only through
   `g.variant_origin(entry)` or `g.disorders('causative', 'germline')`. Where
   an entry records no origin, the claim reads "unrecorded" and so should the
