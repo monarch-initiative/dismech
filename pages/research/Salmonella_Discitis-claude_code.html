@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salmonella Discitis · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Salmonella Discitis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Salmonella Discitis</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-11-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_8000004" target="_blank" rel="noopener noreferrer">MONDO:8000004</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">11 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> In Mondo, <a href="http://purl.obolibrary.org/obo/MONDO_8000004" target="_blank" rel="noopener noreferrer">MONDO:8000004</a> "salmonella discitis" is defined as discitis caused by <em>Salmonella</em> infection. Its parents are <em>salmonellosis</em>, <em>bacterial arthritis</em> and <em>infectious discitis</em>. It is cross-referenced to <a href="https://bioregistry.io/GARD:0027037" target="_blank" rel="noopener noreferrer">GARD:0027037</a>, "Discitis caused by infection with Salmonella" (<a href="https://conceptlibrary.saildatabank.com/api/v1/ontology/node/MONDO:8000004/">SAIL concept library, MONDO:8000004</a>).</p>
+<p><em>S. enterica</em> serovars usually cause self-limited gastroenteritis or, for Typhi and Paratyphi, enteric fever. Invasive strains can occasionally seed bone and the disc space. This is a rare complication of bacteremia.</p>
+<p><strong>Identifiers</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mondo</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_8000004" target="_blank" rel="noopener noreferrer">MONDO:8000004</a> (retrieved)</td>
+</tr>
+<tr>
+<td>GARD</td>
+<td>0027037 (retrieved, as a Mondo cross-reference)</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>Not applicable; this is not a Mendelian disease</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>None found</td>
+</tr>
+<tr>
+<td>ICD-10 / ICD-11</td>
+<td>Not retrieved. Coding would usually combine a salmonella-infection code with a discitis or vertebral osteomyelitis code. Verify before use.</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>No specific heading found. Use "Discitis" combined with "Salmonella Infections".</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms:</strong> Salmonella spondylodiscitis; Salmonella spondylodiskitis; Salmonella vertebral osteomyelitis; Salmonella spondylitis. Serovar-specific forms include "Salmonella Typhi spondylodiscitis" and "non-typhoidal Salmonella (NTS) spondylodiscitis".</p>
+<p><strong>Source of information:</strong> All knowledge is aggregated from published individual-patient case reports and pooled case reviews. There are no EHR-derived or registry datasets.</p>
+<p><strong>Size of the literature:</strong> A PubMed search for <code>salmonella AND (spondylodiscitis OR discitis OR vertebral osteomyelitis)</code> returned 155 records. The most recent include:
+- <a href="https://pubmed.ncbi.nlm.nih.gov/43013364/" target="_blank" rel="noopener noreferrer">PMID 43013364</a>, multidrug-resistant (MDR) <em>S.</em> Typhi spondylodiscitis with vertebral collapse (2026).
+- <a href="https://pubmed.ncbi.nlm.nih.gov/42291979/" target="_blank" rel="noopener noreferrer">PMID 42291979</a>, <em>S.</em> Java discitis after a traveller's bacteremia (2026).
+- <a href="https://pubmed.ncbi.nlm.nih.gov/41657555/" target="_blank" rel="noopener noreferrer">PMID 41657555</a>, <em>Salmonella</em> spondylitis masquerading as tuberculosis in a child (2026).
+- <a href="https://pubmed.ncbi.nlm.nih.gov/42079494/" target="_blank" rel="noopener noreferrer">PMID 42079494</a>, <em>S.</em> Typhi mimicking Pott's disease (2025).
+- <a href="https://pubmed.ncbi.nlm.nih.gov/41143074/" target="_blank" rel="noopener noreferrer">PMID 41143074</a>, <em>Salmonella</em> vertebral osteomyelitis with bilateral psoas myositis in newly diagnosed diabetes (2025).</p>
+<h2>2. Etiology</h2>
+<p><strong>Causal factor (infectious):</strong> <em>Salmonella enterica</em> subsp. <em>enterica</em>. Typhoidal serovars (Typhi, Paratyphi) and many non-typhoidal serovars are reported.</p>
+<ul>
+<li><strong>Adults (Huang et al. 2021, <a href="https://pubmed.ncbi.nlm.nih.gov/33942967/" target="_blank" rel="noopener noreferrer">PMID 33942967</a>):</strong> In a systematic review of adult <em>Salmonella</em> osteomyelitis, "12 different serotypes" were found. The top three were <em>S.</em> Typhi (19 cases), <em>S.</em> Typhimurium (12) and <em>S.</em> Enteritidis (11). "The commonly reported involved sites were the vertebrae, femur, and tibia."</li>
+<li><strong>Children (Katzouraki et al. 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/36553297/" target="_blank" rel="noopener noreferrer">PMID 36553297</a>):</strong> In 21 children with NTS spondylodiscitis, "11 different serotypes" were reported.</li>
+<li><strong>Immunocompetent Indian series (Amritanand et al. 2010, <a href="https://pubmed.ncbi.nlm.nih.gov/20938384/" target="_blank" rel="noopener noreferrer">PMID 20938384</a>):</strong> "Salmonella typhi was cultured in 4 and S. Paratyphi in 5 patients." In addition, "Five (50%) patients had a documented history of typhoid fever."</li>
+</ul>
+<p><strong>Risk factors (environmental and host)</strong></p>
+<ul>
+<li><strong>Hemoglobinopathies, especially sickle cell disease.</strong> <em>Salmonella</em> is a characteristic osteomyelitis pathogen in sickle cell disease (StatPearls "Osteomyelitis", <a href="https://pubmed.ncbi.nlm.nih.gov/30335283/" target="_blank" rel="noopener noreferrer">PMID 30335283</a>: "Salmonella spp in individuals with sickle cell disease"). The adult systematic review on <em>Salmonella</em> osteomyelitis (PMC8274199, which appears to be Huang 2021) suggests the following mechanisms: "impaired splenic function, defects in complement activation, genetic factors, deficiencies in micronutrients, and the presence of infarcted or necrotic bone." The primary paper on sickle cell osteomyelitis etiology, Burnett et al. 1998 (<a href="https://pubmed.ncbi.nlm.nih.gov/9445507/" target="_blank" rel="noopener noreferrer">PMID 9445507</a>, Pediatrics), was located but its PubMed record has no abstract, so I could not extract its figures.</li>
+<li><strong>Older age and atherosclerotic aortic disease.</strong> Santos and Sapico (1998, <a href="https://pubmed.ncbi.nlm.nih.gov/9709878/" target="_blank" rel="noopener noreferrer">PMID 9709878</a>) reported that infected abdominal aortic aneurysms occurred exclusively in patients aged 50 years or older. All deaths in their series occurred in that group.</li>
+<li><strong>Immunosuppression and comorbidities from case reports:</strong></li>
+<li>Chronic lymphocytic leukemia (<a href="https://pubmed.ncbi.nlm.nih.gov/23981545/" target="_blank" rel="noopener noreferrer">PMID 23981545</a>).</li>
+<li>Diabetes mellitus (<a href="https://pubmed.ncbi.nlm.nih.gov/41143074/" target="_blank" rel="noopener noreferrer">PMID 41143074</a>).</li>
+<li>Recurrent bacteremia in a 95-year-old (<a href="https://pubmed.ncbi.nlm.nih.gov/41530883/" target="_blank" rel="noopener noreferrer">PMID 41530883</a>).</li>
+<li>An indwelling central venous catheter (<a href="https://pubmed.ncbi.nlm.nih.gov/42575248/" target="_blank" rel="noopener noreferrer">PMID 42575248</a>).</li>
+<li>NSAID use. Hamada et al. 2024 (<a href="https://pubmed.ncbi.nlm.nih.gov/38550490/" target="_blank" rel="noopener noreferrer">PMID 38550490</a>) note: "It is critical to take an accurate history of non-steroidal anti-inflammatory drugs (NSAIDs) use."</li>
+<li><strong>Exposures:</strong> Infection is acquired through contaminated food or water (fecal–oral route) and through travel to endemic areas (<a href="https://pubmed.ncbi.nlm.nih.gov/42291979/" target="_blank" rel="noopener noreferrer">PMID 42291979</a>).</li>
+<li><strong>Immunocompetent hosts are also affected.</strong> Disease occurs in people with no predisposition (<a href="https://pubmed.ncbi.nlm.nih.gov/20938384/" target="_blank" rel="noopener noreferrer">PMID 20938384</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36553297/" target="_blank" rel="noopener noreferrer">PMID 36553297</a>).</li>
+</ul>
+<p><strong>Genetic risk factors (host)</strong></p>
+<ul>
+<li>No GWAS, ClinVar or ClinGen data exist specifically for <em>Salmonella</em> discitis.</li>
+<li>Inborn errors of immunity predispose to invasive salmonellosis in general:</li>
+<li>IL-12/IL-23–IFN-γ axis defects (Mendelian susceptibility to mycobacterial disease, MSMD): <em>IL12RB1</em> and <em>IL12B</em>. In one series, <em>Salmonella</em> occurred in 44.4% (n=4) of IL12RB1/IL12B cases (<a href="https://pubmed.ncbi.nlm.nih.gov/42366588/" target="_blank" rel="noopener noreferrer">PMID 42366588</a>). Disseminated <em>S.</em> Typhimurium has been reported in IL12RB1 deficiency (<a href="https://pubmed.ncbi.nlm.nih.gov/41771439/" target="_blank" rel="noopener noreferrer">PMID 41771439</a>).</li>
+<li>Chronic granulomatous disease (CGD): one cohort reported "Salmonella spp. bacteremia in 12 of 17 patients with Salmonella infections" (<a href="https://pubmed.ncbi.nlm.nih.gov/42180170/" target="_blank" rel="noopener noreferrer">PMID 42180170</a>).</li>
+<li>I did not retrieve any report of spinal or bone infection specifically in these immunodeficiencies.</li>
+<li><em>HBB</em> (sickle hemoglobin) is the main host-genetic predisposing locus by clinical association, through sickle cell disease.</li>
+</ul>
+<p><strong>Protective factors:</strong> No studies were retrieved. Possible protective factors include food and water hygiene and typhoid vaccination (see Section 13), and an intact splenic function and immune system.</p>
+<p><strong>Gene–environment interaction:</strong> No formal studies exist. Conceptually, host susceptibility (HbSS, IL-12/IFN-γ defects, CGD) interacts with exposure to <em>Salmonella</em> to cause invasive and bone disease.</p>
+<h2>3. Phenotypes</h2>
+<p>Pooled frequencies come from the case reviews cited.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency</th>
+<th>Suggested HPO label (ID not verified)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Back pain / localized spinal pain</td>
+<td>Symptom</td>
+<td>92% of adults (Santos 1998, <a href="https://pubmed.ncbi.nlm.nih.gov/9709878/" target="_blank" rel="noopener noreferrer">PMID 9709878</a>); 90.5% of children had localized pain (<a href="https://pubmed.ncbi.nlm.nih.gov/36553297/" target="_blank" rel="noopener noreferrer">PMID 36553297</a>)</td>
+<td>Back pain; Low back pain</td>
+</tr>
+<tr>
+<td>Fever</td>
+<td>Sign</td>
+<td>87% (<a href="https://pubmed.ncbi.nlm.nih.gov/9709878/" target="_blank" rel="noopener noreferrer">PMID 9709878</a>); 65.7% (44/67) of adults with <em>Salmonella</em> osteomyelitis (<a href="https://pubmed.ncbi.nlm.nih.gov/33942967/" target="_blank" rel="noopener noreferrer">PMID 33942967</a>); 52.4% of children (<a href="https://pubmed.ncbi.nlm.nih.gov/36553297/" target="_blank" rel="noopener noreferrer">PMID 36553297</a>)</td>
+<td>Fever</td>
+</tr>
+<tr>
+<td>Diarrhea / gastroenteritis history</td>
+<td>Symptom</td>
+<td>17.9% (12/67) of adults (<a href="https://pubmed.ncbi.nlm.nih.gov/33942967/" target="_blank" rel="noopener noreferrer">PMID 33942967</a>); 19% of children (<a href="https://pubmed.ncbi.nlm.nih.gov/36553297/" target="_blank" rel="noopener noreferrer">PMID 36553297</a>)</td>
+<td>Diarrhea</td>
+</tr>
+<tr>
+<td>Lumbar involvement</td>
+<td>Anatomical</td>
+<td>72% (<a href="https://pubmed.ncbi.nlm.nih.gov/9709878/" target="_blank" rel="noopener noreferrer">PMID 9709878</a>); L4/L5 the most common level in children (<a href="https://pubmed.ncbi.nlm.nih.gov/36553297/" target="_blank" rel="noopener noreferrer">PMID 36553297</a>); lumbar 28% and thoracic 19% of all osteomyelitis cases in a 2026 meta-analysis abstract (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12791220/">PMC12791220</a>)</td>
+<td>Abnormal lumbar spine morphology; Discitis</td>
+</tr>
+<tr>
+<td>Epidural abscess</td>
+<td>Complication</td>
+<td>Case-level reports (<a href="https://pubmed.ncbi.nlm.nih.gov/23981545/" target="_blank" rel="noopener noreferrer">PMID 23981545</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8759999">PMC8759999</a>)</td>
+<td>Spinal epidural abscess</td>
+</tr>
+<tr>
+<td>Psoas abscess / myositis</td>
+<td>Complication</td>
+<td>Case-level (<a href="https://pubmed.ncbi.nlm.nih.gov/41143074/" target="_blank" rel="noopener noreferrer">PMID 41143074</a>)</td>
+<td>Psoas abscess</td>
+</tr>
+<tr>
+<td>Vertebral collapse / destruction</td>
+<td>Sign / imaging</td>
+<td>Case-level (<a href="https://pubmed.ncbi.nlm.nih.gov/43013364/" target="_blank" rel="noopener noreferrer">PMID 43013364</a>)</td>
+<td>Vertebral compression fracture</td>
+</tr>
+<tr>
+<td>Infected (mycotic) aortic aneurysm</td>
+<td>Complication</td>
+<td>Older adults (<a href="https://pubmed.ncbi.nlm.nih.gov/9709878/" target="_blank" rel="noopener noreferrer">PMID 9709878</a>, 33542000, 22759472)</td>
+<td>Abdominal aortic aneurysm</td>
+</tr>
+<tr>
+<td>Raised CRP / ESR, leukocytosis</td>
+<td>Laboratory</td>
+<td>Commonly reported; no pooled percentages retrieved</td>
+<td>Elevated C-reactive protein level; Elevated erythrocyte sedimentation rate</td>
+</tr>
+<tr>
+<td>Positive blood culture for <em>Salmonella</em></td>
+<td>Laboratory</td>
+<td>Variable; no pooled figure retrieved</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Onset, severity, course and quality of life</strong>
+- Onset is typically subacute, with symptoms lasting weeks before diagnosis. The disease can mimic tuberculous spondylitis (Pott's disease) (<a href="https://pubmed.ncbi.nlm.nih.gov/42079494/" target="_blank" rel="noopener noreferrer">PMID 42079494</a>, 41657555).
+- Severity ranges from moderate to severe.
+- The course is progressive without treatment.
+- No quality-of-life studies (EQ-5D, SF-36) exist. The expected effects are pain-related limits on mobility and, in rare cases, neurological deficit.</p>
+<h2>4. Genetic/Molecular Information</h2>
+<ul>
+<li><strong>Causal human genes:</strong> None. This is an infectious disease.</li>
+<li><strong>Pathogenic variants:</strong> Not applicable in the ACMG sense. Host predisposition loci are covered in Section 2 (<em>HBB</em> via sickle cell disease; <em>IL12RB1</em>, <em>IL12B</em>; CGD genes).</li>
+<li><strong>Pathogen genetics:</strong> Antimicrobial resistance is a recognized feature. For example, MDR <em>S.</em> Typhi spondylodiscitis was reported in 2026 (<a href="https://pubmed.ncbi.nlm.nih.gov/43013364/" target="_blank" rel="noopener noreferrer">PMID 43013364</a>). I did not retrieve pathogen genomic data such as resistance genes or MLST types for spinal isolates.</li>
+<li><strong>Epigenetics and chromosomal abnormalities:</strong> None reported. Not applicable.</li>
+</ul>
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Infectious agent:</strong> <em>Salmonella enterica</em> (genus <em>Salmonella</em> in NCBI Taxonomy; taxon ID not retrieved here).</li>
+<li><strong>Exposure routes:</strong> Ingestion of contaminated food or water, and travel to typhoid-endemic regions (<a href="https://pubmed.ncbi.nlm.nih.gov/42291979/" target="_blank" rel="noopener noreferrer">PMID 42291979</a>, 34987856).</li>
+<li><strong>Lifestyle factors:</strong> No specific data. NSAID use has been suggested as a factor that may mask symptoms or modify the course (<a href="https://pubmed.ncbi.nlm.nih.gov/38550490/" target="_blank" rel="noopener noreferrer">PMID 38550490</a>).</li>
+<li><strong>Toxins and occupational factors:</strong> None reported.</li>
+</ul>
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Causal chain.</strong> Steps 1–5 are reasoned from general salmonellosis biology and the clinical literature, not from experimental studies of disc infection.</p>
+<ol>
+<li>Ingestion of <em>S. enterica</em> leads to invasion of the intestinal epithelium and M cells, and uptake by macrophages. <em>(Inferred; general salmonellosis biology, no source retrieved here.)</em></li>
+<li>Intracellular survival in macrophages leads to transient or sustained bacteremia (enteric fever or invasive NTS). Bacteremia is clinically documented in most reported cases; Chen et al. 2020 (<a href="https://pubmed.ncbi.nlm.nih.gov/32767972/" target="_blank" rel="noopener noreferrer">PMID 32767972</a>) warn clinicians to "remain cautious to the occurrence of osteomyelitis in patients with Salmonella septicemia."</li>
+<li>Bacteria reach the vertebrae through the blood and lodge in the end-arteriolar metaphyseal (subchondral) vertebral bone next to the endplate. The lumbar spine is the predominant site (72%, <a href="https://pubmed.ncbi.nlm.nih.gov/9709878/" target="_blank" rel="noopener noreferrer">PMID 9709878</a>). <em>(Inferred: the anatomical route is assumed by analogy with other hematogenous spondylodiscitis.)</em></li>
+<li><strong>Branch A (host predisposition):</strong> In sickle cell disease, bone infarction and necrosis, together with functional asplenia and complement defects, give <em>Salmonella</em> a place to colonize bone. This mechanism is proposed in the review at <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8274199">PMC8274199</a>, not demonstrated experimentally.</li>
+<li><strong>Branch B (vascular):</strong> Seeding of atherosclerotic aortic intima leads to an infected aortic aneurysm. The aneurysm then spreads by contiguity to adjacent vertebrae, or both sites are seeded at the same time (<a href="https://pubmed.ncbi.nlm.nih.gov/41530883/" target="_blank" rel="noopener noreferrer">PMID 41530883</a>, 23981545, 33542000). In a meta-analysis of infective native aortic aneurysms, Peng et al. 2026 (<a href="https://pubmed.ncbi.nlm.nih.gov/42562227/" target="_blank" rel="noopener noreferrer">PMID 42562227</a>) report that "Salmonella was the leading genus globally (30.6%)" and that spondylodiscitis (11.7%) was a frequent concurrent focus.</li>
+<li>Neutrophil and macrophage inflammation, cytokine release and osteoclast activation lead to destruction of the endplate and vertebral body. Infection spreads into the avascular disc, causing discitis. <em>(Inferred.)</em></li>
+<li>Spread into the paraspinal tissue and epidural space leads to psoas or epidural abscess and possible cord or root compression. Bone destruction leads to vertebral collapse and kyphosis (<a href="https://pubmed.ncbi.nlm.nih.gov/43013364/" target="_blank" rel="noopener noreferrer">PMID 43013364</a>, 41143074).</li>
+<li>Together these produce the clinical picture: back pain, fever, raised inflammatory markers and, in some patients, neurological deficit.</li>
+</ol>
+<p><strong>Suggested GO process labels (IDs not verified):</strong> symbiont entry into host cell; neutrophil chemotaxis; inflammatory response; osteoclast differentiation; bone resorption; response to bacterium; interferon-gamma-mediated signaling pathway (relevant to host susceptibility).</p>
+<p><strong>Suggested CL cell-type labels (IDs not verified):</strong> macrophage; neutrophil; osteoclast; osteoblast; chondrocyte; nucleus pulposus cell.</p>
+<p><strong>Molecular profiling:</strong> There are no transcriptomic, proteomic, metabolomic, single-cell or CRISPR studies of <em>Salmonella</em> discitis. Not available.</p>
+<h2>7. Anatomical Structures Affected</h2>
+<p>UBERON labels are suggestions; their IDs were not verified.</p>
+<ul>
+<li><strong>Primary sites:</strong> intervertebral disc; vertebral body and endplates. By region: lumbar vertebra (most often, especially L4/L5), thoracic vertebra (<a href="https://pubmed.ncbi.nlm.nih.gov/32767972/" target="_blank" rel="noopener noreferrer">PMID 32767972</a>) and less often cervical.</li>
+<li><strong>Secondary sites:</strong></li>
+<li>Epidural space and spinal cord.</li>
+<li>Psoas muscle.</li>
+<li>Abdominal or thoracic aorta (infected aneurysm).</li>
+<li>Other bones in multifocal disease (femur and tibia, <a href="https://pubmed.ncbi.nlm.nih.gov/33942967/" target="_blank" rel="noopener noreferrer">PMID 33942967</a>).</li>
+<li>Lung (multifocal NTS in sickle cell disease; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8759999">PMC8759999</a>).</li>
+<li><strong>Body systems:</strong> musculoskeletal; nervous (when compression occurs); cardiovascular (aneurysm); digestive (portal of entry).</li>
+<li><strong>Tissue and cell level:</strong> bone tissue, cartilage (endplate) and fibrocartilage (annulus fibrosus). Cell types are listed in Section 6.</li>
+<li><strong>Subcellular level:</strong> In host macrophages, <em>Salmonella</em> lives in a <em>Salmonella</em>-containing vacuole (phagosome-derived). This is general biology, not specific to disc infection.</li>
+<li><strong>Laterality:</strong> Midline structure. Paraspinal abscesses can be unilateral or bilateral (bilateral psoas involvement, <a href="https://pubmed.ncbi.nlm.nih.gov/41143074/" target="_blank" rel="noopener noreferrer">PMID 41143074</a>).</li>
+</ul>
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong></li>
+<li>Occurs at any age. Patients are bimodal: children (often with sickle cell disease, or immunocompetent; <a href="https://pubmed.ncbi.nlm.nih.gov/36553297/" target="_blank" rel="noopener noreferrer">PMID 36553297</a>) and older adults (≥50 years, linked to aortic aneurysm; <a href="https://pubmed.ncbi.nlm.nih.gov/9709878/" target="_blank" rel="noopener noreferrer">PMID 9709878</a>).</li>
+<li>Onset is subacute to chronic, which often delays diagnosis.</li>
+<li>It can follow a typhoid or diarrheal episode. In the Indian series, 50% had a documented history of typhoid fever (<a href="https://pubmed.ncbi.nlm.nih.gov/20938384/" target="_blank" rel="noopener noreferrer">PMID 20938384</a>).</li>
+<li><strong>Progression:</strong></li>
+<li>Without treatment, the disease progresses to vertebral destruction, abscess and deformity.</li>
+<li>Treated, most patients are cured. Relapse occurred in 9% (<a href="https://pubmed.ncbi.nlm.nih.gov/9709878/" target="_blank" rel="noopener noreferrer">PMID 9709878</a>).</li>
+<li>There is no formal staging system.</li>
+<li><strong>Critical period:</strong> Early diagnosis, before collapse or neurological compromise and before an aneurysm ruptures, determines the outcome.</li>
+</ul>
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> Not applicable (infectious). Host susceptibility through sickle cell disease follows autosomal recessive inheritance of <em>HBB</em> variants.</li>
+<li><strong>Prevalence and incidence:</strong> Not available.</li>
+<li>This is a rare disease. Santos and Sapico could find only 44 English-language cases up to 1998 (<a href="https://pubmed.ncbi.nlm.nih.gov/9709878/" target="_blank" rel="noopener noreferrer">PMID 9709878</a>).</li>
+<li>Katzouraki et al. found 21 pediatric NTS cases published between 1977 and 2020 (<a href="https://pubmed.ncbi.nlm.nih.gov/36553297/" target="_blank" rel="noopener noreferrer">PMID 36553297</a>).</li>
+<li>Huang et al. found 69 adult <em>Salmonella</em> osteomyelitis patients from 67 articles published 1970–2019 (<a href="https://pubmed.ncbi.nlm.nih.gov/33942967/" target="_blank" rel="noopener noreferrer">PMID 33942967</a>).</li>
+<li>In a 2026 individual-case meta-analysis of <em>Salmonella</em> osteomyelitis, vertebral involvement was "53% (72/136)" (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12791220/">PMC12791220</a>).</li>
+<li><strong>Geography:</strong> Typhoidal spondylodiscitis is mainly reported from South Asia (India, <a href="https://pubmed.ncbi.nlm.nih.gov/20938384/" target="_blank" rel="noopener noreferrer">PMID 20938384</a> and 34987856). Non-typhoidal cases are reported worldwide.</li>
+<li><strong>Sex ratio and age distribution:</strong> No pooled figures were retrieved.</li>
+</ul>
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Microbiology (the gold standard):</strong></li>
+<li>Blood cultures.</li>
+<li>CT-guided or open biopsy of the disc or vertebra for culture, followed by antimicrobial susceptibility testing. Testing is essential given MDR strains (<a href="https://pubmed.ncbi.nlm.nih.gov/43013364/" target="_blank" rel="noopener noreferrer">PMID 43013364</a>).</li>
+<li>Serotyping.</li>
+<li><strong>Serology:</strong> The Widal test can support a diagnosis of typhoidal disease but is nonspecific. I did not retrieve a primary source for this point.</li>
+<li><strong>Inflammatory markers:</strong> CRP, ESR and white blood cell count.</li>
+<li><strong>Imaging:</strong></li>
+<li>MRI with gadolinium is the imaging modality of choice for spondylodiscitis and abscess.</li>
+<li>CT is used for bone destruction and guided biopsy.</li>
+<li>CT angiography is used to screen for an infected aortic aneurysm, particularly in patients over 50.</li>
+<li><strong>Histopathology:</strong> Acute or chronic osteomyelitis with neutrophils. The absence of caseating granulomas helps distinguish it from tuberculosis.</li>
+<li><strong>Genetic testing:</strong> Not used for diagnosis.</li>
+<li>Hemoglobin electrophoresis is relevant if sickle cell disease is suspected.</li>
+<li>Inborn-errors-of-immunity panels (<em>IL12RB1</em>, <em>IFNGR1</em>, CGD genes) are a consideration for unusual or recurrent invasive salmonellosis. This is inferred from the immunodeficiency literature in Section 2, not from a guideline.</li>
+<li><strong>Omics and molecular diagnostics:</strong> No validated diagnostics. 16S rRNA PCR or metagenomic sequencing of biopsy tissue may help in culture-negative cases (not retrieved).</li>
+<li><strong>Differential diagnosis:</strong></li>
+<li>Tuberculous spondylitis (Pott's disease), which <em>Salmonella</em> is repeatedly reported to mimic (<a href="https://pubmed.ncbi.nlm.nih.gov/42079494/" target="_blank" rel="noopener noreferrer">PMID 42079494</a>, 41657555).</li>
+<li><em>Staphylococcus aureus</em> spondylodiscitis, the most common cause overall (<a href="https://pubmed.ncbi.nlm.nih.gov/30335283/" target="_blank" rel="noopener noreferrer">PMID 30335283</a>).</li>
+<li>Brucellosis.</li>
+<li>Malignancy.</li>
+<li>Modic degenerative changes.</li>
+<li><strong>Guideline:</strong> The IDSA 2015 native vertebral osteomyelitis guideline (Berbari et al., <a href="https://pubmed.ncbi.nlm.nih.gov/26229122/" target="_blank" rel="noopener noreferrer">PMID 26229122</a>; executive summary <a href="https://pubmed.ncbi.nlm.nih.gov/26316526/" target="_blank" rel="noopener noreferrer">PMID 26316526</a>) is the general framework. Its content was not extracted here.</li>
+<li><strong>Screening:</strong> None for asymptomatic individuals.</li>
+</ul>
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Santos and Sapico (<a href="https://pubmed.ncbi.nlm.nih.gov/9709878/" target="_blank" rel="noopener noreferrer">PMID 9709878</a>, 44 cases):</strong> "The overall cure rate was 61%, and the relapse rate was 9%." All deaths occurred in patients aged 50 or older who had infected aortic aneurysms.</li>
+<li><strong>Huang et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/33942967/" target="_blank" rel="noopener noreferrer">PMID 33942967</a>):</strong> "Antibiotic therapy alone was utilized in 30 cases, and 24 patients (80.00%) were eventually cured."</li>
+<li><strong>Amritanand et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/20938384/" target="_blank" rel="noopener noreferrer">PMID 20938384</a>):</strong> One of 11 immunocompetent patients died. The remaining 10 were followed for an average of 36 months.</li>
+<li><strong>2026 meta-analysis of <em>Salmonella</em> osteomyelitis (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12791220/">PMC12791220</a>):</strong> Surgery was required in 73%. Of 134 patients with outcome data, 7 (5.2%) died.</li>
+<li><strong>Mycotic aneurysm:</strong> Mycotic abdominal aortic aneurysms carry "an overall mortality rate of 67%" (<a href="https://pubmed.ncbi.nlm.nih.gov/18463907/" target="_blank" rel="noopener noreferrer">PMID 18463907</a>, from introductory text rather than a formal abstract).</li>
+<li><strong>Complications:</strong> epidural or psoas abscess; neurological deficit; vertebral collapse and kyphosis; aneurysm rupture; relapse.</li>
+<li><strong>Prognostic factors:</strong> age ≥50; concurrent infected aneurysm; immunosuppression; delayed diagnosis.</li>
+<li><strong>Not available:</strong> formal quality-of-life or disability outcome data.</li>
+</ul>
+<h2>12. Treatment</h2>
+<p>NCIT labels are suggestions; their IDs were not verified.</p>
+<ul>
+<li><strong>Empirical therapy:</strong> A third-generation cephalosporin, ceftriaxone ("Ceftriaxone"), is recommended until susceptibilities are known (adult systematic review, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8274199">PMC8274199</a>). Cephalosporins are increasingly preferred over fluoroquinolones because of rising resistance (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10480304">PMC10480304</a>).</li>
+<li><strong>Fluoroquinolones</strong> (ciprofloxacin, levofloxacin) are an oral or step-down option in adults. Tendinopathy has been reported during a 12-week levofloxacin course (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8553272">PMC8553272</a>, as summarized in a search result).</li>
+<li><strong>Sequential therapy:</strong> In the <em>S.</em> Typhi series, "All four cases were treated successfully with variable duration of ceftriaxone followed by cotrimoxazole" (<a href="https://pubmed.ncbi.nlm.nih.gov/34987856/" target="_blank" rel="noopener noreferrer">PMID 34987856</a>). Other reported step-downs include amoxicillin (<a href="https://pubmed.ncbi.nlm.nih.gov/41530883/" target="_blank" rel="noopener noreferrer">PMID 41530883</a>) and azithromycin.</li>
+<li><strong>Duration:</strong></li>
+<li>Children: 9.6 weeks on average (<a href="https://pubmed.ncbi.nlm.nih.gov/36553297/" target="_blank" rel="noopener noreferrer">PMID 36553297</a>).</li>
+<li>Generally 6 weeks or more, longer when abscess or hardware is present.</li>
+<li><strong>Surgery:</strong></li>
+<li>Debridement with or without fusion or instrumentation for abscess, instability, neurological deficit or failure of medical therapy. In the Indian series, 5 of 11 patients were treated with antibiotics alone and 5 had debridement with or without fusion or instrumentation (<a href="https://pubmed.ncbi.nlm.nih.gov/20938384/" target="_blank" rel="noopener noreferrer">PMID 20938384</a>).</li>
+<li>For an infected aneurysm: resection, debridement and extra-anatomic or in-situ bypass, or endovascular repair (<a href="https://pubmed.ncbi.nlm.nih.gov/9709878/" target="_blank" rel="noopener noreferrer">PMID 9709878</a>, 33542000, 22759472).</li>
+<li><strong>Supportive care:</strong> analgesia; bracing or immobilization; physiotherapy and rehabilitation.</li>
+<li><strong>Not applicable:</strong> pharmacogenomics, gene or cell therapy, RNA therapies, immunotherapy, and registered trials (no NCT trials identified).</li>
+</ul>
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong></li>
+<li>Food and water safety, sanitation and hand hygiene.</li>
+<li>Typhoid vaccination (Vi conjugate vaccine) for travellers and endemic regions. This is general CDC/WHO practice; no specific source was retrieved here.</li>
+<li>Avoiding reptile and poultry exposure for high-risk individuals.</li>
+<li>In sickle cell disease: comprehensive care, including management of functional asplenia.</li>
+<li><strong>Secondary prevention:</strong> In patients with <em>Salmonella</em> bacteremia, especially those over 50 or with sickle cell disease, keep a high index of suspicion for bone or vascular foci (<a href="https://pubmed.ncbi.nlm.nih.gov/32767972/" target="_blank" rel="noopener noreferrer">PMID 32767972</a>) and image early.</li>
+<li><strong>Tertiary prevention:</strong> Complete a full antibiotic course, monitor inflammatory markers to detect relapse, and screen for aortic involvement.</li>
+<li><strong>Genetic counseling:</strong> Relevant only for the underlying sickle cell disease or inborn error of immunity.</li>
+</ul>
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><em>Salmonella</em> is zoonotic. Reservoirs include poultry, cattle, pigs and reptiles.</li>
+<li>I did not retrieve any reports of naturally occurring <em>Salmonella</em> discitis or spondylitis in animals. Discospondylitis in dogs is classically caused by other organisms (<em>Staphylococcus</em>, <em>Brucella canis</em>); this is general veterinary knowledge and was not retrieved.</li>
+<li>No OMIA entry is applicable.</li>
+</ul>
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>No dedicated animal model of <em>Salmonella</em> discitis or vertebral osteomyelitis was identified.</strong></li>
+<li>Mouse <em>S.</em> Typhimurium infection models systemic typhoid-like disease, not bone infection. Susceptible C57BL/6 and BALB/c mice, which carry a non-functional <em>Slc11a1/Nramp1</em> allele, die within days. <em>Nramp1</em>-intact strains such as 129S6 survive acute infection and develop chronic carriage (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3769438">search summary of PMC literature</a>). No bone involvement is described in these models.</li>
+<li>General hematogenous and surgical osteomyelitis models exist, mainly for <em>S. aureus</em> (<a href="https://www.frontiersin.org/articles/10.3389/fvets.2022.879630/full">Frontiers in Veterinary Science 2022 review</a>). Sickle cell mice (e.g., Townes HbSS) could in principle model the hemoglobinopathy predisposition, but no Salmonella–bone study in them was retrieved.</li>
+<li><strong>Limitation:</strong> All mechanistic inferences above are extrapolated from general salmonellosis and osteomyelitis biology.</li>
+</ul>
+<hr />
+<h3>Key evidence items</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Citation</th>
+<th>Key quote or data</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>9709878</td>
+<td>Santos &amp; Sapico, Clin Infect Dis 1998</td>
+<td>"Fever (87% of cases) and back pain (92% of cases)"; "primarily lumbar involvement (72% of cases)"; "The overall cure rate was 61%, and the relapse rate was 9%."</td>
+</tr>
+<tr>
+<td>36553297</td>
+<td>Katzouraki et al., Children 2022</td>
+<td>"52.4% of the patients presented with fever, 90.5% had localized pain, and only 19% had gastroenteritis."</td>
+</tr>
+<tr>
+<td>33942967</td>
+<td>Huang et al., Orthop Surg 2021</td>
+<td>"Only 12 of the 67 cases in our data (17.91%) had diarrhea symptoms"; 80% cured with antibiotics alone</td>
+</tr>
+<tr>
+<td>20938384</td>
+<td>Amritanand et al., Spine 2010</td>
+<td>"Five (50%) patients had a documented history of typhoid fever."</td>
+</tr>
+<tr>
+<td>34987856</td>
+<td>Saravu et al., OMCR 2021</td>
+<td>"treated successfully with variable duration of ceftriaxone followed by cotrimoxazole."</td>
+</tr>
+<tr>
+<td>42562227</td>
+<td>Peng et al., Ann Vasc Surg 2026</td>
+<td>"Salmonella was the leading genus globally (30.6%)" in infective native aortic aneurysm</td>
+</tr>
+<tr>
+<td>38550490</td>
+<td>Hamada et al., Cureus 2024</td>
+<td>"Local pain and fever are important indicators for the diagnosis of spondylitis caused by nontyphoidal Salmonella."</td>
+</tr>
+<tr>
+<td>32767972</td>
+<td>Chen et al., BMC Surg 2020</td>
+<td>"remain cautious to the occurrence of osteomyelitis in patients with Salmonella septicemia"</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Web sources:</strong>
+- <a href="https://conceptlibrary.saildatabank.com/api/v1/ontology/node/MONDO:8000004/">MONDO:8000004 – SAIL</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9776940/">Katzouraki 2022 – PMC9776940</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8274199">Adult review – PMC8274199</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12791220/">2026 meta-analysis abstract – PMC12791220</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8759999">Sickle cell NTS multifocal case – PMC8759999</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10480304">PMC10480304</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8553272">PMC8553272</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10977006">PMC10977006</a>
+- <a href="https://thieme-connect.com/products/ejournals/pdf/10.4103/JLP.JLP_165_18.pdf">Rohilla et al., J Lab Physicians</a>
+- <a href="https://www.frontiersin.org/articles/10.3389/fvets.2022.879630/full">Frontiers Vet Sci 2022</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3769438">PMC3769438</a></p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>33</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:8000004</code> (8 mentions) - the report calls it "retrieved", "SAIL"; MONDO calls it <strong>salmonella discitis</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>MONDO:8000004</code> - called "retrieved", "SAIL"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>GARD</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Salla_Disease-falcon.html">← Salla Disease (Falcon)</a>
+                
+                
+                <a href="Salmonella_Gastroenteritis-openscientist.html">Salmonella Gastroenteritis (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Salmonella_Discitis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Salmonella_Discitis-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
