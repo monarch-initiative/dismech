@@ -322,6 +322,16 @@ new-history *ARGS:
 last-pass-report *args="":
     uv run python -m dismech.last_pass {{args}}
 
+# Validate schema, lifecycle and artifact integrity of ontology proposals
+[group('QC')]
+validate-ontology-changes:
+    uv run python -m dismech.ontology_changes validate
+
+# Query proposals or emit a reviewable Markdown request; never publishes
+[group('Analysis')]
+ontology-changes *ARGS:
+    uv run python -m dismech.ontology_changes "$@"
+
 # Validate a single history record
 [group('QC')]
 validate-history file:
@@ -1154,7 +1164,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-unsuccessful-research check-reference-cache-nul-bytes check-reference-cache-welded-headings check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-gene-namespaces check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: validate-ontology-changes check-stubs check-skill-files check-case-collisions check-unsuccessful-research check-reference-cache-nul-bytes check-reference-cache-welded-headings check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-gene-namespaces check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-codelists check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -2085,6 +2095,22 @@ list-coarse-phenotypes *files:
 [group('QC')]
 update-coarse-phenotype-baseline:
     uv run python scripts/check_coarse_phenotypes.py --update-baseline
+
+# Check computable-phenotype code lists (`CodeList` on a definition's criteria).
+# Every code must carry its list's code_system prefix and syntax, and when the
+# list names a cached `source_reference` (HDRUK:, PHEKB:) every code and its
+# label must appear in that record. Offline; nothing else validates these codes,
+# because `codes` is not bound to an ontology enum. See docs/computable-phenotypes.md.
+[group('QC')]
+check-codelists *files:
+    uv run dismech check-codelists "$@"
+
+# Print a `definitions:` fragment for HDR UK Phenotype Library phenotype(s) and
+# cache their HDRUK: reference records. Needs network.
+#   just hdruk-definition PH304 PH3021
+[group('Research')]
+hdruk-definition +ids:
+    uv run dismech hdruk-definition "$@"
 
 # Check ontology labels on terms nested inside `qualifiers` (#10197).
 # `linkml-term-validator` validates slots bound to ontology-backed dynamic enums;
@@ -4054,7 +4080,7 @@ fetch-reference +identifiers:
     for identifier in "${ids[@]}"; do
         echo "Fetching reference: $identifier"
         case "$identifier" in
-            CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*|ICTRP:*|ictrp:*|CGGV:*|CGDS:*|ORPHA:*|Orphanet:*|ICEES:*|NCIT:*|OECDTG:*|oecdtg:*)
+            CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*|ICTRP:*|ictrp:*|HDRUK:*|hdruk:*|PHEKB:*|phekb:*|CGGV:*|CGDS:*|ORPHA:*|Orphanet:*|ICEES:*|NCIT:*|OECDTG:*|oecdtg:*)
                 if [ ${#flags[@]} -gt 0 ]; then
                     echo "Note: ${flags[*]} ignored for $identifier; structured-source records are always rebuilt." >&2
                 fi
@@ -4069,6 +4095,12 @@ fetch-reference +identifiers:
                 ;;
             ICTRP:*|ictrp:*)
                 uv run python -m dismech.structured_sources.cli rebuild ictrp --id "$identifier"
+                ;;
+            HDRUK:*|hdruk:*)
+                uv run python -m dismech.structured_sources.cli rebuild hdruk --id "$identifier"
+                ;;
+            PHEKB:*|phekb:*)
+                uv run python -m dismech.structured_sources.cli rebuild phekb --id "$identifier"
                 ;;
             # Structured-source prefixes have no linkml-reference-validator
             # fetcher, so handing them to `cache reference` only ever printed
