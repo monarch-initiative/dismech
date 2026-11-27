@@ -109771,7 +109771,10 @@ window.searchData = [
     "genes": [
       "MAB21L2"
     ],
-    "treatments": [],
+    "treatments": [
+      "Supportive Multidisciplinary Care",
+      "Genetic Counseling"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Colobomatous_Microphthalmia-Rhizomelic_Dysplasia_Syndrome.yaml",
@@ -109779,8 +109782,8 @@ window.searchData = [
     "num_phenotypes": 4,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "10",
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
   },
   {
@@ -162407,7 +162410,6 @@ window.searchData = [
       "rhythmic synaptic transmission",
       "chemical synaptic transmission",
       "gamma-aminobutyric acid signaling pathway",
-      "G protein-coupled dopamine receptor signaling pathway",
       "nonsense-mediated decay of the mutant FUS transcript",
       "axon guidance",
       "myelination"
@@ -162467,8 +162469,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 8,
     "num_treatments": 6,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Estrogen Resistance Syndrome",
@@ -219476,8 +219478,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "24",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Hypomyelinating Leukodystrophy 9",
@@ -233924,7 +233926,6 @@ window.searchData = [
     ],
     "biological_processes": [
       "cobalamin transport",
-      "regulation of MMACHC transcription",
       "cobalamin metabolic process",
       "homocysteine metabolic process",
       "L-methionine metabolic process",
@@ -233995,8 +233996,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 5,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Inborn Disorder of Methionine Cycle and Sulfur Amino Acid Metabolism",
@@ -298071,13 +298072,12 @@ window.searchData = [
       "CL:0000594"
     ],
     "biological_processes": [
-      "ER calcium and redox regulation",
       "Endoplasmic reticulum unfolded protein response",
       "Response to oxidative stress",
+      "ER calcium and redox regulation",
       "Mitochondrial ATP synthesis-coupled electron transport",
-      "SR calcium ion release",
-      "Skeletal muscle contraction",
-      "Oxidative phosphorylation"
+      "Oxidative phosphorylation",
+      "Skeletal muscle contraction"
     ],
     "phenotypes": [
       "Axial muscle weakness",
@@ -298145,7 +298145,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 7,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "31",
     "causal_graph_longest_path": "5"
   },
   {
@@ -323396,6 +323396,7 @@ window.searchData = [
     ],
     "description": "Obesity due to MC4R pathway disruption is a mechanism-based umbrella entry for obesity states that converge on impaired leptin-melanocortin signaling in the hypothalamus. The shared disease logic is failure of satiety-promoting and energy expenditure-promoting signaling through the leptin/POMC/MC4R axis, whether caused by acquired hypothalamic injury, congenital structural hypothalamic abnormalities, syndromic upstream pathway defects, or rare monogenic disorders involving LEP, LEPR, POMC, PCSK1, MC4R, SIM1, SH2B1, or NCOA1.",
     "pathophysiology": [
+      "Leptin and leptin receptor signaling deficiency",
       "MC4R pathway signaling failure",
       "Hyperphagia and failed satiety",
       "Reduced energy expenditure and rapid adipose accumulation"
@@ -323469,11 +323470,11 @@ window.searchData = [
     "source_file": "Obesity_Due_to_MC4R_Pathway_Disruption.yaml",
     "page_url": "../pages/disorders/Obesity_Due_to_MC4R_Pathway_Disruption.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 3,
+    "num_pathophysiology": 4,
     "num_genes": 8,
     "num_treatments": 4,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Obesity, Hyperphagia, and Developmental Delay",
@@ -373549,7 +373550,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 6,
     "num_treatments": 5,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "5"
   },
   {
@@ -376498,7 +376499,10 @@ window.searchData = [
       "CL:0000232"
     ],
     "biological_processes": [
-      "ammonium transmembrane transport by the Rh complex"
+      "ammonium transmembrane transport by the Rh complex",
+      "plasma membrane organization",
+      "erythrocyte homeostasis",
+      "erythrocyte clearance"
     ],
     "phenotypes": [
       "Hemolytic anemia",
@@ -376543,8 +376547,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 3,
     "num_treatments": 2,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Rhabdoid Tumor",
@@ -404739,7 +404743,10 @@ window.searchData = [
       "Trichuris anterior-end embedding in colonic mucosa",
       "Colonic mucosal mechanical and chemical injury",
       "Chronic intestinal blood loss",
-      "Ascaris worm intestinal obstruction"
+      "Ascaris worm intestinal obstruction",
+      "Nematode larval migration through the lungs",
+      "Strongyloides autoinfection cycle",
+      "Strongyloides hyperinfection and dissemination"
     ],
     "cell_types": [],
     "cell_type_ids": [],
@@ -404748,38 +404755,52 @@ window.searchData = [
       "Anemia",
       "Rectal Prolapse",
       "Growth delay",
-      "Intestinal obstruction"
+      "Intestinal obstruction",
+      "Eosinophilic pneumonia",
+      "Eosinophilia",
+      "Bacteremia"
     ],
     "phenotype_categories": [
       "Hematologic",
       "Gastrointestinal",
-      "Growth"
+      "Growth",
+      "Respiratory",
+      "Infectious"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Digestive",
-      "Growth"
+      "Growth",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0001903",
       "HP:0002035",
       "HP:0001510",
-      "HP:0005214"
+      "HP:0005214",
+      "HP:0032071",
+      "HP:0001880",
+      "HP:0031864"
     ],
     "frequencies": [],
     "genes": [],
     "treatments": [
-      "Albendazole or mebendazole therapy"
+      "Albendazole or mebendazole therapy",
+      "Ivermectin therapy for strongyloidiasis"
     ],
-    "environmental": [],
+    "environmental": [
+      "Corticosteroid therapy in a Strongyloides-infected host"
+    ],
     "biochemical": [],
     "source_file": "Soil_Transmitted_Helminthiases.yaml",
     "page_url": "../pages/disorders/Soil-transmitted_helminthiases.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 8,
     "num_genes": 0,
-    "num_treatments": 1,
-    "causal_graph_edges": "6",
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "3"
   },
   {
@@ -459499,16 +459520,16 @@ window.searchMetrics = {
   "total_disorder_pages": 4220,
   "total_subtypes": 5182,
   "total_disorders_and_subtypes": 9402,
-  "total_unique_evidence_sources": 63349,
-  "total_unique_publications": 59173,
+  "total_unique_evidence_sources": 63365,
+  "total_unique_publications": 59188,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 316,
   "total_pathographs": 4218,
-  "total_unique_pathological_events": 27939,
+  "total_unique_pathological_events": 27943,
   "total_modules": 242,
   "total_research_reports": 4324,
   "total_classifications": 21,
   "total_comorbidities": 58,
-  "total_groupings": 156
+  "total_groupings": 158
 };
 window.dispatchEvent(new Event('searchDataReady'));
