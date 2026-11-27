@@ -47,4 +47,6 @@ ClinGen classifies AGPS for
 <span class="result" data-code="g.clingen_diseases()">1<span class="method"></span></span>
 disease,
 <span class="result" data-compare="names" data-code="g.clingen_without_entry()">alkylglycerone-phosphate synthase deficiency<span class="method"></span></span>,
-which the join to dismech does not match to any entry.
+which the join to dismech does not match to any entry. That MONDO term is the
+parent of the rhizomelic chondrodysplasia punctata type 3 term the entry binds
+for its RCDP3 subtype, so the tier is not copied onto the AGPS record.
