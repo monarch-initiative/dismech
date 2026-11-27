@@ -12,6 +12,43 @@ its other provenance. It is **not filed upstream**. Current MONDO was checked
 on 2026-11-25; WHO scope evidence comes from the separately dated 2026-01
 Foundation snapshot captured on 2026-09-21 UTC.
 
+## Boomer pilot follow-through
+
+The registry now covers four investigated cases, with six atomic mapping edits.
+The Gorlin and PRAAS moves each have a structured change set linking two edits:
+remove the misplaced family xref and add it to the existing subtype. These are backfilled, applied requests,
+not newly discovered corrections. MONDO and DO source snapshots and the three
+upstream request states were checked on 2026-11-25 (America/Los_Angeles;
+2026-11-26 UTC). The snapshots retain both timestamps.
+
+| Case | Structured edits | Request state | Local adoption |
+|---|---|---|---|
+| Gorlin syndrome | [Move the PTCH1-specific DO mapping from family to subtype](change_sets/mondo-gorlin-ptch1-mapping-move.yaml) | Both edits ACCEPTED; [MONDO #10628](https://github.com/monarch-initiative/mondo/pull/10628) merged and verified in current source | No DisMech mapping migration needed |
+| PRAAS | [Move the PRAAS1 DO mapping from family to subtype](change_sets/mondo-praas1-mapping-move.yaml) | Both edits ACCEPTED; [MONDO #10629](https://github.com/monarch-initiative/mondo/pull/10629) merged and verified in current source | No DisMech mapping migration needed |
+| TPMT deficiency | [Qualify the poor-thiopurine-metabolism family as broader](mondo-0012503-thiopurine-family-broad-match.yaml) | ACKNOWLEDGED; [MONDO #10630](https://github.com/monarch-initiative/mondo/pull/10630) approved but still open, source unchanged | No DisMech mapping migration needed |
+| Anterior segment dysgenesis (FOXE3 investigation) | [Qualify the structural-anomaly ICD-11 category as broader](mondo-0019503-icd11-anterior-segment-broad-match.yaml) | NOT_FILED | No DisMech mapping migration needed |
+
+TPMT's review asks whether the DO family matches MONDO's thiopurine metabolic
+disease and whether obsolete NUDT15 deficiency should be reinstated. The current
+snapshot confirms that the NUDT15 term is still obsolete. Those questions remain
+open; approval does not establish that the qualifier edit has been applied.
+
+Waldenström remains a scope investigation, with no adjudicated ontology edit.
+Its sensitivity experiment is not promoted into a removal request. Historical
+Boomer inputs and scores remain frozen; later source captures must distinguish
+the applied Gorlin/PRAAS changes from the simulated TPMT/FOXE3 repairs.
+
+The mapping records identify the biological edits. Their linked upstream PRs
+also document associated subset/synonym provenance cleanup, which these edit
+types do not encode. They are not complete executable ontology patches.
+
+The accepted moves do not resolve every subtype annotation on the families.
+Current MONDO still cites DOID:0070365 on a Gorlin family inheritance edge and
+DOID:0050553 on a PRAAS family inheritance edge. The PRAAS family also retains
+the EXACT synonyms "JMP syndrome" and "Nakajo-Nishimura syndrome", with PRAAS1
+DOID provenance. These residual annotations need separate scope review; no
+synonym-scope or inheritance-edge correction is claimed by these records.
+
 ## Validate, query and export
 
 From the repository root:
@@ -21,6 +58,10 @@ just validate-ontology-changes
 just ontology-changes list --ontology MONDO --request-status NOT_FILED
 just ontology-changes list --affected-record kb/disorders/FOXE3_Anterior_Segment_Dysgenesis.yaml
 just ontology-changes export mondo-0019503-icd11-anterior-segment-broad-match
+just ontology-changes list-change-sets
+just ontology-changes list --change-set mondo-gorlin-ptch1-mapping-move
+just ontology-changes export mondo-gorlin-ptch1-mapping-move
+just ontology-changes refresh-change-set-views
 ```
 
 `list` returns complete JSON records; `export` writes a Markdown request to
@@ -31,12 +72,147 @@ evidence-source references, exact supporting excerpts, local paths and artifact
 SHA-256 checksums. CI
 runs it on every PR, including proposals-only edits.
 
+`list-change-sets` returns the grouping records as JSON. `list --change-set`
+returns their atomic members and can be combined with the existing filters.
+`export` accepts a change-set ID or either member ID: all three produce the
+same complete move, with a before/after table and the full evidence and status
+of both edits. Standalone proposals still export individually. Any invalid
+proposal or change set prevents listing/exporting an apparently valid subset.
+
 Use `affected_records` to link diseases, groupings and analyses to a proposal.
 The reverse query above gives the proposals for an entry without duplicating
 their lifecycle state inside disease YAML. Existing `tracked_issues` remains
 the place for links to filed tickets. `history/` records curation sessions;
 this registry records the edits being requested. No change to the Disease
 schema is required.
+
+## Mapping moves as change sets
+
+A removal has no `new_value`: its result is absence of that mapping. A creation
+has no `old_value`: the mapping did not previously exist at that subject. To
+represent their combined intent, add a record under `change_sets/`:
+
+```yaml
+id: mondo-gorlin-ptch1-mapping-move
+title: Move the PTCH1-specific DO mapping from the Gorlin family to basal cell nevus syndrome 1
+change_set_type: MAPPING_MOVE
+justification: 'Gorlin syndrome is a family containing PTCH1-related and SUFU-related subtypes. DOID:0070365
+  is explicitly PTCH1-related and shares OMIM:109400 with MONDO:0958174; DOID:2512 covers the broader
+  family. The saved Boomer analysis has two equally weighted best solutions that exchange the family-to-subtype
+  and family-to-family DO mappings. That tie identifies a scope conflict; source definitions, rather than
+  the solver score, justify retaining the family mapping to DOID:2512 and moving DOID:0070365 to MONDO:0958174.
+  The pinned before/current MONDO stanzas document the move applied in MONDO PR #10628. This record covers
+  the mapping assertions, not all annotation cleanup: the checked family stanza still cites the subtype
+  DOID on an inheritance edge, which requires separate review.'
+ontology: MONDO
+mapping_representation: MONDO_XREF_QUALIFIER
+before:
+  subject:
+    id: MONDO:0007187
+    label: nevoid basal cell carcinoma syndrome
+  predicate: MONDO:equivalentTo
+  object:
+    id: DOID:0070365
+    label: nevoid basal cell carcinoma syndrome 1
+after:
+  subject:
+    id: MONDO:0958174
+    label: basal cell nevus syndrome 1
+  predicate: MONDO:equivalentTo
+  object:
+    id: DOID:0070365
+    label: nevoid basal cell carcinoma syndrome 1
+analysis_links:
+- https://github.com/monarch-initiative/dismech/blob/main/analyses/boomer/remaining-low-confidence/Gorlin_Syndrome-alternatives.md
+source_links:
+- https://raw.githubusercontent.com/monarch-initiative/mondo/f1526eeae184f43741ca73ae0050d16f0061fd37/src/ontology/mondo-edit.obo
+- https://raw.githubusercontent.com/monarch-initiative/mondo/d3bdb9d318f3913c41068660eb30682a7b193e28/src/ontology/mondo-edit.obo
+- https://raw.githubusercontent.com/DiseaseOntology/HumanDiseaseOntology/fe7ad5dc278f47c9c133964892ca7ad80e5321b1/src/ontology/doid.obo
+- https://github.com/monarch-initiative/mondo/pull/10628
+upstream_requests:
+- https://github.com/monarch-initiative/mondo/pull/10628
+member_statuses:
+- proposal_id: mondo-0007187-gorlin-remove-subtype-doid
+  record_url: https://github.com/monarch-initiative/dismech/blob/main/ontology_changes/mondo-0007187-gorlin-remove-subtype-doid.yaml
+  origin: SELF_PROPOSED
+  confidence: HIGH
+  request_status: ACCEPTED
+  adoption_status: NOT_APPLICABLE
+  adoption_notes: The DisMech entry already uses the family MONDO term; no asserted DisMech mapping to
+    the misplaced DO subtype needs migration. The saved before/after Boomer experiment is a controlled
+    source intervention, not a live source refresh. Preserve historical inputs and use corrected upstream
+    mappings for future captures.
+  ontology_state_verified: '2026-11-25'
+- proposal_id: mondo-0958174-gorlin-add-subtype-doid
+  record_url: https://github.com/monarch-initiative/dismech/blob/main/ontology_changes/mondo-0958174-gorlin-add-subtype-doid.yaml
+  origin: SELF_PROPOSED
+  confidence: HIGH
+  request_status: ACCEPTED
+  adoption_status: NOT_APPLICABLE
+  adoption_notes: The DisMech entry already uses the family MONDO term; no asserted DisMech mapping to
+    the misplaced DO subtype needs migration. The saved before/after Boomer experiment is a controlled
+    source intervention, not a live source refresh. Preserve historical inputs and use corrected upstream
+    mappings for future captures.
+  ontology_state_verified: '2026-11-25'
+affected_records:
+- kb/disorders/Gorlin_Syndrome.yaml
+- analyses/boomer/remaining-low-confidence/Gorlin_Syndrome-alternatives.md
+- kb/disorders/PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome.yaml
+see_also:
+- https://github.com/monarch-initiative/dismech/pull/18681
+removal: mondo-0007187-gorlin-remove-subtype-doid
+creation: mondo-0958174-gorlin-add-subtype-doid
+```
+
+`removal` and `creation` reference stable proposal IDs, not filenames or URLs.
+The validator requires the corresponding edit types, a shared owning ontology,
+the same mapping target ID, the same representation and predicate/qualifier,
+and two distinct subject IDs. Each atomic edit can belong to at most one set.
+All IDs share a namespace, must match their filenames, and must resolve to the
+expected record kind. Missing or invalid members and duplicate YAML keys fail
+validation. Existing registries without change sets remain valid.
+
+The `before` and `after` blocks show the complete mapping being removed and
+added: subject, source-native predicate/qualifier and target, including labels.
+For `MONDO_XREF_QUALIFIER`, `predicate` is the xref qualifier, not an OWL edge.
+These blocks describe the edit, not its current application status.
+
+The owning `ontology`, `mapping_representation`, `before` and `after` are
+materialized from the atomic records so the YAML is readable on GitHub without
+opening another file. Validation requires exact agreement, including labels.
+After creating the two atomic records and the change-set ID/title/references
+and writing its `justification`,
+run `just ontology-changes refresh-change-set-views` to populate these fields.
+Run it again after updating a member. The command validates the full registry
+with regenerated views before writing any files; it cannot repair an invalid
+move or missing evidence. It changes only change-set files, never the atomic
+records. Normal validation and export reject missing or stale views.
+
+For new curation, write a self-contained `justification` for the complete move:
+explain the source scope, what the analysis revealed, why the selected correction
+follows, which mappings remain, and any unresolved annotations. Do not substitute
+a solver score for a scope argument. This prose is curated and preserved by refresh;
+validation checks that it is nonblank, not that its interpretation is correct.
+
+Refresh also derives `analysis_links`, `source_links`, `upstream_requests`,
+`member_statuses`, `affected_records` and `see_also`. It removes duplicate links
+and links back to the change set itself. Analysis links browse the saved reports
+on GitHub; their paths and SHA-256 checksums remain in the authoritative atomic
+records. Source URLs preserve the versions captured by those records. Member statuses
+include verification dates and adoption notes; they describe the checked state,
+not a fresh upstream lookup. Every supplied context field must agree with its
+members. Partial context or stale statuses/links block validation and export.
+Legacy sets with no review context remain valid; adding `justification` and running
+refresh migrates them. Refresh never invents the justification or drops other
+schema-valid fields.
+
+Membership is stored once, in the change set; reverse membership is derived.
+The atomic records keep their IDs, source snapshots, request status and adoption
+status. A set has **no aggregate status**:
+if the removal is accepted but the creation is only filed, the export displays
+that partial application explicitly. The set is a coordinated review unit,
+not an assertion that upstream applies both edits transactionally. A target or
+qualifier change is not this subject-only move; do not force it into this type.
 
 ## Curating a record
 
@@ -52,6 +228,7 @@ schema is required.
    | Change | Required edit fields |
    |---|---|
    | `MAPPING_PREDICATE_CHANGE` | `mapping_target`, `mapping_representation`, `old_value`, `new_value` |
+   | `MAPPING_CREATION` | `mapping_target`, `mapping_representation`, `new_value` |
    | `REMOVE_MAPPING` | `mapping_target`, `mapping_representation`, `old_value` |
    | `NODE_RENAME`, `NODE_TEXT_DEFINITION_CHANGE` | `old_value`, `new_value` |
    | `EDGE_CREATION`, `EDGE_DELETION` | `predicate`, `edge_object` |
@@ -62,6 +239,14 @@ schema is required.
    `MONDO:mondoIsNarrowerThanSource`. The latter corresponds to a broader target
    (`skos:broadMatch` from MONDO); it is not a request to insert an OWL subclass
    edge in mondo-edit.obo. `REMOVE_MAPPING` withdraws the xref/mapping entirely.
+   `MAPPING_CREATION` adds a previously absent mapping; verify its absence in
+   the before snapshot and omit `old_value`. If a mapping already exists but
+   has the wrong qualifier, use `MAPPING_PREDICATE_CHANGE`. A move to a different
+   subject is recorded as removal and creation records referenced by a
+   `MAPPING_MOVE` change set. Link each atomic record's `see_also` to its change
+   set for readers browsing the YAML; the set's ID references are authoritative.
+   For an applied edit, preserve before and current snapshots rather than
+   pretending that the historical `old_value` still holds in the current source.
 4. Write a self-contained justification based on source scope or biological
    evidence. Each `evidence` item cites a snapshot key and a locator within its
    artifact. Include a verbatim `supporting_text` excerpt. Observations are
@@ -106,12 +291,14 @@ adapts ai-gene-review's
 [`ProposedOntologyChange` at b2696a6](https://github.com/ai4curation/ai-gene-review/blob/b2696a68614d4c57abbf5a663d82a681880c69b0/src/ai_gene_review/schema/gene_review.yaml#L804),
 including the separation of origin, request progress and local adoption.
 The mapping-target field closes the gap that schema documents for
-`MAPPING_PREDICATE_CHANGE`. This pilot supports six edit kinds; add new kinds
+`MAPPING_PREDICATE_CHANGE`. This pilot supports seven edit kinds; add new kinds
 with concrete cases and validation rules rather than parking them in OTHER.
 New-term requests, merges and obsoletions are not modeled yet.
 
 KGCL class meanings describe the kind of edit. They do not make this proposal
-envelope valid executable KGCL. A future exporter must translate the source
+envelope valid executable KGCL. `MAPPING_CREATION` is a registry extension with
+explicit endpoint/qualifier semantics, not an asserted KGCL class mapping.
+A future exporter must translate the source
 representation, check the old value as a precondition, preserve unrelated
 annotations, and be tested against the target ontology's tooling. The current
 export is for human review only.
