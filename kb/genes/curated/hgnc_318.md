@@ -41,11 +41,14 @@ the entry records that assertion in its `gene_disease_validity`.
 In Aspartylglucosaminuria the gene is bound to two nodes
 (<span class="result" data-compare="names" data-code="g.nodes('Aspartylglucosaminuria')">AGA lysosomal enzyme deficiency; AGA protein maturation and folding defects<span class="method"></span></span>):
 loss of the GlcNAc-Asn-cleaving activity in the lysosome, and the failure of
-the mutant precursor to fold and mature. The processes carried by those nodes are
-<span class="result" data-compare="names" data-code="g.mechanism_processes()">glycoprotein catabolic process; protein deglycosylation; protein folding; protein maturation<span class="method"></span></span>.
-The class entry Glycoprotein Storage Disease names AGA on its shared node
+the mutant precursor to fold and mature. The class entry Glycoprotein Storage
+Disease names AGA on its shared node
 <span class="result" data-code="g.node('Glycoprotein Storage Disease', 'Lysosomal Glycosidase Deficiency and Impaired Glycoprotein Catabolism')">Lysosomal Glycosidase Deficiency and Impaired Glycoprotein Catabolism<span class="method"></span></span>,
-which marks glycoprotein catabolic process as decreased.
+beside the other glycoproteinosis enzymes, and marks glycoprotein catabolic
+process and its parent term (carried for conformance to the lysosomal
+substrate-accumulation module) as decreased. Across all the nodes that name
+AGA, the processes are
+<span class="result" data-compare="names" data-code="g.mechanism_processes()">glycoprotein catabolic process; macromolecule catabolic process; protein deglycosylation; protein folding; protein maturation<span class="method"></span></span>.
 
 The gene reaches the
 <span class="result" data-code="g.in_module('lysosomal_substrate_accumulation')">lysosomal_substrate_accumulation<span class="method"></span></span>
